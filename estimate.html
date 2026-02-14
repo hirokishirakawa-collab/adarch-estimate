@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>アドアーチグループ - 動画制作 見積書作成</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif; background: #f0f2f5; color: #333; line-height: 1.6; }
+
+  .app-header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; padding: 20px 30px; display: flex; align-items: center; justify-content: space-between; }
+  .app-header h1 { font-size: 20px; font-weight: 600; }
+  .app-header .company { font-size: 14px; opacity: 0.8; }
+
+  .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
+
+  .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 28px; margin-bottom: 24px; }
+  .card h2 { font-size: 16px; color: #1a1a2e; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 2px solid #e8e8e8; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .form-group { display: flex; flex-direction: column; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-group label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;
+    transition: border-color 0.2s; font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none; border-color: #4a6cf7;
+  }
+  .form-group textarea { resize: vertical; min-height: 60px; }
+
+  /* Estimate Table */
+  .estimate-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  .estimate-table th { background: #f8f9fa; padding: 10px 12px; font-size: 13px; font-weight: 600; color: #555; text-align: left; border-bottom: 2px solid #e0e0e0; }
+  .estimate-table td { padding: 8px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  .estimate-table input[type="text"], .estimate-table input[type="number"] {
+    width: 100%; padding: 8px 10px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; font-family: inherit;
+  }
+  .estimate-table input:focus { outline: none; border-color: #4a6cf7; }
+  .estimate-table .col-item { width: 30%; }
+  .estimate-table .col-unit { width: 15%; }
+  .estimate-table .col-qty { width: 12%; }
+  .estimate-table .col-price { width: 20%; }
+  .estimate-table .col-subtotal { width: 18%; text-align: right; font-weight: 600; }
+  .estimate-table .col-action { width: 5%; text-align: center; }
+
+  .subtotal-cell { padding-right: 12px !important; font-size: 14px; }
+
+  .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+  .btn-add { background: #e8f0fe; color: #4a6cf7; margin-top: 12px; }
+  .btn-add:hover { background: #d0e0fd; }
+  .btn-remove { background: none; border: none; color: #ccc; font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+  .btn-remove:hover { color: #e74c3c; background: #fef0f0; }
+
+  .totals { margin-top: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .total-row { display: flex; justify-content: space-between; width: 280px; padding: 6px 0; font-size: 14px; }
+  .total-row.grand { font-size: 18px; font-weight: 700; color: #1a1a2e; border-top: 2px solid #1a1a2e; padding-top: 12px; margin-top: 4px; }
+
+  .actions { display: flex; gap: 12px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+  .btn-primary { background: linear-gradient(135deg, #4a6cf7, #3b5de7); color: #fff; padding: 14px 36px; font-size: 15px; }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(74,108,247,0.3); }
+  .btn-secondary { background: #fff; color: #333; border: 2px solid #ddd; padding: 14px 36px; font-size: 15px; }
+  .btn-secondary:hover { border-color: #4a6cf7; color: #4a6cf7; }
+  .btn-reset { background: #fff; color: #e74c3c; border: 2px solid #fdd; padding: 14px 36px; font-size: 15px; }
+  .btn-reset:hover { border-color: #e74c3c; background: #fef5f5; }
+
+  /* PDF Preview */
+  .pdf-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: flex-start; padding: 30px; overflow-y: auto; }
+  .pdf-overlay.active { display: flex; }
+  .pdf-container { background: #fff; width: 210mm; min-height: 297mm; padding: 20mm; position: relative; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+  .pdf-close { position: fixed; top: 15px; right: 25px; background: #fff; border: none; font-size: 28px; cursor: pointer; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1001; }
+  .pdf-actions { position: fixed; bottom: 20px; right: 25px; z-index: 1001; display: flex; gap: 10px; }
+
+  .pdf-header { text-align: center; margin-bottom: 30px; }
+  .pdf-header h2 { font-size: 28px; letter-spacing: 8px; border-bottom: 3px solid #1a1a2e; display: inline-block; padding-bottom: 8px; }
+  .pdf-header .date { text-align: right; margin-top: 15px; font-size: 13px; }
+
+  .pdf-info { display: flex; justify-content: space-between; margin-bottom: 30px; }
+  .pdf-client { flex: 1; }
+  .pdf-client .name { font-size: 18px; font-weight: 700; border-bottom: 1px solid #333; padding-bottom: 4px; display: inline-block; }
+  .pdf-client .name::after { content: ' 御中'; font-weight: 400; }
+  .pdf-company { text-align: right; font-size: 12px; line-height: 1.8; }
+  .pdf-company .name { font-size: 15px; font-weight: 700; }
+
+  .pdf-total-box { background: #f8f9fa; border: 2px solid #1a1a2e; padding: 12px 20px; text-align: center; margin-bottom: 25px; border-radius: 4px; }
+  .pdf-total-box .label { font-size: 13px; }
+  .pdf-total-box .amount { font-size: 24px; font-weight: 700; }
+
+  .pdf-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
+  .pdf-table th { background: #1a1a2e; color: #fff; padding: 8px 10px; font-weight: 600; }
+  .pdf-table td { padding: 7px 10px; border-bottom: 1px solid #ddd; }
+  .pdf-table td.right { text-align: right; }
+  .pdf-table .total-row td { border-top: 2px solid #333; font-weight: 700; background: #f8f9fa; }
+
+  .pdf-notes { margin-top: 20px; font-size: 12px; }
+  .pdf-notes h4 { margin-bottom: 6px; }
+  .pdf-notes p { white-space: pre-wrap; color: #555; }
+  .pdf-stamp { position: absolute; top: 20mm; right: 20mm; width: 80px; height: 80px; border: 3px solid #cc0000; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #cc0000; font-weight: 700; font-size: 12px; opacity: 0.7; text-align: center; line-height: 1.3; }
+
+  @media (max-width: 768px) {
+    .form-row { grid-template-columns: 1fr; }
+    .estimate-table { font-size: 13px; }
+    .pdf-container { width: 100%; padding: 10mm; }
+    .container { padding: 0 12px; }
+  }
+
+  @media print {
+    body { background: #fff; }
+    .app-header, .card, .actions, .pdf-close, .pdf-actions, .pdf-overlay { display: none !important; }
+    .pdf-overlay.printing { display: flex !important; position: static; background: none; padding: 0; }
+    .pdf-container { box-shadow: none; width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <h1>動画制作 見積書作成ツール</h1>
+    <div class="company">アドアーチグループ</div>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Client Info -->
+  <div class="card">
+    <h2>基本情報</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>クライアント名</label>
+        <input type="text" id="clientName" placeholder="株式会社〇〇">
+      </div>
+      <div class="form-group">
+        <label>見積日</label>
+        <input type="date" id="estimateDate">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>案件名</label>
+        <input type="text" id="projectName" placeholder="会社紹介動画制作">
+      </div>
+      <div class="form-group">
+        <label>有効期限</label>
+        <input type="text" id="validUntil" placeholder="発行日より30日間">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>納品予定日</label>
+        <input type="text" id="deliveryDate" placeholder="ご発注後 約4週間">
+      </div>
+      <div class="form-group">
+        <label>動画尺</label>
+        <select id="videoDuration">
+          <option value="">選択してください</option>
+          <option value="~30秒">~30秒</option>
+          <option value="~1分">~1分</option>
+          <option value="~3分">~3分</option>
+          <option value="~5分">~5分</option>
+          <option value="~10分">~10分</option>
+          <option value="10分以上">10分以上</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estimate Items -->
+  <div class="card">
+    <h2>見積もり項目</h2>
+    <table class="estimate-table" id="estimateTable">
+      <thead>
+        <tr>
+          <th class="col-item">項目</th>
+          <th class="col-unit">単位</th>
+          <th class="col-qty">数量</th>
+          <th class="col-price">単価（税抜）</th>
+          <th class="col-subtotal">小計</th>
+          <th class="col-action"></th>
+        </tr>
+      </thead>
+      <tbody id="itemsBody"></tbody>
+    </table>
+    <button class="btn btn-add" onclick="addRow()">＋ 項目を追加</button>
+
+    <div class="totals">
+      <div class="total-row"><span>小計</span><span id="subtotal">¥0</span></div>
+      <div class="total-row"><span>消費税（10%）</span><span id="tax">¥0</span></div>
+      <div class="total-row grand"><span>合計（税込）</span><span id="grandTotal">¥0</span></div>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="card">
+    <h2>備考</h2>
+    <div class="form-group full">
+      <textarea id="notes" rows="3" placeholder="備考・特記事項があれば入力してください">・修正回数は2回まで含みます。3回目以降は別途費用が発生します。
+・素材（写真・ロゴ等）はお客様にてご用意ください。
+・ロケ撮影の場合、交通費・宿泊費は別途ご請求となります。</textarea>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="card">
+    <div class="actions">
+      <button class="btn btn-primary" onclick="showPreview()">見積書プレビュー / PDF出力</button>
+      <button class="btn btn-secondary" onclick="saveData()">データを保存</button>
+      <button class="btn btn-reset" onclick="resetForm()">リセット</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF Preview Overlay -->
+<div class="pdf-overlay" id="pdfOverlay">
+  <button class="pdf-close" onclick="closePreview()">&times;</button>
+  <div class="pdf-container" id="pdfContent"></div>
+  <div class="pdf-actions">
+    <button class="btn btn-primary" onclick="printPDF()">印刷 / PDF保存</button>
+    <button class="btn btn-secondary" onclick="closePreview()">閉じる</button>
+  </div>
+</div>
+
+<script>
+  // Default estimate items for video production
+  const defaultItems = [
+    { item: '企画・構成費', unit: '式', qty: 1, price: 100000 },
+    { item: '台本・シナリオ作成', unit: '式', qty: 1, price: 80000 },
+    { item: 'ディレクション費', unit: '式', qty: 1, price: 100000 },
+    { item: '撮影費（カメラマン）', unit: '日', qty: 1, price: 80000 },
+    { item: '撮影機材費', unit: '式', qty: 1, price: 50000 },
+    { item: '照明・音声スタッフ', unit: '日', qty: 1, price: 50000 },
+    { item: '動画編集費', unit: '式', qty: 1, price: 150000 },
+    { item: 'モーショングラフィックス', unit: '式', qty: 1, price: 80000 },
+    { item: 'BGM・SE（音楽・効果音）', unit: '式', qty: 1, price: 30000 },
+    { item: 'ナレーション収録', unit: '式', qty: 1, price: 50000 },
+    { item: 'カラーグレーディング', unit: '式', qty: 1, price: 30000 },
+  ];
+
+  // Initialize
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('estimateDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('validUntil').value = '発行日より30日間';
+    loadData();
+  });
+
+  function addRow(data = {}) {
+    const tbody = document.getElementById('itemsBody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" value="${data.item || ''}" placeholder="項目名" oninput="calc()"></td>
+      <td><input type="text" value="${data.unit || '式'}" style="text-align:center" oninput="calc()"></td>
+      <td><input type="number" value="${data.qty || 1}" min="0" style="text-align:center" oninput="calc()"></td>
+      <td><input type="number" value="${data.price || 0}" min="0" step="1000" oninput="calc()"></td>
+      <td class="subtotal-cell" style="text-align:right">¥0</td>
+      <td><button class="btn-remove" onclick="removeRow(this)" title="削除">&times;</button></td>
+    `;
+    tbody.appendChild(tr);
+    calc();
+  }
+
+  function removeRow(btn) {
+    btn.closest('tr').remove();
+    calc();
+  }
+
+  function calc() {
+    const rows = document.querySelectorAll('#itemsBody tr');
+    let subtotal = 0;
+    rows.forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      const qty = parseFloat(inputs[2].value) || 0;
+      const price = parseFloat(inputs[3].value) || 0;
+      const rowTotal = qty * price;
+      subtotal += rowTotal;
+      row.querySelector('.subtotal-cell').textContent = formatCurrency(rowTotal);
+    });
+    const tax = Math.floor(subtotal * 0.1);
+    const total = subtotal + tax;
+    document.getElementById('subtotal').textContent = formatCurrency(subtotal);
+    document.getElementById('tax').textContent = formatCurrency(tax);
+    document.getElementById('grandTotal').textContent = formatCurrency(total);
+  }
+
+  function formatCurrency(n) {
+    return '¥' + n.toLocaleString('ja-JP');
+  }
+
+  function getItems() {
+    const rows = document.querySelectorAll('#itemsBody tr');
+    const items = [];
+    rows.forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      const item = inputs[0].value.trim();
+      const unit = inputs[1].value.trim();
+      const qty = parseFloat(inputs[2].value) || 0;
+      const price = parseFloat(inputs[3].value) || 0;
+      if (item) items.push({ item, unit, qty, price, subtotal: qty * price });
+    });
+    return items;
+  }
+
+  function showPreview() {
+    const items = getItems();
+    if (items.length === 0) { alert('見積もり項目を入力してください。'); return; }
+
+    const clientName = document.getElementById('clientName').value || '（クライアント名未入力）';
+    const estimateDate = document.getElementById('estimateDate').value;
+    const projectName = document.getElementById('projectName').value || '';
+    const validUntil = document.getElementById('validUntil').value || '';
+    const deliveryDate = document.getElementById('deliveryDate').value || '';
+    const videoDuration = document.getElementById('videoDuration').value || '';
+    const notes = document.getElementById('notes').value || '';
+
+    const dateStr = estimateDate ? new Date(estimateDate + 'T00:00:00').toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+
+    let subtotal = 0;
+    items.forEach(i => subtotal += i.subtotal);
+    const tax = Math.floor(subtotal * 0.1);
+    const total = subtotal + tax;
+
+    // Generate estimate number
+    const now = new Date();
+    const estNo = 'AA-' + now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '-' + String(Math.floor(Math.random()*900)+100);
+
+    let html = `
+      <div class="pdf-header">
+        <h2>御 見 積 書</h2>
+        <div class="date">${dateStr}</div>
+        <div style="text-align:right; font-size:12px; margin-top:4px;">見積番号: ${estNo}</div>
+      </div>
+      <div class="pdf-info">
+        <div class="pdf-client">
+          <div class="name">${clientName}</div>
+          ${projectName ? `<div style="margin-top:10px; font-size:13px;"><strong>案件名:</strong> ${projectName}</div>` : ''}
+          ${videoDuration ? `<div style="font-size:13px;"><strong>動画尺:</strong> ${videoDuration}</div>` : ''}
+          ${deliveryDate ? `<div style="font-size:13px;"><strong>納品予定:</strong> ${deliveryDate}</div>` : ''}
+          ${validUntil ? `<div style="font-size:13px;"><strong>有効期限:</strong> ${validUntil}</div>` : ''}
+        </div>
+        <div class="pdf-company">
+          <div class="name">アドアーチグループ</div>
+          <div>〒000-0000</div>
+          <div>東京都〇〇区〇〇 0-0-0</div>
+          <div>TEL: 03-0000-0000</div>
+          <div>Email: info@adarch-group.co.jp</div>
+        </div>
+      </div>
+      <div class="pdf-total-box">
+        <div class="label">お見積金額（税込）</div>
+        <div class="amount">${formatCurrency(total)}</div>
+      </div>
+      <table class="pdf-table">
+        <thead>
+          <tr><th style="width:5%">No.</th><th style="width:35%">項目</th><th style="width:12%">単位</th><th style="width:10%">数量</th><th style="width:18%; text-align:right">単価</th><th style="width:20%; text-align:right">金額</th></tr>
+        </thead>
+        <tbody>
+    `;
+    items.forEach((item, i) => {
+      html += `<tr><td>${i+1}</td><td>${item.item}</td><td style="text-align:center">${item.unit}</td><td style="text-align:center">${item.qty}</td><td class="right">${formatCurrency(item.price)}</td><td class="right">${formatCurrency(item.subtotal)}</td></tr>`;
+    });
+    html += `
+          <tr class="total-row"><td colspan="5" style="text-align:right">小計</td><td class="right">${formatCurrency(subtotal)}</td></tr>
+          <tr class="total-row"><td colspan="5" style="text-align:right">消費税（10%）</td><td class="right">${formatCurrency(tax)}</td></tr>
+          <tr class="total-row"><td colspan="5" style="text-align:right; font-size:14px"><strong>合計（税込）</strong></td><td class="right" style="font-size:14px"><strong>${formatCurrency(total)}</strong></td></tr>
+        </tbody>
+      </table>
+    `;
+    if (notes) {
+      html += `<div class="pdf-notes"><h4>備考</h4><p>${notes.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div>`;
+    }
+
+    document.getElementById('pdfContent').innerHTML = html;
+    document.getElementById('pdfOverlay').classList.add('active');
+  }
+
+  function closePreview() {
+    document.getElementById('pdfOverlay').classList.remove('active');
+  }
+
+  function printPDF() {
+    document.getElementById('pdfOverlay').classList.add('printing');
+    window.print();
+    document.getElementById('pdfOverlay').classList.remove('printing');
+  }
+
+  function saveData() {
+    const data = {
+      clientName: document.getElementById('clientName').value,
+      estimateDate: document.getElementById('estimateDate').value,
+      projectName: document.getElementById('projectName').value,
+      validUntil: document.getElementById('validUntil').value,
+      deliveryDate: document.getElementById('deliveryDate').value,
+      videoDuration: document.getElementById('videoDuration').value,
+      notes: document.getElementById('notes').value,
+      items: getItems()
+    };
+    localStorage.setItem('adarch_estimate', JSON.stringify(data));
+    alert('データを保存しました。次回アクセス時に復元されます。');
+  }
+
+  function loadData() {
+    const saved = localStorage.getItem('adarch_estimate');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        document.getElementById('clientName').value = data.clientName || '';
+        if (data.estimateDate) document.getElementById('estimateDate').value = data.estimateDate;
+        document.getElementById('projectName').value = data.projectName || '';
+        document.getElementById('validUntil').value = data.validUntil || '';
+        document.getElementById('deliveryDate').value = data.deliveryDate || '';
+        document.getElementById('videoDuration').value = data.videoDuration || '';
+        document.getElementById('notes').value = data.notes || '';
+        if (data.items && data.items.length > 0) {
+          data.items.forEach(item => addRow(item));
+          return;
+        }
+      } catch (e) { /* ignore */ }
+    }
+    // Load defaults
+    defaultItems.forEach(item => addRow(item));
+  }
+
+  function resetForm() {
+    if (!confirm('入力内容をすべてリセットしますか？')) return;
+    localStorage.removeItem('adarch_estimate');
+    document.getElementById('clientName').value = '';
+    document.getElementById('estimateDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('projectName').value = '';
+    document.getElementById('validUntil').value = '発行日より30日間';
+    document.getElementById('deliveryDate').value = '';
+    document.getElementById('videoDuration').value = '';
+    document.getElementById('notes').value = defaultItems.length ? `・修正回数は2回まで含みます。3回目以降は別途費用が発生します。
+・素材（写真・ロゴ等）はお客様にてご用意ください。
+・ロケ撮影の場合、交通費・宿泊費は別途ご請求となります。` : '';
+    document.getElementById('itemsBody').innerHTML = '';
+    defaultItems.forEach(item => addRow(item));
+  }
+</script>
+</body>
+</html>
