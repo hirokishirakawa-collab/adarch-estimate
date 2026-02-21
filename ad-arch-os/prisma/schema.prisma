@@ -45,6 +45,20 @@ enum ActivityType {
   OTHER   // その他
 }
 
+enum CustomerRank {
+  A // 重要
+  B // 通常
+  C // 見込み
+  D // 以後取引回避
+}
+
+enum CustomerStatus {
+  PROSPECT // 見込み
+  ACTIVE   // 取引中
+  INACTIVE // 休眠
+  BLOCKED  // 取引回避
+}
+
 // ==============================================================
 // Branch（拠点）
 // ==============================================================
@@ -118,15 +132,25 @@ model User {
 ///   営業担当が「担当する」ボタンを押すと lockedBy に記録され、
 ///   他の営業は lockExpiresAt まで同一顧客への新規商談作成を制限される。
 model Customer {
-  id          String  @id @default(cuid())
-  name        String  // 顧客名（法人名）
-  nameKana    String? // ふりがな（検索用）
-  contactName String? // 担当者名
-  email       String? // 担当者メールアドレス
-  phone       String? // 電話番号
-  address     String? // 住所
-  industry    String? // 業種（例: 製造業、IT、不動産）
-  notes       String? @db.Text // 備考・メモ
+  id              String         @id @default(cuid())
+  recordNumber    Int            @default(autoincrement()) @unique // kintone 互換の通し番号
+  name            String         // 顧客名（法人名）
+  nameKana        String?        // ふりがな（検索用）
+  corporateNumber String?        @db.VarChar(13) // 法人番号（13桁）
+  contactName     String?        // 担当者名
+  email           String?        // 担当者メールアドレス
+  phone           String?        // 電話番号
+  website         String?        // 公式サイト URL
+  industry        String?        // 業種
+  source          String?        // 流入経路
+  rank            CustomerRank   @default(B) // 顧客ランク A〜D
+  status          CustomerStatus @default(PROSPECT) // 取引ステータス
+  postalCode      String?        @db.VarChar(8) // 郵便番号（例: 100-0001）
+  prefecture      String?        // 都道府県
+  address         String?        // 住所（番地）
+  building        String?        // ビル名・部屋番号
+  notes           String?        @db.Text // 備考・メモ
+  staffName       String?        // 社内担当者名（登録者）
 
   // ---- 先着優先ロック -------------------------------------------
   // ロック中は他の営業担当者が新規商談を作成できない

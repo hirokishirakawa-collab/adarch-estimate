@@ -6,6 +6,7 @@ import {
   getMockBranchId,
   BRANCH_MAP,
 } from "@/lib/data/customers";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus, Users } from "lucide-react";
 import type { UserRole } from "@/types/roles";
@@ -60,10 +61,12 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             </p>
           </div>
         </div>
-        <Button size="sm" className="gap-1.5">
-          <Plus className="w-3.5 h-3.5" />
-          顧客登録
-        </Button>
+        <Link href="/dashboard/customers/new">
+          <Button size="sm" className="gap-1.5">
+            <Plus className="w-3.5 h-3.5" />
+            ＋新規顧客を追加
+          </Button>
+        </Link>
       </div>
 
       {/* サマリーカード */}
