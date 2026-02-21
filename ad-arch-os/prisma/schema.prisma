@@ -1,0 +1,221 @@
+// ==============================================================
+// Ad-Arch Group OS — Prisma スキーマ
+// Phase 2: コアモジュール（Branch / User / Customer / Deal）
+//
+// 【マルチテナント設計の原則】
+//   - 全業務データは必ず Branch（拠点）に紐づく
+//   - ADMIN（本部）: branchId = null → 全拠点データにアクセス可
+//   - MANAGER/USER : branchId あり → 自拠点データのみアクセス可
+//   - クエリ側で WHERE branchId = user.branchId を付与してスコープを絞る
+// ==============================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==============================================================
+// Enums
+// ==============================================================
+
+enum Role {
+  ADMIN   // 本部: 全拠点・全データ フルアクセス
+  MANAGER // 代表: 自拠点の財務・売上・全実務ツール
+  USER    // 一般社員: 実務ツールのみ / 財務データアクセス不可
+}
+
+enum DealStatus {
+  PROSPECTING // 見込み
+  QUALIFYING  // 検討中
+  PROPOSAL    // 提案中
+  NEGOTIATION // 交渉中
+  CLOSED_WON  // 受注
+  CLOSED_LOST // 失注
+}
+
+enum ActivityType {
+  CALL    // 電話
+  EMAIL   // メール
+  VISIT   // 訪問
+  MEETING // Web会議
+  OTHER   // その他
+}
+
+// ==============================================================
+// Branch（拠点）
+// ==============================================================
+
+/// Ad-Arch グループの各加盟拠点を表すマスタテーブル。
+/// 全業務データはこの Branch に紐づくことで、
+/// テナント（拠点）ごとにデータが分離される。
+model Branch {
+  id       String  @id @default(cuid())
+  name     String  // 拠点名（例: 東京支社、大阪支店）
+  code     String  @unique // 拠点コード・英数字（例: TKY, OSK）
+  address  String? // 住所
+  isActive Boolean @default(true) // 無効化フラグ
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users     User[]
+  customers Customer[]
+  deals     Deal[]
+
+  @@map("branches")
+}
+
+// ==============================================================
+// User（ユーザー）
+// ==============================================================
+
+/// システムの利用者。Google Workspace SSO でログインする。
+/// 本部（ADMIN）が role と branchId を手動で割り当てる。
+///
+/// 【branchId の意味】
+///   null  → ADMIN（本部）→ 全拠点データにアクセス可能
+///   値あり → MANAGER / USER → その拠点のデータのみアクセス可能
+model User {
+  id    String  @id @default(cuid())
+  email String  @unique // Google Workspace のメールアドレス
+  name  String? // 表示名
+  image String? // プロフィール画像 URL
+
+  role     Role    @default(MANAGER)
+  // ■ branchId = null → 本部（ADMIN）→ WHERE 句なしで全拠点アクセス
+  // ■ branchId あり   → 拠点スコープ → WHERE branchId = user.branchId
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  isActive Boolean @default(true) // 本部がアカウントを有効/無効管理
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  assignedDeals   Deal[]     @relation("AssignedTo")
+  createdDeals    Deal[]     @relation("CreatedBy")
+  lockedCustomers Customer[] @relation("LockedBy") // 先着ロック中の顧客
+
+  @@index([branchId])
+  @@index([role])
+  @@map("users")
+}
+
+// ==============================================================
+// Customer（顧客）
+// ==============================================================
+
+/// 顧客（企業）情報を管理する CRM テーブル。
+/// 必ず Branch に紐づき、拠点をまたいだ参照は ADMIN のみ可能。
+///
+/// 【先着優先ロック機能】
+///   営業担当が「担当する」ボタンを押すと lockedBy に記録され、
+///   他の営業は lockExpiresAt まで同一顧客への新規商談作成を制限される。
+model Customer {
+  id          String  @id @default(cuid())
+  name        String  // 顧客名（法人名）
+  nameKana    String? // ふりがな（検索用）
+  contactName String? // 担当者名
+  email       String? // 担当者メールアドレス
+  phone       String? // 電話番号
+  address     String? // 住所
+  industry    String? // 業種（例: 製造業、IT、不動産）
+  notes       String? @db.Text // 備考・メモ
+
+  // ---- 先着優先ロック -------------------------------------------
+  // ロック中は他の営業担当者が新規商談を作成できない
+  lockedByUserId String?
+  lockedBy       User?     @relation("LockedBy", fields: [lockedByUserId], references: [id])
+  lockedAt       DateTime? // ロック開始日時
+  lockExpiresAt  DateTime? // ロック期限（デフォルト: ロックから30分後）
+
+  // ---- マルチテナント（必須）------------------------------------
+  // 全顧客データは必ず拠点に紐づく。branchId なしでは登録不可。
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  deals        Deal[]
+  activityLogs ActivityLog[]
+
+  @@index([branchId])
+  @@index([lockedByUserId])
+  @@index([name]) // 顧客名検索
+  @@map("customers")
+}
+
+// ==============================================================
+// ActivityLog（活動履歴）
+// ==============================================================
+
+/// 営業活動の記録。電話・メール・訪問・Web会議などを時系列で管理する。
+model ActivityLog {
+  id         String       @id @default(cuid())
+  type       ActivityType @default(OTHER)
+  content    String       @db.Text // 活動内容
+  staffName  String                // 記録者名（ログイン名から自動取得）
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+// ==============================================================
+// Deal（商談）
+// ==============================================================
+
+/// 商談（案件）情報を管理する SFA テーブル。
+/// Customer と Branch の両方に紐づく。
+///
+/// 【branchId の非正規化について】
+///   Customer.branchId と同値を持つが、あえてここにも持たせる。
+///   理由: 拠点フィルタリングのクエリを Customer JOIN なしで実行できるようにするため。
+model Deal {
+  id                String     @id @default(cuid())
+  title             String     // 商談タイトル（例: ○○ビル 外壁改修工事）
+  amount            Decimal?   @db.Decimal(15, 0) // 見積金額（円）
+  status            DealStatus @default(PROSPECTING)
+  probability       Int?       // 受注確度 0〜100（%）
+  expectedCloseDate DateTime?  // 受注予定日
+  closedAt          DateTime?  // 実際の受注/失注日
+  notes             String?    @db.Text // 商談メモ・経緯
+
+  // ---- 担当者 --------------------------------------------------
+  assignedToId String? // 主担当営業
+  assignedTo   User?   @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  createdById String? // 商談作成者
+  createdBy   User?   @relation("CreatedBy", fields: [createdById], references: [id])
+
+  // ---- 顧客との紐づき ------------------------------------------
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  // ---- マルチテナント（必須・非正規化）--------------------------
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([assignedToId])
+  @@index([customerId])
+  @@index([status])
+  @@index([expectedCloseDate])
+  @@map("deals")
+}
