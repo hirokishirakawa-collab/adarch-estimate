@@ -153,7 +153,6 @@ const NAV_SECTIONS: NavSection[] = [
         label: "媒体依頼",
         icon: Megaphone,
         minRole: "USER",
-        badge: "準備中",
       },
       {
         href: "/dashboard/legal",
