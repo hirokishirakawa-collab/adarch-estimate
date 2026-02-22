@@ -32,8 +32,8 @@ function createPrismaClient(): PrismaClient {
     );
   }
 
-  // ?pgbouncer=true は Prisma 独自パラメータ。pg ライブラリに渡す前に除去する
-  const connectionString = rawUrl.replace(/[?&]pgbouncer=true/i, "");
+  // 末尾の改行・空白を除去し、?pgbouncer=true は pg ライブラリに渡す前に除去する
+  const connectionString = rawUrl.trim().replace(/[?&]pgbouncer=true/i, "");
 
   const adapter = new PrismaPg({
     connectionString,
