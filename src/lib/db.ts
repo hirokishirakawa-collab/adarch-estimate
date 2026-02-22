@@ -9,12 +9,13 @@ import { PrismaPg } from "@prisma/adapter-pg";
 //   例: postgresql://postgres:PASSWORD@db.PROJECT.supabase.co:5432/postgres
 //
 // 【本番環境（Vercel Serverless）】
-//   Supabase の Session Mode Pooler URL を使用すること
+//   Supabase の Transaction Mode Pooler URL を使用すること
 //   Supabase ダッシュボード > Project Settings > Database > Connection Pooling
-//   Mode: Session / Port: 5432
-//   例: postgresql://postgres.PROJECT:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres
+//   Mode: Transaction / Port: 6543
+//   例: postgresql://postgres.PROJECT:PASSWORD@aws-0-REGION.pooler.supabase.com:6543/postgres?pgbouncer=true
 //
-//   ※ Transaction Mode (port 6543) は prepared statements 非対応のため不可
+//   ※ @prisma/adapter-pg は prepared statements を使わないため Transaction Mode 対応
+//   ※ Vercel Serverless では max:1 が適切（各インスタンスが独立した接続を持つ）
 //   ※ Vercel 環境変数に DATABASE_URL として設定してください
 // ----------------------------------------------------------------
 
@@ -23,18 +24,21 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient(): PrismaClient {
-  const connectionString = process.env.DATABASE_URL;
+  const rawUrl = process.env.DATABASE_URL;
 
-  if (!connectionString || connectionString.includes("★")) {
+  if (!rawUrl || rawUrl.includes("★")) {
     throw new Error(
       "[db] DATABASE_URL が設定されていません。.env.local に Supabase の接続文字列を設定してください。"
     );
   }
 
+  // ?pgbouncer=true は Prisma 独自パラメータ。pg ライブラリに渡す前に除去する
+  const connectionString = rawUrl.replace(/[?&]pgbouncer=true/i, "");
+
   const adapter = new PrismaPg({
     connectionString,
-    // Vercel Serverless では同時接続数を抑える
-    max: process.env.NODE_ENV === "production" ? 3 : 10,
+    // Transaction Mode Serverless: 各 Lambda インスタンスは接続 1 本で十分
+    max: process.env.NODE_ENV === "production" ? 1 : 10,
   });
 
   return new PrismaClient({ adapter });
