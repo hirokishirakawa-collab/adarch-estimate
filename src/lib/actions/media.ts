@@ -143,15 +143,20 @@ export async function updateMediaRequestStatus(
 // 一覧取得
 // ---------------------------------------------------------------
 export async function getMediaRequestList() {
-  const info = await getSessionInfo();
-  if (!info || "error" in info)
+  try {
+    const info = await getSessionInfo();
+    if (!info || "error" in info)
+      return { requests: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as UserRole };
+
+    const where: Prisma.MediaRequestWhereInput =
+      info.role === "ADMIN" ? {} : { branchId: info.branchId };
+
+    const requests = await fetchList(where);
+    return { requests, role: info.role };
+  } catch (e) {
+    console.error("[getMediaRequestList] error:", e instanceof Error ? e.message : e);
     return { requests: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as UserRole };
-
-  const where: Prisma.MediaRequestWhereInput =
-    info.role === "ADMIN" ? {} : { branchId: info.branchId };
-
-  const requests = await fetchList(where);
-  return { requests, role: info.role };
+  }
 }
 
 async function fetchList(where: Prisma.MediaRequestWhereInput) {
@@ -170,40 +175,52 @@ async function fetchList(where: Prisma.MediaRequestWhereInput) {
 // 単件取得
 // ---------------------------------------------------------------
 export async function getMediaRequestById(requestId: string) {
-  const info = await getSessionInfo();
-  if (!info || "error" in info) notFound();
+  try {
+    const info = await getSessionInfo();
+    if (!info || "error" in info) notFound();
 
-  const where: Prisma.MediaRequestWhereInput =
-    info.role === "ADMIN"
-      ? { id: requestId }
-      : { id: requestId, branchId: info.branchId };
+    const where: Prisma.MediaRequestWhereInput =
+      info.role === "ADMIN"
+        ? { id: requestId }
+        : { id: requestId, branchId: info.branchId };
 
-  const request = await db.mediaRequest.findFirst({
-    where,
-    include: {
-      customer:  { select: { id: true, name: true } },
-      createdBy: { select: { name: true, email: true } },
-      branch:    { select: { name: true } },
-    },
-  });
+    const request = await db.mediaRequest.findFirst({
+      where,
+      include: {
+        customer:  { select: { id: true, name: true } },
+        createdBy: { select: { name: true, email: true } },
+        branch:    { select: { name: true } },
+      },
+    });
 
-  if (!request) notFound();
-  return { request, role: info.role };
+    if (!request) notFound();
+    return { request, role: info.role };
+  } catch (e) {
+    // notFound() / redirect() は digest プロパティを持つ特殊オブジェクトを throw するので再スロー
+    if (typeof e === "object" && e !== null && "digest" in e) throw e;
+    console.error("[getMediaRequestById] error:", e instanceof Error ? e.message : e);
+    notFound();
+  }
 }
 
 // ---------------------------------------------------------------
 // 顧客マスタ取得（フォーム用）
 // ---------------------------------------------------------------
 export async function getCustomersForMedia() {
-  const info = await getSessionInfo();
-  if (!info || "error" in info) return [];
+  try {
+    const info = await getSessionInfo();
+    if (!info || "error" in info) return [];
 
-  const where: Prisma.CustomerWhereInput =
-    info.role === "ADMIN" ? {} : { branchId: info.branchId };
+    const where: Prisma.CustomerWhereInput =
+      info.role === "ADMIN" ? {} : { branchId: info.branchId };
 
-  return db.customer.findMany({
-    where,
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+    return db.customer.findMany({
+      where,
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+  } catch (e) {
+    console.error("[getCustomersForMedia] error:", e instanceof Error ? e.message : e);
+    return [];
+  }
 }
