@@ -21,7 +21,6 @@ import {
   LogOut,
   Building2,
   FileText,
-  Briefcase,
   Network,
   X,
 } from "lucide-react";
@@ -78,13 +77,6 @@ const NAV_SECTIONS: NavSection[] = [
         label: "公式見積もり",
         icon: FileText,
         minRole: "USER",
-      },
-      {
-        href: "/dashboard/sales-tools",
-        label: "営業ツール",
-        icon: Briefcase,
-        minRole: "USER",
-        badge: "準備中",
       },
     ],
   },
