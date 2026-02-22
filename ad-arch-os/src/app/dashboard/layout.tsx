@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { Toaster } from "sonner";
 import type { UserRole } from "@/types/roles";
 
 export default async function DashboardLayout({
@@ -29,6 +30,7 @@ export default async function DashboardLayout({
         <Header pageTitle="ダッシュボード" user={user} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+      <Toaster richColors position="bottom-right" />
     </div>
   );
 }

@@ -30,6 +30,8 @@ import {
   Tag,
   Info,
   ExternalLink,
+  Pencil,
+  FolderKanban,
 } from "lucide-react";
 import { DealStatusEditor } from "@/components/customers/deal-status-editor";
 import { ActivityForm } from "@/components/customers/activity-form";
@@ -53,6 +55,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   const email = session?.user?.email ?? "";
   const userBranchId = getMockBranchId(email, role);
+  const staffName = session?.user?.name ?? session?.user?.email ?? "不明";
 
   // DB からすべて取得（顧客・商談・活動履歴）
   const [dbCustomer, dbDeals, activities] = await Promise.all([
@@ -174,19 +177,51 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               )}
             </div>
 
-            {/* 右: 活動件数 */}
-            <div className="text-right flex-shrink-0">
-              <p className="text-[10px] text-zinc-400 uppercase tracking-wide">
-                活動履歴
-              </p>
-              <p className="text-2xl font-bold text-blue-600 tabular-nums">
-                {activities.length}
-                <span className="text-sm font-normal text-zinc-400 ml-1">
-                  件
-                </span>
-              </p>
+            {/* 右: アクションボタン群 + 活動件数 */}
+            <div className="text-right flex-shrink-0 flex flex-col items-end gap-3">
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/dashboard/projects/new?customerId=${id}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-violet-200 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 transition-colors"
+                >
+                  <FolderKanban className="w-3.5 h-3.5" />
+                  プロジェクト作成
+                </Link>
+                <Link
+                  href={`/dashboard/customers/${id}/edit`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-zinc-200 rounded-lg bg-white hover:bg-zinc-50 hover:border-zinc-300 text-zinc-600 transition-colors"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  編集
+                </Link>
+              </div>
+              <div>
+                <p className="text-[10px] text-zinc-400 uppercase tracking-wide">
+                  活動履歴
+                </p>
+                <p className="text-2xl font-bold text-blue-600 tabular-nums">
+                  {activities.length}
+                  <span className="text-sm font-normal text-zinc-400 ml-1">
+                    件
+                  </span>
+                </p>
+              </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ===== クイック入力 ===== */}
+      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-zinc-100 flex items-center gap-2 bg-gradient-to-r from-blue-50 to-white">
+          <span className="text-base">✏️</span>
+          <h3 className="text-xs font-semibold text-blue-700">活動を記録する</h3>
+          <span className="ml-auto text-[10px] text-zinc-400">
+            記録はすぐにタイムラインに反映されます
+          </span>
+        </div>
+        <div className="px-5 py-4">
+          <ActivityForm customerId={id} staffName={staffName} />
         </div>
       </div>
 
@@ -392,14 +427,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           icon={<Clock className="w-3.5 h-3.5" />}
           title={`活動履歴 ${activities.length} 件`}
         />
-
-        {/* 活動記録フォーム */}
-        <div className="px-6 py-5 border-b border-zinc-100 bg-zinc-50/50">
-          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">
-            活動を記録する
-          </p>
-          <ActivityForm customerId={id} />
-        </div>
 
         {/* タイムライン */}
         <ActivityTimeline activities={activities} />

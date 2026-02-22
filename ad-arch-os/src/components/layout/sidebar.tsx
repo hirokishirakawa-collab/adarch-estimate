@@ -10,11 +10,8 @@ import {
   LayoutDashboard,
   Users,
   TrendingUp,
-  FileText,
-  Briefcase,
   FolderKanban,
-  Network,
-  Receipt,
+  BookOpen,
   BarChart2,
   CreditCard,
   Megaphone,
@@ -24,6 +21,9 @@ import {
   Shield,
   LogOut,
   Building2,
+  FileText,
+  Briefcase,
+  Network,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -34,63 +34,166 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   minRole: UserRole;
+  badge?: string; // "準備中" などのラベル
+  external?: boolean; // true のとき新しいタブで開く
 }
 
 interface NavSection {
   section: string;
+  color: string; // セクションラベルの色
   items: NavItem[];
 }
 
 const NAV_SECTIONS: NavSection[] = [
   {
     section: "メイン",
+    color: "text-zinc-600",
     items: [
-      { href: "/dashboard", label: "ダッシュボード", icon: LayoutDashboard, minRole: "USER" },
+      {
+        href: "/dashboard",
+        label: "ダッシュボード",
+        icon: LayoutDashboard,
+        minRole: "USER",
+      },
     ],
   },
   {
-    section: "営業・顧客",
+    section: "CRM",
+    color: "text-blue-500/80",
     items: [
-      { href: "/customers", label: "顧客管理 (CRM)", icon: Users, minRole: "USER" },
-      { href: "/deals", label: "商談管理 (SFA)", icon: TrendingUp, minRole: "USER" },
-      { href: "/estimates", label: "公式見積もり", icon: FileText, minRole: "USER" },
-      { href: "/sales-tools", label: "営業ツール", icon: Briefcase, minRole: "USER" },
+      {
+        href: "/dashboard/customers",
+        label: "顧客管理",
+        icon: Users,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/deals",
+        label: "商談管理 (SFA)",
+        icon: TrendingUp,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/estimates",
+        label: "公式見積もり",
+        icon: FileText,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/sales-tools",
+        label: "営業ツール",
+        icon: Briefcase,
+        minRole: "USER",
+        badge: "準備中",
+      },
     ],
   },
   {
     section: "プロジェクト",
+    color: "text-violet-500/80",
     items: [
-      { href: "/projects", label: "プロジェクト管理", icon: FolderKanban, minRole: "USER" },
-      { href: "/group-sync", label: "グループ連携履歴", icon: Network, minRole: "USER" },
+      {
+        href: "/dashboard/projects",
+        label: "プロジェクト一覧",
+        icon: FolderKanban,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/group-sync",
+        label: "グループ連携依頼",
+        icon: Network,
+        minRole: "USER",
+      },
     ],
   },
   {
-    section: "財務・承認",
+    section: "経費管理",
+    color: "text-amber-500/80",
     items: [
-      { href: "/billing", label: "請求依頼", icon: Receipt, minRole: "USER" },
-      // MANAGER以上（代表は自拠点のみ、Phase 2でbranchIdフィルタリング）
-      { href: "/sales-report", label: "売上報告", icon: BarChart2, minRole: "MANAGER" },
+      {
+        href: "/dashboard/billing",
+        label: "請求依頼",
+        icon: CreditCard,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/sales-report",
+        label: "売上報告",
+        icon: BarChart2,
+        minRole: "MANAGER",
+      },
+    ],
+  },
+  {
+    section: "Wiki",
+    color: "text-teal-500/80",
+    items: [
+      {
+        href: "/dashboard/wiki",
+        label: "社内Wiki",
+        icon: BookOpen,
+        minRole: "USER",
+      },
     ],
   },
   {
     section: "ツール",
+    color: "text-zinc-600",
     items: [
-      { href: "/business-cards", label: "名刺管理", icon: CreditCard, minRole: "USER" },
-      { href: "/media", label: "媒体依頼", icon: Megaphone, minRole: "USER" },
-      { href: "/legal", label: "契約法務依頼", icon: Scale, minRole: "USER" },
-      { href: "/training", label: "研修", icon: GraduationCap, minRole: "USER" },
+      {
+        href: "/dashboard/business-cards",
+        label: "名刺管理",
+        icon: CreditCard,
+        minRole: "USER",
+        badge: "準備中",
+      },
+      {
+        href: "/dashboard/media",
+        label: "媒体依頼",
+        icon: Megaphone,
+        minRole: "USER",
+        badge: "準備中",
+      },
+      {
+        href: "/dashboard/legal",
+        label: "契約法務依頼",
+        icon: Scale,
+        minRole: "USER",
+        badge: "準備中",
+      },
+      {
+        href: "https://lms.learningbox.online/index.php?action=login",
+        label: "研修",
+        icon: GraduationCap,
+        minRole: "USER",
+        external: true,
+      },
     ],
   },
   {
     section: "AI",
+    color: "text-zinc-600",
     items: [
-      { href: "/gemini", label: "自社 GEMINI", icon: Bot, minRole: "USER" },
+      {
+        href: "/dashboard/gemini",
+        label: "自社 GEMINI",
+        icon: Bot,
+        minRole: "USER",
+        badge: "準備中",
+      },
     ],
   },
   {
     section: "管理者",
+    color: "text-zinc-600",
     items: [
-      { href: "/admin", label: "管理者パネル", icon: Shield, minRole: "ADMIN" },
+      {
+        href: "/dashboard/admin",
+        label: "管理者パネル",
+        icon: Shield,
+        minRole: "ADMIN",
+        badge: "準備中",
+      },
     ],
   },
 ];
@@ -192,29 +295,56 @@ export function Sidebar({ user }: SidebarProps) {
 
           return (
             <div key={section.section}>
-              <p className="px-2 mb-1 text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
+              <p
+                className={cn(
+                  "px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest",
+                  section.color
+                )}
+              >
                 {section.section}
               </p>
               <ul className="space-y-0.5">
                 {visibleItems.map((item) => {
                   const isActive =
-                    pathname === item.href ||
-                    (item.href !== "/dashboard" &&
-                      pathname.startsWith(item.href));
+                    item.href === "/dashboard"
+                      ? pathname === "/dashboard"
+                      : pathname === item.href ||
+                        pathname.startsWith(item.href + "/");
+
+                  const linkClass = cn(
+                    "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs transition-all duration-100",
+                    isActive
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  );
+                  const linkContent = (
+                    <>
+                      <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate flex-1">{item.label}</span>
+                      {item.badge && !isActive && (
+                        <span className="text-[9px] px-1 py-0.5 rounded bg-zinc-800 text-zinc-500 border border-zinc-700 flex-shrink-0">
+                          {item.badge}
+                        </span>
+                      )}
+                    </>
+                  );
+
                   return (
                     <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={cn(
-                          "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs transition-all duration-100",
-                          isActive
-                            ? "bg-blue-600 text-white shadow-sm"
-                            : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                        )}
-                      >
-                        <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="truncate">{item.label}</span>
-                      </Link>
+                      {item.external ? (
+                        <a
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={linkClass}
+                        >
+                          {linkContent}
+                        </a>
+                      ) : (
+                        <Link href={item.href} className={linkClass}>
+                          {linkContent}
+                        </Link>
+                      )}
                     </li>
                   );
                 })}

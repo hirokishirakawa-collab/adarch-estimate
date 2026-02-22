@@ -53,12 +53,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
     /**
      * JWT トークンにロールを付与
-     * account が存在するのは初回サインイン時のみ
+     * account は初回サインイン時のみ存在するが、
+     * role は毎回 env から再解決する（ADMIN_EMAILS の変更を即座に反映）
      */
     async jwt({ token, account, profile }) {
       if (account && profile?.email) {
         token.email = profile.email;
-        token.role = resolveRole(profile.email);
+      }
+      // 毎回ロールを再解決（古いセッションでも正しいロールを返す）
+      const email = (token.email ?? "") as string;
+      if (email) {
+        token.role = resolveRole(email);
       }
       return token;
     },

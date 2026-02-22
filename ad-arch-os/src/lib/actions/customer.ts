@@ -2,8 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { sendCustomerNotification } from "@/lib/notifications";
 import { getMockBranchId } from "@/lib/data/customers";
 import type {
   ActivityType,
@@ -110,12 +112,40 @@ export async function createCustomer(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[createCustomer] DB error:", msg, e);
-    // 開発環境では実際のエラー内容を表示してデバッグを容易にする
     if (process.env.NODE_ENV !== "production") {
       return { error: `保存失敗: ${msg}` };
     }
     return { error: "保存に失敗しました。再度お試しください" };
   }
+
+  // 通知（after: レスポンス送信後に確実に実行される）
+  const capturedId    = customerId;
+  const capturedName  = name;
+  const capturedContact = contactName;
+  const capturedPref  = prefecture;
+  const capturedIndustry = industry;
+  const capturedStaff = staffName;
+  after(async () => {
+    const users = await db.user
+      .findMany({ select: { email: true } })
+      .catch(() => [] as { email: string | null }[]);
+    const userEmails = users
+      .map((u) => u.email)
+      .filter((e): e is string => !!e);
+
+    await sendCustomerNotification(
+      {
+        eventType: "CUSTOMER_CREATED",
+        customerId: capturedId,
+        customerName: capturedName,
+        contactName: capturedContact,
+        prefecture: capturedPref,
+        industry: capturedIndustry,
+        staffName: capturedStaff,
+      },
+      userEmails
+    );
+  });
 
   redirect(`/dashboard/customers/${customerId}`);
 }
@@ -164,4 +194,183 @@ export async function updateDealStatus(
     data: { status: status as DealStatus },
   });
   revalidatePath(`/dashboard/customers/${customerId}`);
+}
+
+// ---------------------------------------------------------------
+// 顧客情報を更新する（差分を ActivityLog に自動記録）
+// ---------------------------------------------------------------
+
+// 項目ラベルマップ
+const FIELD_LABELS: Record<string, string> = {
+  name:            "会社名",
+  nameKana:        "フリガナ",
+  corporateNumber: "法人番号",
+  contactName:     "先方担当者",
+  email:           "メールアドレス",
+  phone:           "電話番号",
+  website:         "企業URL",
+  industry:        "業種",
+  source:          "流入経路",
+  rank:            "顧客ランク",
+  status:          "取引ステータス",
+  postalCode:      "郵便番号",
+  prefecture:      "都道府県",
+  address:         "住所",
+  building:        "ビル名",
+  notes:           "備考",
+};
+
+// 表示ラベル変換（enum 値を読みやすくする）
+const RANK_LABELS: Record<string, string> = { A: "A（重要）", B: "B（通常）", C: "C（見込み）", D: "D（取引回避）" };
+const STATUS_LABELS: Record<string, string> = { PROSPECT: "見込み", ACTIVE: "取引中", INACTIVE: "休眠", BLOCKED: "取引回避" };
+
+function humanize(field: string, value: string | null): string {
+  if (!value) return "（未設定）";
+  if (field === "rank")   return RANK_LABELS[value]   ?? value;
+  if (field === "status") return STATUS_LABELS[value] ?? value;
+  return value;
+}
+
+export async function updateCustomer(
+  customerId: string,
+  _prev: { error?: string } | null,
+  formData: FormData
+): Promise<{ error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { error: "ログインが必要です" };
+  const staffName = session.user.name ?? session.user.email ?? "不明";
+
+  // 現在の顧客情報を取得
+  const current = await db.customer.findUnique({ where: { id: customerId } });
+  if (!current) return { error: "顧客が見つかりません" };
+
+  // フォーム値をパース
+  const name            = (formData.get("name") as string)?.trim();
+  const nameKana        = (formData.get("nameKana") as string)?.trim() || null;
+  const corporateNumber = (formData.get("corporateNumber") as string)?.trim() || null;
+  const contactName     = (formData.get("contactName") as string)?.trim() || null;
+  const phone           = (formData.get("phone") as string)?.trim() || null;
+  const emailField      = (formData.get("email") as string)?.trim() || null;
+  const website         = (formData.get("website") as string)?.trim() || null;
+  const industry        = (formData.get("industry") as string)?.trim() || null;
+  const source          = (formData.get("source") as string)?.trim() || null;
+  const rank            = (formData.get("rank") as string) || current.rank;
+  const status          = (formData.get("status") as string) || current.status;
+  const postalCode      = (formData.get("postalCode") as string)?.trim() || null;
+  const prefecture      = (formData.get("prefecture") as string)?.trim() || null;
+  const address         = (formData.get("address") as string)?.trim() || null;
+  const building        = (formData.get("building") as string)?.trim() || null;
+  const notes           = (formData.get("notes") as string)?.trim() || null;
+
+  // バリデーション
+  if (!name) return { error: "会社名は必須です" };
+  if (name.length > 64) return { error: "会社名は64文字以内で入力してください" };
+  if (nameKana && nameKana.length > 64) return { error: "フリガナは64文字以内で入力してください" };
+  if (corporateNumber && !/^\d{13}$/.test(corporateNumber)) return { error: "法人番号は13桁の数字で入力してください" };
+  if (contactName && contactName.length > 64) return { error: "担当者名は64文字以内で入力してください" };
+  if (phone && phone.length > 20) return { error: "電話番号は20文字以内で入力してください" };
+  if (address && address.length > 256) return { error: "住所は256文字以内で入力してください" };
+  if (building && building.length > 128) return { error: "ビル名は128文字以内で入力してください" };
+  if (notes && notes.length > 1000) return { error: "備考は1000文字以内で入力してください" };
+
+  // 差分チェック: 変更があった項目のみ抽出
+  type FieldKey = keyof typeof FIELD_LABELS;
+  const newValues: Record<FieldKey, string | null> = {
+    name, nameKana, corporateNumber, contactName,
+    email: emailField, phone, website, industry, source,
+    rank, status, postalCode, prefecture, address, building, notes,
+  };
+  const oldValues: Record<FieldKey, string | null> = {
+    name:            current.name,
+    nameKana:        current.nameKana,
+    corporateNumber: current.corporateNumber,
+    contactName:     current.contactName,
+    email:           current.email,
+    phone:           current.phone,
+    website:         current.website,
+    industry:        current.industry,
+    source:          current.source,
+    rank:            current.rank,
+    status:          current.status,
+    postalCode:      current.postalCode,
+    prefecture:      current.prefecture,
+    address:         current.address,
+    building:        current.building,
+    notes:           current.notes,
+  };
+
+  const changedFields = (Object.keys(FIELD_LABELS) as FieldKey[]).filter(
+    (key) => (oldValues[key] ?? null) !== (newValues[key] ?? null)
+  );
+
+  try {
+    // 顧客情報を更新
+    await db.customer.update({
+      where: { id: customerId },
+      data: {
+        name,
+        nameKana,
+        corporateNumber,
+        contactName,
+        email: emailField,
+        phone,
+        website,
+        industry,
+        source,
+        rank:       rank       as CustomerRank,
+        status:     status     as CustomerStatus,
+        postalCode,
+        prefecture,
+        address,
+        building,
+        notes,
+      },
+    });
+
+    // 変更ログを ActivityLog に自動記録
+    if (changedFields.length > 0) {
+      await db.activityLog.createMany({
+        data: changedFields.map((key) => ({
+          customerId,
+          type: "SYSTEM" as ActivityType,
+          content: `${FIELD_LABELS[key]} を「${humanize(key, oldValues[key])}」から「${humanize(key, newValues[key])}」に変更しました`,
+          staffName,
+        })),
+      });
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[updateCustomer] DB error:", msg, e);
+    if (process.env.NODE_ENV !== "production") {
+      return { error: `保存失敗: ${msg}` };
+    }
+    return { error: "保存に失敗しました。再度お試しください" };
+  }
+
+  redirect(`/dashboard/customers/${customerId}`);
+}
+
+// ---------------------------------------------------------------
+// 顧客を一括削除する（ADMIN 専用）
+// ---------------------------------------------------------------
+export async function deleteCustomers(
+  ids: string[]
+): Promise<{ error?: string; deleted?: number }> {
+  const session = await auth();
+  const role = (session?.user?.role ?? "") as UserRole;
+  if (role !== "ADMIN") {
+    return { error: "この操作は管理者のみ実行できます" };
+  }
+  if (!ids.length) return { deleted: 0 };
+
+  // 商談を先に削除（外部キー制約）
+  await db.deal.deleteMany({ where: { customerId: { in: ids } } });
+  // ActivityLog は customerId の cascade delete が schema で設定されている想定、
+  // なければ明示的に削除
+  await db.activityLog.deleteMany({ where: { customerId: { in: ids } } });
+  // 顧客を削除
+  const result = await db.customer.deleteMany({ where: { id: { in: ids } } });
+
+  revalidatePath("/dashboard/customers");
+  return { deleted: result.count };
 }

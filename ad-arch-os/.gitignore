@@ -30,8 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — 実際の認証情報を含むファイルはコミット禁止
 .env*
+# テンプレートファイルはコミット対象（実際の値は含まない）
+!.env.example
 
 # vercel
 .vercel

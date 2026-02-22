@@ -43,6 +43,7 @@ enum ActivityType {
   VISIT   // 訪問
   MEETING // Web会議
   OTHER   // その他
+  SYSTEM  // システム自動ログ（顧客情報変更など）
 }
 
 enum CustomerRank {
@@ -57,6 +58,66 @@ enum CustomerStatus {
   ACTIVE   // 取引中
   INACTIVE // 休眠
   BLOCKED  // 取引回避
+}
+
+enum ProjectStatus {
+  ORDERED      // 受注済み
+  IN_PROGRESS  // 進行中
+  COMPLETED    // 完了
+  ON_HOLD      // 保留
+  CANCELLED    // キャンセル
+}
+
+enum ExpenseCategory {
+  LABOR        // 人件費
+  MATERIAL     // 材料費
+  SUBCONTRACT  // 外注費
+  TRANSPORT    // 交通・運送費
+  COMMUNICATION // 通信費
+  OTHER        // その他
+}
+
+enum ProjectLogType {
+  SYSTEM          // システム自動ログ（フィールド変更）
+  NOTE            // 手動メモ
+  EXPENSE_ADDED   // 経費追加
+  EXPENSE_DELETED // 経費削除
+}
+
+enum BillingStatus {
+  UNBILLED // 未請求
+  BILLED   // 請求済み
+  PAID     // 入金済み
+}
+
+enum InvoiceRequestStatus {
+  DRAFT     // 未提出
+  SUBMITTED // 提出済
+}
+
+enum EstimationStatus {
+  DRAFT    // 下書き（未発行・通知なし）
+  ISSUED   // 発行済み（通知送信済み）
+  SENT     // 送付済み（顧客に送付）
+  ACCEPTED // 承認済み
+  REJECTED // 却下
+}
+
+enum CollaborationRequestType {
+  SHOOTING_SUPPORT   // 撮影支援
+  EDITING_RESOURCE   // 編集リソース協力
+  EQUIPMENT_CAST     // 機材・キャスト手配
+  KNOWLEDGE_SHARING  // 知見共有・相談
+  PROXY_VISIT        // クライアント別拠点の代理視察及び営業
+  OTHER              // その他
+}
+
+enum CollaborationStatus {
+  PENDING    // 未対応
+  REVIEWING  // 検討中
+  ACCEPTED   // 受諾
+  DECLINED   // 辞退
+  COMPLETED  // 完了
 }
 
 // ==============================================================
@@ -77,9 +138,16 @@ model Branch {
   updatedAt DateTime @updatedAt
 
   // Relations
-  users     User[]
-  customers Customer[]
-  deals     Deal[]
+  users                      User[]
+  customers                  Customer[]
+  deals                      Deal[]
+  projects                   Project[]
+  expenses                   Expense[]
+  wikiArticles               WikiArticle[]
+  revenueReports             RevenueReport[]
+  invoiceRequests            InvoiceRequest[]
+  estimations                Estimation[]
+  collaborationRequests      GroupCollaborationRequest[]
 
   @@map("branches")
 }
@@ -112,9 +180,12 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  assignedDeals   Deal[]     @relation("AssignedTo")
-  createdDeals    Deal[]     @relation("CreatedBy")
-  lockedCustomers Customer[] @relation("LockedBy") // 先着ロック中の顧客
+  assignedDeals          Deal[]                     @relation("AssignedTo")
+  createdDeals           Deal[]                     @relation("CreatedBy")
+  lockedCustomers        Customer[]                 @relation("LockedBy") // 先着ロック中の顧客
+  revenueReports         RevenueReport[]
+  invoiceRequests        InvoiceRequest[]
+  collaborationRequests  GroupCollaborationRequest[]
 
   @@index([branchId])
   @@index([role])
@@ -168,8 +239,11 @@ model Customer {
   updatedAt DateTime @updatedAt
 
   // Relations
-  deals        Deal[]
-  activityLogs ActivityLog[]
+  deals           Deal[]
+  activityLogs    ActivityLog[]
+  projects        Project[]
+  invoiceRequests InvoiceRequest[]
+  estimations     Estimation[]
 
   @@index([branchId])
   @@index([lockedByUserId])
@@ -233,6 +307,8 @@ model Deal {
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])
 
+  dealLogs  DealLog[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -242,4 +318,365 @@ model Deal {
   @@index([status])
   @@index([expectedCloseDate])
   @@map("deals")
+}
+
+// ==============================================================
+// DealLog（商談活動ログ）
+// ==============================================================
+
+/// 商談単位の活動ログ。
+/// ActivityLog が Customer 紐づきであるのに対し、こちらは Deal 紐づき。
+model DealLog {
+  id        String       @id @default(cuid())
+  type      ActivityType @default(OTHER)
+  content   String       @db.Text
+  staffName String
+
+  dealId String
+  deal   Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@index([createdAt])
+  @@map("deal_logs")
+}
+
+// ==============================================================
+// Project（プロジェクト）
+// ==============================================================
+
+/// 受注後の案件進行を管理するプロジェクト管理テーブル。
+/// 商談（Deal）から受注に至った後、実務進行フェーズを管理する。
+/// Customer（顧客）と Branch（拠点）の両方に紐づく。
+model Project {
+  id          String        @id @default(cuid())
+  title       String        // プロジェクト名
+  status      ProjectStatus @default(IN_PROGRESS)
+  deadline    DateTime?     // 納期
+  budget      Decimal?      @db.Decimal(15, 0) // 予算（円）
+  description String?       @db.Text // 概要・説明
+  staffName   String?       // 担当者名（登録者）
+
+  // ---- 顧客との紐づき（任意: 顧客未確定のプロジェクトも可）----------
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // ---- マルチテナント（必須）----------------------------------------
+  branchId    String
+  branch      Branch    @relation(fields: [branchId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  billingStatus BillingStatus @default(UNBILLED) // 請求ステータス
+
+  // Relations
+  expenses               Expense[]
+  logs                   ProjectLog[]
+  invoiceRequests        InvoiceRequest[]
+  estimations            Estimation[]
+  collaborationRequests  GroupCollaborationRequest[]
+
+  @@index([branchId])
+  @@index([customerId])
+  @@index([status])
+  @@index([deadline])
+  // 複合インデックス: 拠点別 + 最新順（一覧取得の主要クエリ）
+  @@index([branchId, createdAt(sort: Desc)])
+  // 複合インデックス: 拠点別 + ステータス絞り込み
+  @@index([branchId, status])
+  @@map("projects")
+}
+
+// ==============================================================
+// Expense（経費）
+// ==============================================================
+
+/// プロジェクトに紐づく経費記録。
+/// 予算と経費の差分から利益を自動計算する。
+model Expense {
+  id        String          @id @default(cuid())
+  title     String          // 経費名・内容
+  amount    Decimal         @db.Decimal(15, 0) // 金額（円）
+  category  ExpenseCategory @default(OTHER)
+  date      DateTime        @default(now()) // 発生日
+  notes     String?         @db.Text // 備考
+  staffName String?         // 記録者
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  branchId  String
+  branch    Branch  @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([branchId])
+  @@index([date])
+  @@map("expenses")
+}
+
+// ==============================================================
+// ProjectLog（プロジェクトログ）
+// ==============================================================
+
+/// プロジェクトの変更履歴・メモ。
+/// SYSTEM: フィールド変更の自動ログ
+/// NOTE: 手動メモ
+/// EXPENSE_ADDED/DELETED: 経費の追加・削除ログ
+model ProjectLog {
+  id        String         @id @default(cuid())
+  type      ProjectLogType @default(NOTE)
+  content   String         @db.Text
+  staffName String
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([createdAt])
+  @@map("project_logs")
+}
+
+// ==============================================================
+// RevenueReport（売上報告）
+// ==============================================================
+
+/// 月次売上報告。MANAGER 以上が自拠点のデータのみ登録・閲覧できる。
+/// amount は税抜金額。targetMonth は計上月の月初日（YYYY-MM-01）で保存。
+model RevenueReport {
+  id          String   @id @default(cuid())
+  amount      Decimal  @db.Decimal(15, 0) // 売上金額（税抜）
+  targetMonth DateTime // 計上月（月初日 YYYY-MM-01 で保存）
+  memo        String?  @db.Text // 備考
+
+  // ---- プロジェクト名（自由記述）------------------------------
+  projectName String? // 関連プロジェクト名（自由入力）
+
+  // ---- 作成者（データ保護の軸）--------------------------------
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  // ---- マルチテナント（必須）-----------------------------------
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([targetMonth])
+  @@index([createdById])
+  @@map("revenue_reports")
+}
+
+// ==============================================================
+// InvoiceRequest（請求依頼）
+// ==============================================================
+
+/// 本部へ提出する請求依頼。
+/// 作成者本人と ADMIN（本部）のみが閲覧・操作できる。
+model InvoiceRequest {
+  id               String               @id @default(cuid())
+
+  // ── 請求情報
+  subject          String               // 件名
+  contactName      String?              // 請求先担当者名
+  contactEmail     String               // 請求先担当者メールアドレス（必須）
+  billingDate      DateTime             // 請求日
+  dueDate          DateTime?            // 支払期限
+  details          String?              @db.Text // 内訳
+
+  // ── 金額（10%税計算結果も保存）
+  amountExclTax    Decimal              @db.Decimal(15, 0) // 税抜金額
+  taxAmount        Decimal              @db.Decimal(15, 0) // 消費税額（10%）
+  amountInclTax    Decimal              @db.Decimal(15, 0) // 税込金額
+
+  // ── 検収・添付
+  inspectionStatus String?              // 検収状況
+  fileUrl          String?              // 請求書PDF URL
+  notes            String?              @db.Text // 備考
+
+  // ── ステータス
+  status           InvoiceRequestStatus @default(DRAFT)
+
+  // ── プロジェクト紐付け（任意）
+  projectId        String?
+  project          Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // ── 請求先顧客（CustomerテーブルのFK）
+  customerId       String?
+  customer         Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // ── 作成者（データ保護の主軸）
+  createdById      String
+  createdBy        User                 @relation(fields: [createdById], references: [id])
+  creatorEmail     String               // 通知用（非正規化）
+
+  // ── マルチテナント
+  branchId         String
+  branch           Branch               @relation(fields: [branchId], references: [id])
+
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([branchId])
+  @@index([createdById])
+  @@index([status])
+  @@index([projectId])
+  @@index([customerId])
+  // 複合インデックス: 自分の依頼を最新順で取得（一覧の主要クエリ）
+  @@index([createdById, createdAt(sort: Desc)])
+  @@map("invoice_requests")
+}
+
+// ==============================================================
+// EstimationTemplate（標準単価マスタ）
+// ==============================================================
+
+/// 社内の標準単価マスタ。見積作成時のオートコンプリート元データ。
+/// スタッフ向けに原価目安（costPrice）を保持するが、PDF には出力しない。
+model EstimationTemplate {
+  id        String   @id @default(cuid())
+  category  String   // カテゴリ（例: 企画・進行）
+  name      String   // 品目・サービス名
+  unitPrice Decimal  @db.Decimal(15, 0) // 標準単価（税抜）
+  unit      String   // 単位（例: 日、式）
+  spec      String?  @db.Text // 仕様・提供範囲
+  costPrice Decimal? @db.Decimal(15, 0) // 原価目安（スタッフ内部用・PDF非出力）
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("estimation_templates")
+}
+
+// ==============================================================
+// Estimation（見積書）
+// ==============================================================
+
+/// 顧客向けの見積書。複数の EstimationItem を持つ。
+model Estimation {
+  id           String           @id @default(cuid())
+  title        String           // 見積タイトル
+  status       EstimationStatus @default(DRAFT)
+  estimateDate DateTime         @default(now()) // 見積日
+  validUntil   DateTime?        // 有効期限
+  notes        String?          @db.Text // 備考
+  staffName    String?          // 担当者名
+
+  // ---- 顧客との紐づき（任意）------------------------------------
+  customerId   String?
+  customer     Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // ---- プロジェクトとの紐づき（任意）----------------------------
+  projectId    String?
+  project      Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // ---- 出精値引き（内部用・PDF非出力）--------------------------
+  discountAmount     Decimal?  @db.Decimal(15, 0) // 値引き額（税抜・正の数で入力し合計からマイナス）
+  discountReason     String?   // BUDGET_FIRST | EXISTING | INVESTMENT | OTHER
+  discountReasonNote String?   // 「その他」の場合の自由記述
+
+  // ---- マルチテナント（必須）------------------------------------
+  branchId     String
+  branch       Branch           @relation(fields: [branchId], references: [id])
+
+  items        EstimationItem[]
+
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([branchId])
+  @@index([customerId])
+  @@index([status])
+  @@map("estimations")
+}
+
+// ==============================================================
+// EstimationItem（見積明細）
+// ==============================================================
+
+/// 見積書の各行明細。マスタから補完されるが独立して編集可能。
+model EstimationItem {
+  id           String     @id @default(cuid())
+  name         String     // 品目名
+  spec         String?    @db.Text // 仕様・備考
+  quantity     Int        @default(1) // 数量
+  unit         String?    // 単位
+  unitPrice    Decimal    @db.Decimal(15, 0) // 単価
+  amount       Decimal    @db.Decimal(15, 0) // 金額（数量 × 単価）
+  costPrice    Decimal?   @db.Decimal(15, 0) // 原価目安（内部用・PDF非出力）
+  sortOrder    Int        @default(0)
+  templateId   String?    // 参照元マスタ ID（任意）
+
+  estimationId String
+  estimation   Estimation @relation(fields: [estimationId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([estimationId])
+  @@map("estimation_items")
+}
+
+// ==============================================================
+// WikiArticle（社内Wiki記事）
+// ==============================================================
+
+/// 社内Wikiの記事。Markdownで記述・表示される。
+model WikiArticle {
+  id         String   @id @default(cuid())
+  title      String
+  body       String   @db.Text
+  authorName String
+  branchId   String
+  branch     Branch   @relation(fields: [branchId], references: [id])
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([branchId])
+  @@map("wiki_articles")
+}
+
+// ==============================================================
+// GroupCollaborationRequest（グループ連携依頼）
+// ==============================================================
+
+/// グループ内拠点間の連携依頼。撮影支援・機材手配・知見共有などを管理する。
+model GroupCollaborationRequest {
+  id              String                   @id @default(cuid())
+  projectId       String?
+  project         Project?                 @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  counterpartName String                   // 連携先代表（相手）
+  requestType     CollaborationRequestType
+  budget          String?                  // 希望予算（自由入力）
+  description     String                   @db.Text // 依頼内容・条件
+  desiredDate     DateTime?                // 希望納期・実施日
+  attachmentUrl   String?                  // 添付ファイル URL
+  status          CollaborationStatus      @default(PENDING)
+  replyNote       String?                  @db.Text // やり取り・回答
+  branchId        String?
+  branch          Branch?                  @relation(fields: [branchId], references: [id])
+  createdById     String?
+  createdBy       User?                    @relation(fields: [createdById], references: [id])
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@index([branchId])
+  @@index([createdById])
+  @@index([status])
+  @@index([projectId])
+  // 複合インデックス: 拠点別 + 最新順（一覧取得の主要クエリ）
+  @@index([branchId, createdAt(sort: Desc)])
+  @@map("group_collaboration_requests")
 }

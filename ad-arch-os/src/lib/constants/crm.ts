@@ -13,21 +13,21 @@ export const ACTIVITY_TYPE_OPTIONS = [
   {
     value: "EMAIL",
     label: "メール",
-    icon: "📧",
+    icon: "✉️",
     color: "bg-violet-50 text-violet-700 border-violet-200",
     dotColor: "bg-violet-400",
   },
   {
     value: "VISIT",
     label: "訪問",
-    icon: "🏢",
+    icon: "🤝",
     color: "bg-emerald-50 text-emerald-700 border-emerald-200",
     dotColor: "bg-emerald-400",
   },
   {
     value: "MEETING",
     label: "Web会議",
-    icon: "💻",
+    icon: "🖥",
     color: "bg-orange-50 text-orange-700 border-orange-200",
     dotColor: "bg-orange-400",
   },
@@ -37,6 +37,13 @@ export const ACTIVITY_TYPE_OPTIONS = [
     icon: "📝",
     color: "bg-zinc-100 text-zinc-600 border-zinc-200",
     dotColor: "bg-zinc-400",
+  },
+  {
+    value: "SYSTEM",
+    label: "システム",
+    icon: "⚙️",
+    color: "bg-slate-100 text-slate-500 border-slate-200",
+    dotColor: "bg-slate-300",
   },
 ] as const;
 
