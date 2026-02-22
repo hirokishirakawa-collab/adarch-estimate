@@ -6,6 +6,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import { uploadMediaFile } from "@/lib/storage";
+import { sendMediaRequestNotification } from "@/lib/notifications";
+import { getMediaTypeLabel } from "@/lib/constants/media";
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -77,8 +79,9 @@ export async function createMediaRequest(
     attachmentUrl = await uploadMediaFile(file);
   }
 
+  let createdId: string;
   try {
-    await db.mediaRequest.create({
+    const created = await db.mediaRequest.create({
       data: {
         mediaType:    mediaType as Prisma.MediaRequestCreateInput["mediaType"],
         mediaName,
@@ -92,10 +95,30 @@ export async function createMediaRequest(
         createdById:  info.userId,
       },
     });
+    createdId = created.id;
   } catch (e) {
     console.error("[createMediaRequest] DB error:", e instanceof Error ? e.message : e);
     return { error: "保存に失敗しました" };
   }
+
+  // 顧客名を取得（任意）
+  let customerName: string | null = null;
+  if (customerId) {
+    try {
+      const c = await db.customer.findUnique({ where: { id: customerId }, select: { name: true } });
+      customerName = c?.name ?? null;
+    } catch { /* 取得失敗しても通知は送る */ }
+  }
+
+  // 通知メール送信（失敗してもリダイレクトは継続）
+  sendMediaRequestNotification({
+    requestId:      createdId,
+    mediaTypeLabel: getMediaTypeLabel(mediaType),
+    mediaName,
+    customerName,
+    budget,
+    staffName:      info.staffName,
+  }).catch((e) => console.error("[createMediaRequest] notification error:", e));
 
   revalidatePath("/dashboard/media");
   redirect("/dashboard/media");

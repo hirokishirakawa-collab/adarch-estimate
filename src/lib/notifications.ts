@@ -679,6 +679,144 @@ function buildEstimateEmail(payload: EstimateNotificationPayload): {
 }
 
 // ---------------------------------------------------------------
+// 媒体依頼通知（送信先: 白川さん固定）
+// ---------------------------------------------------------------
+export type MediaRequestNotificationPayload = {
+  requestId:      string;
+  mediaTypeLabel: string; // 解決済みラベル（例: "TVer"）
+  mediaName:      string;
+  customerName:   string | null;
+  budget:         string | null;
+  staffName:      string;
+};
+
+const MEDIA_NOTIFICATION_TO = "hiroki.shirakawa@adarch.co.jp";
+
+/**
+ * 媒体依頼の新規申請を白川さん（hiroki.shirakawa@adarch.co.jp）に通知する。
+ */
+export async function sendMediaRequestNotification(
+  payload: MediaRequestNotificationPayload
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("[notifications] RESEND_API_KEY が設定されていません。媒体依頼通知をスキップします。");
+    return;
+  }
+
+  const { subject, html } = buildMediaRequestEmail(payload);
+
+  console.log(
+    `[notifications] 媒体依頼通知: ${MEDIA_NOTIFICATION_TO} 宛に送信を試行中… [${payload.mediaTypeLabel} / ${payload.mediaName}]`
+  );
+
+  try {
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [MEDIA_NOTIFICATION_TO],
+      subject,
+      html,
+    });
+    if (error) {
+      console.error("[notifications] Resend error (media):", error);
+    } else {
+      console.log(`[notifications] 媒体依頼通知: ${MEDIA_NOTIFICATION_TO} 宛への送信が完了しました。`);
+    }
+  } catch (e) {
+    console.error("[notifications] Failed to send media email:", e);
+  }
+}
+
+function buildMediaRequestEmail(payload: MediaRequestNotificationPayload): {
+  subject: string;
+  html: string;
+} {
+  const { requestId, mediaTypeLabel, mediaName, customerName, budget, staffName } = payload;
+  const url = appUrl(`/dashboard/media/${requestId}`);
+  const subject = `【アドアーチOS】媒体依頼：${mediaTypeLabel} / ${mediaName}`;
+
+  const rows = [
+    ["媒体種別", mediaTypeLabel],
+    ["媒体名",   mediaName],
+    ["顧客",     customerName ?? "—"],
+    ["費用・予算", budget ?? "—"],
+    ["申請者",   staffName],
+  ]
+    .map(
+      ([label, value]) => `
+      <tr>
+        <th style="${thStyle}">${escHtml(label)}</th>
+        <td style="${tdStyle}">${escHtml(value)}</td>
+      </tr>`
+    )
+    .join("");
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+
+        <!-- ヘッダー -->
+        <tr>
+          <td style="background:#d97706;padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.3px;">
+              Ad-Arch OS
+            </span>
+            <span style="color:#fde68a;font-size:13px;margin-left:8px;">
+              媒体依頼 新規申請通知
+            </span>
+          </td>
+        </tr>
+
+        <!-- 本文 -->
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;">
+              新しい媒体依頼が申請されました。内容をご確認ください。
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0"
+                   style="border-collapse:collapse;font-size:14px;">
+              ${rows}
+            </table>
+
+            <!-- 詳細リンク -->
+            <div style="margin-top:24px;text-align:center;">
+              <a href="${url}"
+                 style="display:inline-block;padding:11px 28px;
+                        background:#d97706;color:#ffffff;text-decoration:none;
+                        border-radius:8px;font-size:14px;font-weight:600;">
+                媒体依頼の詳細を開く →
+              </a>
+            </div>
+          </td>
+        </tr>
+
+        <!-- フッター -->
+        <tr>
+          <td style="background:#f4f4f5;padding:16px 28px;border-top:1px solid #e4e4e7;">
+            <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">
+              このメールは Ad-Arch Group OS から自動送信されています。<br />
+              心当たりのない場合はシステム管理者にご連絡ください。
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject, html };
+}
+
+// ---------------------------------------------------------------
 // 顧客通知
 // ---------------------------------------------------------------
 export type CustomerNotificationPayload = {
