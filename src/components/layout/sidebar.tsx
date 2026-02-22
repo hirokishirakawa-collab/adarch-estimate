@@ -188,11 +188,10 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-zinc-600",
     items: [
       {
-        href: "/dashboard/admin",
-        label: "管理者パネル",
+        href: "/dashboard/admin/users",
+        label: "メンバー管理",
         icon: Shield,
         minRole: "ADMIN",
-        badge: "準備中",
       },
     ],
   },
