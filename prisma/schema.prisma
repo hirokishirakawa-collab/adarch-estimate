@@ -120,6 +120,26 @@ enum CollaborationStatus {
   COMPLETED  // 完了
 }
 
+enum MediaType {
+  TVER            // TVer
+  CINE_AD         // シネアド（イオンシネマ）
+  DIGITAL_SIGNAGE // デジタルサイネージ
+  TAXI            // タクシー広告
+  APA_HOTEL       // アパホテル
+  UNIVERSITY      // 大学広告
+  SKYLARK         // すかいらーく広告
+  GOLF_CART       // ゴルフカート
+  ACQUISITION     // 取得依頼
+  OTHER           // その他
+}
+
+enum MediaRequestStatus {
+  PENDING    // 依頼中
+  REVIEWING  // 確認中
+  COMPLETED  // 完了
+  CANCELLED  // キャンセル
+}
+
 // ==============================================================
 // Branch（拠点）
 // ==============================================================
@@ -148,6 +168,7 @@ model Branch {
   invoiceRequests            InvoiceRequest[]
   estimations                Estimation[]
   collaborationRequests      GroupCollaborationRequest[]
+  mediaRequests              MediaRequest[]
 
   @@map("branches")
 }
@@ -186,6 +207,7 @@ model User {
   revenueReports         RevenueReport[]
   invoiceRequests        InvoiceRequest[]
   collaborationRequests  GroupCollaborationRequest[]
+  mediaRequests          MediaRequest[]
 
   @@index([branchId])
   @@index([role])
@@ -244,6 +266,7 @@ model Customer {
   projects        Project[]
   invoiceRequests InvoiceRequest[]
   estimations     Estimation[]
+  mediaRequests   MediaRequest[]
 
   @@index([branchId])
   @@index([lockedByUserId])
@@ -679,4 +702,36 @@ model GroupCollaborationRequest {
   // 複合インデックス: 拠点別 + 最新順（一覧取得の主要クエリ）
   @@index([branchId, createdAt(sort: Desc)])
   @@map("group_collaboration_requests")
+}
+
+// ==============================================================
+// MediaRequest（媒体依頼）
+// ==============================================================
+
+/// 媒体広告の掲載依頼。MANAGER以上が申請・管理できる。
+model MediaRequest {
+  id            String             @id @default(cuid())
+  mediaType     MediaType
+  mediaName     String             // 媒体名（自由入力）
+  customerId    String?
+  customer      Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  startDate     DateTime?          // 掲載開始日
+  endDate       DateTime?          // 掲載終了日
+  budget        String?            // 費用・予算（自由入力）
+  description   String?            @db.Text
+  attachmentUrl String?
+  status        MediaRequestStatus @default(PENDING)
+  replyNote     String?            @db.Text
+  branchId      String?
+  branch        Branch?            @relation(fields: [branchId], references: [id])
+  createdById   String?
+  createdBy     User?              @relation(fields: [createdById], references: [id])
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([branchId])
+  @@index([createdById])
+  @@index([status])
+  @@index([branchId, createdAt(sort: Desc)])
+  @@map("media_requests")
 }
