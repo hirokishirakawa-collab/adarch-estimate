@@ -15,7 +15,6 @@ import {
   BarChart2,
   CreditCard,
   Megaphone,
-  Scale,
   GraduationCap,
   Bot,
   Shield,
@@ -142,24 +141,10 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-zinc-600",
     items: [
       {
-        href: "/dashboard/business-cards",
-        label: "名刺管理",
-        icon: CreditCard,
-        minRole: "USER",
-        badge: "準備中",
-      },
-      {
         href: "/dashboard/media",
         label: "媒体依頼",
         icon: Megaphone,
         minRole: "USER",
-      },
-      {
-        href: "/dashboard/legal",
-        label: "契約法務依頼",
-        icon: Scale,
-        minRole: "USER",
-        badge: "準備中",
       },
       {
         href: "https://lms.learningbox.online/index.php?action=login",
