@@ -15,6 +15,7 @@ import {
   BarChart2,
   CreditCard,
   Megaphone,
+  CalendarCheck,
   GraduationCap,
   Bot,
   Shield,
@@ -145,6 +146,13 @@ const NAV_SECTIONS: NavSection[] = [
         label: "媒体依頼",
         icon: Megaphone,
         minRole: "USER",
+      },
+      {
+        href: "https://calendar.app.google/ZP3woztffUUoHivm6",
+        label: "本部打ち合わせ予約",
+        icon: CalendarCheck,
+        minRole: "USER",
+        external: true,
       },
       {
         href: "https://lms.learningbox.online/index.php?action=login",
