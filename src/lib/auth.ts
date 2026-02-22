@@ -27,6 +27,7 @@ function resolveRole(email: string): UserRole {
 // NextAuth 設定
 // ----------------------------------------------------------------
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
