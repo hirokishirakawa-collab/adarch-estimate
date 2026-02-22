@@ -17,7 +17,6 @@ import {
   Megaphone,
   CalendarCheck,
   GraduationCap,
-  Bot,
   Shield,
   LogOut,
   Building2,
@@ -160,19 +159,6 @@ const NAV_SECTIONS: NavSection[] = [
         icon: GraduationCap,
         minRole: "USER",
         external: true,
-      },
-    ],
-  },
-  {
-    section: "AI",
-    color: "text-zinc-600",
-    items: [
-      {
-        href: "/dashboard/gemini",
-        label: "自社 GEMINI",
-        icon: Bot,
-        minRole: "USER",
-        badge: "準備中",
       },
     ],
   },
