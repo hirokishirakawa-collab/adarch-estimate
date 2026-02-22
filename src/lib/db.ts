@@ -44,12 +44,16 @@ function createPrismaClient(): PrismaClient {
   return new PrismaClient({ adapter });
 }
 
-export const db = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  try {
-    globalForPrisma.prisma = db;
-  } catch {
-    // DB 未設定時は無視
-  }
-}
+// Lazy singleton — モジュール読み込み時ではなく、最初に使われた時点で接続する
+// これにより Next.js のビルド時（DATABASE_URL 未設定）にクラッシュしなくなる
+export const db: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    if (!globalForPrisma.prisma) {
+      globalForPrisma.prisma = createPrismaClient();
+    }
+    const value = (globalForPrisma.prisma as unknown as Record<string | symbol, unknown>)[prop as string | symbol];
+    return typeof value === "function"
+      ? (value as (...args: unknown[]) => unknown).bind(globalForPrisma.prisma)
+      : value;
+  },
+});
