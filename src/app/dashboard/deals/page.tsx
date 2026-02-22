@@ -92,7 +92,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
       </div>
 
       {/* サマリーカード */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-zinc-200 px-4 py-3">
           <p className="text-[11px] text-zinc-400 mb-1">アクティブ商談</p>
           <p className="text-xl font-bold text-zinc-900">{activeCount}</p>

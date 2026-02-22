@@ -24,6 +24,7 @@ import {
   FileText,
   Briefcase,
   Network,
+  X,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -226,20 +227,38 @@ interface SidebarProps {
     image?: string | null;
     role: UserRole;
   };
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 // ----------------------------------------------------------------
 // Sidebar コンポーネント
 // ----------------------------------------------------------------
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const roleStyle = ROLE_STYLES[user.role];
   const initial = user.name?.[0]?.toUpperCase() ?? "U";
 
   return (
-    <aside className="w-60 h-screen bg-zinc-950 border-r border-zinc-800/80 flex flex-col flex-shrink-0">
+    <>
+      {/* モバイル用オーバーレイ */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 w-64 bg-zinc-950 border-r border-zinc-800/80 flex flex-col flex-shrink-0",
+          "transform transition-transform duration-300 ease-in-out",
+          "md:relative md:translate-x-0 md:w-60",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
       {/* ロゴ */}
-      <div className="px-5 h-14 flex items-center border-b border-zinc-800/80">
+      <div className="px-5 h-14 flex items-center justify-between border-b border-zinc-800/80">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
             <Building2 className="w-3.5 h-3.5 text-white" />
@@ -249,6 +268,13 @@ export function Sidebar({ user }: SidebarProps) {
             <p className="text-[10px] text-zinc-500 mt-0.5">Group OS</p>
           </div>
         </div>
+        {/* モバイル用閉じるボタン */}
+        <button
+          onClick={onClose}
+          className="md:hidden p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       {/* ユーザー情報 */}
@@ -365,5 +391,6 @@ export function Sidebar({ user }: SidebarProps) {
         </button>
       </div>
     </aside>
+    </>
   );
 }

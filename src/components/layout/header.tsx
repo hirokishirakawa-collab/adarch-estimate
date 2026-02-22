@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/roles";
-import { Bell, Search } from "lucide-react";
+import { Bell, Menu, Search } from "lucide-react";
 
 // ----------------------------------------------------------------
 // ロールごとの上部バナー（ADMIN のみ表示）
@@ -21,9 +21,10 @@ interface HeaderProps {
     name?: string | null;
     role: UserRole;
   };
+  onMenuOpen: () => void;
 }
 
-export function Header({ pageTitle, user }: HeaderProps) {
+export function Header({ pageTitle, user, onMenuOpen }: HeaderProps) {
   const banner = ROLE_BANNERS[user.role];
   const now = new Date();
   const dateStr = now.toLocaleDateString("ja-JP", {
@@ -46,8 +47,17 @@ export function Header({ pageTitle, user }: HeaderProps) {
       )}
 
       {/* メインヘッダー */}
-      <div className="h-14 px-6 bg-white border-b border-zinc-200 flex items-center justify-between">
-        <h1 className="text-base font-semibold text-zinc-900">{pageTitle}</h1>
+      <div className="h-14 px-4 sm:px-6 bg-white border-b border-zinc-200 flex items-center justify-between">
+        <div className="flex items-center">
+          {/* モバイル用ハンバーガーボタン */}
+          <button
+            className="md:hidden mr-3 p-1.5 rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+            onClick={onMenuOpen}
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <h1 className="text-base font-semibold text-zinc-900">{pageTitle}</h1>
+        </div>
 
         <div className="flex items-center gap-3">
           {/* 検索（将来実装） */}

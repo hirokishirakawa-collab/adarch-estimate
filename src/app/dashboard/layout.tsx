@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/layout/sidebar";
-import { Header } from "@/components/layout/header";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Toaster } from "sonner";
 import type { UserRole } from "@/types/roles";
 
@@ -21,16 +20,9 @@ export default async function DashboardLayout({
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950">
-      {/* サイドバー */}
-      <Sidebar user={user} />
-
-      {/* メインコンテンツ */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-zinc-50 min-w-0">
-        <Header pageTitle="ダッシュボード" user={user} />
-        <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
+    <>
+      <DashboardShell user={user}>{children}</DashboardShell>
       <Toaster richColors position="bottom-right" />
-    </div>
+    </>
   );
 }
