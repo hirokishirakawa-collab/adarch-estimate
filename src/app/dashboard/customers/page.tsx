@@ -76,7 +76,15 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * PER_PAGE,
         take: PER_PAGE,
-      }),
+      }).then((rows) =>
+        rows.map((c) => ({
+          ...c,
+          deals: c.deals.map((d) => ({
+            ...d,
+            amount: d.amount != null ? Number(d.amount) : null,
+          })),
+        }))
+      ),
       db.customer.count({ where }),
       db.customer.count(),
       db.customer.count({ where: { status: "ACTIVE" } }),

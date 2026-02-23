@@ -44,7 +44,7 @@ export type CustomerRow = {
     id: string;
     title: string;
     status: string;
-    amount: { toNumber(): number } | null;
+    amount: number | null;
     branchId: string;
   }>;
   _count: { deals: number };
@@ -274,7 +274,7 @@ export function CustomerTable({ customers, userRole, userBranchId }: Props) {
               const latestDeal = customer.deals[0] ?? null;
               const amountResult = latestDeal
                 ? maskAmount(
-                    latestDeal.amount?.toNumber() ?? null,
+                    latestDeal.amount ?? null,
                     userBranchId,
                     latestDeal.branchId
                   )
