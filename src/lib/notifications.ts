@@ -81,7 +81,11 @@ async function sendEmail(
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
 
-  // ① 認証情報の確認
+  // ① 認証情報の確認（デバッグ: 変数の存在と長さを出力）
+  console.log(
+    `[notifications:${tag}] ENV GMAIL_USER=${gmailUser ? `"${gmailUser}"(${gmailUser.length}文字)` : "undefined"}`,
+    `GMAIL_APP_PASSWORD=${gmailPass ? `set(${gmailPass.length}文字)` : "undefined"}`
+  );
   if (!gmailUser || !gmailPass) {
     console.error(
       `[notifications:${tag}] ❌ GMAIL_USER または GMAIL_APP_PASSWORD が未設定 → スキップ`
