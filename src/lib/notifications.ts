@@ -110,8 +110,12 @@ async function sendEmail(
 
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
+    port: 587,
+    secure: false,           // STARTTLS（465/SSL より広く開放されている）
+    requireTLS: true,
+    connectionTimeout: 10000, // 接続タイムアウト 10秒
+    greetingTimeout:  10000,
+    socketTimeout:    15000,
     auth: { user: gmailUser, pass: gmailPass },
   });
 
