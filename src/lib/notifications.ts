@@ -12,15 +12,15 @@
 //   請求依頼・見積・売上報告・媒体依頼 → EMAIL_CEO のみ
 //   グループ連携依頼                   → EMAIL_CEO + EMAIL_SELECTED
 //
-// ⚠️ 送信元について:
-//   現在は onboarding@resend.dev（テスト用）を使用中。
-//   本番運用時は adarch.co.jp を resend.com/domains で認証し、
-//   FROM_ADDRESS を "Ad-Arch OS <pm@adarch.co.jp>" に変更してください。
+// 【送信元】
+//   adarch.co.jp の DNS 認証済み。
+//   RESEND_FROM_ADDRESS 環境変数で上書き可能（未設定時は下記デフォルト）。
 // ---------------------------------------------------------------
 
 import { Resend } from "resend";
 
-const FROM_ADDRESS = "Ad-Arch OS <onboarding@resend.dev>";
+const FROM_ADDRESS =
+  process.env.RESEND_FROM_ADDRESS ?? "Ad-Arch Group <system@adarch.co.jp>";
 
 /** 絶対 URL を生成する */
 function appUrl(path: string): string {
@@ -76,7 +76,7 @@ function resolveRecipients(tier: NotificationTier): string[] {
 }
 
 // ---------------------------------------------------------------
-// 共通メール送信ヘルパー
+// 共通メール送信ヘルパー（1件ずつ個別送信）
 // ---------------------------------------------------------------
 async function sendEmail(
   tag: string,
@@ -98,24 +98,47 @@ async function sendEmail(
     return;
   }
 
-  console.log(`[notifications:${tag}] 送信開始 from="${FROM_ADDRESS}" to=[${to.join(",")}] subject="${subject}"`);
+  console.log(
+    `[notifications:${tag}] 送信開始 from="${FROM_ADDRESS}" 宛先${to.length}件 subject="${subject}"`
+  );
 
-  try {
-    const resend = new Resend(apiKey);
-    const { data, error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to,
-      subject,
-      html,
-    });
+  const resend = new Resend(apiKey);
 
-    if (error) {
-      console.error(`[notifications:${tag}] Resend エラー:`, JSON.stringify(error));
-    } else {
-      console.log(`[notifications:${tag}] 送信成功 ✓ Resend id=${data?.id}`);
+  // 宛先ごとに個別送信（Resend の一括送信制限を回避し、部分失敗を個別に追跡）
+  for (const addr of to) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from: FROM_ADDRESS,
+        to:   [addr],
+        subject,
+        html,
+      });
+
+      if (error) {
+        const raw = JSON.stringify(error);
+        // ドメイン認証・送信元アドレス起因のエラーを明示
+        if (
+          raw.includes("domain") ||
+          raw.includes("verified") ||
+          raw.includes("validation_error") ||
+          raw.includes("from address")
+        ) {
+          console.error(
+            `[notifications:${tag}] ドメイン認証／送信元エラー (to=${addr}): ${raw}` +
+            ` ← FROM="${FROM_ADDRESS}" を確認してください（resend.com/domains で認証済みか）`
+          );
+        } else {
+          console.error(`[notifications:${tag}] Resend エラー (to=${addr}): ${raw}`);
+        }
+      } else {
+        console.log(`[notifications:${tag}] 送信成功 ✓ to=${addr} Resend id=${data?.id}`);
+      }
+    } catch (e) {
+      console.error(
+        `[notifications:${tag}] 送信例外 (to=${addr}):`,
+        e instanceof Error ? e.message : String(e)
+      );
     }
-  } catch (e) {
-    console.error(`[notifications:${tag}] 送信例外:`, e instanceof Error ? e.message : String(e));
   }
 }
 
