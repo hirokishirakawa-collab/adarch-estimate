@@ -45,12 +45,25 @@ type NotificationTier = "all_and_ceo" | "ceo_only" | "ceo_and_selected";
  * 未設定の環境変数は無視し、設定済みの宛先のみ返す（重複排除）。
  */
 function resolveRecipients(tier: NotificationTier): string[] {
+  // 改行・スペース・全角スペースを含む区切り文字をすべて正規化して分割
   const parse = (val: string | undefined) =>
-    (val ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    (val ?? "")
+      .replace(/[\r\n\u3000]/g, ",")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
 
   const all      = parse(process.env.EMAIL_ALL);
   const ceo      = parse(process.env.EMAIL_CEO);
   const selected = parse(process.env.EMAIL_SELECTED);
+
+  // デバッグ: 環境変数の解決結果をログ出力
+  console.log(
+    `[notifications] resolveRecipients(${tier})` +
+    ` EMAIL_ALL=[${all.join(",")}]` +
+    ` EMAIL_CEO=[${ceo.join(",")}]` +
+    ` EMAIL_SELECTED=[${selected.join(",")}]`
+  );
 
   let addrs: string[];
   switch (tier) {
@@ -60,6 +73,50 @@ function resolveRecipients(tier: NotificationTier): string[] {
   }
 
   return [...new Set(addrs)];
+}
+
+// ---------------------------------------------------------------
+// 共通メール送信ヘルパー
+// ---------------------------------------------------------------
+async function sendEmail(
+  tag: string,
+  to: string[],
+  subject: string,
+  html: string
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.warn(`[notifications:${tag}] RESEND_API_KEY 未設定 → スキップ`);
+    return;
+  }
+  if (to.length === 0) {
+    console.warn(
+      `[notifications:${tag}] 宛先が0件 → スキップ` +
+      `（EMAIL_ALL / EMAIL_CEO / EMAIL_SELECTED が Railway Variables に設定されているか確認してください）`
+    );
+    return;
+  }
+
+  console.log(`[notifications:${tag}] 送信開始 from="${FROM_ADDRESS}" to=[${to.join(",")}] subject="${subject}"`);
+
+  try {
+    const resend = new Resend(apiKey);
+    const { data, error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to,
+      subject,
+      html,
+    });
+
+    if (error) {
+      console.error(`[notifications:${tag}] Resend エラー:`, JSON.stringify(error));
+    } else {
+      console.log(`[notifications:${tag}] 送信成功 ✓ Resend id=${data?.id}`);
+    }
+  } catch (e) {
+    console.error(`[notifications:${tag}] 送信例外:`, e instanceof Error ? e.message : String(e));
+  }
 }
 
 // ---------------------------------------------------------------
@@ -123,21 +180,9 @@ const LOG_TYPE_LABELS: Record<string, string> = {
 export async function sendDealNotification(
   payload: DealNotificationPayload
 ): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-
   const to = resolveRecipients("all_and_ceo");
-  if (to.length === 0) return;
-
   const { subject, html } = buildEmail(payload);
-
-  try {
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
-    if (error) console.error("[notifications] Resend error (deal):", error);
-  } catch (e) {
-    console.error("[notifications] Failed to send deal email:", e);
-  }
+  await sendEmail("deal", to, subject, html);
 }
 
 // ---------------------------------------------------------------
@@ -320,25 +365,12 @@ export type InvoiceNotificationPayload = {
 export async function sendInvoiceNotification(
   payload: InvoiceNotificationPayload
 ): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-
-  const to = resolveRecipients("ceo_only");
-  if (to.length === 0) return;
-
   const eventLabel =
     payload.eventType === "INVOICE_CREATED"   ? "新規申請" :
     payload.eventType === "INVOICE_SUBMITTED" ? "提出済み更新" : "更新";
-
-  const { subject: mailSubject, html } = buildInvoiceEmail(payload, eventLabel);
-
-  try {
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject: mailSubject, html });
-    if (error) console.error("[notifications] Resend error (invoice):", error);
-  } catch (e) {
-    console.error("[notifications] Failed to send invoice email:", e);
-  }
+  const to = resolveRecipients("ceo_only");
+  const { subject, html } = buildInvoiceEmail(payload, eventLabel);
+  await sendEmail("invoice", to, subject, html);
 }
 
 function buildInvoiceEmail(
@@ -449,21 +481,9 @@ export type RevenueNotificationPayload = {
 export async function sendRevenueNotification(
   payload: RevenueNotificationPayload
 ): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-
   const to = resolveRecipients("ceo_only");
-  if (to.length === 0) return;
-
   const { subject, html } = buildRevenueEmail(payload);
-
-  try {
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
-    if (error) console.error("[notifications] Resend error (revenue):", error);
-  } catch (e) {
-    console.error("[notifications] Failed to send revenue email:", e);
-  }
+  await sendEmail("revenue", to, subject, html);
 }
 
 function buildRevenueEmail(payload: RevenueNotificationPayload): {
@@ -575,21 +595,9 @@ export type EstimateNotificationPayload = {
 export async function sendEstimateNotification(
   payload: EstimateNotificationPayload
 ): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-
   const to = resolveRecipients("ceo_only");
-  if (to.length === 0) return;
-
   const { subject, html } = buildEstimateEmail(payload);
-
-  try {
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
-    if (error) console.error("[notifications] Resend error (estimate):", error);
-  } catch (e) {
-    console.error("[notifications] Failed to send estimate email:", e);
-  }
+  await sendEmail("estimate", to, subject, html);
 }
 
 function buildEstimateEmail(payload: EstimateNotificationPayload): {
@@ -702,21 +710,9 @@ export type MediaRequestNotificationPayload = {
 export async function sendMediaRequestNotification(
   payload: MediaRequestNotificationPayload
 ): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-
   const to = resolveRecipients("ceo_only");
-  if (to.length === 0) return;
-
   const { subject, html } = buildMediaRequestEmail(payload);
-
-  try {
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
-    if (error) console.error("[notifications] Resend error (media):", error);
-  } catch (e) {
-    console.error("[notifications] Failed to send media email:", e);
-  }
+  await sendEmail("media", to, subject, html);
 }
 
 function buildMediaRequestEmail(payload: MediaRequestNotificationPayload): {
@@ -838,21 +834,9 @@ export type CustomerNotificationPayload =
 export async function sendCustomerNotification(
   payload: CustomerNotificationPayload
 ): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-
   const to = resolveRecipients("all_and_ceo");
-  if (to.length === 0) return;
-
   const { subject, html } = buildCustomerEmail(payload);
-
-  try {
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
-    if (error) console.error("[notifications] Resend error (customer):", error);
-  } catch (e) {
-    console.error("[notifications] Failed to send customer email:", e);
-  }
+  await sendEmail("customer", to, subject, html);
 }
 
 function buildCustomerEmail(payload: CustomerNotificationPayload): {
@@ -974,21 +958,9 @@ export type CollaborationNotificationPayload = {
 export async function sendCollaborationNotification(
   payload: CollaborationNotificationPayload
 ): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-
   const to = resolveRecipients("ceo_and_selected");
-  if (to.length === 0) return;
-
   const { subject, html } = buildCollaborationEmail(payload);
-
-  try {
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
-    if (error) console.error("[notifications] Resend error (collaboration):", error);
-  } catch (e) {
-    console.error("[notifications] Failed to send collaboration email:", e);
-  }
+  await sendEmail("collaboration", to, subject, html);
 }
 
 function buildCollaborationEmail(payload: CollaborationNotificationPayload): {
