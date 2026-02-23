@@ -15,13 +15,6 @@ import type {
 } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 
-// 全ユーザーのメールアドレスを収集する
-async function getCustomerRecipients(): Promise<string[]> {
-  const users = await db.user
-    .findMany({ select: { email: true } })
-    .catch(() => [] as { email: string | null }[]);
-  return users.map((u) => u.email).filter((e): e is string => !!e);
-}
 
 // ---------------------------------------------------------------
 // 新規顧客を登録する
@@ -134,25 +127,15 @@ export async function createCustomer(
   const capturedIndustry = industry;
   const capturedStaff = staffName;
   after(async () => {
-    const users = await db.user
-      .findMany({ select: { email: true } })
-      .catch(() => [] as { email: string | null }[]);
-    const userEmails = users
-      .map((u) => u.email)
-      .filter((e): e is string => !!e);
-
-    await sendCustomerNotification(
-      {
-        eventType: "CUSTOMER_CREATED",
-        customerId: capturedId,
-        customerName: capturedName,
-        contactName: capturedContact,
-        prefecture: capturedPref,
-        industry: capturedIndustry,
-        staffName: capturedStaff,
-      },
-      userEmails
-    );
+    await sendCustomerNotification({
+      eventType: "CUSTOMER_CREATED",
+      customerId: capturedId,
+      customerName: capturedName,
+      contactName: capturedContact,
+      prefecture: capturedPref,
+      industry: capturedIndustry,
+      staffName: capturedStaff,
+    });
   });
 
   redirect(`/dashboard/customers/${customerId}`);
@@ -365,20 +348,16 @@ export async function updateCustomer(
     const capturedStaff    = staffName;
     const capturedCount    = changedFields.length;
     after(async () => {
-      const recipients = await getCustomerRecipients();
-      await sendCustomerNotification(
-        {
-          eventType:    "CUSTOMER_UPDATED",
-          customerId:   capturedId,
-          customerName: capturedName,
-          contactName:  capturedContact,
-          prefecture:   capturedPref,
-          industry:     capturedIndustry,
-          staffName:    capturedStaff,
-          changedCount: capturedCount,
-        },
-        recipients
-      );
+      await sendCustomerNotification({
+        eventType:    "CUSTOMER_UPDATED",
+        customerId:   capturedId,
+        customerName: capturedName,
+        contactName:  capturedContact,
+        prefecture:   capturedPref,
+        industry:     capturedIndustry,
+        staffName:    capturedStaff,
+        changedCount: capturedCount,
+      });
     });
   }
 

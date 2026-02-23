@@ -2,10 +2,12 @@
 
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import { uploadGroupSyncFile } from "@/lib/storage";
+import { sendCollaborationNotification } from "@/lib/notifications";
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -70,24 +72,52 @@ export async function createCollaborationRequest(
     attachmentUrl = await uploadGroupSyncFile(file);
   }
 
+  let requestId: string;
+  let branchName: string | null = null;
   try {
-    await db.groupCollaborationRequest.create({
-      data: {
-        counterpartName,
-        requestType:  requestType as Prisma.GroupCollaborationRequestCreateInput["requestType"],
-        budget,
-        description,
-        desiredDate,
-        attachmentUrl,
-        projectId:    projectId || null,
-        branchId:     info.branchId || null,
-        createdById:  info.userId,
-      },
-    });
+    const [request, branch] = await Promise.all([
+      db.groupCollaborationRequest.create({
+        data: {
+          counterpartName,
+          requestType:  requestType as Prisma.GroupCollaborationRequestCreateInput["requestType"],
+          budget,
+          description,
+          desiredDate,
+          attachmentUrl,
+          projectId:    projectId || null,
+          branchId:     info.branchId || null,
+          createdById:  info.userId,
+        },
+      }),
+      info.branchId
+        ? db.branch.findUnique({ where: { id: info.branchId }, select: { name: true } })
+        : Promise.resolve(null),
+    ]);
+    requestId = request.id;
+    branchName = branch?.name ?? null;
   } catch (e) {
     console.error("[createCollaborationRequest] DB error:", e instanceof Error ? e.message : e);
     return { error: "保存に失敗しました" };
   }
+
+  // 通知（after: レスポンス送信後に非同期実行）
+  const capturedId            = requestId;
+  const capturedCounterpart   = counterpartName;
+  const capturedType          = requestType;
+  const capturedDesc          = description;
+  const capturedStaff         = info.staffName;
+  const capturedBranch        = branchName;
+  after(async () => {
+    await sendCollaborationNotification({
+      eventType:       "COLLABORATION_CREATED",
+      requestId:       capturedId,
+      counterpartName: capturedCounterpart,
+      requestType:     capturedType,
+      description:     capturedDesc,
+      staffName:       capturedStaff,
+      branchName:      capturedBranch,
+    });
+  });
 
   revalidatePath("/dashboard/group-sync");
   redirect("/dashboard/group-sync");

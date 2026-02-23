@@ -1,14 +1,21 @@
 // ---------------------------------------------------------------
 // 通知ユーティリティ — Resend によるメール送信
 //
-// 必要な環境変数:
-//   RESEND_API_KEY        : Resend の API キー
-//   NOTIFICATION_EMAIL_TO : フォールバック送信先（DB にユーザーが 0 件の場合に使用）
+// 【宛先環境変数（Railway Variables に設定）】
+//   EMAIL_ALL      : 全メンバー向けアドレス（カンマ区切り）
+//   EMAIL_CEO      : 白川専用（全通知を受信）
+//   EMAIL_SELECTED : 選抜メンバー向け（グループ連携依頼）
+//   RESEND_API_KEY : Resend の API キー
+//
+// 【振り分けルール】
+//   顧客管理・商談管理（作成・更新）   → EMAIL_ALL + EMAIL_CEO
+//   請求依頼・見積・売上報告・媒体依頼 → EMAIL_CEO のみ
+//   グループ連携依頼                   → EMAIL_CEO + EMAIL_SELECTED
 //
 // ⚠️ 送信元について:
 //   現在は onboarding@resend.dev（テスト用）を使用中。
 //   本番運用時は adarch.co.jp を resend.com/domains で認証し、
-//   FROM_ADDRESS を "Ad-Arch OS <pm@adarch.co.jp>" に戻してください。
+//   FROM_ADDRESS を "Ad-Arch OS <pm@adarch.co.jp>" に変更してください。
 // ---------------------------------------------------------------
 
 import { Resend } from "resend";
@@ -26,6 +33,33 @@ function appUrl(path: string): string {
 /** 後方互換エイリアス */
 function dealUrl(dealId: string): string {
   return appUrl(`/dashboard/deals/${dealId}`);
+}
+
+// ---------------------------------------------------------------
+// 宛先解決ロジック（一元管理）
+// ---------------------------------------------------------------
+type NotificationTier = "all_and_ceo" | "ceo_only" | "ceo_and_selected";
+
+/**
+ * 通知ティアに応じて送信先メールアドレスを解決する。
+ * 未設定の環境変数は無視し、設定済みの宛先のみ返す（重複排除）。
+ */
+function resolveRecipients(tier: NotificationTier): string[] {
+  const parse = (val: string | undefined) =>
+    (val ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+
+  const all      = parse(process.env.EMAIL_ALL);
+  const ceo      = parse(process.env.EMAIL_CEO);
+  const selected = parse(process.env.EMAIL_SELECTED);
+
+  let addrs: string[];
+  switch (tier) {
+    case "all_and_ceo":      addrs = [...all, ...ceo];      break;
+    case "ceo_only":         addrs = ceo;                   break;
+    case "ceo_and_selected": addrs = [...ceo, ...selected]; break;
+  }
+
+  return [...new Set(addrs)];
 }
 
 // ---------------------------------------------------------------
@@ -84,45 +118,25 @@ const LOG_TYPE_LABELS: Record<string, string> = {
 // ---------------------------------------------------------------
 /**
  * 商談に関するメール通知を一斉送信する。
- *
- * @param payload    - 送信内容
- * @param userEmails - DB から取得した全ユーザーのメールアドレス配列。
- *                     空の場合は NOTIFICATION_EMAIL_TO にフォールバック。
+ * 宛先: EMAIL_ALL + EMAIL_CEO
  */
 export async function sendDealNotification(
-  payload: DealNotificationPayload,
-  userEmails: string[]
+  payload: DealNotificationPayload
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-  const envTo  = process.env.NOTIFICATION_EMAIL_TO;
-
   if (!apiKey) return;
 
-  // DB アドレス + フォールバックをマージして重複排除
-  const fallback = (envTo ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const to = [...new Set([...userEmails, ...fallback])].filter(Boolean);
-
+  const to = resolveRecipients("all_and_ceo");
   if (to.length === 0) return;
 
   const { subject, html } = buildEmail(payload);
 
   try {
     const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to,
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[notifications] Resend error:", error);
-    }
+    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
+    if (error) console.error("[notifications] Resend error (deal):", error);
   } catch (e) {
-    console.error("[notifications] Failed to send email:", e);
+    console.error("[notifications] Failed to send deal email:", e);
   }
 }
 
@@ -299,47 +313,29 @@ export type InvoiceNotificationPayload = {
   creatorEmail: string;  // 作成者本人（追加通知先）
 };
 
-const INVOICE_ADMIN_EMAIL = "hiroki.shirakawa@adarch.co.jp";
-
 /**
- * 請求依頼の作成・更新を以下の2宛先に通知する:
- *   1. 管理者 (hiroki.shirakawa@adarch.co.jp)
- *   2. 作成者本人 (creatorEmail)
- * 同一メールアドレスの場合は重複排除して1通のみ送信する。
+ * 請求依頼の作成・更新を通知する。
+ * 宛先: EMAIL_CEO のみ
  */
 export async function sendInvoiceNotification(
   payload: InvoiceNotificationPayload
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.warn("[notifications] RESEND_API_KEY が設定されていません。請求依頼通知をスキップします。");
-    return;
-  }
+  if (!apiKey) return;
 
-  const to = [...new Set([INVOICE_ADMIN_EMAIL, payload.creatorEmail].filter(Boolean))];
+  const to = resolveRecipients("ceo_only");
+  if (to.length === 0) return;
+
   const eventLabel =
     payload.eventType === "INVOICE_CREATED"   ? "新規申請" :
     payload.eventType === "INVOICE_SUBMITTED" ? "提出済み更新" : "更新";
-
-  console.log(
-    `[notifications] 請求依頼通知（白川さん + 登録者）: ${to.join(", ")} 宛に送信を試行中… [${eventLabel}: ${payload.subject}]`
-  );
 
   const { subject: mailSubject, html } = buildInvoiceEmail(payload, eventLabel);
 
   try {
     const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to,
-      subject: mailSubject,
-      html,
-    });
-    if (error) {
-      console.error("[notifications] Resend error (invoice):", error);
-    } else {
-      console.log(`[notifications] 請求依頼通知: ${to.join(", ")} 宛への送信が完了しました。`);
-    }
+    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject: mailSubject, html });
+    if (error) console.error("[notifications] Resend error (invoice):", error);
   } catch (e) {
     console.error("[notifications] Failed to send invoice email:", e);
   }
@@ -435,7 +431,7 @@ function buildInvoiceEmail(
 }
 
 // ---------------------------------------------------------------
-// 売上報告通知（送信先: 白川さん固定）
+// 売上報告通知（送信先: EMAIL_CEO）
 // ---------------------------------------------------------------
 export type RevenueNotificationPayload = {
   eventType: "REVENUE_CREATED" | "REVENUE_UPDATED";
@@ -446,39 +442,25 @@ export type RevenueNotificationPayload = {
   staffName: string;
 };
 
-const REVENUE_NOTIFICATION_TO = "hiroki.shirakawa@adarch.co.jp";
-
 /**
- * 売上報告の作成・更新を白川さん（hiroki.shirakawa@adarch.co.jp）に通知する。
- * 送信先は固定。DB ユーザー一覧や環境変数には依存しない。
+ * 売上報告の作成・更新を通知する。
+ * 宛先: EMAIL_CEO のみ
  */
 export async function sendRevenueNotification(
   payload: RevenueNotificationPayload
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.warn("[notifications] RESEND_API_KEY が設定されていません。売上報告通知をスキップします。");
-    return;
-  }
+  if (!apiKey) return;
+
+  const to = resolveRecipients("ceo_only");
+  if (to.length === 0) return;
 
   const { subject, html } = buildRevenueEmail(payload);
-  const eventLabel = payload.eventType === "REVENUE_CREATED" ? "新規作成" : "更新";
-
-  console.log(`[notifications] 売上報告通知: 白川さん宛（${REVENUE_NOTIFICATION_TO}）に送信を試行中… [${eventLabel}]`);
 
   try {
     const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [REVENUE_NOTIFICATION_TO],
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[notifications] Resend error (revenue):", error);
-    } else {
-      console.log(`[notifications] 売上報告通知: 白川さん宛への送信が完了しました。`);
-    }
+    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
+    if (error) console.error("[notifications] Resend error (revenue):", error);
   } catch (e) {
     console.error("[notifications] Failed to send revenue email:", e);
   }
@@ -586,44 +568,25 @@ export type EstimateNotificationPayload = {
   staffEmail:    string;        // 担当者メールアドレス（送信先に追加）
 };
 
-const ESTIMATE_ADMIN_EMAIL = "hiroki.shirakawa@adarch.co.jp";
-
 /**
- * 見積発行時に以下の2宛先へ通知する:
- *   1. 管理者 (hiroki.shirakawa@adarch.co.jp)
- *   2. 担当者本人 (staffEmail)
- * 同一アドレスの場合は重複排除して1通のみ送信する。
+ * 見積発行時に通知する。
+ * 宛先: EMAIL_CEO のみ
  */
 export async function sendEstimateNotification(
   payload: EstimateNotificationPayload
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.warn("[notifications] RESEND_API_KEY が設定されていません。見積通知をスキップします。");
-    return;
-  }
+  if (!apiKey) return;
 
-  const to = [...new Set([ESTIMATE_ADMIN_EMAIL, payload.staffEmail].filter(Boolean))];
-
-  console.log(
-    `[notifications] 見積発行通知: ${to.join(", ")} 宛に送信を試行中… [${payload.title}]`
-  );
+  const to = resolveRecipients("ceo_only");
+  if (to.length === 0) return;
 
   const { subject, html } = buildEstimateEmail(payload);
 
   try {
     const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to,
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[notifications] Resend error (estimate):", error);
-    } else {
-      console.log(`[notifications] 見積発行通知: ${to.join(", ")} 宛への送信が完了しました。`);
-    }
+    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
+    if (error) console.error("[notifications] Resend error (estimate):", error);
   } catch (e) {
     console.error("[notifications] Failed to send estimate email:", e);
   }
@@ -732,39 +695,25 @@ export type MediaRequestNotificationPayload = {
   staffName:      string;
 };
 
-const MEDIA_NOTIFICATION_TO = "hiroki.shirakawa@adarch.co.jp";
-
 /**
- * 媒体依頼の新規申請を白川さん（hiroki.shirakawa@adarch.co.jp）に通知する。
+ * 媒体依頼の新規申請を通知する。
+ * 宛先: EMAIL_CEO のみ
  */
 export async function sendMediaRequestNotification(
   payload: MediaRequestNotificationPayload
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.warn("[notifications] RESEND_API_KEY が設定されていません。媒体依頼通知をスキップします。");
-    return;
-  }
+  if (!apiKey) return;
+
+  const to = resolveRecipients("ceo_only");
+  if (to.length === 0) return;
 
   const { subject, html } = buildMediaRequestEmail(payload);
 
-  console.log(
-    `[notifications] 媒体依頼通知: ${MEDIA_NOTIFICATION_TO} 宛に送信を試行中… [${payload.mediaTypeLabel} / ${payload.mediaName}]`
-  );
-
   try {
     const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [MEDIA_NOTIFICATION_TO],
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[notifications] Resend error (media):", error);
-    } else {
-      console.log(`[notifications] 媒体依頼通知: ${MEDIA_NOTIFICATION_TO} 宛への送信が完了しました。`);
-    }
+    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
+    if (error) console.error("[notifications] Resend error (media):", error);
   } catch (e) {
     console.error("[notifications] Failed to send media email:", e);
   }
@@ -884,38 +833,23 @@ export type CustomerNotificationPayload =
 
 /**
  * 顧客管理に関するメール通知を一斉送信する。
- * ロジックは sendDealNotification と同じ（送信先解決 → Resend）。
+ * 宛先: EMAIL_ALL + EMAIL_CEO
  */
 export async function sendCustomerNotification(
-  payload: CustomerNotificationPayload,
-  userEmails: string[]
+  payload: CustomerNotificationPayload
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-  const envTo  = process.env.NOTIFICATION_EMAIL_TO;
-
   if (!apiKey) return;
 
-  const fallback = (envTo ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const to = [...new Set([...userEmails, ...fallback])].filter(Boolean);
+  const to = resolveRecipients("all_and_ceo");
   if (to.length === 0) return;
 
   const { subject, html } = buildCustomerEmail(payload);
 
   try {
     const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to,
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[notifications] Resend error (customer):", error);
-    }
+    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
+    if (error) console.error("[notifications] Resend error (customer):", error);
   } catch (e) {
     console.error("[notifications] Failed to send customer email:", e);
   }
@@ -1011,6 +945,108 @@ function buildCustomerEmail(payload: CustomerNotificationPayload): {
           </td>
         </tr>
 
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject, html };
+}
+
+// ---------------------------------------------------------------
+// グループ連携依頼通知（送信先: EMAIL_CEO + EMAIL_SELECTED）
+// ---------------------------------------------------------------
+export type CollaborationNotificationPayload = {
+  eventType: "COLLABORATION_CREATED";
+  requestId: string;
+  counterpartName: string;
+  requestType: string;
+  description: string;
+  staffName: string;
+  branchName: string | null;
+};
+
+/**
+ * グループ連携依頼の新規申請を通知する。
+ * 宛先: EMAIL_CEO + EMAIL_SELECTED
+ */
+export async function sendCollaborationNotification(
+  payload: CollaborationNotificationPayload
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  const to = resolveRecipients("ceo_and_selected");
+  if (to.length === 0) return;
+
+  const { subject, html } = buildCollaborationEmail(payload);
+
+  try {
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
+    if (error) console.error("[notifications] Resend error (collaboration):", error);
+  } catch (e) {
+    console.error("[notifications] Failed to send collaboration email:", e);
+  }
+}
+
+function buildCollaborationEmail(payload: CollaborationNotificationPayload): {
+  subject: string;
+  html: string;
+} {
+  const { requestId, counterpartName, requestType, description, staffName, branchName } = payload;
+  const url     = appUrl(`/dashboard/group-sync/${requestId}`);
+  const subject = `【アドアーチOS】グループ連携依頼：${requestType} / ${counterpartName}`;
+  const snippet = description.length > 120 ? description.slice(0, 120) + "…" : description;
+
+  const rows = [
+    ["連携先代表", counterpartName],
+    ["依頼種別",   requestType],
+    ["依頼内容",   snippet],
+    ["申請者",     staffName],
+    ["拠点",       branchName ?? "—"],
+  ]
+    .map(
+      ([label, value]) => `
+      <tr>
+        <th style="${thStyle}">${escHtml(label)}</th>
+        <td style="${tdStyle}">${escHtml(value)}</td>
+      </tr>`
+    )
+    .join("");
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:#0f766e;padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.3px;">Ad-Arch OS</span>
+            <span style="color:#99f6e4;font-size:13px;margin-left:8px;">グループ連携依頼通知</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;">グループ連携依頼が申請されました。内容をご確認ください。</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+              ${rows}
+            </table>
+            <div style="margin-top:24px;text-align:center;">
+              <a href="${url}" style="display:inline-block;padding:11px 28px;background:#0f766e;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">依頼の詳細を開く →</a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f4f4f5;padding:16px 28px;border-top:1px solid #e4e4e7;">
+            <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">このメールは Ad-Arch Group OS から自動送信されています。<br />心当たりのない場合はシステム管理者にご連絡ください。</p>
+          </td>
+        </tr>
       </table>
     </td></tr>
   </table>

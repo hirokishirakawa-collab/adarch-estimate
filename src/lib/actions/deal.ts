@@ -15,18 +15,6 @@ import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 // 共通ユーティリティ
 // ---------------------------------------------------------------
 
-/**
- * 商談通知の送信先メールアドレスを収集する。
- * DB の全ユーザーアドレスを返す（0件なら空配列）。
- * フォールバック（NOTIFICATION_EMAIL_TO）は notifications.ts 側でマージされる。
- */
-async function getDealRecipients(): Promise<string[]> {
-  const users = await db.user
-    .findMany({ select: { email: true } })
-    .catch(() => [] as { email: string | null }[]);
-  return users.map((u) => u.email).filter((e): e is string => !!e);
-}
-
 async function getSessionInfo() {
   const session = await auth();
   if (!session?.user) return null;
@@ -108,7 +96,6 @@ export async function createDeal(
   after(async () => {
     const statusLabel =
       DEAL_STATUS_OPTIONS.find((o) => o.value === capturedStatus)?.label ?? capturedStatus;
-    const recipients = await getDealRecipients();
     await sendDealNotification(
       {
         eventType: "DEAL_CREATED",
@@ -118,8 +105,7 @@ export async function createDeal(
         statusLabel,
         amount:       capturedAmount,
         staffName:    capturedStaffName,
-      },
-      recipients
+      }
     );
   });
 
@@ -161,19 +147,15 @@ export async function updateDealStatus(
     const captured = deal;
     const capturedInfo = info;
     after(async () => {
-      const recipients = await getDealRecipients();
-      await sendDealNotification(
-        {
-          eventType: "STATUS_CHANGED",
-          dealId,
-          customerName: captured.customer.name,
-          dealTitle: captured.title,
-          assigneeName: captured.assignedTo?.name ?? null,
-          statusLabel,
-          staffName: capturedInfo.staffName,
-        },
-        recipients
-      );
+      await sendDealNotification({
+        eventType: "STATUS_CHANGED",
+        dealId,
+        customerName: captured.customer.name,
+        dealTitle: captured.title,
+        assigneeName: captured.assignedTo?.name ?? null,
+        statusLabel,
+        staffName: capturedInfo.staffName,
+      });
     });
   }
 
@@ -239,7 +221,6 @@ export async function updateDeal(
   after(async () => {
     const statusLabel =
       DEAL_STATUS_OPTIONS.find((o) => o.value === capturedStatus)?.label ?? capturedStatus;
-    const recipients = await getDealRecipients();
     await sendDealNotification(
       {
         eventType: "DEAL_UPDATED",
@@ -248,8 +229,7 @@ export async function updateDeal(
         dealTitle:    capturedTitle,
         statusLabel,
         staffName:    capturedStaffName,
-      },
-      recipients
+      }
     );
   });
 
@@ -297,31 +277,25 @@ export async function createDealLog(
   const capturedType = type;
   const capturedStaffName = staffName;
   after(async () => {
-    const [deal, recipients] = await Promise.all([
-      db.deal.findUnique({
-        where: { id: dealId },
-        select: {
-          title: true,
-          customer: { select: { name: true } },
-          assignedTo: { select: { name: true } },
-        },
-      }),
-      getDealRecipients(),
-    ]);
-    if (!deal) return;
-    await sendDealNotification(
-      {
-        eventType: "LOG_ADDED",
-        dealId,
-        customerName: deal.customer.name,
-        dealTitle: deal.title,
-        assigneeName: deal.assignedTo?.name ?? null,
-        logContent: capturedContent,
-        logType: capturedType,
-        staffName: capturedStaffName,
+    const deal = await db.deal.findUnique({
+      where: { id: dealId },
+      select: {
+        title: true,
+        customer: { select: { name: true } },
+        assignedTo: { select: { name: true } },
       },
-      recipients
-    );
+    });
+    if (!deal) return;
+    await sendDealNotification({
+      eventType: "LOG_ADDED",
+      dealId,
+      customerName: deal.customer.name,
+      dealTitle: deal.title,
+      assigneeName: deal.assignedTo?.name ?? null,
+      logContent: capturedContent,
+      logType: capturedType,
+      staffName: capturedStaffName,
+    });
   });
 
   revalidatePath(`/dashboard/deals/${dealId}`);
