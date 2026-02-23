@@ -76,8 +76,19 @@ function resolveRecipients(tier: NotificationTier): string[] {
 }
 
 // ---------------------------------------------------------------
-// 共通メール送信ヘルパー（1件ずつ個別送信）
+// 共通メール送信ヘルパー（1件ずつ個別送信・詳細ログ・フォールバック付き）
 // ---------------------------------------------------------------
+
+/** ドメイン認証エラーかどうかを判定するキーワード */
+const DOMAIN_ERROR_KEYWORDS = [
+  "domain",
+  "verified",
+  "validation_error",
+  "from address",
+  "testing emails",
+  "verify a domain",
+];
+
 async function sendEmail(
   tag: string,
   to: string[],
@@ -86,60 +97,113 @@ async function sendEmail(
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
 
+  // ① API キーの存在確認（先頭8文字＋文字数だけ表示）
   if (!apiKey) {
-    console.warn(`[notifications:${tag}] RESEND_API_KEY 未設定 → スキップ`);
+    console.error(`[notifications:${tag}] ❌ RESEND_API_KEY が未設定です → 送信スキップ`);
     return;
   }
+  const maskedKey = `${apiKey.slice(0, 8)}...(${apiKey.length}文字)`;
+  console.log(`[notifications:${tag}] ✅ RESEND_API_KEY 確認: ${maskedKey}`);
+
+  // ② 宛先ゼロ件チェック
   if (to.length === 0) {
     console.warn(
-      `[notifications:${tag}] 宛先が0件 → スキップ` +
+      `[notifications:${tag}] ⚠️ 宛先が0件 → スキップ` +
       `（EMAIL_ALL / EMAIL_CEO / EMAIL_SELECTED が Railway Variables に設定されているか確認してください）`
     );
     return;
   }
 
   console.log(
-    `[notifications:${tag}] 送信開始 from="${FROM_ADDRESS}" 宛先${to.length}件 subject="${subject}"`
+    `[notifications:${tag}] 📤 送信開始 from="${FROM_ADDRESS}" 宛先${to.length}件 subject="${subject}"`
   );
 
   const resend = new Resend(apiKey);
+  // ドメイン認証エラー時のフォールバック送信元（Resend テスト用・アカウントオーナー宛のみ届く）
+  const FALLBACK_FROM = "Ad-Arch Group <onboarding@resend.dev>";
 
-  // 宛先ごとに個別送信（Resend の一括送信制限を回避し、部分失敗を個別に追跡）
+  // ③ 宛先ごとに個別送信
   for (const addr of to) {
+    let fromAddr = FROM_ADDRESS;
+
+    // --- 1st attempt ---
     try {
-      const { data, error } = await resend.emails.send({
-        from: FROM_ADDRESS,
+      console.log(`[notifications:${tag}]   → 送信試行 from="${fromAddr}" to="${addr}"`);
+
+      const result = await resend.emails.send({
+        from: fromAddr,
         to:   [addr],
         subject,
         html,
       });
 
+      // レスポンス全体をそのまま出力（成功・失敗問わず）
+      console.log(
+        `[notifications:${tag}]   Resend レスポンス (to=${addr}):`,
+        JSON.stringify(result)
+      );
+
+      const { data, error } = result;
+
       if (error) {
-        const raw = JSON.stringify(error);
-        // ドメイン認証・送信元アドレス起因のエラーを明示
-        if (
-          raw.includes("domain") ||
-          raw.includes("verified") ||
-          raw.includes("validation_error") ||
-          raw.includes("from address")
-        ) {
+        const raw     = JSON.stringify(error);
+        const status  = (error as { statusCode?: number }).statusCode ?? "不明";
+        const isDomainError =
+          DOMAIN_ERROR_KEYWORDS.some((kw) => raw.toLowerCase().includes(kw)) ||
+          status === 403;
+
+        if (isDomainError) {
+          // ドメイン認証エラー → フォールバック送信元でリトライ
           console.error(
-            `[notifications:${tag}] ドメイン認証／送信元エラー (to=${addr}): ${raw}` +
-            ` ← FROM="${FROM_ADDRESS}" を確認してください（resend.com/domains で認証済みか）`
+            `[notifications:${tag}]   ❌ ドメイン認証エラー HTTP ${status} (to=${addr})\n` +
+            `     FROM="${fromAddr}"\n` +
+            `     エラー内容: ${raw}\n` +
+            `     → フォールバック "${FALLBACK_FROM}" でリトライします`
           );
+          fromAddr = FALLBACK_FROM;
+
+          // --- 2nd attempt (fallback) ---
+          const retry = await resend.emails.send({
+            from: fromAddr,
+            to:   [addr],
+            subject,
+            html,
+          });
+          console.log(
+            `[notifications:${tag}]   フォールバック Resend レスポンス (to=${addr}):`,
+            JSON.stringify(retry)
+          );
+          if (retry.error) {
+            console.error(
+              `[notifications:${tag}]   ❌ フォールバックも失敗 HTTP ${
+                (retry.error as { statusCode?: number }).statusCode ?? "不明"
+              } (to=${addr}): ${JSON.stringify(retry.error)}`
+            );
+          } else {
+            console.log(
+              `[notifications:${tag}]   ✅ フォールバック送信成功 to=${addr} Resend id=${retry.data?.id}`
+            );
+          }
         } else {
-          console.error(`[notifications:${tag}] Resend エラー (to=${addr}): ${raw}`);
+          // その他のエラー（認証失敗・不正アドレスなど）
+          console.error(
+            `[notifications:${tag}]   ❌ Resend エラー HTTP ${status} (to=${addr}): ${raw}`
+          );
         }
       } else {
-        console.log(`[notifications:${tag}] 送信成功 ✓ to=${addr} Resend id=${data?.id}`);
+        console.log(
+          `[notifications:${tag}]   ✅ 送信成功 to=${addr} Resend id=${data?.id}`
+        );
       }
     } catch (e) {
       console.error(
-        `[notifications:${tag}] 送信例外 (to=${addr}):`,
+        `[notifications:${tag}]   ❌ 送信例外 (to=${addr}):`,
         e instanceof Error ? e.message : String(e)
       );
     }
   }
+
+  console.log(`[notifications:${tag}] 📬 全宛先の送信処理が完了しました`);
 }
 
 // ---------------------------------------------------------------
