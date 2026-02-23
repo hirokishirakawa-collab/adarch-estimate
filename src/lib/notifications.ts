@@ -1,12 +1,11 @@
 // ---------------------------------------------------------------
-// 通知ユーティリティ — Gmail SMTP（Google Workspace）によるメール送信
+// 通知ユーティリティ — Resend によるメール送信
 //
 // 【環境変数（Railway Variables に設定）】
-//   GMAIL_USER         : 送信元 Gmail アドレス（例: hiroki.shirakawa@adarch.co.jp）
-//   GMAIL_APP_PASSWORD : Google アカウントのアプリパスワード（16文字）
-//   EMAIL_ALL          : 全メンバー向けアドレス（カンマ区切り）
-//   EMAIL_CEO          : 白川専用（全通知を受信）
-//   EMAIL_SELECTED     : 選抜メンバー向け（グループ連携依頼）
+//   RESEND_API_KEY : Resend の API キー
+//   EMAIL_ALL      : 全メンバー向けアドレス（カンマ区切り）
+//   EMAIL_CEO      : 白川専用（全通知を受信）
+//   EMAIL_SELECTED : 選抜メンバー向け（グループ連携依頼）
 //
 // 【振り分けルール】
 //   顧客管理・商談管理（作成・更新）   → EMAIL_ALL + EMAIL_CEO
@@ -14,7 +13,10 @@
 //   グループ連携依頼                   → EMAIL_CEO + EMAIL_SELECTED
 // ---------------------------------------------------------------
 
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
+
+const FROM_ADDRESS = "Ad-Arch Group <system@adarch.co.jp>";
+const FALLBACK_FROM = "Ad-Arch Group <onboarding@resend.dev>";
 
 /** 絶対 URL を生成する */
 function appUrl(path: string): string {
@@ -70,7 +72,7 @@ function resolveRecipients(tier: NotificationTier): string[] {
 }
 
 // ---------------------------------------------------------------
-// 共通メール送信ヘルパー（Gmail SMTP・1件ずつ個別送信）
+// 共通メール送信ヘルパー（Resend・1件ずつ個別送信）
 // ---------------------------------------------------------------
 async function sendEmail(
   tag: string,
@@ -78,68 +80,63 @@ async function sendEmail(
   subject: string,
   html: string
 ): Promise<void> {
-  const gmailUser = process.env.GMAIL_USER;
-  const gmailPass = process.env.GMAIL_APP_PASSWORD;
-
-  // ① 認証情報の確認（デバッグ: 変数の存在と長さを出力）
-  console.log(
-    `[notifications:${tag}] ENV GMAIL_USER=${gmailUser ? `"${gmailUser}"(${gmailUser.length}文字)` : "undefined"}`,
-    `GMAIL_APP_PASSWORD=${gmailPass ? `set(${gmailPass.length}文字)` : "undefined"}`
-  );
-  if (!gmailUser || !gmailPass) {
-    console.error(
-      `[notifications:${tag}] ❌ GMAIL_USER または GMAIL_APP_PASSWORD が未設定 → スキップ`
-    );
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.error(`[notifications:${tag}] ❌ RESEND_API_KEY 未設定 → スキップ`);
     return;
   }
-  console.log(`[notifications:${tag}] ✅ Gmail 認証情報確認 user=${gmailUser}`);
-
-  // ② 宛先ゼロ件チェック
   if (to.length === 0) {
-    console.warn(
-      `[notifications:${tag}] ⚠️ 宛先が0件 → スキップ` +
-      `（EMAIL_ALL / EMAIL_CEO / EMAIL_SELECTED が Railway Variables に設定されているか確認してください）`
-    );
+    console.warn(`[notifications:${tag}] ⚠️ 宛先が0件 → スキップ`);
     return;
   }
 
-  const fromAddress = `Ad-Arch Group <${gmailUser}>`;
   console.log(
-    `[notifications:${tag}] 📤 送信開始 from="${fromAddress}" 宛先${to.length}件 subject="${subject}"`
+    `[notifications:${tag}] 📤 送信開始 from="${FROM_ADDRESS}" 宛先${to.length}件 subject="${subject}"`
   );
 
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,           // STARTTLS（465/SSL より広く開放されている）
-    requireTLS: true,
-    connectionTimeout: 10000, // 接続タイムアウト 10秒
-    greetingTimeout:  10000,
-    socketTimeout:    15000,
-    auth: { user: gmailUser, pass: gmailPass },
-  });
+  const resend = new Resend(apiKey);
 
-  // ③ 宛先ごとに個別送信
   for (const addr of to) {
     try {
       console.log(`[notifications:${tag}]   → 送信試行 to="${addr}"`);
-      const info = await transporter.sendMail({
-        from: fromAddress,
-        to:   addr,
+      const { data, error } = await resend.emails.send({
+        from: FROM_ADDRESS,
+        to:   [addr],
         subject,
         html,
       });
-      console.log(
-        `[notifications:${tag}]   ✅ 送信成功 to=${addr} messageId=${info.messageId}`
-      );
+
+      if (error) {
+        const raw    = JSON.stringify(error);
+        const status = (error as { statusCode?: number }).statusCode;
+
+        // ドメイン未認証エラー → フォールバック送信元で再試行
+        if (status === 403 || raw.includes("not verified") || raw.includes("testing emails")) {
+          console.warn(`[notifications:${tag}]   ⚠️ ドメイン未認証 → フォールバックで再試行 (to=${addr})`);
+          const retry = await resend.emails.send({
+            from: FALLBACK_FROM,
+            to:   [addr],
+            subject,
+            html,
+          });
+          if (retry.error) {
+            console.error(`[notifications:${tag}]   ❌ フォールバック失敗 (to=${addr}): ${JSON.stringify(retry.error)}`);
+          } else {
+            console.log(`[notifications:${tag}]   ✅ フォールバック成功 to=${addr} id=${retry.data?.id}`);
+          }
+        } else {
+          console.error(`[notifications:${tag}]   ❌ 送信エラー (to=${addr}): ${raw}`);
+        }
+      } else {
+        console.log(`[notifications:${tag}]   ✅ 送信成功 to=${addr} id=${data?.id}`);
+      }
     } catch (e) {
       console.error(
-        `[notifications:${tag}]   ❌ 送信失敗 (to=${addr}):`,
+        `[notifications:${tag}]   ❌ 送信例外 (to=${addr}):`,
         e instanceof Error ? e.message : String(e)
       );
     }
 
-    // 送信レート制限: 1通ずつ 1秒以上の間隔を確保
     await new Promise((r) => setTimeout(r, 1000));
   }
 
