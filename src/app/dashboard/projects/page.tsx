@@ -40,7 +40,7 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
     db.project.findMany({
       where,
       include: { customer: { select: { id: true, name: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),

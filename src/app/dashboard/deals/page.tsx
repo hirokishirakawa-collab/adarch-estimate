@@ -58,7 +58,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
       customer: { select: { id: true, name: true, prefecture: true } },
       assignedTo: { select: { name: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { updatedAt: "desc" },
   });
 
   const totalAmount = deals.reduce((sum, d) => sum + (d.amount ? Number(d.amount) : 0), 0);

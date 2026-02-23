@@ -365,6 +365,76 @@ export async function updateCustomer(
 }
 
 // ---------------------------------------------------------------
+// 顧客をロックする（営業担当に設定 / 30日間）
+// ---------------------------------------------------------------
+export async function lockCustomer(
+  customerId: string
+): Promise<{ error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { error: "ログインが必要です" };
+
+  const email = session.user.email ?? "";
+  const user = await db.user.findUnique({ where: { email }, select: { id: true } });
+  if (!user) return { error: "ユーザー情報が見つかりません" };
+
+  const customer = await db.customer.findUnique({
+    where: { id: customerId },
+    select: { lockExpiresAt: true, lockedByUserId: true },
+  });
+  if (!customer) return { error: "顧客が見つかりません" };
+
+  const alreadyLocked =
+    !!customer.lockExpiresAt && customer.lockExpiresAt > new Date();
+  if (alreadyLocked && customer.lockedByUserId !== user.id) {
+    return { error: "他の担当者がロック中のため設定できません" };
+  }
+
+  const lockExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30日後
+  await db.customer.update({
+    where: { id: customerId },
+    data: { lockedByUserId: user.id, lockedAt: new Date(), lockExpiresAt },
+  });
+
+  revalidatePath(`/dashboard/customers/${customerId}`);
+  revalidatePath("/dashboard/customers");
+  return {};
+}
+
+// ---------------------------------------------------------------
+// 顧客のロックを解除する（自分のロック or ADMIN）
+// ---------------------------------------------------------------
+export async function unlockCustomer(
+  customerId: string
+): Promise<{ error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { error: "ログインが必要です" };
+
+  const role = (session.user.role ?? "MANAGER") as UserRole;
+  const email = session.user.email ?? "";
+  const user = await db.user.findUnique({ where: { email }, select: { id: true } });
+  if (!user) return { error: "ユーザー情報が見つかりません" };
+
+  const customer = await db.customer.findUnique({
+    where: { id: customerId },
+    select: { lockedByUserId: true },
+  });
+  if (!customer) return { error: "顧客が見つかりません" };
+
+  if (role !== "ADMIN" && customer.lockedByUserId !== user.id) {
+    return { error: "自分がかけたロックのみ解除できます" };
+  }
+
+  await db.customer.update({
+    where: { id: customerId },
+    data: { lockedByUserId: null, lockedAt: null, lockExpiresAt: null },
+  });
+
+  revalidatePath(`/dashboard/customers/${customerId}`);
+  revalidatePath("/dashboard/customers");
+  return {};
+}
+
+// ---------------------------------------------------------------
 // 顧客を一括削除する（ADMIN 専用）
 // ---------------------------------------------------------------
 export async function deleteCustomers(

@@ -2,7 +2,6 @@ import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  DUMMY_CUSTOMERS,
   getMockBranchId,
   maskAmount,
   BRANCH_MAP,
@@ -36,6 +35,7 @@ import {
 import { DealStatusEditor } from "@/components/customers/deal-status-editor";
 import { ActivityForm } from "@/components/customers/activity-form";
 import { ActivityTimeline } from "@/components/customers/activity-timeline";
+import { LockButton } from "@/components/customers/lock-button";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -57,9 +57,12 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const userBranchId = getMockBranchId(email, role);
   const staffName = session?.user?.name ?? session?.user?.email ?? "不明";
 
-  // DB からすべて取得（顧客・商談・活動履歴）
-  const [dbCustomer, dbDeals, activities] = await Promise.all([
-    db.customer.findUnique({ where: { id } }),
+  // DB からすべて取得（顧客・商談・活動履歴・セッションユーザー）
+  const [dbCustomer, dbDeals, activities, sessionUser] = await Promise.all([
+    db.customer.findUnique({
+      where: { id },
+      include: { lockedBy: { select: { id: true, name: true } } },
+    }),
     db.deal.findMany({
       where: { customerId: id },
       orderBy: { createdAt: "desc" },
@@ -68,6 +71,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       where: { customerId: id },
       orderBy: { createdAt: "desc" },
     }),
+    db.user.findUnique({ where: { email }, select: { id: true } }),
   ]);
 
   if (!dbCustomer) notFound();
@@ -84,8 +88,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     (o) => o.value === dbCustomer.status
   );
 
-  // 先着ロック（DUMMY_CUSTOMERS も参照して lockedByName を補完）
-  const mockCustomer = DUMMY_CUSTOMERS.find((c) => c.id === id);
+  // 先着ロック
   const isLocked =
     !!dbCustomer.lockExpiresAt && dbCustomer.lockExpiresAt > new Date();
   const lockRemaining = isLocked
@@ -96,7 +99,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         )
       )
     : 0;
-  const lockedByName = mockCustomer?.lockedByName ?? null;
+  const lockedByName = dbCustomer.lockedBy?.name ?? null;
+  const isMyLock = !!sessionUser && dbCustomer.lockedByUserId === sessionUser.id;
 
   return (
     <div className="px-6 py-6 space-y-4 max-w-4xl mx-auto w-full">
@@ -180,6 +184,12 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             {/* 右: アクションボタン群 + 活動件数 */}
             <div className="text-right flex-shrink-0 flex flex-col items-end gap-3">
               <div className="flex items-center gap-2">
+                <LockButton
+                  customerId={id}
+                  isLocked={isLocked}
+                  isMyLock={isMyLock}
+                  isAdmin={role === "ADMIN"}
+                />
                 <Link
                   href={`/dashboard/projects/new?customerId=${id}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-violet-200 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 transition-colors"

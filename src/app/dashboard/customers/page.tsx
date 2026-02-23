@@ -73,7 +73,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           deals: { orderBy: { createdAt: "desc" }, take: 1 },
           _count: { select: { deals: true } },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { updatedAt: "desc" },
         skip: (page - 1) * PER_PAGE,
         take: PER_PAGE,
       }).then((rows) =>
