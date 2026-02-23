@@ -15,6 +15,14 @@ import type {
 } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 
+// 全ユーザーのメールアドレスを収集する
+async function getCustomerRecipients(): Promise<string[]> {
+  const users = await db.user
+    .findMany({ select: { email: true } })
+    .catch(() => [] as { email: string | null }[]);
+  return users.map((u) => u.email).filter((e): e is string => !!e);
+}
+
 // ---------------------------------------------------------------
 // 新規顧客を登録する
 // ---------------------------------------------------------------
@@ -345,6 +353,33 @@ export async function updateCustomer(
       return { error: `保存失敗: ${msg}` };
     }
     return { error: "保存に失敗しました。再度お試しください" };
+  }
+
+  // 通知（変更があった場合のみ）
+  if (changedFields.length > 0) {
+    const capturedId       = customerId;
+    const capturedName     = name;
+    const capturedContact  = contactName;
+    const capturedPref     = prefecture;
+    const capturedIndustry = industry;
+    const capturedStaff    = staffName;
+    const capturedCount    = changedFields.length;
+    after(async () => {
+      const recipients = await getCustomerRecipients();
+      await sendCustomerNotification(
+        {
+          eventType:    "CUSTOMER_UPDATED",
+          customerId:   capturedId,
+          customerName: capturedName,
+          contactName:  capturedContact,
+          prefecture:   capturedPref,
+          industry:     capturedIndustry,
+          staffName:    capturedStaff,
+          changedCount: capturedCount,
+        },
+        recipients
+      );
+    });
   }
 
   redirect(`/dashboard/customers/${customerId}`);

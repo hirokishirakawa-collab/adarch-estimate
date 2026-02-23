@@ -50,6 +50,23 @@ export type DealNotificationPayload =
       logContent: string;
       logType: string;
       staffName: string;
+    }
+  | {
+      eventType: "DEAL_CREATED";
+      dealId: string;
+      customerName: string;
+      dealTitle: string;
+      statusLabel: string;
+      amount: number | null;
+      staffName: string;
+    }
+  | {
+      eventType: "DEAL_UPDATED";
+      dealId: string;
+      customerName: string;
+      dealTitle: string;
+      statusLabel: string;
+      staffName: string;
     };
 
 /** 活動タイプ → 日本語ラベル */
@@ -116,10 +133,18 @@ function buildEmail(payload: DealNotificationPayload): {
   subject: string;
   html: string;
 } {
-  const { customerName, dealTitle, assigneeName, staffName, dealId } = payload;
+  const { customerName, dealTitle, staffName, dealId } = payload;
+  const assigneeName =
+    "assigneeName" in payload ? payload.assigneeName : null;
   const url = dealUrl(dealId);
 
-  const subject = `【アドアーチOS】商談更新通知：${customerName} 様`;
+  const eventLabels: Record<string, string> = {
+    STATUS_CHANGED: "商談更新通知",
+    LOG_ADDED:      "活動記録通知",
+    DEAL_CREATED:   "新規商談登録通知",
+    DEAL_UPDATED:   "商談情報更新通知",
+  };
+  const subject = `【アドアーチOS】${eventLabels[payload.eventType] ?? "商談通知"}：${customerName} 様`;
 
   let updateRow: string;
   if (payload.eventType === "STATUS_CHANGED") {
@@ -128,7 +153,7 @@ function buildEmail(payload: DealNotificationPayload): {
         <th style="${thStyle}">更新内容</th>
         <td style="${tdStyle}">ステータス変更 → <strong>${escHtml(payload.statusLabel)}</strong></td>
       </tr>`;
-  } else {
+  } else if (payload.eventType === "LOG_ADDED") {
     const typeLabel = LOG_TYPE_LABELS[payload.logType] ?? payload.logType;
     const snippet =
       payload.logContent.length > 120
@@ -138,6 +163,23 @@ function buildEmail(payload: DealNotificationPayload): {
       <tr>
         <th style="${thStyle}">更新内容</th>
         <td style="${tdStyle}">[${escHtml(typeLabel)}] ${escHtml(snippet)}</td>
+      </tr>`;
+  } else if (payload.eventType === "DEAL_CREATED") {
+    const amountStr =
+      payload.amount != null
+        ? `¥${payload.amount.toLocaleString("ja-JP")}`
+        : "未定";
+    updateRow = `
+      <tr>
+        <th style="${thStyle}">更新内容</th>
+        <td style="${tdStyle}">新規商談を登録しました（ステータス：${escHtml(payload.statusLabel)}、金額：${escHtml(amountStr)}）</td>
+      </tr>`;
+  } else {
+    // DEAL_UPDATED
+    updateRow = `
+      <tr>
+        <th style="${thStyle}">更新内容</th>
+        <td style="${tdStyle}">商談情報を更新しました（ステータス：${escHtml(payload.statusLabel)}）</td>
       </tr>`;
   }
 
@@ -819,15 +861,26 @@ function buildMediaRequestEmail(payload: MediaRequestNotificationPayload): {
 // ---------------------------------------------------------------
 // 顧客通知
 // ---------------------------------------------------------------
-export type CustomerNotificationPayload = {
-  eventType: "CUSTOMER_CREATED";
-  customerId: string;
-  customerName: string;
-  contactName: string | null;
-  prefecture: string | null;
-  industry: string | null;
-  staffName: string;
-};
+export type CustomerNotificationPayload =
+  | {
+      eventType: "CUSTOMER_CREATED";
+      customerId: string;
+      customerName: string;
+      contactName: string | null;
+      prefecture: string | null;
+      industry: string | null;
+      staffName: string;
+    }
+  | {
+      eventType: "CUSTOMER_UPDATED";
+      customerId: string;
+      customerName: string;
+      contactName: string | null;
+      prefecture: string | null;
+      industry: string | null;
+      staffName: string;
+      changedCount: number;
+    };
 
 /**
  * 顧客管理に関するメール通知を一斉送信する。
@@ -874,14 +927,20 @@ function buildCustomerEmail(payload: CustomerNotificationPayload): {
 } {
   const { customerName, contactName, prefecture, industry, staffName, customerId } = payload;
   const url = appUrl(`/dashboard/customers/${customerId}`);
-  const subject = `【アドアーチOS】新規顧客登録：${customerName} 様`;
+  const eventLabel =
+    payload.eventType === "CUSTOMER_CREATED" ? "新規顧客登録" : "顧客情報更新";
+  const subject = `【アドアーチOS】${eventLabel}：${customerName} 様`;
 
+  const actionLabel =
+    payload.eventType === "CUSTOMER_CREATED"
+      ? "登録者"
+      : `更新者（${payload.changedCount}項目変更）`;
   const rows = [
-    ["会社名",   customerName],
-    ["担当者",   contactName ?? "—"],
-    ["都道府県", prefecture  ?? "—"],
-    ["業種",     industry    ?? "—"],
-    ["登録者",   staffName],
+    ["会社名",       customerName],
+    ["先方担当者",   contactName ?? "—"],
+    ["都道府県",     prefecture  ?? "—"],
+    ["業種",         industry    ?? "—"],
+    [actionLabel,   staffName],
   ]
     .map(
       ([label, value]) => `
@@ -891,6 +950,11 @@ function buildCustomerEmail(payload: CustomerNotificationPayload): {
       </tr>`
     )
     .join("");
+
+  const bodyText =
+    payload.eventType === "CUSTOMER_CREATED"
+      ? "新しい顧客が登録されました。"
+      : `顧客情報が更新されました（${payload.changedCount}項目）。`;
 
   const html = `
 <!DOCTYPE html>
@@ -909,7 +973,7 @@ function buildCustomerEmail(payload: CustomerNotificationPayload): {
               Ad-Arch OS
             </span>
             <span style="color:#a7f3d0;font-size:13px;margin-left:8px;">
-              新規顧客登録通知
+              ${escHtml(eventLabel)}通知
             </span>
           </td>
         </tr>
@@ -918,7 +982,7 @@ function buildCustomerEmail(payload: CustomerNotificationPayload): {
         <tr>
           <td style="padding:28px;">
             <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;">
-              新しい顧客が登録されました。
+              ${escHtml(bodyText)}
             </p>
             <table width="100%" cellpadding="0" cellspacing="0"
                    style="border-collapse:collapse;font-size:14px;">

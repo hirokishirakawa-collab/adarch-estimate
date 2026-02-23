@@ -71,27 +71,57 @@ export async function createDeal(
   }
 
   let dealId: string;
+  let customerName: string;
   try {
-    const deal = await db.deal.create({
-      data: {
-        title,
-        status: status as DealStatus,
-        amount: amount ?? null,
-        probability,
-        expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : null,
-        notes,
-        customerId,
-        branchId,
-        createdById: null,
-        assignedToId: null,
-      },
-    });
+    const [deal, customer] = await Promise.all([
+      db.deal.create({
+        data: {
+          title,
+          status: status as DealStatus,
+          amount: amount ?? null,
+          probability,
+          expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : null,
+          notes,
+          customerId,
+          branchId,
+          createdById: null,
+          assignedToId: null,
+        },
+      }),
+      db.customer.findUnique({ where: { id: customerId }, select: { name: true } }),
+    ]);
     dealId = deal.id;
+    customerName = customer?.name ?? "不明";
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[createDeal] DB error:", msg);
     return { error: process.env.NODE_ENV !== "production" ? `保存失敗: ${msg}` : "保存に失敗しました" };
   }
+
+  // 通知（after: レスポンス送信後に非同期実行）
+  const capturedDealId     = dealId;
+  const capturedCustomer   = customerName;
+  const capturedTitle      = title;
+  const capturedAmount     = amount;
+  const capturedStatus     = status;
+  const capturedStaffName  = info.staffName;
+  after(async () => {
+    const statusLabel =
+      DEAL_STATUS_OPTIONS.find((o) => o.value === capturedStatus)?.label ?? capturedStatus;
+    const recipients = await getDealRecipients();
+    await sendDealNotification(
+      {
+        eventType: "DEAL_CREATED",
+        dealId:       capturedDealId,
+        customerName: capturedCustomer,
+        dealTitle:    capturedTitle,
+        statusLabel,
+        amount:       capturedAmount,
+        staffName:    capturedStaffName,
+      },
+      recipients
+    );
+  });
 
   revalidatePath("/dashboard/deals");
   redirect(`/dashboard/deals`);
@@ -179,8 +209,9 @@ export async function updateDeal(
   if (probability !== null && (isNaN(probability) || probability < 0 || probability > 100))
     return { error: "受注確度は0〜100で入力してください" };
 
+  let customerName: string;
   try {
-    await db.deal.update({
+    const updated = await db.deal.update({
       where: { id: dealId },
       data: {
         title,
@@ -190,12 +221,37 @@ export async function updateDeal(
         expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : null,
         notes,
       },
+      select: { customer: { select: { name: true } } },
     });
+    customerName = updated.customer.name;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[updateDeal] DB error:", msg);
     return { error: process.env.NODE_ENV !== "production" ? `保存失敗: ${msg}` : "保存に失敗しました" };
   }
+
+  // 通知（after: レスポンス送信後に非同期実行）
+  const capturedDealId    = dealId;
+  const capturedCustomer  = customerName;
+  const capturedTitle     = title;
+  const capturedStatus    = status;
+  const capturedStaffName = info.staffName;
+  after(async () => {
+    const statusLabel =
+      DEAL_STATUS_OPTIONS.find((o) => o.value === capturedStatus)?.label ?? capturedStatus;
+    const recipients = await getDealRecipients();
+    await sendDealNotification(
+      {
+        eventType: "DEAL_UPDATED",
+        dealId:       capturedDealId,
+        customerName: capturedCustomer,
+        dealTitle:    capturedTitle,
+        statusLabel,
+        staffName:    capturedStaffName,
+      },
+      recipients
+    );
+  });
 
   revalidatePath("/dashboard/deals");
   revalidatePath(`/dashboard/deals/${dealId}`);
