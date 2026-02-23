@@ -201,9 +201,12 @@ async function sendEmail(
         e instanceof Error ? e.message : String(e)
       );
     }
+
+    // 送信レート制限: 1通ずつ 1秒以上の間隔を確保
+    await new Promise((r) => setTimeout(r, 1000));
   }
 
-  console.log(`[notifications:${tag}] 📬 全宛先の送信処理が完了しました`);
+  console.log("Notification process completed.");
 }
 
 // ---------------------------------------------------------------
