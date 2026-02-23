@@ -1,11 +1,14 @@
 // ---------------------------------------------------------------
-// 通知ユーティリティ — Resend によるメール送信
+// 通知ユーティリティ — Gmail API（Google OAuth2）によるメール送信
 //
 // 【環境変数（Railway Variables に設定）】
-//   RESEND_API_KEY : Resend の API キー
-//   EMAIL_ALL      : 全メンバー向けアドレス（カンマ区切り）
-//   EMAIL_CEO      : 白川専用（全通知を受信）
-//   EMAIL_SELECTED : 選抜メンバー向け（グループ連携依頼）
+//   GOOGLE_CLIENT_ID     : OAuth2 クライアント ID
+//   GOOGLE_CLIENT_SECRET : OAuth2 クライアント シークレット
+//   GOOGLE_REFRESH_TOKEN : OAuth2 リフレッシュトークン
+//   GMAIL_USER           : 送信元メールアドレス（例: hiroki.shirakawa@adarch.co.jp）
+//   EMAIL_ALL            : 全メンバー向けアドレス（カンマ区切り）
+//   EMAIL_CEO            : 白川専用（全通知を受信）
+//   EMAIL_SELECTED       : 選抜メンバー向け（グループ連携依頼）
 //
 // 【振り分けルール】
 //   顧客管理・商談管理（作成・更新）   → EMAIL_ALL + EMAIL_CEO
@@ -13,10 +16,9 @@
 //   グループ連携依頼                   → EMAIL_CEO + EMAIL_SELECTED
 // ---------------------------------------------------------------
 
-import { Resend } from "resend";
+import { google } from "googleapis";
 
-const FROM_ADDRESS = "Ad-Arch Group <system@adarch.co.jp>";
-const FALLBACK_FROM = "Ad-Arch Group <onboarding@resend.dev>";
+const FROM_ADDRESS = `Ad-Arch Group <${process.env.GMAIL_USER ?? "hiroki.shirakawa@adarch.co.jp"}>`;
 
 /** 絶対 URL を生成する */
 function appUrl(path: string): string {
@@ -72,7 +74,7 @@ function resolveRecipients(tier: NotificationTier): string[] {
 }
 
 // ---------------------------------------------------------------
-// 共通メール送信ヘルパー（Resend・1件ずつ個別送信）
+// 共通メール送信ヘルパー（Gmail API・1件ずつ個別送信）
 // ---------------------------------------------------------------
 async function sendEmail(
   tag: string,
@@ -80,9 +82,16 @@ async function sendEmail(
   subject: string,
   html: string
 ): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.error(`[notifications:${tag}] ❌ RESEND_API_KEY 未設定 → スキップ`);
+  const clientId     = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  const senderEmail  = process.env.GMAIL_USER ?? "hiroki.shirakawa@adarch.co.jp";
+
+  // ① 認証情報の確認
+  if (!clientId || !clientSecret || !refreshToken) {
+    console.error(
+      `[notifications:${tag}] ❌ GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN が未設定 → スキップ`
+    );
     return;
   }
   if (to.length === 0) {
@@ -91,48 +100,45 @@ async function sendEmail(
   }
 
   console.log(
-    `[notifications:${tag}] 📤 送信開始 from="${FROM_ADDRESS}" 宛先${to.length}件 subject="${subject}"`
+    `[notifications:${tag}] 📤 送信開始 from="${senderEmail}" 宛先${to.length}件 subject="${subject}"`
   );
 
-  const resend = new Resend(apiKey);
+  // ② Gmail API クライアントを初期化
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
+  const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
+  // ③ 宛先ごとに個別送信
   for (const addr of to) {
     try {
       console.log(`[notifications:${tag}]   → 送信試行 to="${addr}"`);
-      const { data, error } = await resend.emails.send({
-        from: FROM_ADDRESS,
-        to:   [addr],
-        subject,
+
+      // RFC 2822 形式でメッセージを組み立て → base64url エンコード
+      const raw = [
+        `From: Ad-Arch Group <${senderEmail}>`,
+        `To: ${addr}`,
+        `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset=UTF-8`,
+        ``,
         html,
+      ].join("\r\n");
+
+      const encoded = Buffer.from(raw)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+
+      const result = await gmail.users.messages.send({
+        userId: "me",
+        requestBody: { raw: encoded },
       });
 
-      if (error) {
-        const raw    = JSON.stringify(error);
-        const status = (error as { statusCode?: number }).statusCode;
-
-        // ドメイン未認証エラー → フォールバック送信元で再試行
-        if (status === 403 || raw.includes("not verified") || raw.includes("testing emails")) {
-          console.warn(`[notifications:${tag}]   ⚠️ ドメイン未認証 → フォールバックで再試行 (to=${addr})`);
-          const retry = await resend.emails.send({
-            from: FALLBACK_FROM,
-            to:   [addr],
-            subject,
-            html,
-          });
-          if (retry.error) {
-            console.error(`[notifications:${tag}]   ❌ フォールバック失敗 (to=${addr}): ${JSON.stringify(retry.error)}`);
-          } else {
-            console.log(`[notifications:${tag}]   ✅ フォールバック成功 to=${addr} id=${retry.data?.id}`);
-          }
-        } else {
-          console.error(`[notifications:${tag}]   ❌ 送信エラー (to=${addr}): ${raw}`);
-        }
-      } else {
-        console.log(`[notifications:${tag}]   ✅ 送信成功 to=${addr} id=${data?.id}`);
-      }
+      console.log(`[notifications:${tag}]   ✅ 送信成功 to=${addr} id=${result.data.id}`);
     } catch (e) {
       console.error(
-        `[notifications:${tag}]   ❌ 送信例外 (to=${addr}):`,
+        `[notifications:${tag}]   ❌ 送信失敗 (to=${addr}):`,
         e instanceof Error ? e.message : String(e)
       );
     }
