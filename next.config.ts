@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // nodemailer など Node.js 専用モジュールをクライアントバンドルから除外
-  serverExternalPackages: ["nodemailer"],
+  serverExternalPackages: ["nodemailer", "googleapis"],
   // ----------------------------------------------------------------
   // セキュリティヘッダー（全レスポンスに付与）
   // ----------------------------------------------------------------
