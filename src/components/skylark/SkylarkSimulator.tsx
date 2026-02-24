@@ -104,6 +104,19 @@ export function SkylarkSimulator() {
     return map;
   }, []);
 
+  // 都道府県 × ブランド別店舗リスト（展開表示用）
+  const prefStoresList = useMemo(() => {
+    const map = new Map<string, Record<Brand, typeof SKYLARK_STORES>>();
+    for (const store of SKYLARK_STORES) {
+      if (!map.has(store.pref)) {
+        map.set(store.pref, { ガスト: [], バーミヤン: [], ジョナサン: [] });
+      }
+      const entry = map.get(store.pref)!;
+      (entry[store.brand as Brand] as typeof SKYLARK_STORES).push(store);
+    }
+    return map;
+  }, []);
+
   // 都道府県ごとのフィルタ済み店舗数
   const filteredPrefCount = useMemo(() => {
     const map = new Map<string, number>();
@@ -317,7 +330,7 @@ export function SkylarkSimulator() {
               const storeCount = filteredPrefCount.get(pref) ?? 0;
               const isSelected = selectedPrefs.has(pref);
               const isOpen     = openPrefs.has(pref);
-              const byBrand    = prefStores.get(pref) ?? ({} as Record<Brand, number>);
+              const storesByBrand = prefStoresList.get(pref) ?? ({} as Record<Brand, typeof SKYLARK_STORES>);
 
               return (
                 <div key={pref}>
@@ -352,18 +365,24 @@ export function SkylarkSimulator() {
                   </div>
 
                   {isOpen && (
-                    <div className="px-11 pb-2.5 flex gap-2 flex-wrap">
-                      {ALL_BRANDS.filter(b => selectedBrands.has(b) && (byBrand[b] ?? 0) > 0).map(brand => (
-                        <span
-                          key={brand}
-                          className={cn(
-                            "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border",
+                    <div className="pl-10 pr-4 pb-3 space-y-2 max-h-64 overflow-y-auto bg-zinc-50/50">
+                      {ALL_BRANDS.filter(b => selectedBrands.has(b) && (storesByBrand[b]?.length ?? 0) > 0).map(brand => (
+                        <div key={brand}>
+                          <div className={cn(
+                            "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border mb-1",
                             BRAND_STYLES[brand].active
-                          )}
-                        >
-                          <span className={cn("w-1.5 h-1.5 rounded-full", BRAND_STYLES[brand].dot)} />
-                          {brand}: {byBrand[brand]}店
-                        </span>
+                          )}>
+                            <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", BRAND_STYLES[brand].dot)} />
+                            {brand} {storesByBrand[brand].length}店
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                            {storesByBrand[brand].map(store => (
+                              <span key={store.code} className="text-[11px] text-zinc-600 truncate">
+                                {store.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   )}
