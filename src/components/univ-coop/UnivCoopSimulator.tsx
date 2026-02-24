@@ -4,7 +4,6 @@ import { useState, useMemo, useCallback } from "react";
 import { ChevronDown, ChevronRight, RotateCcw, GraduationCap, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UNIV_STORES, UNIV_PREF_ORDER } from "@/data/univ-stores";
-import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton";
 
 // ────────────────────────────────────────────────────────────────
 // 価格テーブル
@@ -150,48 +149,6 @@ export function UnivCoopSimulator() {
       margin: mgmtFee * 2, // client - purchase = 40% of subtotal
     };
   }, [selectedList, sheetsPerStore, months, addDesignFee, designCount]);
-
-  const pdfData = useMemo(() => {
-    if (!calc) return null;
-    const subtotalWithDesign = calc.subtotal + (addDesignFee ? calc.designTotal : 0);
-    return {
-      simulatorName: "大学生協広告シミュレーター",
-      sections: [
-        {
-          title: `費用内訳（定価）/ ${calc.storeCount}食堂・${months}ヶ月`,
-          rows: [
-            {
-              label: `掲載費（¥700 × ${calc.totalMonthlySheets.toLocaleString()}枚 × ${months}ヶ月）`,
-              value: formatYen(calc.placementFee),
-            },
-            {
-              label: `印刷費（¥${calc.printUnit?.toLocaleString()}/枚 × ${calc.totalPrintSheets.toLocaleString()}枚）`,
-              value: formatYen(calc.printFee),
-            },
-            {
-              label: `発送費（¥2,600 × ${calc.storeCount}食堂）`,
-              value: formatYen(calc.shippingFee),
-            },
-            ...(addDesignFee
-              ? [{ label: `デザイン制作費（¥150,000 × ${designCount}案）`, value: formatYen(calc.designTotal) }]
-              : []),
-            { divider: true as const, label: "", value: "" },
-            {
-              label: `定価合計${addDesignFee ? "（制作費含む）" : ""}`,
-              value: formatYen(subtotalWithDesign),
-              bold: true,
-            },
-          ],
-        },
-      ],
-      clientPrice: formatYen(calc.clientPriceWithDesign),
-      purchasePrice: formatYen(calc.purchasePrice),
-      margin: formatYen(calc.margin),
-      priceNote: "定価 × 1.2（運用管理費20%込み）",
-    };
-  }, [calc, addDesignFee, designCount, months]);
-
-  const pdfFileName = `adarch-univcoop-estimate-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.pdf`;
 
   const prefList = UNIV_PREF_ORDER.filter(p => hierarchy.has(p));
 
@@ -602,11 +559,6 @@ export function UnivCoopSimulator() {
                 })}
               </div>
             </div>
-
-            {/* PDF出力 */}
-            {pdfData && (
-              <PdfDownloadButton data={pdfData} fileName={pdfFileName} />
-            )}
           </>
         )}
       </div>

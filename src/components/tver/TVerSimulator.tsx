@@ -4,7 +4,6 @@ import { useState, useMemo, useCallback } from "react";
 import { ChevronDown, ChevronRight, Search, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MUNICIPALITIES, PREFECTURES } from "@/data/tver-municipalities";
-import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton";
 
 // ----------------------------------------------------------------
 // 定数
@@ -280,44 +279,6 @@ export function TVerSimulator() {
     () => calcAdArchFees(calcResult.budget, isFirstTransaction),
     [calcResult.budget, isFirstTransaction]
   );
-
-  const pdfData = useMemo(() => {
-    if (selected.size === 0) return null;
-    const mgmtNote = calcResult.budget <= 500000 ? "（50万以下：固定）" : "（媒体費 × 20%）";
-    return {
-      simulatorName: "TVer広告シミュレーター",
-      sections: [
-        {
-          title: "概算費用",
-          rows: [
-            {
-              label: `媒体費（${adSeconds}秒 × ${calcResult.plays.toLocaleString()}回 / CPM ¥${cpm.toLocaleString()}）`,
-              value: formatYen(calcResult.budget),
-            },
-            { label: "税込", value: formatYen(calcResult.budgetWithTax) },
-          ],
-        },
-        {
-          title: "Ad-Arch 手数料内訳",
-          rows: [
-            { label: `媒体管理費${mgmtNote}`, value: formatYen(fees.managementFee) },
-            { label: "クリエイティブ考査費（固定）", value: formatYen(fees.creativeFee) },
-            ...(isFirstTransaction
-              ? [{ label: "初期取引費（業態考査含む）", value: formatYen(fees.initialFee) }]
-              : []),
-            { divider: true as const, label: "", value: "" },
-            { label: "手数料合計（税抜）", value: formatYen(fees.subtotal), bold: true },
-          ],
-        },
-      ],
-      clientPrice: formatYen(calcResult.budget + fees.subtotal),
-      purchasePrice: formatYen(calcResult.budget),
-      margin: formatYen(fees.subtotal),
-      priceNote: "媒体費 + Ad-Arch手数料",
-    };
-  }, [selected.size, adSeconds, calcResult.budget, calcResult.plays, calcResult.budgetWithTax, cpm, fees, isFirstTransaction]);
-
-  const pdfFileName = `adarch-tver-estimate-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.pdf`;
 
   const resetAll = () => {
     setSelected(new Set());
@@ -690,11 +651,6 @@ export function TVerSimulator() {
             </>
           )}
         </div>
-
-        {/* PDF出力 */}
-        {selected.size > 0 && pdfData && (
-          <PdfDownloadButton data={pdfData} fileName={pdfFileName} />
-        )}
       </div>
     </div>
   );
