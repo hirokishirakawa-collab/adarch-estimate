@@ -11,14 +11,31 @@ import { MUNICIPALITIES, PREFECTURES } from "@/data/tver-municipalities";
 const TVER_PENETRATION = 0.30; // TVer普及率（約30%）
 const TAX_RATE = 0.10;
 
-type AdSeconds = 6 | 15 | 30 | 60;
+type AdSeconds = 6 | 15 | 30 | 45 | 60;
 
+// CPMフロア価格（ネット）/ 令和最新版
 const AD_FORMATS: { seconds: AdSeconds; label: string; cpm: number; note?: string }[] = [
-  { seconds: 6,  label: "6秒",  cpm: 1500, note: "バンパー" },
-  { seconds: 15, label: "15秒", cpm: 3000, note: "標準" },
-  { seconds: 30, label: "30秒", cpm: 5400 },
-  { seconds: 60, label: "60秒", cpm: 9000 },
+  { seconds: 6,  label: "6秒",  cpm: 1600, note: "バンパー" },
+  { seconds: 15, label: "15秒", cpm: 2200, note: "標準" },
+  { seconds: 30, label: "30秒", cpm: 2600 },
+  { seconds: 45, label: "45秒", cpm: 3000 },
+  { seconds: 60, label: "60秒", cpm: 3700 },
 ];
+
+// ----------------------------------------------------------------
+// アドアーチ手数料ルール
+// ----------------------------------------------------------------
+function calcAdArchFees(mediaBudget: number, isFirstTransaction: boolean) {
+  // 媒体管理費: 50万以下→10万固定, 50万超→20%
+  const managementFee = mediaBudget <= 500000 ? 100000 : mediaBudget * 0.20;
+  // クリエイティブ考査費（固定）
+  const creativeFee = 30000;
+  // 初期取引（業態考査含む）
+  const initialFee = isFirstTransaction ? 150000 : 0;
+
+  const subtotal = managementFee + creativeFee + initialFee;
+  return { managementFee, creativeFee, initialFee, subtotal };
+}
 
 // ----------------------------------------------------------------
 // ユーティリティ
@@ -188,6 +205,7 @@ export function TVerSimulator() {
   const [adSeconds, setAdSeconds] = useState<AdSeconds>(15);
   const [customCpm, setCustomCpm] = useState<Partial<Record<AdSeconds, number>>>({});
   const [frequency, setFrequency] = useState(3);
+  const [isFirstTransaction, setIsFirstTransaction] = useState(false);
 
   // 入力モード
   const [inputMode, setInputMode] = useState<"budget" | "plays">("budget");
@@ -257,6 +275,11 @@ export function TVerSimulator() {
     });
   }, []);
 
+  const fees = useMemo(
+    () => calcAdArchFees(calcResult.budget, isFirstTransaction),
+    [calcResult.budget, isFirstTransaction]
+  );
+
   const resetAll = () => {
     setSelected(new Set());
     setBudget(500000);
@@ -264,6 +287,7 @@ export function TVerSimulator() {
     setFrequency(3);
     setAdSeconds(15);
     setCustomCpm({});
+    setIsFirstTransaction(false);
   };
 
   return (
@@ -304,7 +328,7 @@ export function TVerSimulator() {
         {/* 広告フォーマット */}
         <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
           <p className="text-xs font-bold text-zinc-700">広告フォーマット</p>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-5 gap-1.5">
             {AD_FORMATS.map((f) => (
               <button
                 key={f.seconds}
@@ -330,7 +354,7 @@ export function TVerSimulator() {
                 onClick={() => setCustomCpm((p) => { const n = {...p}; delete n[adSeconds]; return n; })}
                 className="text-zinc-400 hover:text-zinc-600 text-[10px]"
               >
-                デフォルトに戻す
+                フロア価格に戻す
               </button>
             </label>
             <div className="flex items-center gap-2">
@@ -347,7 +371,7 @@ export function TVerSimulator() {
               <span className="text-zinc-400 text-[11px]">/ 1,000回</span>
             </div>
             <p className="text-[10px] text-zinc-400 mt-1">
-              デフォルト: {AD_FORMATS.find(f => f.seconds === adSeconds)?.cpm.toLocaleString()}円
+              フロア価格（ネット）: ¥{AD_FORMATS.find(f => f.seconds === adSeconds)?.cpm.toLocaleString()}
             </p>
           </div>
         </div>
@@ -561,6 +585,69 @@ export function TVerSimulator() {
               <p className="text-[10px] text-zinc-600 text-center">
                 ※ TVer普及率30%・インプレッション数は目安値です。実際の配信結果は保証されません。
               </p>
+
+              {/* ---- アドアーチ手数料 ---- */}
+              <div className="border-t border-zinc-700 pt-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-zinc-300">Ad-Arch 手数料内訳</p>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isFirstTransaction}
+                      onChange={(e) => setIsFirstTransaction(e.target.checked)}
+                      className="w-3.5 h-3.5 accent-amber-400"
+                    />
+                    <span className="text-[10px] text-zinc-400">初期取引（業態考査含む）</span>
+                  </label>
+                </div>
+
+                <div className="bg-zinc-800 rounded-lg overflow-hidden text-[11px]">
+                  {[
+                    {
+                      label: "媒体管理費",
+                      note: calcResult.budget <= 500000 ? "（50万以下：固定）" : "（媒体費 × 20%）",
+                      value: fees.managementFee,
+                      color: "text-zinc-200",
+                    },
+                    {
+                      label: "クリエイティブ考査費",
+                      note: "（固定）",
+                      value: fees.creativeFee,
+                      color: "text-zinc-200",
+                    },
+                    ...(isFirstTransaction ? [{
+                      label: "初期取引費（業態考査含む）",
+                      note: "（固定）",
+                      value: fees.initialFee,
+                      color: "text-amber-300",
+                    }] : []),
+                  ].map((row) => (
+                    <div key={row.label} className="flex items-center justify-between px-3 py-2 border-b border-zinc-700 last:border-0">
+                      <span className="text-zinc-400">
+                        {row.label}
+                        <span className="ml-1 text-zinc-600">{row.note}</span>
+                      </span>
+                      <span className={cn("font-semibold tabular-nums", row.color)}>
+                        {formatYen(row.value)}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between px-3 py-2.5 bg-zinc-700/60">
+                    <span className="text-zinc-300 font-bold">手数料合計（税抜）</span>
+                    <span className="text-white font-bold tabular-nums">{formatYen(fees.subtotal)}</span>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-800 rounded-lg px-3 py-2.5 flex items-center justify-between">
+                  <span className="text-zinc-300 font-bold text-xs">総合計（媒体費＋手数料・税抜）</span>
+                  <span className="text-yellow-300 font-bold text-sm tabular-nums">
+                    {formatYen(calcResult.budget + fees.subtotal)}
+                  </span>
+                </div>
+                <p className="text-[10px] text-zinc-600 text-center">
+                  ※ 手数料はすべてネット価格を基準に算出しています
+                </p>
+              </div>
             </>
           )}
         </div>
