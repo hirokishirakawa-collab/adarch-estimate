@@ -24,6 +24,7 @@ import {
   Network,
   Tv2,
   UtensilsCrossed,
+  Clapperboard,
   X,
 } from "lucide-react";
 
@@ -150,6 +151,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/univ-coop-simulator",
         label: "大学生協広告",
         icon: GraduationCap,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/aeon-cinema-simulator",
+        label: "イオンシネマ",
+        icon: Clapperboard,
         minRole: "USER",
       },
       {
