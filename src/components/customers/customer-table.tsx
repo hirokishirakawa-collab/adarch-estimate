@@ -40,6 +40,7 @@ export type CustomerRow = {
   status: string;
   branchId: string;
   lockExpiresAt: Date | null;
+  lockedBy: { name: string | null } | null;
   deals: Array<{
     id: string;
     title: string;
@@ -59,16 +60,27 @@ interface Props {
 // ---------------------------------------------------------------
 // サブコンポーネント
 // ---------------------------------------------------------------
-function LockBadge({ expiresAt }: { expiresAt: Date }) {
+function LockBadge({
+  expiresAt,
+  lockedByName,
+}: {
+  expiresAt: Date;
+  lockedByName?: string | null;
+}) {
   const days = Math.max(
     0,
     Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)
   );
   return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
-      <Lock className="w-2.5 h-2.5" />
-      あと{days}日
-    </span>
+    <div className="space-y-0.5">
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+        <Lock className="w-2.5 h-2.5" />
+        あと{days}日
+      </span>
+      {lockedByName && (
+        <p className="text-[10px] text-zinc-400">{lockedByName}</p>
+      )}
+    </div>
   );
 }
 
@@ -380,7 +392,10 @@ export function CustomerTable({ customers, userRole, userBranchId }: Props) {
                   {/* 先着ロック */}
                   <td className="px-4 py-3">
                     {isLocked ? (
-                      <LockBadge expiresAt={customer.lockExpiresAt!} />
+                      <LockBadge
+                        expiresAt={customer.lockExpiresAt!}
+                        lockedByName={customer.lockedBy?.name}
+                      />
                     ) : (
                       <span className="text-[11px] text-zinc-300">なし</span>
                     )}

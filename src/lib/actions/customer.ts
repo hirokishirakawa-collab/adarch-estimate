@@ -365,13 +365,17 @@ export async function updateCustomer(
 }
 
 // ---------------------------------------------------------------
-// 顧客をロックする（営業担当に設定 / 30日間）
+// 顧客をロックする（営業担当に設定）
+// durationDays: ロック期間（日数）。デフォルト30日、最大365日
 // ---------------------------------------------------------------
 export async function lockCustomer(
-  customerId: string
+  customerId: string,
+  durationDays: number = 30
 ): Promise<{ error?: string }> {
   const session = await auth();
   if (!session?.user) return { error: "ログインが必要です" };
+
+  const clampedDays = Math.min(Math.max(1, Math.floor(durationDays)), 365);
 
   const email = session.user.email ?? "";
   const user = await db.user.findUnique({ where: { email }, select: { id: true } });
@@ -389,7 +393,7 @@ export async function lockCustomer(
     return { error: "他の担当者がロック中のため設定できません" };
   }
 
-  const lockExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30日後
+  const lockExpiresAt = new Date(Date.now() + clampedDays * 24 * 60 * 60 * 1000);
   await db.customer.update({
     where: { id: customerId },
     data: { lockedByUserId: user.id, lockedAt: new Date(), lockExpiresAt },
