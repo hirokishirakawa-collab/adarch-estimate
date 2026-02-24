@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { ChevronDown, ChevronRight, RotateCcw, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SKYLARK_STORES, SKYLARK_PREF_ORDER } from "@/data/skylark-stores";
+import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton";
 
 // ────────────────────────────────────────────────────────────────
 // 価格テーブル
@@ -232,6 +233,56 @@ export function SkylarkSimulator() {
       margin: clientPrice - purchasePrice,
     };
   }, [selectedStoreCount, productType, addDesignFee]);
+
+  const pdfData = useMemo(() => {
+    if (!calc) return null;
+    if (calc.type === "dmb") {
+      return {
+        simulatorName: "すかいらーく広告シミュレーター",
+        sections: [
+          {
+            title: "料金内訳",
+            rows: [
+              { label: "DMB最低出稿額", value: `${formatYen(calc.mediaFeeTotal)}〜` },
+              ...(calc.designFee > 0
+                ? [{ label: "デザイン制作費（管理費対象外）", value: formatYen(calc.designFee) }]
+                : []),
+            ],
+          },
+        ],
+        clientPrice: formatYen(calc.clientPrice),
+        purchasePrice: formatYen(calc.purchasePrice),
+        margin: formatYen(calc.margin),
+        priceNote: "最低出稿額×1.2",
+      };
+    }
+    return {
+      simulatorName: "すかいらーく広告シミュレーター",
+      sections: [
+        {
+          title: `料金内訳（定価）/ ${calc.storeCount.toLocaleString()}店舗・4週間`,
+          rows: [
+            { label: "媒体費単価（/店舗）", value: formatYen(calc.mediaFeePerStore!) },
+            { label: "製作費単価（/店舗・補間値）", value: formatYen(calc.prodFeePerStore!) },
+            { divider: true as const, label: "", value: "" },
+            { label: "媒体費合計", value: formatYen(calc.mediaFeeTotal) },
+            { label: "製作費合計", value: formatYen(calc.prodFeeTotal) },
+            { divider: true as const, label: "", value: "" },
+            { label: "定価合計（媒体費 + 製作費）", value: formatYen(calc.subtotal), bold: true },
+            ...(calc.designFee > 0
+              ? [{ label: "デザイン制作費（管理費対象外）", value: formatYen(calc.designFee) }]
+              : []),
+          ],
+        },
+      ],
+      clientPrice: formatYen(calc.clientPrice),
+      purchasePrice: formatYen(calc.purchasePrice),
+      margin: formatYen(calc.margin),
+      priceNote: `（媒体費 + 製作費）× 1.2${calc.designFee > 0 ? " + デザイン制作費" : ""}`,
+    };
+  }, [calc]);
+
+  const pdfFileName = `adarch-skylark-estimate-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.pdf`;
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-5">
@@ -552,6 +603,11 @@ export function SkylarkSimulator() {
                   })}
                 </div>
               </div>
+            )}
+
+            {/* PDF出力 */}
+            {pdfData && (
+              <PdfDownloadButton data={pdfData} fileName={pdfFileName} />
             )}
           </>
         ) : null}

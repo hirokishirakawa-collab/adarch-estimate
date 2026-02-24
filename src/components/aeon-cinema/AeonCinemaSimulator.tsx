@@ -11,6 +11,7 @@ import {
   type CinemaAdColKey,
   type LobbyColKey,
 } from "@/data/aeon-theaters";
+import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton";
 
 // ────────────────────────────────────────────────────────────────
 // 定数・ユーティリティ
@@ -143,6 +144,39 @@ export function AeonCinemaSimulator() {
   };
 
   const hasSelection = selectedList.length > 0;
+
+  const pdfData = useMemo(() => {
+    if (!hasSelection) return null;
+    const cinemaLabel = `媒体費（${duration}秒 ${CINEMA_AD_COLS.find(c => c.key === colKey)?.label ?? ""}）`;
+    const lobbyLabel = `${LOBBY_COLS.find(c => c.key === lobbyKey)?.label ?? ""}費`;
+    const delivLabel = `配信費${selectedList.length <= 5 ? "（一律）" : `（¥6,000×${selectedList.length}）`}`;
+    const totalFee = mediaFee + dcpTotal + delivTotal;
+    return {
+      simulatorName: "イオンシネマ広告シミュレーター",
+      sections: [
+        {
+          title: adMode === "cinema" ? "シネアド料金内訳" : "ロビープロモーション料金内訳",
+          rows: [
+            { label: adMode === "cinema" ? cinemaLabel : lobbyLabel, value: fmt(mediaFee) },
+            ...(adMode === "cinema"
+              ? [
+                  { label: "DCP変換費", value: fmt(dcpTotal) },
+                  { label: delivLabel, value: fmt(delivTotal) },
+                ]
+              : []),
+            { divider: true as const, label: "", value: "" },
+            { label: "定価合計", value: fmt(totalFee), bold: true },
+          ],
+        },
+      ],
+      clientPrice: fmt(clientPrice),
+      purchasePrice: fmt(purchasePrice),
+      margin: fmt(margin),
+      priceNote: adMode === "cinema" ? "媒体費×1.2 + DCP/配信費" : "媒体費×1.2",
+    };
+  }, [hasSelection, adMode, duration, colKey, lobbyKey, mediaFee, dcpTotal, delivTotal, clientPrice, purchasePrice, margin, selectedList.length]);
+
+  const pdfFileName = `adarch-aeon-cinema-estimate-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.pdf`;
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-4">
@@ -560,6 +594,11 @@ export function AeonCinemaSimulator() {
               )}
             </ul>
           </div>
+
+          {/* PDF出力 */}
+          {hasSelection && pdfData && (
+            <PdfDownloadButton data={pdfData} fileName={pdfFileName} />
+          )}
         </div>
       </div>
     </div>
