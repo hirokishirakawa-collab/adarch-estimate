@@ -147,6 +147,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/univ-coop-simulator",
+        label: "大学生協広告",
+        icon: GraduationCap,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/media",
         label: "媒体依頼",
         icon: Megaphone,
