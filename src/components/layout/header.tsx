@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/roles";
-import { Bell, Menu, Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 
 // ----------------------------------------------------------------
 // ロールごとの上部バナー（ADMIN のみ表示）
@@ -69,12 +69,6 @@ export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProp
             <Search className="w-3.5 h-3.5" />
             <span className="hidden sm:block">検索...</span>
             <kbd className="hidden sm:block text-[10px] bg-zinc-200 px-1.5 py-0.5 rounded">⌘K</kbd>
-          </button>
-
-          {/* 通知ベル（将来実装） */}
-          <button className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 transition-colors">
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-blue-500 rounded-full" />
           </button>
 
           {/* 日付 */}
