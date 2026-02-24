@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import {
   AEON_THEATERS,
   AEON_AREA_ORDER,
-  AEON_MOVIES,
   CINEMA_AD_COLS,
   LOBBY_COLS,
   type CinemaAdColKey,
@@ -16,8 +15,6 @@ import {
 // ────────────────────────────────────────────────────────────────
 // 定数・ユーティリティ
 // ────────────────────────────────────────────────────────────────
-const DESIGN_FEE = 50_000;
-
 function dcpFee(seconds: number): number {
   // ¥40,000/素材・60秒まで。60秒超は60秒毎 +¥10,000
   return 40_000 + Math.ceil(Math.max(0, seconds - 60) / 60) * 10_000;
@@ -64,7 +61,6 @@ export function AeonCinemaSimulator() {
   // シネアド設定
   const [duration, setDuration] = useState<15 | 30>(15);
   const [colKey, setColKey] = useState<CinemaAdColKey>("spec2w");
-  const [selectedMovie, setSelectedMovie] = useState<string>("");
   const [materialSec, setMaterialSec] = useState<number>(30);
 
   // ロビー設定
@@ -74,7 +70,6 @@ export function AeonCinemaSimulator() {
   // 共通設定
   const [selectedTheaters, setSelectedTheaters] = useState<Set<number>>(new Set());
   const [openAreas, setOpenAreas] = useState<Set<string>>(new Set());
-  const [addDesignFee, setAddDesignFee] = useState<boolean>(false);
 
   // エリア別マップ
   const areaMap = useMemo(() => {
@@ -111,10 +106,9 @@ export function AeonCinemaSimulator() {
 
   const dcpTotal  = adMode === "cinema" && selectedList.length > 0 ? dcpFee(materialSec) : 0;
   const delivTotal = adMode === "cinema" ? deliveryFee(selectedList.length) : 0;
-  const designFeeAmt = addDesignFee ? DESIGN_FEE : 0;
 
   // Ad-Arch価格: 媒体費のみ±20%、DCP/配信費はパススルー
-  const clientPrice   = Math.round(mediaFee * 1.2) + dcpTotal + delivTotal + designFeeAmt;
+  const clientPrice   = Math.round(mediaFee * 1.2) + dcpTotal + delivTotal;
   const purchasePrice = Math.round(mediaFee * 0.8) + dcpTotal + delivTotal;
   const margin        = clientPrice - purchasePrice;
   const totalSC       = selectedList.reduce((s, t) => s + t.sc, 0);
@@ -143,14 +137,11 @@ export function AeonCinemaSimulator() {
     setAdMode("cinema");
     setDuration(15);
     setColKey("spec2w");
-    setSelectedMovie("");
     setMaterialSec(30);
     setLobbyKey("flyer");
     setSamplingQty(1000);
-    setAddDesignFee(false);
   };
 
-  const isSpecMovie = colKey.startsWith("spec");
   const hasSelection = selectedList.length > 0;
 
   return (
@@ -282,28 +273,6 @@ export function AeonCinemaSimulator() {
               </div>
             </div>
 
-            {/* 指定作品（1作品指定時のみ） */}
-            {isSpecMovie && (
-              <div>
-                <p className="text-xs text-zinc-500 mb-1.5">指定作品</p>
-                <select
-                  value={selectedMovie}
-                  onChange={e => setSelectedMovie(e.target.value)}
-                  className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 bg-white text-zinc-800"
-                >
-                  <option value="">作品を選択してください（任意）</option>
-                  {AEON_MOVIES.map(m => (
-                    <option key={`${m.releaseDate}-${m.title}`} value={m.title}>
-                      {m.releaseDate} 公開 ／ {m.title}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-zinc-400 mt-1">
-                  ※作品指定：全バージョン（2D・3D・字幕・吹替）で上映
-                </p>
-              </div>
-            )}
-
             {/* 素材秒数（DCP変換費計算用） */}
             <div>
               <p className="text-xs text-zinc-500 mb-1.5">素材秒数（DCP変換費の計算用）</p>
@@ -376,24 +345,6 @@ export function AeonCinemaSimulator() {
             )}
           </section>
         )}
-
-        {/* Ad-Archデザイン制作 */}
-        <section className="bg-white border border-zinc-200 rounded-xl p-4">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={addDesignFee}
-              onChange={e => setAddDesignFee(e.target.checked)}
-              className="w-4 h-4 accent-blue-600 rounded"
-            />
-            <div>
-              <span className="text-xs font-medium text-zinc-800">
-                アドアーチでデザインを制作する
-              </span>
-              <p className="text-[11px] text-zinc-400">+¥50,000（税抜）を加算します</p>
-            </div>
-          </label>
-        </section>
 
         {/* 劇場選択 */}
         <section className="bg-white border border-zinc-200 rounded-xl p-4">
@@ -505,14 +456,6 @@ export function AeonCinemaSimulator() {
                   <span className="text-zinc-500">合計SC数</span>
                   <span className="font-medium">{totalSC}SC</span>
                 </div>
-                {adMode === "cinema" && isSpecMovie && selectedMovie && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-zinc-500">指定作品</span>
-                    <span className="font-medium text-right max-w-[160px] truncate" title={selectedMovie}>
-                      {selectedMovie}
-                    </span>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -550,19 +493,12 @@ export function AeonCinemaSimulator() {
                 </>
               )}
 
-              {addDesignFee && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-zinc-500">デザイン制作費</span>
-                  <span className="font-medium">{fmt(DESIGN_FEE)}</span>
-                </div>
-              )}
-
               <div className="border-t border-zinc-100 pt-2">
                 <div className="flex justify-between text-xs font-semibold text-zinc-700">
                   <span>定価合計</span>
                   <span>
                     {hasSelection
-                      ? fmt(mediaFee + dcpTotal + delivTotal + designFeeAmt)
+                      ? fmt(mediaFee + dcpTotal + delivTotal)
                       : "—"}
                   </span>
                 </div>
@@ -581,7 +517,7 @@ export function AeonCinemaSimulator() {
                   {hasSelection ? fmt(clientPrice) : "—"}
                 </p>
                 <p className="text-[10px] text-zinc-400 mt-0.5">
-                  媒体費×1.2 + DCP/配信費{addDesignFee ? " + デザイン費" : ""}
+                  媒体費×1.2 + DCP/配信費
                 </p>
               </div>
 
@@ -602,7 +538,7 @@ export function AeonCinemaSimulator() {
                   <p className="text-[10px] text-emerald-600 mb-0.5">粗利（参考）</p>
                   <p className="text-base font-bold text-emerald-700">{fmt(margin)}</p>
                   <p className="text-[10px] text-emerald-500 mt-0.5">
-                    媒体費の40%{addDesignFee ? " + デザイン費" : ""}
+                    媒体費の40%
                   </p>
                 </div>
               )}
