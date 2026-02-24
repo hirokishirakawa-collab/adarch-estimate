@@ -67,6 +67,8 @@ function interpolateFee(count: number, bps: { count: number; fee: number }[]): n
 // ────────────────────────────────────────────────────────────────
 // ユーティリティ
 // ────────────────────────────────────────────────────────────────
+const DESIGN_FEE = 50_000; // デザイン制作費（固定・税抜）
+
 function formatYen(n: number) {
   return "¥" + Math.round(n).toLocaleString("ja-JP");
 }
@@ -90,6 +92,7 @@ export function SkylarkSimulator() {
   const [selectedBrands, setSelectedBrands] = useState<Set<Brand>>(new Set(ALL_BRANDS));
   const [selectedPrefs, setSelectedPrefs] = useState<Set<string>>(new Set());
   const [openPrefs, setOpenPrefs] = useState<Set<string>>(new Set());
+  const [addDesignFee, setAddDesignFee] = useState<boolean>(false);
 
   // 都道府県 × ブランド別店舗数マップ
   const prefStores = useMemo(() => {
@@ -182,11 +185,14 @@ export function SkylarkSimulator() {
 
   // 計算
   const calc = useMemo(() => {
-    const count = selectedStoreCount;
+    const count    = selectedStoreCount;
+    const designFee = addDesignFee ? DESIGN_FEE : 0;
     if (count < 100) return null;
 
     if (productType === "dmb") {
-      const base = 1_500_000;
+      const base         = 1_500_000;
+      const clientPrice  = Math.round(base * 1.20) + designFee;
+      const purchasePrice = Math.round(base * 0.80);
       return {
         type: "dmb" as const,
         storeCount: count,
@@ -194,23 +200,23 @@ export function SkylarkSimulator() {
         prodFeePerStore:  null as number | null,
         mediaFeeTotal: base,
         prodFeeTotal:  0,
-        total: base,
-        clientPrice:   Math.round(base * 1.20),
-        purchasePrice: Math.round(base * 0.80),
-        margin: Math.round(base * 1.20) - Math.round(base * 0.80),
+        subtotal: base,
+        designFee,
+        clientPrice,
+        purchasePrice,
+        margin: clientPrice - purchasePrice,
       };
     }
 
     const mediaFeePerStore = getMediaFeePerStore(count);
-    const bps = productType === "sticker" ? STICKER_PROD_BPS : STAND_PROD_BPS;
+    const bps              = productType === "sticker" ? STICKER_PROD_BPS : STAND_PROD_BPS;
     const prodFeePerStore  = interpolateFee(count, bps);
     const mediaFeeTotal    = mediaFeePerStore * count;
     const prodFeeTotal     = prodFeePerStore  * count;
-    const total            = mediaFeeTotal + prodFeeTotal;
-
-    // 媒体費のみ ±20%、製作費は定価
-    const clientPrice   = Math.round(mediaFeeTotal * 1.20) + prodFeeTotal;
-    const purchasePrice = Math.round(mediaFeeTotal * 0.80) + prodFeeTotal;
+    // 媒体費・製作費を合算して ±20% 適用。デザイン制作費は別途加算
+    const subtotal      = mediaFeeTotal + prodFeeTotal;
+    const clientPrice   = Math.round(subtotal * 1.20) + designFee;
+    const purchasePrice = Math.round(subtotal * 0.80);
 
     return {
       type: productType,
@@ -219,12 +225,13 @@ export function SkylarkSimulator() {
       prodFeePerStore,
       mediaFeeTotal,
       prodFeeTotal,
-      total,
+      subtotal,
+      designFee,
       clientPrice,
       purchasePrice,
       margin: clientPrice - purchasePrice,
     };
-  }, [selectedStoreCount, productType]);
+  }, [selectedStoreCount, productType, addDesignFee]);
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-5">
@@ -261,6 +268,30 @@ export function SkylarkSimulator() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* デザイン制作 */}
+        <div className="bg-white rounded-xl border border-zinc-200 p-4">
+          <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-3">デザイン制作</p>
+          <label className="flex items-center gap-2.5 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={addDesignFee}
+              onChange={e => setAddDesignFee(e.target.checked)}
+              className="w-4 h-4 rounded accent-blue-600"
+            />
+            <span className="text-xs text-zinc-700 group-hover:text-zinc-900 transition-colors">
+              アドアーチでデザインを制作する
+            </span>
+            <span className="text-[11px] text-zinc-400 ml-auto">
+              +{formatYen(DESIGN_FEE)} / 1メニュー
+            </span>
+          </label>
+          {addDesignFee && (
+            <p className="text-[11px] text-blue-600 mt-2 pl-6">
+              クライアント提示額に ¥{DESIGN_FEE.toLocaleString()} を加算します（管理費対象外）
+            </p>
+          )}
         </div>
 
         {/* ブランドフィルター */}
@@ -441,11 +472,11 @@ export function SkylarkSimulator() {
                     value={formatYen(calc.prodFeePerStore!)}
                   />
                   <div className="my-2 border-t border-zinc-100" />
-                  <Row label="媒体費合計"    value={formatYen(calc.mediaFeeTotal)} />
-                  <Row label="製作費合計"    value={formatYen(calc.prodFeeTotal)} />
+                  <Row label="媒体費合計"  value={formatYen(calc.mediaFeeTotal)} />
+                  <Row label="製作費合計"  value={formatYen(calc.prodFeeTotal)} />
                   <div className="flex items-center justify-between py-2 mt-1 border-t border-zinc-200">
-                    <span className="text-xs font-bold text-zinc-800">合計（定価）</span>
-                    <span className="text-xl font-bold text-zinc-900">{formatYen(calc.total)}</span>
+                    <span className="text-xs font-bold text-zinc-800">定価合計（媒体費 + 製作費）</span>
+                    <span className="text-xl font-bold text-zinc-900">{formatYen(calc.subtotal)}</span>
                   </div>
                 </div>
               )}
@@ -455,16 +486,29 @@ export function SkylarkSimulator() {
             <div className="bg-zinc-950 rounded-xl border border-zinc-800 p-5">
               <p className="text-xs font-bold text-white mb-1">Ad-Arch 提示価格</p>
               <p className="text-[11px] text-zinc-500 mb-4">
-                媒体費に ±20% を適用 ／ 製作費は定価のまま
+                （媒体費 + 製作費）× 1.2
+                {calc.designFee > 0 && " + デザイン制作費"}
               </p>
               <div className="space-y-1">
+                {calc.type !== "dmb" && (
+                  <DarkRow
+                    label="管理費（定価合計 × 20%）"
+                    value={formatYen(Math.round(calc.subtotal * 0.20))}
+                  />
+                )}
+                {calc.designFee > 0 && (
+                  <DarkRow
+                    label="デザイン制作費（管理費対象外）"
+                    value={formatYen(calc.designFee)}
+                  />
+                )}
                 <DarkRow
-                  label="クライアント提示（媒体 +20%）"
+                  label={calc.designFee > 0 ? "クライアント提示総額" : "クライアント提示（+20%）"}
                   value={formatYen(calc.clientPrice)}
                   highlight
                 />
                 <DarkRow
-                  label="仕入れ価格（媒体 −20%）"
+                  label="仕入れ価格（−20%）"
                   value={formatYen(calc.purchasePrice)}
                 />
                 <div className="pt-2 border-t border-zinc-800 mt-2">
