@@ -22,9 +22,10 @@ interface HeaderProps {
     role: UserRole;
   };
   onMenuOpen: () => void;
+  onSearchOpen: () => void;
 }
 
-export function Header({ pageTitle, user, onMenuOpen }: HeaderProps) {
+export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProps) {
   const banner = ROLE_BANNERS[user.role];
   const now = new Date();
   const dateStr = now.toLocaleDateString("ja-JP", {
@@ -60,8 +61,11 @@ export function Header({ pageTitle, user, onMenuOpen }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* 検索（将来実装） */}
-          <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-400 text-xs hover:bg-zinc-200 transition-colors">
+          {/* 横断検索 */}
+          <button
+            onClick={onSearchOpen}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-500 text-xs hover:bg-zinc-200 hover:text-zinc-700 transition-colors"
+          >
             <Search className="w-3.5 h-3.5" />
             <span className="hidden sm:block">検索...</span>
             <kbd className="hidden sm:block text-[10px] bg-zinc-200 px-1.5 py-0.5 rounded">⌘K</kbd>
