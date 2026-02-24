@@ -23,6 +23,7 @@ import {
   FileText,
   Network,
   Tv2,
+  UtensilsCrossed,
   X,
 } from "lucide-react";
 
@@ -137,6 +138,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/tver-simulator",
         label: "TVer広告シミュレーター",
         icon: Tv2,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/skylark-simulator",
+        label: "すかいらーくインストア",
+        icon: UtensilsCrossed,
         minRole: "USER",
       },
       {
