@@ -22,6 +22,7 @@ import {
   Building2,
   FileText,
   Network,
+  Tv2,
   X,
 } from "lucide-react";
 
@@ -132,6 +133,12 @@ const NAV_SECTIONS: NavSection[] = [
     section: "ツール",
     color: "text-zinc-600",
     items: [
+      {
+        href: "/dashboard/tver-simulator",
+        label: "TVer広告シミュレーター",
+        icon: Tv2,
+        minRole: "USER",
+      },
       {
         href: "/dashboard/media",
         label: "媒体依頼",
