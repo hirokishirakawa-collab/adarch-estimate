@@ -174,6 +174,7 @@ export async function updateDeal(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
+  if (info.role === "USER") return { error: "権限がありません" };
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "商談タイトルは必須です" };
@@ -248,6 +249,7 @@ export async function createDealLog(
 ): Promise<{ error?: string; success?: boolean }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
+  if (info.role === "USER") return { error: "権限がありません" };
   const { staffName } = info;
 
   const dealId  = (formData.get("dealId") as string)?.trim();
@@ -312,6 +314,7 @@ export async function updateDealNotes(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
+  if (info.role === "USER") return { error: "権限がありません" };
 
   try {
     await db.deal.update({
@@ -335,6 +338,7 @@ export async function updateDealNotes(
 export async function deleteDeal(dealId: string): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
+  if (info.role === "USER") return { error: "権限がありません" };
 
   try {
     await db.deal.delete({ where: { id: dealId } });

@@ -17,6 +17,7 @@ interface PageProps {
   searchParams: Promise<{
     q?: string;
     status?: string;
+    overdue?: string;
     page?: string;
   }>;
 }
@@ -27,14 +28,17 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
   const email = session?.user?.email ?? "";
   const userBranchId = getMockBranchId(email, role);
 
-  const { q = "", status = "", page = "1" } = await searchParams;
+  const { q = "", status = "", overdue = "", page = "1" } = await searchParams;
   const currentPage = Math.max(1, parseInt(page, 10) || 1);
 
   // フィルタ
   const branchWhere = role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId };
   const textWhere   = q ? { title: { contains: q, mode: "insensitive" as const } } : {};
   const statusWhere = status ? { status: status as ProjectStatus } : {};
-  const where = { ...branchWhere, ...textWhere, ...statusWhere };
+  const overdueWhere = overdue
+    ? { deadline: { lt: new Date() }, status: { notIn: ["COMPLETED", "CANCELLED"] as ProjectStatus[] } }
+    : {};
+  const where = { ...branchWhere, ...textWhere, ...statusWhere, ...overdueWhere };
 
   const [projects, total, totalByStatus] = await Promise.all([
     db.project.findMany({

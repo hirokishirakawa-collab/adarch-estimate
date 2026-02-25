@@ -3,6 +3,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // nodemailer など Node.js 専用モジュールをクライアントバンドルから除外
   serverExternalPackages: ["nodemailer", "googleapis"],
+  // Google アカウントのアバター画像を next/image で表示するため許可
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      { protocol: "https", hostname: "lh4.googleusercontent.com" },
+    ],
+  },
   // ----------------------------------------------------------------
   // セキュリティヘッダー（全レスポンスに付与）
   // ----------------------------------------------------------------

@@ -11,8 +11,9 @@ export function ProjectSearch() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const currentQuery  = searchParams.get("q")      ?? "";
-  const currentStatus = searchParams.get("status") ?? "";
+  const currentQuery   = searchParams.get("q")       ?? "";
+  const currentStatus  = searchParams.get("status")  ?? "";
+  const currentOverdue = searchParams.get("overdue") ?? "";
 
   const update = useCallback(
     (key: string, value: string) => {
@@ -28,7 +29,7 @@ export function ProjectSearch() {
     [router, pathname, searchParams]
   );
 
-  const hasFilters = currentQuery || currentStatus;
+  const hasFilters = currentQuery || currentStatus || currentOverdue;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -48,12 +49,12 @@ export function ProjectSearch() {
       </div>
 
       {/* ステータスフィルタ */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-wrap">
         <button
           onClick={() => update("status", "")}
           className={cn(
             "px-2.5 py-1 text-xs rounded-full border transition-colors",
-            !currentStatus
+            !currentStatus && !currentOverdue
               ? "bg-zinc-800 text-white border-zinc-700"
               : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400"
           )}
@@ -63,12 +64,20 @@ export function ProjectSearch() {
         {PROJECT_STATUS_OPTIONS.map((opt) => (
           <button
             key={opt.value}
-            onClick={() =>
-              update("status", currentStatus === opt.value ? "" : opt.value)
-            }
+            onClick={() => {
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete("overdue");
+              params.delete("page");
+              if (currentStatus === opt.value) {
+                params.delete("status");
+              } else {
+                params.set("status", opt.value);
+              }
+              router.replace(`${pathname}?${params.toString()}`);
+            }}
             className={cn(
               "px-2.5 py-1 text-xs rounded-full border transition-colors",
-              currentStatus === opt.value
+              currentStatus === opt.value && !currentOverdue
                 ? "bg-zinc-800 text-white border-zinc-700"
                 : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400"
             )}
@@ -76,6 +85,28 @@ export function ProjectSearch() {
             {opt.icon} {opt.label}
           </button>
         ))}
+        {/* 期限超過フィルタ */}
+        <button
+          onClick={() => {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("status");
+            params.delete("page");
+            if (currentOverdue) {
+              params.delete("overdue");
+            } else {
+              params.set("overdue", "1");
+            }
+            router.replace(`${pathname}?${params.toString()}`);
+          }}
+          className={cn(
+            "px-2.5 py-1 text-xs rounded-full border transition-colors",
+            currentOverdue
+              ? "bg-red-600 text-white border-red-600"
+              : "bg-white text-red-500 border-red-200 hover:border-red-400"
+          )}
+        >
+          🔴 期限超過
+        </button>
       </div>
 
       {/* クリア */}

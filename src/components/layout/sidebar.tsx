@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -292,10 +293,11 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
       <div className="px-4 py-3.5 border-b border-zinc-800/80">
         <div className="flex items-center gap-2.5">
           {user.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={user.image}
               alt=""
+              width={32}
+              height={32}
               className="w-8 h-8 rounded-full ring-1 ring-zinc-700"
             />
           ) : (
