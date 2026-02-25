@@ -137,6 +137,13 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
         external: true,
       },
+      {
+        href: "https://drive.google.com/drive/folders/1p9QtqSbPrBAkof5-10jeusyG6T2y7cB8?usp=drive_link",
+        label: "グループ運用データ（Drive）",
+        icon: HardDrive,
+        minRole: "USER",
+        external: true,
+      },
     ],
   },
   {
