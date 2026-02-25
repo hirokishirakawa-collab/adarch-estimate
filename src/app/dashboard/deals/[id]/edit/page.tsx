@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getMockBranchId } from "@/lib/data/customers";
 import { updateDeal } from "@/lib/actions/deal";
 import { DealEditForm } from "@/components/deals/deal-edit-form";
 import { ChevronLeft, TrendingUp } from "lucide-react";
@@ -16,12 +17,21 @@ export default async function EditDealPage({ params }: PageProps) {
 
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  void role; // 将来の権限チェック用
+  const email = session?.user?.email ?? "";
+  const userBranchId = getMockBranchId(email, role);
+  const branchWhere = role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId };
 
-  const deal = await db.deal.findUnique({
-    where: { id },
-    include: { customer: { select: { name: true } } },
-  });
+  const [deal, users] = await Promise.all([
+    db.deal.findUnique({
+      where: { id },
+      include: { customer: { select: { name: true } } },
+    }),
+    db.user.findMany({
+      where: branchWhere,
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!deal) notFound();
 
@@ -36,6 +46,7 @@ export default async function EditDealPage({ params }: PageProps) {
       ? deal.expectedCloseDate.toISOString().slice(0, 10)
       : null,
     notes: deal.notes,
+    assignedToId: deal.assignedToId,
   };
 
   return (
@@ -59,7 +70,7 @@ export default async function EditDealPage({ params }: PageProps) {
       </div>
 
       <div className="bg-white rounded-xl border border-zinc-200 p-6">
-        <DealEditForm action={boundAction} defaultValues={defaultValues} />
+        <DealEditForm action={boundAction} defaultValues={defaultValues} users={users} />
       </div>
     </div>
   );

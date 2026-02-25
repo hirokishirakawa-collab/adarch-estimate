@@ -3,46 +3,12 @@
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo } from "@/lib/session";
 import { sendInvoiceNotification } from "@/lib/notifications";
 import { uploadBillingFile } from "@/lib/storage";
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
-
-// ---------------------------------------------------------------
-// 共通: セッション情報取得
-// ログイン済みユーザーを DB に自動 upsert して userId を確実に確保する
-// ---------------------------------------------------------------
-async function getSessionInfo() {
-  const session = await auth();
-  if (!session?.user) return null;
-
-  const role     = (session.user.role ?? "MANAGER") as UserRole;
-  const email    = session.user.email ?? "";
-  const branchId = getMockBranchId(email, role) ?? "branch_hq";
-
-  // DB ロール変換
-  const dbRole: "ADMIN" | "MANAGER" | "USER" =
-    role === "ADMIN" ? "ADMIN" : role === "MANAGER" ? "MANAGER" : "USER";
-
-  // Google OAuth ログイン時に users テーブルへの自動登録は行われないため、
-  // ここで upsert して userId を必ず確保する
-  const user = await db.user.upsert({
-    where:  { email },
-    update: {},  // 既存レコードは変更しない
-    create: {
-      email,
-      name:     session.user.name ?? email,
-      role:     dbRole,
-      branchId: getMockBranchId(email, role),  // ADMIN は null
-    },
-    select: { id: true, name: true },
-  });
-
-  return { role, email, branchId, userId: user.id, staffName: user.name ?? email };
-}
 
 // ---------------------------------------------------------------
 // 閲覧権限スコープ

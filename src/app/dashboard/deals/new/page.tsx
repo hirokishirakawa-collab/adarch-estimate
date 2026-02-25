@@ -20,11 +20,18 @@ export default async function NewDealPage({ searchParams }: PageProps) {
 
   const where = role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId };
 
-  const customers = await db.customer.findMany({
-    where,
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
+  const [customers, users] = await Promise.all([
+    db.customer.findMany({
+      where,
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    db.user.findMany({
+      where: where.branchId ? { branchId: where.branchId } : {},
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   return (
     <div className="px-6 py-6 max-w-2xl mx-auto w-full">
@@ -48,7 +55,7 @@ export default async function NewDealPage({ searchParams }: PageProps) {
       </div>
 
       <div className="bg-white rounded-xl border border-zinc-200 p-6">
-        <DealForm customers={customers} preselectedCustomerId={customerId} />
+        <DealForm customers={customers} users={users} preselectedCustomerId={customerId} />
       </div>
     </div>
   );

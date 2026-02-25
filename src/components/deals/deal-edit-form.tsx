@@ -13,10 +13,12 @@ interface Props {
     probability: string | null;
     expectedCloseDate: string | null;
     notes: string | null;
+    assignedToId: string | null;
   };
+  users: { id: string; name: string | null; email: string }[];
 }
 
-export function DealEditForm({ action, defaultValues }: Props) {
+export function DealEditForm({ action, defaultValues, users }: Props) {
   const [state, formAction, isPending] = useActionState(action, null);
 
   return (
@@ -94,6 +96,24 @@ export function DealEditForm({ action, defaultValues }: Props) {
           className="w-full px-3 py-2.5 text-sm border border-zinc-200 rounded-lg
                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
+      </div>
+
+      {/* 担当者 */}
+      <div>
+        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">担当者</label>
+        <select
+          name="assignedToId"
+          defaultValue={defaultValues.assignedToId ?? ""}
+          className="w-full px-3 py-2.5 text-sm border border-zinc-200 rounded-lg
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+        >
+          <option value="">-- 未割り当て --</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name ?? u.email}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* メモ */}

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Pencil, Trash2, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { deleteRevenueReport } from "@/lib/actions/sales-report";
 
 type Report = {
@@ -39,6 +39,27 @@ function calcThisMonthTotal(reports: Report[]): number {
       return d.getFullYear() === y && d.getMonth() === m;
     })
     .reduce((sum, r) => sum + Number(r.amount), 0);
+}
+
+function exportCsv(reports: Report[]) {
+  const header = ["計上月", "関連プロジェクト", "金額（税抜）", "メモ", "登録日"];
+  const rows = reports.map((r) => [
+    fmtMonth(r.targetMonth),
+    r.projectName ?? "",
+    String(Number(r.amount)),
+    (r.memo ?? "").replace(/"/g, '""'),
+    new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(r.createdAt)),
+  ]);
+  const csv = [header, ...rows]
+    .map((row) => row.map((v) => `"${v}"`).join(","))
+    .join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `売上報告_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function DeleteButton({ reportId }: { reportId: string }) {
@@ -90,12 +111,25 @@ export function RevenueReportList({ reports }: Props) {
             ¥{thisMonthTotal.toLocaleString("ja-JP")}
           </p>
         </div>
-        <div className="text-right text-xs text-blue-400">
-          <p>全 {reports.length} 件</p>
-          <p className="mt-0.5">今月 {reports.filter((r) => {
-            const d = new Date(r.targetMonth);
-            return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-          }).length} 件</p>
+        <div className="flex flex-col items-end gap-2">
+          <div className="text-right text-xs text-blue-400">
+            <p>全 {reports.length} 件</p>
+            <p className="mt-0.5">今月 {reports.filter((r) => {
+              const d = new Date(r.targetMonth);
+              return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+            }).length} 件</p>
+          </div>
+          {reports.length > 0 && (
+            <button
+              onClick={() => exportCsv(reports)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium
+                         bg-white/80 border border-blue-200 text-blue-700 rounded-lg
+                         hover:bg-white transition-colors"
+            >
+              <Download className="w-3 h-3" />
+              CSV書き出し
+            </button>
+          )}
         </div>
       </div>
 

@@ -3,30 +3,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo } from "@/lib/session";
 import { sendRevenueNotification } from "@/lib/notifications";
 import type { UserRole } from "@/types/roles";
-
-// ---------------------------------------------------------------
-// 共通: セッション情報取得
-// ---------------------------------------------------------------
-async function getSessionInfo() {
-  const session = await auth();
-  if (!session?.user) return null;
-  const role = (session.user.role ?? "MANAGER") as UserRole;
-  const email = session.user.email ?? "";
-  const branchId = getMockBranchId(email, role) ?? "branch_hq";
-
-  // DB から userId を取得（createdById の保存に必要）
-  const user = await db.user.findUnique({
-    where: { email: session.user.email ?? "" },
-    select: { id: true },
-  });
-
-  return { role, email, branchId, userId: user?.id ?? null };
-}
 
 /** MANAGER 以上のみ許可 */
 function isForbidden(role: UserRole): boolean {
@@ -43,7 +23,7 @@ export async function createRevenueReport(
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
   if (isForbidden(info.role)) return { error: "権限がありません" };
-  if (!info.userId) return { error: "ユーザー情報の取得に失敗しました" };
+  // userId は getSessionInfo() の upsert により必ず存在する
 
   const amountRaw = (formData.get("amount") as string)?.replace(/,/g, "").trim();
   const amount = amountRaw ? parseInt(amountRaw, 10) : NaN;
@@ -103,11 +83,11 @@ export async function updateRevenueReport(
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
   if (isForbidden(info.role)) return { error: "権限がありません" };
-  if (!info.userId) return { error: "ユーザー情報の取得に失敗しました" };
+  // userId は getSessionInfo() の upsert により必ず存在する
 
   // 本人が作成したレポートのみ編集可
   const existing = await db.revenueReport.findFirst({
-    where: { id: reportId, createdById: info.userId! },
+    where: { id: reportId, createdById: info.userId },
   });
   if (!existing) return { error: "対象の売上報告が見つかりません" };
 
@@ -160,11 +140,11 @@ export async function deleteRevenueReport(
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
   if (isForbidden(info.role)) return { error: "権限がありません" };
-  if (!info.userId) return { error: "ユーザー情報の取得に失敗しました" };
+  // userId は getSessionInfo() の upsert により必ず存在する
 
   // 本人が作成したレポートのみ削除可
   const existing = await db.revenueReport.findFirst({
-    where: { id: reportId, createdById: info.userId! },
+    where: { id: reportId, createdById: info.userId },
   });
   if (!existing) return { error: "対象の売上報告が見つかりません" };
 

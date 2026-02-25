@@ -6,10 +6,11 @@ import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 
 interface Props {
   customers: { id: string; name: string }[];
+  users: { id: string; name: string | null; email: string }[];
   preselectedCustomerId?: string;
 }
 
-export function DealForm({ customers, preselectedCustomerId }: Props) {
+export function DealForm({ customers, users, preselectedCustomerId }: Props) {
   const [state, action, pending] = useActionState(createDeal, null);
 
   return (
@@ -103,6 +104,22 @@ export function DealForm({ customers, preselectedCustomerId }: Props) {
           type="date"
           className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+      </div>
+
+      {/* 担当者 */}
+      <div>
+        <label className="block text-xs font-medium text-zinc-700 mb-1">担当者</label>
+        <select
+          name="assignedToId"
+          className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option value="">-- 未割り当て --</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name ?? u.email}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* メモ */}

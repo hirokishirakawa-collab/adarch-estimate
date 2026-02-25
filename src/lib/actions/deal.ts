@@ -3,27 +3,12 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo } from "@/lib/session";
 import type { DealStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 import { sendDealNotification } from "@/lib/notifications";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
-
-// ---------------------------------------------------------------
-// 共通ユーティリティ
-// ---------------------------------------------------------------
-
-async function getSessionInfo() {
-  const session = await auth();
-  if (!session?.user) return null;
-  const role = (session.user.role ?? "MANAGER") as UserRole;
-  const email = session.user.email ?? "";
-  const staffName = session.user.name ?? session.user.email ?? "不明";
-  const branchId = getMockBranchId(email, role) ?? "branch_hq";
-  return { role, email, staffName, branchId };
-}
 
 // ---------------------------------------------------------------
 // 商談を新規作成する
@@ -34,7 +19,7 @@ export async function createDeal(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
-  const { staffName, branchId } = info;
+  const { staffName, branchId, userId } = info;
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "商談タイトルは必須です" };
@@ -72,8 +57,8 @@ export async function createDeal(
           notes,
           customerId,
           branchId,
-          createdById: null,
-          assignedToId: null,
+          createdById: userId,
+          assignedToId: (formData.get("assignedToId") as string)?.trim() || null,
         },
       }),
       db.customer.findUnique({ where: { id: customerId }, select: { name: true } }),
@@ -204,6 +189,7 @@ export async function updateDeal(
         probability,
         expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : null,
         notes,
+        assignedToId: (formData.get("assignedToId") as string)?.trim() || null,
       },
       select: { customer: { select: { name: true } } },
     });

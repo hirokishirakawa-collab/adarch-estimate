@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
-import { Trash2, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { Trash2, ChevronLeft, ChevronRight, ExternalLink, Search, X } from "lucide-react";
 import { deleteInvoiceRequest } from "@/lib/actions/billing";
 import type { UserRole } from "@/types/roles";
+import { cn } from "@/lib/utils";
 
 type InvoiceRequest = {
   id: string;
@@ -60,13 +61,71 @@ function DeleteButton({ requestId }: { requestId: string }) {
 
 export function InvoiceRequestList({ requests, role }: Props) {
   const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(requests.length / PAGE_SIZE));
-  const slice = requests.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"" | "DRAFT" | "SUBMITTED">("");
 
   const adminCols = role === "ADMIN";
 
+  const filtered = useMemo(() => {
+    return requests.filter((r) => {
+      const matchStatus = !statusFilter || r.status === statusFilter;
+      const q = query.trim().toLowerCase();
+      const matchQuery = !q ||
+        r.subject.toLowerCase().includes(q) ||
+        (r.customer?.name ?? "").toLowerCase().includes(q);
+      return matchStatus && matchQuery;
+    });
+  }, [requests, query, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const slice = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   return (
     <div className="space-y-5">
+      {/* ── 検索・フィルタ ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* テキスト検索 */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="件名・請求先で検索…"
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+            className="pl-8 pr-3 py-1.5 text-xs border border-zinc-200 rounded-lg bg-white
+                       text-zinc-700 placeholder:text-zinc-400 focus:outline-none
+                       focus:ring-2 focus:ring-violet-500/30 w-52"
+          />
+          {query && (
+            <button
+              onClick={() => { setQuery(""); setPage(1); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+        {/* ステータスフィルタ */}
+        <div className="flex items-center gap-1">
+          {(["", "DRAFT", "SUBMITTED"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => { setStatusFilter(s); setPage(1); }}
+              className={cn(
+                "px-2.5 py-1 text-xs rounded-full border transition-colors",
+                statusFilter === s
+                  ? "bg-zinc-800 text-white border-zinc-700"
+                  : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400"
+              )}
+            >
+              {s === "" ? "すべて" : s === "DRAFT" ? "未提出" : "提出済"}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-zinc-400">{filtered.length} 件</span>
+      </div>
+
       {/* ── サマリー ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
@@ -202,16 +261,16 @@ export function InvoiceRequestList({ requests, role }: Props) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-xs text-zinc-500">
           <span>
-            {requests.length} 件中 {(page - 1) * PAGE_SIZE + 1}〜
-            {Math.min(page * PAGE_SIZE, requests.length)} 件
+            {filtered.length} 件中 {(safePage - 1) * PAGE_SIZE + 1}〜
+            {Math.min(safePage * PAGE_SIZE, filtered.length)} 件
           </span>
           <div className="flex items-center gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
                     className="p-1 rounded hover:bg-zinc-100 disabled:opacity-30">
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="px-2">{page} / {totalPages}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+            <span className="px-2">{safePage} / {totalPages}</span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
                     className="p-1 rounded hover:bg-zinc-100 disabled:opacity-30">
               <ChevronRight className="w-4 h-4" />
             </button>
