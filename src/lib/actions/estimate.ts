@@ -85,7 +85,6 @@ export async function createEstimation(
         discountAmount: discountAmount && discountAmount > 0 ? discountAmount : null,
         discountReason: discountReason || null,
         discountReasonNote: discountReasonNote || null,
-        createdByEmail: info.email,
         branchId,
         items: {
           create: items.map((item, idx) => ({
@@ -139,25 +138,6 @@ export async function createEstimation(
 
   revalidatePath("/dashboard/estimates");
   redirect(`/dashboard/estimates/${estimationId}`);
-}
-
-// ---------------------------------------------------------------
-// 見積書の削除（ADMIN のみ）
-// ---------------------------------------------------------------
-export async function deleteEstimation(id: string): Promise<{ error?: string }> {
-  const info = await getSessionInfo();
-  if (!info) return { error: "ログインが必要です" };
-  if (info.role !== "ADMIN") return { error: "管理者のみ削除できます" };
-
-  try {
-    await db.estimation.delete({ where: { id } });
-  } catch (e) {
-    console.error("[deleteEstimation]", e);
-    return { error: "削除に失敗しました" };
-  }
-
-  revalidatePath("/dashboard/estimates");
-  return {};
 }
 
 // ---------------------------------------------------------------

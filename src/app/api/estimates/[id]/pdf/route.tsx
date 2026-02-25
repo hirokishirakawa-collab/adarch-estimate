@@ -22,17 +22,10 @@ export async function GET(
   const email = session.user.email ?? "";
   const userBranchId = getMockBranchId(email, role);
 
-  // ADMIN: 全件、非 ADMIN: 自分が作成した見積書のみ（createdByEmail が null の古いデータは自拠点で許可）
   const whereClause =
-    role === "ADMIN"
+    role === "ADMIN" || !userBranchId
       ? { id }
-      : {
-          id,
-          OR: [
-            { createdByEmail: email },
-            { createdByEmail: null, branchId: userBranchId ?? undefined },
-          ],
-        };
+      : { id, branchId: userBranchId };
 
   const estimation = await db.estimation.findFirst({
     where: whereClause,

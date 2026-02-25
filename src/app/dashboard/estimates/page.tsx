@@ -13,21 +13,11 @@ export default async function EstimatesPage() {
   const email = session?.user?.email ?? "";
   const userBranchId = getMockBranchId(email, role);
 
-  // ADMIN: 全件、非 ADMIN: 自分が作成した見積書のみ
-  // createdByEmail が null の古いデータは自拠点ユーザー全員が閲覧可（後方互換）
-  const where =
-    role === "ADMIN"
-      ? {}
-      : {
-          OR: [
-            { createdByEmail: email },
-            { createdByEmail: null, branchId: userBranchId ?? undefined },
-          ],
-        };
+  const branchWhere = role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId };
 
   const [estimations, totalByStatus] = await Promise.all([
     db.estimation.findMany({
-      where,
+      where: branchWhere,
       include: {
         customer: { select: { id: true, name: true } },
         items: { select: { amount: true } },
@@ -36,7 +26,7 @@ export default async function EstimatesPage() {
     }),
     db.estimation.groupBy({
       by: ["status"],
-      where,
+      where: branchWhere,
       _count: { status: true },
     }),
   ]);
