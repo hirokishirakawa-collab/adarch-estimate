@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import { RevenueReportList } from "@/components/sales-report/revenue-report-list";
+import { AdminRevenueSummary } from "@/components/sales-report/admin-revenue-summary";
 import { BarChart2, Plus } from "lucide-react";
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
@@ -27,15 +28,24 @@ export default async function SalesReportPage() {
     ? { createdById: user.id }
     : { createdById: "__none__" };
 
-  const reports = await db.revenueReport.findMany({
-    where,
-    orderBy: { targetMonth: "desc" },
-  });
+  const [reports, adminReports] = await Promise.all([
+    db.revenueReport.findMany({
+      where,
+      orderBy: { targetMonth: "desc" },
+    }),
+    // Admin のみ全件取得（集計用）
+    role === "ADMIN"
+      ? db.revenueReport.findMany({
+          include: { createdBy: { select: { name: true, email: true } } },
+          orderBy: { targetMonth: "desc" },
+        })
+      : Promise.resolve(null),
+  ]);
 
   return (
-    <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
+    <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-8">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
             <BarChart2 className="text-amber-600" style={{ width: "1.125rem", height: "1.125rem" }} />
@@ -58,7 +68,22 @@ export default async function SalesReportPage() {
         </Link>
       </div>
 
-      <RevenueReportList reports={reports} />
+      {/* 管理者集計ビュー（Admin のみ） */}
+      {adminReports && (
+        <div className="border-b border-zinc-100 pb-8">
+          <AdminRevenueSummary reports={adminReports} />
+        </div>
+      )}
+
+      {/* 自分の報告一覧 */}
+      <div>
+        {role === "ADMIN" && (
+          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">
+            自分の報告
+          </p>
+        )}
+        <RevenueReportList reports={reports} />
+      </div>
     </div>
   );
 }

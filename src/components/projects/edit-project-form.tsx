@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect, useRef } from "react";
 import { updateProject } from "@/lib/actions/project";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Search, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Project, Customer } from "@/generated/prisma/client";
 
 interface Props {
@@ -15,6 +16,39 @@ export function EditProjectForm({ project, customers }: Props) {
   const boundAction = updateProject.bind(null, project.id);
   const [state, formAction, isPending] = useActionState(boundAction, null);
   const [status, setStatus] = useState(project.status);
+
+  // 顧客検索コンボボックス
+  const [selectedCustomerId, setSelectedCustomerId] = useState(project.customerId ?? "");
+  const [customerQuery, setCustomerQuery] = useState(project.customer?.name ?? "");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const comboboxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+        if (!selectedCustomerId) setCustomerQuery("");
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [selectedCustomerId]);
+
+  const filteredCustomers = customerQuery
+    ? customers.filter((c) => c.name.toLowerCase().includes(customerQuery.toLowerCase()))
+    : customers;
+
+  function handleSelectCustomer(c: Pick<Customer, "id" | "name">) {
+    setSelectedCustomerId(c.id);
+    setCustomerQuery(c.name);
+    setIsDropdownOpen(false);
+  }
+
+  function handleClearCustomer() {
+    setSelectedCustomerId("");
+    setCustomerQuery("");
+    setIsDropdownOpen(false);
+  }
 
   const deadlineStr = project.deadline
     ? new Date(project.deadline).toISOString().split("T")[0]
@@ -94,18 +128,62 @@ export function EditProjectForm({ project, customers }: Props) {
           <label className="block text-xs font-semibold text-zinc-600 mb-1.5">
             関連顧客
           </label>
-          <select
-            name="customerId"
-            defaultValue={project.customerId ?? ""}
-            className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 bg-white text-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-          >
-            <option value="">（なし）</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <input type="hidden" name="customerId" value={selectedCustomerId} />
+          <div className="relative" ref={comboboxRef}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+            <input
+              type="text"
+              value={customerQuery}
+              onChange={(e) => {
+                setCustomerQuery(e.target.value);
+                setSelectedCustomerId("");
+                setIsDropdownOpen(true);
+              }}
+              onFocus={() => setIsDropdownOpen(true)}
+              placeholder="会社名で検索..."
+              className="w-full text-sm border border-zinc-200 rounded-lg pl-8 pr-8 py-2 bg-white text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            />
+            {customerQuery && (
+              <button
+                type="button"
+                onClick={handleClearCustomer}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {isDropdownOpen && (
+              <ul className="absolute z-20 mt-1 w-full bg-white border border-zinc-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                <li>
+                  <button
+                    type="button"
+                    onClick={handleClearCustomer}
+                    className="w-full text-left px-3 py-2 text-xs text-zinc-400 hover:bg-zinc-50"
+                  >
+                    —（なし）—
+                  </button>
+                </li>
+                {filteredCustomers.length === 0 ? (
+                  <li className="px-3 py-2 text-xs text-zinc-400">該当なし</li>
+                ) : (
+                  filteredCustomers.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectCustomer(c)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition-colors",
+                          c.id === selectedCustomerId && "bg-blue-50 text-blue-700 font-medium"
+                        )}
+                      >
+                        {c.name}
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
 
