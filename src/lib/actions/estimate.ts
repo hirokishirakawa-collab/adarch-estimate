@@ -141,6 +141,25 @@ export async function createEstimation(
 }
 
 // ---------------------------------------------------------------
+// 見積書の削除（ADMIN のみ）
+// ---------------------------------------------------------------
+export async function deleteEstimation(id: string): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role !== "ADMIN") return { error: "管理者のみ削除できます" };
+
+  try {
+    await db.estimation.delete({ where: { id } });
+  } catch (e) {
+    console.error("[deleteEstimation]", e);
+    return { error: "削除に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/estimates");
+  return {};
+}
+
+// ---------------------------------------------------------------
 // 見積書のステータス更新
 // ---------------------------------------------------------------
 export async function updateEstimationStatus(
