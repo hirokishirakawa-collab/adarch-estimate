@@ -103,10 +103,11 @@ export async function updateRevenueReport(
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
   if (isForbidden(info.role)) return { error: "権限がありません" };
+  if (!info.userId) return { error: "ユーザー情報の取得に失敗しました" };
 
   // 本人が作成したレポートのみ編集可
   const existing = await db.revenueReport.findFirst({
-    where: { id: reportId, createdById: info.userId ?? "__none__" },
+    where: { id: reportId, createdById: info.userId! },
   });
   if (!existing) return { error: "対象の売上報告が見つかりません" };
 
@@ -159,10 +160,11 @@ export async function deleteRevenueReport(
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
   if (isForbidden(info.role)) return { error: "権限がありません" };
+  if (!info.userId) return { error: "ユーザー情報の取得に失敗しました" };
 
   // 本人が作成したレポートのみ削除可
   const existing = await db.revenueReport.findFirst({
-    where: { id: reportId, createdById: info.userId ?? "__none__" },
+    where: { id: reportId, createdById: info.userId! },
   });
   if (!existing) return { error: "対象の売上報告が見つかりません" };
 

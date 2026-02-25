@@ -98,6 +98,8 @@ async function parseFormData(formData: FormData): Promise<
 
   if (!subject)       return { ok: false, error: "件名を入力してください" };
   if (!contactEmail)  return { ok: false, error: "メールアドレスを入力してください" };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail))
+    return { ok: false, error: "メールアドレスの形式が正しくありません" };
   if (!billingDateRaw) return { ok: false, error: "請求日を入力してください" };
 
   const billingDate = new Date(billingDateRaw);

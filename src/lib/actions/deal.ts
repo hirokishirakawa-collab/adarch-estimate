@@ -122,6 +122,7 @@ export async function updateDealStatus(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
+  if (info.role === "USER") return { error: "権限がありません" };
 
   let deal: { title: string; customer: { name: string }; assignedTo: { name: string | null } | null } | null = null;
   try {
