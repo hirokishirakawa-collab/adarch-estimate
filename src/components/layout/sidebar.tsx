@@ -25,6 +25,7 @@ import {
   Tv2,
   UtensilsCrossed,
   Clapperboard,
+  HardDrive,
   X,
 } from "lucide-react";
 
@@ -128,6 +129,13 @@ const NAV_SECTIONS: NavSection[] = [
         label: "社内Wiki",
         icon: BookOpen,
         minRole: "USER",
+      },
+      {
+        href: "https://drive.google.com/drive/folders/11CJPv-D_37Vn1zntRzI9Qqc2SV89fKPT?usp=drive_link",
+        label: "実績フォルダ（Drive）",
+        icon: HardDrive,
+        minRole: "USER",
+        external: true,
       },
     ],
   },
