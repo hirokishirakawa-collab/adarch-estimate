@@ -511,7 +511,7 @@ export type RevenueNotificationPayload = {
 export async function sendRevenueNotification(
   payload: RevenueNotificationPayload
 ): Promise<void> {
-  const to = resolveRecipients("ceo_only");
+  const to = ["hiroki.shirakawa@adarch.co.jp"];
   const { subject, html } = buildRevenueEmail(payload);
   await sendEmail("revenue", to, subject, html);
 }

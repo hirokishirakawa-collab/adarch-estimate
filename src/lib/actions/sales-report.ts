@@ -104,9 +104,9 @@ export async function updateRevenueReport(
   if (!info) return { error: "ログインが必要です" };
   if (isForbidden(info.role)) return { error: "権限がありません" };
 
-  // 自拠点のレポートのみ編集可
+  // 本人が作成したレポートのみ編集可
   const existing = await db.revenueReport.findFirst({
-    where: { id: reportId, branchId: info.branchId },
+    where: { id: reportId, createdById: info.userId ?? "__none__" },
   });
   if (!existing) return { error: "対象の売上報告が見つかりません" };
 
@@ -160,9 +160,9 @@ export async function deleteRevenueReport(
   if (!info) return { error: "ログインが必要です" };
   if (isForbidden(info.role)) return { error: "権限がありません" };
 
-  // 自拠点のレポートのみ削除可
+  // 本人が作成したレポートのみ削除可
   const existing = await db.revenueReport.findFirst({
-    where: { id: reportId, branchId: info.branchId },
+    where: { id: reportId, createdById: info.userId ?? "__none__" },
   });
   if (!existing) return { error: "対象の売上報告が見つかりません" };
 

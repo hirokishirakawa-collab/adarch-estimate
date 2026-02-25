@@ -6,7 +6,6 @@ import { RevenueReportForm } from "@/components/sales-report/revenue-report-form
 import { updateRevenueReport } from "@/lib/actions/sales-report";
 import { BarChart2 } from "lucide-react";
 import type { UserRole } from "@/types/roles";
-import type { Prisma } from "@/generated/prisma/client";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -18,15 +17,19 @@ export default async function EditSalesReportPage({ params }: Props) {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   const email = session?.user?.email ?? "";
-  const branchId = getMockBranchId(email, role);
+  getMockBranchId(email, role); // ロール確認のみ
 
   if (role === "USER") redirect("/dashboard");
 
-  // 自拠点スコープで取得
-  const where: Prisma.RevenueReportWhereInput =
-    role === "ADMIN" || !branchId ? { id } : { id, branchId };
+  // 本人のレポートのみ編集可
+  const user = await db.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
 
-  const report = await db.revenueReport.findFirst({ where });
+  const report = await db.revenueReport.findFirst({
+    where: { id, ...(user ? { createdById: user.id } : { createdById: "__none__" }) },
+  });
   if (!report) notFound();
 
   const action = updateRevenueReport.bind(null, id);

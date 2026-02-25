@@ -12,14 +12,20 @@ export default async function SalesReportPage() {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   const email = session?.user?.email ?? "";
-  const branchId = getMockBranchId(email, role);
+  getMockBranchId(email, role); // ロール確認のみ
 
   // USER ロールはアクセス不可
   if (role === "USER") redirect("/dashboard");
 
-  // 自拠点フィルタ（ADMIN は全件）
-  const where: Prisma.RevenueReportWhereInput =
-    role === "ADMIN" || !branchId ? {} : { branchId };
+  // 本人が登録したレポートのみ表示
+  const user = await db.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  const where: Prisma.RevenueReportWhereInput = user
+    ? { createdById: user.id }
+    : { createdById: "__none__" };
 
   const reports = await db.revenueReport.findMany({
     where,
