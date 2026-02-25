@@ -35,7 +35,6 @@ const FIELD_LABELS: Record<string, string> = {
   title:       "プロジェクト名",
   status:      "ステータス",
   deadline:    "納期",
-  budget:      "予算",
   description: "概要・説明",
   staffName:   "担当者",
   customerId:  "顧客",
@@ -56,16 +55,10 @@ export async function createProject(
   if (!title) return { error: "プロジェクト名は必須です" };
   if (title.length > 100) return { error: "プロジェクト名は100文字以内で入力してください" };
 
-  const status    = (formData.get("status") as string)   || "IN_PROGRESS";
-  const deadline  = (formData.get("deadline") as string)  || null;
-  const budgetRaw = (formData.get("budget") as string)?.trim();
-  const budget    = budgetRaw ? parseInt(budgetRaw.replace(/,/g, ""), 10) : null;
+  const status      = (formData.get("status") as string)   || "IN_PROGRESS";
+  const deadline    = (formData.get("deadline") as string)  || null;
   const description = (formData.get("description") as string)?.trim() || null;
   const customerId  = (formData.get("customerId") as string)?.trim()  || null;
-
-  if (budget !== null && (isNaN(budget) || budget < 0)) {
-    return { error: "予算は0以上の整数で入力してください" };
-  }
 
   let projectId: string;
   try {
@@ -74,7 +67,6 @@ export async function createProject(
         title,
         status: status as ProjectStatus,
         deadline: deadline ? new Date(deadline) : null,
-        budget: budget ?? null,
         description,
         staffName,
         customerId: customerId || null,
@@ -112,33 +104,22 @@ export async function updateProject(
   const title       = (formData.get("title") as string)?.trim();
   const status      = (formData.get("status") as string) || "IN_PROGRESS";
   const deadlineRaw = (formData.get("deadline") as string) || null;
-  const budgetRaw   = (formData.get("budget") as string)?.trim();
   const description = (formData.get("description") as string)?.trim() || null;
-  const customerIdRaw = (formData.get("customerId") as string)?.trim() || null;
+  const customerIdRaw  = (formData.get("customerId") as string)?.trim() || null;
   const staffNameField = (formData.get("staffName") as string)?.trim() || null;
 
   if (!title) return { error: "プロジェクト名は必須です" };
   if (title.length > 100) return { error: "プロジェクト名は100文字以内で入力してください" };
-
-  const budget = budgetRaw ? parseInt(budgetRaw.replace(/,/g, ""), 10) : null;
-  if (budget !== null && (isNaN(budget) || budget < 0)) {
-    return { error: "予算は0以上の整数で入力してください" };
-  }
 
   const deadline = deadlineRaw ? new Date(deadlineRaw) : null;
 
   // 差分検出
   const diffs: string[] = [];
 
-  const newBudget = budget !== null ? BigInt(budget) : null;
-  const oldBudget = existing.budget !== null ? BigInt(existing.budget.toString()) : null;
-
   if (existing.title !== title)
     diffs.push(`「${FIELD_LABELS.title}」を「${existing.title}」から「${title}」に変更しました`);
   if (existing.status !== status)
     diffs.push(`「${FIELD_LABELS.status}」を「${STATUS_LABELS[existing.status] ?? existing.status}」から「${STATUS_LABELS[status] ?? status}」に変更しました`);
-  if (String(oldBudget) !== String(newBudget))
-    diffs.push(`「${FIELD_LABELS.budget}」を「${oldBudget !== null ? Number(oldBudget).toLocaleString() + "円" : "未設定"}」から「${newBudget !== null ? Number(newBudget).toLocaleString() + "円" : "未設定"}」に変更しました`);
   if ((existing.description ?? "") !== (description ?? ""))
     diffs.push(`「${FIELD_LABELS.description}」を更新しました`);
   if ((existing.staffName ?? "") !== (staffNameField ?? ""))
@@ -159,7 +140,6 @@ export async function updateProject(
         title,
         status: status as ProjectStatus,
         deadline,
-        budget: budget ?? null,
         description,
         staffName: staffNameField,
         customerId: customerIdRaw || null,

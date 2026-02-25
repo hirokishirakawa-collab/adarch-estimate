@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { BRANCH_MAP } from "@/lib/data/customers";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
-import { ChevronRight, Calendar, Banknote, User } from "lucide-react";
+import { ChevronRight, Calendar, User } from "lucide-react";
 import { DeleteProjectButton } from "./delete-project-button";
 
 export type ProjectRow = {
@@ -10,7 +10,6 @@ export type ProjectRow = {
   title: string;
   status: string;
   deadline: Date | null;
-  budget: { toNumber(): number } | null;
   staffName: string | null;
   branchId: string;
   customer: { id: string; name: string } | null;
@@ -44,13 +43,6 @@ function formatDate(date: Date): string {
   }).format(date);
 }
 
-function formatBudget(amount: number): string {
-  return new Intl.NumberFormat("ja-JP", {
-    style: "currency",
-    currency: "JPY",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
 
 export function ProjectTable({ projects, isAdmin = false }: Props) {
   if (projects.length === 0) {
@@ -82,9 +74,6 @@ export function ProjectTable({ projects, isAdmin = false }: Props) {
               </th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-32">
                 納期
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-32">
-                予算
               </th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-28">
                 担当者
@@ -152,18 +141,6 @@ export function ProjectTable({ projects, isAdmin = false }: Props) {
                             期限超過
                           </span>
                         )}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-zinc-400">—</span>
-                    )}
-                  </td>
-
-                  {/* 予算 */}
-                  <td className="px-4 py-3">
-                    {project.budget ? (
-                      <span className="flex items-center gap-1 text-xs text-zinc-700 font-medium tabular-nums">
-                        <Banknote className="w-3 h-3 text-zinc-400 flex-shrink-0" />
-                        {formatBudget(project.budget.toNumber())}
                       </span>
                     ) : (
                       <span className="text-xs text-zinc-400">—</span>

@@ -15,43 +15,14 @@ import {
   FolderKanban,
   Pencil,
   Calendar,
-  Wallet,
   User,
   Building2,
-  TrendingUp,
-  TrendingDown,
-  Minus,
 } from "lucide-react";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-// 利益率バッジ
-function ProfitBadge({ rate }: { rate: number }) {
-  if (rate >= 30) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
-        <TrendingUp className="w-3 h-3" />
-        {rate.toFixed(1)}%
-      </span>
-    );
-  }
-  if (rate <= 10) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-full bg-red-100 text-red-600 border border-red-200">
-        <TrendingDown className="w-3 h-3" />
-        {rate.toFixed(1)}%
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-      <Minus className="w-3 h-3" />
-      {rate.toFixed(1)}%
-    </span>
-  );
-}
 
 export default async function ProjectDetailPage({ params }: PageProps) {
   const { id } = await params;
@@ -79,11 +50,8 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   // ステータス設定
   const statusOpt = PROJECT_STATUS_OPTIONS.find((o) => o.value === project.status);
 
-  // 金額計算
-  const budget       = project.budget !== null ? Number(project.budget) : null;
+  // 経費合計
   const totalExpense = project.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-  const profit       = budget !== null ? budget - totalExpense : null;
-  const profitRate   = budget && budget > 0 ? ((profit ?? 0) / budget) * 100 : null;
 
   // 日付フォーマット
   const fmt = (d: Date | null | undefined) =>
@@ -186,36 +154,12 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* 利益サマリーカード */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* 予算 */}
-        <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
-          <p className="text-[11px] text-zinc-400 mb-1 flex items-center gap-1">
-            <Wallet className="w-3.5 h-3.5" /> 予算
-          </p>
-          <p className="text-xl font-bold text-zinc-900">
-            {budget !== null ? `¥${budget.toLocaleString()}` : "—"}
-          </p>
-        </div>
-
-        {/* 経費合計 */}
-        <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
-          <p className="text-[11px] text-zinc-400 mb-1">経費合計</p>
-          <p className="text-xl font-bold text-zinc-900">
-            ¥{totalExpense.toLocaleString()}
-          </p>
-        </div>
-
-        {/* 利益 */}
-        <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
-          <div className="flex items-start justify-between">
-            <p className="text-[11px] text-zinc-400 mb-1">粗利（予算 − 経費）</p>
-            {profitRate !== null && <ProfitBadge rate={profitRate} />}
-          </div>
-          <p className={`text-xl font-bold ${profit !== null && profit < 0 ? "text-red-600" : "text-zinc-900"}`}>
-            {profit !== null ? (profit < 0 ? `-¥${Math.abs(profit).toLocaleString()}` : `¥${profit.toLocaleString()}`) : "—"}
-          </p>
-        </div>
+      {/* 経費合計カード */}
+      <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4 w-full sm:w-64">
+        <p className="text-[11px] text-zinc-400 mb-1">経費合計</p>
+        <p className="text-xl font-bold text-zinc-900">
+          ¥{totalExpense.toLocaleString()}
+        </p>
       </div>
 
       {/* メインコンテンツ 2列 */}

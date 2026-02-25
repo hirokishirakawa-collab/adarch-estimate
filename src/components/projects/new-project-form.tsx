@@ -246,18 +246,6 @@ export function NewProjectForm({ staffName, customers, prefillCustomer }: Props)
           />
         </Field>
 
-        {/* 予算 */}
-        <Field label="予算（円）" hint="半角数字で入力">
-          <input
-            name="budget"
-            type="number"
-            min={0}
-            step={1000}
-            placeholder="1000000"
-            className={inputClass}
-          />
-        </Field>
-
         {/* 担当者（表示のみ） */}
         <Field label="担当者" hint="ログインアカウントから自動取得">
           <div className="flex items-center gap-2 px-3 py-2 bg-zinc-50 rounded-lg border border-zinc-200">

@@ -19,9 +19,6 @@ export function EditProjectForm({ project, customers }: Props) {
   const deadlineStr = project.deadline
     ? new Date(project.deadline).toISOString().split("T")[0]
     : "";
-  const budgetStr = project.budget !== null
-    ? Number(project.budget).toString()
-    : "";
 
   return (
     <form action={formAction} className="space-y-5">
@@ -75,21 +72,6 @@ export function EditProjectForm({ project, customers }: Props) {
             name="deadline"
             defaultValue={deadlineStr}
             className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 bg-white text-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-          />
-        </div>
-
-        {/* 予算 */}
-        <div>
-          <label className="block text-xs font-semibold text-zinc-600 mb-1.5">
-            予算（円）
-          </label>
-          <input
-            type="number"
-            name="budget"
-            min={0}
-            defaultValue={budgetStr}
-            placeholder="例: 3000000"
-            className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 bg-white text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
           />
         </div>
 
