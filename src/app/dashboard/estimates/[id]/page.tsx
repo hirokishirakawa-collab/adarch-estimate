@@ -17,6 +17,7 @@ import {
   Scissors,
   Download,
 } from "lucide-react";
+import { DeleteEstimateButton } from "@/components/estimates/delete-estimate-button";
 
 const DISCOUNT_REASON_LABELS: Record<string, string> = {
   BUDGET_FIRST: "予算先行型（顧客予算が先に決定）",
@@ -37,8 +38,17 @@ export default async function EstimateDetailPage({ params }: PageProps) {
   const email = session?.user?.email ?? "";
   const userBranchId = getMockBranchId(email, role);
 
+  // ADMIN: 全件、非 ADMIN: 自分が作成した見積書のみ（createdByEmail が null の古いデータは自拠点で許可）
   const whereClause =
-    role === "ADMIN" || !userBranchId ? { id } : { id, branchId: userBranchId };
+    role === "ADMIN"
+      ? { id }
+      : {
+          id,
+          OR: [
+            { createdByEmail: email },
+            { createdByEmail: null, branchId: userBranchId ?? undefined },
+          ],
+        };
 
   const estimation = await db.estimation.findFirst({
     where: whereClause,
@@ -103,16 +113,19 @@ export default async function EstimateDetailPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* PDF ダウンロードボタン */}
-          <a
-            href={`/api/estimates/${estimation.id}/pdf`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors flex-shrink-0"
-          >
-            <Download className="w-3.5 h-3.5" />
-            PDFダウンロード
-          </a>
+          {/* アクションボタン */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <a
+              href={`/api/estimates/${estimation.id}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              PDFダウンロード
+            </a>
+            {role === "ADMIN" && <DeleteEstimateButton id={estimation.id} />}
+          </div>
         </div>
 
         {/* 基本情報グリッド */}

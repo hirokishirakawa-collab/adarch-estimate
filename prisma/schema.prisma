@@ -609,6 +609,9 @@ model Estimation {
   discountReason     String?   // BUDGET_FIRST | EXISTING | INVESTMENT | OTHER
   discountReasonNote String?   // 「その他」の場合の自由記述
 
+  // ---- 作成者（閲覧制御の軸）-----------------------------------
+  createdByEmail String?   // 作成者メールアドレス（作成者本人と ADMIN のみ閲覧可）
+
   // ---- マルチテナント（必須）------------------------------------
   branchId     String
   branch       Branch           @relation(fields: [branchId], references: [id])
@@ -621,6 +624,7 @@ model Estimation {
   @@index([branchId])
   @@index([customerId])
   @@index([status])
+  @@index([createdByEmail])
   @@map("estimations")
 }
 
