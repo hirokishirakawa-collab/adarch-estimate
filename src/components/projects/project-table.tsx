@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { BRANCH_MAP } from "@/lib/data/customers";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
 import { ChevronRight, Calendar, Banknote, User } from "lucide-react";
+import { DeleteProjectButton } from "./delete-project-button";
 
 export type ProjectRow = {
   id: string;
@@ -17,6 +18,7 @@ export type ProjectRow = {
 
 interface Props {
   projects: ProjectRow[];
+  isAdmin?: boolean;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -50,7 +52,7 @@ function formatBudget(amount: number): string {
   }).format(amount);
 }
 
-export function ProjectTable({ projects }: Props) {
+export function ProjectTable({ projects, isAdmin = false }: Props) {
   if (projects.length === 0) {
     return (
       <div className="py-16 text-center">
@@ -91,6 +93,7 @@ export function ProjectTable({ projects }: Props) {
                 拠点
               </th>
               <th className="w-10" />
+              {isAdmin && <th className="w-10" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -206,6 +209,16 @@ export function ProjectTable({ projects }: Props) {
                       <ChevronRight className="w-4 h-4" />
                     </Link>
                   </td>
+
+                  {/* 削除（Admin のみ） */}
+                  {isAdmin && (
+                    <td className="px-2 py-3">
+                      <DeleteProjectButton
+                        projectId={project.id}
+                        projectTitle={project.title}
+                      />
+                    </td>
+                  )}
                 </tr>
               );
             })}

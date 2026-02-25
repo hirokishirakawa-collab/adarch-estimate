@@ -111,7 +111,7 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
 
       {/* テーブル */}
       <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-        <ProjectTable projects={projects} />
+        <ProjectTable projects={projects} isAdmin={role === "ADMIN"} />
         <div className="border-t border-zinc-100 px-4 py-3 flex items-center justify-between">
           <p className="text-xs text-zinc-500">
             全 {total.toLocaleString()} 件中{" "}
