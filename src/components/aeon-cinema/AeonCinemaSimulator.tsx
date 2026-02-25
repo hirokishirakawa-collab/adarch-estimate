@@ -67,6 +67,9 @@ export function AeonCinemaSimulator() {
   const [lobbyKey, setLobbyKey] = useState<LobbyColKey>("flyer");
   const [samplingQty, setSamplingQty] = useState<number>(1000);
 
+  // 配信費
+  const [includeDelivery, setIncludeDelivery] = useState(true);
+
   // 共通設定
   const [selectedTheaters, setSelectedTheaters] = useState<Set<number>>(new Set());
   const [openAreas, setOpenAreas] = useState<Set<string>>(new Set());
@@ -105,7 +108,7 @@ export function AeonCinemaSimulator() {
   }, [adMode, colKey, lobbyKey, duration, selectedList, samplingQty]);
 
   const dcpTotal  = adMode === "cinema" && selectedList.length > 0 ? dcpFee(materialSec) : 0;
-  const delivTotal = adMode === "cinema" ? deliveryFee(selectedList.length) : 0;
+  const delivTotal = adMode === "cinema" && includeDelivery ? deliveryFee(selectedList.length) : 0;
 
   // Ad-Arch価格: 媒体費のみ±20%、DCP/配信費はパススルー
   const clientPrice   = Math.round(mediaFee * 1.2) + dcpTotal + delivTotal;
@@ -140,6 +143,7 @@ export function AeonCinemaSimulator() {
     setMaterialSec(30);
     setLobbyKey("flyer");
     setSamplingQty(1000);
+    setIncludeDelivery(true);
   };
 
   const hasSelection = selectedList.length > 0;
@@ -293,6 +297,31 @@ export function AeonCinemaSimulator() {
               <p className="text-[11px] text-zinc-400 mt-1">
                 ¥40,000/素材・60秒まで。61秒以上は60秒毎に+¥10,000
               </p>
+            </div>
+
+            {/* 配信費 */}
+            <div className="flex items-start justify-between gap-4 pt-1 border-t border-zinc-100">
+              <div>
+                <p className="text-xs text-zinc-500">配信費を含める</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  5劇場以下：¥10,000 一律 ／ 6劇場以上：¥6,000×劇場数
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIncludeDelivery(v => !v)}
+                className={cn(
+                  "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200",
+                  includeDelivery ? "bg-blue-600" : "bg-zinc-300"
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
+                    includeDelivery ? "translate-x-4" : "translate-x-0"
+                  )}
+                />
+              </button>
             </div>
           </section>
         )}
@@ -484,11 +513,17 @@ export function AeonCinemaSimulator() {
                   <div className="flex justify-between text-xs">
                     <span className="text-zinc-500">
                       配信費
-                      <span className="text-zinc-400 ml-1">
-                        {selectedList.length <= 5 ? "（一律）" : `（¥6,000×${selectedList.length}）`}
-                      </span>
+                      {includeDelivery ? (
+                        <span className="text-zinc-400 ml-1">
+                          {selectedList.length <= 5 ? "（一律）" : `（¥6,000×${selectedList.length}）`}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-400 ml-1">（含まない）</span>
+                      )}
                     </span>
-                    <span className="font-medium">{fmt(delivTotal)}</span>
+                    <span className={cn("font-medium", !includeDelivery && "text-zinc-400 line-through")}>
+                      {fmt(deliveryFee(selectedList.length))}
+                    </span>
                   </div>
                 </>
               )}
