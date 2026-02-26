@@ -12,7 +12,6 @@ import {
   Users,
   FolderKanban,
   PenLine,
-  AlertTriangle,
   Clock,
   ArrowRight,
   TrendingUp,
@@ -24,10 +23,6 @@ import {
 // ----------------------------------------------------------------
 // ユーティリティ
 // ----------------------------------------------------------------
-function daysBetween(a: Date, b: Date): number {
-  return Math.floor(Math.abs(b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
-}
-
 function daysUntil(date: Date): number {
   return Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
@@ -86,25 +81,6 @@ const DEAL_STATUS_DOT: Record<string, string> = {
 };
 
 // ----------------------------------------------------------------
-// 顧客ランクバッジ
-// ----------------------------------------------------------------
-function RankBadge({ rank }: { rank: string }) {
-  const styles: Record<string, string> = {
-    A: "bg-red-100 text-red-700 border-red-200",
-    B: "bg-blue-100 text-blue-700 border-blue-200",
-    C: "bg-yellow-100 text-yellow-700 border-yellow-200",
-    D: "bg-zinc-100 text-zinc-500 border-zinc-200",
-  };
-  return (
-    <span
-      className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded border ${styles[rank] ?? styles.D}`}
-    >
-      {rank}
-    </span>
-  );
-}
-
-// ----------------------------------------------------------------
 // ページ本体
 // ----------------------------------------------------------------
 export default async function DashboardPage() {
@@ -115,7 +91,6 @@ export default async function DashboardPage() {
   const userBranchId = getMockBranchId(email, role);
 
   const now = new Date();
-  const tenDaysAgo  = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
   const sevenDaysOut = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   // 拠点フィルタ
@@ -159,34 +134,7 @@ export default async function DashboardPage() {
     take: 10,
   }).catch(() => []);
 
-  // ── 1. フォローアップ対象顧客（ランクA/B × 10日以上未接触） ──
-  const staleCustomerCandidates = await db.customer.findMany({
-    where: {
-      rank: { in: ["A", "B"] },
-      ...branchFilter,
-    },
-    include: {
-      activityLogs: {
-        where: { type: { not: "SYSTEM" } },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-      },
-    },
-    orderBy: { name: "asc" },
-  }).catch(() => []);
-
-  const followUpCustomers = staleCustomerCandidates
-    .filter((c) => {
-      if (c.activityLogs.length === 0) return true;
-      return c.activityLogs[0].createdAt < tenDaysAgo;
-    })
-    .sort((a, b) => {
-      const dateA = a.activityLogs[0]?.createdAt.getTime() ?? 0;
-      const dateB = b.activityLogs[0]?.createdAt.getTime() ?? 0;
-      return dateA - dateB; // 最も古いものを上に
-    });
-
-  // ── 2. 至急納期プロジェクト（7日以内・未完了） ──
+  // ── 1. 至急納期プロジェクト（7日以内・未完了） ──
   const urgentProjects = await db.project.findMany({
     where: {
       status: { notIn: ["COMPLETED", "CANCELLED"] },
@@ -472,100 +420,8 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ── 2カラム: フォローアップ × 納期確認 ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-        {/* フォローアップ */}
-        <div className="bg-white rounded-xl border border-zinc-200">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-amber-100">
-                <AlertTriangle className="w-3 h-3 text-amber-600" />
-              </span>
-              <p className="text-xs font-bold text-zinc-800">要注意 — フォローアップ</p>
-              <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">
-                ランクA/B × 10日以上未接触
-              </span>
-            </div>
-            {followUpCustomers.length > 0 && (
-              <span className="text-xs font-bold text-amber-600 tabular-nums">
-                {followUpCustomers.length}件
-              </span>
-            )}
-          </div>
-
-          {followUpCustomers.length === 0 ? (
-            <div className="px-4 py-8 text-center">
-              <p className="text-2xl mb-2">✅</p>
-              <p className="text-xs text-zinc-400">フォローアップが必要な顧客はいません</p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-zinc-50">
-              {followUpCustomers.map((c) => {
-                const lastLog = c.activityLogs[0] ?? null;
-                const daysSince = lastLog
-                  ? daysBetween(lastLog.createdAt, now)
-                  : null;
-
-                return (
-                  <li key={c.id}>
-                    <Link
-                      href={`/dashboard/customers/${c.id}`}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 transition-colors group"
-                    >
-                      <RankBadge rank={c.rank} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-zinc-800 truncate group-hover:text-blue-600 transition-colors">
-                          {c.name}
-                        </p>
-                        {lastLog ? (
-                          <p className="text-[11px] text-zinc-400 mt-0.5">
-                            最後に:{" "}
-                            <span className="text-zinc-600">{formatDate(lastLog.createdAt)}</span>
-                            {lastLog.staffName && (
-                              <span className="text-zinc-400">（{lastLog.staffName}）</span>
-                            )}
-                          </p>
-                        ) : (
-                          <p className="text-[11px] text-zinc-400 mt-0.5">記録なし</p>
-                        )}
-                      </div>
-                      {daysSince !== null ? (
-                        <span
-                          className={`flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                            daysSince >= 30
-                              ? "bg-red-100 text-red-600"
-                              : daysSince >= 14
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-yellow-100 text-yellow-700"
-                          }`}
-                        >
-                          {daysSince}日前
-                        </span>
-                      ) : (
-                        <span className="flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">
-                          未接触
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          <div className="px-4 py-2 border-t border-zinc-100">
-            <Link
-              href="/dashboard/customers"
-              className="text-[11px] text-zinc-400 hover:text-blue-600 transition-colors"
-            >
-              顧客一覧を見る →
-            </Link>
-          </div>
-        </div>
-
-        {/* 納期確認 */}
-        <div className="bg-white rounded-xl border border-zinc-200">
+      {/* ── 至急納期確認 ── */}
+      <div className="bg-white rounded-xl border border-zinc-200">
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-red-100">
@@ -650,7 +506,6 @@ export default async function DashboardPage() {
             </Link>
           </div>
         </div>
-      </div>
 
       {/* ── 活動フィード ── */}
       <div className="bg-white rounded-xl border border-zinc-200">
