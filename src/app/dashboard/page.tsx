@@ -96,30 +96,6 @@ export default async function DashboardPage() {
   // 拠点フィルタ
   const branchFilter = userBranchId ? { branchId: userBranchId } : {};
 
-  // ── KPI: 当月の始まり / 現在 ──
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  // KPI データ並列取得
-  const [overdueCount, draftBillingCount, thisMonthRevenue] = await Promise.all([
-    db.project.count({
-      where: {
-        ...branchFilter,
-        deadline: { lt: now },
-        status: { notIn: ["COMPLETED", "CANCELLED"] },
-      },
-    }).catch(() => 0),
-    db.invoiceRequest.count({
-      where: { ...branchFilter, status: "DRAFT" },
-    }).catch(() => 0),
-    role !== "USER"
-      ? db.revenueReport.aggregate({
-          where: { ...branchFilter, targetMonth: { gte: thisMonthStart } },
-          _sum: { amount: true },
-        }).catch(() => ({ _sum: { amount: null } }))
-      : Promise.resolve({ _sum: { amount: null } }),
-  ]);
-  const thisMonthRevenueAmount = Number(thisMonthRevenue._sum.amount ?? 0);
-
   // ── 0. アクティブ商談（CLOSED 以外・最新更新順・最大10件） ──
   const activeDeals = await db.deal.findMany({
     where: {
@@ -210,36 +186,6 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {/* ── KPI カード ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {/* 期限超過プロジェクト */}
-        <div className={`rounded-xl border px-4 py-3 ${overdueCount > 0 ? "bg-red-50 border-red-200" : "bg-white border-zinc-200"}`}>
-          <p className={`text-[11px] font-semibold mb-1 ${overdueCount > 0 ? "text-red-500" : "text-zinc-500"}`}>
-            🔴 期限超過 PJ
-          </p>
-          <p className={`text-2xl font-bold ${overdueCount > 0 ? "text-red-700" : "text-zinc-800"}`}>
-            {overdueCount}<span className="text-sm font-normal ml-1">件</span>
-          </p>
-        </div>
-        {/* 未提出請求依頼 */}
-        <div className={`rounded-xl border px-4 py-3 ${draftBillingCount > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-zinc-200"}`}>
-          <p className={`text-[11px] font-semibold mb-1 ${draftBillingCount > 0 ? "text-amber-600" : "text-zinc-500"}`}>
-            📋 未提出請求依頼
-          </p>
-          <p className={`text-2xl font-bold ${draftBillingCount > 0 ? "text-amber-700" : "text-zinc-800"}`}>
-            {draftBillingCount}<span className="text-sm font-normal ml-1">件</span>
-          </p>
-        </div>
-        {/* 今月売上（MANAGER 以上のみ） */}
-        {role !== "USER" && (
-          <div className="bg-white border border-zinc-200 rounded-xl px-4 py-3 col-span-2 sm:col-span-1">
-            <p className="text-[11px] font-semibold text-zinc-500 mb-1">💰 今月売上（税抜）</p>
-            <p className="text-2xl font-bold text-zinc-800 tabular-nums">
-              ¥{thisMonthRevenueAmount.toLocaleString("ja-JP")}
-            </p>
-          </div>
-        )}
-      </div>
 
       {/* ── クイックアクション ── */}
       <div className="grid grid-cols-3 gap-3">
