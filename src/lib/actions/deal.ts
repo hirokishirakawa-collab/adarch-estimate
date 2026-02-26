@@ -324,7 +324,7 @@ export async function updateDealNotes(
 export async function deleteDeal(dealId: string): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
-  if (info.role === "USER") return { error: "権限がありません" };
+  if (info.role !== "ADMIN") return { error: "管理者のみ削除できます" };
 
   try {
     await db.deal.delete({ where: { id: dealId } });

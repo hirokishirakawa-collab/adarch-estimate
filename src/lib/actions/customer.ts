@@ -451,14 +451,19 @@ export async function deleteCustomers(
   }
   if (!ids.length) return { deleted: 0 };
 
-  // 商談を先に削除（外部キー制約）
-  await db.deal.deleteMany({ where: { customerId: { in: ids } } });
-  // ActivityLog は customerId の cascade delete が schema で設定されている想定、
-  // なければ明示的に削除
-  await db.activityLog.deleteMany({ where: { customerId: { in: ids } } });
-  // 顧客を削除
-  const result = await db.customer.deleteMany({ where: { id: { in: ids } } });
+  try {
+    // 商談を先に削除（外部キー制約）
+    await db.deal.deleteMany({ where: { customerId: { in: ids } } });
+    // ActivityLog を削除
+    await db.activityLog.deleteMany({ where: { customerId: { in: ids } } });
+    // 顧客を削除
+    const result = await db.customer.deleteMany({ where: { id: { in: ids } } });
 
-  revalidatePath("/dashboard/customers");
-  return { deleted: result.count };
+    revalidatePath("/dashboard/customers");
+    return { deleted: result.count };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[deleteCustomers] DB error:", msg);
+    return { error: "削除に失敗しました。再度お試しください" };
+  }
 }
