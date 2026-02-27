@@ -170,6 +170,25 @@ async function fetchList(where: Prisma.TverCampaignWhereInput) {
 }
 
 // ---------------------------------------------------------------
+// 削除（管理者のみ）
+// ---------------------------------------------------------------
+export async function deleteTverCampaign(campaignId: string): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role !== "ADMIN") return { error: "管理者のみ操作できます" };
+
+  try {
+    await db.tverCampaign.delete({ where: { id: campaignId } });
+  } catch (e) {
+    console.error("[deleteTverCampaign] DB error:", e instanceof Error ? e.message : e);
+    return { error: "削除に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/tver-campaign");
+  redirect("/dashboard/tver-campaign");
+}
+
+// ---------------------------------------------------------------
 // 単件取得
 // ---------------------------------------------------------------
 export async function getTverCampaignById(campaignId: string) {
