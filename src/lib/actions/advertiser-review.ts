@@ -191,6 +191,24 @@ async function fetchList(where: Prisma.AdvertiserReviewWhereInput) {
 }
 
 // ---------------------------------------------------------------
+// 削除（管理者のみ）
+// ---------------------------------------------------------------
+export async function deleteAdvertiserReview(reviewId: string): Promise<void> {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return;
+
+  try {
+    await db.advertiserReview.delete({ where: { id: reviewId } });
+  } catch (e) {
+    console.error("[deleteAdvertiserReview] DB error:", e instanceof Error ? e.message : e);
+    return;
+  }
+
+  revalidatePath("/dashboard/tver-review");
+  redirect("/dashboard/tver-review");
+}
+
+// ---------------------------------------------------------------
 // 単件取得
 // ---------------------------------------------------------------
 export async function getAdvertiserReviewById(reviewId: string) {

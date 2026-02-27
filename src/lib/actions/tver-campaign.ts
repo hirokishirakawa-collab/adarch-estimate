@@ -139,6 +139,24 @@ export async function createTverCampaign(
 }
 
 // ---------------------------------------------------------------
+// 削除（管理者のみ）
+// ---------------------------------------------------------------
+export async function deleteTverCampaign(campaignId: string): Promise<void> {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return;
+
+  try {
+    await db.tverCampaign.delete({ where: { id: campaignId } });
+  } catch (e) {
+    console.error("[deleteTverCampaign] DB error:", e instanceof Error ? e.message : e);
+    return;
+  }
+
+  revalidatePath("/dashboard/tver-campaign");
+  redirect("/dashboard/tver-campaign");
+}
+
+// ---------------------------------------------------------------
 // 一覧取得
 // ---------------------------------------------------------------
 export async function getTverCampaignList() {
