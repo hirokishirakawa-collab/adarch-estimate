@@ -244,3 +244,25 @@ export async function getApprovedAdvertisers() {
     return [];
   }
 }
+
+// ---------------------------------------------------------------
+// APPROVED 広告主の詳細取得（「取得」ボタン用）
+// ---------------------------------------------------------------
+export async function getApprovedAdvertiserById(id: string) {
+  try {
+    return await db.advertiserReview.findFirst({
+      where: { id, status: "APPROVED" },
+      select: {
+        id: true,
+        name: true,
+        websiteUrl: true,
+        productUrl: true,
+        corporateNumber: true,
+        hasNoCorporateNumber: true,
+      },
+    });
+  } catch (e) {
+    console.error("[getApprovedAdvertiserById] error:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}

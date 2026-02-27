@@ -157,6 +157,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Tv2,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/tver-campaign",
+        label: "TVer配信申請",
+        icon: Tv2,
+        minRole: "USER",
+      },
     ],
   },
   {

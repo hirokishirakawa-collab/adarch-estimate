@@ -146,6 +146,37 @@ enum AdvertiserReviewStatus {
   REJECTED  // 否決
 }
 
+enum TverCampaignBudgetType {
+  TOTAL   // 期間予算
+  MONTHLY // 月次予算（毎月1日更新）
+}
+
+enum TverFrequencyCapUnit {
+  LIFETIME // 全期間
+  WEEKLY   // 1週間
+  DAILY    // 1日
+  HOURLY   // 1時間
+}
+
+enum TverCompanionMobile {
+  NONE        // 利用しない
+  BANNER      // バナー
+  ICON_TEXT   // アイコン/テキスト
+  TEXT        // テキスト
+}
+
+enum TverCompanionPc {
+  NONE    // 利用しない
+  BANNER  // バナー
+}
+
+enum TverCampaignStatus {
+  DRAFT     // 下書き
+  SUBMITTED // 申請済み
+  APPROVED  // 承認
+  REJECTED  // 否決
+}
+
 // ==============================================================
 // Branch（拠点）
 // ==============================================================
@@ -176,6 +207,7 @@ model Branch {
   collaborationRequests      GroupCollaborationRequest[]
   mediaRequests              MediaRequest[]
   advertiserReviews          AdvertiserReview[]
+  tverCampaigns              TverCampaign[]
 
   @@map("branches")
 }
@@ -217,6 +249,7 @@ model User {
   mediaRequests               MediaRequest[]
   createdAdvertiserReviews    AdvertiserReview[]         @relation("CreatedAdvertiserReview")
   reviewedAdvertiserReviews   AdvertiserReview[]         @relation("ReviewedAdvertiserReview")
+  tverCampaigns               TverCampaign[]
 
   @@index([branchId])
   @@index([role])
@@ -783,9 +816,68 @@ model AdvertiserReview {
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 
+  tverCampaigns        TverCampaign[]
+
   @@index([branchId])
   @@index([createdById])
   @@index([status])
   @@index([branchId, createdAt(sort: Desc)])
   @@map("advertiser_reviews")
+}
+
+// ==============================================================
+// TverCampaign（TVer配信申請）
+// ==============================================================
+
+/// TVer広告の配信申請。
+/// 業態考査で APPROVED になった広告主のみ選択可能。
+model TverCampaign {
+  id                 String                @id @default(cuid())
+
+  // ── 広告主（業態考査承認済みのみ）
+  advertiserId       String
+  advertiser         AdvertiserReview      @relation(fields: [advertiserId], references: [id])
+
+  // ── 案件基本情報
+  campaignName       String                // キャンペーン名
+  budget             Decimal               @db.Decimal(15, 0) // 広告予算（円・税抜）
+  startDate          DateTime              // 配信開始日
+  endDate            DateTime              // 配信終了日
+
+  // ── 予算タイプ
+  budgetType         TverCampaignBudgetType // 期間予算 / 月次予算
+
+  // ── フリークエンシーキャップ（任意）
+  freqCapUnit        TverFrequencyCapUnit? // カウント単位
+  freqCapCount       Int?                  // 回数
+
+  // ── コンパニオン AD
+  companionMobile    TverCompanionMobile   @default(NONE)
+  companionPc        TverCompanionPc       @default(NONE)
+
+  // ── URL
+  landingPageUrl     String?               // リンク先 LP URL
+
+  // ── 申請ステータス
+  status             TverCampaignStatus    @default(SUBMITTED)
+  reviewNote         String?               @db.Text // 管理者コメント
+
+  // ── 申請者（担当者）
+  createdById        String
+  createdBy          User                  @relation(fields: [createdById], references: [id])
+  creatorEmail       String                // 通知用（非正規化）
+
+  // ── マルチテナント
+  branchId           String
+  branch             Branch                @relation(fields: [branchId], references: [id])
+
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@index([branchId])
+  @@index([createdById])
+  @@index([advertiserId])
+  @@index([status])
+  @@index([branchId, createdAt(sort: Desc)])
+  @@map("tver_campaigns")
 }
