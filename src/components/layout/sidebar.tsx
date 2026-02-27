@@ -28,6 +28,7 @@ import {
   Clapperboard,
   HardDrive,
   Car,
+  Flag,
   X,
 } from "lucide-react";
 
@@ -210,6 +211,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/aeon-cinema-simulator",
         label: "イオンシネマ",
         icon: Clapperboard,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/golfcart-simulator",
+        label: "ゴルフカート（Golfcart Vision）",
+        icon: Flag,
         minRole: "USER",
       },
     ],
