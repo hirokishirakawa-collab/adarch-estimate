@@ -16,4 +16,7 @@ EXPOSE 8080
 ENV HOSTNAME="0.0.0.0"
 
 # 起動時: マイグレーション確認 → アプリ起動（DATABASE_URL が Railway から注入される）
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run start"]
+COPY scripts/start.sh /start.sh
+RUN chmod +x /start.sh
+
+CMD ["/start.sh"]
