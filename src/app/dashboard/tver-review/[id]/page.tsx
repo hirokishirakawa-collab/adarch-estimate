@@ -1,16 +1,8 @@
-"use client";
-
-import { use, useActionState } from "react";
 import Link from "next/link";
-import { Tv2, ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
-import {
-  updateAdvertiserReviewStatus,
-  getAdvertiserReviewById,
-} from "@/lib/actions/advertiser-review";
-import {
-  ADVERTISER_REVIEW_STATUS_OPTIONS,
-  getReviewStatusOption,
-} from "@/lib/constants/advertiser-review";
+import { Tv2, ArrowLeft, ExternalLink } from "lucide-react";
+import { getAdvertiserReviewById } from "@/lib/actions/advertiser-review";
+import { getReviewStatusOption } from "@/lib/constants/advertiser-review";
+import { StatusUpdateForm } from "./StatusUpdateForm";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -21,75 +13,9 @@ function fmtDate(d: Date | null | undefined): string {
   return new Intl.DateTimeFormat("ja-JP", { dateStyle: "long" }).format(new Date(d));
 }
 
-function StatusUpdateForm({
-  reviewId,
-  currentStatus,
-  currentReviewNote,
-}: {
-  reviewId: string;
-  currentStatus: string;
-  currentReviewNote: string | null;
-}) {
-  const boundAction = updateAdvertiserReviewStatus.bind(null, reviewId);
-  const [state, formAction, isPending] = useActionState(boundAction, null);
-
-  const inputCls =
-    "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg " +
-    "focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 " +
-    "bg-white text-zinc-900";
-
-  return (
-    <form action={formAction} className="space-y-4">
-      {state?.error && (
-        <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-          {state.error}
-        </div>
-      )}
-
-      <div>
-        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-          考査ステータス
-        </label>
-        <select name="status" defaultValue={currentStatus} className={inputCls}>
-          {ADVERTISER_REVIEW_STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-          審査コメント
-          <span className="ml-1.5 text-zinc-400 font-normal text-[11px]">任意</span>
-        </label>
-        <textarea
-          name="reviewNote"
-          rows={5}
-          defaultValue={currentReviewNote ?? ""}
-          placeholder="承認・否決の理由や補足事項を記入してください（申請者にメールで通知されます）"
-          className={`${inputCls} resize-y`}
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={isPending}
-        className="inline-flex items-center gap-1.5 px-5 py-2 bg-blue-700 text-white
-                   text-sm font-semibold rounded-lg hover:bg-blue-800 disabled:opacity-60
-                   transition-colors"
-      >
-        {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-        審査結果を保存する
-      </button>
-    </form>
-  );
-}
-
-export default function AdvertiserReviewDetailPage({ params }: Props) {
-  const { id } = use(params);
-  const { review, role } = use(getAdvertiserReviewById(id));
+export default async function AdvertiserReviewDetailPage({ params }: Props) {
+  const { id } = await params;
+  const { review, role } = await getAdvertiserReviewById(id);
   const isAdmin = role === "ADMIN";
   const statusOpt = getReviewStatusOption(review.status);
 
@@ -127,13 +53,14 @@ export default function AdvertiserReviewDetailPage({ params }: Props) {
             {[
               ["広告主様名", review.name],
               ["考査ステータス", statusOpt.label],
-              ["法人番号",
+              [
+                "法人番号",
                 review.hasNoCorporateNumber
                   ? "なし（個人事業主・任意団体など）"
                   : review.corporateNumber ?? "—",
               ],
               ["広告展開希望日", fmtDate(review.desiredStartDate)],
-              ["登録拠点",  review.branch?.name ?? "—"],
+              ["登録拠点", review.branch?.name ?? "—"],
             ].map(([label, value]) => (
               <tr key={label as string}>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-zinc-500
