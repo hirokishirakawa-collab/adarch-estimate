@@ -15,6 +15,7 @@ type Slot = "none" | "full" | "half";
 interface AreaDef {
   id: string;
   label: string;
+  prefectures: string;
   hasHalf: boolean;
   p2nd: { full: number; half: number };
   p3rd: { full: number; half: number };
@@ -23,14 +24,14 @@ interface AreaDef {
 }
 
 const AREAS: AreaDef[] = [
-  { id: "tokyo",     label: "東京",   hasHalf: true,  p2nd: { full: 7_300_000, half: 3_650_000 }, p3rd: { full: 3_200_000, half: 1_600_000 }, i2nd: { full: 1_320_000, half: 660_000   }, i3rd: { full: 970_000,  half: 485_000 } },
-  { id: "kanto",     label: "関東",   hasHalf: false, p2nd: { full: 3_600_000, half: 0 },         p3rd: { full: 1_200_000, half: 0 },         i2nd: { full: 900_000,  half: 0 },          i3rd: { full: 485_000,  half: 0 } },
-  { id: "kansai",    label: "関西",   hasHalf: false, p2nd: { full: 3_600_000, half: 0 },         p3rd: { full: 1_300_000, half: 0 },         i2nd: { full: 900_000,  half: 0 },          i3rd: { full: 520_000,  half: 0 } },
-  { id: "tokai",     label: "東海",   hasHalf: false, p2nd: { full: 1_320_000, half: 0 },         p3rd: { full: 560_000,  half: 0 },          i2nd: { full: 330_000,  half: 0 },          i3rd: { full: 224_000,  half: 0 } },
-  { id: "kyushu",    label: "九州",   hasHalf: false, p2nd: { full: 920_000,  half: 0 },          p3rd: { full: 390_000,  half: 0 },          i2nd: { full: 230_000,  half: 0 },          i3rd: { full: 154_000,  half: 0 } },
-  { id: "hokkaido",  label: "北海道", hasHalf: false, p2nd: { full: 640_000,  half: 0 },          p3rd: { full: 450_000,  half: 0 },          i2nd: { full: 160_000,  half: 0 },          i3rd: { full: 180_000,  half: 0 } },
-  { id: "hiroshima", label: "広島",   hasHalf: false, p2nd: { full: 200_000,  half: 0 },          p3rd: { full: 120_000,  half: 0 },          i2nd: { full: 50_000,   half: 0 },          i3rd: { full: 48_000,   half: 0 } },
-  { id: "okinawa",   label: "沖縄",   hasHalf: false, p2nd: { full: 240_000,  half: 0 },          p3rd: { full: 200_000,  half: 0 },          i2nd: { full: 60_000,   half: 0 },          i3rd: { full: 80_000,   half: 0 } },
+  { id: "tokyo",     label: "東京",   prefectures: "東京都（23区）",                   hasHalf: true,  p2nd: { full: 7_300_000, half: 3_650_000 }, p3rd: { full: 3_200_000, half: 1_600_000 }, i2nd: { full: 1_320_000, half: 660_000   }, i3rd: { full: 970_000,  half: 485_000 } },
+  { id: "kanto",     label: "関東",   prefectures: "神奈川県・埼玉県・千葉県",           hasHalf: false, p2nd: { full: 3_600_000, half: 0 },         p3rd: { full: 1_200_000, half: 0 },         i2nd: { full: 900_000,  half: 0 },          i3rd: { full: 485_000,  half: 0 } },
+  { id: "kansai",    label: "関西",   prefectures: "大阪府・京都府・兵庫県",             hasHalf: false, p2nd: { full: 3_600_000, half: 0 },         p3rd: { full: 1_300_000, half: 0 },         i2nd: { full: 900_000,  half: 0 },          i3rd: { full: 520_000,  half: 0 } },
+  { id: "tokai",     label: "東海",   prefectures: "愛知県・岐阜県・三重県",             hasHalf: false, p2nd: { full: 1_320_000, half: 0 },         p3rd: { full: 560_000,  half: 0 },          i2nd: { full: 330_000,  half: 0 },          i3rd: { full: 224_000,  half: 0 } },
+  { id: "kyushu",    label: "九州",   prefectures: "福岡県",                           hasHalf: false, p2nd: { full: 920_000,  half: 0 },          p3rd: { full: 390_000,  half: 0 },          i2nd: { full: 230_000,  half: 0 },          i3rd: { full: 154_000,  half: 0 } },
+  { id: "hokkaido",  label: "北海道", prefectures: "北海道",                           hasHalf: false, p2nd: { full: 640_000,  half: 0 },          p3rd: { full: 450_000,  half: 0 },          i2nd: { full: 160_000,  half: 0 },          i3rd: { full: 180_000,  half: 0 } },
+  { id: "hiroshima", label: "広島",   prefectures: "広島県",                           hasHalf: false, p2nd: { full: 200_000,  half: 0 },          p3rd: { full: 120_000,  half: 0 },          i2nd: { full: 50_000,   half: 0 },          i3rd: { full: 48_000,   half: 0 } },
+  { id: "okinawa",   label: "沖縄",   prefectures: "沖縄県",                           hasHalf: false, p2nd: { full: 240_000,  half: 0 },          p3rd: { full: 200_000,  half: 0 },          i2nd: { full: 60_000,   half: 0 },          i3rd: { full: 80_000,   half: 0 } },
 ];
 
 interface TargetDef {
@@ -58,17 +59,6 @@ const TARGETING: TargetDef[] = [
   { id: "f30",    label: "女性30代",        category: "性別×年代", pricePerWeek: 400_000,  impressionsPerWeek: 40_000  },
   { id: "f40",    label: "女性40代",        category: "性別×年代", pricePerWeek: 300_000,  impressionsPerWeek: 30_000  },
   { id: "f50",    label: "女性50代以上",    category: "性別×年代", pricePerWeek: 300_000,  impressionsPerWeek: 30_000  },
-];
-
-const PRODUCTION_MENUS: { id: string; label: string; price: number | null }[] = [
-  { id: "none",          label: "なし",                          price: 0           },
-  { id: "himitsuprime",  label: "ひみつのPRIME Tie-up",           price: 4_000_000   },
-  { id: "findyourprime", label: "FIND YOUR PRIME（200万〜）",     price: 2_000_000   },
-  { id: "biz_with",      label: "TOKYO PRIME BIZ（撮影あり）",    price: 1_500_000   },
-  { id: "biz_without",   label: "TOKYO PRIME BIZ（撮影なし）",    price: 500_000     },
-  { id: "style_with",    label: "TOKYO PRIME STYLE（撮影あり）",  price: 1_500_000   },
-  { id: "style_without", label: "TOKYO PRIME STYLE（撮影なし）",  price: 500_000     },
-  { id: "adarch",        label: "アドアーチグループ制作",           price: null        },
 ];
 
 // ================================================================
@@ -158,9 +148,6 @@ export function TaxiAdsSimulator() {
   const [sampling, setSampling] = useState(false);
   const [research, setResearch] = useState(false);
 
-  // 制作
-  const [production, setProduction] = useState("none");
-
   // ----------------------------------------------------------------
   // ヘルパー
   // ----------------------------------------------------------------
@@ -205,7 +192,6 @@ export function TaxiAdsSimulator() {
     setTargeting(new Set());
     setSampling(false);
     setResearch(false);
-    setProduction("none");
   };
 
   // 2nd Adsオプション（1stあり/なしで変化）
@@ -308,17 +294,12 @@ export function TaxiAdsSimulator() {
     if (sampling) add("車内サンプリング（10,000個）", 600_000, 1, 0);
     if (research) add("マーケティングリサーチ",       600_000, 1, 0);
 
-    // 制作
-    const prodMenu = PRODUCTION_MENUS.find((p) => p.id === production)!;
-    const prodCost = prodMenu.price; // null = 都度見積もり
-
-    const mediaCost       = rows.reduce((s, r) => s + r.total, 0);
+    const mediaCost        = rows.reduce((s, r) => s + r.total, 0);
     const totalImpressions = rows.reduce((s, r) => s + r.impressions, 0);
-    const totalCost       = mediaCost + (prodCost ?? 0);
 
-    return { rows, mediaCost, prodCost, totalCost, totalImpressions };
+    return { rows, mediaCost, totalImpressions };
   }, [weeks, targetingWeeks, firstAds, secondAds, thirdAds, seatbelt,
-      secondContents, thirdContents, areaSel, targeting, sampling, research, production]);
+      secondContents, thirdContents, areaSel, targeting, sampling, research]);
 
   // ================================================================
   // レンダリング
@@ -437,7 +418,10 @@ export function TaxiAdsSimulator() {
 
         {/* エリア指定メニュー */}
         <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
-          <p className="text-xs font-bold text-zinc-700">エリア指定メニュー</p>
+          <div>
+            <p className="text-xs font-bold text-zinc-700">エリア指定メニュー</p>
+            <p className="text-[11px] text-zinc-400 mt-0.5">広告枠のみ（コンテンツ枠なし）</p>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -453,7 +437,10 @@ export function TaxiAdsSimulator() {
                   const isActive = sel.s2 !== "none" || sel.s3 !== "none";
                   return (
                     <tr key={area.id} className={cn("transition-colors", isActive && "bg-blue-50/40")}>
-                      <td className="py-2 pr-4 font-semibold text-zinc-700 whitespace-nowrap">{area.label}</td>
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        <div className="font-semibold text-zinc-700">{area.label}</div>
+                        <div className="text-[10px] text-zinc-400 mt-0.5">{area.prefectures}</div>
+                      </td>
                       <td className="py-2 px-2">
                         <div className="flex gap-1 justify-center">
                           {(["none", "full", ...(area.hasHalf ? ["half"] : [])] as Slot[]).map((v) => (
@@ -590,66 +577,28 @@ export function TaxiAdsSimulator() {
           )}
         </div>
 
-        {/* オプション・制作メニュー */}
-        <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-4">
-          {/* オプション */}
-          <div>
-            <p className="text-xs font-bold text-zinc-700 mb-2.5">オプションメニュー</p>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox" checked={sampling}
-                  onChange={(e) => setSampling(e.target.checked)}
-                  className="w-4 h-4 accent-zinc-700"
-                />
-                <span className="text-xs text-zinc-600">タクシー車内サンプリング</span>
-                <span className="text-[10px] text-zinc-400">60万円（10,000個・2週間）</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox" checked={research}
-                  onChange={(e) => setResearch(e.target.checked)}
-                  className="w-4 h-4 accent-zinc-700"
-                />
-                <span className="text-xs text-zinc-600">マーケティングリサーチ</span>
-                <span className="text-[10px] text-zinc-400">60万円</span>
-              </label>
-            </div>
-          </div>
-
-          {/* 制作メニュー */}
-          <div>
-            <p className="text-xs font-bold text-zinc-700 mb-2.5">制作メニュー</p>
-            <div className="flex flex-col gap-1.5">
-              {PRODUCTION_MENUS.map((menu) => (
-                <label
-                  key={menu.id}
-                  className={cn(
-                    "flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-colors",
-                    production === menu.id
-                      ? "bg-zinc-800 text-white border-zinc-800"
-                      : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio" name="production" value={menu.id}
-                      checked={production === menu.id}
-                      onChange={() => setProduction(menu.id)}
-                      className="sr-only"
-                    />
-                    <span className="text-xs">{menu.label}</span>
-                  </div>
-                  <span className={cn("text-[10px]", production === menu.id ? "opacity-70" : "text-zinc-400")}>
-                    {menu.price === null
-                      ? "都度見積もり"
-                      : menu.price === 0
-                      ? ""
-                      : fmt(menu.price)}
-                  </span>
-                </label>
-              ))}
-            </div>
+        {/* オプションメニュー */}
+        <div className="bg-white rounded-xl border border-zinc-200 p-4">
+          <p className="text-xs font-bold text-zinc-700 mb-2.5">オプションメニュー</p>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox" checked={sampling}
+                onChange={(e) => setSampling(e.target.checked)}
+                className="w-4 h-4 accent-zinc-700"
+              />
+              <span className="text-xs text-zinc-600">タクシー車内サンプリング</span>
+              <span className="text-[10px] text-zinc-400">60万円（10,000個・2週間）</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox" checked={research}
+                onChange={(e) => setResearch(e.target.checked)}
+                className="w-4 h-4 accent-zinc-700"
+              />
+              <span className="text-xs text-zinc-600">マーケティングリサーチ</span>
+              <span className="text-[10px] text-zinc-400">60万円</span>
+            </label>
           </div>
         </div>
       </div>
@@ -699,32 +648,11 @@ export function TaxiAdsSimulator() {
                 ))}
               </div>
 
-              {/* 小計 */}
-              <div className="bg-zinc-800 rounded-lg px-3 py-2.5 space-y-1.5 text-[11px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">媒体費合計（税抜）</span>
-                  <span className="text-zinc-200 font-semibold tabular-nums">{fmt(calc.mediaCost)}</span>
-                </div>
-                {production !== "none" && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">制作費（税抜）</span>
-                    <span className="text-zinc-200 font-semibold tabular-nums">
-                      {calc.prodCost === null ? "別途見積もり" : fmt(calc.prodCost)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
               {/* 総合計 */}
               <div className="bg-zinc-700/50 rounded-lg px-3 py-3 space-y-1.5">
                 <div className="flex items-end justify-between">
-                  <span className="text-xs text-zinc-300 font-bold">
-                    総合計（税抜）
-                    {calc.prodCost === null && (
-                      <span className="text-[10px] font-normal text-zinc-500 ml-1">※制作費除く</span>
-                    )}
-                  </span>
-                  <span className="text-xl font-bold text-yellow-300 tabular-nums">{fmt(calc.totalCost)}</span>
+                  <span className="text-xs text-zinc-300 font-bold">合計（税抜）</span>
+                  <span className="text-xl font-bold text-yellow-300 tabular-nums">{fmt(calc.mediaCost)}</span>
                 </div>
                 <div className="flex items-center justify-between text-[10px]">
                   <span className="text-zinc-500">想定インプレッション合計</span>
