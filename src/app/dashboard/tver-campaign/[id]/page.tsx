@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Tv2, ExternalLink } from "lucide-react";
 import { getTverCampaignById } from "@/lib/actions/tver-campaign";
-import { DeleteButton } from "./DeleteButton";
 import {
   getCampaignStatusOption,
   getBudgetTypeLabel,
@@ -29,8 +28,7 @@ export default async function TverCampaignDetailPage({ params }: Props) {
   const { id } = await params;
   const result = await getTverCampaignById(id).catch(() => null);
   if (!result) notFound();
-  const { campaign, role } = result;
-  const isAdmin = role === "ADMIN";
+  const { campaign } = result;
 
   const status = getCampaignStatusOption(campaign.status);
 
@@ -41,17 +39,14 @@ export default async function TverCampaignDetailPage({ params }: Props) {
 
   return (
     <div className="px-6 py-6 max-w-2xl mx-auto w-full">
-      {/* 戻るリンク＋削除ボタン */}
-      <div className="flex items-center justify-between mb-5">
-        <Link
-          href="/dashboard/tver-campaign"
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800
-                     transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />TVer配信申請一覧に戻る
-        </Link>
-        {isAdmin && <DeleteButton campaignId={campaign.id} />}
-      </div>
+      {/* 戻るリンク */}
+      <Link
+        href="/dashboard/tver-campaign"
+        className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800
+                   transition-colors mb-5"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />TVer配信申請一覧に戻る
+      </Link>
 
       {/* ヘッダー */}
       <div className="flex items-center gap-3 mb-6">

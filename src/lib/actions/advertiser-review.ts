@@ -222,25 +222,6 @@ export async function getAdvertiserReviewById(reviewId: string) {
 }
 
 // ---------------------------------------------------------------
-// 削除（管理者のみ）
-// ---------------------------------------------------------------
-export async function deleteAdvertiserReview(reviewId: string): Promise<{ error?: string }> {
-  const info = await getSessionInfo();
-  if (!info) return { error: "ログインが必要です" };
-  if (info.role !== "ADMIN") return { error: "管理者のみ操作できます" };
-
-  try {
-    await db.advertiserReview.delete({ where: { id: reviewId } });
-  } catch (e) {
-    console.error("[deleteAdvertiserReview] DB error:", e instanceof Error ? e.message : e);
-    return { error: "削除に失敗しました" };
-  }
-
-  revalidatePath("/dashboard/tver-review");
-  redirect("/dashboard/tver-review");
-}
-
-// ---------------------------------------------------------------
 // APPROVED 広告主一覧（TVer配信申請フォーム用）
 // ---------------------------------------------------------------
 export async function getApprovedAdvertisers() {

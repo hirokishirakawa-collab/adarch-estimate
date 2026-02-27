@@ -3,7 +3,6 @@ import { Tv2, ArrowLeft, ExternalLink } from "lucide-react";
 import { getAdvertiserReviewById } from "@/lib/actions/advertiser-review";
 import { getReviewStatusOption } from "@/lib/constants/advertiser-review";
 import { StatusUpdateForm } from "./StatusUpdateForm";
-import { DeleteButton } from "./DeleteButton";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -22,17 +21,14 @@ export default async function AdvertiserReviewDetailPage({ params }: Props) {
 
   return (
     <div className="px-6 py-6 max-w-2xl mx-auto w-full">
-      {/* 戻るリンク＋削除ボタン */}
-      <div className="flex items-center justify-between mb-5">
-        <Link
-          href="/dashboard/tver-review"
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800
-                     transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />業態考査一覧に戻る
-        </Link>
-        {isAdmin && <DeleteButton reviewId={review.id} />}
-      </div>
+      {/* 戻るリンク */}
+      <Link
+        href="/dashboard/tver-review"
+        className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800
+                   transition-colors mb-5"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />業態考査一覧に戻る
+      </Link>
 
       {/* ヘッダー */}
       <div className="flex items-center gap-3 mb-6">
