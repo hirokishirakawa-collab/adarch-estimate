@@ -148,8 +148,8 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    section: "ツール",
-    color: "text-zinc-600",
+    section: "広告申請",
+    color: "text-blue-500/80",
     items: [
       {
         href: "/dashboard/tver-review",
@@ -157,6 +157,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Tv2,
         minRole: "USER",
       },
+    ],
+  },
+  {
+    section: "ツール",
+    color: "text-zinc-600",
+    items: [
       {
         href: "/dashboard/tver-simulator",
         label: "TVer広告シミュレーター",
