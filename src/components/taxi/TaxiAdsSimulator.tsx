@@ -648,20 +648,43 @@ export function TaxiAdsSimulator() {
                 ))}
               </div>
 
-              {/* 総合計 */}
-              <div className="bg-zinc-700/50 rounded-lg px-3 py-3 space-y-1.5">
-                <div className="flex items-end justify-between">
-                  <span className="text-xs text-zinc-300 font-bold">合計（税抜）</span>
-                  <span className="text-xl font-bold text-yellow-300 tabular-nums">{fmt(calc.mediaCost)}</span>
+              {/* 価格サマリー */}
+              <div className="space-y-1.5">
+                {/* 定価 */}
+                <div className="bg-zinc-800 rounded-lg px-3 py-2.5 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-semibold">定価（グロス税抜）</p>
+                  </div>
+                  <span className="text-base font-bold text-zinc-200 tabular-nums">{fmt(calc.mediaCost)}</span>
                 </div>
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-zinc-500">想定インプレッション合計</span>
-                  <span className="text-emerald-400 font-semibold tabular-nums">{fmtImp(calc.totalImpressions)}</span>
+
+                {/* 仕入れ価格 */}
+                <div className="bg-zinc-800 rounded-lg px-3 py-2.5 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-semibold">仕入れ価格</p>
+                    <p className="text-[9px] text-zinc-600">定価 × 85%（−15%）</p>
+                  </div>
+                  <span className="text-base font-bold text-blue-300 tabular-nums">{fmt(Math.round(calc.mediaCost * 0.85))}</span>
+                </div>
+
+                {/* 提案価格 */}
+                <div className="bg-zinc-700/60 rounded-lg px-3 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-zinc-300 font-bold">提案価格</p>
+                    <p className="text-[9px] text-zinc-500">定価 × 120%（+20%）</p>
+                  </div>
+                  <span className="text-xl font-bold text-yellow-300 tabular-nums">{fmt(Math.round(calc.mediaCost * 1.20))}</span>
                 </div>
               </div>
 
+              {/* インプレッション */}
+              <div className="flex items-center justify-between text-[10px] px-1">
+                <span className="text-zinc-500">想定インプレッション合計</span>
+                <span className="text-emerald-400 font-semibold tabular-nums">{fmtImp(calc.totalImpressions)}</span>
+              </div>
+
               <p className="text-[10px] text-zinc-600 text-center">
-                ※ 価格はすべてグロス税抜。インプレッション数は目安値です。
+                ※ 価格はすべて税抜。インプレッション数は目安値です。
               </p>
             </>
           )}
