@@ -219,6 +219,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Flag,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/omochannel-simulator",
+        label: "おもチャンネル（アパホテル）",
+        icon: Tv2,
+        minRole: "USER",
+      },
     ],
   },
   {
