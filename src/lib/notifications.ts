@@ -834,6 +834,185 @@ function buildMediaRequestEmail(payload: MediaRequestNotificationPayload): {
 }
 
 // ---------------------------------------------------------------
+// TVer広告主 業態考査申請 通知
+// ---------------------------------------------------------------
+export type AdvertiserReviewCreatedPayload = {
+  reviewId:       string;
+  advertiserName: string;
+  staffName:      string;
+  productUrl:     string;
+};
+
+export type AdvertiserReviewResultPayload = {
+  reviewId:       string;
+  advertiserName: string;
+  status:         "APPROVED" | "REJECTED";
+  reviewNote:     string | null;
+  creatorEmail:   string; // 申請者への直送
+};
+
+/**
+ * 新規業態考査申請 → 管理者（EMAIL_CEO）へ通知
+ */
+export async function sendAdvertiserReviewCreatedNotification(
+  payload: AdvertiserReviewCreatedPayload
+): Promise<void> {
+  const to = resolveRecipients("ceo_only");
+  const { subject, html } = buildAdvertiserReviewCreatedEmail(payload);
+  await sendEmail("advertiser-review-created", to, subject, html);
+}
+
+function buildAdvertiserReviewCreatedEmail(
+  payload: AdvertiserReviewCreatedPayload
+): { subject: string; html: string } {
+  const { reviewId, advertiserName, staffName, productUrl } = payload;
+  const url     = appUrl(`/dashboard/tver-review/${reviewId}`);
+  const subject = `【アドアーチOS】TVer業態考査 新規申請：${advertiserName}`;
+
+  const rows = [
+    ["広告主名",       advertiserName],
+    ["商材サイト",     productUrl],
+    ["申請者",         staffName],
+  ]
+    .map(([label, value]) => `
+      <tr>
+        <th style="${thStyle}">${escHtml(label)}</th>
+        <td style="${tdStyle}">${escHtml(value)}</td>
+      </tr>`)
+    .join("");
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:#1d4ed8;padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.3px;">Ad-Arch OS</span>
+            <span style="color:#bfdbfe;font-size:13px;margin-left:8px;">TVer業態考査 新規申請通知</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;">
+              TVer広告主の業態考査申請が届きました。内容をご確認の上、審査をお願いします。
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+              ${rows}
+            </table>
+            <div style="margin-top:24px;text-align:center;">
+              <a href="${url}"
+                 style="display:inline-block;padding:11px 28px;background:#1d4ed8;color:#ffffff;
+                        text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
+                申請内容を確認・審査する →
+              </a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f4f4f5;padding:16px 28px;border-top:1px solid #e4e4e7;">
+            <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">
+              このメールは Ad-Arch Group OS から自動送信されています。
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject, html };
+}
+
+/**
+ * 承認/否決結果 → 申請者（担当者）へ直接通知
+ */
+export async function sendAdvertiserReviewResultNotification(
+  payload: AdvertiserReviewResultPayload
+): Promise<void> {
+  const { subject, html } = buildAdvertiserReviewResultEmail(payload);
+  await sendEmail("advertiser-review-result", [payload.creatorEmail], subject, html);
+}
+
+function buildAdvertiserReviewResultEmail(
+  payload: AdvertiserReviewResultPayload
+): { subject: string; html: string } {
+  const { reviewId, advertiserName, status, reviewNote } = payload;
+  const url         = appUrl(`/dashboard/tver-review/${reviewId}`);
+  const statusLabel = status === "APPROVED" ? "承認" : "否決";
+  const headerColor = status === "APPROVED" ? "#059669" : "#dc2626";
+  const btnColor    = status === "APPROVED" ? "#059669" : "#dc2626";
+  const subject     = `【アドアーチOS】TVer業態考査 ${statusLabel}：${advertiserName}`;
+
+  const noteRow = reviewNote
+    ? `<tr>
+        <th style="${thStyle}">審査コメント</th>
+        <td style="${tdStyle}">${escHtml(reviewNote)}</td>
+      </tr>`
+    : "";
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:${headerColor};padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.3px;">Ad-Arch OS</span>
+            <span style="color:#ffffff;font-size:13px;margin-left:8px;opacity:0.85;">TVer業態考査 審査結果</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;">
+              申請された業態考査の審査結果をお知らせします。
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+              <tr>
+                <th style="${thStyle}">広告主名</th>
+                <td style="${tdStyle}">${escHtml(advertiserName)}</td>
+              </tr>
+              <tr>
+                <th style="${thStyle}">審査結果</th>
+                <td style="${tdStyle}"><strong>${statusLabel}</strong></td>
+              </tr>
+              ${noteRow}
+            </table>
+            <div style="margin-top:24px;text-align:center;">
+              <a href="${url}"
+                 style="display:inline-block;padding:11px 28px;background:${btnColor};color:#ffffff;
+                        text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
+                申請詳細を確認する →
+              </a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f4f4f5;padding:16px 28px;border-top:1px solid #e4e4e7;">
+            <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">
+              このメールは Ad-Arch Group OS から自動送信されています。
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject, html };
+}
+
+// ---------------------------------------------------------------
 // 顧客通知
 // ---------------------------------------------------------------
 export type CustomerNotificationPayload =

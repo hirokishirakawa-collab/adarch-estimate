@@ -152,6 +152,12 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-zinc-600",
     items: [
       {
+        href: "/dashboard/tver-review",
+        label: "TVer業態考査申請",
+        icon: Tv2,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/tver-simulator",
         label: "TVer広告シミュレーター",
         icon: Tv2,

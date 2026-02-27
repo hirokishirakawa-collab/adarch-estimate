@@ -140,6 +140,12 @@ enum MediaRequestStatus {
   CANCELLED  // キャンセル
 }
 
+enum AdvertiserReviewStatus {
+  PENDING   // 審査中（デフォルト）
+  APPROVED  // 承認
+  REJECTED  // 否決
+}
+
 // ==============================================================
 // Branch（拠点）
 // ==============================================================
@@ -169,6 +175,7 @@ model Branch {
   estimations                Estimation[]
   collaborationRequests      GroupCollaborationRequest[]
   mediaRequests              MediaRequest[]
+  advertiserReviews          AdvertiserReview[]
 
   @@map("branches")
 }
@@ -201,13 +208,15 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  assignedDeals          Deal[]                     @relation("AssignedTo")
-  createdDeals           Deal[]                     @relation("CreatedBy")
-  lockedCustomers        Customer[]                 @relation("LockedBy") // 先着ロック中の顧客
-  revenueReports         RevenueReport[]
-  invoiceRequests        InvoiceRequest[]
-  collaborationRequests  GroupCollaborationRequest[]
-  mediaRequests          MediaRequest[]
+  assignedDeals               Deal[]                     @relation("AssignedTo")
+  createdDeals                Deal[]                     @relation("CreatedBy")
+  lockedCustomers             Customer[]                 @relation("LockedBy") // 先着ロック中の顧客
+  revenueReports              RevenueReport[]
+  invoiceRequests             InvoiceRequest[]
+  collaborationRequests       GroupCollaborationRequest[]
+  mediaRequests               MediaRequest[]
+  createdAdvertiserReviews    AdvertiserReview[]         @relation("CreatedAdvertiserReview")
+  reviewedAdvertiserReviews   AdvertiserReview[]         @relation("ReviewedAdvertiserReview")
 
   @@index([branchId])
   @@index([role])
@@ -734,4 +743,49 @@ model MediaRequest {
   @@index([status])
   @@index([branchId, createdAt(sort: Desc)])
   @@map("media_requests")
+}
+
+// ==============================================================
+// AdvertiserReview（TVer広告主 業態考査申請）
+// ==============================================================
+
+/// TVer広告を出稿する広告主の業態考査申請。
+/// 申請者が提出 → 管理者が APPROVED/REJECTED に更新。
+/// APPROVED になった広告主のみ、次フェーズの TVer配信申請で選択可能。
+model AdvertiserReview {
+  id                   String                 @id @default(cuid())
+
+  // ── 広告主情報
+  name                 String                 // 広告主様名（必須）
+  websiteUrl           String                 // 企業ページ URL（必須）
+  corporateNumber      String?                @db.VarChar(13) // 法人番号（13桁）
+  hasNoCorporateNumber Boolean                @default(false) // 法人番号なしフラグ
+  productUrl           String                 // 商材サイト URL（必須）
+  desiredStartDate     DateTime?              // 広告展開希望日
+  remarks              String?                @db.Text // 備考
+
+  // ── 考査ステータス
+  status               AdvertiserReviewStatus @default(PENDING)
+  reviewNote           String?                @db.Text // 審査コメント（管理者記入）
+  reviewedAt           DateTime?              // 承認/否決日時
+  reviewedById         String?
+  reviewedBy           User?                  @relation("ReviewedAdvertiserReview", fields: [reviewedById], references: [id])
+
+  // ── 申請者（担当者）
+  createdById          String
+  createdBy            User                   @relation("CreatedAdvertiserReview", fields: [createdById], references: [id])
+  creatorEmail         String                 // 通知用（非正規化）
+
+  // ── マルチテナント
+  branchId             String
+  branch               Branch                 @relation(fields: [branchId], references: [id])
+
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  @@index([branchId])
+  @@index([createdById])
+  @@index([status])
+  @@index([branchId, createdAt(sort: Desc)])
+  @@map("advertiser_reviews")
 }
