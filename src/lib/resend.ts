@@ -4,7 +4,14 @@
 
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// ビルド時クラッシュ防止のため Proxy で遅延初期化
+let _resend: Resend | null = null;
+const resend = new Proxy({} as Resend, {
+  get(_target, prop) {
+    if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+    return (_resend as never)[prop as keyof Resend];
+  },
+});
 
 const FROM_ADDRESS = "Ad-Arch OS <noreply@adarch.co.jp>";
 const ADMIN_EMAIL  = "system@adarch.co.jp";
