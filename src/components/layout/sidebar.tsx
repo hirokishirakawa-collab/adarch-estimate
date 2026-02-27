@@ -163,6 +163,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Tv2,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/tver-creative-review",
+        label: "TVer クリエイティブ考査申請",
+        icon: Tv2,
+        minRole: "USER",
+      },
     ],
   },
   {

@@ -208,6 +208,7 @@ model Branch {
   mediaRequests              MediaRequest[]
   advertiserReviews          AdvertiserReview[]
   tverCampaigns              TverCampaign[]
+  tverCreativeReviews        TverCreativeReview[]
 
   @@map("branches")
 }
@@ -250,6 +251,7 @@ model User {
   createdAdvertiserReviews    AdvertiserReview[]         @relation("CreatedAdvertiserReview")
   reviewedAdvertiserReviews   AdvertiserReview[]         @relation("ReviewedAdvertiserReview")
   tverCampaigns               TverCampaign[]
+  tverCreativeReviews         TverCreativeReview[]
 
   @@index([branchId])
   @@index([role])
@@ -817,6 +819,7 @@ model AdvertiserReview {
   updatedAt            DateTime               @updatedAt
 
   tverCampaigns        TverCampaign[]
+  tverCreativeReviews  TverCreativeReview[]
 
   @@index([branchId])
   @@index([createdById])
@@ -880,4 +883,51 @@ model TverCampaign {
   @@index([status])
   @@index([branchId, createdAt(sort: Desc)])
   @@map("tver_campaigns")
+}
+
+// ==============================================================
+// TverCreativeReview（TVer クリエイティブ考査申請）
+// ==============================================================
+
+enum TverCreativeReviewStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+/// TVer クリエイティブ（素材）の考査申請。
+/// 業態考査で APPROVED になった広告主のみ選択可能。
+model TverCreativeReview {
+  id               String                   @id @default(cuid())
+
+  // ── 広告主（業態考査承認済みのみ）
+  advertiserId     String
+  advertiser       AdvertiserReview         @relation(fields: [advertiserId], references: [id])
+
+  // ── 案件情報
+  projectName      String                   // プロジェクト名
+  numberOfAssets   Int                      // 本数
+  driveUrl         String                   // データ格納リンク
+  remarks          String?                  @db.Text // 備考
+
+  // ── 申請ステータス
+  status           TverCreativeReviewStatus @default(SUBMITTED)
+
+  // ── 申請者
+  createdById      String
+  createdBy        User                     @relation(fields: [createdById], references: [id])
+  creatorEmail     String
+
+  // ── マルチテナント
+  branchId         String
+  branch           Branch                   @relation(fields: [branchId], references: [id])
+
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@index([branchId])
+  @@index([createdById])
+  @@index([advertiserId])
+  @@index([status])
+  @@map("tver_creative_reviews")
 }
