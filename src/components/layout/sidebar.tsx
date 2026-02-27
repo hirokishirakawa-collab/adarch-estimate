@@ -27,6 +27,7 @@ import {
   UtensilsCrossed,
   Clapperboard,
   HardDrive,
+  Car,
   X,
 } from "lucide-react";
 
@@ -169,6 +170,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Tv2,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/media",
+        label: "媒体依頼",
+        icon: Megaphone,
+        minRole: "USER",
+      },
     ],
   },
   {
@@ -179,6 +186,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/tver-simulator",
         label: "TVer広告シミュレーター",
         icon: Tv2,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/taxi-ads-simulator",
+        label: "タクシー広告（TOKYO PRIME）",
+        icon: Car,
         minRole: "USER",
       },
       {
@@ -199,12 +212,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Clapperboard,
         minRole: "USER",
       },
-      {
-        href: "/dashboard/media",
-        label: "媒体依頼",
-        icon: Megaphone,
-        minRole: "USER",
-      },
+    ],
+  },
+  {
+    section: "サポート・研修",
+    color: "text-teal-500/80",
+    items: [
       {
         href: "https://calendar.app.google/ZP3woztffUUoHivm6",
         label: "本部打ち合わせ予約",
