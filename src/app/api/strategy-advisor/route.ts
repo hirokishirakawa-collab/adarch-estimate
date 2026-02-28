@@ -30,7 +30,7 @@ ${MATRIX_TEXT}
 - 推奨プランは予算に応じて1〜3媒体を選ぶ（予算が少ない場合は1媒体に絞る）
 - 最低予算を下回る媒体は推奨しない
 - allocatedBudget の合計は入力予算を超えない
-- mediaId は必ず上記6つから選ぶ: tver / skylark / aeon-cinema / taxi / golfcart / omochannel
+- mediaId は必ず上記8つから選ぶ: tver / skylark / aeon-cinema / taxi / golfcart / omochannel / sns / web
 - reason・expectedEffect は具体的な数字・根拠を含める（「〜万回リーチ」「〜%の認知向上」等）
 - upsellAdvice は「あと〇〇万円追加すると〜が倍増する」という具体的な提案
 - 必ずJSON形式のみで返答（前置きや後書き一切不要）
@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json() as {
+    industry: string;
     gender: string;
     ageRange: string[];
     layer: string;
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
   const budgetMan = body.budget ? `${Math.round(body.budget / 10_000)}万円` : "未入力";
 
   const userMessage = `【クライアント条件】
+- 業種・業界: ${body.industry || "未指定"}
 - ターゲット性別: ${body.gender}
 - ターゲット年代: ${body.ageRange.length > 0 ? body.ageRange.join("・") : "指定なし"}
 - 層: ${body.layer}
@@ -95,7 +97,7 @@ export async function POST(req: NextRequest) {
 - 実施地域: ${body.region}
 - 予定予算: ${budgetMan}
 
-上記条件を踏まえ、最適な広告プランをJSON形式で提案してください。`;
+上記条件、特に業種・業界の特性を踏まえ、最適な広告プランをJSON形式で提案してください。業界特有の購買行動・ターゲット接点・競合状況を考慮して具体的に提案してください。`;
 
   const client = new Anthropic({ apiKey });
 

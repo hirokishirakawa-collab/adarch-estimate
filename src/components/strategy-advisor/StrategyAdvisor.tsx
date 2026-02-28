@@ -6,11 +6,9 @@ import {
   Sparkles,
   ChevronRight,
   ChevronLeft,
-  Loader2,
   RefreshCw,
   ExternalLink,
   CheckCircle2,
-  TrendingUp,
   Calendar,
   Lightbulb,
   ArrowUpCircle,
@@ -47,6 +45,7 @@ interface FormState {
   ageRange: string[];
   layer: string;
   inbound: string;
+  industry: string;
   purposes: string[];
   region: string;
   regionDetail: string;
@@ -56,40 +55,79 @@ interface FormState {
 // ----------------------------------------------------------------
 // 定数
 // ----------------------------------------------------------------
-const STEPS = ["ターゲット属性", "主要目的", "実施地域", "予算", "確認"];
+// Step 0:ターゲット属性 / 1:業種・業界 / 2:主要目的 / 3:実施地域 / 4:予算 / 5:確認
+// step === 6 でAI結果表示
+const STEPS = ["ターゲット属性", "業種・業界", "主要目的", "実施地域", "予算", "確認"];
 
 const GENDER_OPTIONS = [
-  { value: "both", label: "両性（男女共通）" },
-  { value: "male", label: "男性メイン" },
+  { value: "both",   label: "両性（男女共通）" },
+  { value: "male",   label: "男性メイン" },
   { value: "female", label: "女性メイン" },
 ];
 
 const AGE_OPTIONS = ["10代", "20代", "30代", "40代", "50代", "60代以上"];
 
 const LAYER_OPTIONS = [
-  { value: "general", label: "一般消費者" },
+  { value: "general",  label: "一般消費者" },
   { value: "business", label: "ビジネス層（会社員・経営者）" },
-  { value: "both", label: "どちらも" },
+  { value: "both",     label: "どちらも" },
 ];
 
 const INBOUND_OPTIONS = [
-  { value: "none", label: "国内のみ" },
+  { value: "none",    label: "国内のみ" },
   { value: "include", label: "インバウンドも含む" },
-  { value: "main", label: "インバウンドがメイン" },
+  { value: "main",    label: "インバウンドがメイン" },
+];
+
+const INDUSTRY_CATEGORIES: { category: string; items: { value: string; label: string }[] }[] = [
+  {
+    category: "BtoC・消費者向け",
+    items: [
+      { value: "飲食・フード・飲料",         label: "飲食・フード・飲料" },
+      { value: "小売・EC・通販",             label: "小売・EC・通販" },
+      { value: "美容・コスメ・健康食品",     label: "美容・コスメ・健康食品" },
+      { value: "ファッション・アパレル",     label: "ファッション・アパレル" },
+      { value: "スポーツ・フィットネス",     label: "スポーツ・フィットネス" },
+      { value: "旅行・観光・ホテル・宿泊",   label: "旅行・観光・ホテル" },
+      { value: "エンターテインメント・レジャー", label: "エンタメ・レジャー" },
+      { value: "住宅・不動産・リフォーム",   label: "住宅・不動産・リフォーム" },
+      { value: "自動車・バイク・モビリティ", label: "自動車・バイク" },
+    ],
+  },
+  {
+    category: "BtoB・法人向け",
+    items: [
+      { value: "IT・SaaS・テクノロジー",       label: "IT・SaaS・テクノロジー" },
+      { value: "製造・メーカー",               label: "製造・メーカー" },
+      { value: "建設・設備・工事",             label: "建設・設備・工事" },
+      { value: "金融・保険・証券・投資",       label: "金融・保険・証券" },
+      { value: "コンサルティング・士業・法務", label: "コンサル・士業・法務" },
+    ],
+  },
+  {
+    category: "その他",
+    items: [
+      { value: "医療・介護・福祉・クリニック", label: "医療・介護・福祉" },
+      { value: "教育・学習・スクール・資格",   label: "教育・学習・スクール" },
+      { value: "採用・人材・HR",               label: "採用・人材・HR" },
+      { value: "地方自治体・公共・NPO",        label: "行政・公共・NPO" },
+      { value: "その他・未定",                 label: "その他・未定" },
+    ],
+  },
 ];
 
 const PURPOSE_OPTIONS = [
-  { value: "認知拡大", label: "認知拡大", desc: "まずブランドを知ってもらう" },
-  { value: "理解促進", label: "理解促進", desc: "商品・サービスの内容を伝える" },
+  { value: "認知拡大",       label: "認知拡大",       desc: "まずブランドを知ってもらう" },
+  { value: "理解促進",       label: "理解促進",       desc: "商品・サービスの内容を伝える" },
   { value: "来店・販売促進", label: "来店・販売促進", desc: "行動・購買に繋げる" },
   { value: "ブランドリフト", label: "ブランドリフト", desc: "ブランドイメージを向上させる" },
-  { value: "採用", label: "採用", desc: "求職者・学生へのリーチ" },
+  { value: "採用",           label: "採用",           desc: "求職者・学生へのリーチ" },
 ];
 
 const REGION_OPTIONS = [
   { value: "nationwide", label: "全国" },
-  { value: "regional", label: "エリア指定（関東・関西など）" },
-  { value: "municipal", label: "市区町村単位" },
+  { value: "regional",   label: "エリア指定（関東・関西など）" },
+  { value: "municipal",  label: "市区町村単位" },
 ];
 
 const REGION_DETAIL_OPTIONS = [
@@ -97,11 +135,11 @@ const REGION_DETAIL_OPTIONS = [
 ];
 
 const BUDGET_PRESETS = [
-  { label: "〜50万円", value: "500000" },
+  { label: "〜50万円",    value: "500000" },
   { label: "50〜100万円", value: "1000000" },
-  { label: "100〜300万円", value: "2000000" },
-  { label: "300〜500万円", value: "4000000" },
-  { label: "500万円〜", value: "6000000" },
+  { label: "100〜300万円",value: "2000000" },
+  { label: "300〜500万円",value: "4000000" },
+  { label: "500万円〜",   value: "6000000" },
 ];
 
 const RANK_COLORS = [
@@ -123,11 +161,11 @@ function formatBudget(yen: number): string {
 // ----------------------------------------------------------------
 // サブコンポーネント: ステップインジケーター
 // ----------------------------------------------------------------
-function StepIndicator({ current, total }: { current: number; total: number }) {
+function StepIndicator({ current }: { current: number }) {
   return (
-    <div className="flex items-center gap-1.5 mb-6">
+    <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1">
       {STEPS.map((label, i) => (
-        <div key={i} className="flex items-center gap-1.5">
+        <div key={i} className="flex items-center gap-1 flex-shrink-0">
           <div
             className={cn(
               "flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-bold transition-all",
@@ -142,19 +180,14 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
           </div>
           <span
             className={cn(
-              "text-[11px] font-medium hidden sm:inline",
+              "text-[11px] font-medium hidden sm:inline whitespace-nowrap",
               i === current ? "text-blue-600" : "text-zinc-400"
             )}
           >
             {label}
           </span>
-          {i < total - 1 && (
-            <div
-              className={cn(
-                "w-6 h-px mx-0.5",
-                i < current ? "bg-blue-600" : "bg-zinc-200"
-              )}
-            />
+          {i < STEPS.length - 1 && (
+            <div className={cn("w-4 h-px mx-0.5 flex-shrink-0", i < current ? "bg-blue-600" : "bg-zinc-200")} />
           )}
         </div>
       ))}
@@ -166,10 +199,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 // サブコンポーネント: 選択ボタン
 // ----------------------------------------------------------------
 function SelectButton({
-  selected,
-  onClick,
-  children,
-  className,
+  selected, onClick, children, className,
 }: {
   selected: boolean;
   onClick: () => void;
@@ -204,69 +234,47 @@ function MediaResultCard({ plan }: { plan: RecommendedPlan }) {
 
   return (
     <div className="bg-white rounded-xl border border-zinc-200 p-5 space-y-3">
-      {/* ヘッダー */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="text-2xl">{media.emoji}</span>
           <div>
-            <div className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "text-[10px] font-bold px-1.5 py-0.5 rounded",
-                  RANK_COLORS[(plan.rank - 1) % 3]
-                )}
-              >
-                第{plan.rank}推奨
-              </span>
-            </div>
+            <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", RANK_COLORS[(plan.rank - 1) % 3])}>
+              第{plan.rank}推奨
+            </span>
             <p className="text-sm font-bold text-zinc-900 mt-0.5">{media.name}</p>
           </div>
         </div>
         <div className="text-right flex-shrink-0">
           <p className="text-[10px] text-zinc-400">推奨配分予算</p>
-          <p className="text-lg font-bold text-blue-700">
-            {formatBudget(plan.allocatedBudget)}
-          </p>
+          <p className="text-lg font-bold text-blue-700">{formatBudget(plan.allocatedBudget)}</p>
         </div>
       </div>
 
-      {/* 理由 */}
       <div className="bg-zinc-50 rounded-lg p-3 space-y-2">
         <div>
-          <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">
-            選定理由
-          </p>
+          <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">選定理由</p>
           <p className="text-xs text-zinc-700 leading-relaxed">{plan.reason}</p>
         </div>
         <div>
-          <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">
-            期待効果
-          </p>
+          <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">期待効果</p>
           <p className="text-xs text-zinc-700 leading-relaxed">{plan.expectedEffect}</p>
         </div>
         {plan.crossEffect && (
           <div>
-            <p className="text-[11px] font-semibold text-blue-500 uppercase tracking-wide mb-1">
-              クロスリレーション効果
-            </p>
+            <p className="text-[11px] font-semibold text-blue-500 uppercase tracking-wide mb-1">クロスリレーション効果</p>
             <p className="text-xs text-blue-700 leading-relaxed">{plan.crossEffect}</p>
           </div>
         )}
       </div>
 
-      {/* 媒体の強み */}
       <div className="flex flex-wrap gap-1.5">
         {media.strengths.map((s) => (
-          <span
-            key={s}
-            className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100"
-          >
+          <span key={s} className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
             {s}
           </span>
         ))}
       </div>
 
-      {/* シミュレーターリンク or 別途見積もり */}
       {media.simulatorPath ? (
         <Link
           href={simulatorUrl}
@@ -296,6 +304,7 @@ export function StrategyAdvisor() {
     ageRange: [],
     layer: "general",
     inbound: "none",
+    industry: "",
     purposes: [],
     region: "nationwide",
     regionDetail: "",
@@ -311,18 +320,24 @@ export function StrategyAdvisor() {
   const toggleMulti = (key: "ageRange" | "purposes", val: string) => {
     setForm((prev) => {
       const arr = prev[key];
-      return {
-        ...prev,
-        [key]: arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val],
-      };
+      return { ...prev, [key]: arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val] };
     });
   };
 
   // ---- バリデーション ----
   const canNext = () => {
-    if (step === 1 && form.purposes.length === 0) return false;
+    if (step === 1 && !form.industry) return false;  // 業種未選択
+    if (step === 2 && form.purposes.length === 0) return false;  // 目的未選択
     return true;
   };
+
+  // ---- ラベル変換ヘルパー ----
+  const genderLabel   = form.gender === "both" ? "両性（男女共通）" : form.gender === "male" ? "男性メイン" : "女性メイン";
+  const layerLabel    = form.layer === "general" ? "一般消費者" : form.layer === "business" ? "ビジネス層（会社員・経営者）" : "どちらも";
+  const inboundLabel  = form.inbound === "none" ? "国内のみ" : form.inbound === "include" ? "インバウンドも含む" : "インバウンドがメイン";
+  const regionLabel   = form.region === "nationwide" ? "全国"
+    : form.region === "regional"  ? `エリア指定（${form.regionDetail || "未指定"}）`
+    : `市区町村（${form.regionDetail || "未指定"}）`;
 
   // ---- AI 呼び出し ----
   const handleSubmit = async () => {
@@ -335,44 +350,19 @@ export function StrategyAdvisor() {
 
     const budgetNum = form.budget ? parseInt(form.budget, 10) : 0;
 
-    const layerLabel =
-      form.layer === "general"
-        ? "一般消費者"
-        : form.layer === "business"
-        ? "ビジネス層（会社員・経営者）"
-        : "一般消費者・ビジネス層どちらも";
-
-    const inboundLabel =
-      form.inbound === "none"
-        ? "国内のみ"
-        : form.inbound === "include"
-        ? "インバウンドも含む"
-        : "インバウンドがメイン";
-
-    const regionLabel =
-      form.region === "nationwide"
-        ? "全国"
-        : form.region === "regional"
-        ? `エリア指定: ${form.regionDetail || "未指定"}`
-        : `市区町村単位: ${form.regionDetail || "未指定"}`;
-
     try {
       const res = await fetch("/api/strategy-advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          gender:
-            form.gender === "both"
-              ? "両性"
-              : form.gender === "male"
-              ? "男性"
-              : "女性",
-          ageRange: form.ageRange,
-          layer: layerLabel,
-          inbound: form.inbound !== "none",
-          purposes: form.purposes,
-          region: regionLabel,
-          budget: budgetNum,
+          gender:    genderLabel,
+          ageRange:  form.ageRange,
+          layer:     layerLabel,
+          inbound:   form.inbound !== "none",
+          industry:  form.industry,
+          purposes:  form.purposes,
+          region:    regionLabel,
+          budget:    budgetNum,
         }),
         signal: abortRef.current.signal,
       });
@@ -398,9 +388,7 @@ export function StrategyAdvisor() {
       setResult(JSON.parse(jsonMatch[0]) as AIResult);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
-      setError(
-        (err as Error).message || "AI提案の生成に失敗しました。しばらく経ってからお試しください。"
-      );
+      setError((err as Error).message || "AI提案の生成に失敗しました。しばらく経ってからお試しください。");
     } finally {
       setIsLoading(false);
     }
@@ -409,26 +397,16 @@ export function StrategyAdvisor() {
   const handleReset = () => {
     abortRef.current?.abort();
     setStep(0);
-    setForm({
-      gender: "both",
-      ageRange: [],
-      layer: "general",
-      inbound: "none",
-      purposes: [],
-      region: "nationwide",
-      regionDetail: "",
-      budget: "",
-    });
+    setForm({ gender: "both", ageRange: [], layer: "general", inbound: "none", industry: "", purposes: [], region: "nationwide", regionDetail: "", budget: "" });
     setResult(null);
     setError(null);
     setStreamText("");
   };
 
   // ----------------------------------------------------------------
-  // レンダリング: ローディング / 結果画面
+  // レンダリング: ローディング / 結果画面 (step === 6)
   // ----------------------------------------------------------------
-  if (step === 5) {
-    // ---- ローディング ----
+  if (step === 6) {
     if (isLoading) {
       return (
         <div className="flex flex-col items-center justify-center py-24 gap-6">
@@ -440,17 +418,11 @@ export function StrategyAdvisor() {
           <div className="text-center">
             <p className="text-sm font-semibold text-zinc-800">AI が提案を生成中...</p>
             <p className="text-xs text-zinc-400 mt-1">
-              {streamText.length > 0
-                ? `分析中 (${streamText.length} 文字)`
-                : "戦略マトリクスを分析しています"}
+              {streamText.length > 0 ? `分析中 (${streamText.length} 文字)` : "戦略マトリクスを分析しています"}
             </p>
           </div>
           <button
-            onClick={() => {
-              abortRef.current?.abort();
-              setStep(4);
-              setIsLoading(false);
-            }}
+            onClick={() => { abortRef.current?.abort(); setStep(5); setIsLoading(false); }}
             className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
           >
             キャンセル
@@ -459,7 +431,6 @@ export function StrategyAdvisor() {
       );
     }
 
-    // ---- エラー ----
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -471,7 +442,7 @@ export function StrategyAdvisor() {
             <p className="text-xs text-red-600 mt-1">{error}</p>
           </div>
           <button
-            onClick={() => { setError(null); setStep(4); }}
+            onClick={() => { setError(null); setStep(5); }}
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-zinc-100 text-zinc-700 rounded-lg hover:bg-zinc-200 transition-colors"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
@@ -481,15 +452,18 @@ export function StrategyAdvisor() {
       );
     }
 
-    // ---- 結果表示 ----
     if (result) {
       return (
         <div className="space-y-6">
-          {/* ヘッダー */}
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-blue-600" />
               <h3 className="text-base font-bold text-zinc-900">AI提案プラン</h3>
+              {form.industry && (
+                <span className="text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                  {form.industry}
+                </span>
+              )}
             </div>
             <button
               onClick={handleReset}
@@ -500,29 +474,20 @@ export function StrategyAdvisor() {
             </button>
           </div>
 
-          {/* サマリー */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5">
-            <p className="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-2">
-              戦略サマリー
-            </p>
+            <p className="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-2">戦略サマリー</p>
             <p className="text-sm text-zinc-800 leading-relaxed">{result.summary}</p>
           </div>
 
-          {/* 推奨メディアカード */}
           <div>
-            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">
-              推奨メディアプラン
-            </p>
+            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">推奨メディアプラン</p>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {result.recommendedPlans
-                .sort((a, b) => a.rank - b.rank)
-                .map((plan) => (
-                  <MediaResultCard key={plan.mediaId} plan={plan} />
-                ))}
+              {result.recommendedPlans.sort((a, b) => a.rank - b.rank).map((plan) => (
+                <MediaResultCard key={plan.mediaId} plan={plan} />
+              ))}
             </div>
           </div>
 
-          {/* 想定スケジュール */}
           <div className="bg-white rounded-xl border border-zinc-200 p-5">
             <div className="flex items-center gap-2 mb-4">
               <Calendar className="w-4 h-4 text-zinc-600" />
@@ -542,7 +507,6 @@ export function StrategyAdvisor() {
             </div>
           </div>
 
-          {/* 予算アドバイス */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="bg-white rounded-xl border border-zinc-200 p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -560,7 +524,6 @@ export function StrategyAdvisor() {
             </div>
           </div>
 
-          {/* 全シミュレーター一覧 */}
           <div className="border border-zinc-100 rounded-xl p-4">
             <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide mb-3">
               その他のシミュレーターで試算する
@@ -580,30 +543,26 @@ export function StrategyAdvisor() {
         </div>
       );
     }
-
     return null;
   }
 
   // ----------------------------------------------------------------
-  // レンダリング: フォームステップ
+  // レンダリング: フォームステップ (step 0〜5)
   // ----------------------------------------------------------------
   return (
     <div className="max-w-2xl">
-      <StepIndicator current={step} total={STEPS.length} />
+      <StepIndicator current={step} />
 
       <div className="bg-white rounded-xl border border-zinc-200 p-6 space-y-5">
-        {/* ステップ 0: ターゲット属性 */}
+
+        {/* Step 0: ターゲット属性 */}
         {step === 0 && (
           <div className="space-y-5">
             <div>
               <label className="text-xs font-semibold text-zinc-700 block mb-2">性別</label>
               <div className="flex flex-wrap gap-2">
                 {GENDER_OPTIONS.map((o) => (
-                  <SelectButton
-                    key={o.value}
-                    selected={form.gender === o.value}
-                    onClick={() => setForm((p) => ({ ...p, gender: o.value }))}
-                  >
+                  <SelectButton key={o.value} selected={form.gender === o.value} onClick={() => setForm((p) => ({ ...p, gender: o.value }))}>
                     {o.label}
                   </SelectButton>
                 ))}
@@ -616,11 +575,7 @@ export function StrategyAdvisor() {
               </label>
               <div className="flex flex-wrap gap-2">
                 {AGE_OPTIONS.map((age) => (
-                  <SelectButton
-                    key={age}
-                    selected={form.ageRange.includes(age)}
-                    onClick={() => toggleMulti("ageRange", age)}
-                  >
+                  <SelectButton key={age} selected={form.ageRange.includes(age)} onClick={() => toggleMulti("ageRange", age)}>
                     {age}
                   </SelectButton>
                 ))}
@@ -631,11 +586,7 @@ export function StrategyAdvisor() {
               <label className="text-xs font-semibold text-zinc-700 block mb-2">層</label>
               <div className="flex flex-col gap-2">
                 {LAYER_OPTIONS.map((o) => (
-                  <SelectButton
-                    key={o.value}
-                    selected={form.layer === o.value}
-                    onClick={() => setForm((p) => ({ ...p, layer: o.value }))}
-                  >
+                  <SelectButton key={o.value} selected={form.layer === o.value} onClick={() => setForm((p) => ({ ...p, layer: o.value }))}>
                     {o.label}
                   </SelectButton>
                 ))}
@@ -643,16 +594,10 @@ export function StrategyAdvisor() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-zinc-700 block mb-2">
-                インバウンド（訪日外国人）
-              </label>
+              <label className="text-xs font-semibold text-zinc-700 block mb-2">インバウンド（訪日外国人）</label>
               <div className="flex flex-col gap-2">
                 {INBOUND_OPTIONS.map((o) => (
-                  <SelectButton
-                    key={o.value}
-                    selected={form.inbound === o.value}
-                    onClick={() => setForm((p) => ({ ...p, inbound: o.value }))}
-                  >
+                  <SelectButton key={o.value} selected={form.inbound === o.value} onClick={() => setForm((p) => ({ ...p, inbound: o.value }))}>
                     {o.label}
                   </SelectButton>
                 ))}
@@ -661,12 +606,40 @@ export function StrategyAdvisor() {
           </div>
         )}
 
-        {/* ステップ 1: 主要目的 */}
+        {/* Step 1: 業種・業界 */}
         {step === 1 && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-xs text-zinc-500">
-              最も重要な目的を選んでください（複数選択可）
+              クライアントの業種・業界を選択してください。AIがその業界の特性に合わせた提案を行います。
             </p>
+            {INDUSTRY_CATEGORIES.map((cat) => (
+              <div key={cat.category}>
+                <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">
+                  {cat.category}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {cat.items.map((item) => (
+                    <SelectButton
+                      key={item.value}
+                      selected={form.industry === item.value}
+                      onClick={() => setForm((p) => ({ ...p, industry: item.value }))}
+                    >
+                      {item.label}
+                    </SelectButton>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {!form.industry && (
+              <p className="text-[11px] text-red-500">業種を1つ選択してください</p>
+            )}
+          </div>
+        )}
+
+        {/* Step 2: 主要目的 */}
+        {step === 2 && (
+          <div className="space-y-3">
+            <p className="text-xs text-zinc-500">最も重要な目的を選んでください（複数選択可）</p>
             {PURPOSE_OPTIONS.map((o) => (
               <SelectButton
                 key={o.value}
@@ -686,8 +659,8 @@ export function StrategyAdvisor() {
           </div>
         )}
 
-        {/* ステップ 2: 実施地域 */}
-        {step === 2 && (
+        {/* Step 3: 実施地域 */}
+        {step === 3 && (
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
               {REGION_OPTIONS.map((o) => (
@@ -705,8 +678,7 @@ export function StrategyAdvisor() {
             {form.region === "regional" && (
               <div>
                 <label className="text-xs font-semibold text-zinc-700 block mb-2">
-                  エリアを選択
-                  <span className="text-zinc-400 font-normal ml-1">（複数選択可）</span>
+                  エリアを選択 <span className="text-zinc-400 font-normal">（複数選択可）</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {REGION_DETAIL_OPTIONS.map((r) => {
@@ -716,12 +688,8 @@ export function StrategyAdvisor() {
                         key={r}
                         selected={selected}
                         onClick={() => {
-                          const current = form.regionDetail
-                            ? form.regionDetail.split(",").map((s) => s.trim()).filter(Boolean)
-                            : [];
-                          const next = selected
-                            ? current.filter((v) => v !== r)
-                            : [...current, r];
+                          const current = form.regionDetail ? form.regionDetail.split(",").map((s) => s.trim()).filter(Boolean) : [];
+                          const next = selected ? current.filter((v) => v !== r) : [...current, r];
                           setForm((p) => ({ ...p, regionDetail: next.join(", ") }));
                         }}
                       >
@@ -735,46 +703,36 @@ export function StrategyAdvisor() {
 
             {form.region === "municipal" && (
               <div>
-                <label className="text-xs font-semibold text-zinc-700 block mb-1.5">
-                  対象エリアを記入
-                </label>
+                <label className="text-xs font-semibold text-zinc-700 block mb-1.5">対象エリアを記入</label>
                 <input
                   type="text"
                   placeholder="例: 渋谷区、新宿区、大阪市"
                   value={form.regionDetail}
                   onChange={(e) => setForm((p) => ({ ...p, regionDetail: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg
-                             focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 bg-white"
+                  className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
                 />
               </div>
             )}
           </div>
         )}
 
-        {/* ステップ 3: 予算 */}
-        {step === 3 && (
+        {/* Step 4: 予算 */}
+        {step === 4 && (
           <div className="space-y-4">
             <p className="text-xs text-zinc-500">
               広告費全体の予定予算を入力してください（AIが媒体ごとに最適配分します）
             </p>
-
-            {/* プリセット */}
             <div>
               <p className="text-xs font-semibold text-zinc-600 mb-2">目安から選ぶ</p>
               <div className="flex flex-wrap gap-2">
                 {BUDGET_PRESETS.map((p) => (
-                  <SelectButton
-                    key={p.value}
-                    selected={form.budget === p.value}
-                    onClick={() => setForm((prev) => ({ ...prev, budget: p.value }))}
-                  >
+                  <SelectButton key={p.value} selected={form.budget === p.value} onClick={() => setForm((prev) => ({ ...prev, budget: p.value }))}>
                     {p.label}
                   </SelectButton>
                 ))}
               </div>
             </div>
 
-            {/* 自由入力 */}
             <div>
               <p className="text-xs font-semibold text-zinc-600 mb-2">または金額を直接入力</p>
               <div className="flex items-center gap-2">
@@ -785,26 +743,22 @@ export function StrategyAdvisor() {
                   placeholder="例: 1500000"
                   value={form.budget}
                   onChange={(e) => setForm((p) => ({ ...p, budget: e.target.value }))}
-                  className="flex-1 px-3 py-2 text-sm border border-zinc-200 rounded-lg
-                             focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 bg-white"
+                  className="flex-1 px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
                 />
                 <span className="text-sm text-zinc-500">円</span>
               </div>
               {form.budget && (
-                <p className="mt-1 text-xs text-zinc-400">
-                  ≈ {formatBudget(parseInt(form.budget, 10))}
-                </p>
+                <p className="mt-1 text-xs text-zinc-400">≈ {formatBudget(parseInt(form.budget, 10))}</p>
               )}
             </div>
 
-            {/* 各媒体の最低予算参考 */}
             <div className="bg-zinc-50 rounded-lg p-3">
               <p className="text-[11px] font-semibold text-zinc-500 mb-2">各媒体の最低予算（参考）</p>
               <div className="grid grid-cols-2 gap-1">
                 {Object.values(MEDIA_MATRIX).map((m) => (
                   <div key={m.id} className="flex items-center gap-1.5 text-[11px] text-zinc-600">
                     <span>{m.emoji}</span>
-                    <span className="truncate">{m.name.replace(" インストア", "").replace("（アパホテル）", "")}</span>
+                    <span className="truncate">{m.name.split("（")[0].replace(" インストア", "")}</span>
                     <span className="text-zinc-400 ml-auto">{formatBudget(m.minBudget)}〜</span>
                   </div>
                 ))}
@@ -813,47 +767,36 @@ export function StrategyAdvisor() {
           </div>
         )}
 
-        {/* ステップ 4: 確認画面 */}
-        {step === 4 && (() => {
-          const genderLabel = form.gender === "both" ? "両性（男女共通）" : form.gender === "male" ? "男性メイン" : "女性メイン";
-          const layerLabel = form.layer === "general" ? "一般消費者" : form.layer === "business" ? "ビジネス層（会社員・経営者）" : "どちらも";
-          const inboundLabel = form.inbound === "none" ? "国内のみ" : form.inbound === "include" ? "インバウンドも含む" : "インバウンドがメイン";
-          const regionLabel = form.region === "nationwide" ? "全国" : form.region === "regional" ? `エリア指定（${form.regionDetail || "未指定"}）` : `市区町村（${form.regionDetail || "未指定"}）`;
+        {/* Step 5: 確認 */}
+        {step === 5 && (() => {
           const budgetNum = form.budget ? parseInt(form.budget, 10) : 0;
           const rows = [
-            { label: "性別",           value: genderLabel },
-            { label: "年代",           value: form.ageRange.length > 0 ? form.ageRange.join("・") : "指定なし" },
-            { label: "層",             value: layerLabel },
-            { label: "インバウンド",   value: inboundLabel },
-            { label: "主要目的",       value: form.purposes.length > 0 ? form.purposes.join("・") : "未選択" },
-            { label: "実施地域",       value: regionLabel },
-            { label: "予算",           value: budgetNum > 0 ? formatBudget(budgetNum) : "未入力" },
+            { label: "業種・業界",   value: form.industry || "未選択" },
+            { label: "性別",         value: genderLabel },
+            { label: "年代",         value: form.ageRange.length > 0 ? form.ageRange.join("・") : "指定なし" },
+            { label: "層",           value: layerLabel },
+            { label: "インバウンド", value: inboundLabel },
+            { label: "主要目的",     value: form.purposes.length > 0 ? form.purposes.join("・") : "未選択" },
+            { label: "実施地域",     value: regionLabel },
+            { label: "予算",         value: budgetNum > 0 ? formatBudget(budgetNum) : "未入力" },
           ];
           return (
             <div className="space-y-4">
               <p className="text-xs text-zinc-500">以下の内容でAI提案を生成します。内容を確認してください。</p>
               <div className="rounded-lg border border-zinc-200 overflow-hidden">
                 {rows.map(({ label, value }, i) => (
-                  <div
-                    key={label}
-                    className={cn(
-                      "flex items-start gap-4 px-4 py-2.5 text-sm",
-                      i % 2 === 0 ? "bg-white" : "bg-zinc-50"
-                    )}
-                  >
+                  <div key={label} className={cn("flex items-start gap-4 px-4 py-2.5", i % 2 === 0 ? "bg-white" : "bg-zinc-50")}>
                     <span className="text-[11px] font-semibold text-zinc-400 w-24 flex-shrink-0 pt-0.5">{label}</span>
                     <span className="text-zinc-800 text-xs leading-relaxed">{value}</span>
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-zinc-400">
-                修正する場合は「戻る」を押してください。
-              </p>
+              <p className="text-[11px] text-zinc-400">修正する場合は「戻る」を押してください。</p>
             </div>
           );
         })()}
 
-        {/* ナビゲーションボタン */}
+        {/* ナビゲーション */}
         <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
           <button
             type="button"
@@ -882,11 +825,9 @@ export function StrategyAdvisor() {
           ) : (
             <button
               type="button"
-              onClick={() => { setStep(5); handleSubmit(); }}
-              disabled={isLoading}
+              onClick={() => { setStep(6); handleSubmit(); }}
               className="flex items-center gap-2 px-5 py-2 text-xs font-semibold
-                         bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors
-                         disabled:opacity-40"
+                         bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5" />
               この内容でAI提案を生成する
@@ -898,30 +839,13 @@ export function StrategyAdvisor() {
       {/* 入力内容サマリー（ステップ2以降） */}
       {step >= 1 && (
         <div className="mt-3 px-4 py-3 bg-zinc-50 rounded-lg border border-zinc-100">
-          <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide mb-1.5">
-            入力内容
-          </p>
+          <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide mb-1.5">入力内容</p>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-zinc-600">
-            <span>
-              <span className="text-zinc-400">性別:</span>{" "}
-              {form.gender === "both" ? "両性" : form.gender === "male" ? "男性" : "女性"}
-            </span>
-            {form.ageRange.length > 0 && (
-              <span>
-                <span className="text-zinc-400">年代:</span> {form.ageRange.join("・")}
-              </span>
-            )}
-            {step >= 2 && form.purposes.length > 0 && (
-              <span>
-                <span className="text-zinc-400">目的:</span> {form.purposes.join("・")}
-              </span>
-            )}
-            {step >= 3 && (
-              <span>
-                <span className="text-zinc-400">地域:</span>{" "}
-                {form.region === "nationwide" ? "全国" : form.regionDetail || "エリア"}
-              </span>
-            )}
+            {form.industry && <span><span className="text-zinc-400">業種:</span> {form.industry}</span>}
+            <span><span className="text-zinc-400">性別:</span> {genderLabel}</span>
+            {form.ageRange.length > 0 && <span><span className="text-zinc-400">年代:</span> {form.ageRange.join("・")}</span>}
+            {step >= 3 && form.purposes.length > 0 && <span><span className="text-zinc-400">目的:</span> {form.purposes.join("・")}</span>}
+            {step >= 4 && <span><span className="text-zinc-400">地域:</span> {form.region === "nationwide" ? "全国" : form.regionDetail || "エリア"}</span>}
           </div>
         </div>
       )}
