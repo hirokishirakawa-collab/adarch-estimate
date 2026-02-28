@@ -29,11 +29,13 @@ ${MATRIX_TEXT}
 【重要なルール】
 - 単発ではなく「長期的な取引・成長」を前提にした複合提案を行う
 - 第1推奨・第2推奨を明示し、両者の組み合わせ相乗効果も示す
-- combinationPlans は2〜3パターン（予算帯別）を提案する
-- longTermRoadmap は3フェーズで半年程度のロードマップを描く（初月SNSで認知→2ヶ月目以降に別媒体へ展開等）
+- combinationPlans は2パターン（予算帯別）を提案する
+- longTermRoadmap は3フェーズで半年程度のロードマップを描く
 - 初期フェーズで制作したクリエイティブを後のフェーズ・別媒体に転用する方法を必ず示す（コスト削減×接触頻度向上）
 - 最低予算を下回る媒体は推奨しない
 - mediaId は必ず上記8つから選ぶ: tver / skylark / aeon-cinema / taxi / golfcart / omochannel / sns / web
+- 【厳守】primaryRecommendation（第1推奨）は必ずアドアーチ独自枠から選ぶこと: tver / skylark / aeon-cinema / taxi / golfcart / omochannel のいずれか。sns・web を第1推奨にしてはならない
+- sns・web はあくまでサポート媒体として secondaryRecommendation または longTermRoadmap の補完役に位置づけること
 - 数字・根拠を具体的に含める（「〜万回リーチ」「〜%の認知向上」「制作費〜万円節約」等）
 - 必ずJSON形式のみで返答（前置きや後書き一切不要）
 - 各テキストフィールドは100文字以内に収める（簡潔・具体的に）
