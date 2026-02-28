@@ -515,9 +515,12 @@ export function StrategyAdvisor() {
         setStreamText(accumulated);
       }
 
-      const jsonMatch = accumulated.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("レスポンスのパースに失敗しました");
-      setResult(JSON.parse(jsonMatch[0]) as AIResult);
+      // ```json ... ``` ブロックを除去してから最外JSONを抽出
+      const stripped = accumulated.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "");
+      const start = stripped.indexOf("{");
+      const end = stripped.lastIndexOf("}");
+      if (start === -1 || end === -1) throw new Error("レスポンスのパースに失敗しました");
+      setResult(JSON.parse(stripped.slice(start, end + 1)) as AIResult);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setError((err as Error).message || "AI提案の生成に失敗しました。しばらく経ってからお試しください。");
