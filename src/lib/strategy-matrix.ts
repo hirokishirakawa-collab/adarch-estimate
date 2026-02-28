@@ -9,13 +9,18 @@ export type MediaId =
   | "aeon-cinema"
   | "taxi"
   | "golfcart"
-  | "omochannel";
+  | "omochannel"
+  | "sns"
+  | "web";
 
 export interface MediaDef {
   id: MediaId;
   name: string;
   emoji: string;
-  /** ダッシュボード内シミュレーターのパス */
+  /**
+   * ダッシュボード内シミュレーターのパス。
+   * 空文字の場合はシミュレーターなし（別途見積もり）。
+   */
   simulatorPath: string;
   /** 最低推奨予算（円） */
   minBudget: number;
@@ -266,6 +271,76 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
       "30秒動画コンテンツの用意が必要",
     ],
   },
+
+  sns: {
+    id: "sns",
+    name: "SNS広告（YouTube / Instagram / TikTok / X）",
+    emoji: "📱",
+    simulatorPath: "",
+    minBudget: 300_000,
+    recommendedBudget: 1_500_000,
+    targetFit: {
+      male: 4,
+      female: 5,
+      ageRange: "10〜50代",
+      businessLayer: 3,
+      inbound: 4,
+    },
+    purposeScore: {
+      awareness: 5,
+      understanding: 4,
+      conversion: 5,
+      brandlift: 4,
+      recruitment: 4,
+    },
+    areaSupport: { nationwide: true, regional: true, municipal: true },
+    description:
+      "YouTube・Instagram・TikTok・X（旧Twitter）など主要SNSプラットフォームでの動画・バナー広告。精緻なターゲティングと柔軟な予算運用が特長。別途お見積もり対応。",
+    strengths: [
+      "年齢・興味・行動履歴で日本最高水準のターゲティング精度",
+      "少額からテスト可能・データを見ながらリアルタイム最適化",
+      "動画・静止画・ストーリーズ・リール等多様なフォーマット対応",
+    ],
+    considerations: [
+      "最低30万円〜（十分な最適化データ収集に必要な量）",
+      "クリエイティブの質が成果に直結。A/Bテスト前提で複数案推奨",
+    ],
+  },
+
+  web: {
+    id: "web",
+    name: "Web広告（Google / Yahoo! / その他DSP）",
+    emoji: "🔍",
+    simulatorPath: "",
+    minBudget: 300_000,
+    recommendedBudget: 1_200_000,
+    targetFit: {
+      male: 4,
+      female: 4,
+      ageRange: "20〜60代",
+      businessLayer: 4,
+      inbound: 3,
+    },
+    purposeScore: {
+      awareness: 4,
+      understanding: 4,
+      conversion: 5,
+      brandlift: 3,
+      recruitment: 4,
+    },
+    areaSupport: { nationwide: true, regional: true, municipal: true },
+    description:
+      "Google広告・Yahoo!広告を中心とした検索連動型・ディスプレイ広告。購買意欲の高いユーザーへの刈り取りに最強。別途お見積もり対応。",
+    strengths: [
+      "検索意図のある「今すぐ客」への直接リーチ（検索連動型）",
+      "リターゲティングで見込み客を追客・コンバージョン向上",
+      "クリック課金制で無駄打ちなく予算を使える",
+    ],
+    considerations: [
+      "最低30万円〜（キーワード競合度により単価が変動）",
+      "成果最大化には継続的な入札・キーワード最適化が必要",
+    ],
+  },
 };
 
 /** 媒体IDの表示順 */
@@ -276,4 +351,6 @@ export const MEDIA_ORDER: MediaId[] = [
   "taxi",
   "golfcart",
   "omochannel",
+  "sns",
+  "web",
 ];

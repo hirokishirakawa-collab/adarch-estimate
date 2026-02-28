@@ -56,7 +56,7 @@ interface FormState {
 // ----------------------------------------------------------------
 // 定数
 // ----------------------------------------------------------------
-const STEPS = ["ターゲット属性", "主要目的", "実施地域", "予算"];
+const STEPS = ["ターゲット属性", "主要目的", "実施地域", "予算", "確認"];
 
 const GENDER_OPTIONS = [
   { value: "both", label: "両性（男女共通）" },
@@ -266,15 +266,22 @@ function MediaResultCard({ plan }: { plan: RecommendedPlan }) {
         ))}
       </div>
 
-      {/* シミュレーターリンク */}
-      <Link
-        href={simulatorUrl}
-        className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-blue-600
-                   text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        <ExternalLink className="w-3.5 h-3.5" />
-        このプランで詳細見積もりを作る →
-      </Link>
+      {/* シミュレーターリンク or 別途見積もり */}
+      {media.simulatorPath ? (
+        <Link
+          href={simulatorUrl}
+          className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-blue-600
+                     text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          このプランで詳細見積もりを作る →
+        </Link>
+      ) : (
+        <div className="flex items-center justify-center gap-2 w-full px-4 py-2.5
+                        bg-zinc-50 border border-zinc-200 text-zinc-500 text-xs font-medium rounded-lg">
+          別途お見積もり対応（担当者にご相談ください）
+        </div>
+      )}
     </div>
   );
 }
@@ -420,7 +427,7 @@ export function StrategyAdvisor() {
   // ----------------------------------------------------------------
   // レンダリング: ローディング / 結果画面
   // ----------------------------------------------------------------
-  if (step === 4) {
+  if (step === 5) {
     // ---- ローディング ----
     if (isLoading) {
       return (
@@ -441,7 +448,7 @@ export function StrategyAdvisor() {
           <button
             onClick={() => {
               abortRef.current?.abort();
-              setStep(3);
+              setStep(4);
               setIsLoading(false);
             }}
             className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
@@ -464,7 +471,7 @@ export function StrategyAdvisor() {
             <p className="text-xs text-red-600 mt-1">{error}</p>
           </div>
           <button
-            onClick={() => { setError(null); setStep(3); }}
+            onClick={() => { setError(null); setStep(4); }}
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-zinc-100 text-zinc-700 rounded-lg hover:bg-zinc-200 transition-colors"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
@@ -559,7 +566,7 @@ export function StrategyAdvisor() {
               その他のシミュレーターで試算する
             </p>
             <div className="flex flex-wrap gap-2">
-              {Object.values(MEDIA_MATRIX).map((m) => (
+              {Object.values(MEDIA_MATRIX).filter((m) => m.simulatorPath).map((m) => (
                 <Link
                   key={m.id}
                   href={m.simulatorPath}
@@ -806,6 +813,46 @@ export function StrategyAdvisor() {
           </div>
         )}
 
+        {/* ステップ 4: 確認画面 */}
+        {step === 4 && (() => {
+          const genderLabel = form.gender === "both" ? "両性（男女共通）" : form.gender === "male" ? "男性メイン" : "女性メイン";
+          const layerLabel = form.layer === "general" ? "一般消費者" : form.layer === "business" ? "ビジネス層（会社員・経営者）" : "どちらも";
+          const inboundLabel = form.inbound === "none" ? "国内のみ" : form.inbound === "include" ? "インバウンドも含む" : "インバウンドがメイン";
+          const regionLabel = form.region === "nationwide" ? "全国" : form.region === "regional" ? `エリア指定（${form.regionDetail || "未指定"}）` : `市区町村（${form.regionDetail || "未指定"}）`;
+          const budgetNum = form.budget ? parseInt(form.budget, 10) : 0;
+          const rows = [
+            { label: "性別",           value: genderLabel },
+            { label: "年代",           value: form.ageRange.length > 0 ? form.ageRange.join("・") : "指定なし" },
+            { label: "層",             value: layerLabel },
+            { label: "インバウンド",   value: inboundLabel },
+            { label: "主要目的",       value: form.purposes.length > 0 ? form.purposes.join("・") : "未選択" },
+            { label: "実施地域",       value: regionLabel },
+            { label: "予算",           value: budgetNum > 0 ? formatBudget(budgetNum) : "未入力" },
+          ];
+          return (
+            <div className="space-y-4">
+              <p className="text-xs text-zinc-500">以下の内容でAI提案を生成します。内容を確認してください。</p>
+              <div className="rounded-lg border border-zinc-200 overflow-hidden">
+                {rows.map(({ label, value }, i) => (
+                  <div
+                    key={label}
+                    className={cn(
+                      "flex items-start gap-4 px-4 py-2.5 text-sm",
+                      i % 2 === 0 ? "bg-white" : "bg-zinc-50"
+                    )}
+                  >
+                    <span className="text-[11px] font-semibold text-zinc-400 w-24 flex-shrink-0 pt-0.5">{label}</span>
+                    <span className="text-zinc-800 text-xs leading-relaxed">{value}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-zinc-400">
+                修正する場合は「戻る」を押してください。
+              </p>
+            </div>
+          );
+        })()}
+
         {/* ナビゲーションボタン */}
         <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
           <button
@@ -835,15 +882,14 @@ export function StrategyAdvisor() {
           ) : (
             <button
               type="button"
-              onClick={() => { setStep(4); handleSubmit(); }}
+              onClick={() => { setStep(5); handleSubmit(); }}
               disabled={isLoading}
               className="flex items-center gap-2 px-5 py-2 text-xs font-semibold
                          bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors
                          disabled:opacity-40"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              AI提案を生成する
-              {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              この内容でAI提案を生成する
             </button>
           )}
         </div>
