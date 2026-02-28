@@ -137,9 +137,14 @@ export async function POST(req: NextRequest) {
     purposes: string[];
     region: string;
     budget: number;
+    freeText?: string;
   };
 
   const budgetMan = body.budget ? `${Math.round(body.budget / 10_000)}万円` : "未入力";
+
+  const freeTextSection = body.freeText?.trim()
+    ? `\n【クライアントの課題・お悩み・要望（最優先で考慮すること）】\n${body.freeText.trim()}`
+    : "";
 
   const userMessage = `【クライアント条件】
 - 業種・業界: ${body.industry || "未指定"}
@@ -150,8 +155,9 @@ export async function POST(req: NextRequest) {
 - 主要目的: ${body.purposes.length > 0 ? body.purposes.join("・") : "指定なし"}
 - 実施地域: ${body.region}
 - 予定予算: ${budgetMan}
+${freeTextSection}
 
-上記条件、特に業種・業界の特性を踏まえ、最適な広告プランをJSON形式で提案してください。業界特有の購買行動・ターゲット接点・競合状況を考慮して具体的に提案してください。`;
+上記条件、特に業種・業界の特性とクライアントの課題・お悩みを最優先で踏まえ、最適な広告プランをJSON形式で提案してください。課題・お悩みがある場合は、それに正面から応答する形でstrategyConcept・reason・actionsを記載してください。`;
 
   const client = new Anthropic({ apiKey });
 

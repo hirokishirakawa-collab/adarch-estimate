@@ -76,14 +76,15 @@ interface FormState {
   region: string;
   regionDetail: string;
   budget: string;
+  freeText: string;
 }
 
 // ----------------------------------------------------------------
 // 定数
 // ----------------------------------------------------------------
-// Step 0:ターゲット属性 / 1:業種・業界 / 2:主要目的 / 3:実施地域 / 4:予算 / 5:確認
-// step === 6 でAI結果表示
-const STEPS = ["ターゲット属性", "業種・業界", "主要目的", "実施地域", "予算", "確認"];
+// Step 0:ターゲット属性 / 1:業種・業界 / 2:主要目的 / 3:実施地域 / 4:予算 / 5:お悩み・要望 / 6:確認
+// step === 7 でAI結果表示
+const STEPS = ["ターゲット属性", "業種・業界", "主要目的", "実施地域", "予算", "お悩み・要望", "確認"];
 
 const GENDER_OPTIONS = [
   { value: "both",   label: "両性（男女共通）" },
@@ -441,6 +442,7 @@ export function StrategyAdvisor() {
     region: "nationwide",
     regionDetail: "",
     budget: "",
+    freeText: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [streamText, setStreamText] = useState("");
@@ -495,6 +497,7 @@ export function StrategyAdvisor() {
           purposes:  form.purposes,
           region:    regionLabel,
           budget:    budgetNum,
+          freeText:  form.freeText,
         }),
         signal: abortRef.current.signal,
       });
@@ -532,7 +535,7 @@ export function StrategyAdvisor() {
   const handleReset = () => {
     abortRef.current?.abort();
     setStep(0);
-    setForm({ gender: "both", ageRange: [], layer: "general", inbound: "none", industry: "", purposes: [], region: "nationwide", regionDetail: "", budget: "" });
+    setForm({ gender: "both", ageRange: [], layer: "general", inbound: "none", industry: "", purposes: [], region: "nationwide", regionDetail: "", budget: "", freeText: "" });
     setResult(null);
     setError(null);
     setStreamText("");
@@ -541,7 +544,7 @@ export function StrategyAdvisor() {
   // ----------------------------------------------------------------
   // レンダリング: ローディング / 結果画面 (step === 6)
   // ----------------------------------------------------------------
-  if (step === 6) {
+  if (step === 7) {
     if (isLoading) {
       return (
         <div className="flex flex-col items-center justify-center py-24 gap-6">
@@ -557,7 +560,7 @@ export function StrategyAdvisor() {
             </p>
           </div>
           <button
-            onClick={() => { abortRef.current?.abort(); setStep(5); setIsLoading(false); }}
+            onClick={() => { abortRef.current?.abort(); setStep(6); setIsLoading(false); }}
             className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
           >
             キャンセル
@@ -577,7 +580,7 @@ export function StrategyAdvisor() {
             <p className="text-xs text-red-600 mt-1">{error}</p>
           </div>
           <button
-            onClick={() => { setError(null); setStep(5); }}
+            onClick={() => { setError(null); setStep(6); }}
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-zinc-100 text-zinc-700 rounded-lg hover:bg-zinc-200 transition-colors"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
@@ -942,8 +945,39 @@ export function StrategyAdvisor() {
           </div>
         )}
 
-        {/* Step 5: 確認 */}
-        {step === 5 && (() => {
+        {/* Step 5: お悩み・要望 */}
+        {step === 5 && (
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-zinc-700 block mb-1">
+                現在の課題・お悩み・要望
+                <span className="text-zinc-400 font-normal ml-1">（任意）</span>
+              </label>
+              <p className="text-[11px] text-zinc-400 mb-2">
+                競合状況・過去の広告経験・社内事情・予算の制約など、自由にご記入ください。AIが課題に合わせた提案をします。
+              </p>
+              <textarea
+                rows={6}
+                placeholder={"例:\n・競合他社に比べて認知度が低く、まず名前を覚えてもらいたい\n・過去にSNS広告を試したが効果が出なかった\n・採用活動がうまくいっておらず、若い世代にリーチしたい\n・予算は少ないが、まず1媒体で結果を出してから拡大したい"}
+                value={form.freeText}
+                onChange={(e) => setForm((p) => ({ ...p, freeText: e.target.value }))}
+                className="w-full px-3 py-2.5 text-sm border border-zinc-200 rounded-lg
+                           focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white
+                           resize-none leading-relaxed text-zinc-700 placeholder:text-zinc-300"
+              />
+              <p className="text-[11px] text-zinc-400 mt-1 text-right">{form.freeText.length} 文字</p>
+            </div>
+            <div className="bg-blue-50 rounded-lg p-3 flex items-start gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-blue-700 leading-relaxed">
+                記入しない場合もAI提案は生成されます。悩みや制約を書くほど、より的確な提案になります。
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Step 6: 確認 */}
+        {step === 6 && (() => {
           const budgetNum = form.budget ? parseInt(form.budget, 10) : 0;
           const rows = [
             { label: "業種・業界",   value: form.industry || "未選択" },
@@ -954,6 +988,7 @@ export function StrategyAdvisor() {
             { label: "主要目的",     value: form.purposes.length > 0 ? form.purposes.join("・") : "未選択" },
             { label: "実施地域",     value: regionLabel },
             { label: "予算",         value: budgetNum > 0 ? formatBudget(budgetNum) : "未入力" },
+            { label: "課題・要望",   value: form.freeText || "（記載なし）" },
           ];
           return (
             <div className="space-y-4">
@@ -1006,7 +1041,7 @@ export function StrategyAdvisor() {
           ) : (
             <button
               type="button"
-              onClick={() => { setStep(6); handleSubmit(); }}
+              onClick={() => { setStep(7); handleSubmit(); }}
               className="flex items-center gap-2 px-5 py-2 text-xs font-semibold
                          bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
