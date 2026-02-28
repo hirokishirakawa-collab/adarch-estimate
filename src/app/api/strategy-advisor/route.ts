@@ -36,6 +36,8 @@ ${MATRIX_TEXT}
 - mediaId は必ず上記8つから選ぶ: tver / skylark / aeon-cinema / taxi / golfcart / omochannel / sns / web
 - 数字・根拠を具体的に含める（「〜万回リーチ」「〜%の認知向上」「制作費〜万円節約」等）
 - 必ずJSON形式のみで返答（前置きや後書き一切不要）
+- 各テキストフィールドは100文字以内に収める（簡潔・具体的に）
+- longTermRoadmap は必ず3フェーズ固定、combinationPlans は最大2パターンまで
 
 【出力JSON形式】
 {
@@ -163,7 +165,7 @@ ${freeTextSection}
 
   const stream = await client.messages.stream({
     model: "claude-sonnet-4-6",
-    max_tokens: 6000,
+    max_tokens: 8000,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: userMessage }],
   });
