@@ -196,7 +196,7 @@ function AreaSelector({
 // ----------------------------------------------------------------
 // メインコンポーネント
 // ----------------------------------------------------------------
-export function TVerSimulator() {
+export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}) {
   // エリア選択
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
@@ -209,7 +209,7 @@ export function TVerSimulator() {
 
   // 入力モード
   const [inputMode, setInputMode] = useState<"budget" | "plays">("budget");
-  const [budget, setBudget] = useState<number>(500000);
+  const [budget, setBudget] = useState<number>(initialBudget ?? 500000);
   const [plays, setPlays] = useState<number>(100000);
 
   // CPM取得（カスタム or デフォルト）

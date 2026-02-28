@@ -4,9 +4,16 @@ import { TVerSimulator } from "@/components/tver/TVerSimulator";
 
 export const metadata = { title: "TVer広告シミュレーター" };
 
-export default async function TVerSimulatorPage() {
+export default async function TVerSimulatorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ budget?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+
+  const params = await searchParams;
+  const initialBudget = params.budget ? parseInt(params.budget, 10) : undefined;
 
   return (
     <div className="px-4 sm:px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
@@ -21,7 +28,7 @@ export default async function TVerSimulatorPage() {
           </p>
         </div>
       </div>
-      <TVerSimulator />
+      <TVerSimulator initialBudget={initialBudget} />
     </div>
   );
 }

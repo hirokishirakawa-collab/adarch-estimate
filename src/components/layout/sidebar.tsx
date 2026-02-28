@@ -30,6 +30,7 @@ import {
   Car,
   Flag,
   X,
+  Sparkles,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -183,6 +184,12 @@ const NAV_SECTIONS: NavSection[] = [
     section: "ツール",
     color: "text-zinc-600",
     items: [
+      {
+        href: "/dashboard/strategy-advisor",
+        label: "提案戦略アドバイザー（AI）",
+        icon: Sparkles,
+        minRole: "USER",
+      },
       {
         href: "/dashboard/tver-simulator",
         label: "TVer広告シミュレーター",
