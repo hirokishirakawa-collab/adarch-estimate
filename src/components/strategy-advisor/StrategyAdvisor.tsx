@@ -9,9 +9,14 @@ import {
   RefreshCw,
   ExternalLink,
   CheckCircle2,
-  Calendar,
   Lightbulb,
   ArrowUpCircle,
+  Layers,
+  TrendingUp,
+  Palette,
+  ArrowRight,
+  Target,
+  Zap,
 } from "lucide-react";
 import { MEDIA_MATRIX, type MediaId } from "@/lib/strategy-matrix";
 import { cn } from "@/lib/utils";
@@ -19,22 +24,43 @@ import { cn } from "@/lib/utils";
 // ----------------------------------------------------------------
 // 型定義
 // ----------------------------------------------------------------
-interface RecommendedPlan {
+interface MediaBudget {
   mediaId: MediaId;
-  rank: number;
+  budget: number;
+}
+
+interface CombinationPlan {
+  name: string;
+  media: MediaBudget[];
+  totalBudget: number;
+  synergy: string;
+}
+
+interface RoadmapPhase {
+  phase: number;
+  period: string;
+  theme: string;
+  mediaIds: MediaId[];
+  monthlyBudget: number;
+  actions: string;
+  objective: string;
+  creativeNote: string;
+}
+
+interface SingleRecommendation {
+  mediaId: MediaId;
   allocatedBudget: number;
   reason: string;
   expectedEffect: string;
-  crossEffect?: string;
 }
 
 interface AIResult {
-  recommendedPlans: RecommendedPlan[];
-  schedule: {
-    week1_2: string;
-    week3_6: string;
-    week7_8: string;
-  };
+  strategyConcept: string;
+  creativeStrategy: string;
+  primaryRecommendation: SingleRecommendation;
+  secondaryRecommendation: SingleRecommendation;
+  combinationPlans: CombinationPlan[];
+  longTermRoadmap: RoadmapPhase[];
   upsellAdvice: string;
   budgetAdvice: string;
   summary: string;
@@ -142,10 +168,10 @@ const BUDGET_PRESETS = [
   { label: "500万円〜",   value: "6000000" },
 ];
 
-const RANK_COLORS = [
-  "bg-amber-400 text-white",
-  "bg-zinc-400 text-white",
-  "bg-orange-300 text-white",
+const PHASE_COLORS = [
+  { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", badge: "bg-blue-600 text-white", dot: "bg-blue-600" },
+  { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700", badge: "bg-violet-600 text-white", dot: "bg-violet-600" },
+  { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", badge: "bg-emerald-600 text-white", dot: "bg-emerald-600" },
 ];
 
 // ----------------------------------------------------------------
@@ -224,47 +250,55 @@ function SelectButton({
 }
 
 // ----------------------------------------------------------------
-// サブコンポーネント: メディアカード（結果表示）
+// サブコンポーネント: 推奨媒体カード
 // ----------------------------------------------------------------
-function MediaResultCard({ plan }: { plan: RecommendedPlan }) {
-  const media = MEDIA_MATRIX[plan.mediaId];
+function RecommendationCard({
+  rec,
+  rank,
+}: {
+  rec: SingleRecommendation;
+  rank: 1 | 2;
+}) {
+  const media = MEDIA_MATRIX[rec.mediaId];
   if (!media) return null;
-
-  const simulatorUrl = `${media.simulatorPath}?budget=${plan.allocatedBudget}`;
+  const simulatorUrl = `${media.simulatorPath}?budget=${rec.allocatedBudget}`;
+  const isPrimary = rank === 1;
 
   return (
-    <div className="bg-white rounded-xl border border-zinc-200 p-5 space-y-3">
+    <div className={cn(
+      "bg-white rounded-xl border p-5 space-y-3",
+      isPrimary ? "border-blue-300 shadow-sm shadow-blue-100" : "border-zinc-200"
+    )}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="text-2xl">{media.emoji}</span>
           <div>
-            <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", RANK_COLORS[(plan.rank - 1) % 3])}>
-              第{plan.rank}推奨
+            <span className={cn(
+              "text-[10px] font-bold px-1.5 py-0.5 rounded",
+              isPrimary ? "bg-blue-600 text-white" : "bg-zinc-400 text-white"
+            )}>
+              {isPrimary ? "第1推奨" : "第2推奨"}
             </span>
             <p className="text-sm font-bold text-zinc-900 mt-0.5">{media.name}</p>
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <p className="text-[10px] text-zinc-400">推奨配分予算</p>
-          <p className="text-lg font-bold text-blue-700">{formatBudget(plan.allocatedBudget)}</p>
+          <p className="text-[10px] text-zinc-400">月額目安</p>
+          <p className={cn("text-lg font-bold", isPrimary ? "text-blue-700" : "text-zinc-700")}>
+            {formatBudget(rec.allocatedBudget)}
+          </p>
         </div>
       </div>
 
       <div className="bg-zinc-50 rounded-lg p-3 space-y-2">
         <div>
           <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">選定理由</p>
-          <p className="text-xs text-zinc-700 leading-relaxed">{plan.reason}</p>
+          <p className="text-xs text-zinc-700 leading-relaxed">{rec.reason}</p>
         </div>
         <div>
-          <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">期待効果</p>
-          <p className="text-xs text-zinc-700 leading-relaxed">{plan.expectedEffect}</p>
+          <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">期待効果・KPI</p>
+          <p className="text-xs text-zinc-700 leading-relaxed">{rec.expectedEffect}</p>
         </div>
-        {plan.crossEffect && (
-          <div>
-            <p className="text-[11px] font-semibold text-blue-500 uppercase tracking-wide mb-1">クロスリレーション効果</p>
-            <p className="text-xs text-blue-700 leading-relaxed">{plan.crossEffect}</p>
-          </div>
-        )}
       </div>
 
       <div className="flex flex-wrap gap-1.5">
@@ -282,7 +316,7 @@ function MediaResultCard({ plan }: { plan: RecommendedPlan }) {
                      text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors"
         >
           <ExternalLink className="w-3.5 h-3.5" />
-          このプランで詳細見積もりを作る →
+          詳細シミュレーターで試算する →
         </Link>
       ) : (
         <div className="flex items-center justify-center gap-2 w-full px-4 py-2.5
@@ -290,6 +324,104 @@ function MediaResultCard({ plan }: { plan: RecommendedPlan }) {
           別途お見積もり対応（担当者にご相談ください）
         </div>
       )}
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------
+// サブコンポーネント: 組み合わせプランカード
+// ----------------------------------------------------------------
+function CombinationCard({ plan }: { plan: CombinationPlan }) {
+  return (
+    <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm font-bold text-zinc-900">{plan.name}</p>
+        <span className="text-sm font-bold text-blue-700">合計 {formatBudget(plan.totalBudget)}/月</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {plan.media.map((m, i) => {
+          const def = MEDIA_MATRIX[m.mediaId];
+          if (!def) return null;
+          return (
+            <div key={m.mediaId} className="flex items-center gap-1">
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 rounded-full text-xs font-medium text-zinc-700">
+                {def.emoji} {def.name.split("（")[0].replace(" インストア", "")}
+                <span className="text-zinc-400 ml-1">{formatBudget(m.budget)}</span>
+              </span>
+              {i < plan.media.length - 1 && <ArrowRight className="w-3 h-3 text-zinc-400 flex-shrink-0" />}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-start gap-2 bg-blue-50 rounded-lg p-3">
+        <Zap className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-blue-700 leading-relaxed">{plan.synergy}</p>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------
+// サブコンポーネント: ロードマップフェーズ
+// ----------------------------------------------------------------
+function RoadmapPhaseCard({ phase, isLast }: { phase: RoadmapPhase; isLast: boolean }) {
+  const color = PHASE_COLORS[(phase.phase - 1) % PHASE_COLORS.length];
+  return (
+    <div className="flex gap-4">
+      {/* タイムライン縦線 */}
+      <div className="flex flex-col items-center flex-shrink-0">
+        <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0", color.dot)}>
+          {phase.phase}
+        </div>
+        {!isLast && <div className="w-px flex-1 bg-zinc-200 mt-1" />}
+      </div>
+
+      <div className={cn("flex-1 rounded-xl border p-4 space-y-3 mb-4", color.bg, color.border)}>
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <div>
+            <p className={cn("text-[11px] font-semibold", color.text)}>{phase.period}</p>
+            <p className="text-sm font-bold text-zinc-900">{phase.theme}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-zinc-400">月額目安</p>
+            <p className={cn("text-sm font-bold", color.text)}>{formatBudget(phase.monthlyBudget)}</p>
+          </div>
+        </div>
+
+        {/* 媒体バッジ */}
+        <div className="flex flex-wrap gap-1.5">
+          {phase.mediaIds.map((id) => {
+            const def = MEDIA_MATRIX[id];
+            if (!def) return null;
+            return (
+              <span key={id} className={cn("text-[11px] px-2 py-0.5 rounded-full font-medium", color.badge)}>
+                {def.emoji} {def.name.split("（")[0].replace(" インストア", "")}
+              </span>
+            );
+          })}
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div>
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">実施内容</p>
+            <p className="text-xs text-zinc-700 leading-relaxed">{phase.actions}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">目標・KPI</p>
+            <p className="text-xs text-zinc-700 leading-relaxed">{phase.objective}</p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2 bg-white/70 rounded-lg p-2.5">
+          <Palette className="w-3.5 h-3.5 text-violet-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[10px] font-semibold text-violet-600 mb-0.5">クリエイティブ活用</p>
+            <p className="text-xs text-zinc-600 leading-relaxed">{phase.creativeNote}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -326,8 +458,8 @@ export function StrategyAdvisor() {
 
   // ---- バリデーション ----
   const canNext = () => {
-    if (step === 1 && !form.industry) return false;  // 業種未選択
-    if (step === 2 && form.purposes.length === 0) return false;  // 目的未選択
+    if (step === 1 && !form.industry) return false;
+    if (step === 2 && form.purposes.length === 0) return false;
     return true;
   };
 
@@ -416,9 +548,9 @@ export function StrategyAdvisor() {
             <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-blue-600" />
           </div>
           <div className="text-center">
-            <p className="text-sm font-semibold text-zinc-800">AI が提案を生成中...</p>
+            <p className="text-sm font-semibold text-zinc-800">AI が複合提案を生成中...</p>
             <p className="text-xs text-zinc-400 mt-1">
-              {streamText.length > 0 ? `分析中 (${streamText.length} 文字)` : "戦略マトリクスを分析しています"}
+              {streamText.length > 0 ? `分析中 (${streamText.length} 文字)` : "長期ロードマップを策定しています"}
             </p>
           </div>
           <button
@@ -454,11 +586,12 @@ export function StrategyAdvisor() {
 
     if (result) {
       return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-3xl">
+          {/* ヘッダー */}
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-blue-600" />
-              <h3 className="text-base font-bold text-zinc-900">AI提案プラン</h3>
+              <h3 className="text-base font-bold text-zinc-900">AI 複合提案プラン</h3>
               {form.industry && (
                 <span className="text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
                   {form.industry}
@@ -474,39 +607,71 @@ export function StrategyAdvisor() {
             </button>
           </div>
 
+          {/* 戦略コンセプト */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5">
-            <p className="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-2">戦略サマリー</p>
-            <p className="text-sm text-zinc-800 leading-relaxed">{result.summary}</p>
+            <div className="flex items-center gap-2 mb-2">
+              <Target className="w-4 h-4 text-blue-600" />
+              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">戦略コンセプト</p>
+            </div>
+            <p className="text-sm text-zinc-800 leading-relaxed">{result.strategyConcept}</p>
           </div>
 
+          {/* クリエイティブ横断活用 */}
+          <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Palette className="w-4 h-4 text-violet-600" />
+              <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide">クリエイティブ横断活用戦略</p>
+            </div>
+            <p className="text-sm text-zinc-700 leading-relaxed">{result.creativeStrategy}</p>
+          </div>
+
+          {/* 第1・第2推奨 */}
           <div>
-            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">推奨メディアプラン</p>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {result.recommendedPlans.sort((a, b) => a.rank - b.rank).map((plan) => (
-                <MediaResultCard key={plan.mediaId} plan={plan} />
-              ))}
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-4 h-4 text-zinc-600" />
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">推奨媒体（第1・第2）</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <RecommendationCard rec={result.primaryRecommendation} rank={1} />
+              <RecommendationCard rec={result.secondaryRecommendation} rank={2} />
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-zinc-200 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="w-4 h-4 text-zinc-600" />
-              <p className="text-sm font-bold text-zinc-900">想定スケジュール</p>
+          {/* 組み合わせプラン */}
+          {result.combinationPlans && result.combinationPlans.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Layers className="w-4 h-4 text-zinc-600" />
+                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">媒体組み合わせプラン</p>
+              </div>
+              <div className="space-y-3">
+                {result.combinationPlans.map((plan, i) => (
+                  <CombinationCard key={i} plan={plan} />
+                ))}
+              </div>
             </div>
-            <div className="space-y-3">
-              {[
-                { period: "1〜2週目", content: result.schedule.week1_2, color: "bg-blue-50 border-blue-200 text-blue-700" },
-                { period: "3〜6週目", content: result.schedule.week3_6, color: "bg-green-50 border-green-200 text-green-700" },
-                { period: "7〜8週目", content: result.schedule.week7_8, color: "bg-zinc-50 border-zinc-200 text-zinc-600" },
-              ].map(({ period, content, color }) => (
-                <div key={period} className={cn("flex gap-3 p-3 rounded-lg border", color)}>
-                  <span className="text-xs font-bold whitespace-nowrap">{period}</span>
-                  <span className="text-xs leading-relaxed">{content}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
 
+          {/* 長期ロードマップ */}
+          {result.longTermRoadmap && result.longTermRoadmap.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="w-4 h-4 text-zinc-600" />
+                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">長期ロードマップ（6ヶ月計画）</p>
+              </div>
+              <div>
+                {result.longTermRoadmap.map((phase, i) => (
+                  <RoadmapPhaseCard
+                    key={phase.phase}
+                    phase={phase}
+                    isLast={i === result.longTermRoadmap.length - 1}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* アドバイス */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="bg-white rounded-xl border border-zinc-200 p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -524,9 +689,16 @@ export function StrategyAdvisor() {
             </div>
           </div>
 
+          {/* サマリー */}
+          <div className="bg-zinc-800 rounded-xl p-5">
+            <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">プランサマリー</p>
+            <p className="text-sm text-zinc-100 leading-relaxed">{result.summary}</p>
+          </div>
+
+          {/* シミュレーターリンク */}
           <div className="border border-zinc-100 rounded-xl p-4">
             <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide mb-3">
-              その他のシミュレーターで試算する
+              各媒体のシミュレーターで詳細試算する
             </p>
             <div className="flex flex-wrap gap-2">
               {Object.values(MEDIA_MATRIX).filter((m) => m.simulatorPath).map((m) => (
@@ -535,7 +707,7 @@ export function StrategyAdvisor() {
                   href={m.simulatorPath}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-zinc-50 border border-zinc-200 text-zinc-600 rounded-lg hover:bg-zinc-100 transition-colors"
                 >
-                  {m.emoji} {m.name}
+                  {m.emoji} {m.name.split("（")[0].replace(" インストア", "")}
                 </Link>
               ))}
             </div>
@@ -790,6 +962,12 @@ export function StrategyAdvisor() {
                     <span className="text-zinc-800 text-xs leading-relaxed">{value}</span>
                   </div>
                 ))}
+              </div>
+              <div className="bg-blue-50 rounded-lg p-3 flex items-start gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] text-blue-700 leading-relaxed">
+                  AIが第1推奨・第2推奨・組み合わせプラン・6ヶ月ロードマップ・クリエイティブ活用戦略を含む複合提案を生成します。
+                </p>
               </div>
               <p className="text-[11px] text-zinc-400">修正する場合は「戻る」を押してください。</p>
             </div>
