@@ -17,7 +17,8 @@ const MATRIX_TEXT = MEDIA_ORDER.map((id) => {
 - ターゲット: ${m.targetFit.ageRange}、男性${m.targetFit.male}/5・女性${m.targetFit.female}/5、ビジネス層${m.targetFit.businessLayer}/5、インバウンド${m.targetFit.inbound}/5
 - 目的スコア: 認知拡大${m.purposeScore.awareness}/5・理解促進${m.purposeScore.understanding}/5・来店販促${m.purposeScore.conversion}/5・ブランドリフト${m.purposeScore.brandlift}/5・採用${m.purposeScore.recruitment}/5
 - 強み: ${m.strengths.join(" / ")}
-- 注意: ${m.considerations.join(" / ")}`;
+- 注意: ${m.considerations.join(" / ")}
+- 対応エリア: ${m.coverageNote}`;
 }).join("\n\n");
 
 const SYSTEM_PROMPT = `あなたはアドアーチグループの広告提案戦略アドバイザーです。
@@ -34,6 +35,7 @@ ${MATRIX_TEXT}
 - 初期フェーズで制作したクリエイティブを後のフェーズ・別媒体に転用する方法を必ず示す（コスト削減×接触頻度向上）
 - 最低予算を下回る媒体は推奨しない
 - mediaId は必ず上記8つから選ぶ: tver / skylark / aeon-cinema / taxi / golfcart / omochannel / sns / web
+- 【厳守】各媒体の「対応エリア」を必ず確認し、指定された実施地域に実際に出稿・配信できる媒体のみ推奨すること。対応エリア外の媒体は絶対に推奨しない
 - 【厳守】primaryRecommendation（第1推奨）は必ずアドアーチ独自枠から選ぶこと: tver / skylark / aeon-cinema / taxi / golfcart / omochannel のいずれか。sns・web を第1推奨にしてはならない
 - sns・web はあくまでサポート媒体として secondaryRecommendation または longTermRoadmap の補完役に位置づけること
 - 数字・根拠を具体的に含める（「〜万回リーチ」「〜%の認知向上」「制作費〜万円節約」等）

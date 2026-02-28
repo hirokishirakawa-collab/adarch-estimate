@@ -60,6 +60,8 @@ export interface MediaDef {
   description: string;
   strengths: string[];
   considerations: string[];
+  /** 実際に配信・出稿できるエリアの説明。AIが地域適合チェックに使用する */
+  coverageNote: string;
 }
 
 export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
@@ -96,6 +98,7 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
       "最低予算50万円〜",
       "15秒 or 30秒の動画素材が必要",
     ],
+    coverageNote: "日本全国対応（デジタル配信のためエリア制限なし）。全都道府県・離島含む全地域で配信可能。",
   },
 
   skylark: {
@@ -131,6 +134,7 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
       "最低100店舗〜（約75万円/週）",
       "静止画・動画コンテンツの用意が必要",
     ],
+    coverageNote: "全国3,000店舗展開（ガスト・バーミヤン・ジョナサン等）。主要都市・地方都市に広く展開。沖縄・離島・一部過疎地域は店舗数が限られるため、指定エリアに店舗が存在するか事前確認が必要。",
   },
 
   "aeon-cinema": {
@@ -165,6 +169,7 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
       "最低数劇場〜（30万円〜）",
       "15秒 or 30秒の動画素材が必要",
     ],
+    coverageNote: "全国180劇場以上に展開。ただし指定エリアにイオンシネマ劇場が実在することが必須条件。那覇市・離島・一部地方都市は劇場が存在しないため推奨不可。出稿前に対象エリアの劇場有無を必ず確認すること。",
   },
 
   taxi: {
@@ -200,6 +205,7 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
       "最低100万円/週〜（HALF）",
       "主に東京・大阪・名古屋エリア",
     ],
+    coverageNote: "東京・大阪・名古屋・横浜・福岡・京都・神戸・札幌等の主要都市のみ対応。沖縄・離島・地方都市・農村部は原則非対応。地方エリア指定の場合は推奨不可。",
   },
 
   golfcart: {
@@ -235,6 +241,7 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
       "最低6ゴルフ場〜（30万円/週）",
       "男性比率が高い（約85%）",
     ],
+    coverageNote: "全国のゴルフ場に対応。指定エリアにゴルフ場が存在することが条件。都市部・山間部でも広く分布するが、ゴルフ場のない離島・一部都市部中心エリアは非対応の場合あり。",
   },
 
   omochannel: {
@@ -270,6 +277,7 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
       "最低200万円/月〜（1話）",
       "30秒動画コンテンツの用意が必要",
     ],
+    coverageNote: "全国のアパホテルに展開。主要都市（東京・大阪・名古屋・福岡・札幌・沖縄等）に広く展開しているが、指定エリアにアパホテルが存在することが条件。アパホテル公式サイトで対象エリアの施設有無を確認すること。",
   },
 
   sns: {
@@ -305,6 +313,7 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
       "最低30万円〜（十分な最適化データ収集に必要な量）",
       "クリエイティブの質が成果に直結。A/Bテスト前提で複数案推奨",
     ],
+    coverageNote: "日本全国・全エリア対応（デジタル媒体）。エリアターゲティングで任意の地域に絞り込み配信可能。",
   },
 
   web: {
@@ -340,6 +349,7 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
       "最低30万円〜（キーワード競合度により単価が変動）",
       "成果最大化には継続的な入札・キーワード最適化が必要",
     ],
+    coverageNote: "日本全国・全エリア対応（デジタル媒体）。地域ターゲティングで任意の都市・エリアに絞り込み配信可能。",
   },
 };
 
