@@ -76,9 +76,6 @@ export function DealList({ deals }: { deals: Deal[] }) {
         )
       : "—";
 
-  const fmtAmount = (a: { toString(): string } | null) =>
-    a ? `¥${Number(a).toLocaleString()}` : "—";
-
   return (
     <div>
       {/* ── ステータスフィルタ ── */}
@@ -123,7 +120,6 @@ export function DealList({ deals }: { deals: Deal[] }) {
                   ["会社名", "text-left"],
                   ["商談タイトル", "text-left"],
                   ["ステータス", "text-left"],
-                  ["金額", "text-right"],
                   ["確度", "text-right"],
                   ["予定日", "text-left"],
                   ["担当", "text-left"],
@@ -178,13 +174,6 @@ export function DealList({ deals }: { deals: Deal[] }) {
                       )}
                     </td>
 
-                    {/* 金額 */}
-                    <td className="px-4 py-3 align-top text-right whitespace-nowrap">
-                      <span className="text-xs font-semibold text-zinc-700">
-                        {fmtAmount(deal.amount)}
-                      </span>
-                    </td>
-
                     {/* 確度 */}
                     <td className="px-4 py-3 align-top text-right whitespace-nowrap">
                       <span className="text-xs text-zinc-600">
@@ -229,7 +218,7 @@ export function DealList({ deals }: { deals: Deal[] }) {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center text-sm text-zinc-400">
+                  <td colSpan={8} className="px-4 py-16 text-center text-sm text-zinc-400">
                     該当する商談がありません
                   </td>
                 </tr>

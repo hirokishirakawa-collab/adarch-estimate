@@ -18,6 +18,8 @@ import {
   LayoutGrid,
   List,
   User,
+  Award,
+  CalendarCheck,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -96,19 +98,43 @@ export default async function DashboardPage() {
   // 拠点フィルタ
   const branchFilter = userBranchId ? { branchId: userBranchId } : {};
 
-  // ── 0. アクティブ商談（CLOSED 以外・最新更新順・最大10件） ──
-  const activeDeals = await db.deal.findMany({
-    where: {
-      ...branchFilter,
-      status: { notIn: ["CLOSED_WON", "CLOSED_LOST"] },
-    },
-    include: {
-      customer: { select: { id: true, name: true, prefecture: true } },
-      assignedTo: { select: { name: true } },
-    },
-    orderBy: { updatedAt: "desc" },
-    take: 10,
-  }).catch(() => []);
+  // ── 0. アクティブ商談 & KPI用クローズ商談（並列取得） ──
+  const [activeDeals, closedDeals] = await Promise.all([
+    db.deal.findMany({
+      where: {
+        ...branchFilter,
+        status: { notIn: ["CLOSED_WON", "CLOSED_LOST"] },
+      },
+      include: {
+        customer: { select: { id: true, name: true, prefecture: true } },
+        assignedTo: { select: { name: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 10,
+    }).catch(() => []),
+    db.deal.findMany({
+      where: { ...branchFilter, status: { in: ["CLOSED_WON", "CLOSED_LOST"] } },
+      select: { status: true, updatedAt: true },
+    }).catch(() => []),
+  ]);
+
+  // KPI 計算
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const wonTotal = closedDeals.filter((d) => d.status === "CLOSED_WON").length;
+  const lostTotal = closedDeals.filter((d) => d.status === "CLOSED_LOST").length;
+  const winRate =
+    wonTotal + lostTotal > 0 ? Math.round((wonTotal / (wonTotal + lostTotal)) * 100) : null;
+  const thisMonthWon = closedDeals.filter(
+    (d) => d.status === "CLOSED_WON" && new Date(d.updatedAt) >= thisMonthStart
+  ).length;
+
+  // ステージ分布（アクティブ商談のみ）
+  const stageCounts = [
+    { label: "見込", count: activeDeals.filter((d) => d.status === "PROSPECTING").length, color: "bg-zinc-200 text-zinc-600" },
+    { label: "検討", count: activeDeals.filter((d) => d.status === "QUALIFYING").length,  color: "bg-blue-100 text-blue-700" },
+    { label: "提案", count: activeDeals.filter((d) => d.status === "PROPOSAL").length,    color: "bg-violet-100 text-violet-700" },
+    { label: "交渉", count: activeDeals.filter((d) => d.status === "NEGOTIATION").length, color: "bg-amber-100 text-amber-700" },
+  ].filter((s) => s.count > 0);
 
   // ── 1. 至急納期プロジェクト（7日以内・未完了） ──
   const urgentProjects = await db.project.findMany({
@@ -265,6 +291,53 @@ export default async function DashboardPage() {
               <List className="w-3 h-3" />
               リスト
             </Link>
+          </div>
+        </div>
+
+        {/* ── KPI バー ── */}
+        <div className="grid grid-cols-3 divide-x divide-zinc-100 border-b border-zinc-100">
+          {/* 受注率 */}
+          <div className="px-4 py-3 flex items-center gap-2.5">
+            <span className="flex-shrink-0 w-7 h-7 bg-emerald-100 rounded-lg flex items-center justify-center">
+              <Award className="w-3.5 h-3.5 text-emerald-600" />
+            </span>
+            <div>
+              <p className="text-[10px] text-zinc-400">受注率（累計）</p>
+              <p className="text-sm font-bold text-zinc-800">
+                {winRate !== null ? `${winRate}%` : "—"}
+              </p>
+            </div>
+          </div>
+
+          {/* 今月受注 */}
+          <div className="px-4 py-3 flex items-center gap-2.5">
+            <span className="flex-shrink-0 w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+              <CalendarCheck className="w-3.5 h-3.5 text-blue-600" />
+            </span>
+            <div>
+              <p className="text-[10px] text-zinc-400">今月の受注</p>
+              <p className="text-sm font-bold text-zinc-800">
+                {thisMonthWon}
+                <span className="text-xs font-normal text-zinc-400 ml-0.5">件</span>
+              </p>
+            </div>
+          </div>
+
+          {/* ステージ分布 */}
+          <div className="px-4 py-3">
+            <p className="text-[10px] text-zinc-400 mb-1.5">ステージ分布</p>
+            <div className="flex items-center gap-1 flex-wrap">
+              {stageCounts.length > 0 ? stageCounts.map((s) => (
+                <span
+                  key={s.label}
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${s.color}`}
+                >
+                  {s.label} {s.count}
+                </span>
+              )) : (
+                <span className="text-[10px] text-zinc-300">なし</span>
+              )}
+            </div>
           </div>
         </div>
 
