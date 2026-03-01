@@ -64,10 +64,11 @@ export default async function DealsPage({ searchParams }: PageProps) {
   const wonCount = deals.filter((d) => d.status === "CLOSED_WON").length;
   const activeCount = deals.filter((d) => !CLOSED_STATUSES.includes(d.status)).length;
 
-  // 受注率（全期間・全クローズ商談から算出）
-  const [allWonCount, allLostCount] = await Promise.all([
+  // 受注率・商談総数（全期間・アーカイブ含む）
+  const [allWonCount, allLostCount, totalDealCount] = await Promise.all([
     db.deal.count({ where: { ...whereBase, status: "CLOSED_WON" } }),
     db.deal.count({ where: { ...whereBase, status: "CLOSED_LOST" } }),
+    db.deal.count({ where: whereBase }),
   ]);
   const winRate =
     allWonCount + allLostCount > 0
@@ -101,7 +102,14 @@ export default async function DealsPage({ searchParams }: PageProps) {
       </div>
 
       {/* サマリーカード */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-xl border border-zinc-200 px-4 py-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <p className="text-[11px] text-zinc-400">商談総数</p>
+            <p className="text-[9px] text-zinc-300">アーカイブ含む</p>
+          </div>
+          <p className="text-xl font-bold text-zinc-900">{totalDealCount}</p>
+        </div>
         <div className="bg-white rounded-xl border border-zinc-200 px-4 py-3">
           <p className="text-[11px] text-zinc-400 mb-1">アクティブ商談</p>
           <p className="text-xl font-bold text-zinc-900">{activeCount}</p>
