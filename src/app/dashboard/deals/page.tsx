@@ -66,9 +66,9 @@ export default async function DealsPage({ searchParams }: PageProps) {
 
   // 受注率・商談総数（全期間・アーカイブ含む）
   const [allWonCount, allLostCount, totalDealCount] = await Promise.all([
-    db.deal.count({ where: { ...whereBase, status: "CLOSED_WON" } }),
-    db.deal.count({ where: { ...whereBase, status: "CLOSED_LOST" } }),
-    db.deal.count({ where: whereBase }),
+    db.deal.count({ where: { ...whereBase, status: "CLOSED_WON" } }).catch(() => 0),
+    db.deal.count({ where: { ...whereBase, status: "CLOSED_LOST" } }).catch(() => 0),
+    db.deal.count({ where: whereBase }).catch(() => 0),
   ]);
   const winRate =
     allWonCount + allLostCount > 0

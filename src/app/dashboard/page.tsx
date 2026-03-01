@@ -141,8 +141,8 @@ export default async function DashboardPage() {
 
   // 休眠・先送りは別途集計（受注率の分母に含まれない）
   const [dormantCount, deferredCount] = await Promise.all([
-    db.deal.count({ where: { ...branchFilter, status: "DORMANT" } }),
-    db.deal.count({ where: { ...branchFilter, status: "DEFERRED" } }),
+    db.deal.count({ where: { ...branchFilter, status: "DORMANT" } }).catch(() => 0),
+    db.deal.count({ where: { ...branchFilter, status: "DEFERRED" } }).catch(() => 0),
   ]);
 
   // ── 1. 至急納期プロジェクト（7日以内・未完了） ──
