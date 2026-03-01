@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { auth } from "@/lib/auth";
 import Link from "next/link";
 import { db } from "@/lib/db";
@@ -182,6 +183,19 @@ export default async function DashboardPage() {
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, 15);
+
+  // ── 至急納期確認 — 顧客ごとにグループ化 ──
+  type UrgentProject = (typeof urgentProjects)[number];
+  type UrgentGroup = { customerId: string | null; customerName: string | null; projects: UrgentProject[] };
+  const urgentGroupMap = new Map<string, UrgentGroup>();
+  for (const p of urgentProjects) {
+    const key = p.customer?.id ?? "__none__";
+    if (!urgentGroupMap.has(key)) {
+      urgentGroupMap.set(key, { customerId: p.customer?.id ?? null, customerName: p.customer?.name ?? null, projects: [] });
+    }
+    urgentGroupMap.get(key)!.projects.push(p);
+  }
+  const urgentGroups = Array.from(urgentGroupMap.values());
 
   // ── 挨拶 ──
   const hour = now.getHours();
@@ -464,55 +478,65 @@ export default async function DashboardPage() {
               <p className="text-xs text-zinc-400">7日以内に納期を迎えるプロジェクトはありません</p>
             </div>
           ) : (
-            <ul className="divide-y divide-zinc-50">
-              {urgentProjects.map((p) => {
-                const statusOpt = PROJECT_STATUS_OPTIONS.find((o) => o.value === p.status);
-                const remaining = p.deadline ? daysUntil(new Date(p.deadline)) : null;
-
-                return (
-                  <li key={p.id}>
-                    <Link
-                      href={`/dashboard/projects/${p.id}`}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 transition-colors group"
-                    >
-                      {statusOpt && (
-                        <span className={`flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${statusOpt.className}`}>
-                          {statusOpt.icon}
+            <ul className="divide-y divide-zinc-100">
+              {urgentGroups.map((group) => (
+                <Fragment key={group.customerId ?? "__none__"}>
+                  {/* 顧客ヘッダー */}
+                  <li className="px-4 py-1.5 bg-zinc-50 border-b border-zinc-100">
+                    <p className="text-[10px] font-semibold text-zinc-500 tracking-wide">
+                      {group.customerName ?? "顧客未設定"}
+                      {group.projects.length > 1 && (
+                        <span className="ml-1.5 text-zinc-400 font-normal">
+                          {group.projects.length}件
                         </span>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-zinc-800 truncate group-hover:text-blue-600 transition-colors">
-                          {p.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-[11px] text-zinc-400">
-                            納期:{" "}
-                            <span className="text-zinc-600 font-medium">
-                              {p.deadline ? formatDate(new Date(p.deadline)) : "—"}
-                            </span>
-                          </p>
-                          {p.customer && (
-                            <span className="text-[10px] text-zinc-400">· {p.customer.name}</span>
-                          )}
-                        </div>
-                      </div>
-                      {remaining !== null && (
-                        <span
-                          className={`flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                            remaining <= 1
-                              ? "bg-red-100 text-red-600"
-                              : remaining <= 3
-                              ? "bg-orange-100 text-orange-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
-                        >
-                          {remaining <= 0 ? "本日" : `あと${remaining}日`}
-                        </span>
-                      )}
-                    </Link>
+                    </p>
                   </li>
-                );
-              })}
+                  {/* プロジェクト行 */}
+                  {group.projects.map((p) => {
+                    const statusOpt = PROJECT_STATUS_OPTIONS.find((o) => o.value === p.status);
+                    const remaining = p.deadline ? daysUntil(new Date(p.deadline)) : null;
+                    return (
+                      <li key={p.id}>
+                        <Link
+                          href={`/dashboard/projects/${p.id}`}
+                          className="flex items-center gap-3 pl-6 pr-4 py-2.5 hover:bg-zinc-50 transition-colors group"
+                        >
+                          {statusOpt && (
+                            <span className={`flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${statusOpt.className}`}>
+                              {statusOpt.icon}
+                            </span>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-zinc-800 truncate group-hover:text-blue-600 transition-colors">
+                              {p.title}
+                            </p>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">
+                              納期:{" "}
+                              <span className="text-zinc-600 font-medium">
+                                {p.deadline ? formatDate(new Date(p.deadline)) : "—"}
+                              </span>
+                            </p>
+                          </div>
+                          {remaining !== null && (
+                            <span
+                              className={`flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                remaining <= 1
+                                  ? "bg-red-100 text-red-600"
+                                  : remaining <= 3
+                                  ? "bg-orange-100 text-orange-700"
+                                  : "bg-amber-100 text-amber-700"
+                              }`}
+                            >
+                              {remaining <= 0 ? "本日" : `あと${remaining}日`}
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </Fragment>
+              ))}
             </ul>
           )}
 
