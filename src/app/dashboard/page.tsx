@@ -131,10 +131,10 @@ export default async function DashboardPage() {
 
   // ステージ分布（アクティブ商談のみ）
   const stageCounts = [
-    { label: "見込", count: activeDeals.filter((d) => d.status === "PROSPECTING").length, color: "bg-zinc-200 text-zinc-600" },
-    { label: "検討", count: activeDeals.filter((d) => d.status === "QUALIFYING").length,  color: "bg-blue-100 text-blue-700" },
-    { label: "提案", count: activeDeals.filter((d) => d.status === "PROPOSAL").length,    color: "bg-violet-100 text-violet-700" },
-    { label: "交渉", count: activeDeals.filter((d) => d.status === "NEGOTIATION").length, color: "bg-amber-100 text-amber-700" },
+    { label: "初期声掛け", count: activeDeals.filter((d) => d.status === "PROSPECTING").length, color: "bg-zinc-200 text-zinc-600" },
+    { label: "初回商談",   count: activeDeals.filter((d) => d.status === "QUALIFYING").length,  color: "bg-blue-100 text-blue-700" },
+    { label: "提案中",     count: activeDeals.filter((d) => d.status === "PROPOSAL").length,    color: "bg-violet-100 text-violet-700" },
+    { label: "休眠/先送り", count: activeDeals.filter((d) => d.status === "NEGOTIATION").length, color: "bg-amber-100 text-amber-700" },
   ].filter((s) => s.count > 0);
 
   // ── 1. 至急納期プロジェクト（7日以内・未完了） ──
