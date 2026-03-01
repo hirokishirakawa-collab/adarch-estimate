@@ -111,7 +111,10 @@ export default async function DealsPage({ searchParams }: PageProps) {
           <p className="text-xl font-bold text-emerald-600">{wonCount}</p>
         </div>
         <div className="bg-white rounded-xl border border-zinc-200 px-4 py-3">
-          <p className="text-[11px] text-zinc-400 mb-1">受注率（累計）</p>
+          <div className="flex items-center gap-1.5 mb-1">
+            <p className="text-[11px] text-zinc-400">受注率（累計）</p>
+            <p className="text-[9px] text-zinc-300">受注後アーカイブ分を含む</p>
+          </div>
           <p className="text-xl font-bold text-emerald-600">
             {winRate !== null ? `${winRate}%` : "—"}
           </p>
