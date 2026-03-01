@@ -13,7 +13,7 @@ interface PageProps {
   searchParams: Promise<{ showArchived?: string }>;
 }
 
-const CLOSED_STATUSES: DealStatus[] = ["CLOSED_WON", "CLOSED_LOST"];
+const CLOSED_STATUSES: DealStatus[] = ["CLOSED_WON", "CLOSED_LOST", "DORMANT", "DEFERRED"];
 
 export default async function DealsPage({ searchParams }: PageProps) {
   const { showArchived: showArchivedParam } = await searchParams;

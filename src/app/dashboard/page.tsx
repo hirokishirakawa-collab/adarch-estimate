@@ -79,6 +79,8 @@ const DEAL_STATUS_DOT: Record<string, string> = {
   QUALIFYING:  "bg-blue-500",
   PROPOSAL:    "bg-violet-500",
   NEGOTIATION: "bg-amber-500",
+  DORMANT:     "bg-slate-400",
+  DEFERRED:    "bg-cyan-400",
   CLOSED_WON:  "bg-emerald-500",
   CLOSED_LOST: "bg-red-400",
 };
@@ -104,7 +106,7 @@ export default async function DashboardPage() {
     db.deal.findMany({
       where: {
         ...branchFilter,
-        status: { notIn: ["CLOSED_WON", "CLOSED_LOST"] },
+        status: { notIn: ["CLOSED_WON", "CLOSED_LOST", "DORMANT", "DEFERRED"] },
       },
       include: {
         customer: { select: { id: true, name: true, prefecture: true } },
@@ -136,6 +138,12 @@ export default async function DashboardPage() {
     { label: "提案", count: activeDeals.filter((d) => d.status === "PROPOSAL").length,    color: "bg-violet-100 text-violet-700" },
     { label: "交渉", count: activeDeals.filter((d) => d.status === "NEGOTIATION").length, color: "bg-amber-100 text-amber-700" },
   ].filter((s) => s.count > 0);
+
+  // 休眠・先送りは別途集計（受注率の分母に含まれない）
+  const [dormantCount, deferredCount] = await Promise.all([
+    db.deal.count({ where: { ...branchFilter, status: "DORMANT" } }),
+    db.deal.count({ where: { ...branchFilter, status: "DEFERRED" } }),
+  ]);
 
   // ── 1. 至急納期プロジェクト（7日以内・未完了） ──
   const urgentProjects = await db.project.findMany({
@@ -350,6 +358,16 @@ export default async function DashboardPage() {
                 </span>
               )) : (
                 <span className="text-[10px] text-zinc-300">なし</span>
+              )}
+              {dormantCount > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-500">
+                  休眠 {dormantCount}
+                </span>
+              )}
+              {deferredCount > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-cyan-100 text-cyan-700">
+                  先送り {deferredCount}
+                </span>
               )}
             </div>
           </div>
