@@ -89,7 +89,7 @@ function KanbanColumn({
       >
         <div
           ref={setNodeRef}
-          className="flex-1 p-2 space-y-2 min-h-[200px]"
+          className="flex-1 p-2 space-y-2 min-h-[80px]"
         >
           {/* アクティブカード */}
           {activeDeals.map((deal) => (
@@ -229,7 +229,7 @@ export function DealKanban({ deals: initialDeals, showArchived, sevenDaysAgo }: 
                 {opt.label}
               </span>
             </div>
-            <div className="flex-1 p-2 space-y-2 min-h-[200px]">
+            <div className="flex-1 p-2 space-y-2 min-h-[80px]">
               <div className="h-16 rounded-lg bg-zinc-100 animate-pulse" />
               <div className="h-16 rounded-lg bg-zinc-100 animate-pulse" />
             </div>

@@ -33,8 +33,6 @@ enum DealStatus {
   QUALIFYING  // 検討中
   PROPOSAL    // 提案中
   NEGOTIATION // 交渉中
-  DORMANT     // 休眠
-  DEFERRED    // 先送り
   CLOSED_WON  // 受注
   CLOSED_LOST // 失注
 }

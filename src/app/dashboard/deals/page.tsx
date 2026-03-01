@@ -63,8 +63,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
   });
 
   const wonCount = deals.filter((d) => d.status === "CLOSED_WON").length;
-  const NON_ACTIVE: DealStatus[] = ["CLOSED_WON", "CLOSED_LOST", "DORMANT", "DEFERRED"];
-  const activeCount = deals.filter((d) => !NON_ACTIVE.includes(d.status)).length;
+  const activeCount = deals.filter((d) => !CLOSED_STATUSES.includes(d.status)).length;
 
   // 受注率・商談総数（全期間・アーカイブ含む）
   const [allWonCount, allLostCount, totalDealCount] = await Promise.all([

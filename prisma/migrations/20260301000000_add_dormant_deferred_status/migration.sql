@@ -1,3 +1,0 @@
--- AlterEnum
-ALTER TYPE "DealStatus" ADD VALUE 'DORMANT';
-ALTER TYPE "DealStatus" ADD VALUE 'DEFERRED';
