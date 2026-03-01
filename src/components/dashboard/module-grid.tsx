@@ -49,7 +49,7 @@ const MODULES: Module[] = [
     id: "sfa",
     href: "/deals",
     label: "商談管理 (SFA)",
-    description: "進捗・勝率・パイプライン管理",
+    description: "進捗・受注率・ステージ管理",
     icon: TrendingUp,
     iconBg: "bg-emerald-50",
     iconColor: "text-emerald-600",

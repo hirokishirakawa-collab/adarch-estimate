@@ -61,9 +61,18 @@ export default async function DealsPage({ searchParams }: PageProps) {
     orderBy: { updatedAt: "desc" },
   });
 
-  const totalAmount = deals.reduce((sum, d) => sum + (d.amount ? Number(d.amount) : 0), 0);
   const wonCount = deals.filter((d) => d.status === "CLOSED_WON").length;
   const activeCount = deals.filter((d) => !CLOSED_STATUSES.includes(d.status)).length;
+
+  // 受注率（全期間・全クローズ商談から算出）
+  const [allWonCount, allLostCount] = await Promise.all([
+    db.deal.count({ where: { ...whereBase, status: "CLOSED_WON" } }),
+    db.deal.count({ where: { ...whereBase, status: "CLOSED_LOST" } }),
+  ]);
+  const winRate =
+    allWonCount + allLostCount > 0
+      ? Math.round((allWonCount / (allWonCount + allLostCount)) * 100)
+      : null;
 
   return (
     <div className="px-6 py-6 max-w-screen-2xl mx-auto w-full">
@@ -102,9 +111,9 @@ export default async function DealsPage({ searchParams }: PageProps) {
           <p className="text-xl font-bold text-emerald-600">{wonCount}</p>
         </div>
         <div className="bg-white rounded-xl border border-zinc-200 px-4 py-3">
-          <p className="text-[11px] text-zinc-400 mb-1">パイプライン総額</p>
-          <p className="text-xl font-bold text-zinc-900">
-            {totalAmount > 0 ? `¥${totalAmount.toLocaleString()}` : "—"}
+          <p className="text-[11px] text-zinc-400 mb-1">受注率（累計）</p>
+          <p className="text-xl font-bold text-emerald-600">
+            {winRate !== null ? `${winRate}%` : "—"}
           </p>
         </div>
       </div>
