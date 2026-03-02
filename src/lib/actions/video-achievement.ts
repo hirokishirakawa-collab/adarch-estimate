@@ -90,6 +90,7 @@ export async function startAttackFromAchievement(
 }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
+  if (!info.branchId) return { error: "拠点が割り当てられていません。管理者にお問い合わせください。" };
   const { branchId, userId } = info;
 
   const achievement = await db.videoAchievement.findUnique({

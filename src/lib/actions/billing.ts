@@ -120,6 +120,7 @@ export async function createInvoiceRequest(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
+  if (!info.branchId) return { error: "拠点が割り当てられていません。管理者にお問い合わせください。" };
 
   const parsed = await parseFormData(formData);
   if (!parsed.ok) return { error: parsed.error };
@@ -363,7 +364,7 @@ export async function getProjectsForSelect() {
   if (!info) return [];
 
   const where: Prisma.ProjectWhereInput =
-    info.role === "ADMIN" ? {} : { branchId: info.branchId };
+    info.role === "ADMIN" ? {} : { branchId: info.branchId ?? undefined };
 
   return db.project.findMany({
     where,
@@ -380,7 +381,7 @@ export async function getCustomersForSelect() {
   if (!info) return [];
 
   const where: Prisma.CustomerWhereInput =
-    info.role === "ADMIN" ? {} : { branchId: info.branchId };
+    info.role === "ADMIN" ? {} : { branchId: info.branchId ?? undefined };
 
   return db.customer.findMany({
     where,

@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { updateUserRole } from "@/lib/actions/admin";
+import { updateUserRole, updateUserInfo } from "@/lib/actions/admin";
+import { BRANCH_MAP } from "@/lib/data/customers";
 
 // ---------------------------------------------------------------
 // 型
@@ -12,17 +13,18 @@ type UserRow = {
   name: string | null;
   email: string;
   role: string;
+  branchId: string | null;
   createdAt: Date;
   branch: { name: string } | null;
 };
 
 interface Props {
   users: UserRow[];
-  callerEmail: string; // 自分自身の行を識別するため
+  callerEmail: string;
 }
 
 // ---------------------------------------------------------------
-// ロール選択肢
+// 定数
 // ---------------------------------------------------------------
 const ROLE_OPTIONS = [
   { value: "ADMIN",   label: "ADMIN（本部）" },
@@ -36,8 +38,23 @@ const ROLE_BADGE: Record<string, string> = {
   USER:    "bg-zinc-100 text-zinc-600 border-zinc-200",
 };
 
+const BRANCH_OPTIONS = [
+  { value: "",           label: "— 未割当 —" },
+  ...Object.values(BRANCH_MAP).map((b) => ({ value: b.id, label: b.name })),
+];
+
+const inputCls =
+  "px-2 py-1 text-xs border border-zinc-200 rounded-md " +
+  "focus:outline-none focus:ring-2 focus:ring-zinc-300 " +
+  "bg-white text-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed";
+
+const submitCls =
+  "inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium " +
+  "bg-zinc-800 text-white rounded-md hover:bg-zinc-700 " +
+  "disabled:opacity-40 disabled:cursor-not-allowed transition-colors";
+
 // ---------------------------------------------------------------
-// 1行分のロール変更フォーム
+// ロール変更フォーム
 // ---------------------------------------------------------------
 function RoleForm({
   userId,
@@ -51,18 +68,13 @@ function RoleForm({
   const boundAction = updateUserRole.bind(null, userId);
   const [state, formAction, isPending] = useActionState(boundAction, null);
 
-  const selectCls =
-    "px-2 py-1 text-xs border border-zinc-200 rounded-md " +
-    "focus:outline-none focus:ring-2 focus:ring-zinc-300 " +
-    "bg-white text-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed";
-
   return (
     <form action={formAction} className="flex items-center gap-2">
       <select
         name="role"
         defaultValue={currentRole}
         disabled={disabled || isPending}
-        className={selectCls}
+        className={inputCls}
       >
         {ROLE_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -71,20 +83,68 @@ function RoleForm({
         ))}
       </select>
 
-      <button
-        type="submit"
-        disabled={disabled || isPending}
-        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium
-                   bg-zinc-800 text-white rounded-md hover:bg-zinc-700
-                   disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-      >
+      <button type="submit" disabled={disabled || isPending} className={submitCls}>
         {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
         変更
       </button>
 
-      {state?.success && (
-        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+      {state?.success && <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
+      {state?.error && (
+        <span className="flex items-center gap-1 text-xs text-red-600">
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+          {state.error}
+        </span>
       )}
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------
+// 名前・拠点変更フォーム
+// ---------------------------------------------------------------
+function InfoForm({
+  userId,
+  currentName,
+  currentBranchId,
+  disabled,
+}: {
+  userId: string;
+  currentName: string | null;
+  currentBranchId: string | null;
+  disabled: boolean;
+}) {
+  const boundAction = updateUserInfo.bind(null, userId);
+  const [state, formAction, isPending] = useActionState(boundAction, null);
+
+  return (
+    <form action={formAction} className="flex items-center gap-2">
+      <input
+        name="name"
+        type="text"
+        defaultValue={currentName ?? ""}
+        placeholder="表示名"
+        disabled={disabled || isPending}
+        className={`${inputCls} w-28`}
+      />
+      <select
+        name="branchId"
+        defaultValue={currentBranchId ?? ""}
+        disabled={disabled || isPending}
+        className={inputCls}
+      >
+        {BRANCH_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+
+      <button type="submit" disabled={disabled || isPending} className={submitCls}>
+        {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+        保存
+      </button>
+
+      {state?.success && <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
       {state?.error && (
         <span className="flex items-center gap-1 text-xs text-red-600">
           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
@@ -114,9 +174,8 @@ export function UserTable({ users, callerEmail }: Props) {
           <thead>
             <tr className="bg-zinc-50 border-b border-zinc-100">
               {[
-                ["名前",         "text-left"],
                 ["メールアドレス", "text-left"],
-                ["拠点",         "text-left"],
+                ["名前・拠点（編集可）", "text-left"],
                 ["現在のロール",  "text-left"],
                 ["ロール変更",    "text-left"],
                 ["登録日",        "text-left"],
@@ -143,11 +202,9 @@ export function UserTable({ users, callerEmail }: Props) {
                     isSelf ? "bg-blue-50/30" : ""
                   }`}
                 >
-                  {/* 名前 */}
+                  {/* メール */}
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className="text-sm font-semibold text-zinc-800">
-                      {user.name ?? "—"}
-                    </span>
+                    <span className="text-xs text-zinc-600">{user.email}</span>
                     {isSelf && (
                       <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded
                                        bg-blue-100 text-blue-700 font-semibold">
@@ -156,16 +213,20 @@ export function UserTable({ users, callerEmail }: Props) {
                     )}
                   </td>
 
-                  {/* メール */}
-                  <td className="px-4 py-3">
-                    <span className="text-xs text-zinc-500">{user.email}</span>
-                  </td>
-
-                  {/* 拠点 */}
+                  {/* 名前・拠点（インライン編集） */}
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className="text-xs text-zinc-500">
-                      {user.branch?.name ?? (user.role === "ADMIN" ? "本部" : "—")}
-                    </span>
+                    {isSelf ? (
+                      <span className="text-xs text-zinc-500">
+                        {user.name ?? "—"} / {user.branch?.name ?? (user.role === "ADMIN" ? "本部" : "未割当")}
+                      </span>
+                    ) : (
+                      <InfoForm
+                        userId={user.id}
+                        currentName={user.name}
+                        currentBranchId={user.branchId}
+                        disabled={false}
+                      />
+                    )}
                   </td>
 
                   {/* 現在のロール */}
@@ -201,7 +262,7 @@ export function UserTable({ users, callerEmail }: Props) {
 
             {users.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-16 text-center text-sm text-zinc-400">
+                <td colSpan={5} className="px-4 py-16 text-center text-sm text-zinc-400">
                   登録済みのユーザーがいません
                 </td>
               </tr>

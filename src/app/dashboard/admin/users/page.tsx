@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { Shield, Users } from "lucide-react";
 import { getAdminUserList } from "@/lib/actions/admin";
 import { UserTable } from "@/components/admin/user-table";
+import { RegisterMemberForm } from "@/components/admin/register-member-form";
 import type { UserRole } from "@/types/roles";
 
 export default async function AdminUsersPage() {
@@ -57,6 +58,9 @@ export default async function AdminUsersPage() {
           </div>
         ))}
       </div>
+
+      {/* メンバー登録フォーム */}
+      <RegisterMemberForm />
 
       {/* ユーザーテーブル */}
       <UserTable users={users} callerEmail={callerEmail} />

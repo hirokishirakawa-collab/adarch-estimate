@@ -35,6 +35,76 @@ export async function getAdminUserList() {
 }
 
 // ---------------------------------------------------------------
+// メンバー事前登録（ADMIN 専用）
+// ログイン前にメールアドレス・名前・ロール・拠点を登録できる
+// 既存ユーザーの場合は上書き更新
+// ---------------------------------------------------------------
+export async function registerMember(
+  _prev: { error?: string; success?: boolean } | null,
+  formData: FormData
+): Promise<{ error?: string; success?: boolean }> {
+  await requireAdmin();
+
+  const email    = (formData.get("email")    as string)?.trim().toLowerCase();
+  const name     = (formData.get("name")     as string)?.trim() || null;
+  const role     = (formData.get("role")     as string)?.trim();
+  const branchId = (formData.get("branchId") as string)?.trim() || null;
+
+  if (!email) return { error: "メールアドレスは必須です" };
+
+  const allowedDomain = process.env.ALLOWED_DOMAIN ?? "adarch.co.jp";
+  const domain = email.split("@")[1]?.toLowerCase();
+  if (domain !== allowedDomain) {
+    return { error: `${allowedDomain} ドメインのアドレスのみ登録できます` };
+  }
+
+  if (!role || !["ADMIN", "MANAGER", "USER"].includes(role)) {
+    return { error: "無効なロールです" };
+  }
+
+  try {
+    await db.user.upsert({
+      where:  { email },
+      update: { name: name ?? undefined, role: role as "ADMIN" | "MANAGER" | "USER", branchId },
+      create: { email, name, role: role as "ADMIN" | "MANAGER" | "USER", branchId },
+    });
+  } catch (e) {
+    console.error("[registerMember] DB error:", e instanceof Error ? e.message : e);
+    return { error: "登録に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/admin/users");
+  return { success: true };
+}
+
+// ---------------------------------------------------------------
+// 名前・拠点更新（ADMIN 専用）
+// ---------------------------------------------------------------
+export async function updateUserInfo(
+  userId: string,
+  _prev: { error?: string; success?: boolean } | null,
+  formData: FormData
+): Promise<{ error?: string; success?: boolean }> {
+  await requireAdmin();
+
+  const name     = (formData.get("name")     as string)?.trim() || null;
+  const branchId = (formData.get("branchId") as string)?.trim() || null;
+
+  try {
+    await db.user.update({
+      where: { id: userId },
+      data:  { name, branchId },
+    });
+  } catch (e) {
+    console.error("[updateUserInfo] DB error:", e instanceof Error ? e.message : e);
+    return { error: "更新に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/admin/users");
+  return { success: true };
+}
+
+// ---------------------------------------------------------------
 // ロール変更（ADMIN 専用）
 // 自分自身のロールは変更不可（ロックアウト防止）
 // ---------------------------------------------------------------

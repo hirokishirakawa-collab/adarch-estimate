@@ -23,6 +23,7 @@ export async function createRevenueReport(
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
   if (isForbidden(info.role)) return { error: "権限がありません" };
+  if (!info.branchId) return { error: "拠点が割り当てられていません。管理者にお問い合わせください。" };
   // userId は getSessionInfo() の upsert により必ず存在する
 
   const amountRaw = (formData.get("amount") as string)?.replace(/,/g, "").trim();

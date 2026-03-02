@@ -13,13 +13,10 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .filter(Boolean);
 
 // ----------------------------------------------------------------
-// ロール判定ロジック
-// Phase 2（DB実装後）はDBからロールを取得する
+// フォールバック用ロール判定（DBアクセス不可時）
 // ----------------------------------------------------------------
 function resolveRole(email: string): UserRole {
   if (ADMIN_EMAILS.includes(email.toLowerCase())) return "ADMIN";
-  // Phase 1: ADMIN以外は暫定的にMANAGER（代表）として扱う
-  // Phase 2: DBのusersテーブルからrole/branchIdを取得して判定する
   return "MANAGER";
 }
 
@@ -54,17 +51,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
     /**
      * JWT トークンにロールを付与
-     * account は初回サインイン時のみ存在するが、
-     * role は毎回 env から再解決する（ADMIN_EMAILS の変更を即座に反映）
+     * DB に登録されているロールをリアルタイムで取得する（管理者によるロール変更を即座に反映）
+     * DB アクセス失敗時は env フォールバック
      */
     async jwt({ token, account, profile }) {
       if (account && profile?.email) {
         token.email = profile.email;
       }
-      // 毎回ロールを再解決（古いセッションでも正しいロールを返す）
       const email = (token.email ?? "") as string;
       if (email) {
-        token.role = resolveRole(email);
+        try {
+          const { db } = await import("@/lib/db");
+          const dbUser = await db.user.findUnique({
+            where: { email },
+            select: { role: true },
+          });
+          token.role = dbUser?.role ?? resolveRole(email);
+        } catch {
+          // DB エラー時は env ベースのフォールバック
+          token.role = resolveRole(email);
+        }
       }
       return token;
     },

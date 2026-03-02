@@ -19,6 +19,7 @@ export async function createDeal(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
+  if (!info.branchId) return { error: "拠点が割り当てられていません。管理者にお問い合わせください。" };
   const { staffName, branchId, userId } = info;
 
   const title = (formData.get("title") as string)?.trim();
