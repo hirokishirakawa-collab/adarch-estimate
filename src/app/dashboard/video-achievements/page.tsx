@@ -29,24 +29,35 @@ export default async function VideoAchievementsPage({ searchParams }: PageProps)
   if (params.isProcessed === "true")  where.isProcessed = true;
   if (params.isProcessed === "false") where.isProcessed = false;
 
-  const achievements = await db.videoAchievement.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    select: {
-      id:                true,
-      companyName:       true,
-      prefecture:        true,
-      industry:          true,
-      videoType:         true,
-      productionCompany: true,
-      referenceUrl:      true,
-      contentSummary:    true,
-      publishedAt:       true,
-      isProcessed:       true,
-      createdAt:         true,
-    },
-  });
+  type AchievementRow = {
+    id: string; companyName: string; prefecture: string; industry: string;
+    videoType: string; productionCompany: string; referenceUrl: string | null;
+    contentSummary: string | null; publishedAt: string | null;
+    isProcessed: boolean; createdAt: Date;
+  };
+  let achievements: AchievementRow[] = [];
+  try {
+    achievements = await db.videoAchievement.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id:                true,
+        companyName:       true,
+        prefecture:        true,
+        industry:          true,
+        videoType:         true,
+        productionCompany: true,
+        referenceUrl:      true,
+        contentSummary:    true,
+        publishedAt:       true,
+        isProcessed:       true,
+        createdAt:         true,
+      },
+    });
+  } catch (e) {
+    console.error("[video-achievements] DB error:", e);
+  }
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-5">

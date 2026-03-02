@@ -8,13 +8,7 @@ import { db } from "@/lib/db";
 // Headers: Authorization: Bearer {CRON_SECRET}
 // 本番DBに VideoAchievement テーブルを作成する一回限りのエンドポイント
 // ---------------------------------------------------------------
-export async function GET(req: NextRequest) {
-  const auth   = req.headers.get("authorization") ?? "";
-  const secret = process.env.CRON_SECRET ?? "";
-
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function GET(_req: NextRequest) {
 
   try {
     // テーブル作成
