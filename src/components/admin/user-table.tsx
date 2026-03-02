@@ -267,6 +267,7 @@ export function UserTable({ users, callerEmail }: Props) {
                       </div>
                     ) : (
                       <InfoForm
+                        key={`${user.id}-${user.name}-${user.branchId}-${user.branchId2}`}
                         userId={user.id}
                         currentName={user.name}
                         currentBranchId={user.branchId}
@@ -288,7 +289,7 @@ export function UserTable({ users, callerEmail }: Props) {
                     {isSelf ? (
                       <span className="text-xs text-zinc-400">変更不可（自分）</span>
                     ) : (
-                      <RoleForm userId={user.id} currentRole={user.role} disabled={false} />
+                      <RoleForm key={`${user.id}-${user.role}`} userId={user.id} currentRole={user.role} disabled={false} />
                     )}
                   </td>
 
