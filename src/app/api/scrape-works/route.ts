@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
   // Cheerio でテキスト抽出
   const $ = cheerio.load(html);
-  $("script, style, nav, footer, header, noscript").remove();
+  $("script, style, nav, footer, header, noscript, .menu, .navigation, .breadcrumb").remove();
 
   // 制作会社名を自動検出（未入力の場合）
   if (!productionCompany) {
@@ -86,13 +86,9 @@ export async function POST(req: NextRequest) {
       : new URL(url).hostname.replace(/^www\./, "");
   }
 
-  // ページ内テキストを収集（本文重視）
-  const bodyText = $("main, article, section, .works, .case, .portfolio, #works, #case, body")
-    .first()
-    .text()
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 10000);
+  // ページ内テキストを収集（全body・上限10000文字）
+  // .first() を使わず body 全体を取得してテキスト密度を上げる
+  const bodyText = $("body").text().replace(/\s+/g, " ").trim().slice(0, 10000);
 
   // Claude AI で構造化
   const client = new Anthropic({ apiKey });
@@ -149,7 +145,8 @@ ${bodyText}`;
     const start = raw.indexOf("[");
     const end   = raw.lastIndexOf("]");
     if (start === -1 || end === -1) {
-      console.error("[scrape-works] JSON array not found in response:", raw.slice(0, 200));
+      console.error("[scrape-works] JSON array not found. AI response:", raw.slice(0, 500));
+      console.error("[scrape-works] bodyText sample:", bodyText.slice(0, 300));
       return NextResponse.json({ productionCompany, items: [] });
     }
     const jsonStr = raw.slice(start, end + 1);
