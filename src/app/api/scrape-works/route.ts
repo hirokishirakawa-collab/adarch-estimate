@@ -13,6 +13,7 @@ export interface ScrapedAchievement {
   videoType:    string;
   description:  string | null;
   referenceUrl: string | null;
+  publishedAt:  string | null;
 }
 
 // ---------------------------------------------------------------
@@ -105,8 +106,9 @@ export async function POST(req: NextRequest) {
 3. クライアント名が明確でない場合はスキップする
 4. 業種: 食品・飲料 / 小売・EC / 不動産 / 建設・工事 / 医療・介護 / 教育 / 製造業 / IT・テクノロジー / 飲食店 / 美容・サロン / 観光・ホテル / 金融・保険 / 人材・採用 / 自動車 / アパレル / その他
 5. videoType: TVCM / WEB_VIDEO / RECRUITMENT / EXHIBITION / SNS / CORPORATE / OTHER
-6. prefecture: 「〇〇都/道/府/県」形式。不明は「不明」
-7. 出力はJSONの配列のみ。前置き・コードブロック不要
+6. prefecture: クライアント企業の所在地を「〇〇都/道/府/県」形式で。企業名・住所・本文から推測してよい。不明な場合のみ「不明」
+7. publishedAt: 実績の掲載日・制作年月を「2024年3月」のような文字列で。ページ上に日付が見当たらない場合はnull
+8. 出力はJSONの配列のみ。前置き・コードブロック不要
 
 【出力形式】
 [
@@ -116,7 +118,8 @@ export async function POST(req: NextRequest) {
     "industry": "食品・飲料",
     "videoType": "WEB_VIDEO",
     "description": "制作内容の要約（なければnull）",
-    "referenceUrl": "個別ページURLまたはYouTube URL（なければnull）"
+    "referenceUrl": "個別ページURLまたはYouTube URL（なければnull）",
+    "publishedAt": "2024年3月"
   }
 ]
 

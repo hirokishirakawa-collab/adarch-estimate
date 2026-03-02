@@ -13,6 +13,7 @@ interface ScrapedItem {
   videoType:    string;
   description:  string | null;
   referenceUrl: string | null;
+  publishedAt:  string | null;
 }
 
 export function ScrapeForm() {
@@ -88,6 +89,7 @@ export function ScrapeForm() {
         videoType:         item.videoType,
         referenceUrl:      item.referenceUrl,
         contentSummary:    item.description,
+        publishedAt:       item.publishedAt,
       }));
     if (toSave.length === 0) { setError("1件以上選択してください"); return; }
 
@@ -205,9 +207,10 @@ export function ScrapeForm() {
                   </button>
                 </th>
                 <th className="text-left px-3 py-2.5 font-medium text-zinc-600">発注元企業名</th>
-                <th className="text-left px-3 py-2.5 font-medium text-zinc-600">都道府県</th>
+                <th className="text-left px-3 py-2.5 font-medium text-zinc-600">所在地</th>
                 <th className="text-left px-3 py-2.5 font-medium text-zinc-600">業種</th>
                 <th className="text-left px-3 py-2.5 font-medium text-zinc-600">動画種別</th>
+                <th className="text-left px-3 py-2.5 font-medium text-zinc-600">掲載日</th>
                 <th className="text-left px-3 py-2.5 font-medium text-zinc-600 max-w-xs">制作内容</th>
               </tr>
             </thead>
@@ -231,6 +234,9 @@ export function ScrapeForm() {
                     <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 text-[11px] font-medium">
                       {videoTypeLabel(item.videoType)}
                     </span>
+                  </td>
+                  <td className="px-3 py-3 text-zinc-500 whitespace-nowrap text-[11px]">
+                    {item.publishedAt ?? "—"}
                   </td>
                   <td className="px-3 py-3 text-zinc-500 max-w-xs">
                     <p className="line-clamp-2">{item.description ?? "—"}</p>

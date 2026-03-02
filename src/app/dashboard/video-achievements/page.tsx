@@ -42,6 +42,7 @@ export default async function VideoAchievementsPage({ searchParams }: PageProps)
       productionCompany: true,
       referenceUrl:      true,
       contentSummary:    true,
+      publishedAt:       true,
       isProcessed:       true,
       createdAt:         true,
     },

@@ -947,6 +947,7 @@ model VideoAchievement {
   referenceUrl      String?                       // 実績ページURL/YouTube
   contentSummary    String?  @db.Text            // AIによる制作内容分析
   sourceUrl         String?                       // スクレイピング元URL
+  publishedAt       String?                       // 掲載日（例: "2024年3月"）
   isProcessed       Boolean  @default(false)      // CRM連携済みフラグ
   createdById       String?
   createdBy         User?    @relation("VideoAchievementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)

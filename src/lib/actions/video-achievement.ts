@@ -160,6 +160,7 @@ export interface AchievementInput {
   videoType:         string;
   referenceUrl:      string | null;
   contentSummary:    string | null;
+  publishedAt:       string | null;
 }
 
 export async function bulkSaveAchievements(
@@ -193,6 +194,7 @@ export async function bulkSaveAchievements(
           videoType:         item.videoType,
           referenceUrl:      item.referenceUrl,
           contentSummary:    item.contentSummary,
+          publishedAt:       item.publishedAt,
           createdById:       userId,
         },
       });

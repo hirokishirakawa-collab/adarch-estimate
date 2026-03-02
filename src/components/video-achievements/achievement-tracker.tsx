@@ -18,6 +18,7 @@ interface Achievement {
   productionCompany: string;
   referenceUrl:      string | null;
   contentSummary:    string | null;
+  publishedAt:       string | null;
   isProcessed:       boolean;
   createdAt:         Date;
 }
@@ -130,10 +131,11 @@ export function AchievementTracker({ achievements, role }: Props) {
             <thead>
               <tr className="bg-zinc-50 border-b border-zinc-200">
                 <th className="text-left px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">企業名</th>
-                <th className="text-left px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">都道府県</th>
+                <th className="text-left px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">所在地</th>
                 <th className="text-left px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">業種</th>
                 <th className="text-left px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">動画種別</th>
                 <th className="text-left px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">競合制作会社</th>
+                <th className="text-left px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">掲載日</th>
                 <th className="text-left px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">ステータス</th>
                 <th className="px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">操作</th>
               </tr>
@@ -153,6 +155,7 @@ export function AchievementTracker({ achievements, role }: Props) {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-zinc-600 max-w-[180px] truncate">{a.productionCompany}</td>
+                  <td className="px-4 py-3 text-zinc-500 whitespace-nowrap text-[11px]">{a.publishedAt ?? "—"}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {a.isProcessed ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 text-[11px] font-medium">
