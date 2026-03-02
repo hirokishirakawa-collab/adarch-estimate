@@ -148,3 +148,60 @@ export async function startAttackFromAchievement(
 
   return { dealId: deal.id, customerId, isNewCustomer };
 }
+
+// ---------------------------------------------------------------
+// スクレイピング結果を一括保存する
+// ---------------------------------------------------------------
+export interface AchievementInput {
+  companyName:       string;
+  prefecture:        string;
+  industry:          string;
+  productionCompany: string;
+  videoType:         string;
+  referenceUrl:      string | null;
+  contentSummary:    string | null;
+}
+
+export async function bulkSaveAchievements(
+  items: AchievementInput[]
+): Promise<{ saved: number; skipped: number; error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { saved: 0, skipped: 0, error: "ログインが必要です" };
+  const { userId } = info;
+
+  let saved = 0;
+  let skipped = 0;
+
+  for (const item of items) {
+    try {
+      await db.videoAchievement.upsert({
+        where: {
+          companyName_productionCompany: {
+            companyName:       item.companyName,
+            productionCompany: item.productionCompany,
+          },
+        },
+        update: {
+          contentSummary: item.contentSummary,
+          referenceUrl:   item.referenceUrl,
+        },
+        create: {
+          companyName:       item.companyName,
+          prefecture:        item.prefecture,
+          industry:          item.industry,
+          productionCompany: item.productionCompany,
+          videoType:         item.videoType,
+          referenceUrl:      item.referenceUrl,
+          contentSummary:    item.contentSummary,
+          createdById:       userId,
+        },
+      });
+      saved++;
+    } catch {
+      skipped++;
+    }
+  }
+
+  revalidatePath("/dashboard/video-achievements");
+  return { saved, skipped };
+}
