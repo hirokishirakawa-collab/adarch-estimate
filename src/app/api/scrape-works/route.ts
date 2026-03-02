@@ -50,6 +50,12 @@ export async function POST(req: NextRequest) {
       signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) {
+      if (res.status === 403 || res.status === 401) {
+        return NextResponse.json(
+          { error: `このサイトはアクセスをブロックしています（HTTP ${res.status}）。別のページURLを試してください。` },
+          { status: 422 }
+        );
+      }
       return NextResponse.json(
         { error: `サイトの取得に失敗しました（HTTP ${res.status}）` },
         { status: 422 }
@@ -58,6 +64,12 @@ export async function POST(req: NextRequest) {
     html = await res.text();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("timeout") || msg.includes("TimeoutError")) {
+      return NextResponse.json(
+        { error: "サイトの読み込みがタイムアウトしました。URLが正しいか確認してください。" },
+        { status: 422 }
+      );
+    }
     return NextResponse.json({ error: `サイトへのアクセスに失敗しました: ${msg}` }, { status: 422 });
   }
 
@@ -126,17 +138,34 @@ ${bodyText}`;
       return NextResponse.json({ error: "AIの応答が不正です" }, { status: 500 });
     }
 
-    // JSON 部分だけ抽出（余計なテキストが混入した場合の保険）
-    const text = content.text.trim();
-    const jsonStr = text.startsWith("[") ? text : text.slice(text.indexOf("["));
-    const items = JSON.parse(jsonStr) as ScrapedAchievement[];
+    // JSON 部分だけ抽出（マークダウンコードブロック・前後テキストを除去）
+    let raw = content.text.trim();
+    // ```json ... ``` または ``` ... ``` を除去
+    raw = raw.replace(/```(?:json)?\s*/gi, "").replace(/```/g, "").trim();
+    // [ ... ] の範囲だけ切り出す
+    const start = raw.indexOf("[");
+    const end   = raw.lastIndexOf("]");
+    if (start === -1 || end === -1) {
+      console.error("[scrape-works] JSON array not found in response:", raw.slice(0, 200));
+      return NextResponse.json({ productionCompany, items: [] });
+    }
+    const jsonStr = raw.slice(start, end + 1);
+
+    let items: ScrapedAchievement[];
+    try {
+      items = JSON.parse(jsonStr) as ScrapedAchievement[];
+    } catch (parseErr) {
+      console.error("[scrape-works] JSON parse error:", parseErr, jsonStr.slice(0, 200));
+      return NextResponse.json({ productionCompany, items: [] });
+    }
+
     const valid = Array.isArray(items)
       ? items.filter((a) => a.clientName && a.clientName.length > 0)
       : [];
 
     return NextResponse.json({ productionCompany, items: valid });
   } catch (e) {
-    console.error("[scrape-works]", e);
+    console.error("[scrape-works] unexpected error:", e);
     return NextResponse.json({ error: "AI解析に失敗しました" }, { status: 500 });
   }
 }
