@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
   // Cheerio でテキスト抽出
   const $ = cheerio.load(html);
-  $("script, style, nav, footer, header, noscript, .menu, .navigation, .breadcrumb").remove();
+  $("script, style, nav, footer, header, noscript, .menu, .navigation, .breadcrumb, .sidebar, #sidebar").remove();
 
   // 制作会社名を自動検出（未入力の場合）
   if (!productionCompany) {
@@ -86,9 +86,8 @@ export async function POST(req: NextRequest) {
       : new URL(url).hostname.replace(/^www\./, "");
   }
 
-  // ページ内テキストを収集（全body・上限10000文字）
-  // .first() を使わず body 全体を取得してテキスト密度を上げる
-  const bodyText = $("body").text().replace(/\s+/g, " ").trim().slice(0, 10000);
+  // ページ内テキストを収集（上限20000文字に拡大）
+  const bodyText = $("body").text().replace(/\s+/g, " ").trim().slice(0, 20000);
 
   // Claude AI で構造化
   const client = new Anthropic({ apiKey });
@@ -97,14 +96,15 @@ export async function POST(req: NextRequest) {
 あなたは映像制作会社のWebサイトから「クライアント実績」を抽出する専門AIです。
 
 【ルール】
-1. 入力テキストから映像制作の「クライアント（発注元企業）」情報のみを抽出する
-2. 制作会社自身の宣材・採用情報・会社概要は除外する
-3. クライアント名が明確でない場合はスキップする
-4. 業種: 食品・飲料 / 小売・EC / 不動産 / 建設・工事 / 医療・介護 / 教育 / 製造業 / IT・テクノロジー / 飲食店 / 美容・サロン / 観光・ホテル / 金融・保険 / 人材・採用 / 自動車 / アパレル / その他
-5. videoType: TVCM / WEB_VIDEO / RECRUITMENT / EXHIBITION / SNS / CORPORATE / OTHER
-6. prefecture: クライアント企業の所在地を「〇〇都/道/府/県」形式で。企業名・住所・本文から推測してよい。不明な場合のみ「不明」
-7. publishedAt: 実績の掲載日・制作年月を「2024年3月」のような文字列で。ページ上に日付が見当たらない場合はnull
-8. 出力はJSONの配列のみ。前置き・コードブロック不要
+1. 入力テキストから映像・動画制作のクライアント（発注元）を抽出する
+2. テレビ局・企業・官公庁・学校など、制作会社に依頼した組織名を拾う
+3. 制作会社自身の自主制作・コンテスト応募作品は除外する
+4. クライアント名が部分的でも（例:「日本テレビ」「NHK」「〇〇市役所」）積極的に抽出する
+5. 業種: 食品・飲料 / 小売・EC / 不動産 / 建設・工事 / 医療・介護 / 教育 / 製造業 / IT・テクノロジー / 飲食店 / 美容・サロン / 観光・ホテル / 金融・保険 / 人材・採用 / 自動車 / アパレル / 放送・メディア / 官公庁・自治体 / その他
+6. videoType: TVCM / WEB_VIDEO / RECRUITMENT / EXHIBITION / SNS / CORPORATE / OTHER
+7. prefecture: クライアント企業の所在地を「〇〇都/道/府/県」形式で。企業名から推測してよい（例:NHK→東京都）。不明な場合のみ「不明」
+8. publishedAt: 実績の掲載日・制作年月を「2024年3月」のような文字列で。不明はnull
+9. 出力はJSONの配列のみ。前置き・コードブロック不要
 
 【出力形式】
 [
