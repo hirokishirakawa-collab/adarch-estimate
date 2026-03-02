@@ -26,7 +26,10 @@ export async function getAdminUserList() {
   try {
     return db.user.findMany({
       orderBy: { createdAt: "asc" },
-      include: { branch: { select: { name: true } } },
+      include: {
+        branch:  { select: { name: true } },
+        branch2: { select: { name: true } },
+      },
     });
   } catch (e) {
     console.error("[getAdminUserList] DB error:", e instanceof Error ? e.message : e);
@@ -45,10 +48,11 @@ export async function registerMember(
 ): Promise<{ error?: string; success?: boolean }> {
   await requireAdmin();
 
-  const email    = (formData.get("email")    as string)?.trim().toLowerCase();
-  const name     = (formData.get("name")     as string)?.trim() || null;
-  const role     = (formData.get("role")     as string)?.trim();
-  const branchId = (formData.get("branchId") as string)?.trim() || null;
+  const email     = (formData.get("email")     as string)?.trim().toLowerCase();
+  const name      = (formData.get("name")      as string)?.trim() || null;
+  const role      = (formData.get("role")      as string)?.trim();
+  const branchId  = (formData.get("branchId")  as string)?.trim() || null;
+  const branchId2 = (formData.get("branchId2") as string)?.trim() || null;
 
   if (!email) return { error: "メールアドレスは必須です" };
 
@@ -65,8 +69,8 @@ export async function registerMember(
   try {
     await db.user.upsert({
       where:  { email },
-      update: { name: name ?? undefined, role: role as "ADMIN" | "MANAGER" | "USER", branchId },
-      create: { email, name, role: role as "ADMIN" | "MANAGER" | "USER", branchId },
+      update: { name: name ?? undefined, role: role as "ADMIN" | "MANAGER" | "USER", branchId, branchId2 },
+      create: { email, name, role: role as "ADMIN" | "MANAGER" | "USER", branchId, branchId2 },
     });
   } catch (e) {
     console.error("[registerMember] DB error:", e instanceof Error ? e.message : e);
@@ -87,13 +91,14 @@ export async function updateUserInfo(
 ): Promise<{ error?: string; success?: boolean }> {
   await requireAdmin();
 
-  const name     = (formData.get("name")     as string)?.trim() || null;
-  const branchId = (formData.get("branchId") as string)?.trim() || null;
+  const name      = (formData.get("name")      as string)?.trim() || null;
+  const branchId  = (formData.get("branchId")  as string)?.trim() || null;
+  const branchId2 = (formData.get("branchId2") as string)?.trim() || null;
 
   try {
     await db.user.update({
       where: { id: userId },
-      data:  { name, branchId },
+      data:  { name, branchId, branchId2 },
     });
   } catch (e) {
     console.error("[updateUserInfo] DB error:", e instanceof Error ? e.message : e);

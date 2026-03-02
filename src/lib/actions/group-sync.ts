@@ -3,42 +3,11 @@
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
 import { uploadGroupSyncFile } from "@/lib/storage";
 import { sendCollaborationNotification } from "@/lib/notifications";
-import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
-
-// ---------------------------------------------------------------
-// 共通: セッション情報取得
-// ---------------------------------------------------------------
-async function getSessionInfo() {
-  const session = await auth();
-  if (!session?.user) return null;
-
-  const role     = (session.user.role ?? "MANAGER") as UserRole;
-  const email    = session.user.email ?? "";
-  const branchId = getMockBranchId(email, role) ?? "branch_hq";
-
-  const dbRole: "ADMIN" | "MANAGER" | "USER" =
-    role === "ADMIN" ? "ADMIN" : role === "MANAGER" ? "MANAGER" : "USER";
-
-  const user = await db.user.upsert({
-    where:  { email },
-    update: {},
-    create: {
-      email,
-      name:     session.user.name ?? email,
-      role:     dbRole,
-      branchId: getMockBranchId(email, role),
-    },
-    select: { id: true, name: true },
-  });
-
-  return { role, email, branchId, userId: user.id, staffName: user.name ?? email };
-}
+import { getSessionInfo, getBranchFilter } from "@/lib/session";
 
 // ---------------------------------------------------------------
 // グループ連携依頼を作成する
@@ -167,10 +136,9 @@ export async function updateCollaborationStatus(
 // ---------------------------------------------------------------
 export async function getCollaborationRequestList() {
   const info = await getSessionInfo();
-  if (!info) return { requests: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as UserRole };
+  if (!info) return { requests: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as import("@/types/roles").UserRole };
 
-  const where: Prisma.GroupCollaborationRequestWhereInput =
-    info.role === "ADMIN" ? {} : { branchId: info.branchId };
+  const where: Prisma.GroupCollaborationRequestWhereInput = getBranchFilter(info);
 
   const requests = await fetchList(where);
   return { requests, role: info.role };
@@ -195,8 +163,7 @@ export async function getCollaborationRequestById(requestId: string) {
   const info = await getSessionInfo();
   if (!info) notFound();
 
-  const where: Prisma.GroupCollaborationRequestWhereInput =
-    info.role === "ADMIN" ? { id: requestId } : { id: requestId, branchId: info.branchId };
+  const where: Prisma.GroupCollaborationRequestWhereInput = { id: requestId, ...getBranchFilter(info) };
 
   const request = await db.groupCollaborationRequest.findFirst({
     where,
@@ -218,8 +185,7 @@ export async function getProjectsForGroupSync() {
   const info = await getSessionInfo();
   if (!info) return [];
 
-  const where: Prisma.ProjectWhereInput =
-    info.role === "ADMIN" ? {} : { branchId: info.branchId };
+  const where: Prisma.ProjectWhereInput = getBranchFilter(info);
 
   return db.project.findMany({
     where,

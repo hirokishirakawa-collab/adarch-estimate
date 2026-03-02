@@ -2,45 +2,14 @@
 
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
 import {
   sendAdvertiserReviewCreatedNotification,
   sendAdvertiserReviewResultNotification,
 } from "@/lib/notifications";
 import { validateCorporateNumber } from "@/lib/constants/advertiser-review";
-import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
-
-// ---------------------------------------------------------------
-// 共通: セッション情報取得
-// ---------------------------------------------------------------
-async function getSessionInfo() {
-  const session = await auth();
-  if (!session?.user) return null;
-
-  const role     = (session.user.role ?? "MANAGER") as UserRole;
-  const email    = session.user.email ?? "";
-  const branchId = getMockBranchId(email, role) ?? "branch_hq";
-
-  const dbRole: "ADMIN" | "MANAGER" | "USER" =
-    role === "ADMIN" ? "ADMIN" : role === "MANAGER" ? "MANAGER" : "USER";
-
-  const user = await db.user.upsert({
-    where:  { email },
-    update: {},
-    create: {
-      email,
-      name:     session.user.name ?? email,
-      role:     dbRole,
-      branchId: getMockBranchId(email, role),
-    },
-    select: { id: true, name: true },
-  });
-
-  return { role, email, branchId, userId: user.id, staffName: user.name ?? email };
-}
+import { getSessionInfo, getBranchFilter } from "@/lib/session";
 
 // ---------------------------------------------------------------
 // 業態考査申請を作成する
@@ -85,7 +54,7 @@ export async function createAdvertiserReview(
         remarks,
         createdById:  info.userId,
         creatorEmail: info.email,
-        branchId:     info.branchId,
+        branchId:     info.branchId as string,
       },
     });
     createdId = created.id;
@@ -166,16 +135,15 @@ export async function updateAdvertiserReviewStatus(
 export async function getAdvertiserReviewList() {
   try {
     const info = await getSessionInfo();
-    if (!info) return { reviews: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as UserRole };
+    if (!info) return { reviews: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as import("@/types/roles").UserRole };
 
-    const where: Prisma.AdvertiserReviewWhereInput =
-      info.role === "ADMIN" ? {} : { branchId: info.branchId };
+    const where: Prisma.AdvertiserReviewWhereInput = getBranchFilter(info);
 
     const reviews = await fetchList(where);
     return { reviews, role: info.role };
   } catch (e) {
     console.error("[getAdvertiserReviewList] error:", e instanceof Error ? e.message : e);
-    return { reviews: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as UserRole };
+    return { reviews: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as import("@/types/roles").UserRole };
   }
 }
 
@@ -216,10 +184,7 @@ export async function getAdvertiserReviewById(reviewId: string) {
     const info = await getSessionInfo();
     if (!info) notFound();
 
-    const where: Prisma.AdvertiserReviewWhereInput =
-      info.role === "ADMIN"
-        ? { id: reviewId }
-        : { id: reviewId, branchId: info.branchId };
+    const where: Prisma.AdvertiserReviewWhereInput = { id: reviewId, ...getBranchFilter(info) };
 
     const review = await db.advertiserReview.findFirst({
       where,
@@ -247,10 +212,7 @@ export async function getApprovedAdvertisers() {
     const info = await getSessionInfo();
     if (!info) return [];
 
-    const where: Prisma.AdvertiserReviewWhereInput =
-      info.role === "ADMIN"
-        ? { status: "APPROVED" }
-        : { status: "APPROVED", branchId: info.branchId };
+    const where: Prisma.AdvertiserReviewWhereInput = { status: "APPROVED", ...getBranchFilter(info) };
 
     return db.advertiserReview.findMany({
       where,

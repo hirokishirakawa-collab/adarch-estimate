@@ -2,40 +2,9 @@
 
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
-import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
-
-// ---------------------------------------------------------------
-// 共通: セッション情報取得
-// ---------------------------------------------------------------
-async function getSessionInfo() {
-  const session = await auth();
-  if (!session?.user) return null;
-
-  const role     = (session.user.role ?? "MANAGER") as UserRole;
-  const email    = session.user.email ?? "";
-  const branchId = getMockBranchId(email, role) ?? "branch_hq";
-
-  const dbRole: "ADMIN" | "MANAGER" | "USER" =
-    role === "ADMIN" ? "ADMIN" : role === "MANAGER" ? "MANAGER" : "USER";
-
-  const user = await db.user.upsert({
-    where:  { email },
-    update: {},
-    create: {
-      email,
-      name:     session.user.name ?? email,
-      role:     dbRole,
-      branchId: getMockBranchId(email, role),
-    },
-    select: { id: true, name: true },
-  });
-
-  return { role, email, branchId, userId: user.id, staffName: user.name ?? email };
-}
+import { getSessionInfo, getBranchFilter } from "@/lib/session";
 
 // ---------------------------------------------------------------
 // クリエイティブ考査申請を作成する
@@ -75,7 +44,7 @@ export async function createTverCreativeReview(
         remarks,
         createdById:  info.userId,
         creatorEmail: info.email,
-        branchId:     info.branchId,
+        branchId:     info.branchId as string,
       },
     });
   } catch (e) {
@@ -93,15 +62,14 @@ export async function createTverCreativeReview(
 export async function getTverCreativeReviewList() {
   try {
     const info = await getSessionInfo();
-    if (!info) return { reviews: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as UserRole };
+    if (!info) return { reviews: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as import("@/types/roles").UserRole };
 
-    const where: Prisma.TverCreativeReviewWhereInput =
-      info.role === "ADMIN" ? {} : { branchId: info.branchId };
+    const where: Prisma.TverCreativeReviewWhereInput = getBranchFilter(info);
 
     return { reviews: await fetchList(where), role: info.role };
   } catch (e) {
     console.error("[getTverCreativeReviewList] error:", e instanceof Error ? e.message : e);
-    return { reviews: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as UserRole };
+    return { reviews: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as import("@/types/roles").UserRole };
   }
 }
 
@@ -125,10 +93,7 @@ export async function getTverCreativeReviewById(id: string) {
     const info = await getSessionInfo();
     if (!info) notFound();
 
-    const where: Prisma.TverCreativeReviewWhereInput =
-      info.role === "ADMIN"
-        ? { id }
-        : { id, branchId: info.branchId };
+    const where: Prisma.TverCreativeReviewWhereInput = { id, ...getBranchFilter(info) };
 
     const review = await db.tverCreativeReview.findFirst({
       where,

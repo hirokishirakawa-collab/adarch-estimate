@@ -2,41 +2,10 @@
 
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
 import { sendTverCampaignCreatedEmail } from "@/lib/resend";
-import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
-
-// ---------------------------------------------------------------
-// 共通: セッション情報取得
-// ---------------------------------------------------------------
-async function getSessionInfo() {
-  const session = await auth();
-  if (!session?.user) return null;
-
-  const role     = (session.user.role ?? "MANAGER") as UserRole;
-  const email    = session.user.email ?? "";
-  const branchId = getMockBranchId(email, role) ?? "branch_hq";
-
-  const dbRole: "ADMIN" | "MANAGER" | "USER" =
-    role === "ADMIN" ? "ADMIN" : role === "MANAGER" ? "MANAGER" : "USER";
-
-  const user = await db.user.upsert({
-    where:  { email },
-    update: {},
-    create: {
-      email,
-      name:     session.user.name ?? email,
-      role:     dbRole,
-      branchId: getMockBranchId(email, role),
-    },
-    select: { id: true, name: true },
-  });
-
-  return { role, email, branchId, userId: user.id, staffName: user.name ?? email };
-}
+import { getSessionInfo, getBranchFilter } from "@/lib/session";
 
 // ---------------------------------------------------------------
 // TVer配信申請を作成する
@@ -110,7 +79,7 @@ export async function createTverCampaign(
         status:       "SUBMITTED",
         createdById:  info.userId,
         creatorEmail: info.email,
-        branchId:     info.branchId,
+        branchId:     info.branchId as string,
       },
     });
     createdId = created.id;
@@ -162,16 +131,15 @@ export async function deleteTverCampaign(campaignId: string): Promise<void> {
 export async function getTverCampaignList() {
   try {
     const info = await getSessionInfo();
-    if (!info) return { campaigns: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as UserRole };
+    if (!info) return { campaigns: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as import("@/types/roles").UserRole };
 
-    const where: Prisma.TverCampaignWhereInput =
-      info.role === "ADMIN" ? {} : { branchId: info.branchId };
+    const where: Prisma.TverCampaignWhereInput = getBranchFilter(info);
 
     const campaigns = await fetchList(where);
     return { campaigns, role: info.role };
   } catch (e) {
     console.error("[getTverCampaignList] error:", e instanceof Error ? e.message : e);
-    return { campaigns: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as UserRole };
+    return { campaigns: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as import("@/types/roles").UserRole };
   }
 }
 
@@ -195,10 +163,7 @@ export async function getTverCampaignById(campaignId: string) {
     const info = await getSessionInfo();
     if (!info) notFound();
 
-    const where: Prisma.TverCampaignWhereInput =
-      info.role === "ADMIN"
-        ? { id: campaignId }
-        : { id: campaignId, branchId: info.branchId };
+    const where: Prisma.TverCampaignWhereInput = { id: campaignId, ...getBranchFilter(info) };
 
     const campaign = await db.tverCampaign.findFirst({
       where,

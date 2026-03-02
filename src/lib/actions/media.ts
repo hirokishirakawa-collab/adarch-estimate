@@ -2,46 +2,12 @@
 
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
 import { uploadMediaFile } from "@/lib/storage";
 import { sendMediaRequestNotification } from "@/lib/notifications";
 import { getMediaTypeLabel } from "@/lib/constants/media";
-import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
-
-// ---------------------------------------------------------------
-// 共通: セッション情報取得（MANAGER以上のみ）
-// ---------------------------------------------------------------
-async function getSessionInfo() {
-  const session = await auth();
-  if (!session?.user) return null;
-
-  const role     = (session.user.role ?? "MANAGER") as UserRole;
-  const email    = session.user.email ?? "";
-  const branchId = getMockBranchId(email, role) ?? "branch_hq";
-
-  // MANAGER未満は拒否
-  if (role === "USER") return { error: "権限がありません" } as const;
-
-  const dbRole: "ADMIN" | "MANAGER" | "USER" =
-    role === "ADMIN" ? "ADMIN" : role === "MANAGER" ? "MANAGER" : "USER";
-
-  const user = await db.user.upsert({
-    where:  { email },
-    update: {},
-    create: {
-      email,
-      name:     session.user.name ?? email,
-      role:     dbRole,
-      branchId: getMockBranchId(email, role),
-    },
-    select: { id: true, name: true },
-  });
-
-  return { role, email, branchId, userId: user.id, staffName: user.name ?? email };
-}
+import { getSessionInfo, getBranchFilter } from "@/lib/session";
 
 // ---------------------------------------------------------------
 // 媒体依頼を作成する
@@ -52,7 +18,7 @@ export async function createMediaRequest(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
-  if ("error" in info) return { error: info.error };
+  if (info.role === "USER") return { error: "権限がありません" };
 
   const mediaType   = (formData.get("mediaType")   as string)?.trim();
   const mediaName   = (formData.get("mediaName")   as string)?.trim();
@@ -134,7 +100,7 @@ export async function updateMediaRequestStatus(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
-  if ("error" in info) return { error: info.error };
+  if (info.role === "USER") return { error: "権限がありません" };
 
   const status    = (formData.get("status")    as string)?.trim();
   const replyNote = (formData.get("replyNote") as string)?.trim() || null;
@@ -168,17 +134,16 @@ export async function updateMediaRequestStatus(
 export async function getMediaRequestList() {
   try {
     const info = await getSessionInfo();
-    if (!info || "error" in info)
-      return { requests: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as UserRole };
+    if (!info) return { requests: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as import("@/types/roles").UserRole };
+    if (info.role === "USER") return { requests: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as import("@/types/roles").UserRole };
 
-    const where: Prisma.MediaRequestWhereInput =
-      info.role === "ADMIN" ? {} : { branchId: info.branchId };
+    const where: Prisma.MediaRequestWhereInput = getBranchFilter(info);
 
     const requests = await fetchList(where);
     return { requests, role: info.role };
   } catch (e) {
     console.error("[getMediaRequestList] error:", e instanceof Error ? e.message : e);
-    return { requests: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as UserRole };
+    return { requests: [] as Awaited<ReturnType<typeof fetchList>>, role: "USER" as import("@/types/roles").UserRole };
   }
 }
 
@@ -200,12 +165,10 @@ async function fetchList(where: Prisma.MediaRequestWhereInput) {
 export async function getMediaRequestById(requestId: string) {
   try {
     const info = await getSessionInfo();
-    if (!info || "error" in info) notFound();
+    if (!info) notFound();
+    if (info.role === "USER") notFound();
 
-    const where: Prisma.MediaRequestWhereInput =
-      info.role === "ADMIN"
-        ? { id: requestId }
-        : { id: requestId, branchId: info.branchId };
+    const where: Prisma.MediaRequestWhereInput = { id: requestId, ...getBranchFilter(info) };
 
     const request = await db.mediaRequest.findFirst({
       where,
@@ -232,10 +195,10 @@ export async function getMediaRequestById(requestId: string) {
 export async function getCustomersForMedia() {
   try {
     const info = await getSessionInfo();
-    if (!info || "error" in info) return [];
+    if (!info) return [];
+    if (info.role === "USER") return [];
 
-    const where: Prisma.CustomerWhereInput =
-      info.role === "ADMIN" ? {} : { branchId: info.branchId };
+    const where: Prisma.CustomerWhereInput = getBranchFilter(info);
 
     return db.customer.findMany({
       where,

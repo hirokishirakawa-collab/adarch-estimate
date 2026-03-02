@@ -195,7 +195,8 @@ model Branch {
   updatedAt DateTime @updatedAt
 
   // Relations
-  users                      User[]
+  users                      User[]  @relation("PrimaryBranch")
+  users2                     User[]  @relation("SecondaryBranch")
   customers                  Customer[]
   deals                      Deal[]
   projects                   Project[]
@@ -231,9 +232,11 @@ model User {
 
   role     Role    @default(MANAGER)
   // ■ branchId = null → 本部（ADMIN）→ WHERE 句なしで全拠点アクセス
-  // ■ branchId あり   → 拠点スコープ → WHERE branchId = user.branchId
-  branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
+  // ■ branchId あり   → 拠点スコープ → WHERE branchId IN (branchId, branchId2)
+  branchId  String?
+  branchId2 String? // 第2担当拠点（複数拠点担当の場合）
+  branch    Branch? @relation("PrimaryBranch",   fields: [branchId],  references: [id])
+  branch2   Branch? @relation("SecondaryBranch", fields: [branchId2], references: [id])
 
   isActive Boolean @default(true) // 本部がアカウントを有効/無効管理
 
@@ -255,6 +258,7 @@ model User {
   videoAchievements           VideoAchievement[]   @relation("VideoAchievementCreatedBy")
 
   @@index([branchId])
+  @@index([branchId2])
   @@index([role])
   @@map("users")
 }
