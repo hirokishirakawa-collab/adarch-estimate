@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { updateUserRole, updateUserInfo } from "@/lib/actions/admin";
+import { Loader2, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
+import { updateUserRole, updateUserInfo, deleteUser } from "@/lib/actions/admin";
 import { BRANCH_MAP } from "@/lib/data/customers";
 
 // ---------------------------------------------------------------
@@ -181,6 +181,31 @@ function InfoForm({
 }
 
 // ---------------------------------------------------------------
+// 削除フォーム
+// ---------------------------------------------------------------
+function DeleteForm({ userId, disabled }: { userId: string; disabled: boolean }) {
+  const boundAction = deleteUser.bind(null, userId);
+  const [state, formAction, isPending] = useActionState(boundAction, null);
+
+  return (
+    <form
+      action={formAction}
+      onSubmit={(e) => {
+        if (!window.confirm("このユーザーを削除しますか？")) e.preventDefault();
+      }}
+    >
+      <button type="submit" disabled={disabled || isPending} className={`${submitCls} bg-red-600 hover:bg-red-500`}>
+        {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+        削除
+      </button>
+      {state?.error && (
+        <span className="ml-2 text-xs text-red-600">{state.error}</span>
+      )}
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------
 // テーブル本体
 // ---------------------------------------------------------------
 function fmtDate(d: Date): string {
@@ -207,6 +232,7 @@ export function UserTable({ users, callerEmail }: Props) {
                 ["現在のロール",  "text-left"],
                 ["ロール変更",    "text-left"],
                 ["登録日",        "text-left"],
+                ["",              "text-left"],
               ].map(([label, cls], i) => (
                 <th key={i} className={`px-4 py-2.5 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap ${cls}`}>
                   {label}
@@ -270,13 +296,22 @@ export function UserTable({ users, callerEmail }: Props) {
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className="text-xs text-zinc-500">{fmtDate(user.createdAt)}</span>
                   </td>
+
+                  {/* 削除 */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {isSelf ? (
+                      <span className="text-xs text-zinc-300">—</span>
+                    ) : (
+                      <DeleteForm userId={user.id} disabled={false} />
+                    )}
+                  </td>
                 </tr>
               );
             })}
 
             {users.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-16 text-center text-sm text-zinc-400">
+                <td colSpan={6} className="px-4 py-16 text-center text-sm text-zinc-400">
                   登録済みのユーザーがいません
                 </td>
               </tr>

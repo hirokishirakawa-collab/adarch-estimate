@@ -110,6 +110,35 @@ export async function updateUserInfo(
 }
 
 // ---------------------------------------------------------------
+// ユーザー削除（ADMIN 専用）
+// 自分自身は削除不可
+// ---------------------------------------------------------------
+export async function deleteUser(
+  userId: string,
+  _prev: { error?: string; success?: boolean } | null,
+  _formData: FormData
+): Promise<{ error?: string; success?: boolean }> {
+  const { callerEmail } = await requireAdmin();
+
+  const target = await db.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+  if (!target) return { error: "ユーザーが見つかりません" };
+  if (target.email === callerEmail) return { error: "自分自身は削除できません" };
+
+  try {
+    await db.user.delete({ where: { id: userId } });
+  } catch (e) {
+    console.error("[deleteUser] DB error:", e instanceof Error ? e.message : e);
+    return { error: "削除に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/admin/users");
+  return { success: true };
+}
+
+// ---------------------------------------------------------------
 // ロール変更（ADMIN 専用）
 // 自分自身のロールは変更不可（ロックアウト防止）
 // ---------------------------------------------------------------
