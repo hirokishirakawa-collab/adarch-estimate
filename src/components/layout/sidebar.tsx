@@ -31,6 +31,7 @@ import {
   Flag,
   X,
   Sparkles,
+  Target,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -84,6 +85,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/estimates",
         label: "公式見積もり",
         icon: FileText,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/video-achievements",
+        label: "動画実績DB（自動収集）",
+        icon: Target,
         minRole: "USER",
       },
     ],

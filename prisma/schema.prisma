@@ -252,6 +252,7 @@ model User {
   reviewedAdvertiserReviews   AdvertiserReview[]         @relation("ReviewedAdvertiserReview")
   tverCampaigns               TverCampaign[]
   tverCreativeReviews         TverCreativeReview[]
+  videoAchievements           VideoAchievement[]   @relation("VideoAchievementCreatedBy")
 
   @@index([branchId])
   @@index([role])
@@ -930,4 +931,31 @@ model TverCreativeReview {
   @@index([advertiserId])
   @@index([status])
   @@map("tver_creative_reviews")
+}
+
+// ==============================================================
+// VideoAchievement — 競合制作会社の実績データ（自動収集）
+// ==============================================================
+
+model VideoAchievement {
+  id                String   @id @default(cuid())
+  companyName       String                        // ターゲット企業名
+  prefecture        String                        // 都道府県
+  industry          String   @default("不明")    // 業種
+  productionCompany String                        // 競合制作会社名
+  videoType         String   @default("不明")    // 動画種別
+  referenceUrl      String?                       // 実績ページURL/YouTube
+  contentSummary    String?  @db.Text            // AIによる制作内容分析
+  sourceUrl         String?                       // スクレイピング元URL
+  isProcessed       Boolean  @default(false)      // CRM連携済みフラグ
+  createdById       String?
+  createdBy         User?    @relation("VideoAchievementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([companyName, productionCompany])
+  @@index([prefecture])
+  @@index([industry])
+  @@index([isProcessed])
+  @@map("VideoAchievement")
 }
