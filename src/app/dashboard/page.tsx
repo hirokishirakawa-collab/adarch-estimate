@@ -244,6 +244,7 @@ export default async function DashboardPage() {
                 <p className="text-[10px] text-indigo-400">
                   {new Intl.DateTimeFormat("ja-JP", {
                     month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+                    timeZone: "Asia/Tokyo",
                   }).format(digest.updatedAt)}
                   {" 更新"}
                 </p>
