@@ -33,6 +33,7 @@ type CardRow = {
   isCompetitor: boolean;
   isCreator: boolean;
   exchangeDate: Date | null;
+  ownerId: string;
   owner: { name: string | null } | null;
   // region flags
   regionHokkaido: boolean;
@@ -66,6 +67,7 @@ export function CardTable({
   total,
   baseUrl,
   isAdmin = false,
+  currentUserId,
 }: {
   cards: CardRow[];
   page: number;
@@ -73,6 +75,7 @@ export function CardTable({
   total: number;
   baseUrl: string;
   isAdmin?: boolean;
+  currentUserId: string;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
@@ -206,6 +209,7 @@ export function CardTable({
               </tr>
             ) : (
               cards.map((card) => {
+                const isOwned = isAdmin || card.ownerId === currentUserId;
                 const regions = getRegionLabels(card);
                 const isSelected = selectedIds.has(card.id);
                 return (
@@ -234,74 +238,88 @@ export function CardTable({
                       >
                         {card.companyName}
                       </Link>
-                      {card.department && (
+                      {isOwned && card.department && (
                         <span className="block text-[10px] text-zinc-400 mt-0.5">
                           {card.department}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 whitespace-nowrap">
-                      {card.lastName} {card.firstName ?? ""}
+                    <td className="px-4 py-2.5 whitespace-nowrap text-zinc-500">
+                      {isOwned ? `${card.lastName} ${card.firstName ?? ""}` : "***"}
                     </td>
                     <td className="px-4 py-2.5 text-zinc-500">
-                      {card.title ?? "—"}
+                      {isOwned ? (card.title ?? "—") : "***"}
                     </td>
                     <td className="px-4 py-2.5">
-                      {card.aiIndustry ? (
-                        <span className="inline-flex px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-medium">
-                          {card.aiIndustry}
-                        </span>
+                      {isOwned ? (
+                        card.aiIndustry ? (
+                          <span className="inline-flex px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-medium">
+                            {card.aiIndustry}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-300">—</span>
+                        )
                       ) : (
-                        <span className="text-zinc-300">—</span>
+                        <span className="text-zinc-500">***</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5">
-                      {regions.length > 0 ? (
-                        <div className="flex flex-wrap gap-0.5">
-                          {regions.map((r) => (
-                            <span
-                              key={r}
-                              className="inline-flex px-1 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[10px]"
-                            >
-                              {r}
+                      {isOwned ? (
+                        regions.length > 0 ? (
+                          <div className="flex flex-wrap gap-0.5">
+                            {regions.map((r) => (
+                              <span
+                                key={r}
+                                className="inline-flex px-1 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[10px]"
+                              >
+                                {r}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-zinc-300">—</span>
+                        )
+                      ) : (
+                        <span className="text-zinc-500">***</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {isOwned ? (
+                        <div className="flex flex-wrap gap-1">
+                          {card.wantsCollab && (
+                            <span className="inline-flex px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-medium border border-emerald-100">
+                              コラボ
                             </span>
-                          ))}
+                          )}
+                          {card.isOrdered && (
+                            <span className="inline-flex px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-medium border border-blue-100">
+                              受注
+                            </span>
+                          )}
+                          {card.isCompetitor && (
+                            <span className="inline-flex px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-medium border border-red-100">
+                              競合
+                            </span>
+                          )}
+                          {card.isCreator && (
+                            <span className="inline-flex px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 text-[10px] font-medium border border-violet-100">
+                              制作
+                            </span>
+                          )}
                         </div>
                       ) : (
-                        <span className="text-zinc-300">—</span>
+                        <span className="text-zinc-500">***</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex flex-wrap gap-1">
-                        {card.wantsCollab && (
-                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-medium border border-emerald-100">
-                            コラボ
-                          </span>
-                        )}
-                        {card.isOrdered && (
-                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-medium border border-blue-100">
-                            受注
-                          </span>
-                        )}
-                        {card.isCompetitor && (
-                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-medium border border-red-100">
-                            競合
-                          </span>
-                        )}
-                        {card.isCreator && (
-                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 text-[10px] font-medium border border-violet-100">
-                            制作
-                          </span>
-                        )}
-                      </div>
-                    </td>
                     <td className="px-4 py-2.5 text-zinc-500 whitespace-nowrap">
-                      {card.owner?.name ?? "—"}
+                      {isOwned ? (card.owner?.name ?? "—") : "***"}
                     </td>
                     <td className="px-4 py-2.5 text-zinc-400 whitespace-nowrap">
-                      {card.exchangeDate
-                        ? new Date(card.exchangeDate).toLocaleDateString("ja-JP")
-                        : "—"}
+                      {isOwned
+                        ? (card.exchangeDate
+                            ? new Date(card.exchangeDate).toLocaleDateString("ja-JP")
+                            : "—")
+                        : "***"}
                     </td>
                   </tr>
                 );

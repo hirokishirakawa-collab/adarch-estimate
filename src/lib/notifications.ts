@@ -1248,6 +1248,7 @@ export type DisclosureNotificationPayload =
       companyName: string;
       requesterName: string;
       purpose: string;
+      cardOwnerEmail: string;
     }
   | {
       eventType: "DISCLOSURE_APPROVED" | "DISCLOSURE_REJECTED";
@@ -1271,7 +1272,7 @@ export async function sendDisclosureNotification(
   const url = appUrl(`/dashboard/business-cards/requests`);
 
   if (payload.eventType === "DISCLOSURE_REQUESTED") {
-    const to = resolveRecipients("ceo_only");
+    const to = [...new Set([...resolveRecipients("ceo_only"), payload.cardOwnerEmail])];
     const subject = `【アドアーチOS】名刺開示申請：${companyName} ${cardOwnerName}`;
 
     const rows = [

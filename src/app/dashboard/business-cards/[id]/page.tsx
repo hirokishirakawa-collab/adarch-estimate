@@ -10,6 +10,7 @@ import {
   Tag,
   Sparkles,
   MapPin,
+  Lock,
 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -73,7 +74,7 @@ export default async function BusinessCardDetailPage(props: {
   if (!card) notFound();
 
   // 秘匿フィールド閲覧権限の判定
-  const canViewPrivate =
+  const canViewAll =
     sessionInfo.role === "ADMIN" ||
     card.ownerId === sessionInfo.userId ||
     card.disclosureRequests.some((r) => r.status === "APPROVED");
@@ -114,220 +115,237 @@ export default async function BusinessCardDetailPage(props: {
         <div className="px-5 py-4 border-b border-zinc-100">
           <div className="flex items-start justify-between">
             <div>
-              {/* フラグバッジ（トグル可能） */}
-              <div className="flex items-center gap-1.5 mb-2">
-                <FlagToggles
-                  cardId={card.id}
-                  initialFlags={{
-                    isCompetitor: card.isCompetitor,
-                    wantsCollab: card.wantsCollab,
-                    isOrdered: card.isOrdered,
-                    isCreator: card.isCreator,
-                  }}
-                  canEdit={sessionInfo.role === "ADMIN" || card.ownerId === sessionInfo.userId}
-                />
-                {card.aiIndustry && (
-                  <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-50 text-teal-600 border border-teal-100">
-                    {card.aiIndustry}
-                  </span>
-                )}
-              </div>
-              <h1 className="text-lg font-bold text-zinc-900">
-                {card.lastName} {card.firstName ?? ""}
-              </h1>
-              <p className="text-sm text-zinc-500 mt-0.5">
+              {canViewAll && (
+                <>
+                  {/* フラグバッジ（トグル可能） */}
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <FlagToggles
+                      cardId={card.id}
+                      initialFlags={{
+                        isCompetitor: card.isCompetitor,
+                        wantsCollab: card.wantsCollab,
+                        isOrdered: card.isOrdered,
+                        isCreator: card.isCreator,
+                      }}
+                      canEdit={sessionInfo.role === "ADMIN" || card.ownerId === sessionInfo.userId}
+                    />
+                    {card.aiIndustry && (
+                      <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-50 text-teal-600 border border-teal-100">
+                        {card.aiIndustry}
+                      </span>
+                    )}
+                  </div>
+                  <h1 className="text-lg font-bold text-zinc-900">
+                    {card.lastName} {card.firstName ?? ""}
+                  </h1>
+                </>
+              )}
+              <p className={canViewAll ? "text-sm text-zinc-500 mt-0.5" : "text-lg font-bold text-zinc-900"}>
                 {card.companyName}
-                {card.department ? ` / ${card.department}` : ""}
+                {canViewAll && card.department ? ` / ${card.department}` : ""}
               </p>
             </div>
-            <div className="flex items-start gap-3">
-              <div className="text-right">
-                <p className="text-[10px] text-zinc-400">所有者</p>
-                {sessionInfo.role === "ADMIN" ? (
-                  <OwnerSelect
+            {canViewAll && (
+              <div className="flex items-start gap-3">
+                <div className="text-right">
+                  <p className="text-[10px] text-zinc-400">所有者</p>
+                  {sessionInfo.role === "ADMIN" ? (
+                    <OwnerSelect
+                      cardId={card.id}
+                      currentOwnerId={card.ownerId}
+                      users={allUsers.map((u) => ({ id: u.id, name: u.name ?? "—" }))}
+                    />
+                  ) : (
+                    <p className="text-xs font-medium text-zinc-700">
+                      {card.owner?.name ?? "—"}
+                    </p>
+                  )}
+                </div>
+                {sessionInfo.role === "ADMIN" && (
+                  <BusinessCardDeleteButton
                     cardId={card.id}
-                    currentOwnerId={card.ownerId}
-                    users={allUsers.map((u) => ({ id: u.id, name: u.name ?? "—" }))}
+                    cardLabel={`${card.companyName} ${card.lastName}`}
                   />
-                ) : (
-                  <p className="text-xs font-medium text-zinc-700">
-                    {card.owner?.name ?? "—"}
-                  </p>
                 )}
               </div>
-              {sessionInfo.role === "ADMIN" && (
-                <BusinessCardDeleteButton
-                  cardId={card.id}
-                  cardLabel={`${card.companyName} ${card.lastName}`}
-                />
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* 左カラム: 公開情報 */}
-        <div className="space-y-5">
-          {/* 基本情報 */}
-          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-3.5 h-3.5 text-zinc-500" />
-                <h3 className="text-xs font-semibold text-zinc-700">基本情報</h3>
+      {canViewAll ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* 左カラム: 公開情報 */}
+          <div className="space-y-5">
+            {/* 基本情報 */}
+            <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-3.5 h-3.5 text-zinc-500" />
+                  <h3 className="text-xs font-semibold text-zinc-700">基本情報</h3>
+                </div>
               </div>
-            </div>
-            <div className="px-4 py-2">
-              <InfoItem icon={Building2} label="会社名" value={card.companyName} />
-              <InfoItem icon={Building2} label="部署" value={card.department} />
-              <InfoItem icon={User} label="役職" value={card.title} />
-              <InfoItem icon={User} label="氏名" value={`${card.lastName} ${card.firstName ?? ""}`} />
-              {(card.lastNameKana || card.firstNameKana) && (
+              <div className="px-4 py-2">
+                <InfoItem icon={Building2} label="会社名" value={card.companyName} />
+                <InfoItem icon={Building2} label="部署" value={card.department} />
+                <InfoItem icon={User} label="役職" value={card.title} />
+                <InfoItem icon={User} label="氏名" value={`${card.lastName} ${card.firstName ?? ""}`} />
+                {(card.lastNameKana || card.firstNameKana) && (
+                  <InfoItem
+                    icon={User}
+                    label="フリガナ"
+                    value={`${card.lastNameKana ?? ""} ${card.firstNameKana ?? ""}`}
+                  />
+                )}
+                <InfoItem icon={Phone} label="会社電話" value={card.companyPhone} />
+                <InfoItem icon={Globe} label="URL" value={card.url} />
+                <InfoItem icon={MapPin} label="都道府県" value={card.prefecture} />
                 <InfoItem
-                  icon={User}
-                  label="フリガナ"
-                  value={`${card.lastNameKana ?? ""} ${card.firstNameKana ?? ""}`}
+                  icon={Calendar}
+                  label="名刺交換日"
+                  value={card.exchangeDate ? new Date(card.exchangeDate).toLocaleDateString("ja-JP") : null}
                 />
-              )}
-              <InfoItem icon={Phone} label="会社電話" value={card.companyPhone} />
-              <InfoItem icon={Globe} label="URL" value={card.url} />
-              <InfoItem icon={MapPin} label="都道府県" value={card.prefecture} />
-              <InfoItem
-                icon={Calendar}
-                label="名刺交換日"
-                value={card.exchangeDate ? new Date(card.exchangeDate).toLocaleDateString("ja-JP") : null}
-              />
-              {card.tags && <InfoItem icon={Tag} label="タグ" value={card.tags} />}
+                {card.tags && <InfoItem icon={Tag} label="タグ" value={card.tags} />}
+              </div>
             </div>
+
+            {/* 地域 */}
+            {regionLabels.length > 0 && (
+              <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-3.5 h-3.5 text-zinc-500" />
+                    <h3 className="text-xs font-semibold text-zinc-700">担当エリア</h3>
+                  </div>
+                </div>
+                <div className="px-4 py-3 flex flex-wrap gap-1.5">
+                  {regionLabels.map((r) => (
+                    <span
+                      key={r}
+                      className="inline-flex px-2 py-1 rounded bg-zinc-100 text-zinc-600 text-[11px] font-medium"
+                    >
+                      {r}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* AI 分析 */}
+            {(card.aiIndustry || card.aiSummary) && (
+              <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-zinc-500" />
+                    <h3 className="text-xs font-semibold text-zinc-700">AI 分析</h3>
+                  </div>
+                </div>
+                <div className="px-4 py-3 space-y-2">
+                  {card.aiIndustry && (
+                    <div>
+                      <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
+                        業界
+                      </p>
+                      <p className="text-xs text-zinc-700 mt-0.5">{card.aiIndustry}</p>
+                    </div>
+                  )}
+                  {card.aiSummary && (
+                    <div>
+                      <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
+                        事業概要
+                      </p>
+                      <p className="text-xs text-zinc-700 mt-0.5">{card.aiSummary}</p>
+                    </div>
+                  )}
+                  {card.aiTags && (
+                    <div>
+                      <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
+                        AI タグ
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {card.aiTags.split(",").map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 text-[10px]"
+                          >
+                            {tag.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* 地域 */}
-          {regionLabels.length > 0 && (
-            <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-zinc-500" />
-                  <h3 className="text-xs font-semibold text-zinc-700">担当エリア</h3>
-                </div>
-              </div>
-              <div className="px-4 py-3 flex flex-wrap gap-1.5">
-                {regionLabels.map((r) => (
+          {/* 右カラム: 秘匿情報 + マッチング + 画像 */}
+          <div className="space-y-5">
+            <PrivateFieldsPanel
+              canView={true}
+              fields={{
+                email: card.email,
+                directPhone: card.directPhone,
+                mobilePhone: card.mobilePhone,
+                fax: card.fax,
+                postalCode: card.postalCode,
+                address: card.address,
+                sharedMemoTitle: card.sharedMemoTitle,
+                exchangePlace: card.exchangePlace,
+                workHistory: card.workHistory,
+                personality: card.personality,
+                textMemo: card.textMemo,
+              }}
+            />
+
+            {/* AI マッチング */}
+            <MatchingPanel companyName={card.companyName} />
+
+            {/* 名刺画像 */}
+            {card.cardImageUrl && (
+              <CardImageSection filePath={card.cardImageUrl} />
+            )}
+          </div>
+        </div>
+      ) : (
+        /* ロック画面: 非所有者で未承認 */
+        <div className="bg-white rounded-xl border border-zinc-200 p-8">
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="w-12 h-12 bg-zinc-100 rounded-full flex items-center justify-center">
+              <Lock className="w-5 h-5 text-zinc-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-zinc-700">この名刺の詳細は非公開です</h2>
+              <p className="text-xs text-zinc-500 mt-1">
+                閲覧するには名刺所有者または管理者の承認が必要です。
+              </p>
+            </div>
+            {existingRequest ? (
+              <div className="text-center">
+                <p className="text-xs text-zinc-500">
+                  開示申請ステータス:{" "}
                   <span
-                    key={r}
-                    className="inline-flex px-2 py-1 rounded bg-zinc-100 text-zinc-600 text-[11px] font-medium"
+                    className={
+                      existingRequest.status === "PENDING"
+                        ? "text-amber-600 font-medium"
+                        : "text-red-600 font-medium"
+                    }
                   >
-                    {r}
+                    {existingRequest.status === "PENDING" ? "審査中" : "却下"}
                   </span>
-                ))}
+                </p>
               </div>
-            </div>
-          )}
-
-          {/* AI 分析 */}
-          {(card.aiIndustry || card.aiSummary) && (
-            <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-zinc-500" />
-                  <h3 className="text-xs font-semibold text-zinc-700">AI 分析</h3>
-                </div>
-              </div>
-              <div className="px-4 py-3 space-y-2">
-                {card.aiIndustry && (
-                  <div>
-                    <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
-                      業界
-                    </p>
-                    <p className="text-xs text-zinc-700 mt-0.5">{card.aiIndustry}</p>
-                  </div>
-                )}
-                {card.aiSummary && (
-                  <div>
-                    <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
-                      事業概要
-                    </p>
-                    <p className="text-xs text-zinc-700 mt-0.5">{card.aiSummary}</p>
-                  </div>
-                )}
-                {card.aiTags && (
-                  <div>
-                    <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
-                      AI タグ
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {card.aiTags.split(",").map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 text-[10px]"
-                        >
-                          {tag.trim()}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+            ) : (
+              <Link
+                href={`/dashboard/business-cards/${card.id}/request`}
+                className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors"
+              >
+                開示を申請する
+              </Link>
+            )}
+          </div>
         </div>
-
-        {/* 右カラム: 秘匿情報 + 開示申請 */}
-        <div className="space-y-5">
-          <PrivateFieldsPanel
-            canView={canViewPrivate}
-            fields={{
-              email: card.email,
-              directPhone: card.directPhone,
-              mobilePhone: card.mobilePhone,
-              fax: card.fax,
-              postalCode: card.postalCode,
-              address: card.address,
-              sharedMemoTitle: card.sharedMemoTitle,
-              exchangePlace: card.exchangePlace,
-              workHistory: card.workHistory,
-              personality: card.personality,
-              textMemo: card.textMemo,
-            }}
-          />
-
-          {/* 開示申請ボタン */}
-          {!canViewPrivate && (
-            <div className="bg-white rounded-xl border border-zinc-200 p-4">
-              {existingRequest ? (
-                <div className="text-center">
-                  <p className="text-xs text-zinc-500">
-                    開示申請ステータス:{" "}
-                    <span
-                      className={
-                        existingRequest.status === "PENDING"
-                          ? "text-amber-600 font-medium"
-                          : "text-red-600 font-medium"
-                      }
-                    >
-                      {existingRequest.status === "PENDING" ? "審査中" : "却下"}
-                    </span>
-                  </p>
-                </div>
-              ) : (
-                <Link
-                  href={`/dashboard/business-cards/${card.id}/request`}
-                  className="flex items-center justify-center gap-1.5 w-full px-4 py-2.5 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors"
-                >
-                  秘匿情報の開示を申請する
-                </Link>
-              )}
-            </div>
-          )}
-
-          {/* AI マッチング */}
-          <MatchingPanel companyName={card.companyName} />
-
-          {/* 名刺画像（秘匿情報と同じ権限で制御 — 名刺には個人情報が写っているため） */}
-          {card.cardImageUrl && canViewPrivate && (
-            <CardImageSection filePath={card.cardImageUrl} />
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -28,7 +28,7 @@ export async function requestDisclosure(
   // 名刺の存在確認
   const card = await db.businessCard.findUnique({
     where: { id: businessCardId },
-    select: { id: true, companyName: true, lastName: true, firstName: true, ownerId: true },
+    select: { id: true, companyName: true, lastName: true, firstName: true, ownerId: true, owner: { select: { email: true } } },
   });
   if (!card) return { error: "名刺が見つかりません" };
 
@@ -79,6 +79,7 @@ export async function requestDisclosure(
       companyName: card.companyName,
       requesterName: info.staffName,
       purpose,
+      cardOwnerEmail: card.owner.email,
     });
   });
 

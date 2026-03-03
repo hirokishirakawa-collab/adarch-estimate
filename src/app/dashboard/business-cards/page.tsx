@@ -78,6 +78,7 @@ export default async function BusinessCardsPage(props: {
         regionChugoku: true,
         regionShikoku: true,
         regionKyushu: true,
+        ownerId: true,
         owner: { select: { name: true } },
       },
       orderBy: { companyName: "asc" },
@@ -166,6 +167,7 @@ export default async function BusinessCardsPage(props: {
         total={total}
         baseUrl={baseUrl}
         isAdmin={sessionInfo.role === "ADMIN"}
+        currentUserId={sessionInfo.userId}
       />
     </div>
   );

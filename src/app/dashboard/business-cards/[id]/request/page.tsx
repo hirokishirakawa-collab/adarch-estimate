@@ -78,13 +78,6 @@ export default async function DisclosureRequestPage(props: {
             </p>
             <p className="text-sm font-medium text-zinc-700">
               {card.companyName}
-              {card.department ? ` / ${card.department}` : ""}
-            </p>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              {card.lastName} {card.firstName ?? ""} 様
-            </p>
-            <p className="text-[10px] text-zinc-400 mt-1">
-              所有者: {card.owner?.name ?? "不明"}
             </p>
           </div>
 
