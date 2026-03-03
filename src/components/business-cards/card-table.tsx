@@ -248,39 +248,31 @@ export function CardTable({
                       {isOwned ? `${card.lastName} ${card.firstName ?? ""}` : "***"}
                     </td>
                     <td className="px-4 py-2.5 text-zinc-500">
-                      {isOwned ? (card.title ?? "—") : "***"}
+                      {card.title ?? "—"}
                     </td>
                     <td className="px-4 py-2.5">
-                      {isOwned ? (
-                        card.aiIndustry ? (
-                          <span className="inline-flex px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-medium">
-                            {card.aiIndustry}
-                          </span>
-                        ) : (
-                          <span className="text-zinc-300">—</span>
-                        )
+                      {card.aiIndustry ? (
+                        <span className="inline-flex px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-medium">
+                          {card.aiIndustry}
+                        </span>
                       ) : (
-                        <span className="text-zinc-500">***</span>
+                        <span className="text-zinc-300">—</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5">
-                      {isOwned ? (
-                        regions.length > 0 ? (
-                          <div className="flex flex-wrap gap-0.5">
-                            {regions.map((r) => (
-                              <span
-                                key={r}
-                                className="inline-flex px-1 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[10px]"
-                              >
-                                {r}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-zinc-300">—</span>
-                        )
+                      {regions.length > 0 ? (
+                        <div className="flex flex-wrap gap-0.5">
+                          {regions.map((r) => (
+                            <span
+                              key={r}
+                              className="inline-flex px-1 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[10px]"
+                            >
+                              {r}
+                            </span>
+                          ))}
+                        </div>
                       ) : (
-                        <span className="text-zinc-500">***</span>
+                        <span className="text-zinc-300">—</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5">
@@ -312,14 +304,12 @@ export function CardTable({
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-zinc-500 whitespace-nowrap">
-                      {isOwned ? (card.owner?.name ?? "—") : "***"}
+                      {card.owner?.name ?? "—"}
                     </td>
                     <td className="px-4 py-2.5 text-zinc-400 whitespace-nowrap">
-                      {isOwned
-                        ? (card.exchangeDate
-                            ? new Date(card.exchangeDate).toLocaleDateString("ja-JP")
-                            : "—")
-                        : "***"}
+                      {card.exchangeDate
+                        ? new Date(card.exchangeDate).toLocaleDateString("ja-JP")
+                        : "—"}
                     </td>
                   </tr>
                 );
