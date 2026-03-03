@@ -4,6 +4,7 @@ import { ContactRound, Plus } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { getSessionInfo } from "@/lib/session";
 import { CardSearch } from "@/components/business-cards/card-search";
 import { CardTable } from "@/components/business-cards/card-table";
 import { ITEMS_PER_PAGE } from "@/lib/constants/business-cards";
@@ -14,6 +15,9 @@ export default async function BusinessCardsPage(props: {
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+
+  const sessionInfo = await getSessionInfo();
+  if (!sessionInfo) redirect("/login");
 
   const searchParams = await props.searchParams;
 
@@ -161,6 +165,7 @@ export default async function BusinessCardsPage(props: {
         totalPages={totalPages}
         total={total}
         baseUrl={baseUrl}
+        isAdmin={sessionInfo.role === "ADMIN"}
       />
     </div>
   );

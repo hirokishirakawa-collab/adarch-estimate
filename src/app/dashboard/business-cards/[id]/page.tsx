@@ -17,6 +17,7 @@ import { getSessionInfo } from "@/lib/session";
 import { REGION_OPTIONS } from "@/lib/constants/business-cards";
 import { PrivateFieldsPanel } from "@/components/business-cards/private-fields-panel";
 import { MatchingPanel } from "@/components/business-cards/matching-panel";
+import { BusinessCardDeleteButton } from "@/components/business-cards/business-card-delete-button";
 import { getCardImageSignedUrl } from "@/lib/storage";
 
 function InfoItem({
@@ -138,11 +139,19 @@ export default async function BusinessCardDetailPage(props: {
                 {card.department ? ` / ${card.department}` : ""}
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] text-zinc-400">所有者</p>
-              <p className="text-xs font-medium text-zinc-700">
-                {card.owner?.name ?? "—"}
-              </p>
+            <div className="flex items-start gap-3">
+              <div className="text-right">
+                <p className="text-[10px] text-zinc-400">所有者</p>
+                <p className="text-xs font-medium text-zinc-700">
+                  {card.owner?.name ?? "—"}
+                </p>
+              </div>
+              {sessionInfo.role === "ADMIN" && (
+                <BusinessCardDeleteButton
+                  cardId={card.id}
+                  cardLabel={`${card.companyName} ${card.lastName}`}
+                />
+              )}
             </div>
           </div>
         </div>

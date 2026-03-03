@@ -158,3 +158,70 @@ export async function updateBusinessCard(
   revalidatePath(`/dashboard/business-cards/${cardId}`);
   redirect(`/dashboard/business-cards/${cardId}`);
 }
+
+// ---------------------------------------------------------------
+// 名刺を単体削除する（ADMIN 限定）
+// ---------------------------------------------------------------
+export async function deleteBusinessCard(
+  id: string
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role !== "ADMIN") return { error: "管理者のみ削除できます" };
+
+  try {
+    // 関連する開示申請を先に削除
+    await db.disclosureRequest.deleteMany({ where: { businessCardId: id } });
+    await db.businessCard.delete({ where: { id } });
+    logAudit({
+      action: "business_card_deleted",
+      email: info.email,
+      name: info.staffName,
+      entity: "business_card",
+      entityId: id,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[deleteBusinessCard] DB error:", msg);
+    return { error: "削除に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/business-cards");
+  redirect("/dashboard/business-cards");
+}
+
+// ---------------------------------------------------------------
+// 名刺を一括削除する（ADMIN 限定）
+// ---------------------------------------------------------------
+export async function deleteBusinessCards(
+  ids: string[]
+): Promise<{ error?: string; deleted?: number }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role !== "ADMIN") return { error: "管理者のみ削除できます" };
+  if (!ids.length) return { deleted: 0 };
+
+  try {
+    // 関連する開示申請を先に削除
+    await db.disclosureRequest.deleteMany({
+      where: { businessCardId: { in: ids } },
+    });
+    const result = await db.businessCard.deleteMany({
+      where: { id: { in: ids } },
+    });
+    logAudit({
+      action: "business_card_deleted",
+      email: info.email,
+      name: info.staffName,
+      entity: "business_card",
+      detail: `${result.count}件削除`,
+    });
+
+    revalidatePath("/dashboard/business-cards");
+    return { deleted: result.count };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[deleteBusinessCards] DB error:", msg);
+    return { error: "削除に失敗しました。再度お試しください" };
+  }
+}

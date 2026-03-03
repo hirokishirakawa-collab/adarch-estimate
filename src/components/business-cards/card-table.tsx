@@ -1,5 +1,23 @@
+"use client";
+
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { Trash2 } from "lucide-react";
 import { REGION_OPTIONS } from "@/lib/constants/business-cards";
+import { deleteBusinessCards } from "@/lib/actions/business-card";
+import {
+  AlertDialogRoot,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 type CardRow = {
   id: string;
@@ -47,19 +65,128 @@ export function CardTable({
   totalPages,
   total,
   baseUrl,
+  isAdmin = false,
 }: {
   cards: CardRow[];
   page: number;
   totalPages: number;
   total: number;
   baseUrl: string;
+  isAdmin?: boolean;
 }) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isPending, startTransition] = useTransition();
+
+  const allSelected =
+    cards.length > 0 && selectedIds.size === cards.length;
+  const someSelected = selectedIds.size > 0 && !allSelected;
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(cards.map((c) => c.id)));
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleDelete = () => {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      const result = await deleteBusinessCards(ids);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(`${result.deleted}件の名刺を削除しました`);
+        setSelectedIds(new Set());
+      }
+    });
+  };
+
+  const colSpan = isAdmin ? 9 : 8;
+
   return (
     <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      {/* ADMIN 用 一括削除ツールバー */}
+      {isAdmin && selectedIds.size > 0 && (
+        <div className="flex items-center justify-between px-4 py-2.5 bg-red-50 border-b border-red-100">
+          <p className="text-sm font-medium text-red-700">
+            {selectedIds.size}件を選択中
+          </p>
+          <AlertDialogRoot>
+            <AlertDialogTrigger asChild>
+              <button
+                disabled={isPending}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {selectedIds.size}件を削除
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-base font-bold text-zinc-900">
+                  名刺データを削除しますか？
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-sm text-zinc-500">
+                  選択した{" "}
+                  <span className="font-semibold text-red-600">
+                    {selectedIds.size}件
+                  </span>{" "}
+                  の名刺データ（関連する開示申請を含む）を完全に削除します。
+                  <br />
+                  この操作は取り消せません。
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel asChild>
+                  <button className="px-4 py-2 text-sm text-zinc-600 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors">
+                    キャンセル
+                  </button>
+                </AlertDialogCancel>
+                <AlertDialogAction asChild>
+                  <button
+                    onClick={handleDelete}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                  >
+                    削除する
+                  </button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogRoot>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-zinc-100 bg-zinc-50/80">
+              {isAdmin && (
+                <th className="px-4 py-2.5 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someSelected;
+                    }}
+                    onChange={toggleAll}
+                    className="w-4 h-4 rounded border-zinc-300 text-blue-600 cursor-pointer"
+                    aria-label="全選択"
+                  />
+                </th>
+              )}
               <th className="text-left px-4 py-2.5 font-semibold text-zinc-500">会社名</th>
               <th className="text-left px-4 py-2.5 font-semibold text-zinc-500">氏名</th>
               <th className="text-left px-4 py-2.5 font-semibold text-zinc-500">役職</th>
@@ -73,18 +200,33 @@ export function CardTable({
           <tbody>
             {cards.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-12 text-zinc-400">
+                <td colSpan={colSpan} className="text-center py-12 text-zinc-400">
                   該当する名刺はありません
                 </td>
               </tr>
             ) : (
               cards.map((card) => {
                 const regions = getRegionLabels(card);
+                const isSelected = selectedIds.has(card.id);
                 return (
                   <tr
                     key={card.id}
-                    className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors"
+                    className={cn(
+                      "border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors",
+                      isSelected && "bg-red-50 hover:bg-red-50"
+                    )}
                   >
+                    {isAdmin && (
+                      <td className="px-4 py-2.5">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleOne(card.id)}
+                          className="w-4 h-4 rounded border-zinc-300 text-blue-600 cursor-pointer"
+                          aria-label={`${card.companyName} ${card.lastName}を選択`}
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-2.5">
                       <Link
                         href={`/dashboard/business-cards/${card.id}`}
