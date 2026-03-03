@@ -240,7 +240,7 @@ export default async function DashboardPage() {
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[11px] font-semibold text-indigo-600">グループダイジェスト — 直近3日間</p>
+                <p className="text-[11px] font-semibold text-indigo-600">グループダイジェスト — 直近3日間（AI分析）</p>
                 <p className="text-[10px] text-indigo-400">
                   {new Intl.DateTimeFormat("ja-JP", {
                     month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",

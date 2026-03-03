@@ -4,6 +4,9 @@ import { db } from "@/lib/db";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24時間
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
+// 動画実績攻略案件を除外するフィルタ
+const EXCLUDE_ATTACK_DEALS = { title: { not: { startsWith: "【動画実績攻略】" } } };
+
 export interface DigestResult {
   content: string;
   updatedAt: Date;
@@ -100,7 +103,7 @@ interface DigestStats {
 async function collectBasicStats(from: Date, to: Date): Promise<BasicStats> {
   const [newCustomers, newDeals, newProjects] = await Promise.all([
     db.customer.count({ where: { createdAt: { gte: from, lt: to } } }),
-    db.deal.count({ where: { createdAt: { gte: from, lt: to } } }),
+    db.deal.count({ where: { createdAt: { gte: from, lt: to }, ...EXCLUDE_ATTACK_DEALS } }),
     db.project.count({ where: { createdAt: { gte: from, lt: to } } }),
   ]);
   return { newCustomers, newDeals, newProjects };
@@ -131,7 +134,7 @@ async function collectStats(since: Date): Promise<DigestStats> {
   ] = await Promise.all([
     db.customer.count({ where: { createdAt: { gte: since } } }),
     db.deal.findMany({
-      where: { createdAt: { gte: since } },
+      where: { createdAt: { gte: since }, ...EXCLUDE_ATTACK_DEALS },
       select: { status: true, amount: true },
     }),
     db.project.count({ where: { createdAt: { gte: since } } }),
@@ -152,7 +155,7 @@ async function collectStats(since: Date): Promise<DigestStats> {
     }),
     db.deal.groupBy({
       by: ["branchId"],
-      where: { createdAt: { gte: since } },
+      where: { createdAt: { gte: since }, ...EXCLUDE_ATTACK_DEALS },
       _count: true,
     }),
     db.project.groupBy({
@@ -162,7 +165,7 @@ async function collectStats(since: Date): Promise<DigestStats> {
     }),
     // 活躍ユーザー: 商談作成者別
     db.deal.findMany({
-      where: { createdAt: { gte: since }, createdById: { not: null } },
+      where: { createdAt: { gte: since }, createdById: { not: null }, ...EXCLUDE_ATTACK_DEALS },
       select: { createdBy: { select: { name: true } } },
     }),
     // 活躍ユーザー: 活動ログ（staffName別）
@@ -172,7 +175,7 @@ async function collectStats(since: Date): Promise<DigestStats> {
     }),
     // 注目案件: 直近の受注・大型商談
     db.deal.findMany({
-      where: { createdAt: { gte: since } },
+      where: { createdAt: { gte: since }, ...EXCLUDE_ATTACK_DEALS },
       select: {
         title: true,
         status: true,
