@@ -170,6 +170,12 @@ enum TverCompanionPc {
   BANNER  // バナー
 }
 
+enum DisclosureStatus {
+  PENDING  // 申請中
+  APPROVED // 承認
+  REJECTED // 却下
+}
+
 enum TverCampaignStatus {
   DRAFT     // 下書き
   SUBMITTED // 申請済み
@@ -256,6 +262,11 @@ model User {
   tverCampaigns               TverCampaign[]
   tverCreativeReviews         TverCreativeReview[]
   videoAchievements           VideoAchievement[]   @relation("VideoAchievementCreatedBy")
+
+  // ---- 名刺管理 ----
+  ownedBusinessCards           BusinessCard[]       @relation("OwnedBusinessCards")
+  disclosureRequestsSent       DisclosureRequest[]  @relation("DisclosureRequester")
+  disclosureRequestsReviewed   DisclosureRequest[]  @relation("DisclosureReviewer")
 
   @@index([branchId])
   @@index([branchId2])
@@ -1006,4 +1017,133 @@ model DashboardDigest {
   updatedAt DateTime @updatedAt
 
   @@map("dashboard_digests")
+}
+
+// ==============================================================
+// BusinessCard（名刺管理）
+// ==============================================================
+
+/// Eight CSV からインポートした名刺情報。
+/// 公開フィールド（会社名・部署・役職など）と秘匿フィールド（メール・個人電話など）を分離し、
+/// 秘匿フィールドの閲覧には所有者承認 or ADMIN 権限が必要。
+model BusinessCard {
+  id              String   @id @default(cuid())
+
+  // ---- 公開フィールド（全ユーザー閲覧可） ----
+  companyName     String                // 会社名
+  department      String?               // 部署
+  title           String?               // 役職
+  lastName        String                // 姓
+  firstName       String?               // 名
+  lastNameKana    String?               // 姓カナ
+  firstNameKana   String?               // 名カナ
+  prefecture      String?               // 都道府県
+  companyPhone    String?               // 会社電話番号
+  url             String?               // 会社URL
+  exchangeDate    DateTime?             // 名刺交換日
+  tags            String?               // タグ（カンマ区切り）
+  wantsCollab     Boolean  @default(false)  // コラボレーション希望
+  isOrdered       Boolean  @default(false)  // 受注済み
+  isCompetitor    Boolean  @default(false)  // 競合
+  isCreator       Boolean  @default(false)  // 映像クリエイター
+
+  // ---- 地域フラグ（12区分） ----
+  regionHokkaido  Boolean  @default(false) // 北海道
+  regionTohoku    Boolean  @default(false) // 東北
+  regionKitakanto Boolean  @default(false) // 北関東
+  regionSaitama   Boolean  @default(false) // 埼玉
+  regionChiba     Boolean  @default(false) // 千葉
+  regionTokyo     Boolean  @default(false) // 東京
+  regionKanagawa  Boolean  @default(false) // 神奈川
+  regionChubu     Boolean  @default(false) // 中部
+  regionKansai    Boolean  @default(false) // 関西
+  regionChugoku   Boolean  @default(false) // 中国
+  regionShikoku   Boolean  @default(false) // 四国
+  regionKyushu    Boolean  @default(false) // 九州・沖縄
+
+  // ---- AI エンリッチメント ----
+  aiIndustry      String?               // AI判定の業界カテゴリ
+  aiSummary       String?  @db.Text     // AI生成の事業概要
+  aiTags          String?               // AI生成のタグ（カンマ区切り）
+
+  // ---- 秘匿フィールド（所有者/ADMIN/開示承認者のみ閲覧可） ----
+  email           String?               // メールアドレス
+  directPhone     String?               // 直通電話
+  mobilePhone     String?               // 携帯電話
+  fax             String?               // FAX
+  postalCode      String?  @db.VarChar(8) // 郵便番号
+  address         String?               // 住所（詳細）
+  sharedMemoTitle String?               // 共有メモタイトル
+  exchangePlace   String?               // 名刺交換場所
+  workHistory     String?  @db.Text     // 経歴
+  personality     String?  @db.Text     // 人柄メモ
+  textMemo        String?  @db.Text     // テキストメモ
+
+  // ---- 名刺画像 ----
+  cardImageUrl    String?               // Supabase Storage URL
+
+  // ---- 所有者（CSVの「所有者」→ User.name でマッチ） ----
+  ownerId         String
+  owner           User     @relation("OwnedBusinessCards", fields: [ownerId], references: [id])
+
+  // ---- 開示申請 ----
+  disclosureRequests DisclosureRequest[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([companyName, lastName, firstName])
+  @@index([ownerId])
+  @@index([companyName])
+  @@index([aiIndustry])
+  @@index([prefecture])
+  @@map("business_cards")
+}
+
+// ==============================================================
+// DisclosureRequest（秘匿情報開示申請）
+// ==============================================================
+
+/// 名刺の秘匿フィールドの閲覧を申請するワークフロー。
+/// 1名刺につき1ユーザー1件まで（重複防止）。
+model DisclosureRequest {
+  id              String           @id @default(cuid())
+
+  businessCardId  String
+  businessCard    BusinessCard     @relation(fields: [businessCardId], references: [id], onDelete: Cascade)
+
+  requesterId     String
+  requester       User             @relation("DisclosureRequester", fields: [requesterId], references: [id])
+
+  purpose         String           @db.Text // 開示目的
+  status          DisclosureStatus @default(PENDING)
+
+  reviewedById    String?
+  reviewedBy      User?            @relation("DisclosureReviewer", fields: [reviewedById], references: [id])
+  reviewNote      String?          @db.Text
+  reviewedAt      DateTime?
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([businessCardId, requesterId])
+  @@index([businessCardId])
+  @@index([requesterId])
+  @@index([status])
+  @@map("disclosure_requests")
+}
+
+// ==============================================================
+// AIMatchingCache（AIマッチング結果キャッシュ）
+// ==============================================================
+
+/// 企業ごとのAIマッチング結果をキャッシュ。7日TTLで再生成。
+model AIMatchingCache {
+  id              String   @id @default(cuid())
+  companyName     String   @unique
+  matchResultJson String   @db.Text // JSON文字列
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("ai_matching_cache")
 }

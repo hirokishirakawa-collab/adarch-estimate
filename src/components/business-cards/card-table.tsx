@@ -1,0 +1,226 @@
+import Link from "next/link";
+import { REGION_OPTIONS } from "@/lib/constants/business-cards";
+
+type CardRow = {
+  id: string;
+  companyName: string;
+  department: string | null;
+  title: string | null;
+  lastName: string;
+  firstName: string | null;
+  prefecture: string | null;
+  aiIndustry: string | null;
+  wantsCollab: boolean;
+  isOrdered: boolean;
+  isCompetitor: boolean;
+  isCreator: boolean;
+  exchangeDate: Date | null;
+  owner: { name: string | null } | null;
+  // region flags
+  regionHokkaido: boolean;
+  regionTohoku: boolean;
+  regionKitakanto: boolean;
+  regionSaitama: boolean;
+  regionChiba: boolean;
+  regionTokyo: boolean;
+  regionKanagawa: boolean;
+  regionChubu: boolean;
+  regionKansai: boolean;
+  regionChugoku: boolean;
+  regionShikoku: boolean;
+  regionKyushu: boolean;
+};
+
+function getRegionLabels(card: CardRow): string[] {
+  const labels: string[] = [];
+  for (const r of REGION_OPTIONS) {
+    if (card[r.value as keyof CardRow]) {
+      labels.push(r.label);
+    }
+  }
+  return labels;
+}
+
+export function CardTable({
+  cards,
+  page,
+  totalPages,
+  total,
+  baseUrl,
+}: {
+  cards: CardRow[];
+  page: number;
+  totalPages: number;
+  total: number;
+  baseUrl: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-zinc-100 bg-zinc-50/80">
+              <th className="text-left px-4 py-2.5 font-semibold text-zinc-500">会社名</th>
+              <th className="text-left px-4 py-2.5 font-semibold text-zinc-500">氏名</th>
+              <th className="text-left px-4 py-2.5 font-semibold text-zinc-500">役職</th>
+              <th className="text-left px-4 py-2.5 font-semibold text-zinc-500">業界</th>
+              <th className="text-left px-4 py-2.5 font-semibold text-zinc-500">地域</th>
+              <th className="text-left px-4 py-2.5 font-semibold text-zinc-500">フラグ</th>
+              <th className="text-left px-4 py-2.5 font-semibold text-zinc-500">所有者</th>
+              <th className="text-left px-4 py-2.5 font-semibold text-zinc-500">交換日</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cards.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="text-center py-12 text-zinc-400">
+                  該当する名刺はありません
+                </td>
+              </tr>
+            ) : (
+              cards.map((card) => {
+                const regions = getRegionLabels(card);
+                return (
+                  <tr
+                    key={card.id}
+                    className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors"
+                  >
+                    <td className="px-4 py-2.5">
+                      <Link
+                        href={`/dashboard/business-cards/${card.id}`}
+                        className="text-blue-600 hover:underline font-medium"
+                      >
+                        {card.companyName}
+                      </Link>
+                      {card.department && (
+                        <span className="block text-[10px] text-zinc-400 mt-0.5">
+                          {card.department}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 whitespace-nowrap">
+                      {card.lastName} {card.firstName ?? ""}
+                    </td>
+                    <td className="px-4 py-2.5 text-zinc-500">
+                      {card.title ?? "—"}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {card.aiIndustry ? (
+                        <span className="inline-flex px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-medium">
+                          {card.aiIndustry}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {regions.length > 0 ? (
+                        <div className="flex flex-wrap gap-0.5">
+                          {regions.map((r) => (
+                            <span
+                              key={r}
+                              className="inline-flex px-1 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[10px]"
+                            >
+                              {r}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-zinc-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex flex-wrap gap-1">
+                        {card.wantsCollab && (
+                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-medium border border-emerald-100">
+                            コラボ
+                          </span>
+                        )}
+                        {card.isOrdered && (
+                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-medium border border-blue-100">
+                            受注
+                          </span>
+                        )}
+                        {card.isCompetitor && (
+                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-medium border border-red-100">
+                            競合
+                          </span>
+                        )}
+                        {card.isCreator && (
+                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 text-[10px] font-medium border border-violet-100">
+                            制作
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-zinc-500 whitespace-nowrap">
+                      {card.owner?.name ?? "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-zinc-400 whitespace-nowrap">
+                      {card.exchangeDate
+                        ? new Date(card.exchangeDate).toLocaleDateString("ja-JP")
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ページネーション */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-100">
+          <p className="text-[11px] text-zinc-400">
+            全{total.toLocaleString()}件中 {(page - 1) * 30 + 1}〜
+            {Math.min(page * 30, total)}件
+          </p>
+          <div className="flex gap-1">
+            {page > 1 && (
+              <Link
+                href={`${baseUrl}&page=${page - 1}`}
+                className="px-2.5 py-1 text-[11px] rounded border border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+              >
+                前へ
+              </Link>
+            )}
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+              let p: number;
+              if (totalPages <= 7) {
+                p = i + 1;
+              } else if (page <= 4) {
+                p = i + 1;
+              } else if (page >= totalPages - 3) {
+                p = totalPages - 6 + i;
+              } else {
+                p = page - 3 + i;
+              }
+              return (
+                <Link
+                  key={p}
+                  href={`${baseUrl}&page=${p}`}
+                  className={`px-2.5 py-1 text-[11px] rounded border ${
+                    p === page
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  {p}
+                </Link>
+              );
+            })}
+            {page < totalPages && (
+              <Link
+                href={`${baseUrl}&page=${page + 1}`}
+                className="px-2.5 py-1 text-[11px] rounded border border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+              >
+                次へ
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

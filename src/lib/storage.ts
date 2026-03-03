@@ -12,6 +12,7 @@
 const BUCKET = "billing-pdfs";
 const GROUP_SYNC_BUCKET = "group-sync-files";
 const MEDIA_BUCKET = "media-files";
+const CARD_IMAGE_BUCKET = "card-images";
 
 export async function uploadBillingFile(
   file: File
@@ -133,6 +134,48 @@ export async function uploadMediaFile(
     }
 
     return `${supabaseUrl}/storage/v1/object/public/${MEDIA_BUCKET}/${fileName}`;
+  } catch (e) {
+    console.error("[storage] Upload error:", e);
+    return null;
+  }
+}
+
+export async function uploadBusinessCardImage(
+  file: File
+): Promise<string | null> {
+  const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceKey) {
+    console.warn(
+      "[storage] SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY が未設定のため" +
+      " ファイルアップロードをスキップします。"
+    );
+    return null;
+  }
+
+  const ext      = file.name.split(".").pop() ?? "jpg";
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const endpoint = `${supabaseUrl}/storage/v1/object/${CARD_IMAGE_BUCKET}/${fileName}`;
+
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization:  `Bearer ${serviceKey}`,
+        "Content-Type": file.type || "image/jpeg",
+        "x-upsert":     "false",
+      },
+      body: Buffer.from(await file.arrayBuffer()),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error("[storage] Supabase upload failed:", res.status, body);
+      return null;
+    }
+
+    return `${supabaseUrl}/storage/v1/object/public/${CARD_IMAGE_BUCKET}/${fileName}`;
   } catch (e) {
     console.error("[storage] Upload error:", e);
     return null;

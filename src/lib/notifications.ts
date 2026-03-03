@@ -1236,3 +1236,140 @@ function buildCollaborationEmail(payload: CollaborationNotificationPayload): {
 
   return { subject, html };
 }
+
+// ---------------------------------------------------------------
+// 名刺開示申請通知
+// ---------------------------------------------------------------
+export type DisclosureNotificationPayload =
+  | {
+      eventType: "DISCLOSURE_REQUESTED";
+      requestId: string;
+      cardOwnerName: string;
+      companyName: string;
+      requesterName: string;
+      purpose: string;
+    }
+  | {
+      eventType: "DISCLOSURE_APPROVED" | "DISCLOSURE_REJECTED";
+      requestId: string;
+      cardOwnerName: string;
+      companyName: string;
+      requesterName: string;
+      requesterEmail: string;
+      reviewNote: string | null;
+    };
+
+/**
+ * 開示申請関連の通知を送信する。
+ * - REQUESTED: 管理者（EMAIL_CEO）へ
+ * - APPROVED/REJECTED: 申請者へ直接
+ */
+export async function sendDisclosureNotification(
+  payload: DisclosureNotificationPayload
+): Promise<void> {
+  const { cardOwnerName, companyName, requesterName } = payload;
+  const url = appUrl(`/dashboard/business-cards/requests`);
+
+  if (payload.eventType === "DISCLOSURE_REQUESTED") {
+    const to = resolveRecipients("ceo_only");
+    const subject = `【アドアーチOS】名刺開示申請：${companyName} ${cardOwnerName}`;
+
+    const rows = [
+      ["対象名刺", `${companyName} / ${cardOwnerName}`],
+      ["申請者",   requesterName],
+      ["開示目的", payload.purpose.length > 120 ? payload.purpose.slice(0, 120) + "…" : payload.purpose],
+    ]
+      .map(
+        ([label, value]) => `
+        <tr>
+          <th style="${thStyle}">${escHtml(label)}</th>
+          <td style="${tdStyle}">${escHtml(value)}</td>
+        </tr>`
+      )
+      .join("");
+
+    const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:#0d9488;padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;">Ad-Arch OS</span>
+            <span style="color:#99f6e4;font-size:13px;margin-left:8px;">名刺開示申請通知</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;">名刺の秘匿情報の開示が申請されました。内容を確認し、承認または却下してください。</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">${rows}</table>
+            <div style="margin-top:24px;text-align:center;">
+              <a href="${url}" style="display:inline-block;padding:11px 28px;background:#0d9488;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">申請一覧を確認する →</a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f4f4f5;padding:16px 28px;border-top:1px solid #e4e4e7;">
+            <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">このメールは Ad-Arch Group OS から自動送信されています。</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    await sendEmail("disclosure-request", to, subject, html);
+  } else {
+    // 承認 / 却下 → 申請者へ直接
+    const statusLabel = payload.eventType === "DISCLOSURE_APPROVED" ? "承認" : "却下";
+    const headerColor = payload.eventType === "DISCLOSURE_APPROVED" ? "#059669" : "#dc2626";
+    const subject = `【アドアーチOS】名刺開示申請 ${statusLabel}：${companyName} ${cardOwnerName}`;
+
+    const noteRow = payload.reviewNote
+      ? `<tr><th style="${thStyle}">審査コメント</th><td style="${tdStyle}">${escHtml(payload.reviewNote)}</td></tr>`
+      : "";
+
+    const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:${headerColor};padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;">Ad-Arch OS</span>
+            <span style="color:#ffffff;font-size:13px;margin-left:8px;opacity:0.85;">名刺開示 審査結果</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;">名刺の秘匿情報の開示申請が<strong>${statusLabel}</strong>されました。</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+              <tr><th style="${thStyle}">対象名刺</th><td style="${tdStyle}">${escHtml(companyName)} / ${escHtml(cardOwnerName)}</td></tr>
+              <tr><th style="${thStyle}">審査結果</th><td style="${tdStyle}"><strong>${statusLabel}</strong></td></tr>
+              ${noteRow}
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f4f4f5;padding:16px 28px;border-top:1px solid #e4e4e7;">
+            <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">このメールは Ad-Arch Group OS から自動送信されています。</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    await sendEmail("disclosure-result", [payload.requesterEmail], subject, html);
+  }
+}

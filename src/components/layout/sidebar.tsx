@@ -33,6 +33,7 @@ import {
   X,
   Sparkles,
   Target,
+  ContactRound,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -92,6 +93,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/video-achievements",
         label: "動画実績DB（自動収集）",
         icon: Target,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/business-cards",
+        label: "名刺管理",
+        icon: ContactRound,
         minRole: "USER",
       },
     ],
