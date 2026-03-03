@@ -991,3 +991,19 @@ model VideoAchievement {
   @@index([isProcessed])
   @@map("VideoAchievement")
 }
+
+// ==============================================================
+// DashboardDigest（ダッシュボードダイジェスト）
+// ==============================================================
+
+/// AI生成のグループ活動サマリー。シングルトン（id="singleton"）で管理し、
+/// 24時間ごとに再生成される。全ユーザーが同一の内容を閲覧する。
+model DashboardDigest {
+  id        String   @id @default("singleton")
+  content   String   // AI生成サマリー（3〜5行テキスト）
+  dataJson  String?  // 元データJSON（デバッグ用）
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("dashboard_digests")
+}

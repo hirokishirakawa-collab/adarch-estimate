@@ -6,6 +6,7 @@ import { getMockBranchId } from "@/lib/data/customers";
 import { ACTIVITY_TYPE_OPTIONS } from "@/lib/constants/crm";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
+import { getOrGenerateDigest } from "@/lib/digest";
 import type { UserRole } from "@/types/roles";
 import type { ActivityType, ProjectLogType } from "@/generated/prisma/client";
 import {
@@ -21,6 +22,7 @@ import {
   User,
   Award,
   CalendarCheck,
+  Sparkles,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -197,6 +199,9 @@ export default async function DashboardPage() {
   }
   const urgentGroups = Array.from(urgentGroupMap.values());
 
+  // ── ダイジェスト ──
+  const digest = await getOrGenerateDigest();
+
   // ── 挨拶 ──
   const hour = now.getHours();
   const timeGreeting =
@@ -226,6 +231,20 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      {/* ── グループダイジェスト ── */}
+      {digest && (
+        <div className="relative overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex-shrink-0 w-7 h-7 bg-white/70 rounded-lg flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-indigo-500" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold text-indigo-600 mb-1">グループダイジェスト — 直近3日間</p>
+              <p className="text-xs text-zinc-700 leading-relaxed whitespace-pre-line">{digest}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── クイックアクション ── */}
       <div className="grid grid-cols-3 gap-3">
