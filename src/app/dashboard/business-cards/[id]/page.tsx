@@ -15,9 +15,11 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { REGION_OPTIONS } from "@/lib/constants/business-cards";
+import { FlagToggles } from "@/components/business-cards/flag-toggles";
 import { PrivateFieldsPanel } from "@/components/business-cards/private-fields-panel";
 import { MatchingPanel } from "@/components/business-cards/matching-panel";
 import { BusinessCardDeleteButton } from "@/components/business-cards/business-card-delete-button";
+import { OwnerSelect } from "@/components/business-cards/owner-select";
 import { getCardImageSignedUrl } from "@/lib/storage";
 
 function InfoItem({
@@ -79,6 +81,15 @@ export default async function BusinessCardDetailPage(props: {
   // 開示申請の状態を取得
   const existingRequest = card.disclosureRequests[0] ?? null;
 
+  // ADMIN: 所有者変更用のユーザー一覧
+  const allUsers =
+    sessionInfo.role === "ADMIN"
+      ? await db.user.findMany({
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        })
+      : [];
+
   // 地域ラベル取得
   const regionLabels: string[] = [];
   for (const r of REGION_OPTIONS) {
@@ -103,28 +114,18 @@ export default async function BusinessCardDetailPage(props: {
         <div className="px-5 py-4 border-b border-zinc-100">
           <div className="flex items-start justify-between">
             <div>
-              {/* バッジ */}
+              {/* フラグバッジ（トグル可能） */}
               <div className="flex items-center gap-1.5 mb-2">
-                {card.isCompetitor && (
-                  <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-600 border border-red-100">
-                    競合
-                  </span>
-                )}
-                {card.wantsCollab && (
-                  <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-600 border border-emerald-100">
-                    コラボ希望
-                  </span>
-                )}
-                {card.isOrdered && (
-                  <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100">
-                    受注済み
-                  </span>
-                )}
-                {card.isCreator && (
-                  <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-violet-50 text-violet-600 border border-violet-100">
-                    クリエイター
-                  </span>
-                )}
+                <FlagToggles
+                  cardId={card.id}
+                  initialFlags={{
+                    isCompetitor: card.isCompetitor,
+                    wantsCollab: card.wantsCollab,
+                    isOrdered: card.isOrdered,
+                    isCreator: card.isCreator,
+                  }}
+                  canEdit={sessionInfo.role === "ADMIN" || card.ownerId === sessionInfo.userId}
+                />
                 {card.aiIndustry && (
                   <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-50 text-teal-600 border border-teal-100">
                     {card.aiIndustry}
@@ -142,9 +143,17 @@ export default async function BusinessCardDetailPage(props: {
             <div className="flex items-start gap-3">
               <div className="text-right">
                 <p className="text-[10px] text-zinc-400">所有者</p>
-                <p className="text-xs font-medium text-zinc-700">
-                  {card.owner?.name ?? "—"}
-                </p>
+                {sessionInfo.role === "ADMIN" ? (
+                  <OwnerSelect
+                    cardId={card.id}
+                    currentOwnerId={card.ownerId}
+                    users={allUsers.map((u) => ({ id: u.id, name: u.name ?? "—" }))}
+                  />
+                ) : (
+                  <p className="text-xs font-medium text-zinc-700">
+                    {card.owner?.name ?? "—"}
+                  </p>
+                )}
               </div>
               {sessionInfo.role === "ADMIN" && (
                 <BusinessCardDeleteButton

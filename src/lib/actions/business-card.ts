@@ -160,6 +160,107 @@ export async function updateBusinessCard(
 }
 
 // ---------------------------------------------------------------
+// 名刺フラグをトグルする（ADMIN or 所有者）
+// ---------------------------------------------------------------
+export async function toggleBusinessCardFlag(
+  cardId: string,
+  flagName: "isCompetitor" | "isOrdered" | "wantsCollab" | "isCreator",
+  value: boolean
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+
+  const card = await db.businessCard.findUnique({
+    where: { id: cardId },
+    select: { ownerId: true, companyName: true, lastName: true },
+  });
+  if (!card) return { error: "名刺が見つかりません" };
+
+  if (info.role !== "ADMIN" && card.ownerId !== info.userId) {
+    return { error: "この名刺を編集する権限がありません" };
+  }
+
+  const flagLabels: Record<string, string> = {
+    isCompetitor: "競合",
+    isOrdered: "受注済み",
+    wantsCollab: "コラボ希望",
+    isCreator: "クリエイター",
+  };
+
+  try {
+    await db.businessCard.update({
+      where: { id: cardId },
+      data: { [flagName]: value },
+    });
+  } catch {
+    return { error: "フラグの更新に失敗しました" };
+  }
+
+  after(async () => {
+    await logAudit({
+      action: "business_card_flag_toggled",
+      email: info.email,
+      name: info.staffName,
+      entity: "business_card",
+      entityId: cardId,
+      detail: `${card.companyName} ${card.lastName}：${flagLabels[flagName]}を${value ? "ON" : "OFF"}`,
+    });
+  });
+
+  revalidatePath(`/dashboard/business-cards/${cardId}`);
+  revalidatePath("/dashboard/business-cards");
+  return {};
+}
+
+// ---------------------------------------------------------------
+// 名刺の所有者を変更する（ADMIN 限定）
+// ---------------------------------------------------------------
+export async function changeBusinessCardOwner(
+  cardId: string,
+  newOwnerId: string
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role !== "ADMIN") return { error: "管理者のみ変更できます" };
+
+  const card = await db.businessCard.findUnique({
+    where: { id: cardId },
+    select: { companyName: true, lastName: true },
+  });
+  if (!card) return { error: "名刺が見つかりません" };
+
+  const newOwner = await db.user.findUnique({
+    where: { id: newOwnerId },
+    select: { name: true },
+  });
+  if (!newOwner) return { error: "ユーザーが見つかりません" };
+
+  try {
+    await db.businessCard.update({
+      where: { id: cardId },
+      data: { ownerId: newOwnerId },
+    });
+  } catch {
+    return { error: "所有者の変更に失敗しました" };
+  }
+
+  after(async () => {
+    await logAudit({
+      action: "business_card_owner_changed",
+      email: info.email,
+      name: info.staffName,
+      entity: "business_card",
+      entityId: cardId,
+      detail: `${card.companyName} ${card.lastName}の所有者を${newOwner.name}に変更`,
+    });
+  });
+
+  revalidatePath(`/dashboard/business-cards/${cardId}`);
+  revalidatePath("/dashboard/business-cards");
+  return {};
+}
+
+// ---------------------------------------------------------------
 // 名刺を単体削除する（ADMIN 限定）
 // ---------------------------------------------------------------
 export async function deleteBusinessCard(
