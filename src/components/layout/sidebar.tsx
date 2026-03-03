@@ -34,6 +34,7 @@ import {
   Sparkles,
   Target,
   ContactRound,
+  HeartHandshake,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -273,6 +274,12 @@ const NAV_SECTIONS: NavSection[] = [
     section: "管理者",
     color: "text-zinc-600",
     items: [
+      {
+        href: "/dashboard/group-support",
+        label: "グループサポート",
+        icon: HeartHandshake,
+        minRole: "ADMIN",
+      },
       {
         href: "/dashboard/admin/users",
         label: "メンバー管理",

@@ -95,6 +95,9 @@ export const ROUTE_ROLE_MAP: Record<string, UserRole> = {
   // 財務・売上 → MANAGER以上（MANAGERは自拠点のみ、Phase 2でbranchIdフィルタ）
   "/sales-report": "MANAGER",
 
+  // グループサポート（ADMIN限定）
+  "/group-support": "ADMIN",
+
   // 全員アクセス可能
   "/dashboard": "USER",
   "/customers": "USER",
