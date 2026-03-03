@@ -81,7 +81,7 @@ export default async function BusinessCardsPage(props: {
         ownerId: true,
         owner: { select: { name: true } },
       },
-      orderBy: { companyName: "asc" },
+      orderBy: { updatedAt: "desc" },
       skip: (page - 1) * ITEMS_PER_PAGE,
       take: ITEMS_PER_PAGE,
     }),
