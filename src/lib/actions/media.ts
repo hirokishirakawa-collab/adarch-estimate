@@ -8,6 +8,7 @@ import { sendMediaRequestNotification } from "@/lib/notifications";
 import { getMediaTypeLabel } from "@/lib/constants/media";
 import type { Prisma } from "@/generated/prisma/client";
 import { getSessionInfo, getBranchFilter } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // 媒体依頼を作成する
@@ -62,6 +63,7 @@ export async function createMediaRequest(
       },
     });
     createdId = created.id;
+    logAudit({ action: "media_request_created", email: info.email, name: info.staffName, entity: "media_request", entityId: created.id, detail: mediaName });
   } catch (e) {
     console.error("[createMediaRequest] DB error:", e instanceof Error ? e.message : e);
     return { error: "保存に失敗しました" };
@@ -118,6 +120,7 @@ export async function updateMediaRequestStatus(
         replyNote,
       },
     });
+    logAudit({ action: "media_request_status_updated", email: info.email, name: info.staffName, entity: "media_request", entityId: requestId, detail: status });
   } catch (e) {
     console.error("[updateMediaRequestStatus] DB error:", e instanceof Error ? e.message : e);
     return { error: "更新に失敗しました" };

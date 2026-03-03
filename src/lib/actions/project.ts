@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import type { ProjectStatus, ExpenseCategory, BillingStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
+import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // 共通ユーティリティ
@@ -74,6 +75,7 @@ export async function createProject(
       },
     });
     projectId = project.id;
+    logAudit({ action: "project_created", email: info.email, name: staffName, entity: "project", entityId: project.id, detail: title });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[createProject] DB error:", msg);
@@ -157,6 +159,7 @@ export async function updateProject(
         },
       });
     }
+    logAudit({ action: "project_updated", email: info.email, name: staffName, entity: "project", entityId: projectId, detail: `${diffs.length}件変更` });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[updateProject] DB error:", msg);
@@ -213,6 +216,7 @@ export async function createExpense(
         projectId,
       },
     });
+    logAudit({ action: "expense_created", email: info.email, name: staffName, entity: "expense", entityId: projectId, detail: `${title} ${amount.toLocaleString()}円` });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[createExpense] DB error:", msg);
@@ -289,6 +293,7 @@ export async function deleteExpense(
         projectId,
       },
     });
+    logAudit({ action: "expense_deleted", email: info.email, name: staffName, entity: "expense", entityId: expenseId, detail: expense.title });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[deleteExpense] DB error:", msg);

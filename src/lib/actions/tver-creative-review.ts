@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { getSessionInfo, getBranchFilter } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // クリエイティブ考査申請を作成する
@@ -35,7 +36,7 @@ export async function createTverCreativeReview(
   if (!advertiser) return { error: "選択された広告主は承認済みではありません" };
 
   try {
-    await db.tverCreativeReview.create({
+    const created = await db.tverCreativeReview.create({
       data: {
         advertiserId,
         projectName,
@@ -47,6 +48,7 @@ export async function createTverCreativeReview(
         branchId:     info.branchId as string,
       },
     });
+    logAudit({ action: "tver_creative_review_created", email: info.email, name: info.staffName, entity: "tver_creative_review", entityId: created.id, detail: projectName });
   } catch (e) {
     console.error("[createTverCreativeReview] DB error:", e instanceof Error ? e.message : e);
     return { error: "保存に失敗しました" };
@@ -122,6 +124,7 @@ export async function deleteTverCreativeReview(id: string): Promise<void> {
 
   try {
     await db.tverCreativeReview.delete({ where: { id } });
+    logAudit({ action: "tver_creative_review_deleted", email: info.email, name: info.staffName, entity: "tver_creative_review", entityId: id });
   } catch (e) {
     console.error("[deleteTverCreativeReview] DB error:", e instanceof Error ? e.message : e);
     return;

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { UserRole } from "@/types/roles";
+import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // 共通: ADMIN セッション確認
@@ -46,7 +47,7 @@ export async function registerMember(
   _prev: { error?: string; success?: boolean } | null,
   formData: FormData
 ): Promise<{ error?: string; success?: boolean }> {
-  await requireAdmin();
+  const { callerEmail } = await requireAdmin();
 
   const email     = (formData.get("email")     as string)?.trim().toLowerCase();
   const name      = (formData.get("name")      as string)?.trim() || null;
@@ -72,6 +73,7 @@ export async function registerMember(
       update: { name: name ?? undefined, role: role as "ADMIN" | "MANAGER" | "USER", branchId, branchId2 },
       create: { email, name, role: role as "ADMIN" | "MANAGER" | "USER", branchId, branchId2 },
     });
+    logAudit({ action: "member_registered", email: callerEmail, entity: "user", detail: `${email} (${role})` });
   } catch (e) {
     console.error("[registerMember] DB error:", e instanceof Error ? e.message : e);
     return { error: "登録に失敗しました" };
@@ -89,7 +91,7 @@ export async function updateUserInfo(
   _prev: { error?: string; success?: boolean } | null,
   formData: FormData
 ): Promise<{ error?: string; success?: boolean }> {
-  await requireAdmin();
+  const { callerEmail } = await requireAdmin();
 
   const name      = (formData.get("name")      as string)?.trim() || null;
   const branchId  = (formData.get("branchId")  as string)?.trim() || null;
@@ -100,6 +102,7 @@ export async function updateUserInfo(
       where: { id: userId },
       data:  { name, branchId, branchId2 },
     });
+    logAudit({ action: "user_updated", email: callerEmail, entity: "user", entityId: userId, detail: name });
   } catch (e) {
     console.error("[updateUserInfo] DB error:", e instanceof Error ? e.message : e);
     return { error: "更新に失敗しました" };
@@ -129,6 +132,7 @@ export async function deleteUser(
 
   try {
     await db.user.delete({ where: { id: userId } });
+    logAudit({ action: "user_deleted", email: callerEmail, entity: "user", entityId: userId, detail: target.email });
   } catch (e) {
     console.error("[deleteUser] DB error:", e instanceof Error ? e.message : e);
     return { error: "削除に失敗しました" };
@@ -171,6 +175,7 @@ export async function updateUserRole(
       where: { id: userId },
       data: { role: newRole as "ADMIN" | "MANAGER" | "USER" },
     });
+    logAudit({ action: "user_role_updated", email: callerEmail, entity: "user", entityId: userId, detail: `${target.role} → ${newRole}` });
   } catch (e) {
     console.error("[updateUserRole] DB error:", e instanceof Error ? e.message : e);
     return { error: "更新に失敗しました" };

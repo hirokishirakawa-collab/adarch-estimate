@@ -8,6 +8,7 @@ import { uploadGroupSyncFile } from "@/lib/storage";
 import { sendCollaborationNotification } from "@/lib/notifications";
 import type { Prisma } from "@/generated/prisma/client";
 import { getSessionInfo, getBranchFilter } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // グループ連携依頼を作成する
@@ -64,6 +65,7 @@ export async function createCollaborationRequest(
     ]);
     requestId = request.id;
     branchName = branch?.name ?? null;
+    logAudit({ action: "collaboration_created", email: info.email, name: info.staffName, entity: "collaboration", entityId: request.id, detail: counterpartName });
   } catch (e) {
     console.error("[createCollaborationRequest] DB error:", e instanceof Error ? e.message : e);
     return { error: "保存に失敗しました" };
@@ -121,6 +123,7 @@ export async function updateCollaborationStatus(
         replyNote,
       },
     });
+    logAudit({ action: "collaboration_status_updated", email: info.email, name: info.staffName, entity: "collaboration", entityId: requestId, detail: status });
   } catch (e) {
     console.error("[updateCollaborationStatus] DB error:", e instanceof Error ? e.message : e);
     return { error: "更新に失敗しました" };

@@ -9,6 +9,7 @@ import type { DealStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 import { sendDealNotification } from "@/lib/notifications";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
+import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // 商談を新規作成する
@@ -66,6 +67,7 @@ export async function createDeal(
     ]);
     dealId = deal.id;
     customerName = customer?.name ?? "不明";
+    logAudit({ action: "deal_created", email: info.email, name: staffName, entity: "deal", entityId: deal.id, detail: title });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[createDeal] DB error:", msg);
@@ -121,6 +123,7 @@ export async function updateDealStatus(
         assignedTo: { select: { name: true } },
       },
     });
+    logAudit({ action: "deal_status_updated", email: info.email, name: info.staffName, entity: "deal", entityId: dealId, detail: status });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[updateDealStatus] DB error:", msg);
@@ -195,6 +198,7 @@ export async function updateDeal(
       select: { customer: { select: { name: true } } },
     });
     customerName = updated.customer.name;
+    logAudit({ action: "deal_updated", email: info.email, name: info.staffName, entity: "deal", entityId: dealId, detail: title });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[updateDeal] DB error:", msg);
@@ -329,6 +333,7 @@ export async function deleteDeal(dealId: string): Promise<{ error?: string }> {
 
   try {
     await db.deal.delete({ where: { id: dealId } });
+    logAudit({ action: "deal_deleted", email: info.email, name: info.staffName, entity: "deal", entityId: dealId });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[deleteDeal] DB error:", msg);

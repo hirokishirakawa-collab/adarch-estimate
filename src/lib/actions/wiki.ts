@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import type { UserRole } from "@/types/roles";
+import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // 共通ユーティリティ
@@ -44,6 +45,7 @@ export async function createArticle(
       data: { title, body, authorName: name, branchId },
     });
     articleId = article.id;
+    logAudit({ action: "wiki_article_created", email: info.email, name, entity: "wiki_article", entityId: article.id, detail: title });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[createArticle] DB error:", msg);
@@ -77,6 +79,7 @@ export async function updateArticle(
       where: { id: articleId },
       data: { title, body },
     });
+    logAudit({ action: "wiki_article_updated", email: info.email, name: info.name, entity: "wiki_article", entityId: articleId, detail: title });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[updateArticle] DB error:", msg);
@@ -97,6 +100,7 @@ export async function deleteArticle(articleId: string): Promise<void> {
 
   try {
     await db.wikiArticle.delete({ where: { id: articleId } });
+    logAudit({ action: "wiki_article_deleted", email: info.email, name: info.name, entity: "wiki_article", entityId: articleId });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[deleteArticle] DB error:", msg);

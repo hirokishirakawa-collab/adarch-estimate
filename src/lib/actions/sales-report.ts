@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { sendRevenueNotification } from "@/lib/notifications";
 import type { UserRole } from "@/types/roles";
+import { logAudit } from "@/lib/audit";
 
 /** MANAGER 以上のみ許可 */
 function isForbidden(role: UserRole): boolean {
@@ -41,7 +42,7 @@ export async function createRevenueReport(
   const memo        = (formData.get("memo") as string)?.trim() || null;
 
   try {
-    await db.revenueReport.create({
+    const created = await db.revenueReport.create({
       data: {
         amount,
         targetMonth,
@@ -51,6 +52,7 @@ export async function createRevenueReport(
         createdById: info.userId,
       },
     });
+    logAudit({ action: "revenue_report_created", email: info.email, name: info.staffName, entity: "revenue_report", entityId: created.id, detail: `${targetMonthRaw} ${amount.toLocaleString()}円` });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[createRevenueReport] DB error:", msg);
@@ -110,6 +112,7 @@ export async function updateRevenueReport(
       where: { id: reportId },
       data: { amount, targetMonth, projectName, memo },
     });
+    logAudit({ action: "revenue_report_updated", email: info.email, name: info.staffName, entity: "revenue_report", entityId: reportId, detail: `${targetMonthRaw} ${amount.toLocaleString()}円` });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[updateRevenueReport] DB error:", msg);
@@ -151,6 +154,7 @@ export async function deleteRevenueReport(
 
   try {
     await db.revenueReport.delete({ where: { id: reportId } });
+    logAudit({ action: "revenue_report_deleted", email: info.email, name: info.staffName, entity: "revenue_report", entityId: reportId });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[deleteRevenueReport] DB error:", msg);

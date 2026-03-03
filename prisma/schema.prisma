@@ -942,23 +942,26 @@ model TverCreativeReview {
 // ==============================================================
 
 // ==============================================================
-// LoginLog（ログイン履歴）
+// AuditLog（操作ログ）
 // ==============================================================
 
-/// ログイン試行の記録。成功・失敗を問わず記録し、セキュリティ監査に活用。
-model LoginLog {
+/// 全操作の監査ログ。ログイン・作成・更新・削除を記録し、セキュリティ監査に活用。
+model AuditLog {
   id        String   @id @default(cuid())
+  action    String   // "login_success", "login_failed", "customer_created", "deal_updated" 等
   email     String
   name      String?
-  success   Boolean
-  reason    String?    // 失敗理由（"domain_rejected" など）
+  entity    String?  // "customer", "deal", "project" 等（ログイン時は null）
+  entityId  String?  // 対象レコードの ID
+  detail    String?  // 補足情報（変更内容の要約など）
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
 
   @@index([createdAt(sort: Desc)])
   @@index([email])
-  @@map("login_logs")
+  @@index([action])
+  @@map("audit_logs")
 }
 
 // ==============================================================

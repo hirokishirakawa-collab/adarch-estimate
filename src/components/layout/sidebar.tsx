@@ -274,7 +274,7 @@ const NAV_SECTIONS: NavSection[] = [
       },
       {
         href: "/dashboard/login-logs",
-        label: "ログイン履歴",
+        label: "操作ログ",
         icon: ClipboardList,
         minRole: "ADMIN",
       },

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { sendTverCampaignCreatedEmail } from "@/lib/resend";
 import type { Prisma } from "@/generated/prisma/client";
 import { getSessionInfo, getBranchFilter } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // TVer配信申請を作成する
@@ -83,6 +84,7 @@ export async function createTverCampaign(
       },
     });
     createdId = created.id;
+    logAudit({ action: "tver_campaign_created", email: info.email, name: info.staffName, entity: "tver_campaign", entityId: created.id, detail: campaignName });
   } catch (e) {
     console.error("[createTverCampaign] DB error:", e instanceof Error ? e.message : e);
     return { error: "保存に失敗しました" };
@@ -116,6 +118,7 @@ export async function deleteTverCampaign(campaignId: string): Promise<void> {
 
   try {
     await db.tverCampaign.delete({ where: { id: campaignId } });
+    logAudit({ action: "tver_campaign_deleted", email: info.email, name: info.staffName, entity: "tver_campaign", entityId: campaignId });
   } catch (e) {
     console.error("[deleteTverCampaign] DB error:", e instanceof Error ? e.message : e);
     return;

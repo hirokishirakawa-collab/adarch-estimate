@@ -58,40 +58,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const domain = profile.email.split("@")[1]?.toLowerCase();
       if (domain !== ALLOWED_DOMAIN) {
         console.warn(`[Auth] ドメイン拒否: ${profile.email}`);
-        // 失敗ログを記録
-        try {
-          const { db } = await import("@/lib/db");
-          await db.loginLog.create({
-            data: {
-              email: profile.email,
-              name: (profile.name as string) ?? null,
-              success: false,
-              reason: "domain_rejected",
-              ipAddress,
-              userAgent,
-            },
-          });
-        } catch (e) {
-          console.error("[Auth] ログイン失敗ログの記録に失敗:", e);
-        }
+        const { logAudit } = await import("@/lib/audit");
+        await logAudit({
+          action: "login_failed",
+          email: profile.email,
+          name: (profile.name as string) ?? null,
+          detail: "domain_rejected",
+          ipAddress,
+          userAgent,
+        });
         return false;
       }
 
       // 成功ログを記録
-      try {
-        const { db } = await import("@/lib/db");
-        await db.loginLog.create({
-          data: {
-            email: profile.email,
-            name: (profile.name as string) ?? null,
-            success: true,
-            ipAddress,
-            userAgent,
-          },
-        });
-      } catch (e) {
-        console.error("[Auth] ログイン成功ログの記録に失敗:", e);
-      }
+      const { logAudit } = await import("@/lib/audit");
+      await logAudit({
+        action: "login_success",
+        email: profile.email,
+        name: (profile.name as string) ?? null,
+        ipAddress,
+        userAgent,
+      });
 
       return true;
     },

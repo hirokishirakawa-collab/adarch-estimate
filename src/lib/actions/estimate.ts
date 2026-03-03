@@ -8,6 +8,7 @@ import { getMockBranchId } from "@/lib/data/customers";
 import type { EstimationStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 import { sendEstimateNotification } from "@/lib/notifications";
+import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // 共通ユーティリティ
@@ -102,6 +103,7 @@ export async function createEstimation(
       },
     });
     estimationId = estimation.id;
+    logAudit({ action: "estimation_created", email: info.email, name: staffName, entity: "estimation", entityId: estimation.id, detail: title });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[createEstimation] DB error:", msg);
@@ -150,6 +152,7 @@ export async function deleteEstimation(id: string): Promise<{ error?: string }> 
 
   try {
     await db.estimation.delete({ where: { id } });
+    logAudit({ action: "estimation_deleted", email: info.email, name: info.staffName, entity: "estimation", entityId: id });
   } catch (e) {
     console.error("[deleteEstimation]", e);
     return { error: "削除に失敗しました" };
@@ -174,6 +177,7 @@ export async function updateEstimationStatus(
       where: { id: estimationId },
       data: { status },
     });
+    logAudit({ action: "estimation_status_updated", email: info.email, name: info.staffName, entity: "estimation", entityId: estimationId, detail: status });
   } catch (e) {
     console.error("[updateEstimationStatus]", e);
   }

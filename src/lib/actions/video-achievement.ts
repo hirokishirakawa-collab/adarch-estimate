@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import type { DealStatus, CustomerStatus } from "@/generated/prisma/client";
 
 // ---------------------------------------------------------------
@@ -31,7 +32,7 @@ export async function createVideoAchievement(
   const contentSummary = (formData.get("contentSummary") as string)?.trim() || null;
 
   try {
-    await db.videoAchievement.create({
+    const created = await db.videoAchievement.create({
       data: {
         companyName,
         prefecture,
@@ -43,6 +44,7 @@ export async function createVideoAchievement(
         createdById: userId,
       },
     });
+    logAudit({ action: "video_achievement_created", email: info.email, name: info.staffName, entity: "video_achievement", entityId: created.id, detail: companyName });
   } catch (e: unknown) {
     const err = e as { code?: string };
     if (err.code === "P2002") {
@@ -68,6 +70,7 @@ export async function deleteVideoAchievement(
 
   try {
     await db.videoAchievement.delete({ where: { id } });
+    logAudit({ action: "video_achievement_deleted", email: info.email, name: info.staffName, entity: "video_achievement", entityId: id });
   } catch (e) {
     console.error("[deleteVideoAchievement]", e);
     return { error: "削除に失敗しました" };

@@ -5,10 +5,21 @@ import { useCallback, useEffect, useState } from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const RESULT_OPTIONS = [
+const CATEGORY_OPTIONS = [
   { value: "", label: "すべて" },
-  { value: "success", label: "成功" },
-  { value: "failed", label: "失敗" },
+  { value: "login", label: "ログイン" },
+  { value: "customer", label: "顧客" },
+  { value: "deal", label: "商談" },
+  { value: "project", label: "プロジェクト" },
+  { value: "estimation", label: "見積書" },
+  { value: "invoice", label: "請求" },
+  { value: "revenue", label: "売上" },
+  { value: "tver", label: "TVer" },
+  { value: "media", label: "媒体" },
+  { value: "collaboration", label: "連携" },
+  { value: "wiki", label: "Wiki" },
+  { value: "admin", label: "管理者" },
+  { value: "video", label: "動画実績" },
 ];
 
 export function LoginLogSearch() {
@@ -40,8 +51,8 @@ export function LoginLogSearch() {
     return () => clearTimeout(timer);
   }, [query, updateParam]);
 
-  const activeResult = searchParams.get("result") ?? "";
-  const hasFilter = !!(query || activeResult);
+  const activeCategory = searchParams.get("category") ?? "";
+  const hasFilter = !!(query || activeCategory);
 
   const clearAll = () => {
     setQuery("");
@@ -63,24 +74,6 @@ export function LoginLogSearch() {
           />
         </div>
 
-        {/* 結果フィルター */}
-        <div className="flex items-center gap-1">
-          {RESULT_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => updateParam("result", opt.value)}
-              className={cn(
-                "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
-                activeResult === opt.value
-                  ? "bg-blue-600 text-white"
-                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
         {/* クリア */}
         {hasFilter && (
           <button
@@ -91,6 +84,24 @@ export function LoginLogSearch() {
             クリア
           </button>
         )}
+      </div>
+
+      {/* カテゴリフィルター */}
+      <div className="flex flex-wrap items-center gap-1">
+        {CATEGORY_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => updateParam("category", opt.value)}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+              activeCategory === opt.value
+                ? "bg-blue-600 text-white"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { sendInvoiceNotification } from "@/lib/notifications";
 import { uploadBillingFile } from "@/lib/storage";
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
+import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // 閲覧権限スコープ
@@ -150,6 +151,7 @@ export async function createInvoiceRequest(
       },
     });
     requestId = created.id;
+    logAudit({ action: "invoice_created", email: info.email, name: info.staffName, entity: "invoice", entityId: created.id, detail: d.subject });
   } catch (e) {
     console.error("[createInvoiceRequest] DB error:", e instanceof Error ? e.message : e);
     return { error: "保存に失敗しました" };
@@ -220,6 +222,7 @@ export async function updateInvoiceRequest(
         projectId:        d.projectId,
       },
     });
+    logAudit({ action: "invoice_updated", email: info.email, name: info.staffName, entity: "invoice", entityId: requestId, detail: d.subject });
   } catch (e) {
     console.error("[updateInvoiceRequest] DB error:", e instanceof Error ? e.message : e);
     return { error: "更新に失敗しました" };
@@ -301,6 +304,7 @@ export async function deleteInvoiceRequest(requestId: string): Promise<{ error?:
 
   try {
     await db.invoiceRequest.delete({ where: { id: requestId } });
+    logAudit({ action: "invoice_deleted", email: info.email, name: info.staffName, entity: "invoice", entityId: requestId, detail: existing.subject });
   } catch (e) {
     console.error("[deleteInvoiceRequest] DB error:", e instanceof Error ? e.message : e);
     return { error: "削除に失敗しました" };

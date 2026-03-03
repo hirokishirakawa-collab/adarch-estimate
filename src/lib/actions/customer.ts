@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendCustomerNotification } from "@/lib/notifications";
+import { logAudit } from "@/lib/audit";
 import { getMockBranchId } from "@/lib/data/customers";
 import type {
   ActivityType,
@@ -110,6 +111,7 @@ export async function createCustomer(
     });
 
     customerId = customer.id;
+    logAudit({ action: "customer_created", email, name: staffName, entity: "customer", entityId: customer.id, detail: name });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[createCustomer] DB error:", msg, e);
@@ -318,6 +320,8 @@ export async function updateCustomer(
       },
     });
 
+    logAudit({ action: "customer_updated", email: session.user.email ?? "", name: staffName, entity: "customer", entityId: customerId, detail: `${changedFields.length}件変更` });
+
     // 変更ログを ActivityLog に自動記録
     if (changedFields.length > 0) {
       await db.activityLog.createMany({
@@ -458,6 +462,7 @@ export async function deleteCustomers(
     await db.activityLog.deleteMany({ where: { customerId: { in: ids } } });
     // 顧客を削除
     const result = await db.customer.deleteMany({ where: { id: { in: ids } } });
+    logAudit({ action: "customer_deleted", email: session?.user?.email ?? "", entity: "customer", detail: `${result.count}件削除` });
 
     revalidatePath("/dashboard/customers");
     return { deleted: result.count };

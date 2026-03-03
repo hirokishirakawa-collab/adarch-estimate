@@ -10,6 +10,7 @@ import {
 import { validateCorporateNumber } from "@/lib/constants/advertiser-review";
 import type { Prisma } from "@/generated/prisma/client";
 import { getSessionInfo, getBranchFilter } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // 業態考査申請を作成する
@@ -58,6 +59,7 @@ export async function createAdvertiserReview(
       },
     });
     createdId = created.id;
+    logAudit({ action: "advertiser_review_created", email: info.email, name: info.staffName, entity: "advertiser_review", entityId: created.id, detail: name });
   } catch (e) {
     console.error("[createAdvertiserReview] DB error:", e instanceof Error ? e.message : e);
     return { error: "保存に失敗しました" };
@@ -108,6 +110,7 @@ export async function updateAdvertiserReviewStatus(
         reviewedById: info.userId,
       },
     });
+    logAudit({ action: "advertiser_review_status_updated", email: info.email, name: info.staffName, entity: "advertiser_review", entityId: reviewId, detail: `${existing.name}: ${status}` });
   } catch (e) {
     console.error("[updateAdvertiserReviewStatus] DB error:", e instanceof Error ? e.message : e);
     return { error: "更新に失敗しました" };
@@ -167,6 +170,7 @@ export async function deleteAdvertiserReview(reviewId: string): Promise<void> {
 
   try {
     await db.advertiserReview.delete({ where: { id: reviewId } });
+    logAudit({ action: "advertiser_review_deleted", email: info.email, name: info.staffName, entity: "advertiser_review", entityId: reviewId });
   } catch (e) {
     console.error("[deleteAdvertiserReview] DB error:", e instanceof Error ? e.message : e);
     return;
