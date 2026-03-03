@@ -17,6 +17,7 @@ import { getSessionInfo } from "@/lib/session";
 import { REGION_OPTIONS } from "@/lib/constants/business-cards";
 import { PrivateFieldsPanel } from "@/components/business-cards/private-fields-panel";
 import { MatchingPanel } from "@/components/business-cards/matching-panel";
+import { getCardImageSignedUrl } from "@/lib/storage";
 
 function InfoItem({
   label,
@@ -303,22 +304,32 @@ export default async function BusinessCardDetailPage(props: {
           {/* AI マッチング */}
           <MatchingPanel companyName={card.companyName} />
 
-          {/* 名刺画像 */}
-          {card.cardImageUrl && (
-            <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
-                <h3 className="text-xs font-semibold text-zinc-700">名刺画像</h3>
-              </div>
-              <div className="p-4">
-                <img
-                  src={card.cardImageUrl}
-                  alt="名刺画像"
-                  className="w-full rounded-lg border border-zinc-200"
-                />
-              </div>
-            </div>
+          {/* 名刺画像（秘匿情報と同じ権限で制御 — 名刺には個人情報が写っているため） */}
+          {card.cardImageUrl && canViewPrivate && (
+            <CardImageSection filePath={card.cardImageUrl} />
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** 署名付きURLでPrivateバケットの名刺画像を表示する（サーバーコンポーネント） */
+async function CardImageSection({ filePath }: { filePath: string }) {
+  const signedUrl = await getCardImageSignedUrl(filePath);
+  if (!signedUrl) return null;
+
+  return (
+    <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
+        <h3 className="text-xs font-semibold text-zinc-700">名刺画像</h3>
+      </div>
+      <div className="p-4">
+        <img
+          src={signedUrl}
+          alt="名刺画像"
+          className="w-full rounded-lg border border-zinc-200"
+        />
       </div>
     </div>
   );

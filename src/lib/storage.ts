@@ -140,6 +140,10 @@ export async function uploadMediaFile(
   }
 }
 
+/**
+ * 名刺画像を Private バケットにアップロードする。
+ * 戻り値はファイル名（パス）のみ。表示時は getCardImageSignedUrl() で署名付きURLを生成する。
+ */
 export async function uploadBusinessCardImage(
   file: File
 ): Promise<string | null> {
@@ -175,9 +179,50 @@ export async function uploadBusinessCardImage(
       return null;
     }
 
-    return `${supabaseUrl}/storage/v1/object/public/${CARD_IMAGE_BUCKET}/${fileName}`;
+    // Private バケット: ファイルパスのみ返す（public URL ではない）
+    return fileName;
   } catch (e) {
     console.error("[storage] Upload error:", e);
+    return null;
+  }
+}
+
+/**
+ * 名刺画像の署名付きURL（有効期限60分）を生成する。
+ * サーバーサイドでのみ使用し、権限確認後に呼び出すこと。
+ */
+export async function getCardImageSignedUrl(
+  filePath: string
+): Promise<string | null> {
+  const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceKey || !filePath) return null;
+
+  try {
+    const endpoint = `${supabaseUrl}/storage/v1/object/sign/${CARD_IMAGE_BUCKET}/${filePath}`;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ expiresIn: 3600 }), // 60分
+    });
+
+    if (!res.ok) {
+      console.error("[storage] Signed URL failed:", res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    // Supabase は { signedURL: "..." } を返す
+    const signedPath = data.signedURL ?? data.signedUrl;
+    if (!signedPath) return null;
+
+    return `${supabaseUrl}/storage/v1${signedPath}`;
+  } catch (e) {
+    console.error("[storage] Signed URL error:", e);
     return null;
   }
 }
