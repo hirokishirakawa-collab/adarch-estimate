@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { headers } from "next/headers";
 import type { UserRole } from "@/types/roles";
 
 // ----------------------------------------------------------------
@@ -38,12 +39,58 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      * @ad-arch.co.jp 以外のドメインは拒否
      */
     async signIn({ profile }) {
+      // ログ記録用にリクエスト情報を取得
+      let ipAddress: string | null = null;
+      let userAgent: string | null = null;
+      try {
+        const hdrs = await headers();
+        ipAddress =
+          hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+          hdrs.get("x-real-ip") ??
+          null;
+        userAgent = hdrs.get("user-agent") ?? null;
+      } catch {
+        // headers() が取得できない場合は無視
+      }
+
       if (!profile?.email) return false;
 
       const domain = profile.email.split("@")[1]?.toLowerCase();
       if (domain !== ALLOWED_DOMAIN) {
         console.warn(`[Auth] ドメイン拒否: ${profile.email}`);
+        // 失敗ログを記録
+        try {
+          const { db } = await import("@/lib/db");
+          await db.loginLog.create({
+            data: {
+              email: profile.email,
+              name: (profile.name as string) ?? null,
+              success: false,
+              reason: "domain_rejected",
+              ipAddress,
+              userAgent,
+            },
+          });
+        } catch (e) {
+          console.error("[Auth] ログイン失敗ログの記録に失敗:", e);
+        }
         return false;
+      }
+
+      // 成功ログを記録
+      try {
+        const { db } = await import("@/lib/db");
+        await db.loginLog.create({
+          data: {
+            email: profile.email,
+            name: (profile.name as string) ?? null,
+            success: true,
+            ipAddress,
+            userAgent,
+          },
+        });
+      } catch (e) {
+        console.error("[Auth] ログイン成功ログの記録に失敗:", e);
       }
 
       return true;

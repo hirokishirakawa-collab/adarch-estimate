@@ -941,6 +941,30 @@ model TverCreativeReview {
 // VideoAchievement — 競合制作会社の実績データ（自動収集）
 // ==============================================================
 
+// ==============================================================
+// LoginLog（ログイン履歴）
+// ==============================================================
+
+/// ログイン試行の記録。成功・失敗を問わず記録し、セキュリティ監査に活用。
+model LoginLog {
+  id        String   @id @default(cuid())
+  email     String
+  name      String?
+  success   Boolean
+  reason    String?    // 失敗理由（"domain_rejected" など）
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([email])
+  @@map("login_logs")
+}
+
+// ==============================================================
+// VideoAchievement — 競合制作会社の実績データ（自動収集）
+// ==============================================================
+
 model VideoAchievement {
   id                String   @id @default(cuid())
   companyName       String                        // ターゲット企業名
