@@ -276,32 +276,28 @@ export function CardTable({
                       )}
                     </td>
                     <td className="px-4 py-2.5">
-                      {isOwned ? (
-                        <div className="flex flex-wrap gap-1">
-                          {card.wantsCollab && (
-                            <span className="inline-flex px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-medium border border-emerald-100">
-                              コラボ
-                            </span>
-                          )}
-                          {card.isOrdered && (
-                            <span className="inline-flex px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-medium border border-blue-100">
-                              受注
-                            </span>
-                          )}
-                          {card.isCompetitor && (
-                            <span className="inline-flex px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-medium border border-red-100">
-                              競合
-                            </span>
-                          )}
-                          {card.isCreator && (
-                            <span className="inline-flex px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 text-[10px] font-medium border border-violet-100">
-                              制作
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-zinc-500">***</span>
-                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {isOwned && card.wantsCollab && (
+                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-medium border border-emerald-100">
+                            コラボ
+                          </span>
+                        )}
+                        {card.isOrdered && (
+                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-medium border border-blue-100">
+                            受注
+                          </span>
+                        )}
+                        {isOwned && card.isCompetitor && (
+                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-medium border border-red-100">
+                            競合
+                          </span>
+                        )}
+                        {isOwned && card.isCreator && (
+                          <span className="inline-flex px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 text-[10px] font-medium border border-violet-100">
+                            制作
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2.5 text-zinc-500 whitespace-nowrap">
                       {card.owner?.name ?? "—"}
