@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Trash2 } from "lucide-react";
+import { Trash2, ChevronDown } from "lucide-react";
 import { REGION_OPTIONS } from "@/lib/constants/business-cards";
-import { deleteBusinessCards } from "@/lib/actions/business-card";
+import {
+  deleteBusinessCards,
+  bulkToggleBusinessCardFlag,
+} from "@/lib/actions/business-card";
 import {
   AlertDialogRoot,
   AlertDialogTrigger,
@@ -58,6 +61,77 @@ function getRegionLabels(card: CardRow): string[] {
     }
   }
   return labels;
+}
+
+type FlagName = "isCompetitor" | "isOrdered" | "wantsCollab" | "isCreator";
+
+const FLAG_OPTIONS: { flag: FlagName; label: string }[] = [
+  { flag: "isCompetitor", label: "競合" },
+  { flag: "isOrdered", label: "受注" },
+  { flag: "wantsCollab", label: "コラボ" },
+  { flag: "isCreator", label: "制作" },
+];
+
+function FlagDropdown({
+  label,
+  disabled,
+  onSelect,
+}: {
+  label: string;
+  disabled: boolean;
+  onSelect: (value: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors disabled:opacity-50"
+      >
+        {label}
+        <ChevronDown className="w-3 h-3" />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg z-50 min-w-[120px]">
+          <button
+            type="button"
+            className="block w-full text-left px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-50 rounded-t-lg"
+            onClick={() => {
+              onSelect(true);
+              setOpen(false);
+            }}
+          >
+            ONにする
+          </button>
+          <button
+            type="button"
+            className="block w-full text-left px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-50 rounded-b-lg"
+            onClick={() => {
+              onSelect(false);
+              setOpen(false);
+            }}
+          >
+            OFFにする
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function CardTable({
@@ -117,16 +191,40 @@ export function CardTable({
     });
   };
 
+  const handleBulkFlag = (flagName: FlagName, value: boolean) => {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      const result = await bulkToggleBusinessCardFlag(ids, flagName, value);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        const label = FLAG_OPTIONS.find((f) => f.flag === flagName)?.label;
+        toast.success(
+          `${result.updated}件の${label}を${value ? "ON" : "OFF"}にしました`
+        );
+      }
+    });
+  };
+
   const colSpan = isAdmin ? 9 : 8;
 
   return (
     <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-      {/* ADMIN 用 一括削除ツールバー */}
+      {/* ADMIN 用 一括操作ツールバー */}
       {isAdmin && selectedIds.size > 0 && (
-        <div className="flex items-center justify-between px-4 py-2.5 bg-red-50 border-b border-red-100">
-          <p className="text-sm font-medium text-red-700">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border-b border-blue-100">
+          <p className="text-sm font-medium text-blue-700 mr-auto">
             {selectedIds.size}件を選択中
           </p>
+          {FLAG_OPTIONS.map((opt) => (
+            <FlagDropdown
+              key={opt.flag}
+              label={opt.label}
+              disabled={isPending}
+              onSelect={(value) => handleBulkFlag(opt.flag, value)}
+            />
+          ))}
+          <div className="w-px h-5 bg-blue-200" />
           <AlertDialogRoot>
             <AlertDialogTrigger asChild>
               <button
@@ -134,7 +232,7 @@ export function CardTable({
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                {selectedIds.size}件を削除
+                削除
               </button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -217,7 +315,7 @@ export function CardTable({
                     key={card.id}
                     className={cn(
                       "border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors",
-                      isSelected && "bg-red-50 hover:bg-red-50"
+                      isSelected && "bg-blue-50 hover:bg-blue-50"
                     )}
                   >
                     {isAdmin && (

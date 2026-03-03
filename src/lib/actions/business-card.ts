@@ -213,6 +213,51 @@ export async function toggleBusinessCardFlag(
 }
 
 // ---------------------------------------------------------------
+// 名刺フラグを一括設定する（ADMIN 限定）
+// ---------------------------------------------------------------
+export async function bulkToggleBusinessCardFlag(
+  ids: string[],
+  flagName: "isCompetitor" | "isOrdered" | "wantsCollab" | "isCreator",
+  value: boolean
+): Promise<{ error?: string; updated?: number }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role !== "ADMIN") return { error: "管理者のみ一括変更できます" };
+  if (!ids.length) return { updated: 0 };
+
+  const flagLabels: Record<string, string> = {
+    isCompetitor: "競合",
+    isOrdered: "受注済み",
+    wantsCollab: "コラボ希望",
+    isCreator: "クリエイター",
+  };
+
+  try {
+    const result = await db.businessCard.updateMany({
+      where: { id: { in: ids } },
+      data: { [flagName]: value },
+    });
+
+    after(async () => {
+      await logAudit({
+        action: "business_card_flag_bulk_toggled",
+        email: info.email,
+        name: info.staffName,
+        entity: "business_card",
+        detail: `${result.count}件の${flagLabels[flagName]}を${value ? "ON" : "OFF"}に一括変更`,
+      });
+    });
+
+    revalidatePath("/dashboard/business-cards");
+    return { updated: result.count };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[bulkToggleBusinessCardFlag] DB error:", msg);
+    return { error: "フラグの一括変更に失敗しました" };
+  }
+}
+
+// ---------------------------------------------------------------
 // 名刺の所有者を変更する（ADMIN 限定）
 // ---------------------------------------------------------------
 export async function changeBusinessCardOwner(
