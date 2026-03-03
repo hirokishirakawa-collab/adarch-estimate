@@ -55,6 +55,7 @@ export function QuickRegisterForm() {
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleImageUpload(file: File) {
@@ -92,7 +93,30 @@ export function QuickRegisterForm() {
   return (
     <div className="space-y-6">
       {/* 画像アップロードエリア */}
-      <div className="bg-zinc-50 rounded-xl border-2 border-dashed border-zinc-300 p-6">
+      <div
+        className={`rounded-xl border-2 border-dashed p-6 transition-colors ${
+          isDragging
+            ? "border-teal-400 bg-teal-50"
+            : "border-zinc-300 bg-zinc-50"
+        }`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragEnter={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          const file = e.dataTransfer.files[0];
+          if (file && file.type.startsWith("image/")) {
+            handleImageUpload(file);
+          }
+        }}
+      >
         <div className="text-center">
           {preview ? (
             <div className="mb-4">
@@ -114,7 +138,7 @@ export function QuickRegisterForm() {
           ) : (
             <>
               <p className="text-xs text-zinc-500 mb-3">
-                名刺の写真をアップロードするとAIが自動入力します
+                名刺の写真をドラッグ＆ドロップ、またはボタンでアップロード
               </p>
               <input
                 ref={fileInputRef}
