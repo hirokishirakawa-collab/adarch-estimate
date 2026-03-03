@@ -239,8 +239,16 @@ export default async function DashboardPage() {
               <Sparkles className="w-4 h-4 text-indigo-500" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold text-indigo-600 mb-1">グループダイジェスト — 直近3日間</p>
-              <p className="text-xs text-zinc-700 leading-relaxed whitespace-pre-line">{digest}</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[11px] font-semibold text-indigo-600">グループダイジェスト — 直近3日間</p>
+                <p className="text-[10px] text-indigo-400">
+                  {new Intl.DateTimeFormat("ja-JP", {
+                    month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+                  }).format(digest.updatedAt)}
+                  {" 更新"}
+                </p>
+              </div>
+              <p className="text-xs text-zinc-700 leading-relaxed whitespace-pre-line">{digest.content}</p>
             </div>
           </div>
         </div>

@@ -4,11 +4,16 @@ import { db } from "@/lib/db";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24時間
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
+export interface DigestResult {
+  content: string;
+  updatedAt: Date;
+}
+
 /**
  * ダッシュボードダイジェストを取得（キャッシュ or 新規生成）。
  * エラー時は null を返し、ユーザー体験をブロックしない。
  */
-export async function getOrGenerateDigest(): Promise<string | null> {
+export async function getOrGenerateDigest(): Promise<DigestResult | null> {
   try {
     // 1. キャッシュ確認
     const cached = await db.dashboardDigest.findUnique({
@@ -16,7 +21,7 @@ export async function getOrGenerateDigest(): Promise<string | null> {
     });
 
     if (cached && Date.now() - cached.updatedAt.getTime() < CACHE_TTL_MS) {
-      return cached.content;
+      return { content: cached.content, updatedAt: cached.updatedAt };
     }
 
     // 2. 直近3日間のデータ集計
@@ -25,16 +30,16 @@ export async function getOrGenerateDigest(): Promise<string | null> {
 
     // 3. AI サマリー生成
     const content = await generateSummary(data);
-    if (!content) return cached?.content ?? null;
+    if (!content) return cached ? { content: cached.content, updatedAt: cached.updatedAt } : null;
 
     // 4. DB に保存（upsert）
-    await db.dashboardDigest.upsert({
+    const saved = await db.dashboardDigest.upsert({
       where: { id: "singleton" },
       create: { id: "singleton", content, dataJson: JSON.stringify(data) },
       update: { content, dataJson: JSON.stringify(data) },
     });
 
-    return content;
+    return { content: saved.content, updatedAt: saved.updatedAt };
   } catch {
     return null;
   }
@@ -43,6 +48,11 @@ export async function getOrGenerateDigest(): Promise<string | null> {
 // ----------------------------------------------------------------
 // データ集計
 // ----------------------------------------------------------------
+interface BranchActivity {
+  name: string;
+  count: number; // 顧客+商談+PJ の合計アクション数
+}
+
 interface DigestStats {
   newCustomers: number;
   newDeals: number;
@@ -56,6 +66,7 @@ interface DigestStats {
   newCollaborations: number;
   newRevenueReports: number;
   revenueTotalAmount: number;
+  activeBranches: BranchActivity[];
 }
 
 async function collectStats(since: Date): Promise<DigestStats> {
@@ -69,6 +80,9 @@ async function collectStats(since: Date): Promise<DigestStats> {
     newTverCampaigns,
     newCollaborations,
     revenueReports,
+    branchCustomers,
+    branchDeals,
+    branchProjects,
   ] = await Promise.all([
     db.customer.count({ where: { createdAt: { gte: since } } }),
     db.deal.findMany({
@@ -85,6 +99,24 @@ async function collectStats(since: Date): Promise<DigestStats> {
       where: { createdAt: { gte: since } },
       select: { amount: true },
     }),
+    // 拠点別: 新規顧客
+    db.customer.groupBy({
+      by: ["branchId"],
+      where: { createdAt: { gte: since } },
+      _count: true,
+    }),
+    // 拠点別: 新規商談
+    db.deal.groupBy({
+      by: ["branchId"],
+      where: { createdAt: { gte: since } },
+      _count: true,
+    }),
+    // 拠点別: 新規・更新PJ
+    db.project.groupBy({
+      by: ["branchId"],
+      where: { updatedAt: { gte: since } },
+      _count: true,
+    }),
   ]);
 
   const dealsByStatus: Record<string, number> = {};
@@ -99,6 +131,23 @@ async function collectStats(since: Date): Promise<DigestStats> {
     revenueTotalAmount += Number(r.amount);
   }
 
+  // 拠点別アクション集計
+  const branchMap = new Map<string, number>();
+  for (const g of branchCustomers) { branchMap.set(g.branchId, (branchMap.get(g.branchId) ?? 0) + g._count); }
+  for (const g of branchDeals) { branchMap.set(g.branchId, (branchMap.get(g.branchId) ?? 0) + g._count); }
+  for (const g of branchProjects) { branchMap.set(g.branchId, (branchMap.get(g.branchId) ?? 0) + g._count); }
+
+  // 拠点名を取得
+  const branchIds = Array.from(branchMap.keys());
+  const branches = branchIds.length > 0
+    ? await db.branch.findMany({ where: { id: { in: branchIds } }, select: { id: true, name: true } })
+    : [];
+  const branchNameMap = new Map(branches.map((b) => [b.id, b.name]));
+
+  const activeBranches: BranchActivity[] = Array.from(branchMap.entries())
+    .map(([id, count]) => ({ name: branchNameMap.get(id) ?? id, count }))
+    .sort((a, b) => b.count - a.count);
+
   return {
     newCustomers,
     newDeals: deals.length,
@@ -112,6 +161,7 @@ async function collectStats(since: Date): Promise<DigestStats> {
     newCollaborations,
     newRevenueReports: revenueReports.length,
     revenueTotalAmount,
+    activeBranches,
   };
 }
 
@@ -124,8 +174,17 @@ async function generateSummary(data: DigestStats): Promise<string | null> {
 
   const client = new Anthropic({ apiKey });
 
+  const branchText = data.activeBranches.length > 0
+    ? data.activeBranches.map((b) => `${b.name}（${b.count}件）`).join("、")
+    : "なし";
+
   const prompt = `以下はアドアーチグループの直近3日間の業務データです。グループ全体の活動状況を3〜5行で簡潔にまとめてください。
-数値が0の項目は省略し、注目すべき動きや傾向を中心にまとめてください。自然な日本語で、ビジネスチーム向けのトーンでお願いします。
+
+【トーンの指示】
+- ポジティブで前向きなトーンで書いてください。チームの頑張りを称え、勢いや成長を感じられる表現を使ってください。
+- 数値が0の項目は省略し、動きがあった部分にフォーカスしてください。
+- どの拠点が活発に動いているかを必ず言及してください。
+- データがすべて0の場合は「これから動き出すタイミング」といった前向きなメッセージにしてください。
 
 【データ】
 - 新規顧客登録: ${data.newCustomers}件
@@ -137,6 +196,9 @@ async function generateSummary(data: DigestStats): Promise<string | null> {
 - TVer配信申請: ${data.newTverCampaigns}件
 - グループ連携依頼: ${data.newCollaborations}件
 - 売上報告: ${data.newRevenueReports}件（合計: ${data.revenueTotalAmount > 0 ? `${Math.round(data.revenueTotalAmount / 10000)}万円` : "なし"}）
+
+【拠点別アクション数（顧客登録・商談・PJ の合計）】
+${branchText}
 
 サマリーのみを出力してください（見出しや箇条書きは不要）。`;
 
