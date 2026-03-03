@@ -73,6 +73,12 @@ interface NotableDeal {
   amount: number | null;
 }
 
+interface StageChange {
+  customerName: string;
+  title: string;
+  status: string;
+}
+
 interface BasicStats {
   newCustomers: number;
   newDeals: number;
@@ -95,6 +101,7 @@ interface DigestStats {
   activeBranches: BranchActivity[];
   topUsers: TopUser[];
   notableDeals: NotableDeal[];
+  stageChanges: StageChange[];
 }
 
 // ----------------------------------------------------------------
@@ -131,6 +138,8 @@ async function collectStats(since: Date): Promise<DigestStats> {
     activityLogs,
     // 注目案件
     notableDealsRaw,
+    // ステージ変更
+    stageChangesRaw,
   ] = await Promise.all([
     db.customer.count({ where: { createdAt: { gte: since } } }),
     db.deal.findMany({
@@ -184,6 +193,21 @@ async function collectStats(since: Date): Promise<DigestStats> {
       },
       orderBy: { amount: { sort: "desc", nulls: "last" } },
       take: 5,
+    }),
+    // ステージ変更: 直近で更新された既存商談（新規作成を除く）
+    db.deal.findMany({
+      where: {
+        updatedAt: { gte: since },
+        createdAt: { lt: since },
+        ...EXCLUDE_ATTACK_DEALS,
+      },
+      select: {
+        title: true,
+        status: true,
+        customer: { select: { name: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 10,
     }),
   ]);
 
@@ -239,6 +263,13 @@ async function collectStats(since: Date): Promise<DigestStats> {
     amount: d.amount ? Number(d.amount) : null,
   }));
 
+  // ステージ変更
+  const stageChanges: StageChange[] = stageChangesRaw.map((d) => ({
+    customerName: d.customer.name,
+    title: d.title,
+    status: d.status,
+  }));
+
   return {
     newCustomers,
     newDeals: deals.length,
@@ -255,6 +286,7 @@ async function collectStats(since: Date): Promise<DigestStats> {
     activeBranches,
     topUsers,
     notableDeals,
+    stageChanges,
   };
 }
 
@@ -302,12 +334,20 @@ async function generateSummary(data: DigestStats, prev: BasicStats): Promise<str
     }).join(" / ")
     : "なし";
 
+  const stageChangesText = data.stageChanges.length > 0
+    ? data.stageChanges.map((d) => {
+      const status = STATUS_LABELS[d.status] ?? d.status;
+      return `${d.customerName}「${d.title}」→ ${status}`;
+    }).join(" / ")
+    : "なし";
+
   const prompt = `以下はアドアーチグループの直近3日間の業務データです。グループ全体の活動状況を3〜5行で簡潔にまとめてください。
 
 【トーンの指示】
 - ポジティブで前向きなトーン。チームや個人の頑張りを称え、勢いや成長を感じられる表現にしてください。
 - 活躍しているメンバーの名前を自然に織り込んでください（「○○さんが精力的に活動中」等）。
 - 注目案件があれば顧客名に触れてリアリティを出してください。
+- 商談のステージ変更があれば進捗として積極的に言及してください（「○○社の案件が提案フェーズに前進」等）。
 - 前回比で増えている指標があれば勢いを強調、減っている場合も「次の一手に期待」等前向きに。
 - 数値が0の項目は省略し、動きがあった部分にフォーカス。
 - どの拠点が活発かを必ず言及。
@@ -332,6 +372,9 @@ ${topUsersText}
 
 【注目案件】
 ${notableDealsText}
+
+【商談ステージ変更（既存案件の進捗）】
+${stageChangesText}
 
 サマリーのみを出力してください（見出し・箇条書き・絵文字は不要、自然な文章で）。`;
 
