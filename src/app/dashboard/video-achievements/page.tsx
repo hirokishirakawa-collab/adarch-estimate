@@ -40,7 +40,7 @@ export default async function VideoAchievementsPage({ searchParams }: PageProps)
     achievements = await db.videoAchievement.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      take: 100,
+      take: 500,
       select: {
         id:                true,
         companyName:       true,
