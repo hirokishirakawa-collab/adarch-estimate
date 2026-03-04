@@ -229,7 +229,7 @@ export async function sendGroupSupportAlertEmail(
   try {
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
-      to: [ADMIN_EMAIL],
+      to: ["hiroki.shirakawa@adarch.co.jp"],
       subject,
       html,
     });
