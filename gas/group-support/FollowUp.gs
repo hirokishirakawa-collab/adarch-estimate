@@ -144,4 +144,29 @@ function sendCeoDigest() {
   );
 
   Logger.log('CEOダイジェスト送信完了: ' + ceoEmail);
+
+  // AI週報メールをトリガー
+  triggerWeeklyReport_();
+}
+
+/**
+ * AI週報生成APIを呼び出す
+ */
+function triggerWeeklyReport_() {
+  var config = getConfig();
+  var url = config.API_BASE_URL + '/api/cron/group-support-report';
+
+  try {
+    var response = UrlFetchApp.fetch(url, {
+      method: 'get',
+      headers: {
+        'x-api-key': config.API_KEY,
+      },
+      muteHttpExceptions: true,
+    });
+    var code = response.getResponseCode();
+    Logger.log('AI週報トリガー: ' + code + ' ' + response.getContentText());
+  } catch (e) {
+    Logger.log('AI週報トリガー失敗: ' + e.message);
+  }
 }
