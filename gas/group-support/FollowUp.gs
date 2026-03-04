@@ -1,9 +1,9 @@
 // ==============================================================
-// FollowUp.gs — 声かけ・CEOダイジェスト
+// FollowUp.gs — 声かけ・CEOダイジェスト（Webhook版）
 // ==============================================================
 
 /**
- * 未回答社への声かけを送信
+ * 未回答社への声かけを送信（Webhook版）
  * @param {number} round - 1（火曜）or 2（水曜）
  */
 function followUpUnsubmitted(round) {
@@ -15,19 +15,29 @@ function followUpUnsubmitted(round) {
     return;
   }
 
-  notSubmitted.forEach(function (company) {
-    var message = buildFollowUpMessage_(round, company.name);
+  var webhookMap = getWebhookMap_();
+  var baseUrl = getConfig().API_BASE_URL + '/group-support/submit';
 
-    // スペースにメッセージ送信
+  notSubmitted.forEach(function (company) {
+    var webhookUrl = webhookMap[company.chatSpaceId];
+    if (!webhookUrl) {
+      Logger.log('Webhook未設定: ' + company.chatSpaceId);
+      return;
+    }
+
+    var submitUrl = baseUrl + '?space=' + encodeURIComponent(company.chatSpaceId);
+    var message = buildFollowUpMessage_(round, company.name, submitUrl);
+
+    // Webhook でメッセージ送信
     try {
-      Chat.Spaces.Messages.create(
-        { text: message },
-        company.chatSpaceId
-      );
+      UrlFetchApp.fetch(webhookUrl, {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify({ text: message }),
+        muteHttpExceptions: true,
+      });
     } catch (e) {
-      Logger.log(
-        '声かけ送信失敗 (' + company.chatSpaceId + '): ' + e.message
-      );
+      Logger.log('声かけ送信失敗 (' + company.chatSpaceId + '): ' + e.message);
     }
 
     // コンタクト履歴に記録
@@ -39,9 +49,15 @@ function followUpUnsubmitted(round) {
     });
   });
 
-  Logger.log(
-    round + '回目声かけ完了: ' + notSubmitted.length + '社'
-  );
+  Logger.log(round + '回目声かけ完了: ' + notSubmitted.length + '社');
+}
+
+/**
+ * WEBHOOK_MAP から chatSpaceId → webhook URL のマッピングを取得
+ */
+function getWebhookMap_() {
+  var raw = PropertiesService.getScriptProperties().getProperty('WEBHOOK_MAP') || '{}';
+  return JSON.parse(raw);
 }
 
 /**
@@ -49,14 +65,14 @@ function followUpUnsubmitted(round) {
  * NG: 報告、催促、未提出、遅れています、管理、リマインド
  * OK: 共有、シェア、声かけ、フォロー
  */
-function buildFollowUpMessage_(round, companyName) {
+function buildFollowUpMessage_(round, companyName, submitUrl) {
   if (round === 1) {
     // 火曜: 気軽なトーン
     return (
       'こんにちは！サポート事務局です 😊\n\n' +
       '今週の共有がまだのようでしたので、お声がけしました。\n' +
       '1分ほどで完了しますので、お手すきの際にぜひ！\n\n' +
-      '上のカードの「今週のシェアを始める」からどうぞ 👆'
+      '👉 ' + submitUrl
     );
   }
 
@@ -66,7 +82,7 @@ function buildFollowUpMessage_(round, companyName) {
     '今週の共有、いつでもお待ちしています 🙌\n' +
     'もし何かお困りごとがあれば、共有フォームの中でも、\n' +
     'このスペースでの直接メッセージでも大丈夫です。\n\n' +
-    'お気軽にどうぞ！'
+    '👉 ' + submitUrl
   );
 }
 

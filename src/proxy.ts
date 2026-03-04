@@ -66,6 +66,6 @@ export default auth((req: NextAuthRequest) => {
 // ----------------------------------------------------------------
 export const config = {
   matcher: [
-    "/((?!api/auth|api/group-support|_next/static|_next/image|favicon.ico|public).*)",
+    "/((?!api/auth|api/group-support|group-support/submit|_next/static|_next/image|favicon.ico|public).*)",
   ],
 };
