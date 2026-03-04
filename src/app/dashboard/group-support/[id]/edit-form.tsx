@@ -21,8 +21,8 @@ export function GroupCompanyEditForm({
   );
 
   return (
-    <div className="rounded-lg border border-zinc-800 p-4 space-y-3">
-      <h2 className="text-sm font-semibold text-white">メモ・フェーズ</h2>
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 space-y-3">
+      <h2 className="text-sm font-semibold text-zinc-900">メモ・フェーズ</h2>
       <form action={formAction} className="space-y-3">
         <input type="hidden" name="id" value={id} />
 
@@ -33,7 +33,7 @@ export function GroupCompanyEditForm({
           <select
             name="phase"
             defaultValue={currentPhase}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-700 focus:border-blue-500 focus:outline-none"
           >
             {PHASE_OPTIONS.map((p) => (
               <option key={p.value} value={p.value}>
@@ -51,13 +51,13 @@ export function GroupCompanyEditForm({
             name="memo"
             defaultValue={currentMemo}
             rows={4}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:border-blue-500 focus:outline-none resize-none"
+            className="w-full rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-700 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none resize-none"
             placeholder="社内メモを記入..."
           />
         </div>
 
         {state?.error && (
-          <p className="text-xs text-red-400">{state.error}</p>
+          <p className="text-xs text-red-500">{state.error}</p>
         )}
 
         <button
