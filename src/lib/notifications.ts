@@ -1374,3 +1374,83 @@ export async function sendDisclosureNotification(
     await sendEmail("disclosure-result", [payload.requesterEmail], subject, html);
   }
 }
+
+// ---------------------------------------------------------------
+// グループサポート 週報AI要約（→ 社長）
+// ---------------------------------------------------------------
+export type GroupWeeklyReportStats = {
+  total: number;
+  submitted: number;
+  notSubmitted: number;
+  statusCounts: Record<string, number>;
+};
+
+export async function sendGroupWeeklyReportEmail(
+  weekId: string,
+  aiSummary: string,
+  stats: GroupWeeklyReportStats
+): Promise<void> {
+  const to = resolveRecipients("ceo_only");
+  const { total, submitted, notSubmitted, statusCounts } = stats;
+  const rate = total > 0 ? Math.round((submitted / total) * 100) : 0;
+  const subject = `【グループ週報】${weekId} AI要約レポート`;
+  const dashboardUrl = appUrl("/dashboard/group-support");
+
+  const summaryHtml = escHtml(aiSummary).replace(/\n/g, "<br>");
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:#1d4ed8;padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.3px;">Ad-Arch OS</span>
+            <span style="color:#bfdbfe;font-size:13px;margin-left:8px;">グループ週報 ${escHtml(weekId)}</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <table width="100%" cellpadding="0" cellspacing="0"
+                   style="border-collapse:collapse;margin-bottom:20px;">
+              <tr>
+                <td style="padding:12px 16px;background:#f0f9ff;border-radius:8px;font-size:14px;color:#1e40af;">
+                  共有率: <strong>${submitted}/${total}社（${rate}%）</strong>&nbsp;&nbsp;
+                  🟢${statusCounts["GREEN"] ?? 0}&nbsp;
+                  🟡${statusCounts["YELLOW"] ?? 0}&nbsp;
+                  🔴${statusCounts["RED"] ?? 0}&nbsp;
+                  ⚪${statusCounts["NONE"] ?? 0}
+                </td>
+              </tr>
+            </table>
+            <div style="font-size:14px;color:#3f3f46;line-height:1.7;">
+              ${summaryHtml}
+            </div>
+            <div style="margin-top:24px;text-align:center;">
+              <a href="${dashboardUrl}"
+                 style="display:inline-block;padding:11px 28px;background:#1d4ed8;color:#ffffff;
+                        text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
+                ダッシュボードを開く →
+              </a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f4f4f5;padding:16px 28px;border-top:1px solid #e4e4e7;">
+            <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">
+              このメールは Ad-Arch Group OS から自動送信されています。
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await sendEmail("group-weekly-report", to, subject, html);
+}

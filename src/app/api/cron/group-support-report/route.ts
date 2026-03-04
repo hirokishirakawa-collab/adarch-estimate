@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { getWeekId, STATUS_CONFIG } from "@/lib/constants/group-support";
-import { sendGroupWeeklyReportEmail } from "@/lib/resend";
+import { sendGroupWeeklyReportEmail } from "@/lib/notifications";
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const GROUP_SUPPORT_API_KEY = process.env.GROUP_SUPPORT_API_KEY ?? "";
