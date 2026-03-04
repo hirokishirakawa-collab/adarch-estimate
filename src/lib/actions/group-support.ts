@@ -73,6 +73,39 @@ export async function getGroupCompanyDetail(id: string) {
 // ----------------------------------------------------------------
 // メモ・フェーズ更新
 // ----------------------------------------------------------------
+// ----------------------------------------------------------------
+// 週報生成
+// ----------------------------------------------------------------
+export async function generateWeeklyReport(
+  weekId: string
+): Promise<{ error?: string }> {
+  try {
+    await requireAdmin();
+
+    const apiKey = process.env.GROUP_SUPPORT_API_KEY;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+    const res = await fetch(
+      `${baseUrl}/api/cron/group-support-report?weekId=${encodeURIComponent(weekId)}`,
+      { headers: { "x-api-key": apiKey ?? "" } }
+    );
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return { error: body.error ?? `HTTP ${res.status}` };
+    }
+
+    revalidatePath("/dashboard/group-support");
+    return {};
+  } catch (e) {
+    console.error("[group-support] Report generation error:", e);
+    return { error: "週報の生成に失敗しました" };
+  }
+}
+
+// ----------------------------------------------------------------
+// メモ・フェーズ更新
+// ----------------------------------------------------------------
 export async function updateGroupCompany(
   _prev: { error?: string } | null,
   formData: FormData

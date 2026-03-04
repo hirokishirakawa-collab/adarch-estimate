@@ -8,6 +8,7 @@ import {
   PHASE_OPTIONS,
 } from "@/lib/constants/group-support";
 import type { WeeklyStatus } from "@/generated/prisma/client";
+import { GenerateReportButton } from "./GenerateReportButton";
 
 const STATUS_LIGHT: Record<
   WeeklyStatus,
@@ -53,9 +54,12 @@ export default async function GroupSupportPage() {
   return (
     <div className="space-y-5">
       {/* ヘッダー */}
-      <div>
-        <h1 className="text-lg font-bold text-zinc-900">グループサポート</h1>
-        <p className="text-xs text-zinc-500 mt-0.5">{weekId}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold text-zinc-900">グループサポート</h1>
+          <p className="text-xs text-zinc-500 mt-0.5">{weekId}</p>
+        </div>
+        <GenerateReportButton weekId={weekId} />
       </div>
 
       {/* ステータスサマリー */}
