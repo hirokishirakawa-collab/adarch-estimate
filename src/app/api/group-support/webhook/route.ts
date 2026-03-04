@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { verifyWebhookApiKey } from "@/lib/webhook-auth";
 import { calculateStatus, getWeekId } from "@/lib/constants/group-support";
 import { logAudit } from "@/lib/audit";
+import { sendGroupSupportAlertEmail } from "@/lib/resend";
 
 export async function POST(req: NextRequest) {
   // 認証
@@ -80,6 +81,21 @@ export async function POST(req: NextRequest) {
       entityId: submission.id,
       detail: `${weekId} status=${status}`,
     });
+
+    // Q5がサポート要請の場合、即時メール通知
+    if (q5 === "あると助かる" || q5 === "できれば早めに欲しい") {
+      sendGroupSupportAlertEmail({
+        companyName: company.name,
+        ownerName: company.ownerName,
+        companyId: company.id,
+        q1,
+        q5,
+        q4,
+        weekId,
+      }).catch((e) =>
+        console.error("[group-support/webhook] Alert email error:", e)
+      );
+    }
 
     return NextResponse.json({
       ok: true,

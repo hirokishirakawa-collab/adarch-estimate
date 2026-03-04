@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { calculateStatus, getWeekId } from "@/lib/constants/group-support";
 import { logAudit } from "@/lib/audit";
+import { sendGroupSupportAlertEmail } from "@/lib/resend";
 
 export type SubmitState = {
   success?: boolean;
@@ -75,6 +76,21 @@ export async function submitWeeklyShare(
       entityId: submission.id,
       detail: `${weekId} status=${status}`,
     });
+
+    // Q5がサポート要請の場合、即時メール通知
+    if (q5 === "あると助かる" || q5 === "できれば早めに欲しい") {
+      sendGroupSupportAlertEmail({
+        companyName: company.name,
+        ownerName: company.ownerName,
+        companyId: company.id,
+        q1,
+        q5,
+        q4,
+        weekId,
+      }).catch((e) =>
+        console.error("[group-support/submit] Alert email error:", e)
+      );
+    }
 
     return { success: true, companyName: company.name };
   } catch (e) {

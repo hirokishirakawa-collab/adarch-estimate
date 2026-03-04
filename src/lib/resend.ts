@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------
-// Resend メール送信ユーティリティ（TVer配信申請 通知用）
+// Resend メール送信ユーティリティ
 // ---------------------------------------------------------------
 
 import { Resend } from "resend";
@@ -136,5 +136,109 @@ export async function sendTverCampaignCreatedEmail(
     }
   } catch (e) {
     console.error("[resend:tver-campaign-created] 例外:", e instanceof Error ? e.message : e);
+  }
+}
+
+// ---------------------------------------------------------------
+// グループサポート サポート要請アラート（→ 管理者）
+// Q5 が「あると助かる」または「できれば早めに欲しい」の場合に即時送信
+// ---------------------------------------------------------------
+export type GroupSupportAlertPayload = {
+  companyName: string;
+  ownerName: string;
+  companyId: string;
+  q1: string;
+  q5: string;
+  q4: string;
+  weekId: string;
+};
+
+export async function sendGroupSupportAlertEmail(
+  payload: GroupSupportAlertPayload
+): Promise<void> {
+  const { companyName, ownerName, companyId, q1, q5, q4, weekId } = payload;
+  const url = appUrl(`/dashboard/group-support/${companyId}`);
+
+  const isUrgent = q5 === "できれば早めに欲しい";
+  const urgencyLabel = isUrgent ? "🆘 至急" : "🙏 サポート希望";
+  const subject = `【グループサポート${isUrgent ? "・至急」" : "】"}${companyName}（${ownerName}）からサポート要請`;
+
+  const rows = [
+    ["企業", companyName],
+    ["代表者", ownerName],
+    ["週", weekId],
+    ["Q1. 今週の調子", q1],
+    ["Q5. サポート要請", `${urgencyLabel}  ${q5}`],
+    ["Q4. 共有・相談", q4 || "（記載なし）"],
+  ]
+    .map(
+      ([label, value]) => `
+      <tr>
+        <th style="${thStyle}">${escHtml(label)}</th>
+        <td style="${tdStyle}">${escHtml(value)}</td>
+      </tr>`
+    )
+    .join("");
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:${isUrgent ? "#dc2626" : "#f59e0b"};padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;">${urgencyLabel}</span>
+            <span style="color:rgba(255,255,255,0.85);font-size:13px;margin-left:8px;">グループサポート通知</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;">
+              ${escHtml(companyName)}の${escHtml(ownerName)}さんから、本部サポートの要請がありました。
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0"
+                   style="border-collapse:collapse;font-size:14px;">
+              ${rows}
+            </table>
+            <div style="margin-top:24px;text-align:center;">
+              <a href="${url}"
+                 style="display:inline-block;padding:11px 28px;background:#1d4ed8;color:#ffffff;
+                        text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
+                詳細を確認する →
+              </a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f4f4f5;padding:16px 28px;border-top:1px solid #e4e4e7;">
+            <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">
+              このメールは Ad-Arch Group OS から自動送信されています。
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [ADMIN_EMAIL],
+      subject,
+      html,
+    });
+    if (error) {
+      console.error("[resend:group-support-alert] error:", error);
+    } else {
+      console.log("[resend:group-support-alert] ✅ 送信完了:", companyName);
+    }
+  } catch (e) {
+    console.error("[resend:group-support-alert] 例外:", e instanceof Error ? e.message : e);
   }
 }
