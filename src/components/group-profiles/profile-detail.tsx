@@ -5,8 +5,10 @@ import {
   ArrowLeft,
   Pencil,
   MessageCircle,
+  FolderKanban,
 } from "lucide-react";
 import { SNS_PLATFORMS, GENRE_OPTIONS } from "@/lib/constants/group-profile";
+import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
 
 interface ProfileData {
   id: string;
@@ -27,11 +29,21 @@ interface ProfileData {
   websiteUrl: string | null;
 }
 
+interface ProjectItem {
+  id: string;
+  title: string;
+  status: string;
+  budget: unknown;
+  customer: { name: string } | null;
+  createdAt: Date;
+}
+
 interface ProfileDetailProps {
   profile: ProfileData;
   canEdit: boolean;
   editHref: string;
   isOwner: boolean;
+  projects: ProjectItem[];
 }
 
 /** SNS アイコン（SVG インライン） */
@@ -80,7 +92,7 @@ function SnsIcon({ icon }: { icon: string }) {
   }
 }
 
-export function ProfileDetail({ profile, canEdit, editHref, isOwner }: ProfileDetailProps) {
+export function ProfileDetail({ profile, canEdit, editHref, isOwner, projects }: ProfileDetailProps) {
   const initials = profile.ownerName.slice(0, 2);
   const genreStyle = GENRE_OPTIONS.find((g) => g.value === profile.genre);
 
@@ -217,6 +229,40 @@ export function ProfileDetail({ profile, canEdit, editHref, isOwner }: ProfileDe
           <p className="text-sm text-zinc-400 italic">プロフィール情報がまだ設定されていません</p>
         )}
       </div>
+
+      {/* プロジェクト実績 */}
+      {projects.length > 0 && (
+        <div className="mt-6 bg-white border border-zinc-200 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <FolderKanban className="w-4 h-4 text-violet-500" />
+            <h3 className="text-sm font-bold text-zinc-900">プロジェクト実績</h3>
+            <span className="text-xs text-zinc-400">（最新{projects.length}件）</span>
+          </div>
+          <div className="space-y-2">
+            {projects.map((pj) => {
+              const st = PROJECT_STATUS_OPTIONS.find((s) => s.value === pj.status);
+              return (
+                <div
+                  key={pj.id}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-zinc-50 border border-zinc-100"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-zinc-800 truncate">{pj.title}</p>
+                    {pj.customer && (
+                      <p className="text-xs text-zinc-400 truncate">{pj.customer.name}</p>
+                    )}
+                  </div>
+                  {st && (
+                    <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full border flex-shrink-0 ${st.className}`}>
+                      {st.label}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

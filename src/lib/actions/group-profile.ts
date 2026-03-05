@@ -94,6 +94,44 @@ export async function getMyGroupCompany() {
 }
 
 // ---------------------------------------------------------------
+// プロフィールに紐づくプロジェクト一覧
+// GroupCompany → linkedUsers → branch → projects
+// ---------------------------------------------------------------
+export async function getProfileProjects(groupCompanyId: string) {
+  await requireSession();
+  try {
+    // この GroupCompany に紐づくユーザーの branchId を取得
+    const users = await db.user.findMany({
+      where: { groupCompanyId },
+      select: { branchId: true, branchId2: true },
+    });
+    const branchIds = [
+      ...new Set(
+        users.flatMap((u) => [u.branchId, u.branchId2]).filter(Boolean) as string[]
+      ),
+    ];
+    if (branchIds.length === 0) return [];
+
+    return db.project.findMany({
+      where: { branchId: { in: branchIds } },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        budget: true,
+        customer: { select: { name: true } },
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+  } catch (e) {
+    console.error("[getProfileProjects] DB error:", e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------
 // FormData → プロフィールデータ変換
 // ---------------------------------------------------------------
 function extractProfileData(formData: FormData) {

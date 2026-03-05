@@ -1,6 +1,6 @@
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { getProfileById, getMyGroupCompany } from "@/lib/actions/group-profile";
+import { getProfileById, getMyGroupCompany, getProfileProjects } from "@/lib/actions/group-profile";
 import { ProfileDetail } from "@/components/group-profiles/profile-detail";
 import type { UserRole } from "@/types/roles";
 
@@ -10,10 +10,11 @@ interface Props {
 
 export default async function GroupProfileDetailPage({ params }: Props) {
   const { id } = await params;
-  const [profile, myCompany, session] = await Promise.all([
+  const [profile, myCompany, session, projects] = await Promise.all([
     getProfileById(id),
     getMyGroupCompany(),
     auth(),
+    getProfileProjects(id),
   ]);
 
   if (!profile || !profile.isActive) notFound();
@@ -29,7 +30,13 @@ export default async function GroupProfileDetailPage({ params }: Props) {
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
-      <ProfileDetail profile={profile} canEdit={canEdit} editHref={editHref} isOwner={isOwner} />
+      <ProfileDetail
+        profile={profile}
+        canEdit={canEdit}
+        editHref={editHref}
+        isOwner={isOwner}
+        projects={projects}
+      />
     </div>
   );
 }
