@@ -34,7 +34,6 @@ export default async function GroupProfileDetailPage({ params }: Props) {
         profile={profile}
         canEdit={canEdit}
         editHref={editHref}
-        isOwner={isOwner}
         projects={projects}
       />
     </div>

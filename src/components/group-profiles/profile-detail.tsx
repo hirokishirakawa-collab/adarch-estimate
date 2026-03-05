@@ -4,7 +4,6 @@ import {
   Globe,
   ArrowLeft,
   Pencil,
-  MessageCircle,
   FolderKanban,
 } from "lucide-react";
 import { SNS_PLATFORMS, GENRE_OPTIONS } from "@/lib/constants/group-profile";
@@ -43,7 +42,6 @@ interface ProfileDetailProps {
   profile: ProfileData;
   canEdit: boolean;
   editHref: string;
-  isOwner: boolean;
   projects: ProjectItem[];
 }
 
@@ -93,12 +91,9 @@ function SnsIcon({ icon }: { icon: string }) {
   }
 }
 
-export function ProfileDetail({ profile, canEdit, editHref, isOwner, projects }: ProfileDetailProps) {
+export function ProfileDetail({ profile, canEdit, editHref, projects }: ProfileDetailProps) {
   const initials = profile.ownerName.slice(0, 2);
   const genreStyle = GENRE_OPTIONS.find((g) => g.value === profile.genre);
-
-  // Google Chat スペースへの DM リンク
-  const chatUrl = `https://chat.google.com/room/${profile.chatSpaceId}`;
 
   // SNS リンク一覧を構築
   const snsLinks = SNS_PLATFORMS
@@ -161,19 +156,6 @@ export function ProfileDetail({ profile, canEdit, editHref, isOwner, projects }:
             </div>
           </div>
         </div>
-
-        {/* この代表に相談するボタン（自分以外に表示） */}
-        {!isOwner && (
-          <a
-            href={chatUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 mb-5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors"
-          >
-            <MessageCircle className="w-4 h-4" />
-            この代表に相談する
-          </a>
-        )}
 
         {/* 自己紹介 */}
         {profile.bio && (
