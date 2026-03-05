@@ -22,12 +22,17 @@ interface CollaborationBannerProps {
   highlights: Highlight[];
 }
 
+const MAX_DISPLAY = 2;
+
 export function CollaborationBanner({ highlights }: CollaborationBannerProps) {
   if (highlights.length === 0) return null;
 
+  const visible = highlights.slice(0, MAX_DISPLAY);
+  const rest = highlights.length - MAX_DISPLAY;
+
   return (
     <div className="mb-5 space-y-2">
-      {highlights.map((h) => (
+      {visible.map((h) => (
         <div
           key={h.id}
           className="flex items-center gap-2.5 rounded-lg border border-violet-200/60 bg-gradient-to-r from-violet-50/80 to-blue-50/60 px-3.5 py-2"
@@ -51,6 +56,14 @@ export function CollaborationBanner({ highlights }: CollaborationBannerProps) {
           </div>
         </div>
       ))}
+      {rest > 0 && (
+        <Link
+          href="/dashboard/group-profiles/highlights/all"
+          className="inline-flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 transition-colors"
+        >
+          他 {rest}件の連携案件を見る →
+        </Link>
+      )}
     </div>
   );
 }
