@@ -41,7 +41,8 @@ async function requireSession() {
 }
 
 // ---------------------------------------------------------------
-// 全アクティブ企業のプロフィール一覧（プロジェクト更新順）
+// 全アクティブ企業のプロフィール一覧（業務活動が新しい順）
+// 顧客・商談・プロジェクトの updatedAt を横断して最新を算出
 // ---------------------------------------------------------------
 export async function getProfiles() {
   await requireSession();
@@ -56,7 +57,6 @@ export async function getProfiles() {
       },
     });
 
-    // 各企業の最新プロジェクト更新日を一括取得
     const allBranchIds = [
       ...new Set(
         companies.flatMap((c) =>
@@ -65,19 +65,40 @@ export async function getProfiles() {
       ),
     ];
 
-    const latestProjects = allBranchIds.length > 0
-      ? await db.project.groupBy({
-          by: ["branchId"],
-          where: { branchId: { in: allBranchIds } },
-          _max: { updatedAt: true },
-        })
-      : [];
+    // 顧客・商談・プロジェクトの最新 updatedAt を一括取得
+    const [latestCustomers, latestDeals, latestProjects] = allBranchIds.length > 0
+      ? await Promise.all([
+          db.customer.groupBy({
+            by: ["branchId"],
+            where: { branchId: { in: allBranchIds } },
+            _max: { updatedAt: true },
+          }),
+          db.deal.groupBy({
+            by: ["branchId"],
+            where: { branchId: { in: allBranchIds } },
+            _max: { updatedAt: true },
+          }),
+          db.project.groupBy({
+            by: ["branchId"],
+            where: { branchId: { in: allBranchIds } },
+            _max: { updatedAt: true },
+          }),
+        ])
+      : [[], [], []];
 
-    const branchLatest = new Map(
-      latestProjects.map((p) => [p.branchId, p._max.updatedAt])
-    );
+    // branchId → 最新日のマップを統合
+    const branchLatest = new Map<string, Date>();
+    for (const list of [latestCustomers, latestDeals, latestProjects]) {
+      for (const row of list) {
+        const d = row._max.updatedAt;
+        if (!d) continue;
+        const prev = branchLatest.get(row.branchId);
+        if (!prev || d.getTime() > prev.getTime()) {
+          branchLatest.set(row.branchId, d);
+        }
+      }
+    }
 
-    // 各企業の最新プロジェクト日を算出してソート
     const withLatest = companies.map((c) => {
       const branchIds = c.linkedUsers
         .flatMap((u) => [u.branchId, u.branchId2])
@@ -88,18 +109,17 @@ export async function getProfiles() {
       const latestAt = dates.length > 0
         ? new Date(Math.max(...dates.map((d) => d.getTime())))
         : null;
-      // linkedUsers は返さない
       const { linkedUsers: _, ...profile } = c;
-      return { ...profile, latestProjectAt: latestAt };
+      return { ...profile, latestActivityAt: latestAt };
     });
 
-    // プロジェクト更新が新しい順、更新なしは末尾（名前順）
+    // 活動が新しい順、活動なしは末尾（名前順）
     withLatest.sort((a, b) => {
-      if (a.latestProjectAt && b.latestProjectAt) {
-        return b.latestProjectAt.getTime() - a.latestProjectAt.getTime();
+      if (a.latestActivityAt && b.latestActivityAt) {
+        return b.latestActivityAt.getTime() - a.latestActivityAt.getTime();
       }
-      if (a.latestProjectAt) return -1;
-      if (b.latestProjectAt) return 1;
+      if (a.latestActivityAt) return -1;
+      if (b.latestActivityAt) return 1;
       return a.name.localeCompare(b.name, "ja");
     });
 
