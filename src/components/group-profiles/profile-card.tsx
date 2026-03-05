@@ -37,7 +37,7 @@ export function ProfileCard({ id, name, ownerName, emoji, genre, prefecture, bio
           <p className="text-sm font-bold text-zinc-900 truncate group-hover:text-blue-600 transition-colors">
             {ownerName}
           </p>
-          <p className="text-xs text-zinc-500 truncate">{name}</p>
+          <p className="text-xs text-zinc-500 truncate">{name.match(/（(.+)）/)?.[1] ?? name}</p>
         </div>
       </div>
 
