@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { Shield, Users } from "lucide-react";
-import { getAdminUserList } from "@/lib/actions/admin";
+import { getAdminUserList, getGroupCompanyOptions } from "@/lib/actions/admin";
 import { UserTable } from "@/components/admin/user-table";
 import { RegisterMemberForm } from "@/components/admin/register-member-form";
 import type { UserRole } from "@/types/roles";
@@ -15,7 +15,10 @@ export default async function AdminUsersPage() {
   const callerEmail = session?.user?.email ?? "";
 
   // ── データ取得 ─────────────────────────────────────────────────
-  const users = await getAdminUserList();
+  const [users, groupCompanies] = await Promise.all([
+    getAdminUserList(),
+    getGroupCompanyOptions(),
+  ]);
 
   // ── ロール別カウント ───────────────────────────────────────────
   const counts = {
@@ -63,7 +66,7 @@ export default async function AdminUsersPage() {
       <RegisterMemberForm />
 
       {/* ユーザーテーブル */}
-      <UserTable users={users} callerEmail={callerEmail} />
+      <UserTable users={users} callerEmail={callerEmail} groupCompanies={groupCompanies} />
     </div>
   );
 }

@@ -15,14 +15,23 @@ type UserRow = {
   role: string;
   branchId:  string | null;
   branchId2: string | null;
+  groupCompanyId: string | null;
   createdAt: Date;
   branch:  { name: string } | null;
   branch2: { name: string } | null;
+  groupCompany: { id: string; name: string } | null;
+};
+
+type GroupCompanyOption = {
+  id: string;
+  name: string;
+  ownerName: string;
 };
 
 interface Props {
   users: UserRow[];
   callerEmail: string;
+  groupCompanies: GroupCompanyOption[];
 }
 
 // ---------------------------------------------------------------
@@ -138,18 +147,43 @@ function RoleForm({
 // ---------------------------------------------------------------
 // 名前・拠点変更フォーム（拠点2つ）
 // ---------------------------------------------------------------
+function GroupCompanySelect({
+  name,
+  defaultValue,
+  disabled,
+  options,
+}: {
+  name: string;
+  defaultValue: string | null;
+  disabled: boolean;
+  options: GroupCompanyOption[];
+}) {
+  return (
+    <select name={name} defaultValue={defaultValue ?? ""} disabled={disabled} className={`${inputCls} max-w-[160px]`}>
+      <option value="">— 未紐付 —</option>
+      {options.map((gc) => (
+        <option key={gc.id} value={gc.id}>{gc.name}（{gc.ownerName}）</option>
+      ))}
+    </select>
+  );
+}
+
 function InfoForm({
   userId,
   currentName,
   currentBranchId,
   currentBranchId2,
+  currentGroupCompanyId,
   disabled,
+  groupCompanies,
 }: {
   userId: string;
   currentName: string | null;
   currentBranchId: string | null;
   currentBranchId2: string | null;
+  currentGroupCompanyId: string | null;
   disabled: boolean;
+  groupCompanies: GroupCompanyOption[];
 }) {
   const boundAction = updateUserInfo.bind(null, userId);
   const [state, formAction, isPending] = useActionState(boundAction, null);
@@ -166,6 +200,7 @@ function InfoForm({
       />
       <BranchSelect name="branchId"  defaultValue={currentBranchId}  disabled={disabled || isPending} />
       <BranchSelect name="branchId2" defaultValue={currentBranchId2} disabled={disabled || isPending} />
+      <GroupCompanySelect name="groupCompanyId" defaultValue={currentGroupCompanyId} disabled={disabled || isPending} options={groupCompanies} />
       <button type="submit" disabled={disabled || isPending} className={submitCls}>
         {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
         保存
@@ -219,7 +254,7 @@ function branchLabel(branch: { name: string } | null, role: string, isSecond = f
   return branch?.name ?? (role === "ADMIN" ? "本部" : "未割当");
 }
 
-export function UserTable({ users, callerEmail }: Props) {
+export function UserTable({ users, callerEmail, groupCompanies }: Props) {
   return (
     <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -267,12 +302,14 @@ export function UserTable({ users, callerEmail }: Props) {
                       </div>
                     ) : (
                       <InfoForm
-                        key={`${user.id}-${user.name}-${user.branchId}-${user.branchId2}`}
+                        key={`${user.id}-${user.name}-${user.branchId}-${user.branchId2}-${user.groupCompanyId}`}
                         userId={user.id}
                         currentName={user.name}
                         currentBranchId={user.branchId}
                         currentBranchId2={user.branchId2}
+                        currentGroupCompanyId={user.groupCompanyId}
                         disabled={false}
+                        groupCompanies={groupCompanies}
                       />
                     )}
                   </td>

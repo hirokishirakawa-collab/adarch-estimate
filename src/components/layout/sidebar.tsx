@@ -24,6 +24,7 @@ import {
   Building2,
   FileText,
   Network,
+  Users2,
   Tv2,
   UtensilsCrossed,
   Clapperboard,
@@ -35,6 +36,7 @@ import {
   Target,
   ContactRound,
   HeartHandshake,
+  Crosshair,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -102,6 +104,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: ContactRound,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/leads",
+        label: "リード獲得AI",
+        icon: Crosshair,
+        minRole: "USER",
+      },
     ],
   },
   {
@@ -118,6 +126,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/group-sync",
         label: "グループ連携依頼",
         icon: Network,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/group-profiles",
+        label: "メンバー紹介",
+        icon: Users2,
         minRole: "USER",
       },
     ],

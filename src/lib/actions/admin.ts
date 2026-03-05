@@ -30,10 +30,28 @@ export async function getAdminUserList() {
       include: {
         branch:  { select: { name: true } },
         branch2: { select: { name: true } },
+        groupCompany: { select: { id: true, name: true } },
       },
     });
   } catch (e) {
     console.error("[getAdminUserList] DB error:", e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------
+// グループ企業一覧取得（ADMIN ユーザー管理用）
+// ---------------------------------------------------------------
+export async function getGroupCompanyOptions() {
+  await requireAdmin();
+  try {
+    return db.groupCompany.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, ownerName: true },
+      orderBy: { name: "asc" },
+    });
+  } catch (e) {
+    console.error("[getGroupCompanyOptions] DB error:", e instanceof Error ? e.message : e);
     return [];
   }
 }
@@ -93,14 +111,15 @@ export async function updateUserInfo(
 ): Promise<{ error?: string; success?: boolean }> {
   const { callerEmail } = await requireAdmin();
 
-  const name      = (formData.get("name")      as string)?.trim() || null;
-  const branchId  = (formData.get("branchId")  as string)?.trim() || null;
-  const branchId2 = (formData.get("branchId2") as string)?.trim() || null;
+  const name           = (formData.get("name")           as string)?.trim() || null;
+  const branchId       = (formData.get("branchId")       as string)?.trim() || null;
+  const branchId2      = (formData.get("branchId2")      as string)?.trim() || null;
+  const groupCompanyId = (formData.get("groupCompanyId") as string)?.trim() || null;
 
   try {
     await db.user.update({
       where: { id: userId },
-      data:  { name, branchId, branchId2 },
+      data:  { name, branchId, branchId2, groupCompanyId },
     });
     logAudit({ action: "user_updated", email: callerEmail, entity: "user", entityId: userId, detail: name });
   } catch (e) {

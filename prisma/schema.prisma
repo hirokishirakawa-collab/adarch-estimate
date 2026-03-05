@@ -248,6 +248,10 @@ model User {
 
   isActive Boolean @default(true) // 本部がアカウントを有効/無効管理
 
+  // ---- グループ企業紐付け（メンバープロフィール用）----
+  groupCompanyId String?
+  groupCompany   GroupCompany? @relation("UserGroupCompany", fields: [groupCompanyId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -273,6 +277,7 @@ model User {
   @@index([branchId])
   @@index([branchId2])
   @@index([role])
+  @@index([groupCompanyId])
   @@map("users")
 }
 
@@ -1190,11 +1195,26 @@ model GroupCompany {
   memo         String?           @db.Text // 本部メモ
   isActive     Boolean           @default(true)
 
+  // ---- プロフィール情報 ----
+  genre        String?           // ジャンル（営業 / 制作 / 両方 / その他）
+  specialty    String?           @db.Text // 得意な仕事
+  workHistory  String?           @db.Text // これまでの仕事
+  prefecture   String?           // 都道府県
+  bio          String?           @db.Text // 自己紹介
+  twitterUrl   String?           // X (Twitter)
+  instagramUrl String?           // Instagram
+  facebookUrl  String?           // Facebook
+  lineId       String?           // LINE ID
+  youtubeUrl   String?           // YouTube
+  tiktokUrl    String?           // TikTok
+  websiteUrl   String?           // Webサイト
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   weeklySubmissions WeeklySubmission[]
   contactHistories  ContactHistory[]
+  linkedUsers       User[]             @relation("UserGroupCompany")
 
   @@index([phase])
   @@map("group_companies")
