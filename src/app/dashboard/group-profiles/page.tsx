@@ -70,6 +70,7 @@ export default async function GroupProfilesPage({ searchParams }: Props) {
               id={p.id}
               name={p.name}
               ownerName={p.ownerName}
+              emoji={p.emoji}
               genre={p.genre}
               prefecture={p.prefecture}
               bio={p.bio}

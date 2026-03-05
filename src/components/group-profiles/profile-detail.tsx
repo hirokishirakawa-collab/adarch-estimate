@@ -15,6 +15,7 @@ interface ProfileData {
   name: string;
   ownerName: string;
   chatSpaceId: string;
+  emoji: string | null;
   genre: string | null;
   specialty: string | null;
   workHistory: string | null;
@@ -133,9 +134,15 @@ export function ProfileDetail({ profile, canEdit, editHref, isOwner, projects }:
       <div className="bg-white border border-zinc-200 rounded-xl p-6">
         {/* ヘッダー */}
         <div className="flex items-start gap-4 mb-5">
-          <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold ring-2 ring-blue-100 flex-shrink-0">
-            {initials}
-          </div>
+          {profile.emoji ? (
+            <div className="w-20 h-20 rounded-full bg-zinc-100 flex items-center justify-center text-4xl ring-2 ring-zinc-200 flex-shrink-0">
+              {profile.emoji}
+            </div>
+          ) : (
+            <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold ring-2 ring-blue-100 flex-shrink-0">
+              {initials}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-zinc-900">{profile.ownerName}</h2>
             <p className="text-sm text-zinc-500">{profile.name}</p>

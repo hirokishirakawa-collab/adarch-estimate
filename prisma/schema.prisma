@@ -1196,6 +1196,7 @@ model GroupCompany {
   isActive     Boolean           @default(true)
 
   // ---- プロフィール情報 ----
+  emoji        String?           // プロフィールアイコン（絵文字）
   genre        String?           // ジャンル（営業 / 制作 / 両方 / その他）
   specialty    String?           @db.Text // 得意な仕事
   workHistory  String?           @db.Text // これまでの仕事

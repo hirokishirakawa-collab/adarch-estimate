@@ -6,13 +6,14 @@ interface ProfileCardProps {
   id: string;
   name: string;
   ownerName: string;
+  emoji: string | null;
   genre: string | null;
   prefecture: string | null;
   bio: string | null;
   specialty: string | null;
 }
 
-export function ProfileCard({ id, name, ownerName, genre, prefecture, bio, specialty }: ProfileCardProps) {
+export function ProfileCard({ id, name, ownerName, emoji, genre, prefecture, bio, specialty }: ProfileCardProps) {
   const initials = ownerName.slice(0, 2);
   const genreStyle = GENRE_OPTIONS.find((g) => g.value === genre);
 
@@ -23,9 +24,15 @@ export function ProfileCard({ id, name, ownerName, genre, prefecture, bio, speci
     >
       {/* アバター */}
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-blue-100 flex-shrink-0">
-          {initials}
-        </div>
+        {emoji ? (
+          <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-2xl ring-2 ring-zinc-200 flex-shrink-0">
+            {emoji}
+          </div>
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-blue-100 flex-shrink-0">
+            {initials}
+          </div>
+        )}
         <div className="min-w-0">
           <p className="text-sm font-bold text-zinc-900 truncate group-hover:text-blue-600 transition-colors">
             {ownerName}

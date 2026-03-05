@@ -15,6 +15,7 @@ const PROFILE_SELECT = {
   name: true,
   ownerName: true,
   chatSpaceId: true,
+  emoji: true,
   genre: true,
   specialty: true,
   workHistory: true,

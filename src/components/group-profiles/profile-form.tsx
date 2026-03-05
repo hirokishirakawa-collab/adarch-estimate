@@ -13,6 +13,7 @@ interface ProfileData {
   id: string;
   name: string;
   ownerName: string;
+  emoji: string | null;
   genre: string | null;
   specialty: string | null;
   workHistory: string | null;
@@ -91,6 +92,21 @@ export function ProfileForm({ profile, action, backHref, onDelete }: ProfileForm
 
       {/* フォーム */}
       <form action={formAction} className="bg-white border border-zinc-200 rounded-xl p-6 space-y-5">
+        {/* アイコン（絵文字） */}
+        <div>
+          <label className={labelCls}>アイコン</label>
+          <input
+            name="emoji"
+            type="text"
+            defaultValue={profile.emoji ?? ""}
+            placeholder="好きな絵文字を1つ入力（例: 🎬 🎥 📸 🚀）"
+            maxLength={4}
+            disabled={isPending}
+            className={`${inputCls} w-48 text-2xl`}
+          />
+          <p className="text-[11px] text-zinc-400 mt-1">カード一覧やプロフィールに表示されます。未設定の場合はイニシャルが表示されます</p>
+        </div>
+
         {/* ジャンル */}
         <div>
           <label className={labelCls}>ジャンル</label>

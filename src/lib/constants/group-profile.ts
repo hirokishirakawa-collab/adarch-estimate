@@ -27,6 +27,7 @@ export type SnsKey = (typeof SNS_PLATFORMS)[number]["key"];
 
 /** プロフィール編集可能フィールド */
 export const PROFILE_FIELDS = [
+  "emoji",
   "genre",
   "specialty",
   "workHistory",
