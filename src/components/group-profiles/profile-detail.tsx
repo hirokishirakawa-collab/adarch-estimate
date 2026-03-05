@@ -5,9 +5,11 @@ import {
   ArrowLeft,
   Pencil,
   FolderKanban,
+  Building2,
 } from "lucide-react";
 import { SNS_PLATFORMS, GENRE_OPTIONS } from "@/lib/constants/group-profile";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
+import { CUSTOMER_STATUS_OPTIONS } from "@/lib/constants/crm";
 
 interface ProfileData {
   id: string;
@@ -38,11 +40,21 @@ interface ProjectItem {
   createdAt: Date;
 }
 
+interface CustomerItem {
+  id: string;
+  name: string;
+  status: string;
+  rank: string;
+  industry: string | null;
+  prefecture: string | null;
+}
+
 interface ProfileDetailProps {
   profile: ProfileData;
   canEdit: boolean;
   editHref: string;
   projects: ProjectItem[];
+  customers: CustomerItem[];
 }
 
 /** SNS アイコン（SVG インライン） */
@@ -91,7 +103,7 @@ function SnsIcon({ icon }: { icon: string }) {
   }
 }
 
-export function ProfileDetail({ profile, canEdit, editHref, projects }: ProfileDetailProps) {
+export function ProfileDetail({ profile, canEdit, editHref, projects, customers }: ProfileDetailProps) {
   const initials = profile.ownerName.slice(0, 2);
   const genreStyle = GENRE_OPTIONS.find((g) => g.value === profile.genre);
 
@@ -218,6 +230,40 @@ export function ProfileDetail({ profile, canEdit, editHref, projects }: ProfileD
           <p className="text-sm text-zinc-400 italic">プロフィール情報がまだ設定されていません</p>
         )}
       </div>
+
+      {/* 顧客企業 */}
+      {customers.length > 0 && (
+        <div className="mt-6 bg-white border border-zinc-200 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Building2 className="w-4 h-4 text-blue-500" />
+            <h3 className="text-sm font-bold text-zinc-900">顧客企業</h3>
+            <span className="text-xs text-zinc-400">（{customers.length}社）</span>
+          </div>
+          <div className="space-y-2">
+            {customers.map((c) => {
+              const st = CUSTOMER_STATUS_OPTIONS.find((s) => s.value === c.status);
+              return (
+                <div
+                  key={c.id}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-zinc-50 border border-zinc-100"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-zinc-800 truncate">{c.name}</p>
+                    <p className="text-xs text-zinc-400 truncate">
+                      {[c.industry, c.prefecture].filter(Boolean).join(" / ") || "—"}
+                    </p>
+                  </div>
+                  {st && (
+                    <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full border flex-shrink-0 ${st.className}`}>
+                      {st.label}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* プロジェクト実績 */}
       {projects.length > 0 && (

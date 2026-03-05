@@ -206,6 +206,42 @@ export async function getProfileProjects(groupCompanyId: string) {
 }
 
 // ---------------------------------------------------------------
+// プロフィールに紐づく顧客企業一覧
+// GroupCompany → linkedUsers → branch → customers
+// ---------------------------------------------------------------
+export async function getProfileCustomers(groupCompanyId: string) {
+  await requireSession();
+  try {
+    const users = await db.user.findMany({
+      where: { groupCompanyId },
+      select: { branchId: true, branchId2: true },
+    });
+    const branchIds = [
+      ...new Set(
+        users.flatMap((u) => [u.branchId, u.branchId2]).filter(Boolean) as string[]
+      ),
+    ];
+    if (branchIds.length === 0) return [];
+
+    return db.customer.findMany({
+      where: { branchId: { in: branchIds } },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        rank: true,
+        industry: true,
+        prefecture: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+  } catch (e) {
+    console.error("[getProfileCustomers] DB error:", e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------
 // FormData → プロフィールデータ変換
 // ---------------------------------------------------------------
 function extractProfileData(formData: FormData) {
