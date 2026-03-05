@@ -1,9 +1,11 @@
 import { Users2 } from "lucide-react";
 import { getProfiles, getMyGroupCompany } from "@/lib/actions/group-profile";
+import { getActiveHighlights } from "@/lib/actions/collaboration-highlight";
 import { auth } from "@/lib/auth";
 import type { UserRole } from "@/types/roles";
 import { ProfileCard } from "@/components/group-profiles/profile-card";
 import { GenreFilter } from "@/components/group-profiles/genre-filter";
+import { CollaborationBanner } from "@/components/group-profiles/collaboration-banner";
 import Link from "next/link";
 
 interface Props {
@@ -14,10 +16,11 @@ export default async function GroupProfilesPage({ searchParams }: Props) {
   const params = await searchParams;
   const genreFilter = params.genre || null;
 
-  const [profiles, myCompany, session] = await Promise.all([
+  const [profiles, myCompany, session, highlights] = await Promise.all([
     getProfiles(),
     getMyGroupCompany(),
     auth(),
+    getActiveHighlights(),
   ]);
 
   const role = (session?.user?.role ?? "USER") as UserRole;
@@ -55,6 +58,21 @@ export default async function GroupProfilesPage({ searchParams }: Props) {
       {!myCompany && role !== "ADMIN" && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 text-xs text-amber-700">
           あなたのアカウントにグループ企業が紐付けされていません。管理者にお問い合わせください。
+        </div>
+      )}
+
+      {/* 連携案件ハイライト */}
+      <CollaborationBanner highlights={highlights} />
+
+      {/* ADMIN: ハイライト管理リンク */}
+      {role === "ADMIN" && (
+        <div className="mb-4">
+          <Link
+            href="/dashboard/group-profiles/highlights"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-600 bg-violet-50 border border-violet-200 rounded-md hover:bg-violet-100 transition-colors"
+          >
+            連携案件を管理
+          </Link>
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getProfileById, getMyGroupCompany, getProfileProjects, getProfileCustomers } from "@/lib/actions/group-profile";
+import { getHighlightsForCompany } from "@/lib/actions/collaboration-highlight";
 import { ProfileDetail } from "@/components/group-profiles/profile-detail";
 import type { UserRole } from "@/types/roles";
 
@@ -10,12 +11,13 @@ interface Props {
 
 export default async function GroupProfileDetailPage({ params }: Props) {
   const { id } = await params;
-  const [profile, myCompany, session, projects, customers] = await Promise.all([
+  const [profile, myCompany, session, projects, customers, highlights] = await Promise.all([
     getProfileById(id),
     getMyGroupCompany(),
     auth(),
     getProfileProjects(id),
     getProfileCustomers(id),
+    getHighlightsForCompany(id),
   ]);
 
   if (!profile || !profile.isActive) notFound();
@@ -37,6 +39,7 @@ export default async function GroupProfileDetailPage({ params }: Props) {
         editHref={editHref}
         projects={projects}
         customers={customers}
+        highlights={highlights}
       />
     </div>
   );

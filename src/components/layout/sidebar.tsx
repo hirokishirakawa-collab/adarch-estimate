@@ -289,6 +289,12 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-zinc-600",
     items: [
       {
+        href: "/dashboard/group-profiles/highlights",
+        label: "連携案件ハイライト",
+        icon: Sparkles,
+        minRole: "ADMIN",
+      },
+      {
         href: "/dashboard/group-support",
         label: "グループサポート",
         icon: HeartHandshake,

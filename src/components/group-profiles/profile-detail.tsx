@@ -10,6 +10,7 @@ import {
 import { SNS_PLATFORMS, GENRE_OPTIONS } from "@/lib/constants/group-profile";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
 import { CUSTOMER_STATUS_OPTIONS } from "@/lib/constants/crm";
+import { CollaborationBadge } from "@/components/group-profiles/collaboration-badge";
 
 interface ProfileData {
   id: string;
@@ -49,12 +50,30 @@ interface CustomerItem {
   prefecture: string | null;
 }
 
+interface HighlightMember {
+  groupCompany: {
+    id: string;
+    name: string;
+    ownerName: string;
+    emoji: string | null;
+  };
+}
+
+interface HighlightItem {
+  id: string;
+  title: string;
+  description: string;
+  emoji: string | null;
+  members: HighlightMember[];
+}
+
 interface ProfileDetailProps {
   profile: ProfileData;
   canEdit: boolean;
   editHref: string;
   projects: ProjectItem[];
   customers: CustomerItem[];
+  highlights?: HighlightItem[];
 }
 
 /** SNS アイコン（SVG インライン） */
@@ -103,7 +122,7 @@ function SnsIcon({ icon }: { icon: string }) {
   }
 }
 
-export function ProfileDetail({ profile, canEdit, editHref, projects, customers }: ProfileDetailProps) {
+export function ProfileDetail({ profile, canEdit, editHref, projects, customers, highlights = [] }: ProfileDetailProps) {
   const initials = profile.ownerName.slice(0, 2);
   const genreStyle = GENRE_OPTIONS.find((g) => g.value === profile.genre);
 
@@ -230,6 +249,9 @@ export function ProfileDetail({ profile, canEdit, editHref, projects, customers 
           <p className="text-sm text-zinc-400 italic">プロフィール情報がまだ設定されていません</p>
         )}
       </div>
+
+      {/* 連携案件 */}
+      <CollaborationBadge highlights={highlights} currentCompanyId={profile.id} />
 
       {/* 顧客企業 */}
       {customers.length > 0 && (

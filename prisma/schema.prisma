@@ -1215,7 +1215,8 @@ model GroupCompany {
 
   weeklySubmissions WeeklySubmission[]
   contactHistories  ContactHistory[]
-  linkedUsers       User[]             @relation("UserGroupCompany")
+  linkedUsers            User[]             @relation("UserGroupCompany")
+  collaborationMembers   CollaborationHighlightMember[]
 
   @@index([phase])
   @@map("group_companies")
@@ -1258,4 +1259,32 @@ model ContactHistory {
   @@index([groupCompanyId, createdAt(sort: Desc)])
   @@index([weekId])
   @@map("contact_histories")
+}
+
+/// 連携案件ハイライト。複数の代表が関わる案件を華やかに表示。
+model CollaborationHighlight {
+  id          String   @id @default(cuid())
+  title       String                        // 案件タイトル
+  description String   @db.Text             // 詳細
+  emoji       String?                       // アイコン絵文字
+  isActive    Boolean  @default(true)       // 表示中フラグ
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members CollaborationHighlightMember[]
+
+  @@map("collaboration_highlights")
+}
+
+/// 連携案件とグループ企業の中間テーブル。
+model CollaborationHighlightMember {
+  id             String                 @id @default(cuid())
+  highlightId    String
+  highlight      CollaborationHighlight @relation(fields: [highlightId], references: [id], onDelete: Cascade)
+  groupCompanyId String
+  groupCompany   GroupCompany           @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
+  role           String?                // メンバーの役割（任意）
+
+  @@unique([highlightId, groupCompanyId])
+  @@map("collaboration_highlight_members")
 }
