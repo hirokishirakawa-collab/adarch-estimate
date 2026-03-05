@@ -124,9 +124,9 @@ export function ProfileForm({ profile, action, backHref, onDelete }: ProfileForm
           <p className="text-[11px] text-zinc-400 mt-1">あなたの主な活動領域を選んでください</p>
         </div>
 
-        {/* 都道府県 */}
+        {/* 出身地 */}
         <div>
-          <label className={labelCls}>都道府県</label>
+          <label className={labelCls}>出身地</label>
           <select
             name="prefecture"
             defaultValue={profile.prefecture ?? ""}
