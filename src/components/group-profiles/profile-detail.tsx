@@ -11,6 +11,7 @@ import { SNS_PLATFORMS, GENRE_OPTIONS } from "@/lib/constants/group-profile";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
 import { CUSTOMER_STATUS_OPTIONS } from "@/lib/constants/crm";
 import { CollaborationBadge } from "@/components/group-profiles/collaboration-badge";
+import { ExpandableList } from "@/components/group-profiles/expandable-list";
 
 interface ProfileData {
   id: string;
@@ -261,7 +262,7 @@ export function ProfileDetail({ profile, canEdit, editHref, projects, customers,
             <h3 className="text-sm font-bold text-zinc-900">顧客企業</h3>
             <span className="text-xs text-zinc-400">（{customers.length}社）</span>
           </div>
-          <div className="space-y-2">
+          <ExpandableList totalCount={customers.length}>
             {customers.map((c) => {
               const st = CUSTOMER_STATUS_OPTIONS.find((s) => s.value === c.status);
               return (
@@ -283,7 +284,7 @@ export function ProfileDetail({ profile, canEdit, editHref, projects, customers,
                 </div>
               );
             })}
-          </div>
+          </ExpandableList>
         </div>
       )}
 
@@ -295,7 +296,7 @@ export function ProfileDetail({ profile, canEdit, editHref, projects, customers,
             <h3 className="text-sm font-bold text-zinc-900">プロジェクト実績</h3>
             <span className="text-xs text-zinc-400">（最新{projects.length}件）</span>
           </div>
-          <div className="space-y-2">
+          <ExpandableList totalCount={projects.length}>
             {projects.map((pj) => {
               const st = PROJECT_STATUS_OPTIONS.find((s) => s.value === pj.status);
               return (
@@ -317,7 +318,7 @@ export function ProfileDetail({ profile, canEdit, editHref, projects, customers,
                 </div>
               );
             })}
-          </div>
+          </ExpandableList>
         </div>
       )}
     </div>
