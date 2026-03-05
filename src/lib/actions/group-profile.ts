@@ -41,16 +41,69 @@ async function requireSession() {
 }
 
 // ---------------------------------------------------------------
-// 全アクティブ企業のプロフィール一覧
+// 全アクティブ企業のプロフィール一覧（プロジェクト更新順）
 // ---------------------------------------------------------------
 export async function getProfiles() {
   await requireSession();
   try {
-    return db.groupCompany.findMany({
+    const companies = await db.groupCompany.findMany({
       where: { isActive: true },
-      select: PROFILE_SELECT,
-      orderBy: { name: "asc" },
+      select: {
+        ...PROFILE_SELECT,
+        linkedUsers: {
+          select: { branchId: true, branchId2: true },
+        },
+      },
     });
+
+    // 各企業の最新プロジェクト更新日を一括取得
+    const allBranchIds = [
+      ...new Set(
+        companies.flatMap((c) =>
+          c.linkedUsers.flatMap((u) => [u.branchId, u.branchId2]).filter(Boolean) as string[]
+        )
+      ),
+    ];
+
+    const latestProjects = allBranchIds.length > 0
+      ? await db.project.groupBy({
+          by: ["branchId"],
+          where: { branchId: { in: allBranchIds } },
+          _max: { updatedAt: true },
+        })
+      : [];
+
+    const branchLatest = new Map(
+      latestProjects.map((p) => [p.branchId, p._max.updatedAt])
+    );
+
+    // 各企業の最新プロジェクト日を算出してソート
+    const withLatest = companies.map((c) => {
+      const branchIds = c.linkedUsers
+        .flatMap((u) => [u.branchId, u.branchId2])
+        .filter(Boolean) as string[];
+      const dates = branchIds
+        .map((bid) => branchLatest.get(bid))
+        .filter(Boolean) as Date[];
+      const latestAt = dates.length > 0
+        ? new Date(Math.max(...dates.map((d) => d.getTime())))
+        : null;
+      // linkedUsers は返さない
+      const { linkedUsers: _, ...profile } = c;
+      return { ...profile, latestProjectAt: latestAt };
+    });
+
+    // プロジェクト更新が新しい順、更新なしは末尾（名前順）
+    withLatest.sort((a, b) => {
+      if (a.latestProjectAt && b.latestProjectAt) {
+        return b.latestProjectAt.getTime() - a.latestProjectAt.getTime();
+      }
+      if (a.latestProjectAt) return -1;
+      if (b.latestProjectAt) return 1;
+      return a.name.localeCompare(b.name, "ja");
+    });
+
+    return withLatest;
   } catch (e) {
     console.error("[getProfiles] DB error:", e instanceof Error ? e.message : e);
     return [];
