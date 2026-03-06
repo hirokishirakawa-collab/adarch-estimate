@@ -7,12 +7,15 @@ import { AchievementTracker } from "@/components/video-achievements/achievement-
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
 
+const PAGE_SIZE = 50;
+
 interface PageProps {
   searchParams: Promise<{
     prefecture?: string;
     industry?: string;
     productionCompany?: string;
     isProcessed?: string;
+    page?: string;
   }>;
 }
 
@@ -29,6 +32,9 @@ export default async function VideoAchievementsPage({ searchParams }: PageProps)
   if (params.isProcessed === "true")  where.isProcessed = true;
   if (params.isProcessed === "false") where.isProcessed = false;
 
+  const currentPage = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
+  const skip = (currentPage - 1) * PAGE_SIZE;
+
   type AchievementRow = {
     id: string; companyName: string; prefecture: string; industry: string;
     videoType: string; productionCompany: string; referenceUrl: string | null;
@@ -36,28 +42,35 @@ export default async function VideoAchievementsPage({ searchParams }: PageProps)
     isProcessed: boolean; createdAt: Date;
   };
   let achievements: AchievementRow[] = [];
+  let totalCount = 0;
   try {
-    achievements = await db.videoAchievement.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: 500,
-      select: {
-        id:                true,
-        companyName:       true,
-        prefecture:        true,
-        industry:          true,
-        videoType:         true,
-        productionCompany: true,
-        referenceUrl:      true,
-        contentSummary:    true,
-        publishedAt:       true,
-        isProcessed:       true,
-        createdAt:         true,
-      },
-    });
+    [achievements, totalCount] = await Promise.all([
+      db.videoAchievement.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: PAGE_SIZE,
+        select: {
+          id:                true,
+          companyName:       true,
+          prefecture:        true,
+          industry:          true,
+          videoType:         true,
+          productionCompany: true,
+          referenceUrl:      true,
+          contentSummary:    true,
+          publishedAt:       true,
+          isProcessed:       true,
+          createdAt:         true,
+        },
+      }),
+      db.videoAchievement.count({ where }),
+    ]);
   } catch (e) {
     console.error("[video-achievements] DB error:", e);
   }
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-5">
@@ -90,7 +103,13 @@ export default async function VideoAchievementsPage({ searchParams }: PageProps)
         </div>
       </div>
 
-      <AchievementTracker achievements={achievements} role={role} />
+      <AchievementTracker
+        achievements={achievements}
+        role={role}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalCount={totalCount}
+      />
     </div>
   );
 }

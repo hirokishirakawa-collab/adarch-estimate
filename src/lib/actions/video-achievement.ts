@@ -81,6 +81,38 @@ export async function deleteVideoAchievement(
 }
 
 // ---------------------------------------------------------------
+// 動画実績を一括削除する（ADMIN限定）
+// ---------------------------------------------------------------
+export async function bulkDeleteVideoAchievements(
+  ids: string[]
+): Promise<{ deleted: number; error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { deleted: 0, error: "ログインが必要です" };
+  if (info.role !== "ADMIN") return { deleted: 0, error: "ADMIN権限が必要です" };
+
+  if (ids.length === 0) return { deleted: 0 };
+
+  try {
+    const result = await db.videoAchievement.deleteMany({
+      where: { id: { in: ids } },
+    });
+    logAudit({
+      action: "video_achievement_bulk_deleted",
+      email: info.email,
+      name: info.staffName,
+      entity: "video_achievement",
+      entityId: ids.join(","),
+      detail: `${result.count}件削除`,
+    });
+    revalidatePath("/dashboard/video-achievements");
+    return { deleted: result.count };
+  } catch (e) {
+    console.error("[bulkDeleteVideoAchievements]", e);
+    return { deleted: 0, error: "一括削除に失敗しました" };
+  }
+}
+
+// ---------------------------------------------------------------
 // 動画実績から攻略商談を開始する（核心）
 // ---------------------------------------------------------------
 export async function startAttackFromAchievement(
