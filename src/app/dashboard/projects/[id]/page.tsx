@@ -17,6 +17,7 @@ import {
   Calendar,
   User,
   Building2,
+  CreditCard,
 } from "lucide-react";
 
 interface PageProps {
@@ -105,7 +106,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <BillingStatusButton projectId={project.id} billingStatus={project.billingStatus} />
+            <BillingStatusButton projectId={project.id} billingStatus={project.billingStatus} isAdmin={role === "ADMIN"} />
             <Link
               href={`/dashboard/projects/${project.id}/edit`}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"
@@ -173,6 +174,18 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
           <ExpenseForm projectId={project.id} />
           <ExpenseList expenses={project.expenses} projectId={project.id} />
+
+          {project.expenses.length > 0 && (
+            <div className="pt-3 border-t border-zinc-100">
+              <Link
+                href={`/dashboard/billing/new?projectId=${project.id}`}
+                className="flex items-center justify-center gap-1.5 w-full px-3 py-2 text-xs font-medium text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-lg transition-colors"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                この経費で請求依頼を作成
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* ログ */}
