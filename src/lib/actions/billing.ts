@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db } from "@/lib/db";
-import { getSessionInfo } from "@/lib/session";
+import { getSessionInfo, getBranchFilter } from "@/lib/session";
 import { sendInvoiceNotification } from "@/lib/notifications";
 import { uploadBillingFile } from "@/lib/storage";
 import type { UserRole } from "@/types/roles";
@@ -367,8 +367,7 @@ export async function getProjectsForSelect() {
   const info = await getSessionInfo();
   if (!info) return [];
 
-  const where: Prisma.ProjectWhereInput =
-    info.role === "ADMIN" ? {} : { branchId: info.branchId ?? undefined };
+  const where: Prisma.ProjectWhereInput = getBranchFilter(info);
 
   return db.project.findMany({
     where,
@@ -384,8 +383,7 @@ export async function getCustomersForSelect() {
   const info = await getSessionInfo();
   if (!info) return [];
 
-  const where: Prisma.CustomerWhereInput =
-    info.role === "ADMIN" ? {} : { branchId: info.branchId ?? undefined };
+  const where: Prisma.CustomerWhereInput = getBranchFilter(info);
 
   return db.customer.findMany({
     where,
