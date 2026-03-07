@@ -4,7 +4,7 @@ import { useActionState, useState, useRef, useEffect } from "react";
 import { Loader2, Upload, X, FileText, Search, ChevronDown } from "lucide-react";
 
 type Project  = { id: string; title: string; customerId: string | null };
-type Customer = { id: string; name: string; email: string | null };
+type Customer = { id: string; name: string; email: string | null; contactName: string | null };
 
 export interface Props {
   action: (prev: { error?: string } | null, formData: FormData) => Promise<{ error?: string }>;
@@ -159,7 +159,8 @@ export function InvoiceRequestForm({
   // ── 請求先顧客選択（プロジェクト連動）
   const [selectedCustomerId, setSelectedCustomerId] = useState(defaultValues?.customerId ?? "");
 
-  // ── 請求先担当者メールアドレス（顧客連動）
+  // ── 請求先担当者（顧客連動・手動変更も可能）
+  const [contactName, setContactName] = useState(defaultValues?.contactName ?? "");
   const [contactEmail, setContactEmail] = useState(defaultValues?.contactEmail ?? "");
 
   // プロジェクトが変わったら対応顧客を自動セット
@@ -168,16 +169,17 @@ export function InvoiceRequestForm({
     const proj = projects.find((p) => p.id === selectedProjectId);
     if (proj?.customerId) {
       setSelectedCustomerId(proj.customerId);
-      // 顧客のメールも自動補完
       const cust = customers.find((c) => c.id === proj.customerId);
+      if (cust?.contactName) setContactName(cust.contactName);
       if (cust?.email) setContactEmail(cust.email);
     }
   }, [selectedProjectId, projects, customers]);
 
-  // 顧客が変わったらメールを自動補完
+  // 顧客が変わったら担当者名・メールを自動補完
   useEffect(() => {
     if (!selectedCustomerId) return;
     const cust = customers.find((c) => c.id === selectedCustomerId);
+    if (cust?.contactName) setContactName(cust.contactName);
     if (cust?.email) setContactEmail(cust.email);
   }, [selectedCustomerId, customers]);
 
@@ -264,11 +266,15 @@ export function InvoiceRequestForm({
         </label>
         <input
           type="text" name="contactName"
-          defaultValue={defaultValues?.contactName ?? ""}
+          value={contactName}
+          onChange={(e) => setContactName(e.target.value)}
           placeholder="例: 田中 太郎"
           maxLength={100}
           className={inputCls}
         />
+        <p className="mt-1 text-[11px] text-zinc-400">
+          顧客選択時に自動入力されますが、変更・削除できます。
+        </p>
       </div>
 
       {/* ── 請求先担当者メールアドレス（必須・顧客連動） ── */}

@@ -390,6 +390,6 @@ export async function getCustomersForSelect() {
   return db.customer.findMany({
     where,
     orderBy: { name: "asc" },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, contactName: true },
   });
 }
