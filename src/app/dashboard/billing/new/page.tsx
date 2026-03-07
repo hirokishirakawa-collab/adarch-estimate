@@ -1,5 +1,5 @@
 import { CreditCard } from "lucide-react";
-import { InvoiceRequestForm } from "@/components/billing/invoice-request-form";
+import { InvoiceRequestForm, type Props } from "@/components/billing/invoice-request-form";
 import { createInvoiceRequest, getProjectsForSelect, getCustomersForSelect } from "@/lib/actions/billing";
 import { db } from "@/lib/db";
 import { EXPENSE_CATEGORY_OPTIONS } from "@/lib/constants/expenses";
@@ -17,7 +17,7 @@ export default async function NewBillingRequestPage({ searchParams }: PageProps)
   ]);
 
   // プロジェクトから経費を自動入力
-  let defaults: Record<string, string | number | null> | undefined;
+  let defaults: Props["defaultValues"] | undefined;
   if (projectId) {
     const project = await db.project.findUnique({
       where: { id: projectId },

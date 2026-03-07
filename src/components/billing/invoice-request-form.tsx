@@ -1,12 +1,12 @@
 "use client";
 
 import { useActionState, useState, useRef, useEffect } from "react";
-import { Loader2, Upload, X, FileText } from "lucide-react";
+import { Loader2, Upload, X, FileText, Search, ChevronDown } from "lucide-react";
 
 type Project  = { id: string; title: string; customerId: string | null };
 type Customer = { id: string; name: string; email: string | null };
 
-interface Props {
+export interface Props {
   action: (prev: { error?: string } | null, formData: FormData) => Promise<{ error?: string }>;
   projects: Project[];
   customers: Customer[];
@@ -29,6 +29,119 @@ interface Props {
 
 function fmtNum(n: number): string {
   return n.toLocaleString("ja-JP");
+}
+
+// ── 顧客検索コンボボックス ──
+function CustomerCombobox({
+  customers,
+  selectedCustomerId,
+  onSelect,
+  inputCls,
+}: {
+  customers: Customer[];
+  selectedCustomerId: string;
+  onSelect: (id: string) => void;
+  inputCls: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
+
+  // 検索フィルタ
+  const filtered = query
+    ? customers.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
+    : customers;
+
+  // 外側クリックで閉じる
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+        請求先会社名
+        <span className="text-red-500 ml-0.5">*</span>
+      </label>
+
+      {/* 選択済み表示 or 検索入力 */}
+      {selectedCustomer && !isOpen ? (
+        <button
+          type="button"
+          onClick={() => { setIsOpen(true); setQuery(""); }}
+          className={`${inputCls} text-left flex items-center justify-between`}
+        >
+          <span>{selectedCustomer.name}</span>
+          <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+        </button>
+      ) : (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setIsOpen(true); }}
+            onFocus={() => setIsOpen(true)}
+            placeholder="会社名を入力して検索..."
+            autoFocus={isOpen}
+            className={`${inputCls} pl-9`}
+          />
+        </div>
+      )}
+
+      {/* ドロップダウンリスト */}
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-zinc-200 rounded-lg shadow-lg">
+          {filtered.length === 0 ? (
+            <p className="px-3 py-3 text-xs text-zinc-400 text-center">該当する顧客がありません</p>
+          ) : (
+            filtered.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  onSelect(c.id);
+                  setQuery("");
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-violet-50 transition-colors ${
+                  c.id === selectedCustomerId ? "bg-violet-50 text-violet-700 font-semibold" : "text-zinc-700"
+                }`}
+              >
+                {c.name}
+                {c.email && <span className="ml-2 text-[11px] text-zinc-400">{c.email}</span>}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* バリデーション用（hidden required） */}
+      {!selectedCustomerId && (
+        <input
+          tabIndex={-1}
+          className="opacity-0 absolute h-0 w-0"
+          required
+          value=""
+          onChange={() => {}}
+          aria-hidden="true"
+        />
+      )}
+
+      <p className="mt-1 text-[11px] text-zinc-400">
+        会社名の一部を入力して検索できます。
+        未登録の場合は先に顧客管理へ追加してください。
+      </p>
+    </div>
+  );
 }
 
 export function InvoiceRequestForm({
@@ -135,29 +248,14 @@ export function InvoiceRequestForm({
         </select>
       </div>
 
-      {/* ── 請求先会社名（顧客管理から選択） ── */}
-      <div>
-        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-          請求先会社名
-          <span className="text-red-500 ml-0.5">*</span>
-        </label>
-        <select
-          name="customerId"
-          value={selectedCustomerId}
-          onChange={(e) => setSelectedCustomerId(e.target.value)}
-          required
-          className={inputCls}
-        >
-          <option value="">— 顧客管理から選択 —</option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <p className="mt-1 text-[11px] text-zinc-400">
-          顧客管理に登録済みの会社から選択してください。
-          未登録の場合は先に顧客管理へ追加してください。
-        </p>
-      </div>
+      {/* ── 請求先会社名（顧客管理から検索・選択） ── */}
+      <CustomerCombobox
+        customers={customers}
+        selectedCustomerId={selectedCustomerId}
+        onSelect={(id) => setSelectedCustomerId(id)}
+        inputCls={inputCls}
+      />
+      <input type="hidden" name="customerId" value={selectedCustomerId} />
 
       {/* ── 請求先担当者名 ── */}
       <div>
