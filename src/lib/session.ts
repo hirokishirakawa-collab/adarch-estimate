@@ -42,14 +42,45 @@ export async function getSessionInfo() {
 // ---------------------------------------------------------------
 // 拠点フィルタヘルパー
 // ADMIN: フィルタなし
-// 非ADMIN: branchId / branchId2 の IN 句
+// 非ADMIN: branchId / branchId2 + 旧拠点IDの IN 句
 // ---------------------------------------------------------------
 type SessionInfo = NonNullable<Awaited<ReturnType<typeof getSessionInfo>>>;
 
+// 都道府県ID → 旧拠点ID マッピング
+// 顧客データが旧拠点IDで登録されているため、pref_* ユーザーでも検索できるようにする
+const PREF_TO_LEGACY_BRANCH: Record<string, string> = {
+  pref_kagawa:    "branch_kgo",
+  pref_okayama:   "branch_kgo",
+  pref_osaka:     "branch_kns",
+  pref_kyoto:     "branch_kyt",
+  pref_tokyo:     "branch_tk2",
+  pref_chiba:     "branch_tky",
+  pref_yamaguchi: "branch_ymc",
+  pref_hiroshima: "branch_ymc",
+  pref_kanagawa:  "branch_knw",
+  pref_ibaraki:   "branch_ibk",
+  pref_fukuoka:   "branch_fku",
+  pref_hokkaido:  "branch_hkd",
+  pref_tokushima: "branch_tks",
+  pref_ishikawa:  "branch_isk",
+  pref_okinawa:   "branch_okn",
+  pref_saitama:   "branch_tky",
+  pref_fukushima: "branch_hq",
+  pref_miyagi:    "branch_hq",
+  pref_shiga:     "branch_kns",
+  pref_gifu:      "branch_hq",
+  pref_yamanashi: "branch_hq",
+};
+
 export function getBranchFilter(info: Pick<SessionInfo, "role" | "branchId" | "branchId2">) {
   if (info.role === "ADMIN") return {};
-  const ids = [info.branchId, info.branchId2].filter((id): id is string => !!id);
-  if (ids.length === 0) return { branchId: "__unassigned__" }; // 何もヒットしない
+  const base = [info.branchId, info.branchId2].filter((id): id is string => !!id);
+  // pref_* に対応する旧拠点IDも追加
+  const legacy = base
+    .map((id) => PREF_TO_LEGACY_BRANCH[id])
+    .filter((id): id is string => !!id);
+  const ids = [...new Set([...base, ...legacy])];
+  if (ids.length === 0) return { branchId: "__unassigned__" };
   if (ids.length === 1) return { branchId: ids[0] };
   return { branchId: { in: ids } };
 }
