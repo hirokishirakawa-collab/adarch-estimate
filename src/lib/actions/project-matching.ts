@@ -5,7 +5,8 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { getWeekId } from "@/lib/constants/group-support";
-import { REQUIRED_WEEKS, canApplyToProject, getLatestReportMonth, getRequiredWeeks, isRevenueCheckActive } from "@/lib/constants/project-matching";
+import { REQUIRED_WEEKS, CATEGORY_OPTIONS, FREQUENCY_OPTIONS, canApplyToProject, formatBudget, getLatestReportMonth, getRequiredWeeks, isRevenueCheckActive } from "@/lib/constants/project-matching";
+import { broadcastChatMessage } from "@/lib/google-chat";
 import type { ProjectRequestCategory, ProjectFrequency } from "@/generated/prisma/client";
 
 // ----------------------------------------------------------------
@@ -66,6 +67,85 @@ async function checkLatestRevenueReport(branchId: string | null): Promise<boolea
     },
   });
   return count > 0;
+}
+
+// ----------------------------------------------------------------
+// 応募資格のある企業にGoogle Chat通知を送信
+// ----------------------------------------------------------------
+async function notifyEligibleCompanies(params: {
+  title: string;
+  category: ProjectRequestCategory;
+  frequency: ProjectFrequency;
+  budget: number | null;
+  prefecture: string | null;
+  postedByCompanyId: string;
+}) {
+  const now = new Date();
+  const requiredWeeks = getRequiredWeeks(now);
+  const revenueActive = isRevenueCheckActive(now);
+  const targetMonth = getLatestReportMonth();
+
+  // 直近N週のweekIdを生成
+  const weekIds: string[] = [];
+  for (let i = 0; i < REQUIRED_WEEKS; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i * 7);
+    weekIds.push(getWeekId(d));
+  }
+
+  // 全アクティブ企業（投稿者を除く）を取得
+  const companies = await db.groupCompany.findMany({
+    where: { isActive: true, id: { not: params.postedByCompanyId } },
+    select: {
+      id: true,
+      chatSpaceId: true,
+      linkedUsers: { select: { branchId: true }, take: 1 },
+      weeklySubmissions: {
+        where: { weekId: { in: weekIds } },
+        select: { weekId: true },
+      },
+    },
+  });
+
+  // 応募資格のある企業のspaceIdを抽出
+  const eligibleSpaceIds: string[] = [];
+  for (const c of companies) {
+    const submissionCount = c.weeklySubmissions.length;
+    const branchId = c.linkedUsers[0]?.branchId ?? null;
+    let hasRevenue = true;
+    if (revenueActive && branchId) {
+      hasRevenue =
+        (await db.revenueReport.count({
+          where: { branchId, targetMonth },
+        })) > 0;
+    } else if (revenueActive && !branchId) {
+      hasRevenue = false;
+    }
+    if (canApplyToProject(submissionCount, hasRevenue, now)) {
+      eligibleSpaceIds.push(c.chatSpaceId);
+    }
+  }
+
+  if (eligibleSpaceIds.length === 0) return;
+
+  // 通知メッセージを組み立て
+  const catLabel = CATEGORY_OPTIONS.find((c) => c.value === params.category)?.label ?? params.category;
+  const freqLabel = FREQUENCY_OPTIONS.find((f) => f.value === params.frequency)?.label ?? params.frequency;
+  const budgetText = formatBudget(params.budget);
+  const prefText = params.prefecture ? `\n📍 エリア: ${params.prefecture}` : "";
+
+  const message = [
+    "📢 新しい案件が投稿されました",
+    "",
+    `📋 ${params.title}`,
+    `🏷️ ${catLabel}（${freqLabel}）`,
+    `💰 予算: ${budgetText}${prefText}`,
+    "",
+    "▶ 詳細を確認して応募できます",
+    `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/dashboard/project-matching`,
+  ].join("\n");
+
+  await broadcastChatMessage(eligibleSpaceIds, message);
 }
 
 // ----------------------------------------------------------------
@@ -299,6 +379,18 @@ export async function createProjectRequest(
       entity: "project_request",
       detail: title,
     });
+
+    // 応募資格のある企業にGoogle Chat通知（非同期、失敗してもエラーにしない）
+    notifyEligibleCompanies({
+      title,
+      category,
+      frequency,
+      budget: budget && !isNaN(budget) ? budget : null,
+      prefecture,
+      postedByCompanyId: companyId,
+    }).catch((err) =>
+      console.error("[project-matching] Chat notification error:", err)
+    );
 
     revalidatePath("/dashboard/project-matching");
     return {};
