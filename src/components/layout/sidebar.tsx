@@ -37,6 +37,7 @@ import {
   ContactRound,
   HeartHandshake,
   Crosshair,
+  Handshake,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -120,6 +121,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/projects",
         label: "プロジェクト一覧",
         icon: FolderKanban,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/project-matching",
+        label: "案件マッチング",
+        icon: Handshake,
         minRole: "USER",
       },
       {

@@ -274,6 +274,10 @@ model User {
   disclosureRequestsSent       DisclosureRequest[]  @relation("DisclosureRequester")
   disclosureRequestsReviewed   DisclosureRequest[]  @relation("DisclosureReviewer")
 
+  // ---- 案件マッチング ----
+  postedProjectRequests        ProjectRequest[]     @relation("PostedRequests")
+  projectApplications          ProjectApplication[] @relation("Applications")
+
   @@index([branchId])
   @@index([branchId2])
   @@index([role])
@@ -1217,6 +1221,9 @@ model GroupCompany {
   contactHistories  ContactHistory[]
   linkedUsers            User[]             @relation("UserGroupCompany")
   collaborationMembers   CollaborationHighlightMember[]
+  postedRequests         ProjectRequest[]   @relation("PostedRequests")
+  matchedRequests        ProjectRequest[]   @relation("MatchedRequests")
+  applications           ProjectApplication[] @relation("Applications")
 
   @@index([phase])
   @@map("group_companies")
@@ -1287,4 +1294,76 @@ model CollaborationHighlightMember {
 
   @@unique([highlightId, groupCompanyId])
   @@map("collaboration_highlight_members")
+}
+
+// ==============================================================
+// 案件マッチング
+// ==============================================================
+
+enum ProjectRequestStatus {
+  OPEN     // 募集中
+  MATCHED  // マッチ済み
+  CLOSED   // 終了
+}
+
+enum ProjectRequestCategory {
+  SALES       // 営業
+  PRODUCTION  // 制作
+  CONSTRUCTION // 施工
+  OTHER       // その他
+}
+
+enum BudgetRange {
+  SMALL   // 〜50万
+  MEDIUM  // 50万〜200万
+  LARGE   // 200万〜
+  UNDECIDED // 未定
+}
+
+/// 案件マッチング：グループ企業間で案件を紹介し合う。
+model ProjectRequest {
+  id          String               @id @default(cuid())
+  title       String               // 案件名
+  description String               @db.Text // 詳細
+  category    ProjectRequestCategory
+  prefecture  String?              // エリア（都道府県）
+  budgetRange BudgetRange          @default(UNDECIDED)
+  deadline    DateTime?            // 希望納期
+  status      ProjectRequestStatus @default(OPEN)
+
+  postedByCompanyId String
+  postedByCompany   GroupCompany @relation("PostedRequests", fields: [postedByCompanyId], references: [id], onDelete: Cascade)
+  postedByUserId    String
+  postedByUser      User         @relation("PostedRequests", fields: [postedByUserId], references: [id], onDelete: Cascade)
+
+  matchedCompanyId String?
+  matchedCompany   GroupCompany? @relation("MatchedRequests", fields: [matchedCompanyId], references: [id])
+
+  applications ProjectApplication[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([postedByCompanyId])
+  @@map("project_requests")
+}
+
+/// 案件への応募
+model ProjectApplication {
+  id                 String         @id @default(cuid())
+  projectRequestId   String
+  projectRequest     ProjectRequest @relation(fields: [projectRequestId], references: [id], onDelete: Cascade)
+  applicantCompanyId String
+  applicantCompany   GroupCompany   @relation("Applications", fields: [applicantCompanyId], references: [id], onDelete: Cascade)
+  applicantUserId    String
+  applicantUser      User           @relation("Applications", fields: [applicantUserId], references: [id], onDelete: Cascade)
+  message            String         @db.Text // 一言メッセージ
+  contributionScore  Int            @default(0) // 応募時点の貢献度
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectRequestId, applicantCompanyId])
+  @@index([applicantCompanyId])
+  @@map("project_applications")
 }
