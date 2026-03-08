@@ -1307,17 +1307,15 @@ enum ProjectRequestStatus {
 }
 
 enum ProjectRequestCategory {
-  SALES       // 営業
-  PRODUCTION  // 制作
-  CONSTRUCTION // 施工
-  OTHER       // その他
+  PARTIAL_SALES // 部分営業対応（挨拶）
+  SHOOTING      // 撮影
+  EDITING       // 編集
+  OTHER         // その他
 }
 
-enum BudgetRange {
-  SMALL   // 〜50万
-  MEDIUM  // 50万〜200万
-  LARGE   // 200万〜
-  UNDECIDED // 未定
+enum ProjectFrequency {
+  REGULAR  // レギュラー
+  ONE_TIME // 単発
 }
 
 /// 案件マッチング：グループ企業間で案件を紹介し合う。
@@ -1327,7 +1325,8 @@ model ProjectRequest {
   description String               @db.Text // 詳細
   category    ProjectRequestCategory
   prefecture  String?              // エリア（都道府県）
-  budgetRange BudgetRange          @default(UNDECIDED)
+  budget      Int?                 // 予算（税抜・円）
+  frequency   ProjectFrequency     @default(ONE_TIME) // レギュラー or 単発
   deadline    DateTime?            // 希望納期
   status      ProjectRequestStatus @default(OPEN)
 

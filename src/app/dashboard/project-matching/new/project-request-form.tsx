@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { createProjectRequest } from "@/lib/actions/project-matching";
 import {
   CATEGORY_OPTIONS,
-  BUDGET_OPTIONS,
+  FREQUENCY_OPTIONS,
   PREFECTURES,
 } from "@/lib/constants/project-matching";
 
@@ -37,7 +37,7 @@ export function ProjectRequestForm() {
           type="text"
           name="title"
           required
-          placeholder="例: 飲食店の内装デザイン案件"
+          placeholder="例: 飲食店のPR動画撮影"
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
         />
       </div>
@@ -56,7 +56,7 @@ export function ProjectRequestForm() {
         />
       </div>
 
-      {/* カテゴリ・予算 */}
+      {/* カテゴリ・レギュラー/単発 */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-zinc-700 mb-1">
@@ -77,13 +77,13 @@ export function ProjectRequestForm() {
         </div>
         <div>
           <label className="block text-xs font-medium text-zinc-700 mb-1">
-            予算感
+            頻度
           </label>
           <select
-            name="budgetRange"
+            name="frequency"
             className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
           >
-            {BUDGET_OPTIONS.map((opt) => (
+            {FREQUENCY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -92,8 +92,21 @@ export function ProjectRequestForm() {
         </div>
       </div>
 
-      {/* エリア・納期 */}
+      {/* 予算・エリア */}
       <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">
+            予算（税抜・円）
+          </label>
+          <input
+            type="number"
+            name="budget"
+            min="0"
+            step="1"
+            placeholder="例: 500000"
+            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+          />
+        </div>
         <div>
           <label className="block text-xs font-medium text-zinc-700 mb-1">
             エリア
@@ -110,16 +123,18 @@ export function ProjectRequestForm() {
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">
-            希望納期
-          </label>
-          <input
-            type="date"
-            name="deadline"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-          />
-        </div>
+      </div>
+
+      {/* 納期 */}
+      <div className="max-w-[calc(50%-6px)]">
+        <label className="block text-xs font-medium text-zinc-700 mb-1">
+          希望納期
+        </label>
+        <input
+          type="date"
+          name="deadline"
+          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+        />
       </div>
 
       {/* 送信 */}

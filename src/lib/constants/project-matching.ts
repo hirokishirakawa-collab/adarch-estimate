@@ -2,28 +2,26 @@
 // 案件マッチング — 定数・ユーティリティ
 // ==============================================================
 
-import type { ProjectRequestStatus, ProjectRequestCategory, BudgetRange } from "@/generated/prisma/client";
+import type { ProjectRequestStatus, ProjectRequestCategory, ProjectFrequency } from "@/generated/prisma/client";
 
 // カテゴリ選択肢
 export const CATEGORY_OPTIONS: {
   value: ProjectRequestCategory;
   label: string;
 }[] = [
-  { value: "SALES", label: "営業" },
-  { value: "PRODUCTION", label: "制作" },
-  { value: "CONSTRUCTION", label: "施工" },
+  { value: "PARTIAL_SALES", label: "部分営業対応（挨拶）" },
+  { value: "SHOOTING", label: "撮影" },
+  { value: "EDITING", label: "編集" },
   { value: "OTHER", label: "その他" },
 ];
 
-// 予算レンジ選択肢
-export const BUDGET_OPTIONS: {
-  value: BudgetRange;
+// レギュラー/単発
+export const FREQUENCY_OPTIONS: {
+  value: ProjectFrequency;
   label: string;
 }[] = [
-  { value: "SMALL", label: "〜50万" },
-  { value: "MEDIUM", label: "50万〜200万" },
-  { value: "LARGE", label: "200万〜" },
-  { value: "UNDECIDED", label: "未定" },
+  { value: "ONE_TIME", label: "単発" },
+  { value: "REGULAR", label: "レギュラー" },
 ];
 
 // ステータス定義
@@ -48,6 +46,15 @@ export const STATUS_CONFIG: Record<
   },
 };
 
+/**
+ * 金額をフォーマット（例: 500000 → "50万円", 1200000 → "120万円"）
+ */
+export function formatBudget(amount: number | null | undefined): string {
+  if (amount == null) return "未定";
+  if (amount >= 10000) return `${Math.round(amount / 10000)}万円`;
+  return `${amount.toLocaleString()}円`;
+}
+
 /** 応募に必要な直近の提出週数 */
 export const REQUIRED_WEEKS = 3;
 
@@ -71,5 +78,5 @@ export function getLatestReportMonth(now: Date = new Date()): Date {
   return new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1));
 }
 
-// 都道府県（crm.tsから流用しない場合の最小定義）
+// 都道府県
 export { PREFECTURES } from "@/lib/constants/crm";

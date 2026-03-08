@@ -4,10 +4,10 @@ import Link from "next/link";
 import { getProjectRequests } from "@/lib/actions/project-matching";
 import {
   CATEGORY_OPTIONS,
-  BUDGET_OPTIONS,
+  FREQUENCY_OPTIONS,
   STATUS_CONFIG,
+  formatBudget,
 } from "@/lib/constants/project-matching";
-import type { ProjectRequestCategory, BudgetRange } from "@/generated/prisma/client";
 import { Plus, Users, MapPin, Calendar } from "lucide-react";
 
 export default async function ProjectMatchingPage() {
@@ -63,9 +63,9 @@ export default async function ProjectMatchingPage() {
             const catLabel =
               CATEGORY_OPTIONS.find((c) => c.value === req.category)?.label ??
               req.category;
-            const budgetLabel =
-              BUDGET_OPTIONS.find((b) => b.value === req.budgetRange)?.label ??
-              req.budgetRange;
+            const freqLabel =
+              FREQUENCY_OPTIONS.find((f) => f.value === req.frequency)?.label ??
+              req.frequency;
             const statusCfg = STATUS_CONFIG[req.status];
             const appCount = req.applications.length;
 
@@ -86,6 +86,9 @@ export default async function ProjectMatchingPage() {
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-violet-50 border border-violet-200 text-violet-700">
                         {catLabel}
                       </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-50 border border-zinc-200 text-zinc-600">
+                        {freqLabel}
+                      </span>
                     </div>
                     <h3 className="text-sm font-semibold text-zinc-900 truncate">
                       {req.title}
@@ -103,7 +106,7 @@ export default async function ProjectMatchingPage() {
                           {req.prefecture}
                         </span>
                       )}
-                      <span>予算: {budgetLabel}</span>
+                      <span>予算: {formatBudget(req.budget)}</span>
                       {req.deadline && (
                         <span className="inline-flex items-center gap-0.5">
                           <Calendar className="w-3 h-3" />

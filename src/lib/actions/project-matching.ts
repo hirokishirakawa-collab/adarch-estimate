@@ -6,7 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { getWeekId } from "@/lib/constants/group-support";
 import { REQUIRED_WEEKS, canApplyToProject, getLatestReportMonth } from "@/lib/constants/project-matching";
-import type { ProjectRequestCategory, BudgetRange } from "@/generated/prisma/client";
+import type { ProjectRequestCategory, ProjectFrequency } from "@/generated/prisma/client";
 
 // ----------------------------------------------------------------
 // 認証ヘルパー
@@ -195,7 +195,9 @@ export async function createProjectRequest(
     const description = (formData.get("description") as string)?.trim();
     const category = formData.get("category") as ProjectRequestCategory;
     const prefecture = (formData.get("prefecture") as string) || null;
-    const budgetRange = (formData.get("budgetRange") as BudgetRange) || "UNDECIDED";
+    const budgetStr = formData.get("budget") as string;
+    const budget = budgetStr ? parseInt(budgetStr, 10) : null;
+    const frequency = (formData.get("frequency") as ProjectFrequency) || "ONE_TIME";
     const deadlineStr = formData.get("deadline") as string;
     const deadline = deadlineStr ? new Date(deadlineStr) : null;
 
@@ -209,7 +211,8 @@ export async function createProjectRequest(
         description,
         category,
         prefecture,
-        budgetRange,
+        budget: budget && !isNaN(budget) ? budget : null,
+        frequency,
         deadline,
         postedByCompanyId: companyId,
         postedByUserId: user.id,

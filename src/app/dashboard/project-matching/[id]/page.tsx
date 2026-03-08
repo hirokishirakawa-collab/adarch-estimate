@@ -8,8 +8,9 @@ import {
 } from "@/lib/actions/project-matching";
 import {
   CATEGORY_OPTIONS,
-  BUDGET_OPTIONS,
+  FREQUENCY_OPTIONS,
   STATUS_CONFIG,
+  formatBudget,
 } from "@/lib/constants/project-matching";
 import { ApplicationForm } from "./application-form";
 import { MatchButton } from "./match-button";
@@ -30,9 +31,9 @@ export default async function ProjectRequestDetailPage({
   const catLabel =
     CATEGORY_OPTIONS.find((c) => c.value === request.category)?.label ??
     request.category;
-  const budgetLabel =
-    BUDGET_OPTIONS.find((b) => b.value === request.budgetRange)?.label ??
-    request.budgetRange;
+  const freqLabel =
+    FREQUENCY_OPTIONS.find((f) => f.value === request.frequency)?.label ??
+    request.frequency;
   const statusCfg = STATUS_CONFIG[request.status];
   const isOwner = request.postedByCompanyId === currentCompanyId;
   const hasApplied = request.applications.some(
@@ -60,6 +61,9 @@ export default async function ProjectRequestDetailPage({
           <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-violet-50 border border-violet-200 text-violet-700">
             {catLabel}
           </span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-50 border border-zinc-200 text-zinc-600">
+            {freqLabel}
+          </span>
         </div>
         <h1 className="text-lg font-bold text-zinc-900">{request.title}</h1>
         <p className="text-sm text-zinc-600 mt-2 whitespace-pre-wrap">
@@ -77,7 +81,7 @@ export default async function ProjectRequestDetailPage({
               {request.prefecture}
             </span>
           )}
-          <span>予算: {budgetLabel}</span>
+          <span>予算: {formatBudget(request.budget)}</span>
           {request.deadline && (
             <span className="inline-flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5" />
