@@ -25,7 +25,9 @@ export async function sendChatMessage(
   text: string
 ): Promise<boolean> {
   const map = getWebhookMap();
-  const webhookUrl = map[spaceId];
+  // DBのchatSpaceIdは "spaces/XXX" 形式、マップキーはどちらの形式でも対応
+  const key = spaceId.replace(/^spaces\//, "");
+  const webhookUrl = map[key] ?? map[spaceId];
   if (!webhookUrl) {
     console.warn(`[google-chat] No webhook URL for spaceId: ${spaceId}`);
     return false;
