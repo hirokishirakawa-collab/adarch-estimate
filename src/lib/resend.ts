@@ -335,3 +335,59 @@ export async function sendGroupWeeklyReportEmail(
     console.error("[resend:group-weekly-report] 例外:", e instanceof Error ? e.message : e);
   }
 }
+
+// ---------------------------------------------------------------
+// 案件マッチング — 募集終了通知（→ 選ばれなかった応募者）
+// ---------------------------------------------------------------
+export type ProjectClosedPayload = {
+  to: string;
+  applicantName: string;
+  projectTitle: string;
+};
+
+export async function sendProjectClosedEmail(payload: ProjectClosedPayload) {
+  const { to, applicantName, projectTitle } = payload;
+  const subject = `【案件マッチング】「${projectTitle}」の募集が終了しました`;
+
+  const html = `<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#fafafa;font-family:sans-serif;">
+<div style="max-width:560px;margin:40px auto;background:#fff;border-radius:12px;border:1px solid #e4e4e7;overflow:hidden;">
+  <div style="padding:24px 28px;border-bottom:1px solid #e4e4e7;">
+    <h1 style="margin:0;font-size:16px;color:#18181b;">案件の募集が終了しました</h1>
+  </div>
+  <div style="padding:24px 28px;">
+    <p style="font-size:14px;color:#3f3f46;line-height:1.7;margin:0 0 16px;">
+      ${escHtml(applicantName)} さん
+    </p>
+    <p style="font-size:14px;color:#3f3f46;line-height:1.7;margin:0 0 16px;">
+      ご応募いただいた案件「<strong>${escHtml(projectTitle)}</strong>」は、他の企業とマッチングが成立したため募集を終了しました。
+    </p>
+    <p style="font-size:14px;color:#3f3f46;line-height:1.7;margin:0 0 24px;">
+      またの機会にぜひご応募ください。
+    </p>
+    <a href="${appUrl("/dashboard/project-matching")}"
+       style="display:inline-block;padding:10px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">
+      案件一覧を見る
+    </a>
+  </div>
+</div>
+</body>
+</html>`;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [to],
+      subject,
+      html,
+    });
+    if (error) {
+      console.error("[resend:project-closed] error:", error);
+    } else {
+      console.log(`[resend:project-closed] ✅ ${to} へ送信完了`);
+    }
+  } catch (e) {
+    console.error("[resend:project-closed] 例外:", e instanceof Error ? e.message : e);
+  }
+}

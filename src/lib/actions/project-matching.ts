@@ -318,7 +318,18 @@ export async function matchProject(
 
     const request = await db.projectRequest.findUnique({
       where: { id: projectRequestId },
-      select: { postedByCompanyId: true, status: true },
+      select: {
+        title: true,
+        postedByCompanyId: true,
+        status: true,
+        applications: {
+          select: {
+            applicantCompanyId: true,
+            applicantUser: { select: { email: true, name: true } },
+            applicantCompany: { select: { name: true } },
+          },
+        },
+      },
     });
 
     if (!request) return { error: "案件が見つかりません" };
@@ -343,6 +354,21 @@ export async function matchProject(
       entityId: projectRequestId,
       detail: `matched with ${applicantCompanyId}`,
     });
+
+    // 選ばれなかった応募者にメール通知（非同期で送信、失敗してもエラーにしない）
+    const { sendProjectClosedEmail } = await import("@/lib/resend");
+    const notSelected = request.applications.filter(
+      (a) => a.applicantCompanyId !== applicantCompanyId
+    );
+    for (const app of notSelected) {
+      sendProjectClosedEmail({
+        to: app.applicantUser.email,
+        applicantName: app.applicantUser.name ?? app.applicantCompany.name,
+        projectTitle: request.title,
+      }).catch((err) =>
+        console.error("[project-matching] Notification email error:", err)
+      );
+    }
 
     revalidatePath("/dashboard/project-matching");
     revalidatePath(`/dashboard/project-matching/${projectRequestId}`);
