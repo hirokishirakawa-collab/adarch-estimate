@@ -14,6 +14,7 @@ export default async function ProjectMatchingPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
+  const role = (session.user.role ?? "USER") as import("@/types/roles").UserRole;
   const requests = await getProjectRequests();
 
   return (
@@ -27,6 +28,14 @@ export default async function ProjectMatchingPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {role === "ADMIN" && (
+            <Link
+              href="/dashboard/project-matching/eligibility"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 rounded-md hover:bg-zinc-50 transition-colors"
+            >
+              応募資格一覧
+            </Link>
+          )}
           <Link
             href="/dashboard/project-matching/mine"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 rounded-md hover:bg-zinc-50 transition-colors"

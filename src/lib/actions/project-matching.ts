@@ -96,6 +96,72 @@ export async function getMyEligibility(): Promise<{
 }
 
 // ----------------------------------------------------------------
+// ADMIN用: 全拠点の応募資格一覧
+// ----------------------------------------------------------------
+export async function getEligibilityList() {
+  const session = await auth();
+  const role = (session?.user?.role ?? "USER") as import("@/types/roles").UserRole;
+  if (role !== "ADMIN") throw new Error("Forbidden");
+
+  const now = new Date();
+  const weekIds: string[] = [];
+  for (let i = 0; i < REQUIRED_WEEKS; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i * 7);
+    weekIds.push(getWeekId(d));
+  }
+  const targetMonth = getLatestReportMonth();
+
+  // 全アクティブ企業を取得
+  const companies = await db.groupCompany.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      ownerName: true,
+      linkedUsers: {
+        select: { branchId: true },
+        take: 1,
+      },
+      weeklySubmissions: {
+        where: { weekId: { in: weekIds } },
+        select: { weekId: true },
+      },
+    },
+  });
+
+  // 各企業の資格を判定
+  const results = await Promise.all(
+    companies.map(async (c) => {
+      const submissionCount = c.weeklySubmissions.length;
+      const branchId = c.linkedUsers[0]?.branchId ?? null;
+      const hasRevenue = branchId
+        ? (await db.revenueReport.count({
+            where: { branchId, targetMonth },
+          })) > 0
+        : false;
+      const eligible = canApplyToProject(submissionCount, hasRevenue);
+
+      return {
+        id: c.id,
+        name: c.name,
+        ownerName: c.ownerName,
+        submissionCount,
+        hasRevenueReport: hasRevenue,
+        eligible,
+      };
+    })
+  );
+
+  return {
+    results,
+    weekIds,
+    reportMonth: `${targetMonth.getUTCFullYear()}年${targetMonth.getUTCMonth() + 1}月`,
+  };
+}
+
+// ----------------------------------------------------------------
 // 案件一覧取得（OPEN案件）
 // ----------------------------------------------------------------
 export async function getProjectRequests() {
