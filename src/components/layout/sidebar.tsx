@@ -129,12 +129,13 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Handshake,
         minRole: "USER",
       },
-      {
-        href: "/dashboard/group-sync",
-        label: "グループ連携依頼",
-        icon: Network,
-        minRole: "USER",
-      },
+      // グループ連携依頼は案件マッチングに統合のため非表示
+      // {
+      //   href: "/dashboard/group-sync",
+      //   label: "グループ連携依頼",
+      //   icon: Network,
+      //   minRole: "USER",
+      // },
       {
         href: "/dashboard/group-profiles",
         label: "メンバー紹介",
