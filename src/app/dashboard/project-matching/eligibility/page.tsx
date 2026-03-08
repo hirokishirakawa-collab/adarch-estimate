@@ -4,14 +4,13 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { UserRole } from "@/types/roles";
 import { getEligibilityList } from "@/lib/actions/project-matching";
-import { REQUIRED_WEEKS } from "@/lib/constants/project-matching";
 
 export default async function EligibilityPage() {
   const session = await auth();
   const role = (session?.user?.role ?? "USER") as UserRole;
   if (role !== "ADMIN") redirect("/dashboard");
 
-  const { results, reportMonth } = await getEligibilityList();
+  const { results, requiredWeeks, revenueCheckActive, reportMonth } = await getEligibilityList();
 
   const eligibleCount = results.filter((r) => r.eligible).length;
 
@@ -66,10 +65,10 @@ export default async function EligibilityPage() {
                   代表
                 </th>
                 <th className="text-center px-3 py-2 text-zinc-500 font-medium">
-                  週次シェア（直近{REQUIRED_WEEKS}週）
+                  週次シェア（直近{requiredWeeks}週）
                 </th>
                 <th className="text-center px-3 py-2 text-zinc-500 font-medium">
-                  売上報告（{reportMonth}）
+                  売上報告{revenueCheckActive ? `（${reportMonth}）` : ""}
                 </th>
                 <th className="text-center px-3 py-2 text-zinc-500 font-medium">
                   応募資格
@@ -90,7 +89,7 @@ export default async function EligibilityPage() {
                   </td>
                   <td className="px-3 py-2 text-center">
                     <div className="inline-flex gap-1">
-                      {Array.from({ length: REQUIRED_WEEKS }).map((_, i) => (
+                      {Array.from({ length: requiredWeeks }).map((_, i) => (
                         <div
                           key={i}
                           className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold ${
@@ -104,17 +103,23 @@ export default async function EligibilityPage() {
                       ))}
                     </div>
                     <span className="ml-2 text-zinc-500">
-                      {r.submissionCount}/{REQUIRED_WEEKS}
+                      {r.submissionCount}/{requiredWeeks}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-center">
-                    {r.hasRevenueReport ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 border border-emerald-200 text-emerald-700">
-                        提出済み
-                      </span>
+                    {revenueCheckActive ? (
+                      r.hasRevenueReport ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 border border-emerald-200 text-emerald-700">
+                          提出済み
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-red-50 border border-red-200 text-red-700">
+                          未提出
+                        </span>
+                      )
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-red-50 border border-red-200 text-red-700">
-                        未提出
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-50 border border-zinc-200 text-zinc-400">
+                        4月から適用
                       </span>
                     )}
                   </td>

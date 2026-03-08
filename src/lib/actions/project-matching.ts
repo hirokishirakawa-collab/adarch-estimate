@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { getWeekId } from "@/lib/constants/group-support";
-import { REQUIRED_WEEKS, canApplyToProject, getLatestReportMonth } from "@/lib/constants/project-matching";
+import { REQUIRED_WEEKS, canApplyToProject, getLatestReportMonth, getRequiredWeeks, isRevenueCheckActive } from "@/lib/constants/project-matching";
 import type { ProjectRequestCategory, ProjectFrequency } from "@/generated/prisma/client";
 
 // ----------------------------------------------------------------
@@ -75,9 +75,11 @@ export async function getMyEligibility(): Promise<{
   submissionCount: number;
   requiredWeeks: number;
   hasLatestRevenueReport: boolean;
+  revenueCheckActive: boolean;
   latestReportMonth: string;
   canApply: boolean;
 }> {
+  const now = new Date();
   const user = await requireAuth();
   const { groupCompanyId, branchId } = await getUserCompanyAndBranch(user.id);
   const [submissionCount, hasLatestRevenueReport] = await Promise.all([
@@ -88,10 +90,11 @@ export async function getMyEligibility(): Promise<{
   const latestReportMonth = `${targetMonth.getUTCFullYear()}年${targetMonth.getUTCMonth() + 1}月`;
   return {
     submissionCount,
-    requiredWeeks: REQUIRED_WEEKS,
+    requiredWeeks: getRequiredWeeks(now),
     hasLatestRevenueReport,
+    revenueCheckActive: isRevenueCheckActive(now),
     latestReportMonth,
-    canApply: canApplyToProject(submissionCount, hasLatestRevenueReport),
+    canApply: canApplyToProject(submissionCount, hasLatestRevenueReport, now),
   };
 }
 
@@ -104,6 +107,8 @@ export async function getEligibilityList() {
   if (role !== "ADMIN") throw new Error("Forbidden");
 
   const now = new Date();
+  const requiredWeeks = getRequiredWeeks(now);
+  const revenueActive = isRevenueCheckActive(now);
   const weekIds: string[] = [];
   for (let i = 0; i < REQUIRED_WEEKS; i++) {
     const d = new Date(now);
@@ -141,7 +146,7 @@ export async function getEligibilityList() {
             where: { branchId, targetMonth },
           })) > 0
         : false;
-      const eligible = canApplyToProject(submissionCount, hasRevenue);
+      const eligible = canApplyToProject(submissionCount, hasRevenue, now);
 
       return {
         id: c.id,
@@ -157,6 +162,8 @@ export async function getEligibilityList() {
   return {
     results,
     weekIds,
+    requiredWeeks,
+    revenueCheckActive: revenueActive,
     reportMonth: `${targetMonth.getUTCFullYear()}年${targetMonth.getUTCMonth() + 1}月`,
   };
 }
@@ -331,16 +338,18 @@ export async function applyToProject(
     }
 
     // 応募資格チェック
+    const now = new Date();
+    const requiredWeeks = getRequiredWeeks(now);
     const [submissionCount, hasLatestRevenueReport] = await Promise.all([
       getRecentSubmissionCount(companyId),
       checkLatestRevenueReport(branchId),
     ]);
-    if (!canApplyToProject(submissionCount, hasLatestRevenueReport)) {
-      if (!hasLatestRevenueReport) {
+    if (!canApplyToProject(submissionCount, hasLatestRevenueReport, now)) {
+      if (isRevenueCheckActive(now) && !hasLatestRevenueReport) {
         return { error: "応募するには最新月の売上報告を提出する必要があります" };
       }
       return {
-        error: `応募するには直近${REQUIRED_WEEKS}週の週次シェアをすべて提出する必要があります（現在 ${submissionCount}/${REQUIRED_WEEKS}週）`,
+        error: `応募するには直近${requiredWeeks}週の週次シェアをすべて提出する必要があります（現在 ${submissionCount}/${requiredWeeks}週）`,
       };
     }
 

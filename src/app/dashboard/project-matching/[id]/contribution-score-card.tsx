@@ -4,6 +4,7 @@ interface EligibilityProps {
   submissionCount: number;
   requiredWeeks: number;
   hasLatestRevenueReport: boolean;
+  revenueCheckActive: boolean;
   latestReportMonth: string;
   canApply: boolean;
 }
@@ -12,6 +13,7 @@ export function EligibilityCard({
   submissionCount,
   requiredWeeks,
   hasLatestRevenueReport,
+  revenueCheckActive,
   latestReportMonth,
   canApply,
 }: EligibilityProps) {
@@ -63,30 +65,41 @@ export function EligibilityCard({
           </span>
         </div>
 
-        {/* 条件2: 売上報告 */}
-        <div className="flex items-center gap-3">
-          <div
-            className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold ${
-              hasLatestRevenueReport
-                ? "bg-emerald-500 text-white"
-                : "bg-zinc-200 text-zinc-400"
-            }`}
-          >
-            {hasLatestRevenueReport ? "\u2713" : "\u2013"}
-          </div>
-          <span className={`text-xs ${hasLatestRevenueReport ? "text-emerald-700" : "text-amber-700"}`}>
-            売上報告: {latestReportMonth}分{" "}
-            {hasLatestRevenueReport ? "提出済み" : "未提出"}
-          </span>
-          {!hasLatestRevenueReport && (
-            <a
-              href="/dashboard/sales-report"
-              className="text-[10px] text-blue-600 hover:underline"
+        {/* 条件2: 売上報告（チェック有効時のみ表示） */}
+        {revenueCheckActive ? (
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold ${
+                hasLatestRevenueReport
+                  ? "bg-emerald-500 text-white"
+                  : "bg-zinc-200 text-zinc-400"
+              }`}
             >
-              売上報告へ
-            </a>
-          )}
-        </div>
+              {hasLatestRevenueReport ? "\u2713" : "\u2013"}
+            </div>
+            <span className={`text-xs ${hasLatestRevenueReport ? "text-emerald-700" : "text-amber-700"}`}>
+              売上報告: {latestReportMonth}分{" "}
+              {hasLatestRevenueReport ? "提出済み" : "未提出"}
+            </span>
+            {!hasLatestRevenueReport && (
+              <a
+                href="/dashboard/sales-report"
+                className="text-[10px] text-blue-600 hover:underline"
+              >
+                売上報告へ
+              </a>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold bg-zinc-100 text-zinc-400">
+              —
+            </div>
+            <span className="text-xs text-zinc-400">
+              売上報告: 4月から適用（現在は免除中）
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 応募条件の説明 */}
@@ -101,12 +114,14 @@ export function EligibilityCard({
             直近{requiredWeeks}週の週次シェアをすべて提出していること
           </span>
         </div>
-        <div className="flex items-start gap-2 text-xs">
-          <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
-          <span className="text-zinc-600">
-            最新月（{latestReportMonth}）の売上報告を提出していること（金額は問いません）
-          </span>
-        </div>
+        {revenueCheckActive && (
+          <div className="flex items-start gap-2 text-xs">
+            <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+            <span className="text-zinc-600">
+              最新月（{latestReportMonth}）の売上報告を提出していること（金額は問いません）
+            </span>
+          </div>
+        )}
         <p className="text-[11px] text-zinc-400 ml-3.5">
           グループ活動に継続的に参加している企業が案件に応募できます。
           売上規模や参加時期は関係ありません。

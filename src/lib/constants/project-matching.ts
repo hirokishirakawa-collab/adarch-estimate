@@ -55,19 +55,42 @@ export function formatBudget(amount: number | null | undefined): string {
   return `${amount.toLocaleString()}円`;
 }
 
-/** 応募に必要な直近の提出週数 */
+/** 応募に必要な直近の提出週数（通常） */
 export const REQUIRED_WEEKS = 3;
+
+// 移行期間の設定
+// 週次シェア: 2026-03-29まで → 1週でOK、2026-03-30以降 → 3週必須
+const WEEKLY_GRACE_END = new Date("2026-03-30T00:00:00+09:00");
+// 売上報告: 2026-03-31まで免除、2026-04-01以降必須
+const REVENUE_GRACE_END = new Date("2026-04-01T00:00:00+09:00");
+
+/**
+ * 現在の必要提出週数を返す（移行期間中は1週でOK）
+ */
+export function getRequiredWeeks(now: Date = new Date()): number {
+  return now < WEEKLY_GRACE_END ? 1 : REQUIRED_WEEKS;
+}
+
+/**
+ * 売上報告チェックが有効かどうか
+ */
+export function isRevenueCheckActive(now: Date = new Date()): boolean {
+  return now >= REVENUE_GRACE_END;
+}
 
 /**
  * 案件に応募可能かどうか判定
- * - 直近3週の週次シェアをすべて提出
- * - 最新月の売上報告を提出済み
+ * - 移行期間中は条件を緩和
  */
 export function canApplyToProject(
   recentSubmissionCount: number,
-  hasLatestRevenueReport: boolean
+  hasLatestRevenueReport: boolean,
+  now: Date = new Date()
 ): boolean {
-  return recentSubmissionCount >= REQUIRED_WEEKS && hasLatestRevenueReport;
+  const requiredWeeks = getRequiredWeeks(now);
+  const weeklyOk = recentSubmissionCount >= requiredWeeks;
+  const revenueOk = isRevenueCheckActive(now) ? hasLatestRevenueReport : true;
+  return weeklyOk && revenueOk;
 }
 
 /**
