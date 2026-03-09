@@ -1,6 +1,18 @@
 export const dynamic = "force-dynamic";
 
+import { auth } from "@/lib/auth";
+import type { UserRole } from "@/types/roles";
+
 export async function GET() {
+  const session = await auth();
+  if (!session?.user) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const role = (session.user.role ?? "USER") as UserRole;
+  if (role !== "ADMIN") {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   return Response.json({
     DATABASE_URL: process.env.DATABASE_URL ? "SET" : "MISSING",
     AUTH_SECRET: process.env.AUTH_SECRET ? "SET" : "MISSING",

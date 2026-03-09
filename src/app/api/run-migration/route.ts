@@ -1,7 +1,9 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import type { UserRole } from "@/types/roles";
 
 // ---------------------------------------------------------------
 // 47都道府県 Branch マスタ
@@ -60,6 +62,15 @@ const PREFECTURES = [
 // GET /api/run-migration
 // ---------------------------------------------------------------
 export async function GET(_req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const role = (session.user.role ?? "USER") as UserRole;
+  if (role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const results: string[] = [];
 
   try {
