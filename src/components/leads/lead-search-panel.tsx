@@ -202,32 +202,50 @@ export function LeadSearchPanel() {
               </Link>
             </div>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between w-full">
               <p className="text-sm text-blue-700">
-                検索結果 <strong>{leads.length}件</strong> をリードとして保存できます
-              </p>
-              <Button
-                size="sm"
-                onClick={() => {
-                  startSaving(async () => {
-                    const result = await saveLeadsFromSearch(
-                      leads,
-                      searchParams.industry,
-                      searchParams.area
-                    );
-                    setSavedCount(result.saved);
-                  });
-                }}
-                disabled={isSaving}
-                className="gap-1.5"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {addedNames.size > 0 ? (
+                  <>
+                    <strong>{addedNames.size}件</strong> 選択中（結果一覧の「+」ボタンで企業を選択）
+                  </>
                 ) : (
-                  <Save className="w-3.5 h-3.5" />
+                  <>結果一覧の「+」ボタンで保存したい企業を選択してください</>
                 )}
-                リードとして保存
-              </Button>
+              </p>
+              <div className="flex items-center gap-2">
+                {addedNames.size > 0 && (
+                  <button
+                    onClick={() => setAddedNames(new Set())}
+                    className="text-xs text-zinc-500 hover:text-zinc-700 underline"
+                  >
+                    選択解除
+                  </button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const selectedLeads = leads.filter((l) => addedNames.has(l.name));
+                    if (selectedLeads.length === 0) return;
+                    startSaving(async () => {
+                      const result = await saveLeadsFromSearch(
+                        selectedLeads,
+                        searchParams.industry,
+                        searchParams.area
+                      );
+                      setSavedCount(result.saved);
+                    });
+                  }}
+                  disabled={isSaving || addedNames.size === 0}
+                  className="gap-1.5"
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5" />
+                  )}
+                  選択した{addedNames.size}件を保存
+                </Button>
+              </div>
             </div>
           )}
         </div>

@@ -56,9 +56,9 @@ export default function LeadsPage() {
               <Save className="w-3.5 h-3.5 text-amber-600" />
             </div>
             <div>
-              <p className="text-xs font-medium text-zinc-800">3. リードとして保存</p>
+              <p className="text-xs font-medium text-zinc-800">3. 選択して保存</p>
               <p className="text-[11px] text-zinc-500 mt-0.5">
-                結果一覧の下にある<span className="font-bold text-zinc-700">「リードとして保存」ボタン</span>を押すと、全件がリード管理に登録されます。
+                結果一覧の<span className="font-bold text-zinc-700">「+」ボタン</span>で保存したい企業を選択し、下の<span className="font-bold text-zinc-700">「選択した◯件を保存」</span>で登録。
               </p>
             </div>
           </div>
