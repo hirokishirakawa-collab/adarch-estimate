@@ -17,8 +17,26 @@
 // ---------------------------------------------------------------
 
 import { google } from "googleapis";
+import { sendChatMessage } from "./google-chat";
+import { db } from "./db";
 
 const FROM_ADDRESS = `Ad-Arch Group <${process.env.GMAIL_USER ?? "hiroki.shirakawa@adarch.co.jp"}>`;
+
+/** 案件進捗スペース（顧客管理・商談通知の送信先） */
+const DEAL_CHAT_SPACE_ID = "AAQAp6XvXqE";
+
+/** ユーザーの個人 Chat スペース ID を DB から取得（未設定なら null） */
+async function getUserChatSpaceId(email: string): Promise<string | null> {
+  try {
+    const user = await db.user.findUnique({
+      where: { email },
+      select: { chatSpaceId: true },
+    });
+    return user?.chatSpaceId ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /** 絶対 URL を生成する */
 function appUrl(path: string): string {
@@ -204,15 +222,51 @@ const LOG_TYPE_LABELS: Record<string, string> = {
 // メイン送信関数
 // ---------------------------------------------------------------
 /**
- * 商談に関するメール通知を一斉送信する。
- * 宛先: EMAIL_ALL + EMAIL_CEO
+ * 商談に関する通知を Google Chat（案件進捗スペース）に送信する。
  */
 export async function sendDealNotification(
   payload: DealNotificationPayload
 ): Promise<void> {
-  const to = resolveRecipients("all_and_ceo");
-  const { subject, html } = buildEmail(payload);
-  await sendEmail("deal", to, subject, html);
+  const { customerName, dealTitle, staffName, dealId } = payload;
+  const assigneeName = "assigneeName" in payload ? payload.assigneeName : null;
+  const url = dealUrl(dealId);
+
+  const eventLabels: Record<string, string> = {
+    STATUS_CHANGED: "商談更新通知",
+    LOG_ADDED:      "活動記録通知",
+    DEAL_CREATED:   "新規商談登録通知",
+    DEAL_UPDATED:   "商談情報更新通知",
+  };
+
+  let updateLine: string;
+  if (payload.eventType === "STATUS_CHANGED") {
+    updateLine = `更新: ステータス変更 → ${payload.statusLabel}`;
+  } else if (payload.eventType === "LOG_ADDED") {
+    const typeLabel = LOG_TYPE_LABELS[payload.logType] ?? payload.logType;
+    const snippet = payload.logContent.length > 60
+      ? payload.logContent.slice(0, 60) + "…"
+      : payload.logContent;
+    updateLine = `更新: ${typeLabel}記録「${snippet}」`;
+  } else if (payload.eventType === "DEAL_CREATED") {
+    const amt = payload.amount != null
+      ? ` / 金額: ¥${payload.amount.toLocaleString("ja-JP")}`
+      : "";
+    updateLine = `更新: 新規登録（${payload.statusLabel}${amt}）`;
+  } else {
+    updateLine = `更新: 情報更新（${payload.statusLabel}）`;
+  }
+
+  const text = [
+    `📋 ${eventLabels[payload.eventType] ?? "商談通知"}`,
+    `顧客: ${customerName} 様`,
+    `商談: ${dealTitle}`,
+    assigneeName ? `担当: ${assigneeName}` : null,
+    `操作者: ${staffName}`,
+    updateLine,
+    `🔗 ${url}`,
+  ].filter(Boolean).join("\n");
+
+  await sendChatMessage(DEAL_CHAT_SPACE_ID, text);
 }
 
 // ---------------------------------------------------------------
@@ -930,13 +984,30 @@ function buildAdvertiserReviewCreatedEmail(
 }
 
 /**
- * 承認/否決結果 → 申請者（担当者）へ直接通知
+ * 承認/否決結果 → 申請者（担当者）へ Chat（chatSpaceId があれば）、なければメール
  */
 export async function sendAdvertiserReviewResultNotification(
   payload: AdvertiserReviewResultPayload
 ): Promise<void> {
-  const { subject, html } = buildAdvertiserReviewResultEmail(payload);
-  await sendEmail("advertiser-review-result", [payload.creatorEmail], subject, html);
+  const creatorSpaceId = await getUserChatSpaceId(payload.creatorEmail);
+
+  if (creatorSpaceId) {
+    const { reviewId, advertiserName, status, reviewNote } = payload;
+    const statusLabel = status === "APPROVED" ? "承認" : "否決";
+    const url = appUrl(`/dashboard/tver-review/${reviewId}`);
+    const noteLine = reviewNote ? `審査コメント: ${reviewNote}` : null;
+    const chatText = [
+      `🔔 TVer業態考査 審査結果: ${statusLabel}`,
+      `広告主名: ${advertiserName}`,
+      `審査結果: ${statusLabel}`,
+      noteLine,
+      `🔗 ${url}`,
+    ].filter(Boolean).join("\n");
+    await sendChatMessage(creatorSpaceId, chatText);
+  } else {
+    const { subject, html } = buildAdvertiserReviewResultEmail(payload);
+    await sendEmail("advertiser-review-result", [payload.creatorEmail], subject, html);
+  }
 }
 
 function buildAdvertiserReviewResultEmail(
@@ -1037,15 +1108,25 @@ export type CustomerNotificationPayload =
     };
 
 /**
- * 顧客管理に関するメール通知を一斉送信する。
- * 宛先: EMAIL_ALL + EMAIL_CEO
+ * 顧客管理に関する通知を Google Chat（案件進捗スペース）に送信する。
  */
 export async function sendCustomerNotification(
   payload: CustomerNotificationPayload
 ): Promise<void> {
-  const to = resolveRecipients("all_and_ceo");
-  const { subject, html } = buildCustomerEmail(payload);
-  await sendEmail("customer", to, subject, html);
+  const { customerName, contactName, staffName, customerId } = payload;
+  const url = appUrl(`/dashboard/customers/${customerId}`);
+  const eventLabel =
+    payload.eventType === "CUSTOMER_CREATED" ? "新規顧客登録" : "顧客情報更新";
+
+  const text = [
+    `👤 ${eventLabel}`,
+    `会社名: ${customerName}`,
+    `担当者: ${contactName ?? "—"}`,
+    `操作者: ${staffName}`,
+    `🔗 ${url}`,
+  ].join("\n");
+
+  await sendChatMessage(DEAL_CHAT_SPACE_ID, text);
 }
 
 function buildCustomerEmail(payload: CustomerNotificationPayload): {
@@ -1162,14 +1243,42 @@ export type CollaborationNotificationPayload = {
 
 /**
  * グループ連携依頼の新規申請を通知する。
- * 宛先: EMAIL_CEO + EMAIL_SELECTED
+ * Google Chat: CEO + 選抜メンバーの個人スペースへ送信（chatSpaceId 未設定ならメールにフォールバック）
  */
 export async function sendCollaborationNotification(
   payload: CollaborationNotificationPayload
 ): Promise<void> {
-  const to = resolveRecipients("ceo_and_selected");
-  const { subject, html } = buildCollaborationEmail(payload);
-  await sendEmail("collaboration", to, subject, html);
+  const { requestId, counterpartName, requestType, description, staffName } = payload;
+  const url = appUrl(`/dashboard/group-sync/${requestId}`);
+  const snippet = description.length > 120 ? description.slice(0, 120) + "…" : description;
+
+  const text = [
+    "🤝 グループ連携依頼",
+    `連携先: ${counterpartName}`,
+    `種別: ${requestType}`,
+    `内容: ${snippet}`,
+    `申請者: ${staffName}`,
+    `🔗 ${url}`,
+  ].join("\n");
+
+  // 各メンバーの chatSpaceId を検索し、Chat / メールに振り分け
+  const recipients = resolveRecipients("ceo_and_selected");
+  const emailFallback: string[] = [];
+
+  for (const email of recipients) {
+    const spaceId = await getUserChatSpaceId(email);
+    if (spaceId) {
+      await sendChatMessage(spaceId, text);
+    } else {
+      emailFallback.push(email);
+    }
+  }
+
+  // chatSpaceId 未設定のユーザーにはメールで送信
+  if (emailFallback.length > 0) {
+    const { subject, html } = buildCollaborationEmail(payload);
+    await sendEmail("collaboration", emailFallback, subject, html);
+  }
 }
 
 function buildCollaborationEmail(payload: CollaborationNotificationPayload): {
@@ -1262,8 +1371,8 @@ export type DisclosureNotificationPayload =
 
 /**
  * 開示申請関連の通知を送信する。
- * - REQUESTED: 管理者（EMAIL_CEO）へ
- * - APPROVED/REJECTED: 申請者へ直接
+ * - REQUESTED: 管理者（EMAIL_CEO）へメール + 名刺所有者へ Chat（chatSpaceId があれば）
+ * - APPROVED/REJECTED: 申請者へ Chat（chatSpaceId があれば）、なければメール
  */
 export async function sendDisclosureNotification(
   payload: DisclosureNotificationPayload
@@ -1272,9 +1381,8 @@ export async function sendDisclosureNotification(
   const url = appUrl(`/dashboard/business-cards/requests`);
 
   if (payload.eventType === "DISCLOSURE_REQUESTED") {
-    const to = [...new Set([...resolveRecipients("ceo_only"), payload.cardOwnerEmail])];
-    const subject = `【アドアーチOS】名刺開示申請：${companyName} ${cardOwnerName}`;
-
+    // CEO へはメールを維持
+    const ceoRecipients = resolveRecipients("ceo_only");
     const rows = [
       ["対象名刺", `${companyName} / ${cardOwnerName}`],
       ["申請者",   requesterName],
@@ -1289,6 +1397,7 @@ export async function sendDisclosureNotification(
       )
       .join("");
 
+    const subject = `【アドアーチOS】名刺開示申請：${companyName} ${cardOwnerName}`;
     const html = `
 <!DOCTYPE html>
 <html lang="ja">
@@ -1324,18 +1433,49 @@ export async function sendDisclosureNotification(
 </body>
 </html>`;
 
-    await sendEmail("disclosure-request", to, subject, html);
+    await sendEmail("disclosure-request", ceoRecipients, subject, html);
+
+    // 名刺所有者へ Chat（chatSpaceId があれば）、なければメール
+    const ownerSpaceId = await getUserChatSpaceId(payload.cardOwnerEmail);
+    if (ownerSpaceId) {
+      const purposeSnippet = payload.purpose.length > 120 ? payload.purpose.slice(0, 120) + "…" : payload.purpose;
+      const chatText = [
+        "🔔 名刺開示申請",
+        `対象名刺: ${companyName} / ${cardOwnerName}`,
+        `申請者: ${requesterName}`,
+        `開示目的: ${purposeSnippet}`,
+        `🔗 ${url}`,
+      ].join("\n");
+      await sendChatMessage(ownerSpaceId, chatText);
+    } else if (!ceoRecipients.includes(payload.cardOwnerEmail)) {
+      // CEO 宛メールに含まれていなければ個別送信
+      await sendEmail("disclosure-request-owner", [payload.cardOwnerEmail], subject, html);
+    }
   } else {
-    // 承認 / 却下 → 申請者へ直接
+    // 承認 / 却下 → 申請者へ Chat（chatSpaceId があれば）、なければメール
     const statusLabel = payload.eventType === "DISCLOSURE_APPROVED" ? "承認" : "却下";
-    const headerColor = payload.eventType === "DISCLOSURE_APPROVED" ? "#059669" : "#dc2626";
-    const subject = `【アドアーチOS】名刺開示申請 ${statusLabel}：${companyName} ${cardOwnerName}`;
+    const requesterSpaceId = await getUserChatSpaceId(payload.requesterEmail);
 
-    const noteRow = payload.reviewNote
-      ? `<tr><th style="${thStyle}">審査コメント</th><td style="${tdStyle}">${escHtml(payload.reviewNote)}</td></tr>`
-      : "";
+    if (requesterSpaceId) {
+      const noteLine = payload.reviewNote ? `審査コメント: ${payload.reviewNote}` : null;
+      const chatText = [
+        `🔔 名刺開示 審査結果: ${statusLabel}`,
+        `対象名刺: ${companyName} / ${cardOwnerName}`,
+        `審査結果: ${statusLabel}`,
+        noteLine,
+        `🔗 ${url}`,
+      ].filter(Boolean).join("\n");
+      await sendChatMessage(requesterSpaceId, chatText);
+    } else {
+      // フォールバック: メール送信
+      const headerColor = payload.eventType === "DISCLOSURE_APPROVED" ? "#059669" : "#dc2626";
+      const subject = `【アドアーチOS】名刺開示申請 ${statusLabel}：${companyName} ${cardOwnerName}`;
 
-    const html = `
+      const noteRow = payload.reviewNote
+        ? `<tr><th style="${thStyle}">審査コメント</th><td style="${tdStyle}">${escHtml(payload.reviewNote)}</td></tr>`
+        : "";
+
+      const html = `
 <!DOCTYPE html>
 <html lang="ja">
 <head><meta charset="UTF-8" /></head>
@@ -1371,7 +1511,8 @@ export async function sendDisclosureNotification(
 </body>
 </html>`;
 
-    await sendEmail("disclosure-result", [payload.requesterEmail], subject, html);
+      await sendEmail("disclosure-result", [payload.requesterEmail], subject, html);
+    }
   }
 }
 

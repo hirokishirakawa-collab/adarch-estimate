@@ -248,6 +248,8 @@ model User {
 
   isActive Boolean @default(true) // 本部がアカウントを有効/無効管理
 
+  chatSpaceId  String?  // Google Chat 個人スペースID
+
   // ---- グループ企業紐付け（メンバープロフィール用）----
   groupCompanyId String?
   groupCompany   GroupCompany? @relation("UserGroupCompany", fields: [groupCompanyId], references: [id], onDelete: SetNull)
