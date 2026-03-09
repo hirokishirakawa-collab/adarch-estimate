@@ -73,6 +73,7 @@ export async function saveLeadsFromSearch(
             industry,
             area,
             createdById: user?.id ?? null,
+            assigneeId: user?.id ?? null,
           },
         });
 
