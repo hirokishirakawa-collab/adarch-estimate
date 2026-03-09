@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X } from "lucide-react";
+import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel } from "@/lib/constants/leads";
 import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer } from "@/lib/actions/lead";
@@ -13,6 +13,10 @@ interface LeadRow {
   name: string;
   address: string | null;
   phone: string | null;
+  rating: number;
+  ratingCount: number;
+  types: string[];
+  businessStatus: string | null;
   scoreTotal: number;
   scoreComment: string | null;
   status: string;
@@ -89,9 +93,48 @@ function LeadRow({
   const [isPending, startTransition] = useTransition();
   const [editingMemo, setEditingMemo] = useState(false);
   const [memoValue, setMemoValue] = useState(lead.memo ?? "");
+  const [advice, setAdvice] = useState<string | null>(null);
+  const [adviceOpen, setAdviceOpen] = useState(false);
+  const [adviceLoading, setAdviceLoading] = useState(false);
 
   const statusOpt = getLeadStatusOption(lead.status);
   const priority = getPriorityLabel(lead.scoreTotal);
+
+  const handleAdvice = async () => {
+    if (advice) {
+      setAdviceOpen(!adviceOpen);
+      return;
+    }
+    setAdviceLoading(true);
+    setAdviceOpen(true);
+    try {
+      const res = await fetch("/api/leads/advise", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: lead.name,
+          address: lead.address,
+          phone: lead.phone,
+          industry: lead.industry,
+          area: lead.area,
+          rating: lead.rating,
+          ratingCount: lead.ratingCount,
+          types: lead.types,
+          businessStatus: lead.businessStatus,
+          scoreTotal: lead.scoreTotal,
+          scoreComment: lead.scoreComment,
+          memo: lead.memo,
+        }),
+      });
+      if (!res.ok) throw new Error("API error");
+      const data = await res.json();
+      setAdvice(data.advice);
+    } catch {
+      setAdvice("提案の生成に失敗しました。もう一度お試しください。");
+    } finally {
+      setAdviceLoading(false);
+    }
+  };
 
   const handleStatusChange = (newStatus: string) => {
     startTransition(async () => {
@@ -124,6 +167,7 @@ function LeadRow({
   };
 
   return (
+    <>
     <tr
       className={cn(
         "border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors",
@@ -254,6 +298,22 @@ function LeadRow({
       {/* 操作 */}
       <td className="px-3 py-3 text-center">
         <div className="flex items-center justify-center gap-1">
+          <button
+            onClick={handleAdvice}
+            disabled={adviceLoading}
+            className={cn(
+              "p-1 transition-colors",
+              adviceOpen ? "text-purple-600" : "text-zinc-400 hover:text-purple-600",
+              adviceLoading && "animate-pulse"
+            )}
+            title="AI提案"
+          >
+            {adviceLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" />
+            )}
+          </button>
           {lead.mapsUrl && (
             <a
               href={lead.mapsUrl}
@@ -285,5 +345,36 @@ function LeadRow({
         </div>
       </td>
     </tr>
+    {adviceOpen && (
+      <tr>
+        <td colSpan={7} className="px-0 py-0">
+          <div className="bg-purple-50 border-t border-b border-purple-100 px-5 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                <span className="text-xs font-medium text-purple-700">AI営業提案 — {lead.name}</span>
+              </div>
+              <button
+                onClick={() => setAdviceOpen(false)}
+                className="text-purple-400 hover:text-purple-600"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
+            </div>
+            {adviceLoading ? (
+              <div className="flex items-center gap-2 py-4 justify-center">
+                <Loader2 className="w-4 h-4 text-purple-500 animate-spin" />
+                <span className="text-xs text-purple-600">提案を生成中...</span>
+              </div>
+            ) : (
+              <div className="text-sm text-zinc-700 leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none prose-headings:text-purple-900 prose-strong:text-purple-900">
+                {advice}
+              </div>
+            )}
+          </div>
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
