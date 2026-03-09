@@ -4,11 +4,28 @@
 
 /** 業種オプション */
 export const LEAD_INDUSTRY_OPTIONS = [
-  { value: "recruitment", label: "採用・人材", keywords: "人材紹介 採用支援 求人" },
-  { value: "real_estate", label: "不動産・建設", keywords: "不動産 建設会社 工務店" },
-  { value: "restaurant", label: "飲食", keywords: "レストラン 飲食店 カフェ" },
-  { value: "retail", label: "小売", keywords: "小売店 ショップ 販売店" },
-  { value: "other", label: "その他", keywords: "" },
+  // ── BtoC ──
+  { value: "restaurant", label: "飲食", keywords: "レストラン 飲食店 カフェ 居酒屋" },
+  { value: "retail", label: "小売", keywords: "小売店 ショップ 販売店 物販" },
+  { value: "real_estate", label: "不動産・建設", keywords: "不動産 建設会社 工務店 ハウスメーカー" },
+  { value: "medical", label: "医療・クリニック", keywords: "病院 クリニック 歯科 医院" },
+  { value: "beauty", label: "美容・エステ", keywords: "美容室 エステサロン ネイルサロン 美容院" },
+  { value: "fitness", label: "フィットネス・ジム", keywords: "フィットネス スポーツジム パーソナルジム ヨガ" },
+  { value: "hotel", label: "ホテル・旅館", keywords: "ホテル 旅館 宿泊施設 リゾート" },
+  { value: "education", label: "教育・学習塾", keywords: "学習塾 予備校 スクール 教室" },
+  { value: "car_dealer", label: "自動車ディーラー", keywords: "自動車販売 カーディーラー 中古車" },
+  { value: "recruitment", label: "採用・人材", keywords: "人材紹介 採用支援 求人 派遣" },
+  // ── BtoB ──
+  { value: "it_web", label: "IT・Web・SaaS", keywords: "IT企業 システム開発 ソフトウェア SaaS" },
+  { value: "manufacturing", label: "製造業", keywords: "製造 メーカー 工場 機械" },
+  { value: "logistics", label: "物流・運送", keywords: "物流 運送 倉庫 配送" },
+  { value: "consulting", label: "コンサルティング", keywords: "コンサルティング 経営コンサル 戦略" },
+  { value: "professional", label: "士業（税理士・弁護士等）", keywords: "税理士 会計事務所 弁護士 社労士 行政書士" },
+  { value: "advertising", label: "広告・マーケティング", keywords: "広告代理店 マーケティング PR 販促" },
+  { value: "printing", label: "印刷・デザイン", keywords: "印刷会社 デザイン事務所 制作会社" },
+  { value: "finance", label: "金融・保険", keywords: "保険代理店 金融 証券 ファイナンス" },
+  { value: "wholesale", label: "卸売・商社", keywords: "卸売 商社 貿易 問屋" },
+  { value: "other", label: "その他（自由入力）", keywords: "" },
 ] as const;
 
 export type LeadIndustryValue = (typeof LEAD_INDUSTRY_OPTIONS)[number]["value"];

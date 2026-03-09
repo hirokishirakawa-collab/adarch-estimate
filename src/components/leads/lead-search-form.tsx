@@ -7,6 +7,7 @@ import {
 } from "@/lib/constants/leads";
 import { Button } from "@/components/ui/button";
 import { Search, Loader2 } from "lucide-react";
+import { useState } from "react";
 
 interface LeadSearchFormProps {
   onSubmit: (params: {
@@ -20,16 +21,19 @@ interface LeadSearchFormProps {
 }
 
 export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
+  const [selectedIndustry, setSelectedIndustry] = useState("");
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const industryValue = fd.get("industry") as string;
     const opt = LEAD_INDUSTRY_OPTIONS.find((o) => o.value === industryValue);
+    const customKeywords = (fd.get("customKeywords") as string) ?? "";
     onSubmit({
       prefecture: fd.get("prefecture") as string,
       city: fd.get("city") as string,
-      industry: opt?.label ?? industryValue,
-      industryKeywords: opt?.keywords ?? "",
+      industry: opt?.label ?? customKeywords,
+      industryKeywords: industryValue === "other" ? customKeywords : (opt?.keywords ?? ""),
       count: Number(fd.get("count")) || 20,
     });
   };
@@ -77,6 +81,8 @@ export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
           <select
             name="industry"
             required
+            value={selectedIndustry}
+            onChange={(e) => setSelectedIndustry(e.target.value)}
             className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">選択してください</option>
@@ -87,6 +93,22 @@ export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
             ))}
           </select>
         </div>
+
+        {/* 自由入力キーワード（その他選択時） */}
+        {selectedIndustry === "other" && (
+          <div>
+            <label className="block text-xs font-medium text-zinc-700 mb-1">
+              検索キーワード
+            </label>
+            <input
+              name="customKeywords"
+              type="text"
+              required
+              placeholder="例: 物流会社、イベント企画"
+              className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        )}
 
         {/* 取得件数 */}
         <div>
