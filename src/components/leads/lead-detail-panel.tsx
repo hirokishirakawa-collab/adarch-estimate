@@ -1,7 +1,7 @@
 "use client";
 
 import { SCORE_ITEMS, getPriorityLabel } from "@/lib/constants/leads";
-import type { ScoredLead, WebsiteAnalysis } from "@/lib/constants/leads";
+import type { ScoredLead, WebsiteAnalysis, BusinessType } from "@/lib/constants/leads";
 import {
   MapPin,
   Phone,
@@ -15,13 +15,77 @@ import {
   Share2,
   Monitor,
   Users,
+  Building2,
+  Store,
+  Landmark,
+  GitBranch,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const BUSINESS_TYPE_CONFIG: Record<
+  BusinessType,
+  { label: string; icon: React.ReactNode; className: string; advice: string }
+> = {
+  independent: {
+    label: "独立企業",
+    icon: <Building2 className="w-3.5 h-3.5" />,
+    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    advice: "オーナーへ直接提案が可能。意思決定が早い傾向",
+  },
+  chain: {
+    label: "チェーン店",
+    icon: <Store className="w-3.5 h-3.5" />,
+    className: "bg-purple-50 text-purple-700 border-purple-200",
+    advice: "本部決裁の可能性あり。エリア限定施策の提案が有効",
+  },
+  franchise: {
+    label: "フランチャイズ",
+    icon: <Landmark className="w-3.5 h-3.5" />,
+    className: "bg-blue-50 text-blue-700 border-blue-200",
+    advice: "FC本部 or 加盟店オーナーどちらが決裁者か確認が必要",
+  },
+  branch: {
+    label: "支店・店舗",
+    icon: <GitBranch className="w-3.5 h-3.5" />,
+    className: "bg-orange-50 text-orange-700 border-orange-200",
+    advice: "本社への紹介依頼 or 支店独自予算の確認が有効",
+  },
+  unknown: {
+    label: "判定中",
+    icon: <Building2 className="w-3.5 h-3.5" />,
+    className: "bg-zinc-50 text-zinc-600 border-zinc-200",
+    advice: "",
+  },
+};
 
 interface LeadDetailPanelProps {
   lead: ScoredLead;
   isAdded: boolean;
   onToggleAdd: () => void;
+}
+
+// 企業タイプ（チェーン/独立/FC/支店）のバッジ
+function BusinessTypeBadge({ analysis }: { analysis: WebsiteAnalysis }) {
+  const config = BUSINESS_TYPE_CONFIG[analysis.businessType];
+
+  return (
+    <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+      <div className="flex items-start gap-3">
+        <span
+          className={`inline-flex items-center gap-1.5 text-xs font-medium rounded px-2.5 py-1 border flex-shrink-0 ${config.className}`}
+        >
+          {config.icon}
+          {config.label}
+        </span>
+        <div className="min-w-0">
+          {config.advice && (
+            <p className="text-sm text-zinc-700">{config.advice}</p>
+          )}
+          <p className="text-xs text-zinc-400 mt-0.5">{analysis.businessTypeReason}</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // デジタル活用度の各項目を「活用中」「提案チャンス」に分類して表示
@@ -248,9 +312,14 @@ export function LeadDetailPanel({
         </div>
       </div>
 
-      {/* デジタル活用度 詳細 */}
+      {/* 企業タイプ + デジタル活用度 */}
       {lead.digitalAnalysis && (
-        <DigitalAnalysisCard analysis={lead.digitalAnalysis} />
+        <>
+          {lead.digitalAnalysis.businessType !== "unknown" && (
+            <BusinessTypeBadge analysis={lead.digitalAnalysis} />
+          )}
+          <DigitalAnalysisCard analysis={lead.digitalAnalysis} />
+        </>
       )}
 
       {/* AIコメント */}

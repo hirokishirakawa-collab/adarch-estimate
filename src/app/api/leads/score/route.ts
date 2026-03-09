@@ -1,15 +1,121 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import type { PlaceLead, WebsiteAnalysis } from "@/lib/constants/leads";
+import type { PlaceLead, WebsiteAnalysis, BusinessType } from "@/lib/constants/leads";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 // ----------------------------------------------------------------
+// チェーン店・フランチャイズ判定
+// ----------------------------------------------------------------
+
+// 名前から支店パターンを検出
+const BRANCH_PATTERNS = [
+  /(.+?)[　\s]+(.*?店)$/,        // 「○○ 渋谷店」
+  /(.+?)[　\s]+(.*?支店)$/,      // 「○○ 東京支店」
+  /(.+?)[　\s]+(.*?営業所)$/,    // 「○○ 関東営業所」
+  /(.+?)[　\s]+(.*?出張所)$/,
+  /(.+?)(.*?[都道府県市区町村]店)$/,  // 「○○東京都店」
+  /(.+?)[\s　]*[（(](.+?)[）)]$/,   // 「○○（渋谷）」
+];
+
+// Webサイトからチェーン/FC判定するキーワード
+const CHAIN_SITE_KEYWORDS = [
+  "店舗一覧", "店舗検索", "store-locator", "store-list", "shop-list",
+  "全国の店舗", "お近くの店舗", "エリアから探す",
+];
+const FRANCHISE_SITE_KEYWORDS = [
+  "フランチャイズ", "franchise", "fc加盟", "fc募集", "加盟店募集",
+  "オーナー募集", "独立開業",
+];
+
+function extractBaseName(name: string): string {
+  for (const pattern of BRANCH_PATTERNS) {
+    const m = name.match(pattern);
+    if (m) return m[1].trim();
+  }
+  return name.trim();
+}
+
+function detectBusinessType(
+  name: string,
+  allNames: string[],
+  html: string | null,
+): { type: BusinessType; reason: string } {
+  const baseName = extractBaseName(name);
+  const lower = html?.toLowerCase() ?? "";
+
+  // 1) 同一バッチ内に同名ベースの企業が複数 → チェーンの可能性大
+  const siblings = allNames.filter((n) => {
+    const other = extractBaseName(n);
+    return other === baseName && n !== name;
+  });
+
+  // 2) サイト内のFC/チェーンキーワード
+  const hasFranchiseKeyword = FRANCHISE_SITE_KEYWORDS.some((kw) => lower.includes(kw));
+  const hasChainKeyword = CHAIN_SITE_KEYWORDS.some((kw) => lower.includes(kw));
+
+  // 3) 名前に支店パターンがあるか
+  const hasBranchPattern = BRANCH_PATTERNS.some((p) => p.test(name));
+
+  // 判定ロジック
+  if (hasFranchiseKeyword) {
+    return {
+      type: "franchise",
+      reason: "サイトにフランチャイズ関連の記載あり",
+    };
+  }
+
+  if (siblings.length >= 2 || (siblings.length >= 1 && hasChainKeyword)) {
+    return {
+      type: "chain",
+      reason: `同名店舗が${siblings.length + 1}件検出（${baseName}）`,
+    };
+  }
+
+  if (hasChainKeyword && hasBranchPattern) {
+    return {
+      type: "chain",
+      reason: "店舗一覧ページあり・支店名パターン検出",
+    };
+  }
+
+  if (hasChainKeyword) {
+    return {
+      type: "chain",
+      reason: "サイトに店舗一覧・店舗検索あり",
+    };
+  }
+
+  if (hasBranchPattern && siblings.length >= 1) {
+    return {
+      type: "branch",
+      reason: `支店名パターン検出（本体: ${baseName}）`,
+    };
+  }
+
+  if (hasBranchPattern) {
+    return {
+      type: "branch",
+      reason: `支店・店舗名パターン検出（本体: ${baseName}）`,
+    };
+  }
+
+  return {
+    type: "independent",
+    reason: "チェーン・FC の特徴なし（独立企業の可能性が高い）",
+  };
+}
+
+// ----------------------------------------------------------------
 // Webサイトを取得して分析する
 // ----------------------------------------------------------------
-async function analyzeWebsite(url: string): Promise<WebsiteAnalysis> {
+async function analyzeWebsite(
+  url: string,
+  name: string,
+  allNames: string[],
+): Promise<{ analysis: WebsiteAnalysis; html: string | null }> {
   const empty: WebsiteAnalysis = {
     hasWebsite: false,
     hasVideo: false,
@@ -17,10 +123,18 @@ async function analyzeWebsite(url: string): Promise<WebsiteAnalysis> {
     hasSns: [],
     siteAge: "unknown",
     hasRecruitPage: false,
+    businessType: "unknown",
+    businessTypeReason: "",
     summary: "Webサイトなし",
   };
 
-  if (!url) return empty;
+  if (!url) {
+    const bt = detectBusinessType(name, allNames, null);
+    return {
+      analysis: { ...empty, businessType: bt.type, businessTypeReason: bt.reason },
+      html: null,
+    };
+  }
 
   try {
     const controller = new AbortController();
@@ -37,7 +151,19 @@ async function analyzeWebsite(url: string): Promise<WebsiteAnalysis> {
     });
     clearTimeout(timeout);
 
-    if (!res.ok) return { ...empty, hasWebsite: true, summary: "サイトアクセス不可" };
+    if (!res.ok) {
+      const bt = detectBusinessType(name, allNames, null);
+      return {
+        analysis: {
+          ...empty,
+          hasWebsite: true,
+          businessType: bt.type,
+          businessTypeReason: bt.reason,
+          summary: "サイトアクセス不可",
+        },
+        html: null,
+      };
+    }
 
     const html = await res.text();
     const lower = html.toLowerCase();
@@ -65,7 +191,7 @@ async function analyzeWebsite(url: string): Promise<WebsiteAnalysis> {
       .filter(([, re]) => re.test(lower))
       .map(([name]) => name);
 
-    // サイトの新しさ（viewport meta = レスポンシブ対応の有無で簡易判定）
+    // サイトの新しさ
     const hasViewport = lower.includes('name="viewport"') || lower.includes("name='viewport'");
     const hasModernFramework =
       lower.includes("next") ||
@@ -83,6 +209,9 @@ async function analyzeWebsite(url: string): Promise<WebsiteAnalysis> {
       lower.includes("採用") ||
       lower.includes("求人");
 
+    // チェーン/独立判定
+    const bt = detectBusinessType(name, allNames, html);
+
     // サマリー生成
     const parts: string[] = [];
     if (hasVideo) parts.push(hasYouTube ? "YouTube動画あり" : "動画コンテンツあり");
@@ -93,16 +222,31 @@ async function analyzeWebsite(url: string): Promise<WebsiteAnalysis> {
     if (hasRecruitPage) parts.push("採用ページあり");
 
     return {
-      hasWebsite: true,
-      hasVideo,
-      hasYouTube,
-      hasSns,
-      siteAge,
-      hasRecruitPage,
-      summary: parts.join(" / "),
+      analysis: {
+        hasWebsite: true,
+        hasVideo,
+        hasYouTube,
+        hasSns,
+        siteAge,
+        hasRecruitPage,
+        businessType: bt.type,
+        businessTypeReason: bt.reason,
+        summary: parts.join(" / "),
+      },
+      html,
     };
   } catch {
-    return { ...empty, hasWebsite: true, summary: "サイト取得タイムアウト" };
+    const bt = detectBusinessType(name, allNames, null);
+    return {
+      analysis: {
+        ...empty,
+        hasWebsite: true,
+        businessType: bt.type,
+        businessTypeReason: bt.reason,
+        summary: "サイト取得タイムアウト",
+      },
+      html: null,
+    };
   }
 }
 
@@ -131,9 +275,11 @@ export async function POST(req: NextRequest) {
   };
 
   // 全企業のWebサイトを並列で分析
-  const analyses = await Promise.all(
-    body.places.map((p) => analyzeWebsite(p.websiteUrl))
+  const allNames = body.places.map((p) => p.name);
+  const results = await Promise.all(
+    body.places.map((p) => analyzeWebsite(p.websiteUrl, p.name, allNames))
   );
+  const analyses = results.map((r) => r.analysis);
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループの営業支援AIです。
 企業リストを受け取り、広告営業のリード（見込み客）としての優先度をスコアリングしてください。
@@ -158,6 +304,10 @@ export async function POST(req: NextRequest) {
 - 各企業に対して上記6項目の内訳スコアと合計スコア、1行コメントを付与
 - 合計スコアは各項目の合計（最大100点）
 - コメントは営業担当が読む想定で、デジタル活用状況を踏まえた具体的なアプローチのヒントを含める
+- 企業タイプ（チェーン/FC/独立/支店）が付記されている場合、コメントに営業アプローチの違いを反映する：
+  - チェーン・FC → 本部決裁の可能性、エリア限定施策の提案が有効
+  - 独立企業 → オーナー直接提案が可能、意思決定が早い傾向
+  - 支店 → 本社への紹介依頼 or 支店独自予算の確認が必要
 
 【出力JSON形式】
 [
@@ -179,7 +329,7 @@ export async function POST(req: NextRequest) {
   const placeSummary = body.places
     .map(
       (p, i) =>
-        `${i + 1}. ${p.name} | ${p.address} | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary}`
+        `${i + 1}. ${p.name} | ${p.address} | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary} | 企業タイプ:${analyses[i].businessType}(${analyses[i].businessTypeReason})`
     )
     .join("\n");
 

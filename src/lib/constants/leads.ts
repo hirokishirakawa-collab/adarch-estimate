@@ -76,6 +76,9 @@ export interface PlaceLead {
   businessStatus: string;
 }
 
+/** 企業タイプ（チェーン/独立判定） */
+export type BusinessType = "chain" | "franchise" | "independent" | "branch" | "unknown";
+
 /** Webサイト分析結果の型 */
 export interface WebsiteAnalysis {
   hasWebsite: boolean;
@@ -84,6 +87,8 @@ export interface WebsiteAnalysis {
   hasSns: string[];
   siteAge: "modern" | "outdated" | "unknown";
   hasRecruitPage: boolean;
+  businessType: BusinessType;
+  businessTypeReason: string;
   summary: string;
 }
 
