@@ -85,7 +85,7 @@ export interface ScoredLead extends PlaceLead {
 
 export const LEAD_STATUS_OPTIONS = [
   { value: "UNTOUCHED",      label: "未対応",   className: "bg-zinc-100 text-zinc-600 border-zinc-200",       icon: "⚪" },
-  { value: "CALLED",         label: "架電済み", className: "bg-blue-100 text-blue-700 border-blue-200",       icon: "📞" },
+  { value: "CALLED",         label: "連絡済み", className: "bg-blue-100 text-blue-700 border-blue-200",       icon: "📞" },
   { value: "APPOINTMENT",    label: "アポ獲得", className: "bg-yellow-100 text-yellow-700 border-yellow-200", icon: "📅" },
   { value: "DEAL_CONVERTED", label: "商談化",   className: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: "🎉" },
   { value: "SKIPPED",        label: "スキップ", className: "bg-red-100 text-red-600 border-red-200",         icon: "⏭️" },

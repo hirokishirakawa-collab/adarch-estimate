@@ -329,3 +329,30 @@ export async function deleteAllLeads(): Promise<{ deleted: number; error?: strin
     return { deleted: 0, error: "削除に失敗しました" };
   }
 }
+
+// ---------------------------------------------------------------
+// 選択したリードを削除する（ADMIN限定）
+// ---------------------------------------------------------------
+export async function deleteSelectedLeads(
+  leadIds: string[]
+): Promise<{ deleted: number; error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { deleted: 0, error: "ログインが必要です" };
+
+  const role = (session.user.role ?? "USER") as UserRole;
+  if (role !== "ADMIN") return { deleted: 0, error: "管理者権限が必要です" };
+
+  if (leadIds.length === 0) return { deleted: 0 };
+
+  try {
+    await db.leadLog.deleteMany({ where: { leadId: { in: leadIds } } });
+    const result = await db.lead.deleteMany({ where: { id: { in: leadIds } } });
+
+    revalidatePath("/dashboard/leads/list");
+    return { deleted: result.count };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[deleteSelectedLeads] DB error:", msg);
+    return { deleted: 0, error: "削除に失敗しました" };
+  }
+}

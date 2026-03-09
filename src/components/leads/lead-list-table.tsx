@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel } from "@/lib/constants/leads";
-import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer } from "@/lib/actions/lead";
+import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads } from "@/lib/actions/lead";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface LeadRow {
@@ -31,9 +32,43 @@ interface LeadRow {
 interface Props {
   leads: LeadRow[];
   users: Array<{ id: string; name: string | null; email: string }>;
+  isAdmin?: boolean;
 }
 
-export function LeadListTable({ leads, users }: Props) {
+export function LeadListTable({ leads, users, isAdmin }: Props) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleting, startDeleting] = useTransition();
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === leads.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(leads.map((l) => l.id)));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`選択した${selectedIds.size}件のリードを削除しますか？`)) return;
+    startDeleting(async () => {
+      const result = await deleteSelectedLeads(Array.from(selectedIds));
+      if (result.error) {
+        alert(result.error);
+      } else {
+        setSelectedIds(new Set());
+      }
+    });
+  };
+
   if (leads.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-zinc-200 px-5 py-12 text-center">
@@ -57,10 +92,44 @@ export function LeadListTable({ leads, users }: Props) {
           <ArrowRightLeft className="w-3 h-3 text-emerald-500" /> 顧客に転換
         </span>
       </div>
+
+      {/* 選択削除バー */}
+      {isAdmin && selectedIds.size > 0 && (
+        <div className="flex items-center justify-between px-4 py-2 bg-red-50 border-b border-red-100">
+          <p className="text-sm text-red-700">
+            <strong>{selectedIds.size}件</strong> 選択中
+          </p>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={handleDeleteSelected}
+            disabled={isDeleting}
+            className="gap-1.5"
+          >
+            {isDeleting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="w-3.5 h-3.5" />
+            )}
+            選択した{selectedIds.size}件を削除
+          </Button>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-100 bg-zinc-50">
+              {isAdmin && (
+                <th className="px-3 py-2.5 w-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === leads.length && leads.length > 0}
+                    onChange={toggleSelectAll}
+                    className="rounded border-zinc-300"
+                  />
+                </th>
+              )}
               <th className="text-left px-4 py-2.5 text-xs font-medium text-zinc-500">
                 会社名
               </th>
@@ -86,7 +155,14 @@ export function LeadListTable({ leads, users }: Props) {
           </thead>
           <tbody>
             {leads.map((lead) => (
-              <LeadRow key={lead.id} lead={lead} users={users} />
+              <LeadRow
+                key={lead.id}
+                lead={lead}
+                users={users}
+                isAdmin={isAdmin}
+                selected={selectedIds.has(lead.id)}
+                onToggleSelect={() => toggleSelect(lead.id)}
+              />
             ))}
           </tbody>
         </table>
@@ -98,9 +174,15 @@ export function LeadListTable({ leads, users }: Props) {
 function LeadRow({
   lead,
   users,
+  isAdmin,
+  selected,
+  onToggleSelect,
 }: {
   lead: LeadRow;
   users: Array<{ id: string; name: string | null; email: string }>;
+  isAdmin?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -187,6 +269,18 @@ function LeadRow({
         isPending && "opacity-50"
       )}
     >
+      {/* チェックボックス */}
+      {isAdmin && (
+        <td className="px-3 py-3">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            className="rounded border-zinc-300"
+          />
+        </td>
+      )}
+
       {/* 会社名 */}
       <td className="px-4 py-3">
         <p className="font-medium text-zinc-900 truncate max-w-[200px]">
@@ -360,7 +454,7 @@ function LeadRow({
     </tr>
     {adviceOpen && (
       <tr>
-        <td colSpan={7} className="px-0 py-0">
+        <td colSpan={isAdmin ? 8 : 7} className="px-0 py-0">
           <div className="bg-purple-50 border-t border-b border-purple-100 px-5 py-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">

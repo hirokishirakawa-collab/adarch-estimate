@@ -198,7 +198,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       </div>
 
       {/* ===== テーブル ===== */}
-      <LeadListTable leads={leads} users={users} />
+      <LeadListTable leads={leads} users={users} isAdmin={isAdmin} />
 
       {/* ===== ページネーション ===== */}
       {totalPages > 0 && (
