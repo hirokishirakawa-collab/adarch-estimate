@@ -38,6 +38,7 @@ import {
   HeartHandshake,
   Crosshair,
   Handshake,
+  ListChecks,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -109,6 +110,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/leads",
         label: "リード獲得AI",
         icon: Crosshair,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/leads/list",
+        label: "リード管理",
+        icon: ListChecks,
         minRole: "USER",
       },
     ],

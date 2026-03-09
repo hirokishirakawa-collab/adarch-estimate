@@ -86,6 +86,14 @@ enum ProjectLogType {
   EXPENSE_DELETED // 経費削除
 }
 
+enum LeadStatus {
+  UNTOUCHED      // 未対応
+  CALLED         // 架電済み
+  APPOINTMENT    // アポ獲得
+  DEAL_CONVERTED // 商談化
+  SKIPPED        // スキップ
+}
+
 enum BillingStatus {
   UNBILLED // 未請求
   BILLED   // 請求済み
@@ -280,6 +288,10 @@ model User {
   postedProjectRequests        ProjectRequest[]     @relation("PostedRequests")
   projectApplications          ProjectApplication[] @relation("Applications")
 
+  // ---- リード管理 ----
+  assignedLeads   Lead[] @relation("LeadAssignee")
+  createdLeads    Lead[] @relation("LeadCreatedBy")
+
   @@index([branchId])
   @@index([branchId2])
   @@index([role])
@@ -340,6 +352,9 @@ model Customer {
   invoiceRequests InvoiceRequest[]
   estimations     Estimation[]
   mediaRequests   MediaRequest[]
+
+  // ---- リード管理 ----
+  convertedFromLead Lead? @relation("LeadConvertedCustomer")
 
   @@index([branchId])
   @@index([lockedByUserId])
@@ -1367,4 +1382,61 @@ model ProjectApplication {
   @@unique([projectRequestId, applicantCompanyId])
   @@index([applicantCompanyId])
   @@map("project_applications")
+}
+
+// ==============================================================
+// Lead（リード）
+// ==============================================================
+
+/// リード獲得AIで取得した営業候補企業を管理するテーブル。
+/// ステータス管理・担当者アサイン・顧客への転換を行う。
+model Lead {
+  id              String     @id @default(cuid())
+  name            String
+  address         String?
+  phone           String?
+  rating          Float      @default(0)
+  ratingCount     Int        @default(0)
+  types           String[]   @default([])
+  mapsUrl         String?
+  businessStatus  String?
+  scoreTotal      Int        @default(0)
+  scoreBreakdown  Json?
+  scoreComment    String?    @db.Text
+  industry        String?
+  area            String?
+  status          LeadStatus @default(UNTOUCHED)
+  memo            String?    @db.Text
+  assigneeId      String?
+  assignee        User?      @relation("LeadAssignee", fields: [assigneeId], references: [id])
+  createdById     String?
+  createdBy       User?      @relation("LeadCreatedBy", fields: [createdById], references: [id])
+  convertedCustomerId String? @unique
+  convertedCustomer   Customer? @relation("LeadConvertedCustomer", fields: [convertedCustomerId], references: [id])
+  logs            LeadLog[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  @@unique([name, address])
+  @@index([status])
+  @@index([assigneeId])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+// ==============================================================
+// LeadLog（リード活動ログ）
+// ==============================================================
+
+/// リードに対する操作ログ（ステータス変更・メモ・担当者アサインなど）
+model LeadLog {
+  id        String   @id @default(cuid())
+  action    String
+  detail    String?  @db.Text
+  staffName String
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@index([leadId])
+  @@index([createdAt])
+  @@map("lead_logs")
 }

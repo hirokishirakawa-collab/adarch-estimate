@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useTransition } from "react";
+import Link from "next/link";
 import type { PlaceLead, ScoredLead, LeadScore } from "@/lib/constants/leads";
 import { LeadSearchForm } from "./lead-search-form";
 import { LeadResultsTable } from "./lead-results-table";
-import { Loader2, AlertCircle, RotateCcw } from "lucide-react";
+import { Loader2, AlertCircle, RotateCcw, Save, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { saveLeadsFromSearch } from "@/lib/actions/lead";
 
 type Phase = "form" | "searching" | "scoring" | "done" | "error";
 
@@ -14,6 +16,9 @@ export function LeadSearchPanel() {
   const [leads, setLeads] = useState<ScoredLead[]>([]);
   const [addedNames, setAddedNames] = useState<Set<string>>(new Set());
   const [errorMsg, setErrorMsg] = useState("");
+  const [searchParams, setSearchParams] = useState({ industry: "", area: "" });
+  const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [isSaving, startSaving] = useTransition();
 
   const handleSearch = useCallback(
     async (params: {
@@ -99,6 +104,11 @@ export function LeadSearchPanel() {
 
         merged.sort((a, b) => b.score.total - a.score.total);
         setLeads(merged);
+        setSearchParams({
+          industry: params.industry,
+          area: [params.city, params.prefecture].filter(Boolean).join(" "),
+        });
+        setSavedCount(null);
         setPhase("done");
       } catch (err) {
         setErrorMsg(
@@ -175,19 +185,51 @@ export function LeadSearchPanel() {
         />
       )}
 
-      {/* 営業リスト追加サマリー */}
-      {phase === "done" && addedNames.size > 0 && (
+      {/* リード保存バー */}
+      {phase === "done" && leads.length > 0 && (
         <div className="bg-blue-50 rounded-xl border border-blue-200 px-5 py-3 flex items-center justify-between">
-          <p className="text-sm text-blue-700">
-            営業リストに <strong>{addedNames.size}件</strong> 追加済み
-          </p>
-          <Button
-            size="xs"
-            variant="outline"
-            onClick={() => setAddedNames(new Set())}
-          >
-            クリア
-          </Button>
+          {savedCount !== null ? (
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-emerald-700">
+                <strong>{savedCount}件</strong> のリードを保存しました
+              </p>
+              <Link
+                href="/dashboard/leads/list"
+                className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline font-medium"
+              >
+                <ListChecks className="w-3.5 h-3.5" />
+                リード管理を開く
+              </Link>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-blue-700">
+                検索結果 <strong>{leads.length}件</strong> をリードとして保存できます
+              </p>
+              <Button
+                size="sm"
+                onClick={() => {
+                  startSaving(async () => {
+                    const result = await saveLeadsFromSearch(
+                      leads,
+                      searchParams.industry,
+                      searchParams.area
+                    );
+                    setSavedCount(result.saved);
+                  });
+                }}
+                disabled={isSaving}
+                className="gap-1.5"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Save className="w-3.5 h-3.5" />
+                )}
+                リードとして保存
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
