@@ -44,6 +44,19 @@ export function LeadListTable({ leads, users }: Props) {
 
   return (
     <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      {/* 操作アイコン凡例 */}
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-zinc-100 bg-zinc-50/50">
+        <span className="text-[11px] text-zinc-400">操作アイコン:</span>
+        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+          <Sparkles className="w-3 h-3 text-purple-500" /> AI営業提案
+        </span>
+        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+          <ExternalLink className="w-3 h-3 text-blue-500" /> Map確認
+        </span>
+        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+          <ArrowRightLeft className="w-3 h-3 text-emerald-500" /> 顧客に転換
+        </span>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
