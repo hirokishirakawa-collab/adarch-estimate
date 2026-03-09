@@ -1,14 +1,20 @@
 "use client";
 
 import { SCORE_ITEMS, getPriorityLabel } from "@/lib/constants/leads";
-import type { ScoredLead } from "@/lib/constants/leads";
+import type { ScoredLead, WebsiteAnalysis } from "@/lib/constants/leads";
 import {
   MapPin,
   Phone,
   Star,
   ExternalLink,
+  Globe,
   Plus,
   Check,
+  Video,
+  VideoOff,
+  Share2,
+  Monitor,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -16,6 +22,146 @@ interface LeadDetailPanelProps {
   lead: ScoredLead;
   isAdded: boolean;
   onToggleAdd: () => void;
+}
+
+// デジタル活用度の各項目を「活用中」「提案チャンス」に分類して表示
+function DigitalAnalysisCard({ analysis }: { analysis: WebsiteAnalysis }) {
+  if (!analysis.hasWebsite) {
+    return (
+      <div className="bg-amber-50 rounded-lg border border-amber-200 px-4 py-3">
+        <p className="text-xs font-medium text-amber-700 mb-2 flex items-center gap-1.5">
+          <Monitor className="w-3.5 h-3.5" />
+          デジタル活用度
+        </p>
+        <p className="text-sm text-amber-800 font-medium mb-1">
+          Webサイトなし — デジタル全般の提案チャンス
+        </p>
+        <p className="text-xs text-amber-600">
+          Web制作・映像制作・SNS運用をまとめて提案できる可能性があります
+        </p>
+      </div>
+    );
+  }
+
+  type Finding = {
+    icon: React.ReactNode;
+    label: string;
+    type: "using" | "chance";
+    detail: string;
+  };
+
+  const findings: Finding[] = [];
+
+  // 動画
+  if (analysis.hasYouTube) {
+    findings.push({
+      icon: <Video className="w-3.5 h-3.5" />,
+      label: "YouTube活用中",
+      type: "using",
+      detail: "動画の品質向上・追加コンテンツ制作を提案",
+    });
+  } else if (analysis.hasVideo) {
+    findings.push({
+      icon: <Video className="w-3.5 h-3.5" />,
+      label: "動画あり（YouTube以外）",
+      type: "using",
+      detail: "YouTube展開・動画リニューアルを提案",
+    });
+  } else {
+    findings.push({
+      icon: <VideoOff className="w-3.5 h-3.5" />,
+      label: "動画未活用",
+      type: "chance",
+      detail: "映像制作・YouTube運用の提案チャンス大",
+    });
+  }
+
+  // SNS
+  if (analysis.hasSns.length > 0) {
+    findings.push({
+      icon: <Share2 className="w-3.5 h-3.5" />,
+      label: `SNS活用中（${analysis.hasSns.join(", ")}）`,
+      type: "using",
+      detail: "SNS広告・ショート動画制作を提案",
+    });
+  } else {
+    findings.push({
+      icon: <Share2 className="w-3.5 h-3.5" />,
+      label: "SNS未活用",
+      type: "chance",
+      detail: "SNS運用代行・ショート動画の提案チャンス",
+    });
+  }
+
+  // サイトの新しさ
+  if (analysis.siteAge === "outdated") {
+    findings.push({
+      icon: <Monitor className="w-3.5 h-3.5" />,
+      label: "サイトが古め",
+      type: "chance",
+      detail: "Webリニューアル＋動画LPの提案が有効",
+    });
+  }
+
+  // 採用ページ
+  if (analysis.hasRecruitPage) {
+    findings.push({
+      icon: <Users className="w-3.5 h-3.5" />,
+      label: "採用ページあり",
+      type: "chance",
+      detail: "採用動画・会社紹介動画の提案が有力",
+    });
+  }
+
+  const chances = findings.filter((f) => f.type === "chance");
+  const using = findings.filter((f) => f.type === "using");
+
+  return (
+    <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+      <p className="text-xs font-medium text-zinc-500 mb-3 flex items-center gap-1.5">
+        <Monitor className="w-3.5 h-3.5" />
+        デジタル活用度
+      </p>
+
+      {chances.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[11px] font-medium text-amber-600 mb-1.5">
+            提案チャンス
+          </p>
+          <div className="space-y-1.5">
+            {chances.map((f, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 flex-shrink-0">
+                  {f.icon}
+                  {f.label}
+                </span>
+                <span className="text-xs text-zinc-500 pt-0.5">{f.detail}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {using.length > 0 && (
+        <div>
+          <p className="text-[11px] font-medium text-emerald-600 mb-1.5">
+            活用中
+          </p>
+          <div className="space-y-1.5">
+            {using.map((f, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5 flex-shrink-0">
+                  {f.icon}
+                  {f.label}
+                </span>
+                <span className="text-xs text-zinc-500 pt-0.5">{f.detail}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function LeadDetailPanel({
@@ -57,6 +203,17 @@ export function LeadDetailPanel({
               Google Maps で開く
             </a>
           )}
+          {lead.websiteUrl && (
+            <a
+              href={lead.websiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              Webサイトを開く
+            </a>
+          )}
         </div>
 
         {/* スコア内訳 */}
@@ -69,12 +226,16 @@ export function LeadDetailPanel({
             const pct = (val / item.max) * 100;
             return (
               <div key={item.key} className="flex items-center gap-2">
-                <span className="text-xs text-zinc-600 w-24 flex-shrink-0">
+                <span className="text-xs text-zinc-600 w-28 flex-shrink-0">
                   {item.label}
                 </span>
                 <div className="flex-1 h-2 bg-zinc-200 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-blue-500 rounded-full transition-all"
+                    className={`h-full rounded-full transition-all ${
+                      item.key === "digitalPresence"
+                        ? "bg-amber-500"
+                        : "bg-blue-500"
+                    }`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
@@ -86,6 +247,11 @@ export function LeadDetailPanel({
           })}
         </div>
       </div>
+
+      {/* デジタル活用度 詳細 */}
+      {lead.digitalAnalysis && (
+        <DigitalAnalysisCard analysis={lead.digitalAnalysis} />
+      )}
 
       {/* AIコメント */}
       <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">

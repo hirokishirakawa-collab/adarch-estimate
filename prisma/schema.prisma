@@ -1399,6 +1399,7 @@ model Lead {
   ratingCount     Int        @default(0)
   types           String[]   @default([])
   mapsUrl         String?
+  websiteUrl      String?
   businessStatus  String?
   scoreTotal      Int        @default(0)
   scoreBreakdown  Json?

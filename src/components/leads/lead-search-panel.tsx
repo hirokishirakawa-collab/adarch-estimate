@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useTransition } from "react";
 import Link from "next/link";
-import type { PlaceLead, ScoredLead, LeadScore } from "@/lib/constants/leads";
+import type { PlaceLead, ScoredLead, LeadScore, WebsiteAnalysis } from "@/lib/constants/leads";
 import { LeadSearchForm } from "./lead-search-form";
 import { LeadResultsTable } from "./lead-results-table";
 import { Loader2, AlertCircle, RotateCcw, Save, ListChecks } from "lucide-react";
@@ -72,13 +72,14 @@ export function LeadSearchPanel() {
           throw new Error(err.error || "スコアリングに失敗しました");
         }
 
-        const { scores } = (await scoreRes.json()) as {
+        const { scores, analyses } = (await scoreRes.json()) as {
           scores: Array<{
             name: string;
             total: number;
             breakdown: LeadScore["breakdown"];
             comment: string;
           }>;
+          analyses: Record<string, WebsiteAnalysis>;
         };
 
         // 3) マージ
@@ -96,9 +97,11 @@ export function LeadSearchPanel() {
                     scale: 0,
                     competitive: 0,
                     accessibility: 0,
+                    digitalPresence: 0,
                   },
                   comment: "スコアリング対象外",
                 },
+            digitalAnalysis: analyses?.[place.name],
           };
         });
 
@@ -159,7 +162,7 @@ export function LeadSearchPanel() {
           <p className="text-xs text-zinc-400">
             {phase === "searching"
               ? "Google Places API で検索しています"
-              : "営業優先度を分析しています"}
+              : "Webサイト分析 + 営業優先度をスコアリング中"}
           </p>
         </div>
       )}

@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
     "places.businessStatus",
     "places.types",
     "places.googleMapsUri",
+    "places.websiteUri",
   ].join(",");
 
   try {
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
       ratingCount: (p.userRatingCount as number) ?? 0,
       types: (p.types as string[]) ?? [],
       mapsUrl: (p.googleMapsUri as string) ?? "",
+      websiteUrl: (p.websiteUri as string) ?? "",
       businessStatus: (p.businessStatus as string) ?? "",
     }));
 

@@ -66,6 +66,7 @@ export async function saveLeadsFromSearch(
             ratingCount: lead.ratingCount,
             types: lead.types,
             mapsUrl: lead.mapsUrl || null,
+            websiteUrl: lead.websiteUrl || null,
             businessStatus: lead.businessStatus || null,
             scoreTotal: lead.score.total,
             scoreBreakdown: lead.score.breakdown as Record<string, number>,

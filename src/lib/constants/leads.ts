@@ -46,11 +46,12 @@ export function getPriorityLabel(score: number) {
 
 /** スコア項目 */
 export const SCORE_ITEMS = [
-  { key: "industryMatch", label: "業種一致度", max: 30 },
-  { key: "activity", label: "活発度", max: 20 },
-  { key: "scale", label: "規模感", max: 20 },
+  { key: "industryMatch", label: "業種一致度", max: 25 },
+  { key: "activity", label: "活発度", max: 15 },
+  { key: "scale", label: "規模感", max: 15 },
   { key: "competitive", label: "競合優位性", max: 15 },
-  { key: "accessibility", label: "接触しやすさ", max: 15 },
+  { key: "accessibility", label: "接触しやすさ", max: 10 },
+  { key: "digitalPresence", label: "デジタル活用度", max: 20 },
 ] as const;
 
 export type ScoreKey = (typeof SCORE_ITEMS)[number]["key"];
@@ -71,12 +72,25 @@ export interface PlaceLead {
   ratingCount: number;
   types: string[];
   mapsUrl: string;
+  websiteUrl: string;
   businessStatus: string;
+}
+
+/** Webサイト分析結果の型 */
+export interface WebsiteAnalysis {
+  hasWebsite: boolean;
+  hasVideo: boolean;
+  hasYouTube: boolean;
+  hasSns: string[];
+  siteAge: "modern" | "outdated" | "unknown";
+  hasRecruitPage: boolean;
+  summary: string;
 }
 
 /** スコアリング済みリードの型 */
 export interface ScoredLead extends PlaceLead {
   score: LeadScore;
+  digitalAnalysis?: WebsiteAnalysis;
 }
 
 // ---------------------------------------------------------------
