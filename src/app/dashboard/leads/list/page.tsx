@@ -18,6 +18,9 @@ interface PageProps {
     q?: string;
     status?: string;
     assigneeId?: string;
+    industry?: string;
+    area?: string;
+    sort?: string;
     page?: string;
   }>;
 }
@@ -33,6 +36,9 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   const q = params.q?.trim() ?? "";
   const statusParam = params.status ?? "";
   const assigneeIdParam = params.assigneeId ?? "";
+  const industryParam = params.industry ?? "";
+  const areaParam = params.area ?? "";
+  const sortParam = params.sort ?? "";
   const page = Math.max(1, parseInt(params.page ?? "1") || 1);
 
   // ---------------------------------------------------------------
@@ -46,6 +52,8 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     }>;
     status?: LeadStatus;
     assigneeId?: string | null;
+    industry?: string;
+    area?: { contains: string; mode: "insensitive" };
   };
 
   const where: WhereInput = {};
@@ -60,6 +68,18 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   if (assigneeIdParam) {
     where.assigneeId = assigneeIdParam === "unassigned" ? null : assigneeIdParam;
   }
+  if (industryParam) where.industry = industryParam;
+  if (areaParam) where.area = { contains: areaParam, mode: "insensitive" };
+
+  // ソート
+  type OrderBy = { createdAt?: "asc" | "desc"; scoreTotal?: "asc" | "desc"; area?: "asc" | "desc"; industry?: "asc" | "desc" };
+  let orderBy: OrderBy = { createdAt: "desc" };
+  if (sortParam === "score_desc") orderBy = { scoreTotal: "desc" };
+  if (sortParam === "score_asc") orderBy = { scoreTotal: "asc" };
+  if (sortParam === "area") orderBy = { area: "asc" };
+  if (sortParam === "industry") orderBy = { industry: "asc" };
+  if (sortParam === "newest") orderBy = { createdAt: "desc" };
+  if (sortParam === "oldest") orderBy = { createdAt: "asc" };
 
   // ---------------------------------------------------------------
   // データ取得
@@ -75,6 +95,8 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     skippedCount,
     users,
     recentLogs,
+    industries,
+    areas,
   ] = await Promise.all([
     db.lead.findMany({
       where,
@@ -82,7 +104,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
         assignee: { select: { id: true, name: true, email: true } },
         convertedCustomer: { select: { id: true, name: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: (page - 1) * PER_PAGE,
       take: PER_PAGE,
     }),
@@ -105,6 +127,9 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
+    // 業種・エリアの選択肢を取得
+    db.lead.findMany({ select: { industry: true }, distinct: ["industry"], where: { industry: { not: null } }, orderBy: { industry: "asc" } }),
+    db.lead.findMany({ select: { area: true }, distinct: ["area"], where: { area: { not: null } }, orderBy: { area: "asc" } }),
   ]);
 
   const totalPages = Math.ceil(total / PER_PAGE);
@@ -164,7 +189,11 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       {/* ===== フィルター ===== */}
       <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
         <Suspense>
-          <LeadListFilters users={users} />
+          <LeadListFilters
+            users={users}
+            industries={industries.map((i) => i.industry!).filter(Boolean)}
+            areas={areas.map((a) => a.area!).filter(Boolean)}
+          />
         </Suspense>
       </div>
 
