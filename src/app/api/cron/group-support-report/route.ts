@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
     .map((c) => {
       const sub = c.weeklySubmissions[0];
       return `【${c.name}（${c.ownerName}）】ステータス: ${STATUS_CONFIG[sub.status].emoji}${STATUS_CONFIG[sub.status].label}
-Q1(調子): ${sub.q1} / Q2(今週やったこと): ${sub.q2} / Q3(来週やること): ${sub.q3} / Q4(共有・相談): ${sub.q4} / Q5(サポート): ${sub.q5}`;
+Q1(調子): ${sub.q1} / Q2(先週やったこと): ${sub.q2} / Q3(来週やること): ${sub.q3} / Q4(共有・相談): ${sub.q4} / Q5(サポート): ${sub.q5}`;
     })
     .join("\n\n");
 

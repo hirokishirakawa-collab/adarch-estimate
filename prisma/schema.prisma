@@ -1237,7 +1237,7 @@ model WeeklySubmission {
   weekId         String       // ISO週番号（例: "2026-W10"）
 
   q1 String // 今週の調子は？
-  q2 String @db.Text // 今週やったこと
+  q2 String @db.Text // 先週やったこと
   q3 String @db.Text // 来週やること
   q4 String @db.Text // 共有・相談したいこと
   q5 String // サポートが必要？

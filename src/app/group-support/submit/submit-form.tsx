@@ -92,7 +92,7 @@ export function SubmitForm({
       {/* Q2 */}
       <div className="space-y-1.5">
         <label className="block text-sm font-medium text-zinc-700">
-          Q2. 今週やったこと
+          Q2. 先週やったこと
           <span className="ml-1 text-red-500 text-xs">必須</span>
         </label>
         <textarea

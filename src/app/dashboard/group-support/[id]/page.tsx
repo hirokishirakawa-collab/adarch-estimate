@@ -102,7 +102,7 @@ export default async function GroupCompanyDetailPage({
         {currentSub ? (
           <div className="space-y-2 text-xs">
             <Field label="調子" value={currentSub.q1} />
-            <Field label="今週やったこと" value={currentSub.q2} />
+            <Field label="先週やったこと" value={currentSub.q2} />
             <Field label="来週やること" value={currentSub.q3} />
             <Field label="共有・相談" value={currentSub.q4} />
             <Field label="サポート" value={currentSub.q5} />
