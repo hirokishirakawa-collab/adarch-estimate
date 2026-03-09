@@ -1,4 +1,4 @@
-import { Target, Search, Sparkles, ListChecks, ArrowRight } from "lucide-react";
+import { Target, Search, Sparkles, ListChecks, ArrowRight, Save } from "lucide-react";
 import { LeadSearchPanel } from "@/components/leads/lead-search-panel";
 import Link from "next/link";
 
@@ -28,7 +28,7 @@ export default function LeadsPage() {
       {/* 利用方法 */}
       <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
         <p className="text-xs font-semibold text-zinc-700 mb-3">使い方</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="flex gap-3">
             <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
               <Search className="w-3.5 h-3.5 text-blue-600" />
@@ -52,13 +52,24 @@ export default function LeadsPage() {
             </div>
           </div>
           <div className="flex gap-3">
+            <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+              <Save className="w-3.5 h-3.5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-zinc-800">3. リードとして保存</p>
+              <p className="text-[11px] text-zinc-500 mt-0.5">
+                結果一覧の下にある<span className="font-bold text-zinc-700">「リードとして保存」ボタン</span>を押すと、全件がリード管理に登録されます。
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
             <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
               <ListChecks className="w-3.5 h-3.5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-xs font-medium text-zinc-800">3. リード管理へ保存</p>
+              <p className="text-xs font-medium text-zinc-800">4. リード管理で営業</p>
               <p className="text-[11px] text-zinc-500 mt-0.5">
-                有望な企業を選んで保存。リード管理でステータス追跡・AI営業提案・顧客への転換ができます。
+                保存したリードはリード管理で確認。ステータス管理・AI営業提案・顧客への転換ができます。
               </p>
             </div>
           </div>
