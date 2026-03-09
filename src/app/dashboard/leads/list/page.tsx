@@ -8,6 +8,8 @@ import { LeadListTable } from "@/components/leads/lead-list-table";
 import { LeadListFilters } from "@/components/leads/lead-list-filters";
 import { LeadActivityFeed } from "@/components/leads/lead-activity-feed";
 import { CustomerPagination } from "@/components/customers/customer-pagination";
+import { LeadDeleteAllButton } from "@/components/leads/lead-delete-all-button";
+import type { UserRole } from "@/types/roles";
 
 const PER_PAGE = 20;
 
@@ -23,6 +25,9 @@ interface PageProps {
 export default async function LeadListPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user) return null;
+
+  const role = (session.user.role ?? "USER") as UserRole;
+  const isAdmin = role === "ADMIN";
 
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
@@ -131,6 +136,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
             </p>
           </div>
         </div>
+        {isAdmin && <LeadDeleteAllButton totalCount={totalAll} />}
       </div>
 
       {/* ===== サマリーカード ===== */}

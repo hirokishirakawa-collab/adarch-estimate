@@ -8,6 +8,7 @@ import { sendChatMessage } from "@/lib/google-chat";
 import { getLeadStatusOption } from "@/lib/constants/leads";
 import type { ScoredLead } from "@/lib/constants/leads";
 import type { LeadStatus } from "@/generated/prisma/client";
+import type { UserRole } from "@/types/roles";
 
 // Chat通知先スペースID
 const LEAD_CHAT_SPACE_ID = "AAQAp6XvXqE";
@@ -301,5 +302,29 @@ export async function convertLeadToCustomer(
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[convertLeadToCustomer] DB error:", msg);
     return { error: "転換に失敗しました" };
+  }
+}
+
+// ---------------------------------------------------------------
+// リードを一括削除する（ADMIN限定）
+// ---------------------------------------------------------------
+export async function deleteAllLeads(): Promise<{ deleted: number; error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { deleted: 0, error: "ログインが必要です" };
+
+  const role = (session.user.role ?? "USER") as UserRole;
+  if (role !== "ADMIN") return { deleted: 0, error: "管理者権限が必要です" };
+
+  try {
+    // ログを先に削除（外部キー制約）
+    await db.leadLog.deleteMany({});
+    const result = await db.lead.deleteMany({});
+
+    revalidatePath("/dashboard/leads/list");
+    return { deleted: result.count };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[deleteAllLeads] DB error:", msg);
+    return { deleted: 0, error: "削除に失敗しました" };
   }
 }
