@@ -64,26 +64,25 @@ interface LeadDetailPanelProps {
   onToggleAdd: () => void;
 }
 
-// 企業タイプ（チェーン/独立/FC/支店）のバッジ
-function BusinessTypeBadge({ analysis }: { analysis: WebsiteAnalysis }) {
+// 企業タイプ（チェーン/独立/FC/支店）を文章で表示
+function BusinessTypeSection({ analysis }: { analysis: WebsiteAnalysis }) {
   const config = BUSINESS_TYPE_CONFIG[analysis.businessType];
 
   return (
-    <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
-      <div className="flex items-start gap-3">
-        <span
-          className={`inline-flex items-center gap-1.5 text-xs font-medium rounded px-2.5 py-1 border flex-shrink-0 ${config.className}`}
-        >
-          {config.icon}
-          {config.label}
-        </span>
-        <div className="min-w-0">
-          {config.advice && (
-            <p className="text-sm text-zinc-700">{config.advice}</p>
-          )}
-          <p className="text-xs text-zinc-400 mt-0.5">{analysis.businessTypeReason}</p>
-        </div>
-      </div>
+    <div className={`rounded-lg border px-4 py-3 ${config.className}`}>
+      <p className="text-xs font-medium mb-1.5 flex items-center gap-1.5">
+        {config.icon}
+        企業タイプ
+      </p>
+      <p className="text-sm font-medium mb-1">
+        この企業は「{config.label}」の可能性が高いです
+      </p>
+      {config.advice && (
+        <p className="text-sm">{config.advice}</p>
+      )}
+      <p className="text-xs opacity-70 mt-1.5">
+        判定理由: {analysis.businessTypeReason}
+      </p>
     </div>
   );
 }
@@ -316,7 +315,7 @@ export function LeadDetailPanel({
       {lead.digitalAnalysis && (
         <>
           {lead.digitalAnalysis.businessType !== "unknown" && (
-            <BusinessTypeBadge analysis={lead.digitalAnalysis} />
+            <BusinessTypeSection analysis={lead.digitalAnalysis} />
           )}
           <DigitalAnalysisCard analysis={lead.digitalAnalysis} />
         </>
