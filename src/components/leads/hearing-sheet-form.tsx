@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ChevronUp, Loader2, Save, Building2, BarChart3, Target, UserCheck, Thermometer } from "lucide-react";
+import { ChevronUp, Loader2, Save, Building2, BarChart3, Target, UserCheck, Thermometer, Video } from "lucide-react";
 import {
   TARGET_CUSTOMER_OPTIONS,
   TRADE_AREA_OPTIONS,
@@ -15,6 +15,12 @@ import {
   DECISION_PROCESS_OPTIONS,
   BUDGET_STATUS_OPTIONS,
   TEMPERATURE_OPTIONS,
+  VIDEO_PURPOSE_OPTIONS,
+  VIDEO_DURATION_OPTIONS,
+  VIDEO_SHOOTING_OPTIONS,
+  VIDEO_CAST_OPTIONS,
+  VIDEO_PUBLISH_OPTIONS,
+  VIDEO_BUDGET_OPTIONS,
 } from "@/lib/constants/hearing";
 import { saveHearingSheet } from "@/lib/actions/hearing";
 
@@ -36,6 +42,14 @@ interface HearingData {
   decisionProcess: string | null;
   budgetStatus: string | null;
   competingVendors: string | null;
+  videoPurposes: string[];
+  videoDuration: string | null;
+  videoShootingType: string | null;
+  videoCast: string | null;
+  videoReference: string | null;
+  videoDeadline: Date | string | null;
+  videoPublishTo: string[];
+  videoBudget: string | null;
   temperature: string | null;
   nextAction: string | null;
   nextActionDate: Date | string | null;
@@ -53,6 +67,7 @@ const sectionIcons = {
   now: BarChart3,
   want: Target,
   decision: UserCheck,
+  video: Video,
   temperature: Thermometer,
 };
 
@@ -188,6 +203,18 @@ export function HearingSheetForm({ leadId, leadName, initial, onClose }: Props) 
     decisionProcess: initial?.decisionProcess ?? null,
     budgetStatus: initial?.budgetStatus ?? null,
     competingVendors: initial?.competingVendors ?? "",
+    videoPurposes: initial?.videoPurposes ?? [],
+    videoDuration: initial?.videoDuration ?? null,
+    videoShootingType: initial?.videoShootingType ?? null,
+    videoCast: initial?.videoCast ?? null,
+    videoReference: initial?.videoReference ?? "",
+    videoDeadline: initial?.videoDeadline
+      ? (typeof initial.videoDeadline === "string"
+          ? initial.videoDeadline.slice(0, 10)
+          : new Date(initial.videoDeadline).toISOString().slice(0, 10))
+      : "",
+    videoPublishTo: initial?.videoPublishTo ?? [],
+    videoBudget: initial?.videoBudget ?? null,
     temperature: initial?.temperature ?? null,
     nextAction: initial?.nextAction ?? "",
     nextActionDate: initial?.nextActionDate
@@ -218,6 +245,14 @@ export function HearingSheetForm({ leadId, leadName, initial, onClose }: Props) 
         decisionProcess: form.decisionProcess,
         budgetStatus: form.budgetStatus,
         competingVendors: form.competingVendors || null,
+        videoPurposes: form.videoPurposes,
+        videoDuration: form.videoDuration,
+        videoShootingType: form.videoShootingType,
+        videoCast: form.videoCast,
+        videoReference: form.videoReference || null,
+        videoDeadline: form.videoDeadline || null,
+        videoPublishTo: form.videoPublishTo,
+        videoBudget: form.videoBudget,
         temperature: form.temperature,
         nextAction: form.nextAction || null,
         nextActionDate: form.nextActionDate || null,
@@ -403,7 +438,84 @@ export function HearingSheetForm({ leadId, leadName, initial, onClose }: Props) 
           </div>
         </div>
 
-        {/* D. 意思決定 + E. 温度感 */}
+        {/* E. 動画制作 */}
+        <div className="space-y-2.5 rounded-lg bg-white/70 border border-amber-100 p-3">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Video className="w-3.5 h-3.5 text-amber-700" />
+            <span className="text-[11px] font-semibold text-amber-800">動画制作</span>
+          </div>
+          <div>
+            <Label>動画の用途</Label>
+            <MultiSelect
+              options={VIDEO_PURPOSE_OPTIONS}
+              value={form.videoPurposes}
+              onChange={(v) => setForm({ ...form, videoPurposes: v })}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <Label>希望する長さ</Label>
+              <Select
+                options={VIDEO_DURATION_OPTIONS}
+                value={form.videoDuration}
+                onChange={(v) => setForm({ ...form, videoDuration: v })}
+              />
+            </div>
+            <div>
+              <Label>撮影の有無</Label>
+              <Select
+                options={VIDEO_SHOOTING_OPTIONS}
+                value={form.videoShootingType}
+                onChange={(v) => setForm({ ...form, videoShootingType: v })}
+              />
+            </div>
+            <div>
+              <Label>出演者</Label>
+              <Select
+                options={VIDEO_CAST_OPTIONS}
+                value={form.videoCast}
+                onChange={(v) => setForm({ ...form, videoCast: v })}
+              />
+            </div>
+          </div>
+          <div>
+            <Label>公開先</Label>
+            <MultiSelect
+              options={VIDEO_PUBLISH_OPTIONS}
+              value={form.videoPublishTo}
+              onChange={(v) => setForm({ ...form, videoPublishTo: v })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>予算感（動画制作）</Label>
+              <Select
+                options={VIDEO_BUDGET_OPTIONS}
+                value={form.videoBudget}
+                onChange={(v) => setForm({ ...form, videoBudget: v })}
+              />
+            </div>
+            <div>
+              <Label>納品希望日</Label>
+              <input
+                type="date"
+                value={form.videoDeadline}
+                onChange={(e) => setForm({ ...form, videoDeadline: e.target.value })}
+                className="text-xs border border-zinc-200 rounded-md px-2.5 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+          </div>
+          <div>
+            <Label>参考にしたい動画・イメージ</Label>
+            <TextArea
+              value={form.videoReference}
+              onChange={(v) => setForm({ ...form, videoReference: v })}
+              placeholder="URL やイメージの説明"
+            />
+          </div>
+        </div>
+
+        {/* D. 意思決定 + F. 温度感 */}
         <div className="space-y-4">
           <div className="space-y-2.5 rounded-lg bg-white/70 border border-amber-100 p-3">
             <div className="flex items-center gap-1.5 mb-2">

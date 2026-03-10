@@ -1486,7 +1486,17 @@ model HearingSheet {
   budgetStatus        String?              /// 予算確保状況
   competingVendors    String?   @db.Text   /// 検討中の他社
 
-  // --- E. 温度感（TEMPERATURE） ---
+  // --- E. 動画制作（VIDEO） ---
+  videoPurposes       String[]  @default([]) /// 動画の用途
+  videoDuration       String?              /// 希望する動画の長さ
+  videoShootingType   String?              /// 撮影の有無
+  videoCast           String?              /// 出演者
+  videoReference      String?   @db.Text   /// 参考にしたい動画・イメージ
+  videoDeadline       DateTime?            /// 納品希望日
+  videoPublishTo      String[]  @default([]) /// 動画の公開先
+  videoBudget         String?              /// 予算感（動画制作）
+
+  // --- F. 温度感（TEMPERATURE） ---
   temperature         String?              /// 温度感
   nextAction          String?   @db.Text   /// 次回アクション
   nextActionDate      DateTime?            /// 次回予定日

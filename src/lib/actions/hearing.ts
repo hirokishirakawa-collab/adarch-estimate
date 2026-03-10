@@ -30,6 +30,14 @@ type HearingData = {
   decisionProcess?: string | null;
   budgetStatus?: string | null;
   competingVendors?: string | null;
+  videoPurposes?: string[];
+  videoDuration?: string | null;
+  videoShootingType?: string | null;
+  videoCast?: string | null;
+  videoReference?: string | null;
+  videoDeadline?: string | null;
+  videoPublishTo?: string[];
+  videoBudget?: string | null;
   temperature?: string | null;
   nextAction?: string | null;
   nextActionDate?: string | null;
@@ -54,6 +62,14 @@ function toFields(data: HearingData) {
     decisionProcess: data.decisionProcess ?? null,
     budgetStatus: data.budgetStatus ?? null,
     competingVendors: data.competingVendors ?? null,
+    videoPurposes: data.videoPurposes ?? [],
+    videoDuration: data.videoDuration ?? null,
+    videoShootingType: data.videoShootingType ?? null,
+    videoCast: data.videoCast ?? null,
+    videoReference: data.videoReference ?? null,
+    videoDeadline: data.videoDeadline ? new Date(data.videoDeadline) : null,
+    videoPublishTo: data.videoPublishTo ?? [],
+    videoBudget: data.videoBudget ?? null,
     temperature: data.temperature ?? null,
     nextAction: data.nextAction ?? null,
     nextActionDate: data.nextActionDate ? new Date(data.nextActionDate) : null,

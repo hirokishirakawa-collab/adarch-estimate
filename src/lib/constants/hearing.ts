@@ -118,7 +118,65 @@ export const BUDGET_STATUS_OPTIONS = [
   { value: "none", label: "予算なし" },
 ] as const;
 
-// --- E. 温度感（TEMPERATURE） ---
+// --- E. 動画制作（VIDEO） ---
+
+export const VIDEO_PURPOSE_OPTIONS = [
+  { value: "cm", label: "CM・広告" },
+  { value: "product", label: "商品紹介" },
+  { value: "recruitment", label: "採用動画" },
+  { value: "corporate", label: "会社紹介" },
+  { value: "sns_short", label: "SNS用ショート" },
+  { value: "youtube", label: "YouTube" },
+  { value: "event", label: "イベント" },
+  { value: "training", label: "研修・マニュアル" },
+  { value: "lp", label: "LP埋め込み" },
+] as const;
+
+export const VIDEO_DURATION_OPTIONS = [
+  { value: "15sec", label: "15秒" },
+  { value: "30sec", label: "30秒" },
+  { value: "60sec", label: "60秒" },
+  { value: "under_3min", label: "3分以内" },
+  { value: "over_5min", label: "5分以上" },
+  { value: "undecided", label: "未定" },
+] as const;
+
+export const VIDEO_SHOOTING_OPTIONS = [
+  { value: "new_shoot", label: "新規撮影希望" },
+  { value: "existing", label: "既存素材あり" },
+  { value: "both", label: "素材＋撮影両方" },
+  { value: "undecided", label: "未定" },
+] as const;
+
+export const VIDEO_CAST_OPTIONS = [
+  { value: "employee", label: "社員" },
+  { value: "talent", label: "モデル・タレント" },
+  { value: "narration", label: "ナレーションのみ" },
+  { value: "animation", label: "アニメーション" },
+  { value: "undecided", label: "未定" },
+] as const;
+
+export const VIDEO_PUBLISH_OPTIONS = [
+  { value: "website", label: "自社サイト" },
+  { value: "youtube", label: "YouTube" },
+  { value: "instagram", label: "Instagram" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "tver", label: "TVer" },
+  { value: "signage", label: "サイネージ" },
+  { value: "exhibition", label: "展示会" },
+  { value: "other", label: "その他" },
+] as const;
+
+export const VIDEO_BUDGET_OPTIONS = [
+  { value: "under_100k", label: "〜10万円" },
+  { value: "under_300k", label: "〜30万円" },
+  { value: "under_500k", label: "〜50万円" },
+  { value: "under_1m", label: "〜100万円" },
+  { value: "over_1m", label: "100万円〜" },
+  { value: "undecided", label: "未定" },
+] as const;
+
+// --- F. 温度感（TEMPERATURE） ---
 
 export const TEMPERATURE_OPTIONS = [
   { value: "hot", label: "即決見込み", color: "text-red-600 bg-red-50 border-red-200" },
@@ -134,5 +192,6 @@ export const HEARING_SECTIONS = [
   { key: "now", label: "現状把握", icon: "BarChart3" },
   { key: "want", label: "課題・ニーズ", icon: "Target" },
   { key: "decision", label: "意思決定", icon: "UserCheck" },
+  { key: "video", label: "動画制作", icon: "Video" },
   { key: "temperature", label: "温度感", icon: "Thermometer" },
 ] as const;

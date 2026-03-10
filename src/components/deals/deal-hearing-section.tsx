@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { ClipboardList, ChevronDown, ChevronUp, Save, Loader2, Building2, BarChart3, Target, UserCheck, Thermometer } from "lucide-react";
+import { ClipboardList, ChevronDown, ChevronUp, Save, Loader2, Building2, BarChart3, Target, UserCheck, Thermometer, Video } from "lucide-react";
 import { getDealHearingSheet, saveDealHearingSheet } from "@/lib/actions/hearing";
 import {
   TARGET_CUSTOMER_OPTIONS,
@@ -16,6 +16,12 @@ import {
   DECISION_PROCESS_OPTIONS,
   BUDGET_STATUS_OPTIONS,
   TEMPERATURE_OPTIONS,
+  VIDEO_PURPOSE_OPTIONS,
+  VIDEO_DURATION_OPTIONS,
+  VIDEO_SHOOTING_OPTIONS,
+  VIDEO_CAST_OPTIONS,
+  VIDEO_PUBLISH_OPTIONS,
+  VIDEO_BUDGET_OPTIONS,
 } from "@/lib/constants/hearing";
 
 interface Props {
@@ -48,6 +54,14 @@ export function DealHearingSection({ dealId, dealTitle }: Props) {
     decisionProcess: null as string | null,
     budgetStatus: null as string | null,
     competingVendors: "",
+    videoPurposes: [] as string[],
+    videoDuration: null as string | null,
+    videoShootingType: null as string | null,
+    videoCast: null as string | null,
+    videoReference: "",
+    videoDeadline: "",
+    videoPublishTo: [] as string[],
+    videoBudget: null as string | null,
     temperature: null as string | null,
     nextAction: "",
     nextActionDate: "",
@@ -76,6 +90,16 @@ export function DealHearingSection({ dealId, dealTitle }: Props) {
             decisionProcess: data.decisionProcess,
             budgetStatus: data.budgetStatus,
             competingVendors: data.competingVendors ?? "",
+            videoPurposes: data.videoPurposes ?? [],
+            videoDuration: data.videoDuration,
+            videoShootingType: data.videoShootingType,
+            videoCast: data.videoCast,
+            videoReference: data.videoReference ?? "",
+            videoDeadline: data.videoDeadline
+              ? new Date(data.videoDeadline).toISOString().slice(0, 10)
+              : "",
+            videoPublishTo: data.videoPublishTo ?? [],
+            videoBudget: data.videoBudget,
             temperature: data.temperature,
             nextAction: data.nextAction ?? "",
             nextActionDate: data.nextActionDate
@@ -109,6 +133,14 @@ export function DealHearingSection({ dealId, dealTitle }: Props) {
         decisionProcess: form.decisionProcess,
         budgetStatus: form.budgetStatus,
         competingVendors: form.competingVendors || null,
+        videoPurposes: form.videoPurposes,
+        videoDuration: form.videoDuration,
+        videoShootingType: form.videoShootingType,
+        videoCast: form.videoCast,
+        videoReference: form.videoReference || null,
+        videoDeadline: form.videoDeadline || null,
+        videoPublishTo: form.videoPublishTo,
+        videoBudget: form.videoBudget,
         temperature: form.temperature,
         nextAction: form.nextAction || null,
         nextActionDate: form.nextActionDate || null,
@@ -182,7 +214,23 @@ export function DealHearingSection({ dealId, dealTitle }: Props) {
                   <Field label="希望開始時期"><Sel options={DESIRED_TIMELINE_OPTIONS} value={form.desiredTimeline} onChange={(v) => setForm({ ...form, desiredTimeline: v })} /></Field>
                 </Section>
 
-                {/* D+E */}
+                {/* E. 動画制作 */}
+                <Section icon={<Video className="w-3.5 h-3.5 text-amber-700" />} title="動画制作">
+                  <Field label="動画の用途"><MultiSelect options={VIDEO_PURPOSE_OPTIONS} value={form.videoPurposes} onChange={(v) => setForm({ ...form, videoPurposes: v })} /></Field>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Field label="希望する長さ"><Sel options={VIDEO_DURATION_OPTIONS} value={form.videoDuration} onChange={(v) => setForm({ ...form, videoDuration: v })} /></Field>
+                    <Field label="撮影の有無"><Sel options={VIDEO_SHOOTING_OPTIONS} value={form.videoShootingType} onChange={(v) => setForm({ ...form, videoShootingType: v })} /></Field>
+                    <Field label="出演者"><Sel options={VIDEO_CAST_OPTIONS} value={form.videoCast} onChange={(v) => setForm({ ...form, videoCast: v })} /></Field>
+                  </div>
+                  <Field label="公開先"><MultiSelect options={VIDEO_PUBLISH_OPTIONS} value={form.videoPublishTo} onChange={(v) => setForm({ ...form, videoPublishTo: v })} /></Field>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="予算感（動画制作）"><Sel options={VIDEO_BUDGET_OPTIONS} value={form.videoBudget} onChange={(v) => setForm({ ...form, videoBudget: v })} /></Field>
+                    <Field label="納品希望日"><input type="date" value={form.videoDeadline} onChange={(e) => setForm({ ...form, videoDeadline: e.target.value })} className="text-xs border border-zinc-200 rounded-md px-2.5 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400" /></Field>
+                  </div>
+                  <Field label="参考にしたい動画・イメージ"><textarea value={form.videoReference} onChange={(e) => setForm({ ...form, videoReference: e.target.value })} placeholder="URL やイメージの説明" rows={2} className="text-xs border border-zinc-200 rounded-md px-2.5 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none" /></Field>
+                </Section>
+
+                {/* D+F */}
                 <div className="space-y-4">
                   <Section icon={<UserCheck className="w-3.5 h-3.5 text-amber-700" />} title="意思決定">
                     <div className="grid grid-cols-2 gap-2">
