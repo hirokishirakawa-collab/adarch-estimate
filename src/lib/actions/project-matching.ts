@@ -35,7 +35,7 @@ async function getUserCompanyAndBranch(userId: string, role?: string) {
     if (role === "ADMIN") {
       // ADMINは本部（アドアーチ）を自動割り当て
       const hq = await db.groupCompany.findFirst({
-        where: { name: { contains: "アドアーチ" } },
+        where: { name: { contains: "本部" } },
         select: { id: true },
       });
       return { groupCompanyId: hq?.id ?? null, branchId: null };
