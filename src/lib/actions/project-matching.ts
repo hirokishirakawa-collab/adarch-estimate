@@ -32,7 +32,14 @@ async function getUserCompanyAndBranch(userId: string, role?: string) {
     select: { groupCompanyId: true, branchId: true },
   });
   if (!user?.groupCompanyId) {
-    if (role === "ADMIN") return { groupCompanyId: null, branchId: null };
+    if (role === "ADMIN") {
+      // ADMINは本部（アドアーチ）を自動割り当て
+      const hq = await db.groupCompany.findFirst({
+        where: { name: { contains: "アドアーチ" } },
+        select: { id: true },
+      });
+      return { groupCompanyId: hq?.id ?? null, branchId: null };
+    }
     throw new Error("グループ企業に所属していません");
   }
   return { groupCompanyId: user.groupCompanyId, branchId: user.branchId };
