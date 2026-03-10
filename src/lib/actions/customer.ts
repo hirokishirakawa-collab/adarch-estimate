@@ -443,6 +443,53 @@ export async function unlockCustomer(
 }
 
 // ---------------------------------------------------------------
+// 顧客の登録拠点を変更する（ADMIN 専用）
+// ---------------------------------------------------------------
+export async function updateCustomerBranch(
+  customerId: string,
+  branchId: string
+): Promise<{ error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { error: "ログインが必要です" };
+
+  const role = (session.user.role ?? "USER") as UserRole;
+  if (role !== "ADMIN") return { error: "管理者権限が必要です" };
+
+  const staffName = session.user.name ?? session.user.email ?? "不明";
+
+  try {
+    const customer = await db.customer.findUnique({ where: { id: customerId }, select: { branchId: true } });
+    if (!customer) return { error: "顧客が見つかりません" };
+
+    const branch = await db.branch.findUnique({ where: { id: branchId }, select: { name: true } });
+    if (!branch) return { error: "拠点が見つかりません" };
+
+    await db.customer.update({
+      where: { id: customerId },
+      data: { branchId },
+    });
+
+    // 変更ログ
+    await db.activityLog.create({
+      data: {
+        customerId,
+        type: "SYSTEM" as ActivityType,
+        content: `登録拠点を「${branch.name}」に変更しました`,
+        staffName,
+      },
+    });
+
+    revalidatePath(`/dashboard/customers/${customerId}`);
+    revalidatePath("/dashboard/customers");
+    return {};
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[updateCustomerBranch] DB error:", msg);
+    return { error: "拠点変更に失敗しました" };
+  }
+}
+
+// ---------------------------------------------------------------
 // 顧客を一括削除する（ADMIN 専用）
 // ---------------------------------------------------------------
 export async function deleteCustomers(

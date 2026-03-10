@@ -38,6 +38,7 @@ import { ActivityForm } from "@/components/customers/activity-form";
 import { ActivityTimeline } from "@/components/customers/activity-timeline";
 import { LockButton } from "@/components/customers/lock-button";
 import { CustomerHearingSection } from "@/components/customers/customer-hearing-section";
+import { BranchSelector } from "@/components/customers/branch-selector";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -60,7 +61,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const staffName = session?.user?.name ?? session?.user?.email ?? "不明";
 
   // DB からすべて取得（顧客・商談・活動履歴・セッションユーザー）
-  const [dbCustomer, dbDeals, activities, sessionUser, hearingSheets] = await Promise.all([
+  const [dbCustomer, dbDeals, activities, sessionUser, hearingSheets, allBranches] = await Promise.all([
     db.customer.findUnique({
       where: { id },
       include: { lockedBy: { select: { id: true, name: true } } },
@@ -78,6 +79,9 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       where: { customerId: id },
       orderBy: { updatedAt: "desc" },
     }),
+    role === "ADMIN"
+      ? db.branch.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
   ]);
 
   if (!dbCustomer) notFound();
@@ -128,7 +132,13 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               {/* バッジ行 */}
               <div className="flex flex-wrap items-center gap-1.5 mb-2">
                 {/* 拠点 */}
-                {branchDisplay && (
+                {role === "ADMIN" && allBranches.length > 0 ? (
+                  <BranchSelector
+                    customerId={id}
+                    currentBranchId={dbCustomer.branchId}
+                    branches={allBranches}
+                  />
+                ) : branchDisplay ? (
                   <span
                     className={cn(
                       "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border",
@@ -137,7 +147,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   >
                     {branchDisplay.code} · {branchDisplay.name}
                   </span>
-                )}
+                ) : null}
 
                 {/* 顧客ランク */}
                 {rankOption && (
