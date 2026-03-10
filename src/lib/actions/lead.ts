@@ -251,8 +251,17 @@ export async function convertLeadToCustomer(
     if (!lead) return { error: "リードが見つかりません" };
     if (lead.convertedCustomerId) return { error: "既に顧客に転換済みです" };
 
-    // 仮の branchId を設定（本部固定）
-    const effectiveBranchId = "branch_hq";
+    // 登録者の所属拠点を取得
+    const dbUser = await db.user.findUnique({
+      where: { email },
+      select: { id: true, primaryBranchId: true },
+    });
+    // 拠点が見つからない場合はデフォルト拠点（最初の拠点）を使用
+    const effectiveBranchId =
+      dbUser?.primaryBranchId ??
+      (await db.branch.findFirst({ select: { id: true } }).then((b) => b?.id)) ??
+      null;
+    if (!effectiveBranchId) return { error: "拠点情報が見つかりません" };
 
     // 顧客を作成
     const customer = await db.customer.create({
