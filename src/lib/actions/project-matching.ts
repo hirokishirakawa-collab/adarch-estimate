@@ -19,18 +19,22 @@ async function requireAuth() {
     email: session.user.email,
     name: session.user.name ?? "",
     id: session.user.id ?? "",
+    role: (session.user.role ?? "USER") as "ADMIN" | "USER",
   };
 }
 
 // ----------------------------------------------------------------
 // ユーザーの所属企業を取得
 // ----------------------------------------------------------------
-async function getUserCompanyAndBranch(userId: string) {
+async function getUserCompanyAndBranch(userId: string, role?: string) {
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { groupCompanyId: true, branchId: true },
   });
-  if (!user?.groupCompanyId) throw new Error("グループ企業に所属していません");
+  if (!user?.groupCompanyId) {
+    if (role === "ADMIN") return { groupCompanyId: null, branchId: null };
+    throw new Error("グループ企業に所属していません");
+  }
   return { groupCompanyId: user.groupCompanyId, branchId: user.branchId };
 }
 
@@ -161,7 +165,21 @@ export async function getMyEligibility(): Promise<{
 }> {
   const now = new Date();
   const user = await requireAuth();
-  const { groupCompanyId, branchId } = await getUserCompanyAndBranch(user.id);
+  const { groupCompanyId, branchId } = await getUserCompanyAndBranch(user.id, user.role);
+
+  // ADMINは制限なし
+  if (!groupCompanyId) {
+    const targetMonth = getLatestReportMonth();
+    return {
+      submissionCount: REQUIRED_WEEKS,
+      requiredWeeks: getRequiredWeeks(now),
+      hasLatestRevenueReport: true,
+      revenueCheckActive: isRevenueCheckActive(now),
+      latestReportMonth: `${targetMonth.getUTCFullYear()}年${targetMonth.getUTCMonth() + 1}月`,
+      canApply: true,
+    };
+  }
+
   const [submissionCount, hasLatestRevenueReport] = await Promise.all([
     getRecentSubmissionCount(groupCompanyId),
     checkLatestRevenueReport(branchId),
@@ -273,11 +291,15 @@ export async function getProjectRequests() {
 // ----------------------------------------------------------------
 export async function getMyProjectRequests() {
   const user = await requireAuth();
-  const companyId = (await getUserCompanyAndBranch(user.id)).groupCompanyId;
+  const { groupCompanyId: companyId } = await getUserCompanyAndBranch(user.id, user.role);
+
+  // ADMINで企業未所属の場合は全案件を表示
+  const companyFilter = companyId ? { postedByCompanyId: companyId } : {};
+  const appFilter = companyId ? { applicantCompanyId: companyId } : {};
 
   const [posted, applied] = await Promise.all([
     db.projectRequest.findMany({
-      where: { postedByCompanyId: companyId },
+      where: companyFilter,
       orderBy: { createdAt: "desc" },
       include: {
         postedByCompany: { select: { name: true } },
@@ -290,7 +312,7 @@ export async function getMyProjectRequests() {
       },
     }),
     db.projectApplication.findMany({
-      where: { applicantCompanyId: companyId },
+      where: appFilter,
       orderBy: { createdAt: "desc" },
       include: {
         projectRequest: {
@@ -310,7 +332,7 @@ export async function getMyProjectRequests() {
 // ----------------------------------------------------------------
 export async function getProjectRequestDetail(id: string) {
   const user = await requireAuth();
-  const companyId = (await getUserCompanyAndBranch(user.id)).groupCompanyId;
+  const { groupCompanyId: companyId } = await getUserCompanyAndBranch(user.id, user.role);
 
   const request = await db.projectRequest.findUnique({
     where: { id },
@@ -342,7 +364,8 @@ export async function createProjectRequest(
 ): Promise<{ error?: string }> {
   try {
     const user = await requireAuth();
-    const companyId = (await getUserCompanyAndBranch(user.id)).groupCompanyId;
+    const { groupCompanyId: companyId } = await getUserCompanyAndBranch(user.id, user.role);
+    if (!companyId) return { error: "案件を投稿するにはグループ企業への所属が必要です" };
 
     const title = (formData.get("title") as string)?.trim();
     const description = (formData.get("description") as string)?.trim();
@@ -410,7 +433,8 @@ export async function applyToProject(
 ): Promise<{ error?: string }> {
   try {
     const user = await requireAuth();
-    const { groupCompanyId: companyId, branchId } = await getUserCompanyAndBranch(user.id);
+    const { groupCompanyId: companyId, branchId } = await getUserCompanyAndBranch(user.id, user.role);
+    if (!companyId) return { error: "応募するにはグループ企業への所属が必要です" };
 
     const projectRequestId = formData.get("projectRequestId") as string;
     const message = (formData.get("message") as string)?.trim();
@@ -484,7 +508,7 @@ export async function matchProject(
 ): Promise<{ error?: string }> {
   try {
     const user = await requireAuth();
-    const companyId = (await getUserCompanyAndBranch(user.id)).groupCompanyId;
+    const { groupCompanyId: companyId } = await getUserCompanyAndBranch(user.id, user.role);
 
     const request = await db.projectRequest.findUnique({
       where: { id: projectRequestId },
@@ -503,7 +527,7 @@ export async function matchProject(
     });
 
     if (!request) return { error: "案件が見つかりません" };
-    if (request.postedByCompanyId !== companyId) {
+    if (request.postedByCompanyId !== companyId && user.role !== "ADMIN") {
       return { error: "この案件のマッチング権限がありません" };
     }
     if (request.status !== "OPEN") return { error: "この案件は既に募集を終了しています" };
@@ -557,7 +581,7 @@ export async function closeProjectRequest(
 ): Promise<{ error?: string }> {
   try {
     const user = await requireAuth();
-    const companyId = (await getUserCompanyAndBranch(user.id)).groupCompanyId;
+    const { groupCompanyId: companyId } = await getUserCompanyAndBranch(user.id, user.role);
 
     const request = await db.projectRequest.findUnique({
       where: { id: projectRequestId },
@@ -565,7 +589,7 @@ export async function closeProjectRequest(
     });
 
     if (!request) return { error: "案件が見つかりません" };
-    if (request.postedByCompanyId !== companyId) {
+    if (request.postedByCompanyId !== companyId && user.role !== "ADMIN") {
       return { error: "この案件を終了する権限がありません" };
     }
 

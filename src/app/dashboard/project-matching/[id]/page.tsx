@@ -35,10 +35,11 @@ export default async function ProjectRequestDetailPage({
     FREQUENCY_OPTIONS.find((f) => f.value === request.frequency)?.label ??
     request.frequency;
   const statusCfg = STATUS_CONFIG[request.status];
-  const isOwner = request.postedByCompanyId === currentCompanyId;
-  const hasApplied = request.applications.some(
-    (a) => a.applicantCompany.id === currentCompanyId
-  );
+  const role = (session.user.role ?? "USER") as string;
+  const isOwner = request.postedByCompanyId === currentCompanyId || (role === "ADMIN" && !currentCompanyId);
+  const hasApplied = currentCompanyId
+    ? request.applications.some((a) => a.applicantCompany.id === currentCompanyId)
+    : false;
 
   return (
     <div className="space-y-5 max-w-3xl">
