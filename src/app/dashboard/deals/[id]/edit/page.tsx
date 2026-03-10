@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
 import { updateDeal } from "@/lib/actions/deal";
 import { DealEditForm } from "@/components/deals/deal-edit-form";
 import { ChevronLeft, TrendingUp } from "lucide-react";
@@ -18,16 +17,13 @@ export default async function EditDealPage({ params }: PageProps) {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
-  const branchWhere = role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId };
-
+  // 全拠点のユーザーを表示
   const [deal, users] = await Promise.all([
     db.deal.findUnique({
       where: { id },
       include: { customer: { select: { name: true } } },
     }),
     db.user.findMany({
-      where: branchWhere,
       select: { id: true, name: true, email: true },
       orderBy: { name: "asc" },
     }),

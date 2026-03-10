@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
 import { DealKanban } from "@/components/deals/deal-kanban";
 import { ArchiveToggle } from "@/components/deals/archive-toggle";
 import { DealViewTabs } from "@/components/deals/deal-view-tabs";
@@ -23,12 +22,10 @@ export default async function DealsPage({ searchParams }: PageProps) {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
-
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  const whereBase: Prisma.DealWhereInput =
-    role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId };
+  // 全拠点の商談を表示
+  const whereBase: Prisma.DealWhereInput = {};
 
   // アーカイブ数 (7日以上前にクローズした案件)
   const archivedCount = await db.deal.count({
