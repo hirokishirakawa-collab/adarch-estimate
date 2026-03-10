@@ -27,8 +27,6 @@ export function LeadSearchPanel() {
       industry: string;
       industryKeywords: string;
       count: number;
-      mediaValue?: string;
-      mediaScoringHint?: string;
     }) => {
       setPhase("searching");
       setErrorMsg("");
@@ -66,8 +64,6 @@ export function LeadSearchPanel() {
             places,
             industry: params.industry,
             area: [params.city, params.prefecture].filter(Boolean).join(" "),
-            mediaValue: params.mediaValue,
-            mediaScoringHint: params.mediaScoringHint,
           }),
         });
 
