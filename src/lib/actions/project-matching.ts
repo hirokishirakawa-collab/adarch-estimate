@@ -15,10 +15,14 @@ import type { ProjectRequestCategory, ProjectFrequency } from "@/generated/prism
 async function requireAuth() {
   const session = await auth();
   if (!session?.user?.email) throw new Error("Unauthorized");
+  const dbUser = await db.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true },
+  });
   return {
     email: session.user.email,
     name: session.user.name ?? "",
-    id: session.user.id ?? "",
+    id: dbUser?.id ?? "",
     role: (session.user.role ?? "USER") as "ADMIN" | "USER",
   };
 }
