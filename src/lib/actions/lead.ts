@@ -254,11 +254,11 @@ export async function convertLeadToCustomer(
     // 登録者の所属拠点を取得
     const dbUser = await db.user.findUnique({
       where: { email },
-      select: { id: true, primaryBranchId: true },
+      select: { id: true, branchId: true },
     });
     // 拠点が見つからない場合はデフォルト拠点（最初の拠点）を使用
     const effectiveBranchId =
-      dbUser?.primaryBranchId ??
+      dbUser?.branchId ??
       (await db.branch.findFirst({ select: { id: true } }).then((b) => b?.id)) ??
       null;
     if (!effectiveBranchId) return { error: "拠点情報が見つかりません" };
