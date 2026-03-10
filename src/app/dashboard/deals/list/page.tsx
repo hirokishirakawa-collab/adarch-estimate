@@ -4,13 +4,10 @@ import { db } from "@/lib/db";
 import { DealList } from "@/components/deals/deal-list";
 import { DealViewTabs } from "@/components/deals/deal-view-tabs";
 import { TrendingUp, Plus } from "lucide-react";
-import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
 
 export default async function DealListPage() {
-  const session = await auth();
-  const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
+  await auth();
   // 全拠点の商談を表示
   const whereBase: Prisma.DealWhereInput = {};
 

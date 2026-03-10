@@ -5,7 +5,6 @@ import { DealKanban } from "@/components/deals/deal-kanban";
 import { ArchiveToggle } from "@/components/deals/archive-toggle";
 import { DealViewTabs } from "@/components/deals/deal-view-tabs";
 import { TrendingUp, Plus } from "lucide-react";
-import type { UserRole } from "@/types/roles";
 import type { Prisma, DealStatus } from "@/generated/prisma/client";
 
 interface PageProps {
@@ -19,9 +18,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
   const { showArchived: showArchivedParam } = await searchParams;
   const showArchived = showArchivedParam === "true";
 
-  const session = await auth();
-  const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
+  await auth();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   // 全拠点の商談を表示

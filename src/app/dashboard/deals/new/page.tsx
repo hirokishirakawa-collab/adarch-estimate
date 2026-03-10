@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DealForm } from "@/components/deals/deal-form";
 import { TrendingUp, ChevronLeft } from "lucide-react";
-import type { UserRole } from "@/types/roles";
 
 interface PageProps {
   searchParams: Promise<{ customerId?: string }>;
@@ -12,9 +11,7 @@ interface PageProps {
 export default async function NewDealPage({ searchParams }: PageProps) {
   const { customerId } = await searchParams;
 
-  const session = await auth();
-  const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
+  await auth();
   // 全拠点の顧客・ユーザーを表示
   const [customers, users] = await Promise.all([
     db.customer.findMany({
