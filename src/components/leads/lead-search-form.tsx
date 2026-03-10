@@ -26,7 +26,7 @@ interface LeadSearchFormProps {
 }
 
 export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
-  const [mode, setMode] = useState<SearchMode>("media");
+  const [mode, setMode] = useState<SearchMode>("industry");
   const [selectedIndustry, setSelectedIndustry] = useState("");
   const [selectedMedia, setSelectedMedia] = useState("");
 
@@ -64,30 +64,52 @@ export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
   return (
     <div className="space-y-4">
       {/* モード切り替え */}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setMode("media")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-            mode === "media"
-              ? "bg-orange-50 border-orange-300 text-orange-700 shadow-sm"
-              : "bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300"
-          }`}
-        >
-          <Tv className="w-3.5 h-3.5" />
-          媒体メニューから探す
-        </button>
+      <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
           onClick={() => setMode("industry")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+          className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-left border-2 transition-all ${
             mode === "industry"
-              ? "bg-blue-50 border-blue-300 text-blue-700 shadow-sm"
-              : "bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300"
+              ? "bg-blue-50 border-blue-500 shadow-md ring-2 ring-blue-200"
+              : "bg-white border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
           }`}
         >
-          <Briefcase className="w-3.5 h-3.5" />
-          業種から探す
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+            mode === "industry" ? "bg-blue-500" : "bg-zinc-100"
+          }`}>
+            <Briefcase className={`w-5 h-5 ${mode === "industry" ? "text-white" : "text-zinc-400"}`} />
+          </div>
+          <div>
+            <p className={`text-sm font-bold ${mode === "industry" ? "text-blue-700" : "text-zinc-600"}`}>
+              業種から探す
+            </p>
+            <p className={`text-[10px] mt-0.5 ${mode === "industry" ? "text-blue-500" : "text-zinc-400"}`}>
+              業種 x 地域で見込み顧客を検索
+            </p>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("media")}
+          className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-left border-2 transition-all ${
+            mode === "media"
+              ? "bg-orange-50 border-orange-500 shadow-md ring-2 ring-orange-200"
+              : "bg-white border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+          }`}
+        >
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+            mode === "media" ? "bg-orange-500" : "bg-zinc-100"
+          }`}>
+            <Tv className={`w-5 h-5 ${mode === "media" ? "text-white" : "text-zinc-400"}`} />
+          </div>
+          <div>
+            <p className={`text-sm font-bold ${mode === "media" ? "text-orange-700" : "text-zinc-600"}`}>
+              媒体メニューから探す
+            </p>
+            <p className={`text-[10px] mt-0.5 ${mode === "media" ? "text-orange-500" : "text-zinc-400"}`}>
+              広告媒体に響く企業を抽出
+            </p>
+          </div>
         </button>
       </div>
 
