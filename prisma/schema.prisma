@@ -1415,6 +1415,7 @@ model Lead {
   convertedCustomerId String? @unique
   convertedCustomer   Customer? @relation("LeadConvertedCustomer", fields: [convertedCustomerId], references: [id])
   logs            LeadLog[]
+  hearingSheet    HearingSheet?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
   @@unique([name, address])
@@ -1440,4 +1441,51 @@ model LeadLog {
   @@index([leadId])
   @@index([createdAt])
   @@map("lead_logs")
+}
+
+// ==============================================================
+// HearingSheet（ヒアリングシート）
+// ==============================================================
+
+/// リードに対する構造化ヒアリングデータ（1リード:1シート）
+model HearingSheet {
+  id     String @id @default(cuid())
+  leadId String @unique
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  // --- A. 顧客理解（WHO） ---
+  businessDescription String?   @db.Text   /// 事業内容
+  targetCustomers     String[]  @default([]) /// ターゲット顧客層
+  tradeArea           String?              /// 商圏
+  annualRevenue       String?              /// 年商規模
+  employeeCount       String?              /// 従業員数
+
+  // --- B. 現状把握（NOW） ---
+  currentChannels     String[]  @default([]) /// 現在の集客手段
+  monthlyAdBudget     String?              /// 月間広告費
+  pastEfforts         String?   @db.Text   /// 過去に試した施策
+  competitors         String?   @db.Text   /// 競合で気になる会社
+
+  // --- C. 課題・ニーズ（WANT） ---
+  primaryChallenge    String?              /// 最も解決したい課題
+  challengeDetail     String?   @db.Text   /// 課題の詳細
+  interestedServices  String[]  @default([]) /// 興味のあるサービス
+  desiredTimeline     String?              /// 希望開始時期
+
+  // --- D. 意思決定（DECISION） ---
+  decisionMaker       String?              /// 決裁者
+  decisionProcess     String?              /// 決裁プロセス
+  budgetStatus        String?              /// 予算確保状況
+  competingVendors    String?   @db.Text   /// 検討中の他社
+
+  // --- E. 温度感（TEMPERATURE） ---
+  temperature         String?              /// 温度感
+  nextAction          String?   @db.Text   /// 次回アクション
+  nextActionDate      DateTime?            /// 次回予定日
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+  @@map("hearing_sheets")
 }

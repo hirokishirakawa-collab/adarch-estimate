@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel } from "@/lib/constants/leads";
 import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads } from "@/lib/actions/lead";
+import { getHearingSheet } from "@/lib/actions/hearing";
+import { HearingSheetForm } from "./hearing-sheet-form";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -82,6 +84,9 @@ export function LeadListTable({ leads, users, isAdmin }: Props) {
       {/* 操作アイコン凡例 */}
       <div className="flex items-center gap-4 px-4 py-2 border-b border-zinc-100 bg-zinc-50/50">
         <span className="text-[11px] text-zinc-400">操作アイコン:</span>
+        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+          <ClipboardList className="w-3 h-3 text-amber-500" /> ヒアリング
+        </span>
         <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
           <Sparkles className="w-3 h-3 text-purple-500" /> AI営業提案
         </span>
@@ -191,6 +196,9 @@ function LeadRow({
   const [advice, setAdvice] = useState<string | null>(null);
   const [adviceOpen, setAdviceOpen] = useState(false);
   const [adviceLoading, setAdviceLoading] = useState(false);
+  const [hearingOpen, setHearingOpen] = useState(false);
+  const [hearingData, setHearingData] = useState<Awaited<ReturnType<typeof getHearingSheet>> | undefined>(undefined);
+  const [hearingLoading, setHearingLoading] = useState(false);
 
   const statusOpt = getLeadStatusOption(lead.status);
   const priority = getPriorityLabel(lead.scoreTotal);
@@ -259,6 +267,25 @@ function LeadRow({
         router.push(`/dashboard/customers/${result.customerId}`);
       }
     });
+  };
+
+  const handleHearing = async () => {
+    if (hearingOpen) {
+      setHearingOpen(false);
+      return;
+    }
+    if (hearingData === undefined) {
+      setHearingLoading(true);
+      try {
+        const data = await getHearingSheet(lead.id);
+        setHearingData(data);
+      } catch {
+        setHearingData(null);
+      } finally {
+        setHearingLoading(false);
+      }
+    }
+    setHearingOpen(true);
   };
 
   return (
@@ -406,6 +433,22 @@ function LeadRow({
       <td className="px-3 py-3 text-center">
         <div className="flex items-center justify-center gap-1">
           <button
+            onClick={handleHearing}
+            disabled={hearingLoading}
+            className={cn(
+              "p-1 transition-colors",
+              hearingOpen ? "text-amber-600" : "text-zinc-400 hover:text-amber-600",
+              hearingLoading && "animate-pulse"
+            )}
+            title="ヒアリングシート"
+          >
+            {hearingLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <ClipboardList className="w-3.5 h-3.5" />
+            )}
+          </button>
+          <button
             onClick={handleAdvice}
             disabled={adviceLoading}
             className={cn(
@@ -452,6 +495,18 @@ function LeadRow({
         </div>
       </td>
     </tr>
+    {hearingOpen && (
+      <tr>
+        <td colSpan={isAdmin ? 8 : 7} className="px-0 py-0">
+          <HearingSheetForm
+            leadId={lead.id}
+            leadName={lead.name}
+            initial={hearingData ?? null}
+            onClose={() => setHearingOpen(false)}
+          />
+        </td>
+      </tr>
+    )}
     {adviceOpen && (
       <tr>
         <td colSpan={isAdmin ? 8 : 7} className="px-0 py-0">
