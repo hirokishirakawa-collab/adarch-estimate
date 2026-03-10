@@ -274,7 +274,6 @@ export async function POST(req: NextRequest) {
     area: string;
     mediaValue?: string;
     mediaScoringHint?: string;
-    excludeIndustries?: string[];
   };
 
   // 全企業のWebサイトを並列で分析
@@ -283,13 +282,6 @@ export async function POST(req: NextRequest) {
     body.places.map((p) => analyzeWebsite(p.websiteUrl, p.name, allNames))
   );
   const analyses = results.map((r) => r.analysis);
-
-  // 排除業種の指示
-  const excludeSection = body.excludeIndustries && body.excludeIndustries.length > 0
-    ? `\n\n【業種排除ルール — 最優先】
-以下の業種に該当する企業は、合計スコアを0点にしてください。コメントには「排除対象業種」と記載してください。
-排除対象: ${body.excludeIndustries.join("、")}`
-    : "";
 
   // 媒体指定がある場合はプロンプトを媒体特化にする
   const mediaSection = body.mediaValue && body.mediaScoringHint
@@ -335,7 +327,7 @@ export async function POST(req: NextRequest) {
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループの営業支援AIです。
 企業リストを受け取り、広告営業のリード（見込み客）としての優先度をスコアリングしてください。
-${mediaSection}${excludeSection}
+${mediaSection}
 
 【スコアリング基準（合計100点）】
 1. 業種一致度（25点）: 指定業種とのマッチ度。業種が一致すれば高得点。${body.mediaValue ? "媒体のターゲット業種との一致度を重視。" : ""}

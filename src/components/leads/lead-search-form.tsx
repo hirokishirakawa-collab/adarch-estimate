@@ -7,7 +7,7 @@ import {
   MEDIA_MENU_OPTIONS,
 } from "@/lib/constants/leads";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2, Tv, Briefcase, X } from "lucide-react";
+import { Search, Loader2, Tv, Briefcase } from "lucide-react";
 import { useState } from "react";
 
 export type SearchMode = "industry" | "media";
@@ -21,7 +21,6 @@ interface LeadSearchFormProps {
     count: number;
     mediaValue?: string;
     mediaScoringHint?: string;
-    excludeIndustries?: string[];
   }) => void;
   loading: boolean;
 }
@@ -30,8 +29,6 @@ export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
   const [mode, setMode] = useState<SearchMode>("industry");
   const [selectedIndustry, setSelectedIndustry] = useState("");
   const [selectedMedia, setSelectedMedia] = useState("");
-  const [excludedIndustries, setExcludedIndustries] = useState<string[]>([]);
-
   const mediaOption = MEDIA_MENU_OPTIONS.find((o) => o.value === selectedMedia);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -40,9 +37,6 @@ export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
 
     if (mode === "media") {
       if (!mediaOption) return;
-      const excludeLabels = excludedIndustries
-        .map((v) => LEAD_INDUSTRY_OPTIONS.find((o) => o.value === v)?.label)
-        .filter(Boolean);
       onSubmit({
         prefecture: fd.get("prefecture") as string,
         city: fd.get("city") as string,
@@ -51,7 +45,6 @@ export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
         count: Number(fd.get("count")) || 20,
         mediaValue: mediaOption.value,
         mediaScoringHint: mediaOption.scoringHint,
-        excludeIndustries: excludeLabels as string[],
       });
     } else {
       const industryValue = fd.get("industry") as string;
@@ -151,66 +144,6 @@ export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
               </div>
             )}
 
-            {/* 排除する業種 */}
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1.5">
-                排除する業種（検索結果から除外）
-              </label>
-              {excludedIndustries.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {excludedIndustries.map((v) => {
-                    const opt = LEAD_INDUSTRY_OPTIONS.find((o) => o.value === v);
-                    return (
-                      <span
-                        key={v}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-100 text-red-700 border border-red-200"
-                      >
-                        {opt?.label ?? v}
-                        <button
-                          type="button"
-                          onClick={() => setExcludedIndustries((prev) => prev.filter((x) => x !== v))}
-                          className="hover:text-red-900"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={() => setExcludedIndustries([])}
-                    className="text-[10px] text-zinc-400 hover:text-zinc-600 underline"
-                  >
-                    すべて解除
-                  </button>
-                </div>
-              )}
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
-                {LEAD_INDUSTRY_OPTIONS.filter((o) => o.value !== "other").map((o) => {
-                  const isExcluded = excludedIndustries.includes(o.value);
-                  return (
-                    <button
-                      key={o.value}
-                      type="button"
-                      onClick={() => {
-                        setExcludedIndustries((prev) =>
-                          isExcluded
-                            ? prev.filter((x) => x !== o.value)
-                            : [...prev, o.value]
-                        );
-                      }}
-                      className={`px-2 py-1.5 rounded-md text-[11px] font-medium border transition-all text-left ${
-                        isExcluded
-                          ? "bg-red-50 border-red-300 text-red-700 line-through"
-                          : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"
-                      }`}
-                    >
-                      {o.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           </>
         )}
 
