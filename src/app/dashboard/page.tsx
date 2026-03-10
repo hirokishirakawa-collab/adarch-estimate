@@ -5,23 +5,16 @@ import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import { ACTIVITY_TYPE_OPTIONS } from "@/lib/constants/crm";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
-import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 import { getOrGenerateDigest } from "@/lib/digest";
 import type { UserRole } from "@/types/roles";
 import type { ActivityType, ProjectLogType } from "@/generated/prisma/client";
 import {
-  Plus,
   Users,
   FolderKanban,
   PenLine,
   Clock,
   ArrowRight,
   TrendingUp,
-  LayoutGrid,
-  List,
-  User,
-  Award,
-  CalendarCheck,
   Sparkles,
 } from "lucide-react";
 
@@ -74,18 +67,6 @@ const PROJECT_LOG_ICON: Record<
 };
 
 // ----------------------------------------------------------------
-// 商談ステータス → ドット色マッピング
-// ----------------------------------------------------------------
-const DEAL_STATUS_DOT: Record<string, string> = {
-  PROSPECTING: "bg-zinc-400",
-  QUALIFYING:  "bg-blue-500",
-  PROPOSAL:    "bg-violet-500",
-  NEGOTIATION: "bg-amber-500",
-  CLOSED_WON:  "bg-emerald-500",
-  CLOSED_LOST: "bg-red-400",
-};
-
-// ----------------------------------------------------------------
 // ページ本体
 // ----------------------------------------------------------------
 export default async function DashboardPage() {
@@ -100,44 +81,6 @@ export default async function DashboardPage() {
 
   // 拠点フィルタ
   const branchFilter = userBranchId ? { branchId: userBranchId } : {};
-
-  // ── 0. アクティブ商談 & KPI用クローズ商談（並列取得） ──
-  const [activeDeals, closedDeals] = await Promise.all([
-    db.deal.findMany({
-      where: {
-        ...branchFilter,
-        status: { notIn: ["CLOSED_WON", "CLOSED_LOST"] },
-      },
-      include: {
-        customer: { select: { id: true, name: true, prefecture: true } },
-        assignedTo: { select: { name: true } },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 10,
-    }).catch(() => []),
-    db.deal.findMany({
-      where: { ...branchFilter, status: { in: ["CLOSED_WON", "CLOSED_LOST"] } },
-      select: { status: true, updatedAt: true },
-    }).catch(() => []),
-  ]);
-
-  // KPI 計算
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const wonTotal = closedDeals.filter((d) => d.status === "CLOSED_WON").length;
-  const lostTotal = closedDeals.filter((d) => d.status === "CLOSED_LOST").length;
-  const winRate =
-    wonTotal + lostTotal > 0 ? Math.round((wonTotal / (wonTotal + lostTotal)) * 100) : null;
-  const thisMonthWon = closedDeals.filter(
-    (d) => d.status === "CLOSED_WON" && new Date(d.updatedAt) >= thisMonthStart
-  ).length;
-
-  // ステージ分布（アクティブ商談のみ）
-  const stageCounts = [
-    { label: "初期声掛け", count: activeDeals.filter((d) => d.status === "PROSPECTING").length, color: "bg-zinc-200 text-zinc-600" },
-    { label: "初回商談",   count: activeDeals.filter((d) => d.status === "QUALIFYING").length,  color: "bg-blue-100 text-blue-700" },
-    { label: "提案中",     count: activeDeals.filter((d) => d.status === "PROPOSAL").length,    color: "bg-violet-100 text-violet-700" },
-    { label: "休眠/先送り", count: activeDeals.filter((d) => d.status === "NEGOTIATION").length, color: "bg-amber-100 text-amber-700" },
-  ].filter((s) => s.count > 0);
 
   // ── 1. 至急納期プロジェクト（7日以内・未完了） ──
   const urgentProjects = await db.project.findMany({
@@ -279,230 +222,59 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* ── クイックアクション ── */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* ── クイックアクション（ご利用の流れに沿った4つ） ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Link
           href="/dashboard/customers/new"
-          className="group flex items-center gap-3 px-4 py-3 bg-white border border-zinc-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
+          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all text-center"
         >
-          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-            <Users className="w-4 h-4 text-blue-600" />
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+            <Users className="w-5 h-5 text-blue-600" />
           </div>
-          <div className="min-w-0">
+          <div>
             <p className="text-xs font-semibold text-zinc-700 group-hover:text-blue-700">顧客を登録</p>
-            <p className="text-[10px] text-zinc-400">新規顧客情報を入力</p>
+            <p className="text-[10px] text-zinc-400 mt-0.5">STEP 1</p>
           </div>
-          <Plus className="w-3.5 h-3.5 text-zinc-300 group-hover:text-blue-400 ml-auto flex-shrink-0" />
         </Link>
 
         <Link
-          href="/dashboard/projects/new"
-          className="group flex items-center gap-3 px-4 py-3 bg-white border border-zinc-200 rounded-xl hover:border-violet-300 hover:bg-violet-50 transition-all"
+          href="/dashboard/deals"
+          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-violet-300 hover:bg-violet-50 transition-all text-center"
         >
-          <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-violet-200 transition-colors">
-            <FolderKanban className="w-4 h-4 text-violet-600" />
+          <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center group-hover:bg-violet-200 transition-colors">
+            <TrendingUp className="w-5 h-5 text-violet-600" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-zinc-700 group-hover:text-violet-700">プロジェクト登録</p>
-            <p className="text-[10px] text-zinc-400">新規案件を作成</p>
+          <div>
+            <p className="text-xs font-semibold text-zinc-700 group-hover:text-violet-700">商談管理</p>
+            <p className="text-[10px] text-zinc-400 mt-0.5">STEP 2</p>
           </div>
-          <Plus className="w-3.5 h-3.5 text-zinc-300 group-hover:text-violet-400 ml-auto flex-shrink-0" />
+        </Link>
+
+        <Link
+          href="/dashboard/projects"
+          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-emerald-300 hover:bg-emerald-50 transition-all text-center"
+        >
+          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+            <FolderKanban className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-zinc-700 group-hover:text-emerald-700">プロジェクト</p>
+            <p className="text-[10px] text-zinc-400 mt-0.5">STEP 3</p>
+          </div>
         </Link>
 
         <Link
           href="/dashboard/customers"
-          className="group flex items-center gap-3 px-4 py-3 bg-white border border-zinc-200 rounded-xl hover:border-emerald-300 hover:bg-emerald-50 transition-all"
+          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-amber-300 hover:bg-amber-50 transition-all text-center"
         >
-          <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-200 transition-colors">
-            <PenLine className="w-4 h-4 text-emerald-600" />
+          <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center group-hover:bg-amber-200 transition-colors">
+            <PenLine className="w-5 h-5 text-amber-600" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-zinc-700 group-hover:text-emerald-700">活動を記録</p>
-            <p className="text-[10px] text-zinc-400">顧客ページから入力</p>
+          <div>
+            <p className="text-xs font-semibold text-zinc-700 group-hover:text-amber-700">活動を記録</p>
+            <p className="text-[10px] text-zinc-400 mt-0.5">顧客ページから</p>
           </div>
-          <ArrowRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-emerald-400 ml-auto flex-shrink-0" />
         </Link>
-      </div>
-
-      {/* ── 商談管理 (SFA) ── */}
-      <div className="bg-white rounded-xl border border-zinc-200">
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-100">
-              <TrendingUp className="w-3 h-3 text-blue-600" />
-            </span>
-            <p className="text-xs font-bold text-zinc-800">商談管理 (SFA)</p>
-            <span className="text-[10px] px-1.5 py-0.5 bg-zinc-100 text-zinc-500 rounded-full font-medium">
-              アクティブ {activeDeals.length}件
-            </span>
-          </div>
-          {/* ビュー切り替えボタン */}
-          <div className="flex items-center gap-1">
-            <Link
-              href="/dashboard/deals"
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium
-                         bg-zinc-100 text-zinc-600 hover:bg-blue-100 hover:text-blue-700
-                         rounded-lg transition-colors"
-            >
-              <LayoutGrid className="w-3 h-3" />
-              ボード
-            </Link>
-            <Link
-              href="/dashboard/deals/list"
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium
-                         bg-zinc-100 text-zinc-600 hover:bg-blue-100 hover:text-blue-700
-                         rounded-lg transition-colors"
-            >
-              <List className="w-3 h-3" />
-              リスト
-            </Link>
-          </div>
-        </div>
-
-        {/* ── KPI バー ── */}
-        <div className="grid grid-cols-3 divide-x divide-zinc-100 border-b border-zinc-100">
-          {/* 受注率 */}
-          <div className="px-4 py-3 flex items-center gap-2.5">
-            <span className="flex-shrink-0 w-7 h-7 bg-emerald-100 rounded-lg flex items-center justify-center">
-              <Award className="w-3.5 h-3.5 text-emerald-600" />
-            </span>
-            <div>
-              <p className="text-[10px] text-zinc-400">受注率（累計）</p>
-              <p className="text-sm font-bold text-zinc-800">
-                {winRate !== null ? `${winRate}%` : "—"}
-              </p>
-            </div>
-          </div>
-
-          {/* 今月受注 */}
-          <div className="px-4 py-3 flex items-center gap-2.5">
-            <span className="flex-shrink-0 w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
-              <CalendarCheck className="w-3.5 h-3.5 text-blue-600" />
-            </span>
-            <div>
-              <p className="text-[10px] text-zinc-400">今月の受注</p>
-              <p className="text-sm font-bold text-zinc-800">
-                {thisMonthWon}
-                <span className="text-xs font-normal text-zinc-400 ml-0.5">件</span>
-              </p>
-            </div>
-          </div>
-
-          {/* ステージ分布 */}
-          <div className="px-4 py-3">
-            <p className="text-[10px] text-zinc-400 mb-1.5">ステージ分布</p>
-            <div className="flex items-center gap-1 flex-wrap">
-              {stageCounts.length > 0 ? stageCounts.map((s) => (
-                <span
-                  key={s.label}
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${s.color}`}
-                >
-                  {s.label} {s.count}
-                </span>
-              )) : (
-                <span className="text-[10px] text-zinc-300">なし</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 案件リスト */}
-        {activeDeals.length === 0 ? (
-          <div className="px-4 py-8 text-center">
-            <p className="text-xs text-zinc-400">アクティブな商談はありません</p>
-            <Link
-              href="/dashboard/deals/new"
-              className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-            >
-              <Plus className="w-3 h-3" /> 商談を作成する
-            </Link>
-          </div>
-        ) : (
-          <ul className="divide-y divide-zinc-50">
-            {activeDeals.map((deal) => {
-              const statusOpt = DEAL_STATUS_OPTIONS.find((o) => o.value === deal.status);
-              const dotColor  = DEAL_STATUS_DOT[deal.status] ?? "bg-zinc-400";
-
-              // 備考スニペット: Markdownの記号を除去して最初の1行をトリミング
-              const notesSnippet = deal.notes
-                ? deal.notes
-                    .replace(/[#*`>_~[\]]/g, "")
-                    .trim()
-                    .split("\n")[0]
-                    .slice(0, 64)
-                : null;
-
-              return (
-                <li key={deal.id}>
-                  <Link
-                    href={`/dashboard/deals/${deal.id}`}
-                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 transition-colors group"
-                  >
-                    {/* ステータスドット */}
-                    <span className={`flex-shrink-0 w-2 h-2 rounded-full ${dotColor}`} />
-
-                    {/* 主情報 */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {/* 会社名（最優先） */}
-                        <p className="text-xs font-semibold text-zinc-800 group-hover:text-blue-600 transition-colors truncate">
-                          {deal.customer.name}
-                        </p>
-                        {/* 都道府県 */}
-                        {deal.customer.prefecture && (
-                          <span className="text-[10px] text-zinc-400 whitespace-nowrap">
-                            📍{deal.customer.prefecture}
-                          </span>
-                        )}
-                        {/* 担当者 */}
-                        {deal.assignedTo?.name && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] text-zinc-400 whitespace-nowrap">
-                            <User className="w-2.5 h-2.5" />
-                            {deal.assignedTo.name}
-                          </span>
-                        )}
-                      </div>
-                      {/* 備考プレビュー */}
-                      {notesSnippet && (
-                        <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
-                          <span className="text-zinc-300 mr-1">···</span>
-                          {notesSnippet}
-                          {(deal.notes?.length ?? 0) > 64 && "…"}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* ステータスタグ（右端） */}
-                    {statusOpt && (
-                      <span
-                        className={`flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${statusOpt.color}`}
-                      >
-                        {statusOpt.label}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {/* フッター */}
-        <div className="px-4 py-2 border-t border-zinc-100 flex items-center justify-between">
-          <Link
-            href="/dashboard/deals/list"
-            className="text-[11px] text-zinc-400 hover:text-blue-600 transition-colors"
-          >
-            すべての商談を確認 →
-          </Link>
-          <Link
-            href="/dashboard/deals/new"
-            className="text-[11px] text-blue-600 hover:underline"
-          >
-            + 新規商談
-          </Link>
-        </div>
       </div>
 
       {/* ── 至急納期確認 ── */}
