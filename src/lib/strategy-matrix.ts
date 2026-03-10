@@ -75,7 +75,7 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
     targetFit: {
       male: 4,
       female: 4,
-      ageRange: "10〜50代",
+      ageRange: "20〜40代（テレビ離れ層中心）",
       businessLayer: 2,
       inbound: 1,
     },
@@ -88,10 +88,11 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
     },
     areaSupport: { nationwide: true, regional: true, municipal: true },
     description:
-      "日本最大の無料動画配信プラットフォーム。月間アクティブユーザー3,000万超。",
+      "日本最大の無料動画配信プラットフォーム。テレビ離れした20〜40代のスマホ・PC視聴者にリーチ。月額50万円〜（配信量・ターゲティング設定による）。",
     strengths: [
       "動画×視聴完了率の高いブランド接触",
       "エリア・ジャンルによる精緻なターゲティング",
+      "テレビ離れした若年層への到達力",
       "視聴ログによる効果測定が可能",
     ],
     considerations: [
@@ -103,15 +104,15 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
 
   skylark: {
     id: "skylark",
-    name: "すかいらーく インストア",
+    name: "すかいらーくサイネージ",
     emoji: "🍽️",
     simulatorPath: "/dashboard/skylark-simulator",
-    minBudget: 750_000,
-    recommendedBudget: 2_500_000,
+    minBudget: 370_000,
+    recommendedBudget: 1_500_000,
     targetFit: {
       male: 3,
       female: 4,
-      ageRange: "30〜60代",
+      ageRange: "ファミリー層・シニア・主婦（外食利用者）",
       businessLayer: 2,
       inbound: 2,
     },
@@ -124,17 +125,17 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
     },
     areaSupport: { nationwide: true, regional: true, municipal: true },
     description:
-      "ガスト・バーミヤン等すかいらーくグループ3,000店舗のデジタルサイネージ広告。",
+      "全国2,300店舗・年2.7億人のファミリー層へダイレクト訴求。約37〜40万円〜（100店舗・4週間で約150万円が目安）。",
     strengths: [
       "食事中の長時間接触（平均20〜40分）",
-      "全国3,000店舗・エリア絞り込み自在",
-      "リピーター多く繰り返し接触が生まれる",
+      "全国2,300店舗・年間2.7億人のリーチ",
+      "エリア絞り込み自在・リピーターへの繰り返し接触",
     ],
     considerations: [
-      "最低100店舗〜（約75万円/週）",
+      "最低100店舗〜（約37〜40万円/4週間）",
       "静止画・動画コンテンツの用意が必要",
     ],
-    coverageNote: "全国3,000店舗展開（ガスト・バーミヤン・ジョナサン等）。主要都市・地方都市に広く展開。沖縄・離島・一部過疎地域は店舗数が限られるため、指定エリアに店舗が存在するか事前確認が必要。",
+    coverageNote: "全国2,300店舗展開（ガスト・バーミヤン・ジョナサン等）。主要都市・地方都市に広く展開。沖縄・離島・一部過疎地域は店舗数が限られるため、指定エリアに店舗が存在するか事前確認が必要。",
   },
 
   "aeon-cinema": {
@@ -147,7 +148,7 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
     targetFit: {
       male: 3,
       female: 4,
-      ageRange: "20〜50代",
+      ageRange: "ファミリー・カップル・シニア（映画来場者）",
       businessLayer: 2,
       inbound: 2,
     },
@@ -159,14 +160,14 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
       recruitment: 3,
     },
     areaSupport: { nationwide: true, regional: true, municipal: true },
-    description: "全国180劇場超のイオンシネマでの本編前スクリーン広告。",
+    description: "全国180劇場超・年3,338万人の映画来場者へスクリーン広告。約30万円〜（ランク・本数による。Sランク118万円/4週間〜）。",
     strengths: [
       "強制視聴（スキップ不可・暗室集中）で高い記憶定着",
       "ブランドの「格」が上がる体験型接触",
-      "ファミリー・カップル層への高品質接触",
+      "年3,338万人のファミリー・カップル・シニア層への高品質接触",
     ],
     considerations: [
-      "最低数劇場〜（30万円〜）",
+      "最低数劇場〜（30万円〜。Sランク118万円/4週間〜）",
       "15秒 or 30秒の動画素材が必要",
     ],
     coverageNote: "全国180劇場以上に展開。ただし指定エリアにイオンシネマ劇場が実在することが必須条件。那覇市・離島・一部地方都市は劇場が存在しないため推奨不可。出稿前に対象エリアの劇場有無を必ず確認すること。",
@@ -174,15 +175,15 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
 
   taxi: {
     id: "taxi",
-    name: "タクシー（Tokyo Prime）",
+    name: "タクシー広告（TOKYO PRIME）",
     emoji: "🚕",
     simulatorPath: "/dashboard/taxi-ads-simulator",
-    minBudget: 1_000_000,
-    recommendedBudget: 4_000_000,
+    minBudget: 3_200_000,
+    recommendedBudget: 6_400_000,
     targetFit: {
       male: 4,
       female: 3,
-      ageRange: "30〜60代",
+      ageRange: "都市部ビジネスパーソン・管理職・高年収層",
       businessLayer: 5,
       inbound: 3,
     },
@@ -195,14 +196,15 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
     },
     areaSupport: { nationwide: false, regional: true, municipal: false },
     description:
-      "東京・大阪等のタクシータブレット広告。乗車中の高収入ビジネス層へ届く。",
+      "都市部のビジネスパーソン・管理職・高年収層に月3,550万リーチ。320万円〜/週（東京エリア・動画広告）※週単位販売。",
     strengths: [
       "乗車中の「逃げ場なし」接触（平均18分）",
+      "月3,550万リーチの圧倒的ボリューム",
       "BtoB・高額商品・採用に特化した媒体",
       "決裁層・管理職への直接リーチ",
     ],
     considerations: [
-      "最低100万円/週〜（HALF）",
+      "320万円〜/週（東京エリア）※週単位販売",
       "主に東京・大阪・名古屋エリア",
     ],
     coverageNote: "東京・大阪・名古屋・横浜・福岡・京都・神戸・札幌等の主要都市のみ対応。沖縄・離島・地方都市・農村部は原則非対応。地方エリア指定の場合は推奨不可。",
@@ -210,15 +212,15 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
 
   golfcart: {
     id: "golfcart",
-    name: "ゴルフカート（Golfcart Vision）",
+    name: "ゴルフカート広告（Golfcart Vision）",
     emoji: "⛳",
     simulatorPath: "/dashboard/golfcart-simulator",
-    minBudget: 300_000,
-    recommendedBudget: 1_200_000,
+    minBudget: 2_000_000,
+    recommendedBudget: 4_000_000,
     targetFit: {
       male: 5,
       female: 2,
-      ageRange: "40〜70代",
+      ageRange: "50代以上の富裕層・経営者・決裁者",
       businessLayer: 5,
       inbound: 3,
     },
@@ -231,14 +233,14 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
     },
     areaSupport: { nationwide: true, regional: true, municipal: false },
     description:
-      "全国ゴルフ場のカートモニター広告。経営者・富裕層へのリーチ日本随一。",
+      "ゴルフ場来場者＝50代以上の富裕層・経営者・決裁者（月42.7万人）にリーチ。200万円〜/週（Regular 30秒）※週単位販売。",
     strengths: [
-      "経営者・富裕層への直接リーチ",
-      "1ラウンド18ホールで繰り返し接触（閉鎖空間）",
+      "経営者・富裕層への直接リーチ（月42.7万人）",
+      "1ラウンド18ホールで繰り返し接触（閉鎖空間・4-5時間）",
       "競合が少なく差別化しやすい",
     ],
     considerations: [
-      "最低6ゴルフ場〜（30万円/週）",
+      "200万円〜/週（Regular 30秒）※週単位販売",
       "男性比率が高い（約85%）",
     ],
     coverageNote: "全国のゴルフ場に対応。指定エリアにゴルフ場が存在することが条件。都市部・山間部でも広く分布するが、ゴルフ場のない離島・一部都市部中心エリアは非対応の場合あり。",
@@ -249,12 +251,12 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
     name: "おもチャンネル（アパホテル）",
     emoji: "🏨",
     simulatorPath: "/dashboard/omochannel-simulator",
-    minBudget: 2_000_000,
-    recommendedBudget: 3_200_000,
+    minBudget: 500_000,
+    recommendedBudget: 2_000_000,
     targetFit: {
       male: 3,
       female: 3,
-      ageRange: "20〜60代",
+      ageRange: "国内出張ビジネスマン・旅行者",
       businessLayer: 3,
       inbound: 5,
     },
@@ -267,14 +269,15 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
     },
     areaSupport: { nationwide: true, regional: true, municipal: false },
     description:
-      "全国アパホテル全52,963室のVOD広告。インバウンド向けリーチで国内最高水準。",
+      "アパホテル53,000室の宿泊客へダイレクト訴求。再生単価0.47円〜（規模・期間次第で月数十万円〜）。",
     strengths: [
-      "インバウンド向けでNo.1のリーチ力",
+      "インバウンド向けでNo.1のリーチ力（53,000室）",
       "ホテル滞在中の「ゆったり時間」に長尺視聴",
+      "再生単価0.47円〜の高コスパ",
       "国内・インバウンドでターゲット切り替え可能",
     ],
     considerations: [
-      "最低200万円/月〜（1話）",
+      "再生単価0.47円〜（規模・期間次第で月数十万円〜）",
       "30秒動画コンテンツの用意が必要",
     ],
     coverageNote: "全国のアパホテルに展開。主要都市（東京・大阪・名古屋・福岡・札幌・沖縄等）に広く展開しているが、指定エリアにアパホテルが存在することが条件。アパホテル公式サイトで対象エリアの施設有無を確認すること。",
@@ -282,15 +285,15 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
 
   sns: {
     id: "sns",
-    name: "SNS広告（YouTube / Instagram / TikTok / X）",
+    name: "SNS広告（Instagram / X / TikTok）",
     emoji: "📱",
     simulatorPath: "",
-    minBudget: 300_000,
-    recommendedBudget: 1_500_000,
+    minBudget: 100_000,
+    recommendedBudget: 500_000,
     targetFit: {
       male: 4,
       female: 5,
-      ageRange: "10〜50代",
+      ageRange: "10〜40代中心（媒体によりユーザー層が異なる）",
       businessLayer: 3,
       inbound: 4,
     },
@@ -303,14 +306,14 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
     },
     areaSupport: { nationwide: true, regional: true, municipal: true },
     description:
-      "YouTube・Instagram・TikTok・X（旧Twitter）など主要SNSプラットフォームでの動画・バナー広告。精緻なターゲティングと柔軟な予算運用が特長。別途お見積もり対応。",
+      "Instagram・TikTok・X等のSNS広告運用代行。月額10万円〜（広告費のみ。運用代行込みなら+5〜20万円程度）。Instagramはビジュアル重視の女性層、TikTokは若年層など媒体で異なる。",
     strengths: [
-      "年齢・興味・行動履歴で日本最高水準のターゲティング精度",
+      "年齢・興味・行動履歴で精緻なターゲティング",
       "少額からテスト可能・データを見ながらリアルタイム最適化",
       "動画・静止画・ストーリーズ・リール等多様なフォーマット対応",
     ],
     considerations: [
-      "最低30万円〜（十分な最適化データ収集に必要な量）",
+      "最低10万円〜（広告費のみ。運用代行込みなら+5〜20万円程度）",
       "クリエイティブの質が成果に直結。A/Bテスト前提で複数案推奨",
     ],
     coverageNote: "日本全国・全エリア対応（デジタル媒体）。エリアターゲティングで任意の地域に絞り込み配信可能。",
@@ -318,15 +321,15 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
 
   web: {
     id: "web",
-    name: "Web広告（Google / Yahoo! / その他DSP）",
+    name: "Web広告（Google / Yahoo!）",
     emoji: "🔍",
     simulatorPath: "",
-    minBudget: 300_000,
-    recommendedBudget: 1_200_000,
+    minBudget: 100_000,
+    recommendedBudget: 500_000,
     targetFit: {
       male: 4,
       female: 4,
-      ageRange: "20〜60代",
+      ageRange: "購買意欲の高い検索ユーザー（20〜60代）",
       businessLayer: 4,
       inbound: 3,
     },
@@ -339,14 +342,14 @@ export const MEDIA_MATRIX: Record<MediaId, MediaDef> = {
     },
     areaSupport: { nationwide: true, regional: true, municipal: true },
     description:
-      "Google広告・Yahoo!広告を中心とした検索連動型・ディスプレイ広告。購買意欲の高いユーザーへの刈り取りに最強。別途お見積もり対応。",
+      "Google・Yahoo!のリスティング・ディスプレイ広告。月額10万円〜（広告費のみ。運用代行込みなら+5〜15万円程度）。購買意欲の高い検索ユーザーへの刈り取りに最強。",
     strengths: [
       "検索意図のある「今すぐ客」への直接リーチ（検索連動型）",
       "リターゲティングで見込み客を追客・コンバージョン向上",
       "クリック課金制で無駄打ちなく予算を使える",
     ],
     considerations: [
-      "最低30万円〜（キーワード競合度により単価が変動）",
+      "最低10万円〜（広告費のみ。運用代行込みなら+5〜15万円程度）",
       "成果最大化には継続的な入札・キーワード最適化が必要",
     ],
     coverageNote: "日本全国・全エリア対応（デジタル媒体）。地域ターゲティングで任意の都市・エリアに絞り込み配信可能。",
