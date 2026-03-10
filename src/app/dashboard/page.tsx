@@ -255,6 +255,30 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* ── ご利用ガイド ── */}
+      <div className="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 px-5 py-4">
+        <p className="text-[11px] font-semibold text-emerald-700 mb-2.5">ご利用の流れ</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-emerald-200 text-xs font-medium text-zinc-700">
+            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">1</span>
+            顧客管理に登録
+          </span>
+          <ArrowRight className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-emerald-200 text-xs font-medium text-zinc-700">
+            <span className="w-5 h-5 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-[10px] font-bold">2</span>
+            商談管理
+          </span>
+          <ArrowRight className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-emerald-200 text-xs font-medium text-zinc-700">
+            <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] font-bold">3</span>
+            プロジェクト一覧からプロジェクト追加
+          </span>
+        </div>
+        <p className="text-[10px] text-zinc-500 mt-2">
+          同じ顧客で新しい仕事が始まった場合は、商談管理 または プロジェクト一覧から新規追加してください
+        </p>
+      </div>
+
       {/* ── クイックアクション ── */}
       <div className="grid grid-cols-3 gap-3">
         <Link
