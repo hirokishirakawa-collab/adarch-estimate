@@ -251,6 +251,21 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         </div>
       </div>
 
+      {/* ===== ヒアリングシート ===== */}
+      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+        <SectionHeader
+          icon={<ClipboardList className="w-3.5 h-3.5" />}
+          title={`ヒアリング ${hearingSheets.length} 件`}
+        />
+        <div className="px-5 py-4">
+          <CustomerHearingSection
+            customerId={id}
+            customerName={dbCustomer.name}
+            hearingSheets={hearingSheets}
+          />
+        </div>
+      </div>
+
       {/* ===== 基本情報 + 担当・連絡先（2カラム）===== */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* 基本情報 */}
@@ -445,21 +460,6 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             })}
           </div>
         )}
-      </div>
-
-      {/* ===== ヒアリングシート ===== */}
-      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-        <SectionHeader
-          icon={<ClipboardList className="w-3.5 h-3.5" />}
-          title={`ヒアリング ${hearingSheets.length} 件`}
-        />
-        <div className="px-5 py-4">
-          <CustomerHearingSection
-            customerId={id}
-            customerName={dbCustomer.name}
-            hearingSheets={hearingSheets}
-          />
-        </div>
       </div>
 
       {/* ===== 活動履歴 ===== */}
