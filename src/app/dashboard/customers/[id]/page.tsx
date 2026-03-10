@@ -31,11 +31,13 @@ import {
   ExternalLink,
   Pencil,
   FolderKanban,
+  ClipboardList,
 } from "lucide-react";
 import { DealStatusEditor } from "@/components/customers/deal-status-editor";
 import { ActivityForm } from "@/components/customers/activity-form";
 import { ActivityTimeline } from "@/components/customers/activity-timeline";
 import { LockButton } from "@/components/customers/lock-button";
+import { CustomerHearingSection } from "@/components/customers/customer-hearing-section";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -58,7 +60,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const staffName = session?.user?.name ?? session?.user?.email ?? "不明";
 
   // DB からすべて取得（顧客・商談・活動履歴・セッションユーザー）
-  const [dbCustomer, dbDeals, activities, sessionUser] = await Promise.all([
+  const [dbCustomer, dbDeals, activities, sessionUser, hearingSheets] = await Promise.all([
     db.customer.findUnique({
       where: { id },
       include: { lockedBy: { select: { id: true, name: true } } },
@@ -72,6 +74,10 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       orderBy: { createdAt: "desc" },
     }),
     db.user.findUnique({ where: { email }, select: { id: true } }),
+    db.hearingSheet.findMany({
+      where: { customerId: id },
+      orderBy: { updatedAt: "desc" },
+    }),
   ]);
 
   if (!dbCustomer) notFound();
@@ -429,6 +435,21 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             })}
           </div>
         )}
+      </div>
+
+      {/* ===== ヒアリングシート ===== */}
+      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+        <SectionHeader
+          icon={<ClipboardList className="w-3.5 h-3.5" />}
+          title={`ヒアリング ${hearingSheets.length} 件`}
+        />
+        <div className="px-5 py-4">
+          <CustomerHearingSection
+            customerId={id}
+            customerName={dbCustomer.name}
+            hearingSheets={hearingSheets}
+          />
+        </div>
       </div>
 
       {/* ===== 活動履歴 ===== */}

@@ -277,6 +277,12 @@ export async function convertLeadToCustomer(
       },
     });
 
+    // ヒアリングシートを顧客に引き継ぎ
+    const { copyHearingToCustomer } = await import("@/lib/actions/hearing");
+    await copyHearingToCustomer(leadId, customer.id).catch((err) =>
+      console.error("[convertLeadToCustomer] Hearing copy error:", err)
+    );
+
     // ログ記録
     await db.leadLog.create({
       data: {

@@ -7,6 +7,7 @@ import { BRANCH_MAP } from "@/lib/data/customers";
 import { DealLogForm } from "@/components/deals/deal-log-form";
 import { DealLogTimeline } from "@/components/deals/deal-log-timeline";
 import { DealDeleteButton } from "@/components/deals/deal-delete-button";
+import { DealHearingSection } from "@/components/deals/deal-hearing-section";
 import { WikiArticleContent } from "@/components/wiki/wiki-article-content";
 import {
   ChevronLeft,
@@ -172,8 +173,11 @@ export default async function DealDetailPage({ params }: PageProps) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        {/* ─── 左カラム: メモ (Markdown) ─── */}
+        {/* ─── 左カラム: メモ + ヒアリング ─── */}
         <div className="lg:col-span-3 space-y-4">
+          {/* ヒアリングシート */}
+          <DealHearingSection dealId={deal.id} dealTitle={deal.title} />
+
           {deal.notes ? (
             <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
               <div className="px-5 py-3 border-b border-zinc-100 bg-zinc-50">
