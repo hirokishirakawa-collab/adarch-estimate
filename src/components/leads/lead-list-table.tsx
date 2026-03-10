@@ -81,6 +81,22 @@ export function LeadListTable({ leads, users, isAdmin }: Props) {
 
   return (
     <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      {/* 操作アイコン凡例 */}
+      <div className="flex items-center justify-end gap-4 px-4 py-2 border-b border-zinc-100 bg-zinc-50/50">
+        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+          <ClipboardList className="w-3 h-3 text-amber-500" /> ヒアリング
+        </span>
+        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+          <Sparkles className="w-3 h-3 text-purple-500" /> AI営業提案
+        </span>
+        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+          <ExternalLink className="w-3 h-3 text-blue-500" /> Map確認
+        </span>
+        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+          <ArrowRightLeft className="w-3 h-3 text-emerald-500" /> 顧客に転換
+        </span>
+      </div>
+
       {/* 選択削除バー */}
       {isAdmin && selectedIds.size > 0 && (
         <div className="flex items-center justify-between px-4 py-2 bg-red-50 border-b border-red-100">
@@ -136,21 +152,8 @@ export function LeadListTable({ leads, users, isAdmin }: Props) {
               <th className="text-left px-3 py-2.5 text-xs font-medium text-zinc-500 min-w-[160px]">
                 メモ
               </th>
-              <th className="px-3 py-2.5 text-xs font-medium text-zinc-500 w-36">
-                <div className="flex items-center justify-end gap-2">
-                  <span className="inline-flex items-center gap-0.5 text-[10px] text-zinc-400">
-                    <ClipboardList className="w-3 h-3 text-amber-500" />聴取
-                  </span>
-                  <span className="inline-flex items-center gap-0.5 text-[10px] text-zinc-400">
-                    <Sparkles className="w-3 h-3 text-purple-500" />AI提案
-                  </span>
-                  <span className="inline-flex items-center gap-0.5 text-[10px] text-zinc-400">
-                    <ExternalLink className="w-3 h-3 text-blue-500" />Map
-                  </span>
-                  <span className="inline-flex items-center gap-0.5 text-[10px] text-zinc-400">
-                    <ArrowRightLeft className="w-3 h-3 text-emerald-500" />転換
-                  </span>
-                </div>
+              <th className="text-center px-3 py-2.5 text-xs font-medium text-zinc-500 w-20">
+                操作
               </th>
             </tr>
           </thead>
@@ -426,8 +429,8 @@ function LeadRow({
       </td>
 
       {/* 操作 */}
-      <td className="px-3 py-3">
-        <div className="flex items-center justify-end gap-1">
+      <td className="px-3 py-3 text-center">
+        <div className="flex items-center justify-center gap-1">
           <button
             onClick={handleHearing}
             disabled={hearingLoading}
