@@ -292,6 +292,10 @@ model User {
   assignedLeads   Lead[] @relation("LeadAssignee")
   createdLeads    Lead[] @relation("LeadCreatedBy")
 
+  // ---- 提案書AI ----
+  salesActivities SalesActivity[] @relation("SalesActivities")
+  proposals       Proposal[]      @relation("Proposals")
+
   @@index([branchId])
   @@index([branchId2])
   @@index([role])
@@ -1534,4 +1538,50 @@ model PortfolioItem {
   @@index([depth])
   @@index([name])
   @@map("portfolio_items")
+}
+
+// ==============================================================
+// 提案書AI（プロポーザルAI）
+// ==============================================================
+
+/// 営業アクティビティ記録。商談・アプローチ・電話・メール等を記録し、
+/// 月間の活動件数に基づいて提案書AIの利用権限をアンロックする。
+model SalesActivity {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation("SalesActivities", fields: [userId], references: [id], onDelete: Cascade)
+  companyName String       // 対象企業名
+  type        ActivityType @default(OTHER)
+  note        String?      @db.Text
+  date        DateTime     @default(now())
+  createdAt   DateTime     @default(now())
+
+  @@index([userId])
+  @@index([userId, date])
+  @@map("sales_activities")
+}
+
+/// AI生成提案書。Claude APIで生成したコンテンツをJSON保存し、PDF出力する。
+model Proposal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("Proposals", fields: [userId], references: [id], onDelete: Cascade)
+  companyName String   // 提案先企業名
+  industry    String   // 業種
+  challenge   String   @db.Text // 課題・ニーズ
+  content     Json     // 生成されたページコンテンツ
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@map("proposals")
+}
+
+/// システム設定（キーバリュー）。提案書AIのアンロック閾値等を管理。
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
 }

@@ -39,6 +39,7 @@ import {
   Crosshair,
   Handshake,
   ListChecks,
+  Activity,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -104,6 +105,18 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/estimates",
         label: "公式見積もり",
         icon: FileText,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/sales-activities",
+        label: "営業アクティビティ",
+        icon: Activity,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/proposals",
+        label: "提案書AI",
+        icon: Sparkles,
         minRole: "USER",
       },
     ],
