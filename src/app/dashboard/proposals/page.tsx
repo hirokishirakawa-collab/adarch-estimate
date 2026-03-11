@@ -140,7 +140,7 @@ export default function ProposalsPage() {
       </div>
 
       <ProposalForm onGenerated={fetchData} />
-      <ProposalList proposals={proposals} />
+      <ProposalList proposals={proposals} isAdmin={isAdmin} onDelete={fetchData} />
     </div>
   );
 }

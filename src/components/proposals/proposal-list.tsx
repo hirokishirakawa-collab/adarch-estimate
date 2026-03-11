@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Download, Eye } from "lucide-react";
+import { FileText, Eye, Trash2 } from "lucide-react";
 import { PROPOSAL_INDUSTRY_OPTIONS } from "@/lib/constants/proposals";
 import { useState } from "react";
 import { ProposalPreview } from "./proposal-preview";
@@ -16,13 +16,27 @@ interface ProposalData {
 
 interface ProposalListProps {
   proposals: ProposalData[];
+  isAdmin?: boolean;
+  onDelete?: (id: string) => void;
 }
 
-export function ProposalList({ proposals }: ProposalListProps) {
+export function ProposalList({ proposals, isAdmin, onDelete }: ProposalListProps) {
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const getIndustryLabel = (value: string) => {
     return PROPOSAL_INDUSTRY_OPTIONS.find((o) => o.value === value)?.label || value;
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("この提案書を削除しますか？")) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/proposals/${id}`, { method: "DELETE" });
+      if (res.ok) onDelete?.(id);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (proposals.length === 0) {
@@ -51,13 +65,25 @@ export function ProposalList({ proposals }: ProposalListProps) {
                   {getIndustryLabel(p.industry)} · {new Date(p.createdAt).toLocaleDateString("ja-JP")}
                 </p>
               </div>
-              <button
-                onClick={() => setPreviewId(p.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                プレビュー
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setPreviewId(p.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  プレビュー
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => handleDelete(p.id)}
+                    disabled={deletingId === p.id}
+                    className="p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                    title="削除"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
