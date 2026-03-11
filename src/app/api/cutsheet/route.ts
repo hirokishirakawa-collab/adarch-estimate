@@ -19,6 +19,7 @@ import { execSync } from "child_process";
 // ---------------------------------------------------------------------------
 interface SceneChange {
   timestamp: number; // seconds
+  score: number; // scene change score (0-1)
   thumbnailPath: string;
 }
 
@@ -68,61 +69,114 @@ function getGoogleAuth(delegatedEmail: string) {
   return auth;
 }
 
-/** Detect scene changes and extract thumbnail frames via FFmpeg */
+/** Detect scene changes and extract thumbnail frames via FFmpeg.
+ *
+ *  Strategy:
+ *    1. 低しきい値（0.08）で候補を多めに検出し、各フレームの scene スコアを取得
+ *    2. 近すぎるカット（MIN_INTERVAL 秒未満）をスコアが高い方に統合
+ *    3. スコア中央値の半分以下の弱いカットを除外（明確なカット切替だけ残す）
+ */
 function detectScenes(
   videoPath: string,
   workDir: string,
-  threshold: number = 0.3,
+  threshold: number = 0.08,
 ): SceneChange[] {
-  // Run scene detection and capture raw output
-  const sceneCmd = [
-    "ffprobe",
-    "-v quiet",
-    `-scene_score ${threshold}`,
-    `-f lavfi "movie='${videoPath.replace(/'/g, "\\'")}',select='gt(scene,${threshold})'[out0]"`,
-    "-show_entries frame=pts_time",
-    "-of csv=p=0",
-  ].join(" ");
+  const MIN_INTERVAL = 0.3; // 最小カット間隔（秒）
 
-  // Alternative approach: use ffmpeg filter to detect scene changes
-  const detectCmd = `ffmpeg -i "${videoPath}" -filter:v "select='gt(scene,${threshold})',showinfo" -f null - 2>&1`;
+  // scene スコア付きで全フレームを検出
+  const detectCmd = `ffmpeg -i "${videoPath}" -filter:v "select='gt(scene,${threshold})',metadata=print:file=-" -f null - 2>&1`;
   const detectOutput = execSync(detectCmd, {
     encoding: "utf-8",
     maxBuffer: 50 * 1024 * 1024,
     timeout: 120_000,
   });
 
-  // Parse showinfo output for pts_time
+  // showinfo の pts_time を取得（metadata=print ではなくshowinfo経由）
+  // metadata=print が使えない場合のフォールバックとして showinfo も併用
+  const detectCmd2 = `ffmpeg -i "${videoPath}" -filter:v "select='gt(scene,${threshold})',showinfo" -f null - 2>&1`;
+  const detectOutput2 = execSync(detectCmd2, {
+    encoding: "utf-8",
+    maxBuffer: 50 * 1024 * 1024,
+    timeout: 120_000,
+  });
+
+  // Parse pts_time and scene score from showinfo output
+  // showinfo format: ... pts_time:1.234 ...
+  // metadata print format: lavfi.scene_score=0.456
+  const candidates: { timestamp: number; score: number }[] = [];
+
+  // Extract timestamps from showinfo
+  const tsRegex = /\[Parsed_showinfo.*\] n:\s*\d+.*pts_time:(\d+\.?\d*)/g;
   const timestamps: number[] = [];
-  const regex = /pts_time:(\d+\.?\d*)/g;
   let match: RegExpExecArray | null;
-  while ((match = regex.exec(detectOutput)) !== null) {
+  while ((match = tsRegex.exec(detectOutput2)) !== null) {
     timestamps.push(parseFloat(match[1]));
   }
 
-  // Always include frame 0 as the first scene
-  if (timestamps.length === 0 || timestamps[0] > 0.5) {
-    timestamps.unshift(0);
+  // Extract scene scores from metadata output
+  const scoreRegex = /lavfi\.scene_score=(\d+\.?\d*)/g;
+  const scores: number[] = [];
+  while ((match = scoreRegex.exec(detectOutput)) !== null) {
+    scores.push(parseFloat(match[1]));
   }
 
-  // Deduplicate timestamps that are too close together (< 0.5s)
-  const deduped: number[] = [];
-  for (const ts of timestamps) {
-    if (deduped.length === 0 || ts - deduped[deduped.length - 1] >= 0.5) {
-      deduped.push(ts);
+  // Pair timestamps with scores
+  for (let i = 0; i < timestamps.length; i++) {
+    candidates.push({
+      timestamp: timestamps[i],
+      score: i < scores.length ? scores[i] : threshold,
+    });
+  }
+
+  console.log(`[cutsheet] Raw candidates: ${candidates.length} (threshold=${threshold})`);
+
+  // Always include frame 0
+  if (candidates.length === 0 || candidates[0].timestamp > 0.5) {
+    candidates.unshift({ timestamp: 0, score: 1.0 });
+  }
+
+  // --- Filter 1: 近すぎるカットを統合（スコアが高い方を残す）---
+  const merged: { timestamp: number; score: number }[] = [];
+  for (const c of candidates) {
+    if (merged.length === 0) {
+      merged.push(c);
+      continue;
+    }
+    const last = merged[merged.length - 1];
+    if (c.timestamp - last.timestamp < MIN_INTERVAL) {
+      // 近すぎる → スコアが高い方を残す
+      if (c.score > last.score) {
+        merged[merged.length - 1] = c;
+      }
+    } else {
+      merged.push(c);
     }
   }
 
-  // Extract thumbnail for each scene change
+  // --- Filter 2: スコアが弱すぎるカットを除外 ---
+  // 中央値の40%未満のスコアは除外（ただし先頭フレームとスコア上位は常に残す）
+  const sortedScores = merged.map((m) => m.score).sort((a, b) => a - b);
+  const median = sortedScores[Math.floor(sortedScores.length / 2)] ?? threshold;
+  const scoreFloor = median * 0.4;
+
+  const filtered = merged.filter(
+    (c, i) => i === 0 || c.score >= scoreFloor,
+  );
+
+  console.log(
+    `[cutsheet] After filtering: ${filtered.length} cuts (merged=${merged.length}, scoreFloor=${scoreFloor.toFixed(3)}, median=${median.toFixed(3)})`,
+  );
+
+  // Extract thumbnail for each remaining scene
   const scenes: SceneChange[] = [];
-  for (let i = 0; i < deduped.length; i++) {
-    const ts = deduped[i];
+  for (let i = 0; i < filtered.length; i++) {
+    const { timestamp, score } = filtered[i];
     const thumbPath = join(workDir, `thumb_${String(i).padStart(4, "0")}.jpg`);
     execSync(
-      `ffmpeg -ss ${ts} -i "${videoPath}" -frames:v 1 -q:v 2 "${thumbPath}" -y`,
+      `ffmpeg -ss ${timestamp} -i "${videoPath}" -frames:v 1 -q:v 2 "${thumbPath}" -y`,
       { timeout: 30_000, stdio: "pipe" },
     );
-    scenes.push({ timestamp: ts, thumbnailPath: thumbPath });
+    scenes.push({ timestamp, score, thumbnailPath: thumbPath });
   }
 
   return scenes;
@@ -548,8 +602,8 @@ export async function POST(request: Request) {
     console.log(`[cutsheet] Duration: ${totalDuration.toFixed(1)}s`);
 
     // --- Detect scene changes ---
-    // SNS広告はカット切り替えが速いため、低めのしきい値で検出
-    const scenes = detectScenes(videoPath, workDir, 0.15);
+    // 低しきい値で多めに検出→スコアベースで自動フィルタリング
+    const scenes = detectScenes(videoPath, workDir);
     console.log(`[cutsheet] Scenes detected: ${scenes.length}`);
 
     if (scenes.length === 0) {
