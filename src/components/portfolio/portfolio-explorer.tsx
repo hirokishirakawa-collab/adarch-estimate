@@ -17,6 +17,9 @@ import {
   Loader2,
   Copy,
   Check,
+  FolderOpen,
+  FileVideo,
+  Files,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -61,16 +64,16 @@ interface Props {
 // ----------------------------------------------------------------
 // MIME → アイコン
 // ----------------------------------------------------------------
-function getMimeIcon(mime: string) {
-  if (mime === "folder") return <Folder className="w-4 h-4 text-blue-400" />;
-  if (mime.startsWith("video/")) return <Film className="w-4 h-4 text-purple-400" />;
-  if (mime.startsWith("image/")) return <ImageIcon className="w-4 h-4 text-green-400" />;
-  if (mime.includes("pdf")) return <FileText className="w-4 h-4 text-red-400" />;
+function getMimeIcon(mime: string, size = "w-4 h-4") {
+  if (mime === "folder") return <Folder className={`${size} text-blue-400`} />;
+  if (mime.startsWith("video/")) return <Film className={`${size} text-pink-400`} />;
+  if (mime.startsWith("image/")) return <ImageIcon className={`${size} text-emerald-400`} />;
+  if (mime.includes("pdf")) return <FileText className={`${size} text-red-400`} />;
   if (mime.includes("spreadsheet") || mime.includes("excel"))
-    return <FileSpreadsheet className="w-4 h-4 text-emerald-400" />;
+    return <FileSpreadsheet className={`${size} text-green-400`} />;
   if (mime.includes("presentation") || mime.includes("powerpoint"))
-    return <Presentation className="w-4 h-4 text-orange-400" />;
-  return <FileText className="w-4 h-4 text-zinc-400" />;
+    return <Presentation className={`${size} text-orange-400`} />;
+  return <FileText className={`${size} text-zinc-500`} />;
 }
 
 // ----------------------------------------------------------------
@@ -146,181 +149,207 @@ export function PortfolioExplorer({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <HardDrive className="w-5 h-5" />
-            実績フォルダ検索
-          </h1>
-          <p className="text-sm text-zinc-400 mt-1">
-            Google Drive の実績フォルダから素材・案件を検索
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-blue-600/10 rounded-xl flex items-center justify-center">
+            <HardDrive className="w-[1.125rem] h-[1.125rem] text-blue-500" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-white">実績フォルダ検索</h1>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Google Drive の実績フォルダから素材・案件を検索
+            </p>
+          </div>
         </div>
         {lastSyncedAt && (
-          <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+          <div className="flex items-center gap-1.5 text-[11px] text-zinc-600">
             <RefreshCw className="w-3 h-3" />
             最終同期: {new Date(lastSyncedAt).toLocaleString("ja-JP")}
           </div>
         )}
       </div>
 
-      {/* AI実績提案 */}
-      <div className="bg-gradient-to-r from-amber-950/60 to-orange-950/40 border border-amber-600/40 rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="w-4 h-4 text-amber-400" />
-          <h2 className="text-sm font-bold text-white">AI実績提案</h2>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-            AI
-          </span>
-        </div>
-        <p className="text-xs text-zinc-400 mb-3">
-          「飲食業界の実績を見せて」「CM制作の動画はある？」など自然文で検索できます
-        </p>
-        <form onSubmit={handleAiSearch} className="flex gap-2">
-          <input
-            ref={aiInputRef}
-            type="text"
-            value={aiQuery}
-            onChange={(e) => setAiQuery(e.target.value)}
-            placeholder="例: 不動産系のプロモーション動画の実績はありますか？"
-            className="flex-1 px-4 py-2.5 bg-zinc-900/80 border border-amber-700/40 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500"
-          />
-          <button
-            type="submit"
-            disabled={aiLoading || !aiQuery.trim()}
-            className="px-5 py-2.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-500 disabled:opacity-50 flex items-center gap-2"
-          >
-            {aiLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4" />
-            )}
-            AI検索
-          </button>
-        </form>
-
-        {/* AIエラー */}
-        {aiError && (
-          <div className="mt-3 p-3 bg-red-950/50 border border-red-800/40 rounded-lg text-sm text-red-300">
-            {aiError}
-          </div>
-        )}
-
-        {/* AI回答 */}
-        {aiResult && (
-          <div className="mt-4 space-y-3">
-            <div className="relative bg-zinc-900/80 border border-zinc-700/50 rounded-lg p-4">
-              <button
-                onClick={handleCopy}
-                className="absolute top-3 right-3 p-1.5 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-700 transition"
-                title="コピー"
-              >
-                {copied ? (
-                  <Check className="w-3.5 h-3.5 text-green-400" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-              </button>
-              <div className="text-sm text-zinc-200 whitespace-pre-wrap pr-8 leading-relaxed">
-                {aiResult.answer}
-              </div>
-            </div>
-
-            {/* 関連ファイルリンク */}
-            {aiResult.items.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-zinc-400 mb-2">
-                  関連ファイル（{aiResult.items.length}件）
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {aiResult.items.map((item) => (
-                    <a
-                      key={item.id}
-                      href={item.driveUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 hover:border-amber-500 hover:text-white transition"
-                    >
-                      {getMimeIcon(item.mimeType)}
-                      {item.name}
-                      <ExternalLink className="w-3 h-3 text-zinc-500" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
       {/* サマリーカード */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-          <p className="text-xs text-zinc-500">フォルダ数</p>
-          <p className="text-lg font-bold text-white">{folderCount}</p>
+        <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-4 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+            <FolderOpen className="w-4 h-4 text-blue-400" />
+          </div>
+          <div>
+            <p className="text-[11px] text-zinc-500">フォルダ</p>
+            <p className="text-lg font-bold text-white leading-tight">{folderCount}</p>
+          </div>
         </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-          <p className="text-xs text-zinc-500">ファイル数</p>
-          <p className="text-lg font-bold text-white">{fileCount}</p>
+        <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-4 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center">
+            <FileVideo className="w-4 h-4 text-pink-400" />
+          </div>
+          <div>
+            <p className="text-[11px] text-zinc-500">ファイル</p>
+            <p className="text-lg font-bold text-white leading-tight">{fileCount}</p>
+          </div>
         </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-          <p className="text-xs text-zinc-500">検索結果</p>
-          <p className="text-lg font-bold text-white">{totalCount}</p>
+        <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-4 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+            <Files className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-[11px] text-zinc-500">検索結果</p>
+            <p className="text-lg font-bold text-white leading-tight">{totalCount}</p>
+          </div>
         </div>
       </div>
 
-      {/* 検索バー */}
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="ファイル名・フォルダ名・パスで検索..."
-            className="w-full pl-10 pr-4 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
-          />
+      {/* AI実績提案 */}
+      <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-zinc-800/60 flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+            <Sparkles className="w-3.5 h-3.5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-white">AI実績提案</h2>
+            <p className="text-[11px] text-zinc-500">
+              自然文で実績を検索し、クライアント向けの提案文を自動生成
+            </p>
+          </div>
         </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500 disabled:opacity-50"
-        >
-          検索
-        </button>
-      </form>
+        <div className="p-5">
+          <form onSubmit={handleAiSearch} className="flex gap-2">
+            <div className="relative flex-1">
+              <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+              <input
+                ref={aiInputRef}
+                type="text"
+                value={aiQuery}
+                onChange={(e) => setAiQuery(e.target.value)}
+                placeholder="例: 不動産系のプロモーション動画の実績はありますか？"
+                className="w-full pl-10 pr-4 py-2.5 bg-zinc-800/50 border border-zinc-700/50 rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={aiLoading || !aiQuery.trim()}
+              className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 flex items-center gap-2 transition"
+            >
+              {aiLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              提案生成
+            </button>
+          </form>
 
-      {/* フィルター */}
-      <div className="flex gap-2">
-        {[
-          { value: "all", label: "すべて" },
-          { value: "folder", label: "フォルダのみ" },
-          { value: "file", label: "ファイルのみ" },
-        ].map((opt) => (
+          {/* AIエラー */}
+          {aiError && (
+            <div className="mt-3 p-3 bg-red-950/30 border border-red-900/30 rounded-lg text-sm text-red-400">
+              {aiError}
+            </div>
+          )}
+
+          {/* AI回答 */}
+          {aiResult && (
+            <div className="mt-4 space-y-3">
+              <div className="relative bg-zinc-800/40 border border-zinc-700/40 rounded-lg p-4">
+                <button
+                  onClick={handleCopy}
+                  className="absolute top-3 right-3 p-1.5 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-700 transition"
+                  title="コピー"
+                >
+                  {copied ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+                <div className="text-sm text-zinc-300 whitespace-pre-wrap pr-8 leading-relaxed">
+                  {aiResult.answer}
+                </div>
+              </div>
+
+              {/* 関連ファイルリンク */}
+              {aiResult.items.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold text-zinc-500 mb-2 uppercase tracking-wide">
+                    関連ファイル ({aiResult.items.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {aiResult.items.map((item) => (
+                      <a
+                        key={item.id}
+                        href={item.driveUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-xs text-zinc-300 hover:border-blue-500/60 hover:text-white transition"
+                      >
+                        {getMimeIcon(item.mimeType, "w-3.5 h-3.5")}
+                        <span className="truncate max-w-[200px]">{item.name}</span>
+                        <ExternalLink className="w-3 h-3 text-zinc-600 flex-shrink-0" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 検索バー + フィルター */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <form onSubmit={handleSearch} className="flex gap-2 flex-1">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="ファイル名・フォルダ名・パスで検索..."
+              className="w-full pl-10 pr-4 py-2 bg-zinc-900/60 border border-zinc-800/60 rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition"
+            />
+          </div>
           <button
-            key={opt.value}
-            onClick={() => applyFilter("type", opt.value === "all" ? "" : opt.value)}
-            className={`px-3 py-1 text-xs rounded-full border transition ${
-              typeFilter === opt.value ||
-              (opt.value === "all" && typeFilter === "all")
-                ? "bg-blue-600 border-blue-500 text-white"
-                : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500"
-            }`}
+            type="submit"
+            disabled={isPending}
+            className="px-4 py-2 bg-zinc-800 text-zinc-300 text-sm rounded-lg hover:bg-zinc-700 hover:text-white disabled:opacity-50 border border-zinc-700/50 transition"
           >
-            {opt.label}
+            検索
           </button>
-        ))}
+        </form>
+        <div className="flex gap-1.5">
+          {[
+            { value: "all", label: "すべて" },
+            { value: "folder", label: "フォルダ" },
+            { value: "file", label: "ファイル" },
+          ].map((opt) => {
+            const isActive =
+              typeFilter === opt.value || (opt.value === "all" && typeFilter === "all");
+            return (
+              <button
+                key={opt.value}
+                onClick={() => applyFilter("type", opt.value === "all" ? "" : opt.value)}
+                className={`px-3 py-2 text-xs rounded-lg border transition ${
+                  isActive
+                    ? "bg-blue-600 border-blue-500 text-white"
+                    : "bg-zinc-900/60 border-zinc-800/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* トップレベルフォルダ（クライアント一覧） */}
       {!query && topFolders.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-zinc-300 mb-2">
+          <p className="text-[11px] font-semibold text-zinc-500 mb-2 uppercase tracking-wide">
             クライアント / 案件フォルダ
-          </h2>
-          <div className="flex flex-wrap gap-2">
+          </p>
+          <div className="flex flex-wrap gap-1.5">
             {topFolders.map((f) => (
               <button
                 key={f.name}
@@ -328,9 +357,9 @@ export function PortfolioExplorer({
                   setSearchInput(f.name);
                   applyFilter("q", f.name);
                 }}
-                className="px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded-lg text-xs text-zinc-300 hover:border-blue-500 hover:text-white transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/60 border border-zinc-800/60 rounded-lg text-xs text-zinc-400 hover:border-blue-500/50 hover:text-white transition"
               >
-                <Folder className="w-3 h-3 inline mr-1" />
+                <Folder className="w-3 h-3 text-blue-400/70" />
                 {f.name}
               </button>
             ))}
@@ -339,66 +368,88 @@ export function PortfolioExplorer({
       )}
 
       {/* 結果テーブル */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+      <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl overflow-hidden">
         {items.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500 text-sm">
-            {query
-              ? `「${query}」に一致する実績が見つかりません`
-              : "まだ実績データが同期されていません。GASトリガーの設定を確認してください。"}
+          <div className="p-10 text-center">
+            <div className="w-12 h-12 rounded-full bg-zinc-800/60 flex items-center justify-center mx-auto mb-3">
+              <Search className="w-5 h-5 text-zinc-600" />
+            </div>
+            <p className="text-sm text-zinc-500">
+              {query
+                ? `「${query}」に一致する実績が見つかりません`
+                : "まだ実績データが同期されていません"}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-800 text-xs text-zinc-500">
-                  <th className="text-left px-4 py-2">名前</th>
-                  <th className="text-left px-4 py-2">パス</th>
-                  <th className="text-left px-4 py-2">種別</th>
-                  <th className="text-right px-4 py-2">サイズ</th>
-                  <th className="text-left px-4 py-2">更新日</th>
-                  <th className="text-center px-4 py-2">開く</th>
+                <tr className="border-b border-zinc-800/60">
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">名前</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">パス</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">種別</th>
+                  <th className="text-right px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">サイズ</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">更新日</th>
+                  <th className="text-center px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">開く</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800/50">
+              <tbody className="divide-y divide-zinc-800/40">
                 {items.map((item) => (
                   <tr
                     key={item.id}
-                    className="hover:bg-zinc-800/40 transition"
+                    className="hover:bg-zinc-800/30 transition"
                   >
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2.5">
                       <div
                         className="flex items-center gap-2"
-                        style={{ paddingLeft: `${item.depth * 12}px` }}
+                        style={{ paddingLeft: `${item.depth * 16}px` }}
                       >
                         {getMimeIcon(item.mimeType)}
-                        <span className="text-white truncate max-w-xs">
+                        <span className="text-zinc-200 truncate max-w-xs">
                           {item.name}
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-2 text-zinc-500 truncate max-w-sm text-xs">
+                    <td className="px-4 py-2.5 text-zinc-600 truncate max-w-sm text-xs">
                       {item.path}
                     </td>
-                    <td className="px-4 py-2 text-zinc-400 text-xs">
-                      {item.itemType === "folder"
-                        ? "フォルダ"
-                        : item.mimeType.split("/").pop()?.split(".").pop() ??
-                          "ファイル"}
+                    <td className="px-4 py-2.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
+                        item.itemType === "folder"
+                          ? "bg-blue-500/10 text-blue-400"
+                          : item.mimeType.startsWith("video/")
+                          ? "bg-pink-500/10 text-pink-400"
+                          : item.mimeType.startsWith("image/")
+                          ? "bg-emerald-500/10 text-emerald-400"
+                          : "bg-zinc-800/60 text-zinc-500"
+                      }`}>
+                        {item.itemType === "folder"
+                          ? "フォルダ"
+                          : item.mimeType.startsWith("video/")
+                          ? "動画"
+                          : item.mimeType.startsWith("image/")
+                          ? "画像"
+                          : item.mimeType.includes("pdf")
+                          ? "PDF"
+                          : item.mimeType.includes("presentation") || item.mimeType.includes("powerpoint")
+                          ? "スライド"
+                          : "ファイル"}
+                      </span>
                     </td>
-                    <td className="px-4 py-2 text-right text-zinc-400 text-xs">
+                    <td className="px-4 py-2.5 text-right text-zinc-500 text-xs tabular-nums">
                       {item.itemType === "file" && item.sizeMb > 0
                         ? `${item.sizeMb.toFixed(1)} MB`
                         : ""}
                     </td>
-                    <td className="px-4 py-2 text-zinc-400 text-xs">
+                    <td className="px-4 py-2.5 text-zinc-500 text-xs tabular-nums">
                       {new Date(item.lastUpdated).toLocaleDateString("ja-JP")}
                     </td>
-                    <td className="px-4 py-2 text-center">
+                    <td className="px-4 py-2.5 text-center">
                       <a
                         href={item.driveUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center text-blue-400 hover:text-blue-300"
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 transition"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
@@ -410,8 +461,8 @@ export function PortfolioExplorer({
           </div>
         )}
         {totalCount > 200 && (
-          <div className="px-4 py-2 border-t border-zinc-800 text-xs text-zinc-500">
-            {totalCount}件中 200件を表示しています。検索で絞り込んでください。
+          <div className="px-4 py-2.5 border-t border-zinc-800/60 text-xs text-zinc-600">
+            {totalCount}件中 200件を表示 - 検索で絞り込んでください
           </div>
         )}
       </div>
