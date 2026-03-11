@@ -167,11 +167,11 @@ export function PortfolioExplorer({
       </div>
 
       {/* AI実績提案 */}
-      <div className="bg-gradient-to-r from-violet-950/50 to-blue-950/50 border border-violet-800/40 rounded-xl p-5">
+      <div className="bg-gradient-to-r from-amber-950/60 to-orange-950/40 border border-amber-600/40 rounded-xl p-5">
         <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="w-4 h-4 text-violet-400" />
+          <Sparkles className="w-4 h-4 text-amber-400" />
           <h2 className="text-sm font-bold text-white">AI実績提案</h2>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
             AI
           </span>
         </div>
@@ -185,12 +185,12 @@ export function PortfolioExplorer({
             value={aiQuery}
             onChange={(e) => setAiQuery(e.target.value)}
             placeholder="例: 不動産系のプロモーション動画の実績はありますか？"
-            className="flex-1 px-4 py-2.5 bg-zinc-900/80 border border-violet-700/40 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+            className="flex-1 px-4 py-2.5 bg-zinc-900/80 border border-amber-700/40 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500"
           />
           <button
             type="submit"
             disabled={aiLoading || !aiQuery.trim()}
-            className="px-5 py-2.5 bg-violet-600 text-white text-sm rounded-lg hover:bg-violet-500 disabled:opacity-50 flex items-center gap-2"
+            className="px-5 py-2.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-500 disabled:opacity-50 flex items-center gap-2"
           >
             {aiLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -241,7 +241,7 @@ export function PortfolioExplorer({
                       href={item.driveUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 hover:border-violet-500 hover:text-white transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 hover:border-amber-500 hover:text-white transition"
                     >
                       {getMimeIcon(item.mimeType)}
                       {item.name}
