@@ -2,9 +2,75 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Anthropic from "@anthropic-ai/sdk";
+import { MEDIA_MENU_OPTIONS } from "@/lib/constants/leads";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
+
+// ---- Google Places API で提案先企業の情報・口コミを取得 ----
+async function fetchPlacesInfo(companyName: string) {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    // 1. Text Search で企業を検索
+    const searchRes = await fetch(
+      "https://places.googleapis.com/v1/places:searchText",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": [
+            "places.id",
+            "places.displayName",
+            "places.formattedAddress",
+            "places.rating",
+            "places.userRatingCount",
+            "places.websiteUri",
+            "places.googleMapsUri",
+            "places.types",
+            "places.reviews",
+          ].join(","),
+        },
+        body: JSON.stringify({
+          textQuery: companyName,
+          maxResultCount: 1,
+          languageCode: "ja",
+        }),
+      }
+    );
+
+    if (!searchRes.ok) return null;
+
+    const data = await searchRes.json();
+    const place = data.places?.[0];
+    if (!place) return null;
+
+    // 口コミテキストを抽出（最大5件）
+    const reviews = (place.reviews ?? [])
+      .slice(0, 5)
+      .map((r: { text?: { text?: string }; rating?: number }) => ({
+        text: r.text?.text ?? "",
+        rating: r.rating ?? 0,
+      }))
+      .filter((r: { text: string }) => r.text);
+
+    return {
+      name: place.displayName?.text ?? companyName,
+      address: place.formattedAddress ?? "",
+      rating: place.rating ?? 0,
+      ratingCount: place.userRatingCount ?? 0,
+      websiteUrl: place.websiteUri ?? "",
+      mapsUrl: place.googleMapsUri ?? "",
+      types: place.types ?? [],
+      reviews,
+    };
+  } catch (err) {
+    console.error("Places info fetch error:", err);
+    return null;
+  }
+}
 
 // POST /api/proposals/generate
 export async function POST(req: NextRequest) {
@@ -27,7 +93,6 @@ export async function POST(req: NextRequest) {
   }
 
   // NOTE: アンロック判定は一時的に無効化中（テスト期間）
-  // 本番運用時は閾値チェックを再有効化すること
 
   const body = (await req.json()) as {
     companyName: string;
@@ -42,35 +107,54 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ---- 実績データ取得 ----
+  // ---- データ収集（並行実行） ----
 
-  // 1. プロジェクト（受注・完了済み）から業種に関連しそうなもの
-  const projects = await db.project.findMany({
-    where: {
-      status: { in: ["COMPLETED", "IN_PROGRESS"] },
-    },
-    select: {
-      title: true,
-      description: true,
-      customer: { select: { name: true, industry: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 30,
-  });
+  const [projects, achievements, placesInfo, leadData] = await Promise.all([
+    // 1. プロジェクト実績
+    db.project.findMany({
+      where: { status: { in: ["COMPLETED", "IN_PROGRESS"] } },
+      select: {
+        title: true,
+        description: true,
+        customer: { select: { name: true, industry: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    }),
 
-  // 2. 競合実績DB（VideoAchievement）— アドアーチ自身の実績として使える参考データ
-  const achievements = await db.videoAchievement.findMany({
-    select: {
-      companyName: true,
-      industry: true,
-      videoType: true,
-      contentSummary: true,
-    },
-    orderBy: { createdAt: "desc" },
-    take: 30,
-  });
+    // 2. 競合実績DB
+    db.videoAchievement.findMany({
+      select: {
+        companyName: true,
+        industry: true,
+        videoType: true,
+        contentSummary: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    }),
 
-  // 実績データをプロンプト用テキストに整形
+    // 3. Google Places API で提案先の口コミ・評価を取得
+    fetchPlacesInfo(body.companyName),
+
+    // 4. リードDBに該当企業があればスコア情報を取得
+    db.lead.findFirst({
+      where: { name: { contains: body.companyName } },
+      select: {
+        name: true,
+        scoreTotal: true,
+        scoreBreakdown: true,
+        scoreComment: true,
+        rating: true,
+        ratingCount: true,
+        websiteUrl: true,
+        address: true,
+      },
+    }),
+  ]);
+
+  // ---- データ整形 ----
+
   const projectLines = projects
     .filter((p) => p.title)
     .map((p) => {
@@ -88,6 +172,47 @@ export async function POST(req: NextRequest) {
       return `- ${a.companyName} [${a.industry}] ${a.videoType}${summary}`;
     })
     .join("\n");
+
+  // 広告媒体: 提案先の業種にマッチするものをフィルタ
+  const matchingMedia = MEDIA_MENU_OPTIONS.filter((m) =>
+    (m.targetIndustries as readonly string[]).includes(body.industry)
+  );
+  const mediaLines = matchingMedia
+    .map((m) => `- ${m.label}: ${m.description}（${m.scoringHint.split("。")[0]}）`)
+    .join("\n");
+  // マッチしない場合は全媒体を簡易表示
+  const allMediaLines = MEDIA_MENU_OPTIONS
+    .map((m) => `- ${m.label}: ${m.description}`)
+    .join("\n");
+
+  // Google Places 口コミ情報
+  let placesSection = "";
+  if (placesInfo) {
+    placesSection += `--- 提案先企業のGoogle情報 ---
+企業名: ${placesInfo.name}
+住所: ${placesInfo.address}
+Google評価: ${placesInfo.rating}（${placesInfo.ratingCount}件）
+Webサイト: ${placesInfo.websiteUrl || "なし"}
+Google Maps: ${placesInfo.mapsUrl}
+業種タグ: ${placesInfo.types.join(", ")}`;
+
+    if (placesInfo.reviews.length > 0) {
+      placesSection += "\n\n口コミ:";
+      for (const r of placesInfo.reviews) {
+        placesSection += `\n- ★${r.rating} 「${r.text.slice(0, 100)}」`;
+      }
+    }
+  }
+
+  // リードDB情報
+  let leadSection = "";
+  if (leadData) {
+    leadSection = `--- リードAI分析データ ---
+スコア: ${leadData.scoreTotal}/100
+コメント: ${leadData.scoreComment || "なし"}
+Google評価: ${leadData.rating}（${leadData.ratingCount}件）
+Webサイト: ${leadData.websiteUrl || "なし"}`;
+  }
 
   const today = new Date();
   const dateStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
@@ -145,15 +270,24 @@ export async function POST(req: NextRequest) {
 - 実績データが提案先の業種に合わない場合は、最も近いものを選び、業種横断的な価値（映像制作力・広告運用力など）を強調してください
 - 絶対に架空の実績を作らないでください。下記データにある実績のみ使用してください
 - 顧客名はそのまま記載して構いません
-- ソリューションは提案先の業種と課題に最適化してください
+- ソリューションは提案先の業種と課題に最適化し、下記の「アドアーチが提供可能な広告媒体」から適切なものを提案に組み込んでください
+- 提案先のGoogle口コミ情報がある場合、口コミから読み取れる強み・課題を提案に反映してください（例: 口コミで「認知度が低い」→広告強化提案、「ファンが熱い」→ファンマーケティング提案）
+- リードAI分析データがある場合、そのスコアやコメントも提案内容に活用してください
 - トーンはプロフェッショナルかつ親しみやすく
 - JSON以外のテキストは出力しないでください
+
+--- アドアーチが提供可能な広告媒体（業種マッチ） ---
+${matchingMedia.length > 0 ? mediaLines : "（業種に直接マッチする媒体なし。以下全媒体から最適なものを選択してください）\n" + allMediaLines}
 
 --- 実際のプロジェクト実績 ---
 ${projectLines || "（データなし）"}
 
 --- 映像制作実績（競合分析データベースより） ---
-${achievementLines || "（データなし）"}`;
+${achievementLines || "（データなし）"}
+
+${placesSection}
+
+${leadSection}`;
 
   const userPrompt = `提案先企業: ${body.companyName}
 業種: ${body.industry}
@@ -171,7 +305,6 @@ ${achievementLines || "（データなし）"}`;
 
   let content;
   try {
-    // JSON block may be wrapped in ```json ... ```
     const jsonMatch = text.match(/```json\s*([\s\S]*?)```/) || [null, text];
     content = JSON.parse(jsonMatch[1]!.trim());
   } catch {
