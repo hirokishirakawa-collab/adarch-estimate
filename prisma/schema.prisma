@@ -1509,3 +1509,29 @@ model HearingSheet {
   @@index([dealId])
   @@map("hearing_sheets")
 }
+
+// ==============================================================
+// PortfolioItem（実績フォルダ同期データ）
+// ==============================================================
+
+/// Google Drive 実績フォルダの内容を同期したデータ。
+/// GAS定期トリガー → API経由でupsertされる。
+model PortfolioItem {
+  id          String   @id @default(cuid())
+  driveFileId String   @unique           // Google Drive のファイル/フォルダ ID
+  itemType    String                     // "folder" | "file"
+  name        String                     // ファイル/フォルダ名
+  path        String   @db.Text          // フルパス（例: "クライアントA / CM制作 / 素材.mp4"）
+  mimeType    String                     // MIMEタイプ
+  depth       Int                        // 階層（0=ルート直下）
+  sizeMb      Float    @default(0)       // サイズ(MB)
+  driveUrl    String                     // Drive上のURL
+  parentName  String?                    // 親フォルダ名
+  lastUpdated DateTime                   // Drive上の最終更新日
+  syncedAt    DateTime @default(now())   // 同期日時
+
+  @@index([itemType])
+  @@index([depth])
+  @@index([name])
+  @@map("portfolio_items")
+}
