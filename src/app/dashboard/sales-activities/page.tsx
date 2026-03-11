@@ -5,8 +5,6 @@ import { Activity, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { ActivityForm } from "@/components/proposals/activity-form";
 import { ActivityList } from "@/components/proposals/activity-list";
-import { UnlockGate } from "@/components/proposals/unlock-gate";
-import { DEFAULT_UNLOCK_THRESHOLD } from "@/lib/constants/proposals";
 
 interface ActivityData {
   id: string;
@@ -19,24 +17,14 @@ interface ActivityData {
 
 export default function SalesActivitiesPage() {
   const [activities, setActivities] = useState<ActivityData[]>([]);
-  const [monthCount, setMonthCount] = useState(0);
-  const [threshold, setThreshold] = useState(DEFAULT_UNLOCK_THRESHOLD);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
-      const [actRes, settingsRes] = await Promise.all([
-        fetch("/api/sales-activities"),
-        fetch("/api/proposals/settings"),
-      ]);
-      if (actRes.ok) {
-        const data = await actRes.json();
+      const res = await fetch("/api/sales-activities");
+      if (res.ok) {
+        const data = await res.json();
         setActivities(data.activities);
-        setMonthCount(data.monthCount);
-      }
-      if (settingsRes.ok) {
-        const data = await settingsRes.json();
-        setThreshold(data.threshold);
       }
     } finally {
       setLoading(false);
@@ -73,7 +61,7 @@ export default function SalesActivitiesPage() {
           <div>
             <h2 className="text-lg font-bold text-zinc-900">営業アクティビティ</h2>
             <p className="text-xs text-zinc-500">
-              商談・アプローチ等を記録して提案書AIを解放
+              商談・アプローチ等の営業活動を記録
             </p>
           </div>
         </div>
@@ -84,8 +72,6 @@ export default function SalesActivitiesPage() {
           提案書AIへ <ArrowRight className="w-3 h-3" />
         </Link>
       </div>
-
-      <UnlockGate monthCount={monthCount} threshold={threshold} />
 
       <ActivityForm onSuccess={fetchData} />
 
