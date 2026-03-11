@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { validateBody, leadScoreSchema } from "@/lib/validations";
+import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import type { PlaceLead, WebsiteAnalysis, BusinessType } from "@/lib/constants/leads";
 
 export const runtime = "nodejs";
@@ -260,6 +262,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const limited = checkRateLimit(session.user.email!, "leads/score", AI_RATE_LIMIT);
+  if (limited) return limited;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -268,11 +273,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = (await req.json()) as {
-    places: PlaceLead[];
-    industry: string;
-    area: string;
-  };
+  const parsed = await validateBody(req, leadScoreSchema);
+  if (!parsed.success) return parsed.response;
+  const body = parsed.data as { places: PlaceLead[]; industry: string; area: string };
 
   // 全企業のWebサイトを並列で分析
   const allNames = body.places.map((p) => p.name);

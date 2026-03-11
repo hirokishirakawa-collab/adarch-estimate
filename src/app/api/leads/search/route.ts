@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { validateBody, leadSearchSchema } from "@/lib/validations";
+import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -13,6 +15,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const limited = checkRateLimit(session.user.email!, "leads/search", AI_RATE_LIMIT);
+  if (limited) return limited;
+
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -21,19 +26,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = (await req.json()) as {
-    prefecture: string;
-    city: string;
-    industry: string;
-    industryKeywords: string;
-    count: number;
-  };
+  const parsed = await validateBody(req, leadSearchSchema);
+  if (!parsed.success) return parsed.response;
+  const body = parsed.data;
 
   const query = [body.industryKeywords || body.industry, body.city, body.prefecture]
     .filter(Boolean)
     .join(" ");
 
-  const maxCount = Math.min(body.count || 20, 50);
+  const maxCount = body.count;
   const fieldMask = [
     "places.displayName",
     "places.formattedAddress",

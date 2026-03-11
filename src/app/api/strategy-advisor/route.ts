@@ -2,6 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { MEDIA_MATRIX, MEDIA_ORDER } from "@/lib/strategy-matrix";
+import { validateBody, strategyAdvisorSchema } from "@/lib/validations";
+import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -126,6 +128,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const limited = checkRateLimit(session.user.email!, "strategy-advisor", AI_RATE_LIMIT);
+  if (limited) return limited;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -134,17 +139,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = await req.json() as {
-    industry: string;
-    gender: string;
-    ageRange: string[];
-    layer: string;
-    inbound: boolean;
-    purposes: string[];
-    region: string;
-    budget: number;
-    freeText?: string;
-  };
+  const parsed = await validateBody(req, strategyAdvisorSchema);
+  if (!parsed.success) return parsed.response;
+  const body = parsed.data;
 
   const budgetMan = body.budget ? `${Math.round(body.budget / 10_000)}万円` : "未入力";
 

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 import Anthropic from "@anthropic-ai/sdk";
 import { auth } from "@/lib/auth";
+import { checkRateLimit, SCRAPE_RATE_LIMIT } from "@/lib/rate-limit";
 
 export interface ScrapedAchievement {
   clientName:   string;
@@ -25,6 +26,9 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
   }
+
+  const limited = checkRateLimit(session.user.email!, "scrape-works", SCRAPE_RATE_LIMIT);
+  if (limited) return limited;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {

@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Anthropic from "@anthropic-ai/sdk";
 import { MEDIA_MENU_OPTIONS } from "@/lib/constants/leads";
+import { validateBody, proposalGenerateSchema } from "@/lib/validations";
+import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -79,6 +81,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const limited = checkRateLimit(session.user.email, "proposals/generate", AI_RATE_LIMIT);
+  if (limited) return limited;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -94,19 +99,9 @@ export async function POST(req: NextRequest) {
 
   // NOTE: アンロック判定は一時的に無効化中（テスト期間）
 
-  const body = (await req.json()) as {
-    companyName: string;
-    industry: string;
-    challenge: string;
-    hearingSheetId?: string;
-  };
-
-  if (!body.companyName || !body.industry || !body.challenge) {
-    return NextResponse.json(
-      { error: "companyName, industry, challenge は必須です" },
-      { status: 400 }
-    );
-  }
+  const parsed = await validateBody(req, proposalGenerateSchema);
+  if (!parsed.success) return parsed.response;
+  const body = parsed.data;
 
   // ---- データ収集（並行実行） ----
 
