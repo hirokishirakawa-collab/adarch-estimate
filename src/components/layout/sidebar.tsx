@@ -156,7 +156,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       {
         href: "/dashboard/video-achievements",
-        label: "動画実績DB（自動収集）",
+        label: "競合実績DB（自動収集）",
         icon: Target,
         minRole: "USER",
       },
