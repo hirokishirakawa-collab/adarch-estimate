@@ -4,6 +4,19 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { getSessionInfo } from "@/lib/session";
+import { sendDealNotification } from "@/lib/notifications";
+import type { DealStatus } from "@/generated/prisma/client";
+import {
+  INTERESTED_SERVICE_OPTIONS,
+  MONTHLY_BUDGET_TO_AMOUNT,
+  VIDEO_BUDGET_TO_AMOUNT,
+  TEMPERATURE_TO_PROBABILITY,
+  TIMELINE_TO_DAYS,
+  PRIMARY_CHALLENGE_OPTIONS,
+} from "@/lib/constants/hearing";
+import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 
 async function requireAuth() {
   const session = await auth();
@@ -231,4 +244,136 @@ export async function copyHearingToCustomer(
   await db.hearingSheet.create({
     data: { customerId, ...fields },
   });
+}
+
+// ----------------------------------------------------------------
+// ヒアリングシートから商談を作成する
+// ----------------------------------------------------------------
+export async function convertHearingToDeal(
+  hearingSheetId: string
+): Promise<{ dealId?: string; error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (!info.branchId) return { error: "拠点が割り当てられていません" };
+  if (info.role === "USER") return { error: "権限がありません" };
+
+  try {
+    // ヒアリングシート取得
+    const sheet = await db.hearingSheet.findUnique({
+      where: { id: hearingSheetId },
+    });
+    if (!sheet) return { error: "ヒアリングシートが見つかりません" };
+    if (sheet.dealId) return { error: "このヒアリングシートは既に商談化されています" };
+    if (!sheet.customerId) return { error: "顧客に紐づいていないヒアリングシートです" };
+
+    // 顧客名を取得
+    const customer = await db.customer.findUnique({
+      where: { id: sheet.customerId },
+      select: { name: true },
+    });
+    if (!customer) return { error: "顧客が見つかりません" };
+
+    // タイトル生成: 顧客名 + 興味のあるサービス
+    const serviceLabels = (sheet.interestedServices ?? [])
+      .map((v) => INTERESTED_SERVICE_OPTIONS.find((o) => o.value === v)?.label)
+      .filter(Boolean);
+    const title = serviceLabels.length > 0
+      ? `${customer.name} ${serviceLabels.join(" / ")}`
+      : customer.name;
+
+    // 見積金額: 動画制作が含まれていればvideoBudget、なければmonthlyAdBudget
+    const hasVideo = (sheet.interestedServices ?? []).includes("video_production");
+    let amount: number | null = null;
+    if (hasVideo && sheet.videoBudget) {
+      amount = VIDEO_BUDGET_TO_AMOUNT[sheet.videoBudget] ?? null;
+    } else if (sheet.monthlyAdBudget) {
+      amount = MONTHLY_BUDGET_TO_AMOUNT[sheet.monthlyAdBudget] ?? null;
+    }
+
+    // 受注確度
+    const probability = sheet.temperature
+      ? TEMPERATURE_TO_PROBABILITY[sheet.temperature] ?? null
+      : null;
+
+    // 受注予定日
+    let expectedCloseDate: Date | null = null;
+    if (sheet.desiredTimeline) {
+      const days = TIMELINE_TO_DAYS[sheet.desiredTimeline];
+      if (days !== null && days !== undefined) {
+        expectedCloseDate = new Date();
+        expectedCloseDate.setDate(expectedCloseDate.getDate() + days);
+      }
+    }
+
+    // 課題ラベル
+    const challengeLabel = sheet.primaryChallenge
+      ? PRIMARY_CHALLENGE_OPTIONS.find((o) => o.value === sheet.primaryChallenge)?.label
+      : null;
+
+    // メモ生成
+    const notesParts: string[] = ["ヒアリングシートから商談化"];
+    if (challengeLabel) notesParts.push(`課題: ${challengeLabel}`);
+    if (sheet.challengeDetail) notesParts.push(sheet.challengeDetail);
+
+    // トランザクションで商談作成 + ヒアリングシート紐づけ
+    const deal = await db.$transaction(async (tx) => {
+      const newDeal = await tx.deal.create({
+        data: {
+          title: title.slice(0, 100),
+          status: "QUALIFYING" as DealStatus,
+          amount,
+          probability,
+          expectedCloseDate,
+          notes: notesParts.join("。"),
+          customerId: sheet.customerId!,
+          branchId: info.branchId!,
+          createdById: info.userId,
+        },
+      });
+
+      await tx.hearingSheet.update({
+        where: { id: hearingSheetId },
+        data: { dealId: newDeal.id },
+      });
+
+      return newDeal;
+    });
+
+    logAudit({
+      action: "deal_created_from_hearing",
+      email: info.email,
+      name: info.staffName,
+      entity: "deal",
+      entityId: deal.id,
+      detail: `ヒアリングシートから商談化: ${title}`,
+    });
+
+    // 通知
+    const capturedDealId = deal.id;
+    const capturedCustomer = customer.name;
+    const capturedTitle = title.slice(0, 100);
+    const capturedStaffName = info.staffName;
+    after(async () => {
+      const statusLabel =
+        DEAL_STATUS_OPTIONS.find((o) => o.value === "QUALIFYING")?.label ?? "検討中";
+      await sendDealNotification({
+        eventType: "DEAL_CREATED",
+        dealId: capturedDealId,
+        customerName: capturedCustomer,
+        dealTitle: capturedTitle,
+        statusLabel,
+        amount,
+        staffName: capturedStaffName,
+      });
+    });
+
+    revalidatePath(`/dashboard/customers/${sheet.customerId}`);
+    revalidatePath("/dashboard/deals");
+
+    return { dealId: deal.id };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[convertHearingToDeal] Error:", msg);
+    return { error: "商談化に失敗しました" };
+  }
 }

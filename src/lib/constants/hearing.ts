@@ -185,6 +185,41 @@ export const TEMPERATURE_OPTIONS = [
   { value: "cold", label: "冷たい", color: "text-zinc-500 bg-zinc-50 border-zinc-200" },
 ] as const;
 
+// --- 商談化マッピング ---
+
+export const MONTHLY_BUDGET_TO_AMOUNT: Record<string, number> = {
+  "0": 0,
+  under_50k: 30000,
+  under_100k: 75000,
+  under_300k: 200000,
+  under_500k: 400000,
+  under_1m: 750000,
+  over_1m: 1500000,
+};
+
+export const VIDEO_BUDGET_TO_AMOUNT: Record<string, number> = {
+  under_100k: 75000,
+  under_300k: 200000,
+  under_500k: 400000,
+  under_1m: 750000,
+  over_1m: 1500000,
+};
+
+export const TEMPERATURE_TO_PROBABILITY: Record<string, number> = {
+  hot: 80,
+  warm: 50,
+  cool: 30,
+  cold: 20,
+};
+
+export const TIMELINE_TO_DAYS: Record<string, number | null> = {
+  immediately: 14,
+  within_1month: 30,
+  within_3months: 90,
+  within_6months: 180,
+  undecided: null,
+};
+
 // --- セクション定義 ---
 
 export const HEARING_SECTIONS = [

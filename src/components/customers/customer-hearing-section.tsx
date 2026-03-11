@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { ClipboardList, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { ClipboardList, Plus, ChevronDown, ChevronUp, TrendingUp, ExternalLink, Loader2 } from "lucide-react";
 import { HearingSheetForm } from "@/components/leads/hearing-sheet-form";
 import type { saveCustomerHearingSheet } from "@/lib/actions/hearing";
 
 interface HearingData {
   id: string;
+  dealId: string | null;
   businessDescription: string | null;
   targetCustomers: string[];
   tradeArea: string | null;
@@ -59,37 +61,50 @@ export function CustomerHearingSection({
       {/* 既存シート */}
       {hearingSheets.map((sheet, idx) => (
         <div key={sheet.id}>
-          <button
-            onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
-            className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <ClipboardList className="w-3.5 h-3.5 text-amber-600" />
-              <span className="text-xs font-medium text-amber-800">
-                ヒアリング #{idx + 1}
-              </span>
-              <span className="text-[10px] text-amber-500">
-                {sheet.updatedAt.toLocaleDateString("ja-JP", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </span>
-              {sheet.temperature && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded border bg-white text-amber-700 border-amber-200">
-                  {sheet.temperature === "hot" && "即決見込み"}
-                  {sheet.temperature === "warm" && "前向き"}
-                  {sheet.temperature === "cool" && "情報収集中"}
-                  {sheet.temperature === "cold" && "冷たい"}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
+              className="flex-1 flex items-center justify-between px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-3.5 h-3.5 text-amber-600" />
+                <span className="text-xs font-medium text-amber-800">
+                  ヒアリング #{idx + 1}
                 </span>
+                <span className="text-[10px] text-amber-500">
+                  {sheet.updatedAt.toLocaleDateString("ja-JP", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+                {sheet.temperature && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded border bg-white text-amber-700 border-amber-200">
+                    {sheet.temperature === "hot" && "即決見込み"}
+                    {sheet.temperature === "warm" && "前向き"}
+                    {sheet.temperature === "cool" && "情報収集中"}
+                    {sheet.temperature === "cold" && "冷たい"}
+                  </span>
+                )}
+              </div>
+              {openIndex === idx ? (
+                <ChevronUp className="w-4 h-4 text-amber-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-amber-400" />
               )}
-            </div>
-            {openIndex === idx ? (
-              <ChevronUp className="w-4 h-4 text-amber-400" />
+            </button>
+            {sheet.dealId ? (
+              <a
+                href={`/dashboard/deals/${sheet.dealId}`}
+                className="inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors whitespace-nowrap"
+              >
+                <ExternalLink className="w-3 h-3" />
+                商談済み
+              </a>
             ) : (
-              <ChevronDown className="w-4 h-4 text-amber-400" />
+              <ConvertToDealButton hearingSheetId={sheet.id} />
             )}
-          </button>
+          </div>
           {openIndex === idx && (
             <div className="mt-1 rounded-lg overflow-hidden border border-amber-200">
               <CustomerHearingForm
@@ -127,6 +142,40 @@ export function CustomerHearingSection({
   );
 }
 
+// 商談化ボタンコンポーネント
+function ConvertToDealButton({ hearingSheetId }: { hearingSheetId: string }) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const handleConvert = () => {
+    if (!confirm("このヒアリングシートから商談を作成しますか？\n\n予算・温度感・希望時期が商談に自動反映されます。")) return;
+    startTransition(async () => {
+      const { convertHearingToDeal } = await import("@/lib/actions/hearing");
+      const result = await convertHearingToDeal(hearingSheetId);
+      if (result.error) {
+        alert(result.error);
+      } else if (result.dealId) {
+        router.push(`/dashboard/deals/${result.dealId}`);
+      }
+    });
+  };
+
+  return (
+    <button
+      onClick={handleConvert}
+      disabled={isPending}
+      className="inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 transition-colors whitespace-nowrap"
+    >
+      {isPending ? (
+        <Loader2 className="w-3 h-3 animate-spin" />
+      ) : (
+        <TrendingUp className="w-3 h-3" />
+      )}
+      商談化
+    </button>
+  );
+}
+
 // 顧客用のラッパー（saveCustomerHearingSheetを使う）
 function CustomerHearingForm({
   customerId,
@@ -155,9 +204,8 @@ function CustomerHearingForm({
   );
 }
 
-import { useTransition } from "react";
 import { saveCustomerHearingSheet as saveAction } from "@/lib/actions/hearing";
-import { Save, Loader2, Building2, BarChart3, Target, UserCheck, Thermometer, Video } from "lucide-react";
+import { Save, Building2, BarChart3, Target, UserCheck, Thermometer, Video } from "lucide-react";
 import {
   TARGET_CUSTOMER_OPTIONS,
   TRADE_AREA_OPTIONS,
