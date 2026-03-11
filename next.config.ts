@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // 動画アップロード用: ボディサイズ上限を500MBに
+  experimental: {
+    middlewareClientMaxBodySize: "500mb",
+  },
   // nodemailer など Node.js 専用モジュールをクライアントバンドルから除外
   serverExternalPackages: ["nodemailer", "googleapis"],
   // Google アカウントのアバター画像を next/image で表示するため許可
