@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   // nodemailer など Node.js 専用モジュールをクライアントバンドルから除外
@@ -39,7 +40,8 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               // Google OAuth リダイレクト・アバター画像
               "img-src 'self' data: https://lh3.googleusercontent.com https://lh4.googleusercontent.com",
-              "connect-src 'self'",
+              // Sentry への送信を許可
+              "connect-src 'self' https://*.ingest.sentry.io",
               "font-src 'self'",
               // iframe 禁止（X-Frame-Options と二重防御）
               "frame-ancestors 'none'",
@@ -51,4 +53,9 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // ソースマップをSentryにアップロード（本番ビルド時のみ）
+  silent: !process.env.CI,
+  // Webpack tree-shaking でバンドルサイズ最適化
+  disableLogger: true,
+});
