@@ -1,8 +1,30 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sparkles, Loader2, Users } from "lucide-react";
+import { Sparkles, Loader2, Users, ClipboardList } from "lucide-react";
 import { PROPOSAL_INDUSTRY_OPTIONS } from "@/lib/constants/proposals";
+
+interface HearingSheet {
+  id: string;
+  businessDescription: string | null;
+  targetCustomers: string[];
+  tradeArea: string | null;
+  annualRevenue: string | null;
+  employeeCount: string | null;
+  currentChannels: string[];
+  monthlyAdBudget: string | null;
+  pastEfforts: string | null;
+  competitors: string | null;
+  primaryChallenge: string | null;
+  challengeDetail: string | null;
+  interestedServices: string[];
+  desiredTimeline: string | null;
+  decisionMaker: string | null;
+  budgetStatus: string | null;
+  videoPurposes: string[];
+  videoBudget: string | null;
+  temperature: string | null;
+}
 
 interface Customer {
   id: string;
@@ -12,10 +34,41 @@ interface Customer {
   phone: string | null;
   website: string | null;
   notes: string | null;
+  hearingSheets: HearingSheet[];
 }
 
 interface ProposalFormProps {
   onGenerated: () => void;
+}
+
+/** ヒアリングシートから課題テキストを生成 */
+function buildChallengeFromHearing(h: HearingSheet): string {
+  const parts: string[] = [];
+
+  if (h.primaryChallenge) parts.push(`課題: ${h.primaryChallenge}`);
+  if (h.challengeDetail) parts.push(h.challengeDetail);
+  if (h.interestedServices.length > 0)
+    parts.push(`興味のあるサービス: ${h.interestedServices.join("、")}`);
+  if (h.pastEfforts) parts.push(`過去の施策: ${h.pastEfforts}`);
+  if (h.videoPurposes.length > 0)
+    parts.push(`動画の用途: ${h.videoPurposes.join("、")}`);
+
+  return parts.join("\n");
+}
+
+/** ヒアリングシートのサマリーを表示用に生成 */
+function buildHearingSummary(h: HearingSheet): string[] {
+  const items: string[] = [];
+  if (h.businessDescription) items.push(`事業: ${h.businessDescription}`);
+  if (h.targetCustomers.length > 0) items.push(`ターゲット: ${h.targetCustomers.join("、")}`);
+  if (h.annualRevenue) items.push(`年商: ${h.annualRevenue}`);
+  if (h.employeeCount) items.push(`従業員: ${h.employeeCount}`);
+  if (h.currentChannels.length > 0) items.push(`集客手段: ${h.currentChannels.join("、")}`);
+  if (h.monthlyAdBudget) items.push(`広告費: ${h.monthlyAdBudget}`);
+  if (h.primaryChallenge) items.push(`課題: ${h.primaryChallenge}`);
+  if (h.temperature) items.push(`温度感: ${h.temperature}`);
+  if (h.budgetStatus) items.push(`予算: ${h.budgetStatus}`);
+  return items;
 }
 
 export function ProposalForm({ onGenerated }: ProposalFormProps) {
@@ -27,6 +80,7 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [activeHearing, setActiveHearing] = useState<HearingSheet | null>(null);
 
   useEffect(() => {
     fetch("/api/proposals/customers")
@@ -36,6 +90,7 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
 
   const handleCustomerSelect = (customerId: string) => {
     setSelectedCustomerId(customerId);
+    setActiveHearing(null);
     if (!customerId) return;
 
     const c = customers.find((c) => c.id === customerId);
@@ -52,8 +107,13 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
       if (match) setIndustry(match.value);
     }
 
-    // メモがあれば課題欄にプリセット
-    if (c.notes) {
+    // ヒアリングシートがあれば課題を自動生成
+    const hearing = c.hearingSheets?.[0];
+    if (hearing) {
+      setActiveHearing(hearing);
+      const challengeText = buildChallengeFromHearing(hearing);
+      if (challengeText) setChallenge(challengeText);
+    } else if (c.notes) {
       setChallenge(c.notes);
     }
   };
@@ -71,6 +131,7 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
           companyName: companyName.trim(),
           industry,
           challenge: challenge.trim(),
+          hearingSheetId: activeHearing?.id || undefined,
         }),
       });
       if (!res.ok) {
@@ -81,6 +142,7 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
       setCompanyName("");
       setChallenge("");
       setSelectedCustomerId("");
+      setActiveHearing(null);
       onGenerated();
     } catch {
       setError("通信エラーが発生しました");
@@ -88,6 +150,8 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
       setLoading(false);
     }
   };
+
+  const hearingSummary = activeHearing ? buildHearingSummary(activeHearing) : [];
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-zinc-200 p-5 space-y-4">
@@ -111,10 +175,25 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
             <option value="">-- 手動入力する --</option>
             {customers.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}{c.industry ? ` (${c.industry})` : ""}
+                {c.name}{c.industry ? ` (${c.industry})` : ""}{c.hearingSheets?.length > 0 ? " [HS]" : ""}
               </option>
             ))}
           </select>
+        </div>
+      )}
+
+      {/* ヒアリングシート情報表示 */}
+      {activeHearing && hearingSummary.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <ClipboardList className="w-3.5 h-3.5 text-blue-600" />
+            <p className="text-xs font-semibold text-blue-800">ヒアリングシート反映中</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+            {hearingSummary.map((item, i) => (
+              <p key={i} className="text-[11px] text-blue-700">{item}</p>
+            ))}
+          </div>
         </div>
       )}
 

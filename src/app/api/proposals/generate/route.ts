@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
     companyName: string;
     industry: string;
     challenge: string;
+    hearingSheetId?: string;
   };
 
   if (!body.companyName || !body.industry || !body.challenge) {
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
 
   // ---- データ収集（並行実行） ----
 
-  const [projects, achievements, placesInfo, leadData] = await Promise.all([
+  const [projects, achievements, placesInfo, leadData, hearingSheet] = await Promise.all([
     // 1. プロジェクト実績
     db.project.findMany({
       where: { status: { in: ["COMPLETED", "IN_PROGRESS"] } },
@@ -151,6 +152,11 @@ export async function POST(req: NextRequest) {
         address: true,
       },
     }),
+
+    // 5. ヒアリングシート
+    body.hearingSheetId
+      ? db.hearingSheet.findUnique({ where: { id: body.hearingSheetId } })
+      : Promise.resolve(null),
   ]);
 
   // ---- データ整形 ----
@@ -214,6 +220,33 @@ Google評価: ${leadData.rating}（${leadData.ratingCount}件）
 Webサイト: ${leadData.websiteUrl || "なし"}`;
   }
 
+  // ヒアリングシート情報
+  let hearingSection = "";
+  if (hearingSheet) {
+    const h = hearingSheet;
+    const lines: string[] = ["--- ヒアリングシート（営業担当が記録済み） ---"];
+    if (h.businessDescription) lines.push(`事業内容: ${h.businessDescription}`);
+    if (h.targetCustomers.length > 0) lines.push(`ターゲット顧客: ${h.targetCustomers.join("、")}`);
+    if (h.tradeArea) lines.push(`商圏: ${h.tradeArea}`);
+    if (h.annualRevenue) lines.push(`年商規模: ${h.annualRevenue}`);
+    if (h.employeeCount) lines.push(`従業員数: ${h.employeeCount}`);
+    if (h.currentChannels.length > 0) lines.push(`現在の集客手段: ${h.currentChannels.join("、")}`);
+    if (h.monthlyAdBudget) lines.push(`月間広告費: ${h.monthlyAdBudget}`);
+    if (h.pastEfforts) lines.push(`過去に試した施策: ${h.pastEfforts}`);
+    if (h.competitors) lines.push(`競合: ${h.competitors}`);
+    if (h.primaryChallenge) lines.push(`最も解決したい課題: ${h.primaryChallenge}`);
+    if (h.challengeDetail) lines.push(`課題の詳細: ${h.challengeDetail}`);
+    if (h.interestedServices.length > 0) lines.push(`興味のあるサービス: ${h.interestedServices.join("、")}`);
+    if (h.desiredTimeline) lines.push(`希望開始時期: ${h.desiredTimeline}`);
+    if (h.decisionMaker) lines.push(`決裁者: ${h.decisionMaker}`);
+    if (h.budgetStatus) lines.push(`予算確保状況: ${h.budgetStatus}`);
+    if (h.competingVendors) lines.push(`検討中の他社: ${h.competingVendors}`);
+    if (h.videoPurposes.length > 0) lines.push(`動画の用途: ${h.videoPurposes.join("、")}`);
+    if (h.videoBudget) lines.push(`動画制作予算: ${h.videoBudget}`);
+    if (h.temperature) lines.push(`温度感: ${h.temperature}`);
+    hearingSection = lines.join("\n");
+  }
+
   const today = new Date();
   const dateStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
 
@@ -273,6 +306,8 @@ Webサイト: ${leadData.websiteUrl || "なし"}`;
 - ソリューションは提案先の業種と課題に最適化し、下記の「アドアーチが提供可能な広告媒体」から適切なものを提案に組み込んでください
 - 提案先のGoogle口コミ情報がある場合、口コミから読み取れる強み・課題を提案に反映してください（例: 口コミで「認知度が低い」→広告強化提案、「ファンが熱い」→ファンマーケティング提案）
 - リードAI分析データがある場合、そのスコアやコメントも提案内容に活用してください
+- ヒアリングシートがある場合、顧客の事業内容・ターゲット・予算感・課題・温度感を最大限に反映し、具体的で的を射た提案にしてください
+- ヒアリングシートの「興味のあるサービス」や「動画の用途」があれば、ソリューションに優先的に組み込んでください
 - トーンはプロフェッショナルかつ親しみやすく
 - JSON以外のテキストは出力しないでください
 
@@ -287,7 +322,9 @@ ${achievementLines || "（データなし）"}
 
 ${placesSection}
 
-${leadSection}`;
+${leadSection}
+
+${hearingSection}`;
 
   const userPrompt = `提案先企業: ${body.companyName}
 業種: ${body.industry}
