@@ -111,7 +111,7 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/proposals",
         label: "提案書AI",
         icon: Sparkles,
-        minRole: "USER",
+        minRole: "ADMIN",
       },
     ],
   },
