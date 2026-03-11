@@ -73,39 +73,9 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    section: "CRM",
+    section: "営業",
     color: "text-blue-500/80",
     items: [
-      {
-        href: "/dashboard/customers",
-        label: "顧客管理",
-        icon: Users,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/deals",
-        label: "商談管理 (SFA)",
-        icon: TrendingUp,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/estimates",
-        label: "公式見積もり",
-        icon: FileText,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/video-achievements",
-        label: "動画実績DB（自動収集）",
-        icon: Target,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/business-cards",
-        label: "名刺管理",
-        icon: ContactRound,
-        minRole: "USER",
-      },
       {
         href: "/dashboard/leads",
         label: "リード獲得AI",
@@ -118,10 +88,28 @@ const NAV_SECTIONS: NavSection[] = [
         icon: ListChecks,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/customers",
+        label: "顧客管理",
+        icon: Users,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/deals",
+        label: "商談管理（SFA）",
+        icon: TrendingUp,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/estimates",
+        label: "公式見積もり",
+        icon: FileText,
+        minRole: "USER",
+      },
     ],
   },
   {
-    section: "プロジェクト",
+    section: "制作・プロジェクト",
     color: "text-violet-500/80",
     items: [
       {
@@ -136,13 +124,6 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Handshake,
         minRole: "USER",
       },
-      // グループ連携依頼は案件マッチングに統合のため非表示
-      // {
-      //   href: "/dashboard/group-sync",
-      //   label: "グループ連携依頼",
-      //   icon: Network,
-      //   minRole: "USER",
-      // },
       {
         href: "/dashboard/group-profiles",
         label: "メンバー紹介",
@@ -152,7 +133,7 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    section: "経費管理",
+    section: "経理",
     color: "text-amber-500/80",
     items: [
       {
@@ -170,9 +151,21 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    section: "Wiki",
+    section: "データベース",
     color: "text-teal-500/80",
     items: [
+      {
+        href: "/dashboard/video-achievements",
+        label: "動画実績DB（自動収集）",
+        icon: Target,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/business-cards",
+        label: "名刺管理",
+        icon: ContactRound,
+        minRole: "USER",
+      },
       {
         href: "/dashboard/wiki",
         label: "社内Wiki",
