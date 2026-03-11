@@ -1,8 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { Sparkles, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sparkles, Loader2, Users } from "lucide-react";
 import { PROPOSAL_INDUSTRY_OPTIONS } from "@/lib/constants/proposals";
+
+interface Customer {
+  id: string;
+  name: string;
+  industry: string | null;
+  contactName: string | null;
+  phone: string | null;
+  website: string | null;
+  notes: string | null;
+}
 
 interface ProposalFormProps {
   onGenerated: () => void;
@@ -14,6 +24,39 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
   const [challenge, setChallenge] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+
+  useEffect(() => {
+    fetch("/api/proposals/customers")
+      .then((res) => (res.ok ? res.json() : { customers: [] }))
+      .then((data) => setCustomers(data.customers ?? []));
+  }, []);
+
+  const handleCustomerSelect = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    if (!customerId) return;
+
+    const c = customers.find((c) => c.id === customerId);
+    if (!c) return;
+
+    setCompanyName(c.name);
+
+    // 業種マッチ
+    if (c.industry) {
+      const match = PROPOSAL_INDUSTRY_OPTIONS.find(
+        (opt) =>
+          opt.label.includes(c.industry!) || c.industry!.includes(opt.label)
+      );
+      if (match) setIndustry(match.value);
+    }
+
+    // メモがあれば課題欄にプリセット
+    if (c.notes) {
+      setChallenge(c.notes);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +80,7 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
       }
       setCompanyName("");
       setChallenge("");
+      setSelectedCustomerId("");
       onGenerated();
     } catch {
       setError("通信エラーが発生しました");
@@ -51,6 +95,28 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
         <Sparkles className="w-4 h-4 text-blue-600" />
         <p className="text-sm font-semibold text-zinc-800">提案書を生成</p>
       </div>
+
+      {/* 顧客選択 */}
+      {customers.length > 0 && (
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">
+            <Users className="w-3 h-3 inline mr-1" />
+            顧客データから選択（任意）
+          </label>
+          <select
+            value={selectedCustomerId}
+            onChange={(e) => handleCustomerSelect(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+          >
+            <option value="">-- 手動入力する --</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}{c.industry ? ` (${c.industry})` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
