@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Anthropic from "@anthropic-ai/sdk";
-import {
-  DEFAULT_UNLOCK_THRESHOLD,
-  SETTING_KEY_UNLOCK_THRESHOLD,
-} from "@/lib/constants/proposals";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -30,25 +26,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  // アンロック判定
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthCount = await db.salesActivity.count({
-    where: { userId: user.id, date: { gte: monthStart } },
-  });
-
-  // 閾値取得
-  const setting = await db.appSetting.findUnique({
-    where: { key: SETTING_KEY_UNLOCK_THRESHOLD },
-  });
-  const threshold = setting ? parseInt(setting.value, 10) : DEFAULT_UNLOCK_THRESHOLD;
-
-  if (user.role !== "ADMIN" && monthCount < threshold) {
-    return NextResponse.json(
-      { error: `今月のアクティビティが${threshold}件未満です（現在${monthCount}件）` },
-      { status: 403 }
-    );
-  }
+  // NOTE: アンロック判定は一時的に無効化中（テスト期間）
+  // 本番運用時は閾値チェックを再有効化すること
 
   const body = (await req.json()) as {
     companyName: string;

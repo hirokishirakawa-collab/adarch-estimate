@@ -3,10 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { FileText, ArrowLeft, Settings } from "lucide-react";
 import Link from "next/link";
-import { UnlockGate } from "@/components/proposals/unlock-gate";
 import { ProposalForm } from "@/components/proposals/proposal-form";
 import { ProposalList } from "@/components/proposals/proposal-list";
-import { DEFAULT_UNLOCK_THRESHOLD } from "@/lib/constants/proposals";
 
 interface ProposalData {
   id: string;
@@ -19,24 +17,18 @@ interface ProposalData {
 
 export default function ProposalsPage() {
   const [proposals, setProposals] = useState<ProposalData[]>([]);
-  const [monthCount, setMonthCount] = useState(0);
-  const [threshold, setThreshold] = useState(DEFAULT_UNLOCK_THRESHOLD);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [newThreshold, setNewThreshold] = useState("");
+  const [threshold, setThreshold] = useState(5);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [actRes, propRes, settingsRes] = await Promise.all([
-        fetch("/api/sales-activities"),
+      const [propRes, settingsRes] = await Promise.all([
         fetch("/api/proposals"),
         fetch("/api/proposals/settings"),
       ]);
-      if (actRes.ok) {
-        const data = await actRes.json();
-        setMonthCount(data.monthCount);
-      }
       if (propRes.ok) {
         const data = await propRes.json();
         setProposals(data.proposals);
@@ -69,8 +61,6 @@ export default function ProposalsPage() {
       setShowSettings(false);
     }
   };
-
-  const isUnlocked = isAdmin || monthCount >= threshold;
 
   if (loading) {
     return (
@@ -116,7 +106,7 @@ export default function ProposalsPage() {
         </div>
       </div>
 
-      {/* Admin settings */}
+      {/* Admin settings (将来のロック機能有効化時に使用) */}
       {showSettings && isAdmin && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-4">
           <div className="flex-1">
@@ -143,27 +133,8 @@ export default function ProposalsPage() {
         </div>
       )}
 
-      <UnlockGate monthCount={monthCount} threshold={threshold} />
-
-      {isUnlocked ? (
-        <>
-          <ProposalForm onGenerated={fetchData} />
-          <ProposalList proposals={proposals} />
-        </>
-      ) : (
-        <div className="bg-white rounded-xl border border-zinc-200 p-8 text-center">
-          <FileText className="w-8 h-8 text-zinc-300 mx-auto mb-3" />
-          <p className="text-sm text-zinc-500 mb-2">
-            今月あと <span className="font-bold text-blue-600">{threshold - monthCount}件</span> のアクティビティを記録すると利用できます
-          </p>
-          <Link
-            href="/dashboard/sales-activities"
-            className="text-xs text-blue-600 hover:underline"
-          >
-            アクティビティを記録する →
-          </Link>
-        </div>
-      )}
+      <ProposalForm onGenerated={fetchData} />
+      <ProposalList proposals={proposals} />
     </div>
   );
 }
