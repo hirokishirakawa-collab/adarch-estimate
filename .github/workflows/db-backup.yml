@@ -26,6 +26,16 @@ jobs:
           pg_dump "$DATABASE_URL" --no-owner --no-privileges | gzip > "$FILENAME"
           echo "Backup size: $(du -h $FILENAME | cut -f1)"
 
+      - name: Encrypt Railway env vars
+        env:
+          RAILWAY_ENV_VARS: ${{ secrets.RAILWAY_ENV_VARS }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          ENV_FILE="adarch-env-$(date +%Y%m%d-%H%M%S).json.enc"
+          echo "ENV_BACKUP_FILE=$ENV_FILE" >> $GITHUB_ENV
+          echo "$RAILWAY_ENV_VARS" | openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:"$BACKUP_ENCRYPTION_KEY" -out "$ENV_FILE"
+          echo "Env backup size: $(du -h $ENV_FILE | cut -f1)"
+
       - name: Upload to Google Drive
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
@@ -56,7 +66,9 @@ jobs:
           creds = creds.with_subject(DELEGATED_USER)
           service = build("drive", "v3", credentials=creds)
 
-          # アップロード
+          ENV_BACKUP_FILE = os.environ.get("ENV_BACKUP_FILE", "")
+
+          # DBバックアップをアップロード
           file_metadata = {
               "name": BACKUP_FILE,
               "parents": [FOLDER_ID],
@@ -65,23 +77,33 @@ jobs:
           uploaded = service.files().create(
               body=file_metadata, media_body=media, fields="id,name,size"
           ).execute()
+          print(f"Uploaded DB: {uploaded['name']} (ID: {uploaded['id']})")
 
-          print(f"Uploaded: {uploaded['name']} (ID: {uploaded['id']})")
+          # 環境変数バックアップをアップロード
+          if ENV_BACKUP_FILE and os.path.exists(ENV_BACKUP_FILE):
+              env_metadata = {
+                  "name": ENV_BACKUP_FILE,
+                  "parents": [FOLDER_ID],
+              }
+              env_media = MediaFileUpload(ENV_BACKUP_FILE, mimetype="application/octet-stream")
+              env_uploaded = service.files().create(
+                  body=env_metadata, media_body=env_media, fields="id,name,size"
+              ).execute()
+              print(f"Uploaded ENV: {env_uploaded['name']} (ID: {env_uploaded['id']})")
 
-          # 7世代より古いバックアップを削除
-          results = service.files().list(
-              q=f"'{FOLDER_ID}' in parents and name contains 'adarch-backup-' and trashed=false",
-              orderBy="createdTime desc",
-              fields="files(id,name,createdTime)",
-          ).execute()
-
-          files = results.get("files", [])
-          print(f"Total backups: {len(files)}")
-
-          if len(files) > 7:
-              for old_file in files[7:]:
-                  service.files().delete(fileId=old_file["id"]).execute()
-                  print(f"Deleted old backup: {old_file['name']}")
+          # 7世代より古いバックアップを削除（DB）
+          for prefix in ["adarch-backup-", "adarch-env-"]:
+              results = service.files().list(
+                  q=f"'{FOLDER_ID}' in parents and name contains '{prefix}' and trashed=false",
+                  orderBy="createdTime desc",
+                  fields="files(id,name,createdTime)",
+              ).execute()
+              files = results.get("files", [])
+              print(f"Total {prefix} files: {len(files)}")
+              if len(files) > 7:
+                  for old_file in files[7:]:
+                      service.files().delete(fileId=old_file["id"]).execute()
+                      print(f"Deleted: {old_file['name']}")
 
           print("Backup complete!")
           PYEOF
@@ -91,3 +113,4 @@ jobs:
         run: |
           rm -f /tmp/sa-key.json
           rm -f "$BACKUP_FILE"
+          rm -f "$ENV_BACKUP_FILE"
