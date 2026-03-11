@@ -73,7 +73,7 @@ function getMimeIcon(mime: string, size = "w-4 h-4") {
     return <FileSpreadsheet className={`${size} text-green-400`} />;
   if (mime.includes("presentation") || mime.includes("powerpoint"))
     return <Presentation className={`${size} text-orange-400`} />;
-  return <FileText className={`${size} text-zinc-500`} />;
+  return <FileText className={`${size} text-zinc-400`} />;
 }
 
 // ----------------------------------------------------------------
@@ -158,13 +158,13 @@ export function PortfolioExplorer({
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">実績フォルダ検索</h1>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <p className="text-xs text-zinc-400 mt-0.5">
               Google Drive の実績フォルダから素材・案件を検索
             </p>
           </div>
         </div>
         {lastSyncedAt && (
-          <div className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+          <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
             <RefreshCw className="w-3 h-3" />
             最終同期: {new Date(lastSyncedAt).toLocaleString("ja-JP")}
           </div>
@@ -178,7 +178,7 @@ export function PortfolioExplorer({
             <FolderOpen className="w-4 h-4 text-blue-400" />
           </div>
           <div>
-            <p className="text-[11px] text-zinc-500">フォルダ</p>
+            <p className="text-[11px] text-zinc-400">フォルダ</p>
             <p className="text-lg font-bold text-white leading-tight">{folderCount}</p>
           </div>
         </div>
@@ -187,7 +187,7 @@ export function PortfolioExplorer({
             <FileVideo className="w-4 h-4 text-pink-400" />
           </div>
           <div>
-            <p className="text-[11px] text-zinc-500">ファイル</p>
+            <p className="text-[11px] text-zinc-400">ファイル</p>
             <p className="text-lg font-bold text-white leading-tight">{fileCount}</p>
           </div>
         </div>
@@ -196,7 +196,7 @@ export function PortfolioExplorer({
             <Files className="w-4 h-4 text-emerald-400" />
           </div>
           <div>
-            <p className="text-[11px] text-zinc-500">検索結果</p>
+            <p className="text-[11px] text-zinc-400">検索結果</p>
             <p className="text-lg font-bold text-white leading-tight">{totalCount}</p>
           </div>
         </div>
@@ -210,7 +210,7 @@ export function PortfolioExplorer({
           </div>
           <div>
             <h2 className="text-sm font-bold text-white">AI実績提案</h2>
-            <p className="text-[11px] text-zinc-500">
+            <p className="text-[11px] text-zinc-400">
               自然文で実績を検索し、クライアント向けの提案文を自動生成
             </p>
           </div>
@@ -218,7 +218,7 @@ export function PortfolioExplorer({
         <div className="p-5">
           <form onSubmit={handleAiSearch} className="flex gap-2">
             <div className="relative flex-1">
-              <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+              <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
               <input
                 ref={aiInputRef}
                 type="text"
@@ -255,7 +255,7 @@ export function PortfolioExplorer({
               <div className="relative bg-zinc-800/40 border border-zinc-700/40 rounded-lg p-4">
                 <button
                   onClick={handleCopy}
-                  className="absolute top-3 right-3 p-1.5 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-700 transition"
+                  className="absolute top-3 right-3 p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-700 transition"
                   title="コピー"
                 >
                   {copied ? (
@@ -264,7 +264,7 @@ export function PortfolioExplorer({
                     <Copy className="w-3.5 h-3.5" />
                   )}
                 </button>
-                <div className="text-sm text-zinc-300 whitespace-pre-wrap pr-8 leading-relaxed">
+                <div className="text-sm text-zinc-200 whitespace-pre-wrap pr-8 leading-relaxed">
                   {aiResult.answer}
                 </div>
               </div>
@@ -272,7 +272,7 @@ export function PortfolioExplorer({
               {/* 関連ファイルリンク */}
               {aiResult.items.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-semibold text-zinc-500 mb-2 uppercase tracking-wide">
+                  <p className="text-[11px] font-semibold text-zinc-400 mb-2 uppercase tracking-wide">
                     関連ファイル ({aiResult.items.length})
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -282,11 +282,11 @@ export function PortfolioExplorer({
                         href={item.driveUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-xs text-zinc-300 hover:border-blue-500/60 hover:text-white transition"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-xs text-zinc-200 hover:border-blue-500/60 hover:text-white transition"
                       >
                         {getMimeIcon(item.mimeType, "w-3.5 h-3.5")}
                         <span className="truncate max-w-[200px]">{item.name}</span>
-                        <ExternalLink className="w-3 h-3 text-zinc-600 flex-shrink-0" />
+                        <ExternalLink className="w-3 h-3 text-zinc-400 flex-shrink-0" />
                       </a>
                     ))}
                   </div>
@@ -301,7 +301,7 @@ export function PortfolioExplorer({
       <div className="flex flex-col sm:flex-row gap-3">
         <form onSubmit={handleSearch} className="flex gap-2 flex-1">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input
               type="text"
               value={searchInput}
@@ -313,7 +313,7 @@ export function PortfolioExplorer({
           <button
             type="submit"
             disabled={isPending}
-            className="px-4 py-2 bg-zinc-800 text-zinc-300 text-sm rounded-lg hover:bg-zinc-700 hover:text-white disabled:opacity-50 border border-zinc-700/50 transition"
+            className="px-4 py-2 bg-zinc-800 text-zinc-200 text-sm rounded-lg hover:bg-zinc-700 hover:text-white disabled:opacity-50 border border-zinc-700/50 transition"
           >
             検索
           </button>
@@ -333,7 +333,7 @@ export function PortfolioExplorer({
                 className={`px-3 py-2 text-xs rounded-lg border transition ${
                   isActive
                     ? "bg-blue-600 border-blue-500 text-white"
-                    : "bg-zinc-900/60 border-zinc-800/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700"
+                    : "bg-zinc-900/60 border-zinc-800/60 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
                 }`}
               >
                 {opt.label}
@@ -346,7 +346,7 @@ export function PortfolioExplorer({
       {/* トップレベルフォルダ（クライアント一覧） */}
       {!query && topFolders.length > 0 && (
         <div>
-          <p className="text-[11px] font-semibold text-zinc-500 mb-2 uppercase tracking-wide">
+          <p className="text-[11px] font-semibold text-zinc-400 mb-2 uppercase tracking-wide">
             クライアント / 案件フォルダ
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -372,9 +372,9 @@ export function PortfolioExplorer({
         {items.length === 0 ? (
           <div className="p-10 text-center">
             <div className="w-12 h-12 rounded-full bg-zinc-800/60 flex items-center justify-center mx-auto mb-3">
-              <Search className="w-5 h-5 text-zinc-600" />
+              <Search className="w-5 h-5 text-zinc-400" />
             </div>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-zinc-400">
               {query
                 ? `「${query}」に一致する実績が見つかりません`
                 : "まだ実績データが同期されていません"}
@@ -385,12 +385,12 @@ export function PortfolioExplorer({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-800/60">
-                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">名前</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">パス</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">種別</th>
-                  <th className="text-right px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">サイズ</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">更新日</th>
-                  <th className="text-center px-4 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">開く</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">名前</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">パス</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">種別</th>
+                  <th className="text-right px-4 py-3 text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">サイズ</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">更新日</th>
+                  <th className="text-center px-4 py-3 text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">開く</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/40">
@@ -410,7 +410,7 @@ export function PortfolioExplorer({
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-zinc-600 truncate max-w-sm text-xs">
+                    <td className="px-4 py-2.5 text-zinc-400 truncate max-w-sm text-xs">
                       {item.path}
                     </td>
                     <td className="px-4 py-2.5">
@@ -421,7 +421,7 @@ export function PortfolioExplorer({
                           ? "bg-pink-500/10 text-pink-400"
                           : item.mimeType.startsWith("image/")
                           ? "bg-emerald-500/10 text-emerald-400"
-                          : "bg-zinc-800/60 text-zinc-500"
+                          : "bg-zinc-800/60 text-zinc-400"
                       }`}>
                         {item.itemType === "folder"
                           ? "フォルダ"
@@ -436,12 +436,12 @@ export function PortfolioExplorer({
                           : "ファイル"}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-right text-zinc-500 text-xs tabular-nums">
+                    <td className="px-4 py-2.5 text-right text-zinc-400 text-xs tabular-nums">
                       {item.itemType === "file" && item.sizeMb > 0
                         ? `${item.sizeMb.toFixed(1)} MB`
                         : ""}
                     </td>
-                    <td className="px-4 py-2.5 text-zinc-500 text-xs tabular-nums">
+                    <td className="px-4 py-2.5 text-zinc-400 text-xs tabular-nums">
                       {new Date(item.lastUpdated).toLocaleDateString("ja-JP")}
                     </td>
                     <td className="px-4 py-2.5 text-center">
@@ -449,7 +449,7 @@ export function PortfolioExplorer({
                         href={item.driveUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 transition"
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-blue-400 hover:bg-zinc-800 transition"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
@@ -461,7 +461,7 @@ export function PortfolioExplorer({
           </div>
         )}
         {totalCount > 200 && (
-          <div className="px-4 py-2.5 border-t border-zinc-800/60 text-xs text-zinc-600">
+          <div className="px-4 py-2.5 border-t border-zinc-800/60 text-xs text-zinc-400">
             {totalCount}件中 200件を表示 - 検索で絞り込んでください
           </div>
         )}
