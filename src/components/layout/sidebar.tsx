@@ -108,12 +108,6 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
-        href: "/dashboard/sales-activities",
-        label: "営業アクティビティ",
-        icon: Activity,
-        minRole: "USER",
-      },
-      {
         href: "/dashboard/proposals",
         label: "提案書AI",
         icon: Sparkles,
