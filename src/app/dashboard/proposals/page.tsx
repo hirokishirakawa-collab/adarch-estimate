@@ -83,7 +83,7 @@ export default function ProposalsPage() {
           <div>
             <h2 className="text-lg font-bold text-zinc-900">提案書AI</h2>
             <p className="text-xs text-zinc-500">
-              企業情報を入力してAIが提案書を自動生成
+              企業情報を入力してAIが提案書を自動生成。ヒアリングシートがある場合は、その内容を元に提案書が自動生成されます。
             </p>
           </div>
         </div>
@@ -132,6 +132,12 @@ export default function ProposalsPage() {
           </div>
         </div>
       )}
+
+      <div className="bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-3">
+        <p className="text-[11px] text-zinc-500 leading-relaxed">
+          ※ 本機能で生成される提案書はアイデアのベースです。提出用の提案書は別途作成してください。
+        </p>
+      </div>
 
       <ProposalForm onGenerated={fetchData} />
       <ProposalList proposals={proposals} />
