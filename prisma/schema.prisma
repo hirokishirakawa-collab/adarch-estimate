@@ -256,6 +256,9 @@ model User {
 
   isActive Boolean @default(true) // 本部がアカウントを有効/無効管理
 
+  // ADMINが個別に許可するオプション機能（例: "cutsheet", "proposals"）
+  enabledFeatures String[] @default([])
+
   chatSpaceId  String?  // Google Chat 個人スペースID
 
   // ---- グループ企業紐付け（メンバープロフィール用）----

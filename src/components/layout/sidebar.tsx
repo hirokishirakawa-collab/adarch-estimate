@@ -40,6 +40,7 @@ import {
   Handshake,
   ListChecks,
   Activity,
+  Film,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -52,6 +53,7 @@ interface NavItem {
   minRole: UserRole;
   badge?: string; // "準備中" などのラベル
   external?: boolean; // true のとき新しいタブで開く
+  requiredFeature?: string; // ADMINが許可した機能のみ表示
 }
 
 interface NavSection {
@@ -125,6 +127,13 @@ const NAV_SECTIONS: NavSection[] = [
         label: "プロジェクト一覧",
         icon: FolderKanban,
         minRole: "USER",
+      },
+      {
+        href: "/dashboard/cutsheet",
+        label: "動画カット表AI",
+        icon: Film,
+        minRole: "USER",
+        requiredFeature: "cutsheet",
       },
       {
         href: "/dashboard/project-matching",
@@ -365,6 +374,7 @@ interface SidebarProps {
     email?: string | null;
     image?: string | null;
     role: UserRole;
+    enabledFeatures?: string[];
   };
   isOpen: boolean;
   onClose: () => void;
@@ -454,9 +464,14 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
       {/* ナビゲーション */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4 scrollbar-thin">
         {NAV_SECTIONS.map((section) => {
-          const visibleItems = section.items.filter((item) =>
-            hasMinRole(user.role, item.minRole)
-          );
+          const visibleItems = section.items.filter((item) => {
+            if (!hasMinRole(user.role, item.minRole)) return false;
+            // requiredFeature がある場合: ADMINは常に表示、それ以外は許可されている場合のみ
+            if (item.requiredFeature && user.role !== "ADMIN") {
+              return (user.enabledFeatures ?? []).includes(item.requiredFeature);
+            }
+            return true;
+          });
           if (visibleItems.length === 0) return null;
 
           return (

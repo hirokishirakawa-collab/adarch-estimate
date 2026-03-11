@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Loader2, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
-import { updateUserRole, updateUserInfo, deleteUser } from "@/lib/actions/admin";
+import { updateUserRole, updateUserInfo, deleteUser, toggleFeature } from "@/lib/actions/admin";
 import { BRANCH_MAP } from "@/lib/data/customers";
 
 // ---------------------------------------------------------------
@@ -16,11 +16,16 @@ type UserRow = {
   branchId:  string | null;
   branchId2: string | null;
   groupCompanyId: string | null;
+  enabledFeatures: string[];
   createdAt: Date;
   branch:  { name: string } | null;
   branch2: { name: string } | null;
   groupCompany: { id: string; name: string } | null;
 };
+
+const OPTIONAL_FEATURES = [
+  { id: "cutsheet", label: "カット表AI" },
+] as const;
 
 type GroupCompanyOption = {
   id: string;
@@ -241,6 +246,47 @@ function DeleteForm({ userId, disabled }: { userId: string; disabled: boolean })
 }
 
 // ---------------------------------------------------------------
+// 機能トグル
+// ---------------------------------------------------------------
+function FeatureToggle({
+  userId,
+  featureId,
+  label,
+  enabled,
+}: {
+  userId: string;
+  featureId: string;
+  label: string;
+  enabled: boolean;
+}) {
+  const [isPending, setIsPending] = useState(false);
+  const [isOn, setIsOn] = useState(enabled);
+
+  const handleToggle = async () => {
+    setIsPending(true);
+    const result = await toggleFeature(userId, featureId);
+    if (result.success) setIsOn(!isOn);
+    setIsPending(false);
+  };
+
+  return (
+    <button
+      onClick={handleToggle}
+      disabled={isPending}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border transition-colors ${
+        isOn
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+          : "bg-zinc-50 text-zinc-400 border-zinc-200 hover:bg-zinc-100"
+      } ${isPending ? "opacity-50" : ""}`}
+      title={`${label}: ${isOn ? "ON" : "OFF"}`}
+    >
+      {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : isOn ? "✓" : "−"}
+      {label}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------
 // テーブル本体
 // ---------------------------------------------------------------
 function fmtDate(d: Date): string {
@@ -266,6 +312,7 @@ export function UserTable({ users, callerEmail, groupCompanies }: Props) {
                 ["名前・拠点（編集可）", "text-left"],
                 ["現在のロール",  "text-left"],
                 ["ロール変更",    "text-left"],
+                ["機能許可",      "text-left"],
                 ["登録日",        "text-left"],
                 ["",              "text-left"],
               ].map(([label, cls], i) => (
@@ -330,6 +377,21 @@ export function UserTable({ users, callerEmail, groupCompanies }: Props) {
                     )}
                   </td>
 
+                  {/* 機能許可 */}
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {OPTIONAL_FEATURES.map((feat) => (
+                        <FeatureToggle
+                          key={feat.id}
+                          userId={user.id}
+                          featureId={feat.id}
+                          label={feat.label}
+                          enabled={user.enabledFeatures.includes(feat.id)}
+                        />
+                      ))}
+                    </div>
+                  </td>
+
                   {/* 登録日 */}
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className="text-xs text-zinc-500">{fmtDate(user.createdAt)}</span>
@@ -349,7 +411,7 @@ export function UserTable({ users, callerEmail, groupCompanies }: Props) {
 
             {users.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-16 text-center text-sm text-zinc-400">
+                <td colSpan={7} className="px-4 py-16 text-center text-sm text-zinc-400">
                   登録済みのユーザーがいません
                 </td>
               </tr>

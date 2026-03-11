@@ -6,7 +6,7 @@ import { GlobalSearch } from "@/components/layout/global-search";
 import type { UserRole } from "@/types/roles";
 
 interface Props {
-  user: { name: string | null; email: string | null; image: string | null; role: UserRole };
+  user: { name: string | null; email: string | null; image: string | null; role: UserRole; enabledFeatures?: string[] };
   children: React.ReactNode;
 }
 

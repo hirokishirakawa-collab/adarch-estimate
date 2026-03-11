@@ -17,6 +17,7 @@ export default async function DashboardLayout({
     email: session.user?.email ?? null,
     image: session.user?.image ?? null,
     role: (session.user?.role ?? "USER") as UserRole,
+    enabledFeatures: session.user?.enabledFeatures ?? [],
   };
 
   return (

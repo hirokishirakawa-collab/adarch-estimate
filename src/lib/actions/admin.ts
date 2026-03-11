@@ -162,6 +162,49 @@ export async function deleteUser(
 }
 
 // ---------------------------------------------------------------
+// 機能許可トグル（ADMIN 専用）
+// enabledFeatures 配列に featureId を追加/削除
+// ---------------------------------------------------------------
+export async function toggleFeature(
+  userId: string,
+  featureId: string,
+): Promise<{ error?: string; success?: boolean }> {
+  const { callerEmail } = await requireAdmin();
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { enabledFeatures: true, email: true },
+  });
+  if (!user) return { error: "ユーザーが見つかりません" };
+
+  const current = user.enabledFeatures ?? [];
+  const has = current.includes(featureId);
+  const updated = has
+    ? current.filter((f) => f !== featureId)
+    : [...current, featureId];
+
+  try {
+    await db.user.update({
+      where: { id: userId },
+      data: { enabledFeatures: updated },
+    });
+    logAudit({
+      action: "feature_toggled",
+      email: callerEmail,
+      entity: "user",
+      entityId: userId,
+      detail: `${featureId}: ${has ? "OFF" : "ON"} (${user.email})`,
+    });
+  } catch (e) {
+    console.error("[toggleFeature] DB error:", e instanceof Error ? e.message : e);
+    return { error: "更新に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/admin/users");
+  return { success: true };
+}
+
+// ---------------------------------------------------------------
 // ロール変更（ADMIN 専用）
 // 自分自身のロールは変更不可（ロックアウト防止）
 // ---------------------------------------------------------------
