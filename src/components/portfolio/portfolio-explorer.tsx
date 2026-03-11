@@ -203,14 +203,14 @@ export function PortfolioExplorer({
       </div>
 
       {/* AI実績提案 */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2.5">
+      <div className="bg-blue-50 border border-blue-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-blue-100 flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
           <div>
             <h2 className="text-sm font-bold text-gray-900">AI実績提案</h2>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-[11px] text-blue-600">
               自然文で実績を検索し、クライアント向けの提案文を自動生成
             </p>
           </div>
