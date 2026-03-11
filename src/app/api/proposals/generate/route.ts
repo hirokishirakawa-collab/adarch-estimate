@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   });
   const threshold = setting ? parseInt(setting.value, 10) : DEFAULT_UNLOCK_THRESHOLD;
 
-  if (monthCount < threshold) {
+  if (user.role !== "ADMIN" && monthCount < threshold) {
     return NextResponse.json(
       { error: `今月のアクティビティが${threshold}件未満です（現在${monthCount}件）` },
       { status: 403 }

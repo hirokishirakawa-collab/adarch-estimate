@@ -70,7 +70,7 @@ export default function ProposalsPage() {
     }
   };
 
-  const isUnlocked = monthCount >= threshold;
+  const isUnlocked = isAdmin || monthCount >= threshold;
 
   if (loading) {
     return (
