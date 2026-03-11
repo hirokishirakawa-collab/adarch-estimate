@@ -1,0 +1,89 @@
+name: DB Backup to Google Drive
+
+on:
+  schedule:
+    # 毎日 AM3:00 JST（UTC 18:00）
+    - cron: "0 18 * * *"
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Dump database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          FILENAME="adarch-backup-$(date +%Y%m%d-%H%M%S).sql.gz"
+          echo "BACKUP_FILE=$FILENAME" >> $GITHUB_ENV
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges | gzip > "$FILENAME"
+          echo "Backup size: $(du -h $FILENAME | cut -f1)"
+
+      - name: Upload to Google Drive
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          # サービスアカウントJSON鍵を一時ファイルに書き出し
+          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > /tmp/sa-key.json
+
+          # Pythonでgoogleapis使用してアップロード
+          pip install -q google-auth google-api-python-client
+
+          python3 << 'PYEOF'
+          import os
+          import sys
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+
+          SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+          SA_FILE = "/tmp/sa-key.json"
+          FOLDER_ID = os.environ["GDRIVE_FOLDER_ID"]
+          BACKUP_FILE = os.environ["BACKUP_FILE"]
+
+          creds = service_account.Credentials.from_service_account_file(SA_FILE, scopes=SCOPES)
+          service = build("drive", "v3", credentials=creds)
+
+          # アップロード
+          file_metadata = {
+              "name": BACKUP_FILE,
+              "parents": [FOLDER_ID],
+          }
+          media = MediaFileUpload(BACKUP_FILE, mimetype="application/gzip")
+          uploaded = service.files().create(
+              body=file_metadata, media_body=media, fields="id,name,size"
+          ).execute()
+
+          print(f"Uploaded: {uploaded['name']} (ID: {uploaded['id']})")
+
+          # 7世代より古いバックアップを削除
+          results = service.files().list(
+              q=f"'{FOLDER_ID}' in parents and name contains 'adarch-backup-' and trashed=false",
+              orderBy="createdTime desc",
+              fields="files(id,name,createdTime)",
+          ).execute()
+
+          files = results.get("files", [])
+          print(f"Total backups: {len(files)}")
+
+          if len(files) > 7:
+              for old_file in files[7:]:
+                  service.files().delete(fileId=old_file["id"]).execute()
+                  print(f"Deleted old backup: {old_file['name']}")
+
+          print("Backup complete!")
+          PYEOF
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f /tmp/sa-key.json
+          rm -f "$BACKUP_FILE"
