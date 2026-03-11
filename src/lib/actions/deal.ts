@@ -45,11 +45,54 @@ export async function createDeal(
     return { error: "受注確度は0〜100で入力してください" };
   }
 
+  // ヒアリングシートデータの取得（h_ プレフィックス付き）
+  const hStr = (key: string) => (formData.get(`h_${key}`) as string)?.trim() || null;
+  const hArr = (key: string) => formData.getAll(`h_${key}`).map((v) => String(v).trim()).filter(Boolean);
+
+  const hearingData = {
+    businessDescription: hStr("businessDescription"),
+    targetCustomers: hArr("targetCustomers"),
+    tradeArea: hStr("tradeArea"),
+    annualRevenue: hStr("annualRevenue"),
+    employeeCount: hStr("employeeCount"),
+    currentChannels: hArr("currentChannels"),
+    monthlyAdBudget: hStr("monthlyAdBudget"),
+    pastEfforts: hStr("pastEfforts"),
+    competitors: hStr("competitors"),
+    primaryChallenge: hStr("primaryChallenge"),
+    challengeDetail: hStr("challengeDetail"),
+    interestedServices: hArr("interestedServices"),
+    desiredTimeline: hStr("desiredTimeline"),
+    decisionMaker: hStr("decisionMaker"),
+    decisionProcess: hStr("decisionProcess"),
+    budgetStatus: hStr("budgetStatus"),
+    competingVendors: hStr("competingVendors"),
+    videoPurposes: hArr("videoPurposes"),
+    videoDuration: hStr("videoDuration"),
+    videoShootingType: hStr("videoShootingType"),
+    videoCast: hStr("videoCast"),
+    videoReference: hStr("videoReference"),
+    videoDeadline: hStr("videoDeadline") ? new Date(hStr("videoDeadline")!) : null,
+    videoPublishTo: hArr("videoPublishTo"),
+    videoBudget: hStr("videoBudget"),
+    temperature: hStr("temperature"),
+    nextAction: hStr("nextAction"),
+    nextActionDate: hStr("nextActionDate") ? new Date(hStr("nextActionDate")!) : null,
+  };
+
+  // ヒアリングデータが1つでも入力されているか判定
+  const hasHearingData = Object.values(hearingData).some((v) =>
+    Array.isArray(v) ? v.length > 0 : v !== null
+  );
+
   let dealId: string;
   let customerName: string;
   try {
-    const [deal, customer] = await Promise.all([
-      db.deal.create({
+    const customer = await db.customer.findUnique({ where: { id: customerId }, select: { name: true } });
+    customerName = customer?.name ?? "不明";
+
+    const deal = await db.$transaction(async (tx) => {
+      const newDeal = await tx.deal.create({
         data: {
           title,
           status: status as DealStatus,
@@ -62,11 +105,23 @@ export async function createDeal(
           createdById: userId,
           assignedToId: (formData.get("assignedToId") as string)?.trim() || null,
         },
-      }),
-      db.customer.findUnique({ where: { id: customerId }, select: { name: true } }),
-    ]);
+      });
+
+      // ヒアリングデータがあれば同時に作成
+      if (hasHearingData) {
+        await tx.hearingSheet.create({
+          data: {
+            dealId: newDeal.id,
+            customerId,
+            ...hearingData,
+          },
+        });
+      }
+
+      return newDeal;
+    });
+
     dealId = deal.id;
-    customerName = customer?.name ?? "不明";
     logAudit({ action: "deal_created", email: info.email, name: staffName, entity: "deal", entityId: deal.id, detail: title });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
