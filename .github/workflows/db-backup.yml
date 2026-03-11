@@ -30,6 +30,7 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          DELEGATED_USER: ${{ secrets.DELEGATED_USER }}
         run: |
           # サービスアカウントJSON鍵を一時ファイルに書き出し
           echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > /tmp/sa-key.json
@@ -48,8 +49,11 @@ jobs:
           SA_FILE = "/tmp/sa-key.json"
           FOLDER_ID = os.environ["GDRIVE_FOLDER_ID"]
           BACKUP_FILE = os.environ["BACKUP_FILE"]
+          DELEGATED_USER = os.environ["DELEGATED_USER"]
 
+          # ドメイン全体の委任: 白川さんのアカウントとして操作
           creds = service_account.Credentials.from_service_account_file(SA_FILE, scopes=SCOPES)
+          creds = creds.with_subject(DELEGATED_USER)
           service = build("drive", "v3", credentials=creds)
 
           # アップロード
