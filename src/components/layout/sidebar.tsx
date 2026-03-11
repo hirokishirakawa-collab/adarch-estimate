@@ -78,18 +78,6 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-blue-500/80",
     items: [
       {
-        href: "/dashboard/leads",
-        label: "リード獲得AI",
-        icon: Crosshair,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/leads/list",
-        label: "リード管理",
-        icon: ListChecks,
-        minRole: "USER",
-      },
-      {
         href: "/dashboard/customers",
         label: "顧客管理",
         icon: Users,
@@ -105,6 +93,18 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/estimates",
         label: "公式見積もり",
         icon: FileText,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/leads",
+        label: "リード獲得AI",
+        icon: Crosshair,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/leads/list",
+        label: "リード管理",
+        icon: ListChecks,
         minRole: "USER",
       },
       {
