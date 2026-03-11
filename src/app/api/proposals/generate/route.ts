@@ -42,6 +42,56 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ---- 実績データ取得 ----
+
+  // 1. プロジェクト（受注・完了済み）から業種に関連しそうなもの
+  const projects = await db.project.findMany({
+    where: {
+      status: { in: ["COMPLETED", "IN_PROGRESS"] },
+    },
+    select: {
+      title: true,
+      description: true,
+      customer: { select: { name: true, industry: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 30,
+  });
+
+  // 2. 競合実績DB（VideoAchievement）— アドアーチ自身の実績として使える参考データ
+  const achievements = await db.videoAchievement.findMany({
+    select: {
+      companyName: true,
+      industry: true,
+      videoType: true,
+      contentSummary: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 30,
+  });
+
+  // 実績データをプロンプト用テキストに整形
+  const projectLines = projects
+    .filter((p) => p.title)
+    .map((p) => {
+      const customer = p.customer?.name || "非公開";
+      const industry = p.customer?.industry || "";
+      const desc = p.description ? `（${p.description.slice(0, 80)}）` : "";
+      return `- ${p.title} / ${customer}${industry ? ` [${industry}]` : ""}${desc}`;
+    })
+    .join("\n");
+
+  const achievementLines = achievements
+    .filter((a) => a.companyName)
+    .map((a) => {
+      const summary = a.contentSummary ? `（${a.contentSummary.slice(0, 80)}）` : "";
+      return `- ${a.companyName} [${a.industry}] ${a.videoType}${summary}`;
+    })
+    .join("\n");
+
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
+
   const client = new Anthropic({ apiKey });
 
   const systemPrompt = `あなたはアドアーチグループの提案書作成AIアシスタントです。
@@ -54,7 +104,7 @@ export async function POST(req: NextRequest) {
   "cover": {
     "title": "提案書のタイトル",
     "subtitle": "サブタイトル",
-    "date": "YYYY年MM月DD日",
+    "date": "${dateStr}",
     "to": "提案先企業名 御中"
   },
   "companyIntro": {
@@ -88,12 +138,22 @@ export async function POST(req: NextRequest) {
   }
 }
 
-注意事項:
+【重要ルール】
+- 日付は必ず「${dateStr}」を使用してください
 - アドアーチグループの強みは「全国ネットワーク」「映像制作のプロフェッショナル」「広告運用からクリエイティブまでワンストップ」
-- 実績は架空で構いませんが、業界に即したリアルな内容にしてください
+- 関連実績は、以下の「実際のプロジェクト実績」と「映像制作実績」から、提案先の業種・課題に近いものを選んで記載してください
+- 実績データが提案先の業種に合わない場合は、最も近いものを選び、業種横断的な価値（映像制作力・広告運用力など）を強調してください
+- 絶対に架空の実績を作らないでください。下記データにある実績のみ使用してください
+- 顧客名はそのまま記載して構いません
 - ソリューションは提案先の業種と課題に最適化してください
 - トーンはプロフェッショナルかつ親しみやすく
-- JSON以外のテキストは出力しないでください`;
+- JSON以外のテキストは出力しないでください
+
+--- 実際のプロジェクト実績 ---
+${projectLines || "（データなし）"}
+
+--- 映像制作実績（競合分析データベースより） ---
+${achievementLines || "（データなし）"}`;
 
   const userPrompt = `提案先企業: ${body.companyName}
 業種: ${body.industry}
