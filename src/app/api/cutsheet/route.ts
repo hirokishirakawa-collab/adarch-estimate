@@ -548,7 +548,8 @@ export async function POST(request: Request) {
     console.log(`[cutsheet] Duration: ${totalDuration.toFixed(1)}s`);
 
     // --- Detect scene changes ---
-    const scenes = detectScenes(videoPath, workDir, 0.3);
+    // SNS広告はカット切り替えが速いため、低めのしきい値で検出
+    const scenes = detectScenes(videoPath, workDir, 0.15);
     console.log(`[cutsheet] Scenes detected: ${scenes.length}`);
 
     if (scenes.length === 0) {
