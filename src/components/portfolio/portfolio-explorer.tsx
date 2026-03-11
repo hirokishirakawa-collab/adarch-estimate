@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import {
   Search,
   Folder,
@@ -13,6 +13,10 @@ import {
   ExternalLink,
   RefreshCw,
   HardDrive,
+  Sparkles,
+  Loader2,
+  Copy,
+  Check,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -29,6 +33,18 @@ interface PortfolioItemData {
   driveUrl: string;
   parentName: string | null;
   lastUpdated: string;
+}
+
+interface AiResult {
+  answer: string;
+  items: {
+    id: string;
+    name: string;
+    path: string;
+    itemType: string;
+    mimeType: string;
+    driveUrl: string;
+  }[];
 }
 
 interface Props {
@@ -75,17 +91,58 @@ export function PortfolioExplorer({
   const [isPending, startTransition] = useTransition();
   const [searchInput, setSearchInput] = useState(query);
 
+  // AI検索
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiResult, setAiResult] = useState<AiResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const aiInputRef = useRef<HTMLInputElement>(null);
+
   function applyFilter(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
-    // 検索時はページリセット
     startTransition(() => router.push(`/dashboard/portfolio?${params.toString()}`));
   }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     applyFilter("q", searchInput);
+  }
+
+  async function handleAiSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!aiQuery.trim() || aiLoading) return;
+
+    setAiLoading(true);
+    setAiError("");
+    setAiResult(null);
+
+    try {
+      const res = await fetch("/api/portfolio/ai-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: aiQuery }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "検索に失敗しました");
+      }
+      const data: AiResult = await res.json();
+      setAiResult(data);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!aiResult) return;
+    await navigator.clipboard.writeText(aiResult.answer);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -105,6 +162,95 @@ export function PortfolioExplorer({
           <div className="flex items-center gap-1.5 text-xs text-zinc-500">
             <RefreshCw className="w-3 h-3" />
             最終同期: {new Date(lastSyncedAt).toLocaleString("ja-JP")}
+          </div>
+        )}
+      </div>
+
+      {/* AI実績提案 */}
+      <div className="bg-gradient-to-r from-violet-950/50 to-blue-950/50 border border-violet-800/40 rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles className="w-4 h-4 text-violet-400" />
+          <h2 className="text-sm font-bold text-white">AI実績提案</h2>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">
+            AI
+          </span>
+        </div>
+        <p className="text-xs text-zinc-400 mb-3">
+          「飲食業界の実績を見せて」「CM制作の動画はある？」など自然文で検索できます
+        </p>
+        <form onSubmit={handleAiSearch} className="flex gap-2">
+          <input
+            ref={aiInputRef}
+            type="text"
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            placeholder="例: 不動産系のプロモーション動画の実績はありますか？"
+            className="flex-1 px-4 py-2.5 bg-zinc-900/80 border border-violet-700/40 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+          />
+          <button
+            type="submit"
+            disabled={aiLoading || !aiQuery.trim()}
+            className="px-5 py-2.5 bg-violet-600 text-white text-sm rounded-lg hover:bg-violet-500 disabled:opacity-50 flex items-center gap-2"
+          >
+            {aiLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            AI検索
+          </button>
+        </form>
+
+        {/* AIエラー */}
+        {aiError && (
+          <div className="mt-3 p-3 bg-red-950/50 border border-red-800/40 rounded-lg text-sm text-red-300">
+            {aiError}
+          </div>
+        )}
+
+        {/* AI回答 */}
+        {aiResult && (
+          <div className="mt-4 space-y-3">
+            <div className="relative bg-zinc-900/80 border border-zinc-700/50 rounded-lg p-4">
+              <button
+                onClick={handleCopy}
+                className="absolute top-3 right-3 p-1.5 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-700 transition"
+                title="コピー"
+              >
+                {copied ? (
+                  <Check className="w-3.5 h-3.5 text-green-400" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
+              </button>
+              <div className="text-sm text-zinc-200 whitespace-pre-wrap pr-8 leading-relaxed">
+                {aiResult.answer}
+              </div>
+            </div>
+
+            {/* 関連ファイルリンク */}
+            {aiResult.items.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-zinc-400 mb-2">
+                  関連ファイル（{aiResult.items.length}件）
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {aiResult.items.map((item) => (
+                    <a
+                      key={item.id}
+                      href={item.driveUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 hover:border-violet-500 hover:text-white transition"
+                    >
+                      {getMimeIcon(item.mimeType)}
+                      {item.name}
+                      <ExternalLink className="w-3 h-3 text-zinc-500" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
