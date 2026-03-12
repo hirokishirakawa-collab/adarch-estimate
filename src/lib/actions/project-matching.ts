@@ -619,6 +619,75 @@ export async function closeProjectRequest(
 }
 
 // ----------------------------------------------------------------
+// 案件編集（投稿者 or ADMIN）
+// ----------------------------------------------------------------
+export async function updateProjectRequest(
+  _prev: { error?: string } | null,
+  formData: FormData
+): Promise<{ error?: string }> {
+  try {
+    const user = await requireAuth();
+    const { groupCompanyId: companyId } = await getUserCompanyAndBranch(user.id, user.role);
+
+    const projectRequestId = formData.get("projectRequestId") as string;
+    if (!projectRequestId) return { error: "案件IDが必要です" };
+
+    const request = await db.projectRequest.findUnique({
+      where: { id: projectRequestId },
+      select: { postedByCompanyId: true, status: true },
+    });
+    if (!request) return { error: "案件が見つかりません" };
+    if (request.postedByCompanyId !== companyId && user.role !== "ADMIN") {
+      return { error: "この案件を編集する権限がありません" };
+    }
+
+    const title = (formData.get("title") as string)?.trim();
+    const description = (formData.get("description") as string)?.trim();
+    const category = formData.get("category") as ProjectRequestCategory;
+    const prefecture = (formData.get("prefecture") as string) || null;
+    const budgetStr = formData.get("budget") as string;
+    const budget = budgetStr ? parseInt(budgetStr, 10) : null;
+    const frequency = (formData.get("frequency") as ProjectFrequency) || "ONE_TIME";
+    const deadlineStr = formData.get("deadline") as string;
+    const deadline = deadlineStr ? new Date(deadlineStr) : null;
+
+    if (!title) return { error: "案件名を入力してください" };
+    if (!description) return { error: "詳細を入力してください" };
+    if (!category) return { error: "カテゴリを選択してください" };
+
+    await db.projectRequest.update({
+      where: { id: projectRequestId },
+      data: {
+        title,
+        description,
+        category,
+        prefecture,
+        budget: budget && !isNaN(budget) ? budget : null,
+        frequency,
+        deadline,
+      },
+    });
+
+    logAudit({
+      action: "project_request_updated",
+      email: user.email,
+      name: user.name,
+      entity: "project_request",
+      entityId: projectRequestId,
+      detail: title,
+    });
+
+    revalidatePath("/dashboard/project-matching");
+    revalidatePath(`/dashboard/project-matching/${projectRequestId}`);
+    return {};
+  } catch (e) {
+    console.error("[project-matching] Update error:", e);
+    const msg = e instanceof Error ? e.message : "更新に失敗しました";
+    return { error: msg };
+  }
+}
+
+// ----------------------------------------------------------------
 // ADMIN: 非公開トグル
 // ----------------------------------------------------------------
 export async function toggleProjectHidden(

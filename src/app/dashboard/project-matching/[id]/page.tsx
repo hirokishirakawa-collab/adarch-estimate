@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MapPin, Calendar, Building2, Trophy, EyeOff } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Building2, Trophy, EyeOff, Pencil } from "lucide-react";
 import {
   getProjectRequestDetail,
   getMyEligibility,
@@ -67,7 +67,18 @@ export default async function ProjectRequestDetailPage({
             {freqLabel}
           </span>
         </div>
-        <h1 className="text-lg font-bold text-zinc-900">{request.title}</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-lg font-bold text-zinc-900">{request.title}</h1>
+          {isOwner && (
+            <Link
+              href={`/dashboard/project-matching/${request.id}/edit`}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-zinc-600 bg-zinc-50 border border-zinc-200 rounded-md hover:bg-zinc-100 transition-colors flex-shrink-0"
+            >
+              <Pencil className="w-3 h-3" />
+              編集
+            </Link>
+          )}
+        </div>
         <p className="text-sm text-zinc-600 mt-2 whitespace-pre-wrap">
           {request.description}
         </p>
