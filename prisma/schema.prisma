@@ -1357,6 +1357,7 @@ model ProjectRequest {
   frequency   ProjectFrequency     @default(ONE_TIME) // レギュラー or 単発
   deadline    DateTime?            // 希望納期
   status      ProjectRequestStatus @default(OPEN)
+  isHidden    Boolean              @default(false) // ADMIN非公開フラグ
 
   postedByCompanyId String
   postedByCompany   GroupCompany @relation("PostedRequests", fields: [postedByCompanyId], references: [id], onDelete: Cascade)

@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MapPin, Calendar, Building2, Trophy } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Building2, Trophy, EyeOff } from "lucide-react";
 import {
   getProjectRequestDetail,
   getMyEligibility,
@@ -15,6 +15,7 @@ import {
 import { ApplicationForm } from "./application-form";
 import { MatchButton } from "./match-button";
 import { EligibilityCard } from "./contribution-score-card";
+import { AdminControls } from "./admin-controls";
 
 export default async function ProjectRequestDetailPage({
   params,
@@ -102,6 +103,14 @@ export default async function ProjectRequestDetailPage({
             })}
           </span>
         </div>
+
+        {/* 非公開バッジ */}
+        {request.isHidden && (
+          <div className="mt-4 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+            <EyeOff className="w-3.5 h-3.5 inline mr-1" />
+            この案件は非公開です
+          </div>
+        )}
 
         {/* マッチ済みの場合 */}
         {request.matchedCompany && (
@@ -200,6 +209,15 @@ export default async function ProjectRequestDetailPage({
             </div>
           )}
         </div>
+      )}
+
+      {/* ADMIN操作パネル */}
+      {role === "ADMIN" && (
+        <AdminControls
+          projectRequestId={request.id}
+          isHidden={request.isHidden}
+          title={request.title}
+        />
       )}
     </div>
   );

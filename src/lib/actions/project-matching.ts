@@ -284,7 +284,7 @@ export async function getProjectRequests() {
   await requireAuth();
 
   const requests = await db.projectRequest.findMany({
-    where: { status: "OPEN" },
+    where: { status: "OPEN", isHidden: false },
     orderBy: { createdAt: "desc" },
     include: {
       postedByCompany: { select: { name: true, ownerName: true } },
@@ -616,4 +616,231 @@ export async function closeProjectRequest(
     console.error("[project-matching] Close error:", e);
     return { error: "終了処理に失敗しました" };
   }
+}
+
+// ----------------------------------------------------------------
+// ADMIN: 非公開トグル
+// ----------------------------------------------------------------
+export async function toggleProjectHidden(
+  projectRequestId: string
+): Promise<{ error?: string }> {
+  try {
+    const user = await requireAuth();
+    if (user.role !== "ADMIN") return { error: "管理者権限が必要です" };
+
+    const request = await db.projectRequest.findUnique({
+      where: { id: projectRequestId },
+      select: { isHidden: true, title: true },
+    });
+    if (!request) return { error: "案件が見つかりません" };
+
+    await db.projectRequest.update({
+      where: { id: projectRequestId },
+      data: { isHidden: !request.isHidden },
+    });
+
+    logAudit({
+      action: request.isHidden ? "project_unhidden" : "project_hidden",
+      email: user.email,
+      name: user.name,
+      entity: "project_request",
+      entityId: projectRequestId,
+      detail: request.title,
+    });
+
+    revalidatePath("/dashboard/project-matching");
+    revalidatePath(`/dashboard/project-matching/${projectRequestId}`);
+    return {};
+  } catch (e) {
+    console.error("[project-matching] Toggle hidden error:", e);
+    return { error: "操作に失敗しました" };
+  }
+}
+
+// ----------------------------------------------------------------
+// ADMIN: 案件削除
+// ----------------------------------------------------------------
+export async function deleteProjectRequest(
+  projectRequestId: string
+): Promise<{ error?: string }> {
+  try {
+    const user = await requireAuth();
+    if (user.role !== "ADMIN") return { error: "管理者権限が必要です" };
+
+    const request = await db.projectRequest.findUnique({
+      where: { id: projectRequestId },
+      select: { title: true },
+    });
+    if (!request) return { error: "案件が見つかりません" };
+
+    await db.projectRequest.delete({
+      where: { id: projectRequestId },
+    });
+
+    logAudit({
+      action: "project_deleted",
+      email: user.email,
+      name: user.name,
+      entity: "project_request",
+      entityId: projectRequestId,
+      detail: request.title,
+    });
+
+    revalidatePath("/dashboard/project-matching");
+    return {};
+  } catch (e) {
+    console.error("[project-matching] Delete error:", e);
+    return { error: "削除に失敗しました" };
+  }
+}
+
+// ----------------------------------------------------------------
+// ADMIN: 全案件取得（非公開・終了含む）
+// ----------------------------------------------------------------
+export async function getAllProjectRequestsAdmin() {
+  const user = await requireAuth();
+  if (user.role !== "ADMIN") throw new Error("Forbidden");
+
+  return db.projectRequest.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      postedByCompany: { select: { name: true, ownerName: true } },
+      applications: {
+        select: { id: true, applicantCompanyId: true },
+      },
+    },
+  });
+}
+
+// ----------------------------------------------------------------
+// ADMIN: 対象企業を指定して案件投稿（応募を自動作成）
+// ----------------------------------------------------------------
+export async function createProjectRequestAdmin(
+  _prev: { error?: string } | null,
+  formData: FormData
+): Promise<{ error?: string }> {
+  try {
+    const user = await requireAuth();
+    if (user.role !== "ADMIN") return { error: "管理者権限が必要です" };
+
+    const { groupCompanyId: companyId } = await getUserCompanyAndBranch(user.id, user.role);
+    if (!companyId) return { error: "投稿元の企業が見つかりません" };
+
+    const title = (formData.get("title") as string)?.trim();
+    const description = (formData.get("description") as string)?.trim();
+    const category = formData.get("category") as ProjectRequestCategory;
+    const prefecture = (formData.get("prefecture") as string) || null;
+    const budgetStr = formData.get("budget") as string;
+    const budget = budgetStr ? parseInt(budgetStr, 10) : null;
+    const frequency = (formData.get("frequency") as ProjectFrequency) || "ONE_TIME";
+    const deadlineStr = formData.get("deadline") as string;
+    const deadline = deadlineStr ? new Date(deadlineStr) : null;
+    const targetCompanyIds = formData.getAll("targetCompanyIds") as string[];
+
+    if (!title) return { error: "案件名を入力してください" };
+    if (!description) return { error: "詳細を入力してください" };
+    if (!category) return { error: "カテゴリを選択してください" };
+
+    const created = await db.projectRequest.create({
+      data: {
+        title,
+        description,
+        category,
+        prefecture,
+        budget: budget && !isNaN(budget) ? budget : null,
+        frequency,
+        deadline,
+        postedByCompanyId: companyId,
+        postedByUserId: user.id,
+      },
+    });
+
+    // 選択された企業の応募を自動作成
+    if (targetCompanyIds.length > 0) {
+      const companies = await db.groupCompany.findMany({
+        where: { id: { in: targetCompanyIds }, isActive: true },
+        select: {
+          id: true,
+          chatSpaceId: true,
+          linkedUsers: { select: { id: true }, take: 1 },
+        },
+      });
+
+      for (const c of companies) {
+        if (!c.linkedUsers[0]) continue;
+        await db.projectApplication.create({
+          data: {
+            projectRequestId: created.id,
+            applicantCompanyId: c.id,
+            applicantUserId: c.linkedUsers[0].id,
+            message: "（管理者による割り当て）",
+            contributionScore: 0,
+          },
+        });
+      }
+
+      // 選択企業にChat通知
+      const catLabel = CATEGORY_OPTIONS.find((c) => c.value === category)?.label ?? category;
+      const budgetText = formatBudget(budget && !isNaN(budget) ? budget : null);
+      const message = [
+        "📢 新しい案件が投稿されました",
+        "",
+        `📋 ${title}`,
+        `🏷️ ${catLabel}`,
+        `💰 予算: ${budgetText}`,
+        "",
+        "▶ 詳細を確認して応募できます",
+        `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/dashboard/project-matching/${created.id}`,
+      ].join("\n");
+
+      const spaceIds = companies.map((c) => c.chatSpaceId).filter(Boolean);
+      if (spaceIds.length > 0) {
+        broadcastChatMessage(spaceIds, message).catch((err) =>
+          console.error("[project-matching] Admin Chat notification error:", err)
+        );
+      }
+    } else {
+      // 企業未選択の場合は通常通り全資格企業に通知
+      notifyEligibleCompanies({
+        title,
+        category,
+        frequency,
+        budget: budget && !isNaN(budget) ? budget : null,
+        prefecture,
+        postedByCompanyId: companyId,
+      }).catch((err) =>
+        console.error("[project-matching] Chat notification error:", err)
+      );
+    }
+
+    logAudit({
+      action: "project_request_created_admin",
+      email: user.email,
+      name: user.name,
+      entity: "project_request",
+      entityId: created.id,
+      detail: `${title} (targets: ${targetCompanyIds.length})`,
+    });
+
+    revalidatePath("/dashboard/project-matching");
+    return {};
+  } catch (e) {
+    console.error("[project-matching] Admin create error:", e);
+    const msg = e instanceof Error ? e.message : "投稿に失敗しました";
+    return { error: msg };
+  }
+}
+
+// ----------------------------------------------------------------
+// ADMIN: アクティブ企業一覧取得（投稿フォーム用）
+// ----------------------------------------------------------------
+export async function getActiveCompanies() {
+  const user = await requireAuth();
+  if (user.role !== "ADMIN") throw new Error("Forbidden");
+
+  return db.groupCompany.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, ownerName: true },
+    orderBy: { name: "asc" },
+  });
 }

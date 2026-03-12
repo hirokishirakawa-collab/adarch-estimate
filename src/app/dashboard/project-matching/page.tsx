@@ -1,21 +1,23 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getProjectRequests } from "@/lib/actions/project-matching";
+import { getProjectRequests, getAllProjectRequestsAdmin } from "@/lib/actions/project-matching";
 import {
   CATEGORY_OPTIONS,
   FREQUENCY_OPTIONS,
   STATUS_CONFIG,
   formatBudget,
 } from "@/lib/constants/project-matching";
-import { Plus, Users, MapPin, Calendar } from "lucide-react";
+import { Plus, Users, MapPin, Calendar, EyeOff } from "lucide-react";
 
 export default async function ProjectMatchingPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const role = (session.user.role ?? "USER") as import("@/types/roles").UserRole;
-  const requests = await getProjectRequests();
+  const requests = role === "ADMIN"
+    ? await getAllProjectRequestsAdmin()
+    : await getProjectRequests();
 
   return (
     <div className="space-y-5">
@@ -92,6 +94,12 @@ export default async function ProjectMatchingPage() {
                       >
                         {statusCfg.label}
                       </span>
+                      {"isHidden" in req && req.isHidden && (
+                        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-50 border border-amber-200 text-amber-700">
+                          <EyeOff className="w-2.5 h-2.5" />
+                          非公開
+                        </span>
+                      )}
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-violet-50 border border-violet-200 text-violet-700">
                         {catLabel}
                       </span>
