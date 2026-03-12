@@ -109,6 +109,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: ListChecks,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/video-achievements",
+        label: "競合実績スクレイピング（自動収集）",
+        icon: Target,
+        minRole: "USER",
+      },
       // 提案書AI - 非公開（URLアクセスは可能）
       // {
       //   href: "/dashboard/proposals",
@@ -171,12 +177,6 @@ const NAV_SECTIONS: NavSection[] = [
     section: "データベース",
     color: "text-teal-500/80",
     items: [
-      {
-        href: "/dashboard/video-achievements",
-        label: "競合実績DB（自動収集）",
-        icon: Target,
-        minRole: "USER",
-      },
       {
         href: "/dashboard/business-cards",
         label: "名刺管理",
