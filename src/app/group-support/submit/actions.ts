@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { calculateStatus, getWeekId } from "@/lib/constants/group-support";
 import { logAudit } from "@/lib/audit";
-import { sendGroupSupportAlertEmail } from "@/lib/resend";
+import { sendGroupSupportAlertEmail, sendGroupSupportAlertChat } from "@/lib/resend";
 
 export type SubmitState = {
   success?: boolean;
@@ -77,9 +77,9 @@ export async function submitWeeklyShare(
       detail: `${weekId} status=${status}`,
     });
 
-    // Q5がサポート要請の場合、即時メール通知
+    // Q5がサポート要請の場合、即時通知（メール＋Chat）
     if (q5 === "あると助かる" || q5 === "できれば早めに欲しい") {
-      sendGroupSupportAlertEmail({
+      const alertPayload = {
         companyName: company.name,
         ownerName: company.ownerName,
         companyId: company.id,
@@ -87,8 +87,12 @@ export async function submitWeeklyShare(
         q5,
         q4,
         weekId,
-      }).catch((e) =>
+      };
+      sendGroupSupportAlertEmail(alertPayload).catch((e) =>
         console.error("[group-support/submit] Alert email error:", e)
+      );
+      sendGroupSupportAlertChat(alertPayload).catch((e) =>
+        console.error("[group-support/submit] Alert chat error:", e)
       );
     }
 

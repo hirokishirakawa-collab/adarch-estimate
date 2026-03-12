@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------
 
 import { Resend } from "resend";
+import { notifyCeo } from "./google-chat";
 
 // ビルド時クラッシュ防止のため Proxy で遅延初期化
 let _resend: Resend | null = null;
@@ -137,10 +138,43 @@ export async function sendTverCampaignCreatedEmail(
   } catch (e) {
     console.error("[resend:tver-campaign-created] 例外:", e instanceof Error ? e.message : e);
   }
+
+  notifyCeo([
+    `📺 TVer配信申請`,
+    `キャンペーン: ${campaignName}`,
+    `広告主: ${advertiserName}`,
+    `予算: ${budget}`,
+    `期間: ${startDate} 〜 ${endDate}`,
+    `申請者: ${staffName}`,
+    `🔗 ${url}`,
+  ].join("\n")).catch(() => {});
 }
 
 // ---------------------------------------------------------------
-// グループサポート サポート要請アラート（→ 管理者）
+// グループサポート サポート要請 Google Chat 通知
+// Q5 が「あると助かる」または「できれば早めに欲しい」の場合に即時送信
+// ---------------------------------------------------------------
+export async function sendGroupSupportAlertChat(
+  payload: GroupSupportAlertPayload
+): Promise<void> {
+  const { companyName, ownerName, companyId, q1, q5, q4, weekId } = payload;
+  const isUrgent = q5 === "できれば早めに欲しい";
+  const emoji = isUrgent ? "🆘" : "🙏";
+  const url = appUrl(`/dashboard/group-support/${companyId}`);
+
+  const text =
+    `${emoji} *サポート要請* — ${companyName}（${ownerName}）\n\n` +
+    `📅 ${weekId}\n` +
+    `Q1. 今週の調子: ${q1}\n` +
+    `Q5. サポート: *${q5}*\n` +
+    `Q4. 相談内容: ${q4 || "（記載なし）"}\n\n` +
+    `👉 ${url}`;
+
+  await notifyCeo(text);
+}
+
+// ---------------------------------------------------------------
+// グループサポート サポート要請アラート メール（→ 管理者）
 // Q5 が「あると助かる」または「できれば早めに欲しい」の場合に即時送信
 // ---------------------------------------------------------------
 export type GroupSupportAlertPayload = {
@@ -334,6 +368,16 @@ export async function sendGroupWeeklyReportEmail(
   } catch (e) {
     console.error("[resend:group-weekly-report] 例外:", e instanceof Error ? e.message : e);
   }
+
+  const summarySnippet = aiSummary.length > 300 ? aiSummary.slice(0, 300) + "…" : aiSummary;
+  notifyCeo([
+    `📋 グループ週報 ${weekId}`,
+    `共有率: ${submitted}/${total}社（${rate}%）`,
+    `🟢${statusCounts["GREEN"] ?? 0} 🟡${statusCounts["YELLOW"] ?? 0} 🔴${statusCounts["RED"] ?? 0}`,
+    ``,
+    summarySnippet,
+    `🔗 ${appUrl("/dashboard/group-support")}`,
+  ].join("\n")).catch(() => {});
 }
 
 // ---------------------------------------------------------------

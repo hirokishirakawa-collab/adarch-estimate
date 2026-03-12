@@ -17,7 +17,7 @@
 // ---------------------------------------------------------------
 
 import { google } from "googleapis";
-import { sendChatMessage } from "./google-chat";
+import { sendChatMessage, notifyCeo } from "./google-chat";
 import { db } from "./db";
 
 const FROM_ADDRESS = `Ad-Arch Group <${process.env.GMAIL_USER ?? "hiroki.shirakawa@adarch.co.jp"}>`;
@@ -267,6 +267,7 @@ export async function sendDealNotification(
   ].filter(Boolean).join("\n");
 
   await sendChatMessage(DEAL_CHAT_SPACE_ID, text);
+  notifyCeo(text).catch(() => {});
 }
 
 // ---------------------------------------------------------------
@@ -455,6 +456,16 @@ export async function sendInvoiceNotification(
   const to = resolveRecipients("ceo_only");
   const { subject, html } = buildInvoiceEmail(payload, eventLabel);
   await sendEmail("invoice", to, subject, html);
+
+  const url = appUrl(`/dashboard/billing/${payload.requestId}`);
+  notifyCeo([
+    `💰 請求依頼${eventLabel}`,
+    `件名: ${payload.subject}`,
+    `請求先: ${payload.clientName}`,
+    `金額: ¥${payload.amountInclTax.toLocaleString("ja-JP")}（税込）`,
+    `申請者: ${payload.creatorName}`,
+    `🔗 ${url}`,
+  ].join("\n")).catch(() => {});
 }
 
 function buildInvoiceEmail(
@@ -568,6 +579,16 @@ export async function sendRevenueNotification(
   const to = ["hiroki.shirakawa@adarch.co.jp"];
   const { subject, html } = buildRevenueEmail(payload);
   await sendEmail("revenue", to, subject, html);
+
+  const eventLabel = payload.eventType === "REVENUE_CREATED" ? "新規登録" : "更新";
+  notifyCeo([
+    `📊 売上報告${eventLabel}`,
+    `計上月: ${payload.targetMonth}`,
+    `金額: ¥${payload.amount.toLocaleString("ja-JP")}`,
+    `プロジェクト: ${payload.projectName ?? "—"}`,
+    `操作者: ${payload.staffName}`,
+    `🔗 ${appUrl("/dashboard/sales-report")}`,
+  ].join("\n")).catch(() => {});
 }
 
 function buildRevenueEmail(payload: RevenueNotificationPayload): {
@@ -682,6 +703,15 @@ export async function sendEstimateNotification(
   const to = resolveRecipients("ceo_only");
   const { subject, html } = buildEstimateEmail(payload);
   await sendEmail("estimate", to, subject, html);
+
+  notifyCeo([
+    `📝 見積発行`,
+    `顧客: ${payload.customerName}`,
+    `件名: ${payload.title}`,
+    `金額: ¥${payload.totalInclTax.toLocaleString("ja-JP")}（税込）`,
+    `担当: ${payload.staffName}`,
+    `🔗 ${appUrl(`/dashboard/estimates/${payload.estimationId}`)}`,
+  ].join("\n")).catch(() => {});
 }
 
 function buildEstimateEmail(payload: EstimateNotificationPayload): {
@@ -797,6 +827,15 @@ export async function sendMediaRequestNotification(
   const to = resolveRecipients("ceo_only");
   const { subject, html } = buildMediaRequestEmail(payload);
   await sendEmail("media", to, subject, html);
+
+  notifyCeo([
+    `📺 媒体依頼`,
+    `媒体: ${payload.mediaTypeLabel} / ${payload.mediaName}`,
+    `顧客: ${payload.customerName ?? "—"}`,
+    `予算: ${payload.budget ?? "—"}`,
+    `申請者: ${payload.staffName}`,
+    `🔗 ${appUrl(`/dashboard/media/${payload.requestId}`)}`,
+  ].join("\n")).catch(() => {});
 }
 
 function buildMediaRequestEmail(payload: MediaRequestNotificationPayload): {
@@ -914,6 +953,13 @@ export async function sendAdvertiserReviewCreatedNotification(
   const to = resolveRecipients("ceo_only");
   const { subject, html } = buildAdvertiserReviewCreatedEmail(payload);
   await sendEmail("advertiser-review-created", to, subject, html);
+
+  notifyCeo([
+    `🔍 TVer業態考査 新規申請`,
+    `広告主: ${payload.advertiserName}`,
+    `申請者: ${payload.staffName}`,
+    `🔗 ${appUrl(`/dashboard/tver-review/${payload.reviewId}`)}`,
+  ].join("\n")).catch(() => {});
 }
 
 function buildAdvertiserReviewCreatedEmail(
@@ -1127,6 +1173,7 @@ export async function sendCustomerNotification(
   ].join("\n");
 
   await sendChatMessage(DEAL_CHAT_SPACE_ID, text);
+  notifyCeo(text).catch(() => {});
 }
 
 function buildCustomerEmail(payload: CustomerNotificationPayload): {
@@ -1279,6 +1326,8 @@ export async function sendCollaborationNotification(
     const { subject, html } = buildCollaborationEmail(payload);
     await sendEmail("collaboration", emailFallback, subject, html);
   }
+
+  notifyCeo(text).catch(() => {});
 }
 
 function buildCollaborationEmail(payload: CollaborationNotificationPayload): {
@@ -1434,6 +1483,15 @@ export async function sendDisclosureNotification(
 </html>`;
 
     await sendEmail("disclosure-request", ceoRecipients, subject, html);
+
+    const purposeSnippetCeo = payload.purpose.length > 80 ? payload.purpose.slice(0, 80) + "…" : payload.purpose;
+    notifyCeo([
+      "🔔 名刺開示申請",
+      `対象: ${companyName} / ${cardOwnerName}`,
+      `申請者: ${requesterName}`,
+      `目的: ${purposeSnippetCeo}`,
+      `🔗 ${url}`,
+    ].join("\n")).catch(() => {});
 
     // 名刺所有者へ Chat（chatSpaceId があれば）、なければメール
     const ownerSpaceId = await getUserChatSpaceId(payload.cardOwnerEmail);
@@ -1594,4 +1652,14 @@ export async function sendGroupWeeklyReportEmail(
 </html>`;
 
   await sendEmail("group-weekly-report", to, subject, html);
+
+  const summarySnippet = aiSummary.length > 300 ? aiSummary.slice(0, 300) + "…" : aiSummary;
+  notifyCeo([
+    `📋 グループ週報 ${weekId}`,
+    `共有率: ${submitted}/${total}社（${rate}%）`,
+    `🟢${statusCounts["GREEN"] ?? 0} 🟡${statusCounts["YELLOW"] ?? 0} 🔴${statusCounts["RED"] ?? 0}`,
+    ``,
+    summarySnippet,
+    `🔗 ${dashboardUrl}`,
+  ].join("\n")).catch(() => {});
 }

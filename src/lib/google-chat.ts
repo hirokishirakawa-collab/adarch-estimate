@@ -51,6 +51,27 @@ export async function sendChatMessage(
 }
 
 /**
+ * CEO通知スペースにメッセージを送信（全通知の集約先）
+ * 環境変数 GROUP_SUPPORT_ALERT_CHAT_WEBHOOK を使用
+ */
+export async function notifyCeo(text: string): Promise<void> {
+  const webhookUrl = process.env.GROUP_SUPPORT_ALERT_CHAT_WEBHOOK;
+  if (!webhookUrl) return;
+  try {
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=UTF-8" },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      console.error("[google-chat:ceo] Send failed:", res.status);
+    }
+  } catch (e) {
+    console.error("[google-chat:ceo] Error:", e instanceof Error ? e.message : e);
+  }
+}
+
+/**
  * 複数の spaceId に同じメッセージを送信（並列、失敗しても他は続行）
  */
 export async function broadcastChatMessage(
