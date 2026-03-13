@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel } from "@/lib/constants/leads";
@@ -38,16 +38,33 @@ interface Props {
 }
 
 export function LeadListTable({ leads, users, isAdmin }: Props) {
+  const searchParams = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, startDeleting] = useTransition();
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
 
-  const handleExportSelected = async (format: "csv" | "pdf") => {
-    if (selectedIds.size === 0) return;
+  const handleExport = async (format: "csv" | "pdf") => {
     setExporting(format);
     try {
-      const ids = Array.from(selectedIds).join(",");
-      const res = await fetch(`/api/leads/export?format=${format}&ids=${encodeURIComponent(ids)}`);
+      const params = new URLSearchParams();
+      params.set("format", format);
+
+      if (selectedIds.size > 0) {
+        // 選択ありなら選択分のみ
+        params.set("ids", Array.from(selectedIds).join(","));
+      } else {
+        // 選択なしならフィルター条件で全件
+        const q = searchParams.get("q");
+        const status = searchParams.get("status");
+        const industry = searchParams.get("industry");
+        const area = searchParams.get("area");
+        if (q) params.set("q", q);
+        if (status) params.set("status", status);
+        if (industry) params.set("industry", industry);
+        if (area) params.set("area", area);
+      }
+
+      const res = await fetch(`/api/leads/export?${params.toString()}`);
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -105,20 +122,40 @@ export function LeadListTable({ leads, users, isAdmin }: Props) {
 
   return (
     <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-      {/* 操作アイコン凡例 */}
-      <div className="flex items-center justify-end gap-4 px-4 py-2 border-b border-zinc-100 bg-zinc-50/50">
-        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
-          <ClipboardList className="w-3 h-3 text-amber-500" /> ヒアリング
-        </span>
-        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
-          <Sparkles className="w-3 h-3 text-purple-500" /> AI営業提案
-        </span>
-        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
-          <ExternalLink className="w-3 h-3 text-blue-500" /> Map確認
-        </span>
-        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
-          <ArrowRightLeft className="w-3 h-3 text-emerald-500" /> 顧客に転換
-        </span>
+      {/* 操作アイコン凡例 + エクスポート */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-100 bg-zinc-50/50">
+        <div className="flex items-center gap-4">
+          <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+            <ClipboardList className="w-3 h-3 text-amber-500" /> ヒアリング
+          </span>
+          <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+            <Sparkles className="w-3 h-3 text-purple-500" /> AI営業提案
+          </span>
+          <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+            <ExternalLink className="w-3 h-3 text-blue-500" /> Map確認
+          </span>
+          <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+            <ArrowRightLeft className="w-3 h-3 text-emerald-500" /> 顧客に転換
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleExport("csv")}
+            disabled={exporting !== null}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 transition-colors"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            {exporting === "csv" ? "出力中..." : "CSV"}
+          </button>
+          <button
+            onClick={() => handleExport("pdf")}
+            disabled={exporting !== null}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            {exporting === "pdf" ? "出力中..." : "PDF"}
+          </button>
+        </div>
       </div>
 
       {/* 選択削除バー */}
@@ -129,20 +166,20 @@ export function LeadListTable({ leads, users, isAdmin }: Props) {
           </p>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => handleExportSelected("csv")}
+              onClick={() => handleExport("csv")}
               disabled={exporting !== null}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 transition-colors"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              {exporting === "csv" ? "出力中..." : "CSV"}
+              {exporting === "csv" ? "出力中..." : "選択分CSV"}
             </button>
             <button
-              onClick={() => handleExportSelected("pdf")}
+              onClick={() => handleExport("pdf")}
               disabled={exporting !== null}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 transition-colors"
             >
               <FileText className="w-3.5 h-3.5" />
-              {exporting === "pdf" ? "出力中..." : "PDF"}
+              {exporting === "pdf" ? "出力中..." : "選択分PDF"}
             </button>
             <Button
               size="sm"

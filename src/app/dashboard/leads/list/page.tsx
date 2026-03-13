@@ -163,9 +163,6 @@ export default async function LeadListPage({ searchParams }: PageProps) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Suspense>
-            <LeadExportButtons />
-          </Suspense>
           {isAdmin && <LeadDeleteAllButton totalCount={totalAll} />}
         </div>
       </div>
