@@ -38,6 +38,7 @@ interface Props {
 export function DealForm({ customers, users, preselectedCustomerId }: Props) {
   const [state, action, pending] = useActionState(createDeal, null);
   const [hearingOpen, setHearingOpen] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState("PROSPECTING");
 
   // ヒアリング用のマルチセレクト state（hidden input で送信）
   const [targetCustomers, setTargetCustomers] = useState<string[]>([]);
@@ -82,16 +83,33 @@ export function DealForm({ customers, users, preselectedCustomerId }: Props) {
         </div>
       )}
 
+      {/* ========== ステータス選択（一番上） ========== */}
+      <div>
+        <label className="block text-xs font-semibold text-zinc-800 mb-2">
+          どのフェーズの商談ですか？ <span className="text-red-500">*</span>
+        </label>
+        <input type="hidden" name="status" value={selectedStatus} />
+        <div className="flex flex-wrap gap-2">
+          {DEAL_STATUS_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setSelectedStatus(opt.value)}
+              className={`px-3.5 py-2 rounded-lg text-xs font-semibold border-2 transition-all ${
+                selectedStatus === opt.value
+                  ? opt.color + " ring-2 ring-offset-1 ring-blue-400 scale-105"
+                  : "bg-white text-zinc-400 border-zinc-200 hover:border-zinc-300"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* ========== 商談基本情報 ========== */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-zinc-800 border-b border-zinc-200 pb-2">商談情報</h3>
-
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">
-            商談タイトル <span className="text-red-500">*</span>
-          </label>
-          <input name="title" type="text" placeholder="例: ○○社 Web広告運用支援" required className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
 
         <div>
           <label className="block text-xs font-medium text-zinc-700 mb-1">
@@ -131,13 +149,14 @@ export function DealForm({ customers, users, preselectedCustomerId }: Props) {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1">ステータス</label>
-            <select name="status" defaultValue="PROSPECTING" className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              {DEAL_STATUS_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-            </select>
-          </div>
+        <div>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">
+            商談タイトル <span className="text-red-500">*</span>
+          </label>
+          <input name="title" type="text" placeholder="例: ○○社 Web広告運用支援" required className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-zinc-700 mb-1">見積金額（円）</label>
             <input name="amount" type="number" min="0" placeholder="例: 500000" className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
