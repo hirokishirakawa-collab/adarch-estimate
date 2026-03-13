@@ -21,7 +21,11 @@ export function DealDeleteButton({ dealId, dealTitle }: Props) {
     if (!confirmed) return;
 
     startTransition(async () => {
-      await deleteDeal(dealId);
+      const result = await deleteDeal(dealId);
+      if (result.error) {
+        alert(result.error);
+        return;
+      }
       router.push("/dashboard/deals");
       router.refresh();
     });

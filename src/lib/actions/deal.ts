@@ -417,5 +417,5 @@ export async function deleteDeal(dealId: string): Promise<{ error?: string }> {
   }
 
   revalidatePath("/dashboard/deals");
-  redirect("/dashboard/deals");
+  return {};
 }
