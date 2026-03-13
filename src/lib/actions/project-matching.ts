@@ -298,6 +298,26 @@ export async function getProjectRequests() {
 }
 
 // ----------------------------------------------------------------
+// 締め切り済み案件取得（MATCHED / CLOSED）
+// ----------------------------------------------------------------
+export async function getClosedProjectRequests() {
+  await requireAuth();
+
+  return db.projectRequest.findMany({
+    where: { status: { in: ["MATCHED", "CLOSED"] }, isHidden: false },
+    orderBy: { updatedAt: "desc" },
+    take: 20,
+    include: {
+      postedByCompany: { select: { name: true, ownerName: true } },
+      matchedCompany: { select: { name: true } },
+      applications: {
+        select: { id: true, applicantCompanyId: true },
+      },
+    },
+  });
+}
+
+// ----------------------------------------------------------------
 // 全案件取得（管理者・自社投稿含む）
 // ----------------------------------------------------------------
 export async function getMyProjectRequests() {

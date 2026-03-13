@@ -1,14 +1,14 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getProjectRequests, getAllProjectRequestsAdmin } from "@/lib/actions/project-matching";
+import { getProjectRequests, getAllProjectRequestsAdmin, getClosedProjectRequests } from "@/lib/actions/project-matching";
 import {
   CATEGORY_OPTIONS,
   FREQUENCY_OPTIONS,
   STATUS_CONFIG,
   formatBudget,
 } from "@/lib/constants/project-matching";
-import { Plus, Users, MapPin, Calendar, EyeOff } from "lucide-react";
+import { Plus, Users, MapPin, Calendar, EyeOff, Archive } from "lucide-react";
 
 export default async function ProjectMatchingPage() {
   const session = await auth();
@@ -18,6 +18,7 @@ export default async function ProjectMatchingPage() {
   const requests = role === "ADMIN"
     ? await getAllProjectRequestsAdmin()
     : await getProjectRequests();
+  const closedRequests = role !== "ADMIN" ? await getClosedProjectRequests() : [];
 
   return (
     <div className="space-y-5">
@@ -149,6 +150,61 @@ export default async function ProjectMatchingPage() {
             );
           })}
         </div>
+      )}
+
+      {/* 締め切り済み案件 */}
+      {closedRequests.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-4">
+            <Archive className="w-4 h-4 text-zinc-400" />
+            <h2 className="text-sm font-semibold text-zinc-600">過去の案件</h2>
+            <span className="text-[10px] text-zinc-400">（直近20件）</span>
+          </div>
+          <div className="grid gap-2">
+            {closedRequests.map((req) => {
+              const catLabel =
+                CATEGORY_OPTIONS.find((c) => c.value === req.category)?.label ??
+                req.category;
+              const statusCfg = STATUS_CONFIG[req.status];
+
+              return (
+                <Link
+                  key={req.id}
+                  href={`/dashboard/project-matching/${req.id}`}
+                  className="block rounded-lg border border-zinc-100 bg-zinc-50 p-3 hover:border-zinc-300 transition-all"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${statusCfg.bgColor} ${statusCfg.color}`}
+                        >
+                          {statusCfg.label}
+                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-violet-50 border border-violet-200 text-violet-700">
+                          {catLabel}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-medium text-zinc-700 truncate">
+                        {req.title}
+                      </h3>
+                      <div className="flex items-center gap-3 mt-1.5 text-[11px] text-zinc-400">
+                        <span>{req.postedByCompany.name}</span>
+                        <span>予算: {formatBudget(req.budget)}</span>
+                        {req.matchedCompany && (
+                          <span className="text-emerald-600">
+                            → {req.matchedCompany.name}
+                          </span>
+                        )}
+                        <span>応募 {req.applications.length}件</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
