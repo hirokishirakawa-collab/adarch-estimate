@@ -2,8 +2,10 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DealKanban } from "@/components/deals/deal-kanban";
+import { DealSearch } from "@/components/deals/deal-search";
 import { ArchiveToggle } from "@/components/deals/archive-toggle";
 import { DealViewTabs } from "@/components/deals/deal-view-tabs";
+import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 import { TrendingUp, Plus } from "lucide-react";
 import type { Prisma, DealStatus } from "@/generated/prisma/client";
 
@@ -85,6 +87,10 @@ export default async function DealsPage({ searchParams }: PageProps) {
           <DealViewTabs />
         </div>
         <div className="flex items-center gap-2">
+          <DealSearch
+            deals={deals.map((d) => ({ id: d.id, title: d.title, status: d.status, customer: { name: d.customer.name } }))}
+            statusLabels={Object.fromEntries(DEAL_STATUS_OPTIONS.map((o) => [o.value, o.label]))}
+          />
           <ArchiveToggle showArchived={showArchived} archivedCount={archivedCount} />
           <Link
             href="/dashboard/deals/new"
