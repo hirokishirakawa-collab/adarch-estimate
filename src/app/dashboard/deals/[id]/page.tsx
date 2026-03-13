@@ -84,19 +84,19 @@ export default async function DealDetailPage({ params }: PageProps) {
               </span>
             )}
 
-            {/* 商談タイトル（プロジェクト名） */}
-            <h1 className="text-xl font-bold text-zinc-900 leading-snug mb-1">
-              {deal.title}
+            {/* 顧客名（リンク） */}
+            <h1 className="text-xl font-bold text-zinc-900 leading-snug mb-0.5">
+              <Link
+                href={`/dashboard/customers/${deal.customer.id}`}
+                className="hover:text-blue-600 transition-colors inline-flex items-center gap-1"
+              >
+                {deal.customer.name}
+                <Users className="w-4 h-4 text-zinc-300" />
+              </Link>
             </h1>
 
-            {/* 顧客名（リンク） */}
-            <Link
-              href={`/dashboard/customers/${deal.customer.id}`}
-              className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-blue-600 transition-colors"
-            >
-              <Users className="w-3.5 h-3.5" />
-              {deal.customer.name}
-            </Link>
+            {/* 商談タイトル */}
+            <p className="text-sm text-zinc-500">{deal.title}</p>
           </div>
 
           {/* 編集 / 削除ボタン */}
