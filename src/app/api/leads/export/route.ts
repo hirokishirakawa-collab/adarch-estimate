@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
 
   const params = req.nextUrl.searchParams;
   const format = params.get("format") ?? "csv";
+  const idsParam = params.get("ids") ?? "";
   const q = params.get("q")?.trim() ?? "";
   const statusParam = params.get("status") ?? "";
   const industryParam = params.get("industry") ?? "";
@@ -24,21 +25,28 @@ export async function GET(req: NextRequest) {
 
   // WHERE 条件
   type WhereInput = {
+    id?: { in: string[] };
     OR?: Array<Record<string, unknown>>;
     status?: LeadStatus;
     industry?: string;
     area?: { contains: string; mode: "insensitive" };
   };
   const where: WhereInput = {};
-  if (q) {
-    where.OR = [
-      { name: { contains: q, mode: "insensitive" } },
-      { address: { contains: q, mode: "insensitive" } },
-    ];
+
+  // 選択IDが指定されている場合はそのIDのみ対象
+  if (idsParam) {
+    where.id = { in: idsParam.split(",") };
+  } else {
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { address: { contains: q, mode: "insensitive" } },
+      ];
+    }
+    if (statusParam) where.status = statusParam as LeadStatus;
+    if (industryParam) where.industry = industryParam;
+    if (areaParam) where.area = { contains: areaParam, mode: "insensitive" };
   }
-  if (statusParam) where.status = statusParam as LeadStatus;
-  if (industryParam) where.industry = industryParam;
-  if (areaParam) where.area = { contains: areaParam, mode: "insensitive" };
 
   const leads = await db.lead.findMany({
     where,

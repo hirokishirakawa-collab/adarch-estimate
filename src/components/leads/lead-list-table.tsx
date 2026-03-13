@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList } from "lucide-react";
+import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel } from "@/lib/constants/leads";
 import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads } from "@/lib/actions/lead";
@@ -40,6 +40,30 @@ interface Props {
 export function LeadListTable({ leads, users, isAdmin }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, startDeleting] = useTransition();
+  const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
+
+  const handleExportSelected = async (format: "csv" | "pdf") => {
+    if (selectedIds.size === 0) return;
+    setExporting(format);
+    try {
+      const ids = Array.from(selectedIds).join(",");
+      const res = await fetch(`/api/leads/export?format=${format}&ids=${encodeURIComponent(ids)}`);
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? `leads.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("エクスポートに失敗しました");
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -99,24 +123,42 @@ export function LeadListTable({ leads, users, isAdmin }: Props) {
 
       {/* 選択削除バー */}
       {isAdmin && selectedIds.size > 0 && (
-        <div className="flex items-center justify-between px-4 py-2 bg-red-50 border-b border-red-100">
-          <p className="text-sm text-red-700">
+        <div className="flex items-center justify-between px-4 py-2 bg-zinc-50 border-b border-zinc-200">
+          <p className="text-sm text-zinc-700">
             <strong>{selectedIds.size}件</strong> 選択中
           </p>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={handleDeleteSelected}
-            disabled={isDeleting}
-            className="gap-1.5"
-          >
-            {isDeleting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Trash2 className="w-3.5 h-3.5" />
-            )}
-            選択した{selectedIds.size}件を削除
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleExportSelected("csv")}
+              disabled={exporting !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 transition-colors"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              {exporting === "csv" ? "出力中..." : "CSV"}
+            </button>
+            <button
+              onClick={() => handleExportSelected("pdf")}
+              disabled={exporting !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 transition-colors"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              {exporting === "pdf" ? "出力中..." : "PDF"}
+            </button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleDeleteSelected}
+              disabled={isDeleting}
+              className="gap-1.5"
+            >
+              {isDeleting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="w-3.5 h-3.5" />
+              )}
+              削除
+            </Button>
+          </div>
         </div>
       )}
 
