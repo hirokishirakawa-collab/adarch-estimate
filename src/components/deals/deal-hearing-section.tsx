@@ -192,6 +192,29 @@ export function DealHearingSection({ dealId, dealTitle }: Props) {
                 </button>
               </div>
 
+              {/* G. ヒアリング管理（最上部） */}
+              <div className="mb-4">
+                <Section icon={<MessageSquare className="w-3.5 h-3.5 text-amber-700" />} title="ヒアリング管理">
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+                    <Field label="ヒアリング回数">
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <button key={n} type="button" onClick={() => setForm({ ...form, hearingRound: form.hearingRound === n ? null : n })} className={`w-8 h-8 rounded-lg text-xs font-semibold border transition-colors ${form.hearingRound === n ? "bg-amber-600 text-white border-amber-600" : "bg-white text-zinc-500 border-zinc-200 hover:border-amber-300"}`}>{n}</button>
+                          ))}
+                        </div>
+                        <span className="text-[10px] text-zinc-400">回目</span>
+                      </div>
+                    </Field>
+                    <div className="lg:col-span-3">
+                      <Field label="自由記載欄">
+                        <textarea value={form.freeNotes} onChange={(e) => setForm({ ...form, freeNotes: e.target.value })} placeholder="ヒアリングで気づいたこと、補足情報、次回への申し送りなど自由に記入" rows={3} className="text-xs border border-zinc-200 rounded-md px-2.5 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none" />
+                      </Field>
+                    </div>
+                  </div>
+                </Section>
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* A. 顧客理解 */}
                 <Section icon={<Building2 className="w-3.5 h-3.5 text-amber-700" />} title="顧客理解">
@@ -261,28 +284,6 @@ export function DealHearingSection({ dealId, dealTitle }: Props) {
                   </Section>
                 </div>
 
-                {/* G. ヒアリング管理 */}
-                <div className="lg:col-span-2">
-                  <Section icon={<MessageSquare className="w-3.5 h-3.5 text-amber-700" />} title="ヒアリング管理">
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-                      <Field label="ヒアリング回数">
-                        <div className="flex items-center gap-2">
-                          <div className="flex gap-1">
-                            {[1, 2, 3, 4, 5].map((n) => (
-                              <button key={n} type="button" onClick={() => setForm({ ...form, hearingRound: form.hearingRound === n ? null : n })} className={`w-8 h-8 rounded-lg text-xs font-semibold border transition-colors ${form.hearingRound === n ? "bg-amber-600 text-white border-amber-600" : "bg-white text-zinc-500 border-zinc-200 hover:border-amber-300"}`}>{n}</button>
-                            ))}
-                          </div>
-                          <span className="text-[10px] text-zinc-400">回目</span>
-                        </div>
-                      </Field>
-                      <div className="lg:col-span-3">
-                        <Field label="自由記載欄">
-                          <textarea value={form.freeNotes} onChange={(e) => setForm({ ...form, freeNotes: e.target.value })} placeholder="ヒアリングで気づいたこと、補足情報、次回への申し送りなど自由に記入" rows={3} className="text-xs border border-zinc-200 rounded-md px-2.5 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none" />
-                        </Field>
-                      </div>
-                    </div>
-                  </Section>
-                </div>
               </div>
 
               <div className="flex justify-end mt-4">

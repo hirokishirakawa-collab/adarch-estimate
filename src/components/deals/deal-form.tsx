@@ -211,6 +211,25 @@ export function DealForm({ customers, users, preselectedCustomerId }: Props) {
             {videoPublishTo.map((v) => <input key={v} type="hidden" name="h_videoPublishTo" value={v} />)}
             {temperature && <input type="hidden" name="h_temperature" value={temperature} />}
 
+            {/* G. ヒアリング管理（最上部） */}
+            <div className="mb-4">
+              <Section icon={<Building2 className="w-3.5 h-3.5 text-amber-700" />} title="ヒアリング管理">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+                  <Field label="ヒアリング回数">
+                    <select name="h_hearingRound" className={inCls + " bg-white"}>
+                      <option value="">選択</option>
+                      {[1, 2, 3, 4, 5].map((n) => (<option key={n} value={n}>{n}回目</option>))}
+                    </select>
+                  </Field>
+                  <div className="lg:col-span-3">
+                    <Field label="自由記載欄">
+                      <textarea name="h_freeNotes" placeholder="ヒアリングで気づいたこと、補足情報など自由に記入" rows={3} className={txCls} />
+                    </Field>
+                  </div>
+                </div>
+              </Section>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* A. 顧客理解 */}
               <Section icon={<Building2 className="w-3.5 h-3.5 text-amber-700" />} title="顧客理解">
@@ -294,24 +313,6 @@ export function DealForm({ customers, users, preselectedCustomerId }: Props) {
                   </Section>
                 </div>
 
-                {/* G. ヒアリング管理 */}
-                <div className="lg:col-span-2">
-                  <Section icon={<Building2 className="w-3.5 h-3.5 text-amber-700" />} title="ヒアリング管理">
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-                      <Field label="ヒアリング回数">
-                        <select name="h_hearingRound" className={inCls + " bg-white"}>
-                          <option value="">選択</option>
-                          {[1, 2, 3, 4, 5].map((n) => (<option key={n} value={n}>{n}回目</option>))}
-                        </select>
-                      </Field>
-                      <div className="lg:col-span-3">
-                        <Field label="自由記載欄">
-                          <textarea name="h_freeNotes" placeholder="ヒアリングで気づいたこと、補足情報など自由に記入" rows={3} className={txCls} />
-                        </Field>
-                      </div>
-                    </div>
-                  </Section>
-                </div>
               </div>
             </div>
           </div>
