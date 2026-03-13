@@ -117,8 +117,8 @@ export function DealList({ deals }: { deals: Deal[] }) {
             <thead>
               <tr className="bg-zinc-50 border-b border-zinc-100">
                 {[
+                  ["プロジェクト", "text-left"],
                   ["会社名", "text-left"],
-                  ["商談タイトル", "text-left"],
                   ["ステータス", "text-left"],
                   ["確度", "text-right"],
                   ["予定日", "text-left"],
@@ -141,26 +141,26 @@ export function DealList({ deals }: { deals: Deal[] }) {
                 const statusOpt = DEAL_STATUS_OPTIONS.find((o) => o.value === deal.status);
                 return (
                   <tr key={deal.id} className="hover:bg-zinc-50/50 transition-colors group">
-                    {/* 会社名 */}
+                    {/* プロジェクト名 */}
                     <td className="px-4 py-3 align-top">
                       <Link
                         href={`/dashboard/deals/${deal.id}`}
                         className="font-semibold text-zinc-900 hover:text-blue-600 transition-colors text-sm leading-snug"
                       >
-                        {deal.customer.name}
+                        {deal.title || "—"}
                       </Link>
+                    </td>
+
+                    {/* 会社名 */}
+                    <td className="px-4 py-3 align-top max-w-[220px]">
+                      <p className="text-xs text-zinc-600 leading-snug">
+                        {deal.customer.name}
+                      </p>
                       {deal.customer.prefecture && (
                         <p className="text-[10px] text-zinc-400 mt-0.5">
                           📍 {deal.customer.prefecture}
                         </p>
                       )}
-                    </td>
-
-                    {/* 商談タイトル */}
-                    <td className="px-4 py-3 align-top max-w-[220px]">
-                      <p className="text-xs text-zinc-600 line-clamp-2 leading-snug">
-                        {deal.title || "—"}
-                      </p>
                     </td>
 
                     {/* ステータス */}
