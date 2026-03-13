@@ -60,7 +60,7 @@ export function DealEditForm({ action, defaultValues, users }: Props) {
       {/* 金額・確度 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-zinc-700 mb-1.5">見込み金額（円）</label>
+          <label className="block text-xs font-semibold text-zinc-700 mb-1.5">見込み金額（円） <span className="text-[10px] font-normal text-zinc-400">※他拠点には表示されません</span></label>
           <input
             type="number"
             name="amount"
