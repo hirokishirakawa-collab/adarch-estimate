@@ -44,16 +44,19 @@ export function DealCard({ deal, isOverlay, isArchived, isDuplicate }: DealCardP
   // ── テキスト部分（Link の中身） ──────────────────────────────────
   const textContent = (
     <>
+      {isDuplicate && (
+        <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1 py-px mb-1" title="この顧客には複数の商談があります">
+          <AlertTriangle className="w-2.5 h-2.5" />
+          複数商談あり
+        </span>
+      )}
       <p className="text-sm font-bold text-zinc-900 leading-snug line-clamp-2 mb-1">
-        {isDuplicate && (
-          <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1 py-px mr-1 align-middle" title="この顧客は他のフェーズにも商談があります">
-            <AlertTriangle className="w-2.5 h-2.5" />
-            重複
-          </span>
-        )}
+        {deal.title}
+      </p>
+      <p className="text-[11px] text-zinc-500 truncate leading-snug">
         {deal.customer.name}
       </p>
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap mt-1">
         {deal.customer.prefecture && (
           <span className="text-[10px] text-zinc-400">
             📍 {deal.customer.prefecture}
@@ -66,11 +69,6 @@ export function DealCard({ deal, isOverlay, isArchived, isDuplicate }: DealCardP
           </span>
         )}
       </div>
-      {deal.title && (
-        <p className="text-[10px] text-zinc-400 mt-1 truncate leading-snug">
-          {deal.title}
-        </p>
-      )}
     </>
   );
 
