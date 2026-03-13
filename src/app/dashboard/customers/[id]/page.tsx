@@ -32,7 +32,12 @@ import {
   Pencil,
   FolderKanban,
   ClipboardList,
+  Plus,
+  FileCheck,
+  Percent,
+  Calendar,
 } from "lucide-react";
+import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 import { DealStatusEditor } from "@/components/customers/deal-status-editor";
 import { ActivityForm } from "@/components/customers/activity-form";
 import { ActivityTimeline } from "@/components/customers/activity-timeline";
@@ -69,6 +74,12 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     db.deal.findMany({
       where: { customerId: id },
       orderBy: { createdAt: "desc" },
+      include: {
+        assignedTo: { select: { name: true } },
+        hearingSheet: { select: { id: true, hearingRound: true, temperature: true } },
+        decisionSheet: { select: { id: true, clientApproval: true, internalApproval: true } },
+        _count: { select: { dealLogs: true } },
+      },
     }),
     db.activityLog.findMany({
       where: { customerId: id },
@@ -411,71 +422,169 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* ===== 商談（DB・ステータス編集可能）===== */}
+      {/* ===== 商談（プロジェクト統括）===== */}
       <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-        <SectionHeader
-          icon={<TrendingUp className="w-3.5 h-3.5" />}
-          title={`商談 ${dbDeals.length} 件`}
-        />
+        <div className="px-5 py-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/60">
+          <div className="flex items-center gap-2">
+            <span className="text-zinc-400"><TrendingUp className="w-3.5 h-3.5" /></span>
+            <h3 className="text-xs font-semibold text-zinc-600">商談・プロジェクト {dbDeals.length} 件</h3>
+          </div>
+          <Link
+            href={`/dashboard/deals/new?customerId=${id}`}
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-blue-600 border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
+          >
+            <Plus className="w-3 h-3" />
+            新規商談
+          </Link>
+        </div>
 
         {dbDeals.length === 0 ? (
-          <div className="px-6 py-10 text-center text-sm text-zinc-400">
-            商談データがありません
+          <div className="px-6 py-10 text-center">
+            <p className="text-sm text-zinc-400 mb-2">商談データがありません</p>
+            <Link
+              href={`/dashboard/deals/new?customerId=${id}`}
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+            >
+              <Plus className="w-3 h-3" /> 最初の商談を作成する
+            </Link>
           </div>
         ) : (
-          <div className="divide-y divide-zinc-100">
-            {dbDeals.map((deal) => {
-              const { display, masked } = maskAmount(
-                deal.amount ? Number(deal.amount) : null,
-                userBranchId,
-                deal.branchId
-              );
+          <>
+            {/* サマリー */}
+            {(() => {
+              const active = dbDeals.filter((d) => d.status !== "CLOSED_WON" && d.status !== "CLOSED_LOST");
+              const won = dbDeals.filter((d) => d.status === "CLOSED_WON");
+              const lost = dbDeals.filter((d) => d.status === "CLOSED_LOST");
+              const totalAmount = dbDeals.reduce((sum, d) => {
+                if (!d.amount) return sum;
+                const { masked: m } = maskAmount(Number(d.amount), userBranchId, d.branchId);
+                return m ? sum : sum + Number(d.amount);
+              }, 0);
 
               return (
-                <div key={deal.id} className="px-6 py-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-2 flex-1 min-w-0">
-                      <p className="text-sm font-medium text-zinc-800 leading-snug">
-                        {deal.title}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <DealStatusEditor
-                          dealId={deal.id}
-                          customerId={id}
-                          currentStatus={deal.status}
-                        />
-                        {deal.expectedCloseDate && (
-                          <span className="text-[11px] text-zinc-400">
-                            予定:{" "}
-                            {deal.expectedCloseDate
-                              .toISOString()
-                              .split("T")[0]}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p
-                        className={cn(
-                          "text-base font-bold tabular-nums",
-                          masked
-                            ? "text-zinc-300 tracking-widest"
-                            : "text-zinc-900"
-                        )}
-                      >
-                        {display}
-                      </p>
-                      {masked && (
-                        <p className="text-[10px] text-zinc-400">
-                          他拠点 非表示
-                        </p>
-                      )}
-                    </div>
+                <div className="px-5 py-3 border-b border-zinc-100 flex flex-wrap gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-zinc-400">進行中</span>
+                    <span className="text-sm font-bold text-blue-600">{active.length}</span>
                   </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-zinc-400">受注</span>
+                    <span className="text-sm font-bold text-emerald-600">{won.length}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-zinc-400">失注</span>
+                    <span className="text-sm font-bold text-red-500">{lost.length}</span>
+                  </div>
+                  {totalAmount > 0 && (
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <span className="text-[10px] text-zinc-400">合計金額</span>
+                      <span className="text-sm font-bold text-zinc-900">¥{totalAmount.toLocaleString("ja-JP")}</span>
+                    </div>
+                  )}
                 </div>
               );
-            })}
-          </div>
+            })()}
+
+            {/* 商談カード一覧 */}
+            <div className="p-4 space-y-3">
+              {dbDeals.map((deal) => {
+                const { display, masked } = maskAmount(
+                  deal.amount ? Number(deal.amount) : null,
+                  userBranchId,
+                  deal.branchId
+                );
+                const statusOpt = DEAL_STATUS_OPTIONS.find((o) => o.value === deal.status);
+                const hasHearing = !!deal.hearingSheet;
+                const hasDecision = !!deal.decisionSheet;
+                const isApproved = deal.decisionSheet?.clientApproval && deal.decisionSheet?.internalApproval;
+
+                return (
+                  <div key={deal.id} className="rounded-lg border border-zinc-200 hover:border-zinc-300 hover:shadow-sm transition-all overflow-hidden">
+                    {/* カードヘッダー */}
+                    <div className="px-4 py-3 flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          {statusOpt && (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${statusOpt.color}`}>
+                              {statusOpt.label}
+                            </span>
+                          )}
+                          <DealStatusEditor
+                            dealId={deal.id}
+                            customerId={id}
+                            currentStatus={deal.status}
+                          />
+                        </div>
+                        <Link
+                          href={`/dashboard/deals/${deal.id}`}
+                          className="text-sm font-semibold text-zinc-900 hover:text-blue-600 transition-colors leading-snug"
+                        >
+                          {deal.title}
+                        </Link>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className={cn(
+                          "text-base font-bold tabular-nums",
+                          masked ? "text-zinc-300 tracking-widest" : "text-zinc-900"
+                        )}>
+                          {display}
+                        </p>
+                        {masked && <p className="text-[10px] text-zinc-400">他拠点 非表示</p>}
+                      </div>
+                    </div>
+
+                    {/* カードフッター */}
+                    <div className="px-4 py-2 bg-zinc-50/50 border-t border-zinc-100 flex flex-wrap items-center gap-x-4 gap-y-1">
+                      {deal.assignedTo?.name && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400">
+                          <User className="w-2.5 h-2.5" />
+                          {deal.assignedTo.name}
+                        </span>
+                      )}
+                      {deal.probability !== null && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400">
+                          <Percent className="w-2.5 h-2.5" />
+                          {deal.probability}%
+                        </span>
+                      )}
+                      {deal.expectedCloseDate && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400">
+                          <Calendar className="w-2.5 h-2.5" />
+                          {deal.expectedCloseDate.toISOString().split("T")[0]}
+                        </span>
+                      )}
+                      <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400">
+                        <Clock className="w-2.5 h-2.5" />
+                        活動 {deal._count.dealLogs}件
+                      </span>
+
+                      {/* 進捗バッジ */}
+                      <div className="flex items-center gap-1.5 ml-auto">
+                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium border ${
+                          hasHearing
+                            ? "bg-amber-50 text-amber-600 border-amber-200"
+                            : "bg-zinc-50 text-zinc-300 border-zinc-200"
+                        }`}>
+                          <ClipboardList className="w-2.5 h-2.5" />
+                          ヒアリング{hasHearing && deal.hearingSheet?.hearingRound ? ` ${deal.hearingSheet.hearingRound}回` : ""}
+                        </span>
+                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium border ${
+                          hasDecision
+                            ? isApproved
+                              ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                              : "bg-blue-50 text-blue-600 border-blue-200"
+                            : "bg-zinc-50 text-zinc-300 border-zinc-200"
+                        }`}>
+                          <FileCheck className="w-2.5 h-2.5" />
+                          決定シート{isApproved ? " 承認済" : ""}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
