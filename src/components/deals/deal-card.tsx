@@ -67,15 +67,15 @@ export function DealCard({ deal, isOverlay, isArchived, isDuplicate, dealIndex }
         )}
       </div>
       <div className="flex items-center gap-2 flex-wrap mt-1">
+        {deal.assignedTo?.name && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-600 bg-violet-50 border border-violet-200 rounded px-1 py-px">
+            <User className="w-2.5 h-2.5 flex-shrink-0" />
+            {deal.assignedTo.name}
+          </span>
+        )}
         {deal.customer.prefecture && (
           <span className="text-[10px] text-zinc-400">
             📍 {deal.customer.prefecture}
-          </span>
-        )}
-        {deal.assignedTo?.name && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] text-zinc-400">
-            <User className="w-2.5 h-2.5 flex-shrink-0" />
-            {deal.assignedTo.name}
           </span>
         )}
       </div>
