@@ -267,7 +267,7 @@ export async function sendDealNotification(
   ].filter(Boolean).join("\n");
 
   await sendChatMessage(DEAL_CHAT_SPACE_ID, text);
-  notifyCeo(text).catch(() => {});
+  // CEO通知は案件進捗スペースで確認できるため省略
 }
 
 // ---------------------------------------------------------------
@@ -1173,7 +1173,7 @@ export async function sendCustomerNotification(
   ].join("\n");
 
   await sendChatMessage(DEAL_CHAT_SPACE_ID, text);
-  notifyCeo(text).catch(() => {});
+  // CEO通知は案件進捗スペースで確認できるため省略
 }
 
 function buildCustomerEmail(payload: CustomerNotificationPayload): {
