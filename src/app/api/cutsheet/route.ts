@@ -302,7 +302,7 @@ async function uploadThumbnailToDrive(
   const uploaded = await drive.files.create({
     requestBody: fileMetadata,
     media,
-    fields: "id",
+    fields: "id,webContentLink",
   });
 
   const fileId = uploaded.data.id!;
@@ -316,7 +316,10 @@ async function uploadThumbnailToDrive(
     },
   });
 
-  return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  // webContentLink はダウンロード用だが IMAGE() で確実に動作する
+  // uc?export=view 形式は Google により制限されているため使わない
+  return uploaded.data.webContentLink
+    ?? `https://drive.google.com/thumbnail?id=${fileId}&sz=w480`;
 }
 
 /** Create a Google Spreadsheet with cut sheet data */
