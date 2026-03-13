@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { ClipboardList, ChevronDown, ChevronUp, Save, Loader2, Building2, BarChart3, Target, UserCheck, Thermometer, Video } from "lucide-react";
+import { ClipboardList, ChevronDown, ChevronUp, Save, Loader2, Building2, BarChart3, Target, UserCheck, Thermometer, Video, MessageSquare, Hash } from "lucide-react";
 import { getDealHearingSheet, saveDealHearingSheet } from "@/lib/actions/hearing";
 import {
   TARGET_CUSTOMER_OPTIONS,
@@ -65,6 +65,8 @@ export function DealHearingSection({ dealId, dealTitle }: Props) {
     temperature: null as string | null,
     nextAction: "",
     nextActionDate: "",
+    hearingRound: null as number | null,
+    freeNotes: "",
   });
 
   useEffect(() => {
@@ -105,6 +107,8 @@ export function DealHearingSection({ dealId, dealTitle }: Props) {
             nextActionDate: data.nextActionDate
               ? new Date(data.nextActionDate).toISOString().slice(0, 10)
               : "",
+            hearingRound: data.hearingRound ?? null,
+            freeNotes: data.freeNotes ?? "",
           });
         }
         setLoaded(true);
@@ -144,6 +148,8 @@ export function DealHearingSection({ dealId, dealTitle }: Props) {
         temperature: form.temperature,
         nextAction: form.nextAction || null,
         nextActionDate: form.nextActionDate || null,
+        hearingRound: form.hearingRound,
+        freeNotes: form.freeNotes || null,
       });
       if (result.error) alert(result.error);
       else {
@@ -252,6 +258,29 @@ export function DealHearingSection({ dealId, dealTitle }: Props) {
                     </Field>
                     <Field label="次回アクション"><input type="text" value={form.nextAction} onChange={(e) => setForm({ ...form, nextAction: e.target.value })} placeholder="次にすること" className="text-xs border border-zinc-200 rounded-md px-2.5 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400" /></Field>
                     <Field label="次回予定日"><input type="date" value={form.nextActionDate} onChange={(e) => setForm({ ...form, nextActionDate: e.target.value })} className="text-xs border border-zinc-200 rounded-md px-2.5 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400" /></Field>
+                  </Section>
+                </div>
+
+                {/* G. ヒアリング管理 */}
+                <div className="lg:col-span-2">
+                  <Section icon={<MessageSquare className="w-3.5 h-3.5 text-amber-700" />} title="ヒアリング管理">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+                      <Field label="ヒアリング回数">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map((n) => (
+                              <button key={n} type="button" onClick={() => setForm({ ...form, hearingRound: form.hearingRound === n ? null : n })} className={`w-8 h-8 rounded-lg text-xs font-semibold border transition-colors ${form.hearingRound === n ? "bg-amber-600 text-white border-amber-600" : "bg-white text-zinc-500 border-zinc-200 hover:border-amber-300"}`}>{n}</button>
+                            ))}
+                          </div>
+                          <span className="text-[10px] text-zinc-400">回目</span>
+                        </div>
+                      </Field>
+                      <div className="lg:col-span-3">
+                        <Field label="自由記載欄">
+                          <textarea value={form.freeNotes} onChange={(e) => setForm({ ...form, freeNotes: e.target.value })} placeholder="ヒアリングで気づいたこと、補足情報、次回への申し送りなど自由に記入" rows={3} className="text-xs border border-zinc-200 rounded-md px-2.5 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none" />
+                        </Field>
+                      </div>
+                    </div>
                   </Section>
                 </div>
               </div>

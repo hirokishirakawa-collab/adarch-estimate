@@ -428,8 +428,9 @@ model Deal {
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])
 
-  dealLogs      DealLog[]
-  hearingSheet  HearingSheet?
+  dealLogs       DealLog[]
+  hearingSheet   HearingSheet?
+  decisionSheet  DecisionSheet?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1509,6 +1510,10 @@ model HearingSheet {
   nextAction          String?   @db.Text   /// 次回アクション
   nextActionDate      DateTime?            /// 次回予定日
 
+  // --- G. ヒアリング管理 ---
+  hearingRound        Int?                 /// ヒアリング何回目か（1=初回, 2=2回目...）
+  freeNotes           String?   @db.Text   /// 自由記載欄
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1516,6 +1521,43 @@ model HearingSheet {
   @@index([customerId])
   @@index([dealId])
   @@map("hearing_sheets")
+}
+
+// ==============================================================
+// DecisionSheet（決定シート：プロジェクト化確認）
+// ==============================================================
+
+/// ヒアリング完了後、プロジェクトとして正式に受注する際の確認シート。
+model DecisionSheet {
+  id     String @id @default(cuid())
+  dealId String @unique
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  // --- 受注内容の確定 ---
+  projectName       String?   @db.Text   /// 正式プロジェクト名
+  confirmedAmount   Decimal?  @db.Decimal(15, 0) /// 確定金額（円）
+  contractType      String?              /// 契約形態（spot / monthly / yearly）
+  paymentTerms      String?   @db.Text   /// 支払条件（例: 納品後30日, 着手金50%）
+  deliverables      String?   @db.Text   /// 成果物・納品物（改行区切り）
+
+  // --- スケジュール ---
+  kickoffDate       DateTime?            /// キックオフ日
+  deliveryDate      DateTime?            /// 納品予定日
+
+  // --- 体制 ---
+  projectLead       String?              /// プロジェクトリーダー
+  teamMembers       String?   @db.Text   /// チームメンバー（改行区切り）
+
+  // --- 確認事項 ---
+  clientApproval    Boolean   @default(false) /// クライアント承認済み
+  internalApproval  Boolean   @default(false) /// 社内承認済み
+  specialNotes      String?   @db.Text       /// 特記事項・注意点
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId])
+  @@map("decision_sheets")
 }
 
 // ==============================================================

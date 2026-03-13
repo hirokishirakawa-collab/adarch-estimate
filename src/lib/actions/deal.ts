@@ -78,6 +78,8 @@ export async function createDeal(
     temperature: hStr("temperature"),
     nextAction: hStr("nextAction"),
     nextActionDate: hStr("nextActionDate") ? new Date(hStr("nextActionDate")!) : null,
+    hearingRound: hStr("hearingRound") ? parseInt(hStr("hearingRound")!, 10) : null,
+    freeNotes: hStr("freeNotes"),
   };
 
   // ヒアリングデータが1つでも入力されているか判定

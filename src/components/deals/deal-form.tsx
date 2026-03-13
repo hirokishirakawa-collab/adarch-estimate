@@ -293,6 +293,25 @@ export function DealForm({ customers, users, preselectedCustomerId }: Props) {
                     <Field label="次回予定日"><input type="date" name="h_nextActionDate" className={inCls} /></Field>
                   </Section>
                 </div>
+
+                {/* G. ヒアリング管理 */}
+                <div className="lg:col-span-2">
+                  <Section icon={<Building2 className="w-3.5 h-3.5 text-amber-700" />} title="ヒアリング管理">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+                      <Field label="ヒアリング回数">
+                        <select name="h_hearingRound" className={inCls + " bg-white"}>
+                          <option value="">選択</option>
+                          {[1, 2, 3, 4, 5].map((n) => (<option key={n} value={n}>{n}回目</option>))}
+                        </select>
+                      </Field>
+                      <div className="lg:col-span-3">
+                        <Field label="自由記載欄">
+                          <textarea name="h_freeNotes" placeholder="ヒアリングで気づいたこと、補足情報など自由に記入" rows={3} className={txCls} />
+                        </Field>
+                      </div>
+                    </div>
+                  </Section>
+                </div>
               </div>
             </div>
           </div>

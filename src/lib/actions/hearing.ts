@@ -54,6 +54,8 @@ type HearingData = {
   temperature?: string | null;
   nextAction?: string | null;
   nextActionDate?: string | null;
+  hearingRound?: number | null;
+  freeNotes?: string | null;
 };
 
 function toFields(data: HearingData) {
@@ -86,6 +88,8 @@ function toFields(data: HearingData) {
     temperature: data.temperature ?? null,
     nextAction: data.nextAction ?? null,
     nextActionDate: data.nextActionDate ? new Date(data.nextActionDate) : null,
+    hearingRound: data.hearingRound ?? null,
+    freeNotes: data.freeNotes ?? null,
   };
 }
 
@@ -375,5 +379,75 @@ export async function convertHearingToDeal(
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[convertHearingToDeal] Error:", msg);
     return { error: "商談化に失敗しました" };
+  }
+}
+
+// ----------------------------------------------------------------
+// 決定シート取得
+// ----------------------------------------------------------------
+export type DecisionData = {
+  projectName?: string | null;
+  confirmedAmount?: number | null;
+  contractType?: string | null;
+  paymentTerms?: string | null;
+  deliverables?: string | null;
+  kickoffDate?: string | null;
+  deliveryDate?: string | null;
+  projectLead?: string | null;
+  teamMembers?: string | null;
+  clientApproval?: boolean;
+  internalApproval?: boolean;
+  specialNotes?: string | null;
+};
+
+export async function getDecisionSheet(dealId: string) {
+  await requireAuth();
+  return db.decisionSheet.findUnique({ where: { dealId } });
+}
+
+// ----------------------------------------------------------------
+// 決定シート保存（upsert）
+// ----------------------------------------------------------------
+export async function saveDecisionSheet(
+  dealId: string,
+  data: DecisionData
+): Promise<{ error?: string }> {
+  try {
+    const user = await requireAuth();
+
+    const fields = {
+      projectName: data.projectName ?? null,
+      confirmedAmount: data.confirmedAmount ?? null,
+      contractType: data.contractType ?? null,
+      paymentTerms: data.paymentTerms ?? null,
+      deliverables: data.deliverables ?? null,
+      kickoffDate: data.kickoffDate ? new Date(data.kickoffDate) : null,
+      deliveryDate: data.deliveryDate ? new Date(data.deliveryDate) : null,
+      projectLead: data.projectLead ?? null,
+      teamMembers: data.teamMembers ?? null,
+      clientApproval: data.clientApproval ?? false,
+      internalApproval: data.internalApproval ?? false,
+      specialNotes: data.specialNotes ?? null,
+    };
+
+    await db.decisionSheet.upsert({
+      where: { dealId },
+      create: { dealId, ...fields },
+      update: fields,
+    });
+
+    logAudit({
+      action: "decision_sheet_saved",
+      email: user.email,
+      name: user.name,
+      entity: "decision_sheet",
+      entityId: dealId,
+    });
+
+    revalidatePath(`/dashboard/deals/${dealId}`);
+    return {};
+  } catch (e) {
+    console.error("[decision] Save error:", e);
+    return { error: "保存に失敗しました" };
   }
 }

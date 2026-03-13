@@ -8,6 +8,7 @@ import { DealLogForm } from "@/components/deals/deal-log-form";
 import { DealLogTimeline } from "@/components/deals/deal-log-timeline";
 import { DealDeleteButton } from "@/components/deals/deal-delete-button";
 import { DealHearingSection } from "@/components/deals/deal-hearing-section";
+import { DealDecisionSection } from "@/components/deals/deal-decision-section";
 import { WikiArticleContent } from "@/components/wiki/wiki-article-content";
 import {
   ChevronLeft,
@@ -177,6 +178,9 @@ export default async function DealDetailPage({ params }: PageProps) {
         <div className="lg:col-span-3 space-y-4">
           {/* ヒアリングシート */}
           <DealHearingSection dealId={deal.id} dealTitle={deal.title} />
+
+          {/* 決定シート（プロジェクト化） */}
+          <DealDecisionSection dealId={deal.id} dealTitle={deal.title} />
 
           {deal.notes ? (
             <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
