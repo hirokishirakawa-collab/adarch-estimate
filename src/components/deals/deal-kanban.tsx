@@ -49,6 +49,7 @@ function KanbanColumn({
   archivedIds,
   showArchived,
   duplicateCustomerIds,
+  dealIndexMap,
 }: {
   status: string;
   label: string;
@@ -57,6 +58,7 @@ function KanbanColumn({
   archivedIds: Set<string>;
   showArchived: boolean;
   duplicateCustomerIds: Set<string>;
+  dealIndexMap: Map<string, number>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
@@ -95,7 +97,7 @@ function KanbanColumn({
         >
           {/* アクティブカード */}
           {activeDeals.map((deal) => (
-            <DealCard key={deal.id} deal={deal} isDuplicate={duplicateCustomerIds.has(deal.customer.id)} />
+            <DealCard key={deal.id} deal={deal} isDuplicate={duplicateCustomerIds.has(deal.customer.id)} dealIndex={dealIndexMap.get(deal.id)} />
           ))}
 
           {/* アーカイブ区切り + アーカイブカード */}
@@ -109,7 +111,7 @@ function KanbanColumn({
                 <div className="flex-1 h-px bg-zinc-200" />
               </div>
               {archivedDeals.map((deal) => (
-                <DealCard key={deal.id} deal={deal} isArchived isDuplicate={duplicateCustomerIds.has(deal.customer.id)} />
+                <DealCard key={deal.id} deal={deal} isArchived isDuplicate={duplicateCustomerIds.has(deal.customer.id)} dealIndex={dealIndexMap.get(deal.id)} />
               ))}
             </>
           )}
@@ -167,14 +169,22 @@ export function DealKanban({ deals: initialDeals, showArchived, sevenDaysAgo }: 
     {} as Record<DealStatusValue, Deal[]>
   );
 
-  // 同じ顧客が複数ステータスに存在する場合を検出
+  // 同じ顧客の商談をグルーピングし、番号付け（古い順）
   const duplicateCustomerIds = new Set<string>();
-  const customerStatusMap = new Map<string, Set<string>>();
+  const customerDealsMap = new Map<string, Deal[]>();
   for (const d of deals) {
-    const statuses = customerStatusMap.get(d.customer.id) ?? new Set();
-    statuses.add(d.status);
-    customerStatusMap.set(d.customer.id, statuses);
-    if (statuses.size > 1) duplicateCustomerIds.add(d.customer.id);
+    const arr = customerDealsMap.get(d.customer.id) ?? [];
+    arr.push(d);
+    customerDealsMap.set(d.customer.id, arr);
+  }
+  // dealId → index（1始まり）。顧客に1件しかなければ登録しない
+  const dealIndexMap = new Map<string, number>();
+  for (const [customerId, arr] of customerDealsMap) {
+    if (arr.length < 2) continue;
+    duplicateCustomerIds.add(customerId);
+    // updatedAtの古い順にソートして番号付け
+    const sorted = [...arr].sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
+    sorted.forEach((d, i) => dealIndexMap.set(d.id, i + 1));
   }
 
   // ドラッグ開始 — DragOverlay 用にアクティブカードを記憶
@@ -271,6 +281,7 @@ export function DealKanban({ deals: initialDeals, showArchived, sevenDaysAgo }: 
             archivedIds={archivedIds}
             showArchived={showArchived}
             duplicateCustomerIds={duplicateCustomerIds}
+            dealIndexMap={dealIndexMap}
           />
         ))}
       </div>

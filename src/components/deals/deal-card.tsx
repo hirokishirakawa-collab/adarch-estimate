@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, GripVertical, User } from "lucide-react";
+import { GripVertical, User } from "lucide-react";
 
 interface DealCardProps {
   deal: {
@@ -16,9 +16,11 @@ interface DealCardProps {
   isOverlay?: boolean;
   isArchived?: boolean;
   isDuplicate?: boolean;
+  /** 同一顧客内での商談番号（1=初回, 2=2件目...）。1件のみの場合は undefined */
+  dealIndex?: number;
 }
 
-export function DealCard({ deal, isOverlay, isArchived, isDuplicate }: DealCardProps) {
+export function DealCard({ deal, isOverlay, isArchived, isDuplicate, dealIndex }: DealCardProps) {
   // ── マウント確認: SSR では attributes を展開しない ──────────────
   // dnd-kit の aria-describedby ID が SSR/CSR でズレるのを防ぐ
   const [mounted, setMounted] = useState(false);
@@ -41,21 +43,29 @@ export function DealCard({ deal, isOverlay, isArchived, isDuplicate }: DealCardP
     zIndex: isDragging ? 999 : "auto",
   };
 
+  // ── 商談番号ラベル ──────────────────────────────────────────────
+  const dealIndexLabel = dealIndex !== undefined
+    ? dealIndex === 1 ? "初回" : `${dealIndex}件目`
+    : null;
+
   // ── テキスト部分（Link の中身） ──────────────────────────────────
   const textContent = (
     <>
-      {isDuplicate && (
-        <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1 py-px mb-1" title="この顧客には複数の商談があります">
-          <AlertTriangle className="w-2.5 h-2.5" />
-          複数商談あり
-        </span>
-      )}
       <p className="text-sm font-bold text-zinc-900 leading-snug line-clamp-2 mb-1">
-        {deal.title}
-      </p>
-      <p className="text-[11px] text-zinc-500 truncate leading-snug">
         {deal.customer.name}
       </p>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {dealIndexLabel && (
+          <span className="text-[9px] font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded px-1 py-px">
+            {dealIndexLabel}
+          </span>
+        )}
+        {deal.title && (
+          <span className="text-[10px] text-zinc-400 truncate leading-snug">
+            {deal.title}
+          </span>
+        )}
+      </div>
       <div className="flex items-center gap-2 flex-wrap mt-1">
         {deal.customer.prefecture && (
           <span className="text-[10px] text-zinc-400">
