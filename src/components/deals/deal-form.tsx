@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { createDeal } from "@/lib/actions/deal";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 import {
-  Building2, BarChart3, Target, UserCheck, Thermometer, Video,
+  AlertTriangle, Building2, BarChart3, Target, UserCheck, Thermometer, Video,
   ChevronDown, ChevronUp,
 } from "lucide-react";
 import {
@@ -46,6 +47,24 @@ export function DealForm({ customers, users, preselectedCustomerId }: Props) {
   const [videoPublishTo, setVideoPublishTo] = useState<string[]>([]);
   const [temperature, setTemperature] = useState<string | null>(null);
 
+  // 顧客選択時に既存商談をチェック
+  const [existingDeals, setExistingDeals] = useState<{ id: string; title: string; status: string }[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState(preselectedCustomerId ?? "");
+
+  const checkDuplicate = useCallback(async (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    if (!customerId) { setExistingDeals([]); return; }
+    try {
+      const res = await fetch(`/api/deals/check-duplicate?customerId=${customerId}`);
+      const data = await res.json();
+      setExistingDeals(data.deals ?? []);
+    } catch { setExistingDeals([]); }
+  }, []);
+
+  useEffect(() => {
+    if (preselectedCustomerId) checkDuplicate(preselectedCustomerId);
+  }, [preselectedCustomerId, checkDuplicate]);
+
   return (
     <form action={action} className="space-y-6">
       {state?.error && !state.duplicate && (
@@ -78,10 +97,38 @@ export function DealForm({ customers, users, preselectedCustomerId }: Props) {
           <label className="block text-xs font-medium text-zinc-700 mb-1">
             顧客 <span className="text-red-500">*</span>
           </label>
-          <select name="customerId" required defaultValue={preselectedCustomerId ?? ""} className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+          <select
+            name="customerId"
+            required
+            defaultValue={preselectedCustomerId ?? ""}
+            onChange={(e) => checkDuplicate(e.target.value)}
+            className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
             <option value="">-- 選択してください --</option>
             {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
           </select>
+          {existingDeals.length > 0 && (
+            <div className="mt-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+              <div className="flex items-center gap-1.5 font-medium mb-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                この顧客には既に商談があります
+              </div>
+              <ul className="space-y-1">
+                {existingDeals.map((d) => {
+                  const label = DEAL_STATUS_OPTIONS.find((o) => o.value === d.status)?.label ?? d.status;
+                  return (
+                    <li key={d.id} className="flex items-center gap-2">
+                      <span className="text-amber-600">{d.title}（{label}）</span>
+                      <Link href={`/dashboard/deals/${d.id}`} className="text-blue-600 underline hover:text-blue-800">
+                        この商談を開く
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-1.5 text-amber-500">フェーズの変更は既存の商談をドラッグ移動してください。</p>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
