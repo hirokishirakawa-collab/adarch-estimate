@@ -15,9 +15,9 @@ import { logAudit } from "@/lib/audit";
 // 商談を新規作成する
 // ---------------------------------------------------------------
 export async function createDeal(
-  _prev: { error?: string } | null,
+  _prev: { error?: string; duplicate?: boolean } | null,
   formData: FormData
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; duplicate?: boolean }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
   if (!info.branchId) return { error: "拠点が割り当てられていません。管理者にお問い合わせください。" };
@@ -84,6 +84,25 @@ export async function createDeal(
   const hasHearingData = Object.values(hearingData).some((v) =>
     Array.isArray(v) ? v.length > 0 : v !== null
   );
+
+  // 同じ顧客にアクティブな商談があるか確認（重複防止）
+  const confirmDuplicate = formData.get("confirmDuplicate") === "true";
+  if (!confirmDuplicate) {
+    const existingActive = await db.deal.findFirst({
+      where: {
+        customerId,
+        status: { notIn: ["CLOSED_WON", "CLOSED_LOST"] },
+      },
+      select: { id: true, title: true, status: true },
+    });
+    if (existingActive) {
+      const statusLabel = DEAL_STATUS_OPTIONS.find((o) => o.value === existingActive.status)?.label ?? existingActive.status;
+      return {
+        error: `この顧客には既にアクティブな商談「${existingActive.title}」（${statusLabel}）があります。既存の商談のステータスを変更するか、重複を承知の上で作成してください。`,
+        duplicate: true,
+      } as { error: string; duplicate?: boolean };
+    }
+  }
 
   let dealId: string;
   let customerName: string;

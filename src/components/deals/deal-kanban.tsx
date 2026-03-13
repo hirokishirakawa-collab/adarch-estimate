@@ -48,6 +48,7 @@ function KanbanColumn({
   deals,
   archivedIds,
   showArchived,
+  duplicateCustomerIds,
 }: {
   status: string;
   label: string;
@@ -55,6 +56,7 @@ function KanbanColumn({
   deals: Deal[];
   archivedIds: Set<string>;
   showArchived: boolean;
+  duplicateCustomerIds: Set<string>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
@@ -93,7 +95,7 @@ function KanbanColumn({
         >
           {/* アクティブカード */}
           {activeDeals.map((deal) => (
-            <DealCard key={deal.id} deal={deal} />
+            <DealCard key={deal.id} deal={deal} isDuplicate={duplicateCustomerIds.has(deal.customer.id)} />
           ))}
 
           {/* アーカイブ区切り + アーカイブカード */}
@@ -107,7 +109,7 @@ function KanbanColumn({
                 <div className="flex-1 h-px bg-zinc-200" />
               </div>
               {archivedDeals.map((deal) => (
-                <DealCard key={deal.id} deal={deal} isArchived />
+                <DealCard key={deal.id} deal={deal} isArchived isDuplicate={duplicateCustomerIds.has(deal.customer.id)} />
               ))}
             </>
           )}
@@ -164,6 +166,16 @@ export function DealKanban({ deals: initialDeals, showArchived, sevenDaysAgo }: 
     },
     {} as Record<DealStatusValue, Deal[]>
   );
+
+  // 同じ顧客が複数ステータスに存在する場合を検出
+  const duplicateCustomerIds = new Set<string>();
+  const customerStatusMap = new Map<string, Set<string>>();
+  for (const d of deals) {
+    const statuses = customerStatusMap.get(d.customer.id) ?? new Set();
+    statuses.add(d.status);
+    customerStatusMap.set(d.customer.id, statuses);
+    if (statuses.size > 1) duplicateCustomerIds.add(d.customer.id);
+  }
 
   // ドラッグ開始 — DragOverlay 用にアクティブカードを記憶
   function handleDragStart(event: DragStartEvent) {
@@ -258,6 +270,7 @@ export function DealKanban({ deals: initialDeals, showArchived, sevenDaysAgo }: 
             deals={dealsByStatus[opt.value] ?? []}
             archivedIds={archivedIds}
             showArchived={showArchived}
+            duplicateCustomerIds={duplicateCustomerIds}
           />
         ))}
       </div>

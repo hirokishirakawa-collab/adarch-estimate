@@ -48,9 +48,18 @@ export function DealForm({ customers, users, preselectedCustomerId }: Props) {
 
   return (
     <form action={action} className="space-y-6">
-      {state?.error && (
+      {state?.error && !state.duplicate && (
         <div className="px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg">
           {state.error}
+        </div>
+      )}
+      {state?.duplicate && (
+        <div className="px-3 py-2.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg space-y-2">
+          <p>{state.error}</p>
+          <input type="hidden" name="confirmDuplicate" value="true" />
+          <button type="submit" disabled={pending} className="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded hover:bg-amber-700 disabled:opacity-50 transition-colors">
+            {pending ? "作成中..." : "重複を承知の上で作成する"}
+          </button>
         </div>
       )}
 

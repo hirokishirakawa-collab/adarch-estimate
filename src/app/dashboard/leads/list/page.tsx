@@ -9,6 +9,7 @@ import { LeadListFilters } from "@/components/leads/lead-list-filters";
 import { LeadActivityFeed } from "@/components/leads/lead-activity-feed";
 import { CustomerPagination } from "@/components/customers/customer-pagination";
 import { LeadDeleteAllButton } from "@/components/leads/lead-delete-all-button";
+import { LeadExportButtons } from "@/components/leads/lead-export-buttons";
 import type { UserRole } from "@/types/roles";
 
 const PER_PAGE = 20;
@@ -161,7 +162,12 @@ export default async function LeadListPage({ searchParams }: PageProps) {
             </p>
           </div>
         </div>
-        {isAdmin && <LeadDeleteAllButton totalCount={totalAll} />}
+        <div className="flex items-center gap-3">
+          <Suspense>
+            <LeadExportButtons />
+          </Suspense>
+          {isAdmin && <LeadDeleteAllButton totalCount={totalAll} />}
+        </div>
       </div>
 
       {/* ===== サマリーカード ===== */}

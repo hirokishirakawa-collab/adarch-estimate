@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, User } from "lucide-react";
+import { AlertTriangle, GripVertical, User } from "lucide-react";
 
 interface DealCardProps {
   deal: {
@@ -15,9 +15,10 @@ interface DealCardProps {
   };
   isOverlay?: boolean;
   isArchived?: boolean;
+  isDuplicate?: boolean;
 }
 
-export function DealCard({ deal, isOverlay, isArchived }: DealCardProps) {
+export function DealCard({ deal, isOverlay, isArchived, isDuplicate }: DealCardProps) {
   // ── マウント確認: SSR では attributes を展開しない ──────────────
   // dnd-kit の aria-describedby ID が SSR/CSR でズレるのを防ぐ
   const [mounted, setMounted] = useState(false);
@@ -44,6 +45,12 @@ export function DealCard({ deal, isOverlay, isArchived }: DealCardProps) {
   const textContent = (
     <>
       <p className="text-sm font-bold text-zinc-900 leading-snug line-clamp-2 mb-1">
+        {isDuplicate && (
+          <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1 py-px mr-1 align-middle" title="この顧客は他のフェーズにも商談があります">
+            <AlertTriangle className="w-2.5 h-2.5" />
+            重複
+          </span>
+        )}
         {deal.customer.name}
       </p>
       <div className="flex items-center gap-2 flex-wrap">
