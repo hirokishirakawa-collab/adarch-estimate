@@ -212,6 +212,7 @@ export default async function ProjectRequestDetailPage({
                         projectRequestId={request.id}
                         applicantCompanyId={app.applicantCompany.id}
                         applicantName={app.applicantCompany.name}
+                        projectTitle={request.title}
                       />
                     )}
                   </div>
