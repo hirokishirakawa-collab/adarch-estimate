@@ -402,17 +402,33 @@ function SetupGuide() {
             <p className="text-zinc-400 mb-2">
               以下から自分のスペースIDを確認して、JSONの <code className="text-zinc-300 bg-zinc-800 px-1 rounded">chatSpaceId</code> に設定してください：
             </p>
-            <div className="bg-zinc-800 rounded-md p-3 text-xs text-zinc-300 font-mono space-y-0.5 max-h-48 overflow-y-auto">
-              <p>七條 敬一 → <span className="text-blue-400 select-all">spaces/AAQAKs7kuos</span></p>
-              <p>片桐 脩一郎 → <span className="text-blue-400 select-all">spaces/AAQAglZXyhE</span></p>
-              <p>歌丸 翔馬 → <span className="text-blue-400 select-all">spaces/AAQA1ONKAvc</span></p>
-              <p>瀬野 詠介 → <span className="text-blue-400 select-all">spaces/AAQA5h9sJMA</span></p>
-              <p>吉原 悠真 → <span className="text-blue-400 select-all">spaces/AAQAZXqimA4</span></p>
-              <p>山口 亜弓 → <span className="text-blue-400 select-all">spaces/AAQAmDz98iM</span></p>
-              <p>齋藤 慧介 → <span className="text-blue-400 select-all">spaces/AAQA3TuKvwk</span></p>
-              <p>宮本 貴史 → <span className="text-blue-400 select-all">spaces/AAQAAUnoJwE</span></p>
-              <p>鈴木 啓太 → <span className="text-blue-400 select-all">spaces/AAQAn5FvUIA</span></p>
+            <div className="bg-zinc-800 rounded-md p-3 text-xs text-zinc-300 font-mono space-y-0.5 max-h-64 overflow-y-auto">
               <p>一村 篤 → <span className="text-blue-400 select-all">spaces/AAQA5DWfLoE</span></p>
+              <p>七條 敬一 → <span className="text-blue-400 select-all">spaces/AAQAKs7kuos</span></p>
+              <p>三原 淳 → <span className="text-blue-400 select-all">spaces/AAQAsGlKn5c</span></p>
+              <p>倉田 大輔 → <span className="text-blue-400 select-all">spaces/AAQAxtfQtSs</span></p>
+              <p>吉原 悠真 → <span className="text-blue-400 select-all">spaces/AAQAZXqimA4</span></p>
+              <p>坂東 正朗 → <span className="text-blue-400 select-all">spaces/AAQAoR3gb1M</span></p>
+              <p>大城 崇 → <span className="text-blue-400 select-all">spaces/AAQAT2_JOrs</span></p>
+              <p>宮入 瑞志 → <span className="text-blue-400 select-all">spaces/AAQAQiXsCUw</span></p>
+              <p>宮本 貴史 → <span className="text-blue-400 select-all">spaces/AAQAAUnoJwE</span></p>
+              <p>山口 亜弓 → <span className="text-blue-400 select-all">spaces/AAQAmDz98iM</span></p>
+              <p>山田 一真 → <span className="text-blue-400 select-all">spaces/AAQACGzXMPM</span></p>
+              <p>早戸 禎裕 → <span className="text-blue-400 select-all">spaces/AAQAWNECvr8</span></p>
+              <p>木本 一心 → <span className="text-blue-400 select-all">spaces/AAQAAUMlEc4</span></p>
+              <p>森下 智司 → <span className="text-blue-400 select-all">spaces/AAQAkbYR4II</span></p>
+              <p>横山 将明 → <span className="text-blue-400 select-all">spaces/AAQARP8u-EQ</span></p>
+              <p>歌丸 翔馬 → <span className="text-blue-400 select-all">spaces/AAQA1ONKAvc</span></p>
+              <p>濱口 和朋 → <span className="text-blue-400 select-all">spaces/AAQAh8Wku14</span></p>
+              <p>瀬野 詠介 → <span className="text-blue-400 select-all">spaces/AAQA5h9sJMA</span></p>
+              <p>片桐 脩一郎 → <span className="text-blue-400 select-all">spaces/AAQAglZXyhE</span></p>
+              <p>白石 亨 → <span className="text-blue-400 select-all">spaces/AAQALAC7WwY</span></p>
+              <p>藤原 靖子 → <span className="text-blue-400 select-all">spaces/AAQAtLNqdIc</span></p>
+              <p>金山 恵美 → <span className="text-blue-400 select-all">spaces/AAQAbXme2Us</span></p>
+              <p>鈴木 啓太 → <span className="text-blue-400 select-all">spaces/AAQAn5FvUIA</span></p>
+              <p>高橋 摩也斗 → <span className="text-blue-400 select-all">spaces/AAQA-qXB8rI</span></p>
+              <p>高澤 健太郎 → <span className="text-blue-400 select-all">spaces/AAQAR7L5Y0k</span></p>
+              <p>齋藤 慧介 → <span className="text-blue-400 select-all">spaces/AAQA3TuKvwk</span></p>
             </div>
             <p className="text-xs text-zinc-500 mt-1">
               上記にない方は本部に連絡してください
