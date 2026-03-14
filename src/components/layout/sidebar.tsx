@@ -110,6 +110,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/sales-insights",
+        label: "営業インサイト共有",
+        icon: Activity,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/video-achievements",
         label: "競合実績スクレイピング（自動収集）",
         icon: Target,

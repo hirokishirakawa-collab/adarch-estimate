@@ -1253,6 +1253,7 @@ model GroupCompany {
   postedRequests         ProjectRequest[]   @relation("PostedRequests")
   matchedRequests        ProjectRequest[]   @relation("MatchedRequests")
   applications           ProjectApplication[] @relation("Applications")
+  salesInsights          SalesInsight[]
 
   @@index([phase])
   @@map("group_companies")
@@ -1621,6 +1622,43 @@ model Proposal {
   @@index([userId])
   @@index([createdAt(sort: Desc)])
   @@map("proposals")
+}
+
+// ==============================================================
+// SalesInsight（営業インサイト共有）
+// ==============================================================
+
+/// 各メンバーがClaudeで分析した営業結果をアップロードする倉庫。
+/// グループ全体で「どの業界に何を送って、どんな反応だったか」を共有する。
+model SalesInsight {
+  id        String   @id @default(cuid())
+
+  // ---- 投稿者 ----
+  groupCompanyId String
+  groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
+  authorName     String       // 投稿者名
+
+  // ---- 対象期間 ----
+  period    String             // "2026-03" のような月表記
+
+  // ---- 集計サマリー ----
+  totalSent     Int   @default(0)  // 送信数
+  totalReplied  Int   @default(0)  // 返信数
+
+  // ---- Claude分析結果（JSON） ----
+  insights      Json  @default("[]")  // 業種別の分析 [{industry, sent, replied, temperature, summary}]
+  topResponses  Json  @default("[]")  // 反応が良かった事例 [{industry, responseSnippet, note}]
+
+  // ---- メモ ----
+  memo      String?  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupCompanyId])
+  @@index([period])
+  @@index([createdAt(sort: Desc)])
+  @@map("sales_insights")
 }
 
 /// システム設定（キーバリュー）。提案書AIのアンロック閾値等を管理。
