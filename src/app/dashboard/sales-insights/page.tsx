@@ -378,7 +378,7 @@ function SetupGuide() {
             <div className="bg-zinc-800 rounded-md p-3 text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-auto">
 {`curl -X POST https://adarch-estimate-production.up.railway.app/api/sales-insights \\
   -H "Content-Type: application/json" \\
-  -H "x-api-key: （本部から共有されたAPIキー）" \\
+  -H "x-api-key: 9825655e2765122ee0c4a5faeede548a7284d9b319bab3dece9f54e524f0e372" \\
   -d '（↑のJSON）'`}
             </div>
           </div>
@@ -394,12 +394,36 @@ function SetupGuide() {
             </p>
           </div>
 
+          {/* chatSpaceId 一覧 */}
+          <div>
+            <p className="font-semibold text-white mb-2">
+              自分の chatSpaceId を確認する
+            </p>
+            <p className="text-zinc-400 mb-2">
+              以下から自分のスペースIDを確認して、JSONの <code className="text-zinc-300 bg-zinc-800 px-1 rounded">chatSpaceId</code> に設定してください：
+            </p>
+            <div className="bg-zinc-800 rounded-md p-3 text-xs text-zinc-300 font-mono space-y-0.5 max-h-48 overflow-y-auto">
+              <p>七條 敬一 → <span className="text-blue-400 select-all">spaces/AAQAKs7kuos</span></p>
+              <p>片桐 脩一郎 → <span className="text-blue-400 select-all">spaces/AAQAglZXyhE</span></p>
+              <p>歌丸 翔馬 → <span className="text-blue-400 select-all">spaces/AAQA1ONKAvc</span></p>
+              <p>瀬野 詠介 → <span className="text-blue-400 select-all">spaces/AAQA5h9sJMA</span></p>
+              <p>吉原 悠真 → <span className="text-blue-400 select-all">spaces/AAQAZXqimA4</span></p>
+              <p>山口 亜弓 → <span className="text-blue-400 select-all">spaces/AAQAmDz98iM</span></p>
+              <p>齋藤 慧介 → <span className="text-blue-400 select-all">spaces/AAQA3TuKvwk</span></p>
+              <p>宮本 貴史 → <span className="text-blue-400 select-all">spaces/AAQAAUnoJwE</span></p>
+              <p>鈴木 啓太 → <span className="text-blue-400 select-all">spaces/AAQAn5FvUIA</span></p>
+              <p>一村 篤 → <span className="text-blue-400 select-all">spaces/AAQA5DWfLoE</span></p>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              上記にない方は本部に連絡してください
+            </p>
+          </div>
+
           {/* Notes */}
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
             <p className="text-xs font-semibold text-blue-400 mb-1">補足</p>
             <ul className="text-xs text-zinc-400 space-y-1 list-disc list-inside">
-              <li><strong>chatSpaceId</strong> は自分の戦略スペースのIDです（本部に確認してください）</li>
-              <li><strong>APIキー</strong> は本部から共有されます。外部に公開しないでください</li>
+              <li>上記のAPIキーはグループ共通です。外部には公開しないでください</li>
               <li>月に1回程度、その月の営業結果をまとめてアップロードする運用を推奨します</li>
               <li>送信エラーが出る場合はJSONの形式を確認するか、本部に連絡してください</li>
             </ul>
