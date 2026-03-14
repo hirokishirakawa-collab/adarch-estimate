@@ -206,7 +206,7 @@ function UploadForm({
       <textarea
         value={json}
         onChange={(e) => setJson(e.target.value)}
-        placeholder='{"period": "2026-03", "totalSent": 50, ...}'
+        placeholder='{"period": "2026-W11", "totalSent": 50, ...}'
         rows={6}
         className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 font-mono placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 resize-y"
       />
@@ -439,7 +439,7 @@ function SetupGuide() {
 {`この営業データを分析して、以下のJSON形式で出力してください。
 
 {
-  "period": "2026-03",
+  "period": "2026-W11",
   "totalSent": 送信した件数,
   "totalReplied": 返信があった件数,
   "insights": [
@@ -489,7 +489,7 @@ function SetupGuide() {
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
             <p className="text-xs font-semibold text-blue-400 mb-1">補足</p>
             <ul className="text-xs text-zinc-400 space-y-1 list-disc list-inside">
-              <li>月に1回程度、その月の営業結果をまとめてアップロードする運用を推奨します</li>
+              <li>週に1回、その週の営業結果をまとめてアップロードしてください（periodは <code className="bg-zinc-800 px-1 rounded">2026-W11</code> のようなISO週番号）</li>
               <li>エラーが出る場合はJSONの形式を確認してください（Claudeに再出力してもらえばOK）</li>
             </ul>
           </div>
