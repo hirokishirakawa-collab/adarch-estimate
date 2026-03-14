@@ -1,55 +1,64 @@
 // ==============================================================
 // /api/sales-insights — 営業インサイト共有 API
-// POST: Claudeの分析結果をアップロード（APIキー認証）
+// POST: ログインユーザーが分析結果をアップロード（セッション認証）
 // GET:  ダッシュボード用データ取得（セッション認証）
 // ==============================================================
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { verifyWebhookApiKey } from "@/lib/webhook-auth";
+import { auth } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 
 // ---- POST: 分析結果アップロード ----
 export async function POST(req: NextRequest) {
-  const authError = verifyWebhookApiKey(req);
-  if (authError) return authError;
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
     const body = await req.json();
     const {
-      chatSpaceId,
-      authorName,
       period,
       totalSent,
       totalReplied,
       insights,
       topResponses,
       memo,
+      authorName,
     } = body;
 
-    if (!chatSpaceId || !authorName || !period) {
+    if (!period) {
       return NextResponse.json(
-        { error: "chatSpaceId, authorName, period are required" },
+        { error: "period は必須です（例: 2026-03）" },
         { status: 400 }
       );
     }
 
-    // chatSpaceId で企業を特定
-    const company = await db.groupCompany.findUnique({
-      where: { chatSpaceId },
+    // ログインユーザーからGroupCompanyを特定
+    const user = await db.user.findUnique({
+      where: { email: session.user.email },
+      select: {
+        id: true,
+        name: true,
+        groupCompanyId: true,
+        groupCompany: { select: { id: true, name: true } },
+      },
     });
 
-    if (!company) {
+    if (!user?.groupCompanyId || !user.groupCompany) {
       return NextResponse.json(
-        { error: "Unknown chatSpaceId" },
-        { status: 404 }
+        { error: "グループ企業に紐づいていません。本部に連絡してください。" },
+        { status: 400 }
       );
     }
 
+    const displayName = authorName || user.name || session.user.name || "不明";
+
     const insight = await db.salesInsight.create({
       data: {
-        groupCompanyId: company.id,
-        authorName,
+        groupCompanyId: user.groupCompany.id,
+        authorName: displayName,
         period,
         totalSent: totalSent ?? 0,
         totalReplied: totalReplied ?? 0,
@@ -61,17 +70,17 @@ export async function POST(req: NextRequest) {
 
     logAudit({
       action: "sales_insight_uploaded",
-      email: "api@sales-insights",
-      name: authorName,
+      email: session.user.email,
+      name: displayName,
       entity: "sales_insight",
       entityId: insight.id,
-      detail: `${company.name} / ${period} / sent=${totalSent ?? 0} replied=${totalReplied ?? 0}`,
+      detail: `${user.groupCompany.name} / ${period} / sent=${totalSent ?? 0} replied=${totalReplied ?? 0}`,
     });
 
     return NextResponse.json({
       ok: true,
       id: insight.id,
-      companyName: company.name,
+      companyName: user.groupCompany.name,
       period,
     });
   } catch (e) {
@@ -85,9 +94,14 @@ export async function POST(req: NextRequest) {
 
 // ---- GET: ダッシュボード用データ取得 ----
 export async function GET(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
-    const period = searchParams.get("period"); // optional filter
+    const period = searchParams.get("period");
     const limit = Math.min(parseInt(searchParams.get("limit") ?? "50"), 200);
 
     const where = period ? { period } : {};
@@ -103,7 +117,6 @@ export async function GET(req: NextRequest) {
       take: limit,
     });
 
-    // 集計: 全体のsent/replied
     const totals = await db.salesInsight.aggregate({
       where,
       _sum: { totalSent: true, totalReplied: true },

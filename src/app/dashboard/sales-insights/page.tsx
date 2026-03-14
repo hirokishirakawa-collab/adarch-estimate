@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 // ---- Types ----
 interface IndustryInsight {
@@ -62,11 +63,12 @@ function TempBadge({ temp }: { temp: string }) {
 
 // ---- Page ----
 export default function SalesInsightsPage() {
+  const { data: session } = useSession();
   const [data, setData] = useState<SalesInsightRecord[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadData = () => {
     fetch("/api/sales-insights?limit=100")
       .then((r) => r.json())
       .then((res) => {
@@ -75,6 +77,10 @@ export default function SalesInsightsPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   if (loading) {
@@ -96,6 +102,12 @@ export default function SalesInsightsPage() {
           各メンバーがClaudeで分析した営業結果を集約しています
         </p>
       </div>
+
+      {/* Upload Form */}
+      <UploadForm
+        userName={session?.user?.name ?? ""}
+        onUploaded={loadData}
+      />
 
       {/* Setup Guide */}
       <SetupGuide />
@@ -119,7 +131,7 @@ export default function SalesInsightsPage() {
         <div className="text-center py-16 text-zinc-500">
           <p className="text-lg mb-2">まだレポートがありません</p>
           <p className="text-sm">
-            各メンバーがClaudeの分析結果をAPIにアップロードすると、ここに表示されます
+            下の「使い方ガイド」を参考に、Claudeの分析結果を貼り付けて送信してください
           </p>
         </div>
       ) : (
@@ -129,6 +141,93 @@ export default function SalesInsightsPage() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ---- Upload Form ----
+function UploadForm({
+  userName,
+  onUploaded,
+}: {
+  userName: string;
+  onUploaded: () => void;
+}) {
+  const [json, setJson] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const handleSubmit = async () => {
+    setMessage(null);
+
+    // JSON parse check
+    let parsed;
+    try {
+      parsed = JSON.parse(json);
+    } catch {
+      setMessage({ type: "error", text: "JSONの形式が正しくありません。Claudeの出力をそのまま貼り付けてください。" });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/sales-insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...parsed, authorName: parsed.authorName || userName }),
+      });
+      const result = await res.json();
+
+      if (!res.ok) {
+        setMessage({ type: "error", text: result.error ?? "送信に失敗しました" });
+      } else {
+        setMessage({ type: "success", text: `${result.companyName} のレポートを登録しました（${result.period}）` });
+        setJson("");
+        onUploaded();
+      }
+    } catch {
+      setMessage({ type: "error", text: "通信エラーが発生しました" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-3">
+      <p className="text-sm font-semibold text-white">
+        分析結果をアップロード
+      </p>
+      <p className="text-xs text-zinc-400">
+        Claudeが出力したJSONをそのまま貼り付けて送信してください
+      </p>
+      <textarea
+        value={json}
+        onChange={(e) => setJson(e.target.value)}
+        placeholder='{"period": "2026-03", "totalSent": 50, ...}'
+        rows={6}
+        className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 font-mono placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 resize-y"
+      />
+      <div className="flex items-center justify-between">
+        <div>
+          {message && (
+            <p
+              className={`text-xs ${message.type === "success" ? "text-green-400" : "text-red-400"}`}
+            >
+              {message.text}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={handleSubmit}
+          disabled={submitting || !json.trim()}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white text-sm font-medium rounded-md transition-colors"
+        >
+          {submitting ? "送信中..." : "送信"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -313,7 +412,7 @@ function SetupGuide() {
         <div className="flex items-center gap-2">
           <span className="text-base">📖</span>
           <span className="text-sm font-medium text-zinc-300">
-            使い方・設定ガイド
+            使い方ガイド
           </span>
         </div>
         <svg
@@ -340,8 +439,6 @@ function SetupGuide() {
 {`この営業データを分析して、以下のJSON形式で出力してください。
 
 {
-  "chatSpaceId": "（自分のGoogle ChatスペースID）",
-  "authorName": "（自分の名前）",
   "period": "2026-03",
   "totalSent": 送信した件数,
   "totalReplied": 返信があった件数,
@@ -369,69 +466,22 @@ function SetupGuide() {
           {/* Step 2 */}
           <div>
             <p className="font-semibold text-white mb-2">
-              Step 2: 分析結果をアップロードする
+              Step 2: このページに貼り付けて送信
             </p>
-            <p className="text-zinc-400 mb-2">
-              Claudeが出力したJSONを、以下のコマンドで送信します。
-              ターミナルまたはClaudeに実行してもらってください：
+            <p className="text-zinc-400">
+              Claudeが出力したJSONをそのままコピーして、上のテキストエリアに貼り付け、「送信」ボタンを押してください。
+              ログイン中のアカウントに紐づく企業として自動的に登録されます。
             </p>
-            <div className="bg-zinc-800 rounded-md p-3 text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-auto">
-{`curl -X POST https://adarch-estimate-production.up.railway.app/api/sales-insights \\
-  -H "Content-Type: application/json" \\
-  -H "x-api-key: 9825655e2765122ee0c4a5faeede548a7284d9b319bab3dece9f54e524f0e372" \\
-  -d '（↑のJSON）'`}
-            </div>
           </div>
 
           {/* Step 3 */}
           <div>
             <p className="font-semibold text-white mb-2">
-              Step 3: このページで全員の結果を確認
+              Step 3: 全員の結果を確認
             </p>
             <p className="text-zinc-400">
-              アップロードされた分析結果はこのページに自動で表示されます。
+              送信された分析結果はこのページに表示されます。
               他のメンバーがどの業種でどんな反応を得ているかを確認して、自分の営業に活かしてください。
-            </p>
-          </div>
-
-          {/* chatSpaceId 一覧 */}
-          <div>
-            <p className="font-semibold text-white mb-2">
-              自分の chatSpaceId を確認する
-            </p>
-            <p className="text-zinc-400 mb-2">
-              以下から自分のスペースIDを確認して、JSONの <code className="text-zinc-300 bg-zinc-800 px-1 rounded">chatSpaceId</code> に設定してください：
-            </p>
-            <div className="bg-zinc-800 rounded-md p-3 text-xs text-zinc-300 font-mono space-y-0.5 max-h-64 overflow-y-auto">
-              <p>一村 篤 → <span className="text-blue-400 select-all">spaces/AAQA5DWfLoE</span></p>
-              <p>七條 敬一 → <span className="text-blue-400 select-all">spaces/AAQAKs7kuos</span></p>
-              <p>三原 淳 → <span className="text-blue-400 select-all">spaces/AAQAsGlKn5c</span></p>
-              <p>倉田 大輔 → <span className="text-blue-400 select-all">spaces/AAQAxtfQtSs</span></p>
-              <p>吉原 悠真 → <span className="text-blue-400 select-all">spaces/AAQAZXqimA4</span></p>
-              <p>坂東 正朗 → <span className="text-blue-400 select-all">spaces/AAQAoR3gb1M</span></p>
-              <p>大城 崇 → <span className="text-blue-400 select-all">spaces/AAQAT2_JOrs</span></p>
-              <p>宮入 瑞志 → <span className="text-blue-400 select-all">spaces/AAQAQiXsCUw</span></p>
-              <p>宮本 貴史 → <span className="text-blue-400 select-all">spaces/AAQAAUnoJwE</span></p>
-              <p>山口 亜弓 → <span className="text-blue-400 select-all">spaces/AAQAmDz98iM</span></p>
-              <p>山田 一真 → <span className="text-blue-400 select-all">spaces/AAQACGzXMPM</span></p>
-              <p>早戸 禎裕 → <span className="text-blue-400 select-all">spaces/AAQAWNECvr8</span></p>
-              <p>木本 一心 → <span className="text-blue-400 select-all">spaces/AAQAAUMlEc4</span></p>
-              <p>森下 智司 → <span className="text-blue-400 select-all">spaces/AAQAkbYR4II</span></p>
-              <p>横山 将明 → <span className="text-blue-400 select-all">spaces/AAQARP8u-EQ</span></p>
-              <p>歌丸 翔馬 → <span className="text-blue-400 select-all">spaces/AAQA1ONKAvc</span></p>
-              <p>濱口 和朋 → <span className="text-blue-400 select-all">spaces/AAQAh8Wku14</span></p>
-              <p>瀬野 詠介 → <span className="text-blue-400 select-all">spaces/AAQA5h9sJMA</span></p>
-              <p>片桐 脩一郎 → <span className="text-blue-400 select-all">spaces/AAQAglZXyhE</span></p>
-              <p>白石 亨 → <span className="text-blue-400 select-all">spaces/AAQALAC7WwY</span></p>
-              <p>藤原 靖子 → <span className="text-blue-400 select-all">spaces/AAQAtLNqdIc</span></p>
-              <p>金山 恵美 → <span className="text-blue-400 select-all">spaces/AAQAbXme2Us</span></p>
-              <p>鈴木 啓太 → <span className="text-blue-400 select-all">spaces/AAQAn5FvUIA</span></p>
-              <p>高橋 摩也斗 → <span className="text-blue-400 select-all">spaces/AAQA-qXB8rI</span></p>
-              <p>高澤 健太郎 → <span className="text-blue-400 select-all">spaces/AAQAR7L5Y0k</span></p>
-              <p>齋藤 慧介 → <span className="text-blue-400 select-all">spaces/AAQA3TuKvwk</span></p>
-            </div>
-            <p className="text-xs text-zinc-500 mt-1">
-              上記にない方は本部に連絡してください
             </p>
           </div>
 
@@ -439,9 +489,8 @@ function SetupGuide() {
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
             <p className="text-xs font-semibold text-blue-400 mb-1">補足</p>
             <ul className="text-xs text-zinc-400 space-y-1 list-disc list-inside">
-              <li>上記のAPIキーはグループ共通です。外部には公開しないでください</li>
               <li>月に1回程度、その月の営業結果をまとめてアップロードする運用を推奨します</li>
-              <li>送信エラーが出る場合はJSONの形式を確認するか、本部に連絡してください</li>
+              <li>エラーが出る場合はJSONの形式を確認してください（Claudeに再出力してもらえばOK）</li>
             </ul>
           </div>
         </div>
