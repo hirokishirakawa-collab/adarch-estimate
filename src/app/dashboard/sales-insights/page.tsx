@@ -498,24 +498,31 @@ function InsightCard({ record }: { record: SalesInsightRecord }) {
   );
 }
 
-// ---- Setup Guide (collapsible) ----
+// ---- Setup Guide ----
 function SetupGuide() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+    <div className="bg-gradient-to-br from-blue-950/80 to-violet-950/60 border border-blue-500/30 rounded-xl overflow-hidden shadow-lg shadow-blue-500/5">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-zinc-800/50 transition-colors"
+        className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-base">📖</span>
-          <span className="text-sm font-medium text-zinc-300">
-            使い方ガイド
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+            <span className="text-lg">🚀</span>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white">
+              はじめての方へ — 3ステップで営業知見を共有
+            </p>
+            <p className="text-xs text-blue-300/70 mt-0.5">
+              毎週の営業データをClaudeで分析 → ここに貼るだけ → グループ全体で学び合い
+            </p>
+          </div>
         </div>
         <svg
-          className={`w-4 h-4 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`w-5 h-5 text-blue-400 transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -525,18 +532,56 @@ function SetupGuide() {
       </button>
 
       {open && (
-        <div className="px-5 pb-5 border-t border-zinc-800 space-y-5 text-sm">
-          {/* Step 1 */}
-          <div className="mt-4">
-            <p className="font-semibold text-white mb-2">
-              Step 1: Claudeに営業データを分析してもらう
-            </p>
-            <p className="text-zinc-400 mb-2">
-              営業で送ったメール・返信内容・リストなどをClaudeに渡して、以下のように依頼してください：
-            </p>
-            <div className="bg-zinc-800 rounded-md p-3 text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-auto">
+        <div className="px-6 pb-6 space-y-5 text-sm">
+          {/* Steps */}
+          <div className="grid md:grid-cols-3 gap-4 mt-2">
+            {/* Step 1 */}
+            <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
+                <p className="font-semibold text-white text-sm">Claudeに分析依頼</p>
+              </div>
+              <p className="text-xs text-blue-200/60 leading-relaxed">
+                営業で送ったメール・返信内容・リストなどをClaudeに渡して、
+                下のテンプレートで分析を依頼してください。
+              </p>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-6 h-6 rounded-full bg-violet-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
+                <p className="font-semibold text-white text-sm">ここに貼って送信</p>
+              </div>
+              <p className="text-xs text-blue-200/60 leading-relaxed">
+                Claudeが出力したJSONをコピーして、上のテキストエリアに貼り付け、
+                「送信」を押すだけ。企業情報は自動で紐づきます。
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
+                <p className="font-semibold text-white text-sm">全員の結果を確認</p>
+              </div>
+              <p className="text-xs text-blue-200/60 leading-relaxed">
+                どの業種が反応いいか、どんな文面が刺さるか。
+                グループ全員の営業知見がここに集まります。
+              </p>
+            </div>
+          </div>
+
+          {/* Template */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-bold text-blue-400 uppercase tracking-wide">Claudeへの依頼テンプレート</span>
+              <span className="text-[10px] text-blue-300/50 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">コピーしてそのまま使えます</span>
+            </div>
+            <div className="bg-black/30 border border-white/10 rounded-lg p-4 text-xs text-blue-100/80 whitespace-pre-wrap font-mono overflow-x-auto">
 {`この営業データを分析して、以下のJSON形式で出力してください。
 業種ごとに分類し、どんな営業手法で、何が刺さったかを分析してください。
+返信があった企業は1社ずつ詳細に記録してください。
 
 {
   "period": "2026-W11",
@@ -576,40 +621,30 @@ function SetupGuide() {
   "memo": "今週の全体所感・気づき・来週試したいこと"
 }`}
             </div>
-            <p className="text-xs text-zinc-500 mt-2">
-              ※ 各フィールドの入力例はClaudeへのヒントです。Claudeがデータから自動で判断します。
+            <p className="text-[11px] text-blue-300/40 mt-2">
+              ※ 各フィールドの説明はClaudeへのヒントです。データから自動で判断してくれます。
             </p>
           </div>
 
-          {/* Step 2 */}
-          <div>
-            <p className="font-semibold text-white mb-2">
-              Step 2: このページに貼り付けて送信
-            </p>
-            <p className="text-zinc-400">
-              Claudeが出力したJSONをそのままコピーして、上のテキストエリアに貼り付け、「送信」ボタンを押してください。
-              ログイン中のアカウントに紐づく企業として自動的に登録されます。
-            </p>
-          </div>
-
-          {/* Step 3 */}
-          <div>
-            <p className="font-semibold text-white mb-2">
-              Step 3: 全員の結果を確認
-            </p>
-            <p className="text-zinc-400">
-              送信された分析結果はこのページに表示されます。
-              他のメンバーがどの業種でどんな反応を得ているかを確認して、自分の営業に活かしてください。
-            </p>
-          </div>
-
-          {/* Notes */}
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
-            <p className="text-xs font-semibold text-blue-400 mb-1">補足</p>
-            <ul className="text-xs text-zinc-400 space-y-1 list-disc list-inside">
-              <li>週に1回、その週の営業結果をまとめてアップロードしてください（periodは <code className="bg-zinc-800 px-1 rounded">2026-W11</code> のようなISO週番号）</li>
-              <li>エラーが出る場合はJSONの形式を確認してください（Claudeに再出力してもらえばOK）</li>
-            </ul>
+          {/* Tips */}
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+              <p className="text-xs font-bold text-emerald-400 mb-1.5">💡 こんなデータを渡すと精度UP</p>
+              <ul className="text-[11px] text-emerald-300/70 space-y-1 list-disc list-inside">
+                <li>送信したメールの本文や件名</li>
+                <li>返信メールの全文</li>
+                <li>送信先リスト（会社名・業種・エリア）</li>
+                <li>問い合わせフォームで送った内容</li>
+              </ul>
+            </div>
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+              <p className="text-xs font-bold text-amber-400 mb-1.5">📅 運用ルール</p>
+              <ul className="text-[11px] text-amber-300/70 space-y-1 list-disc list-inside">
+                <li><strong>毎週</strong>提出（periodは <code className="bg-black/20 px-1 rounded">2026-W11</code> 形式）</li>
+                <li>返信がなかった週もinsightsだけ提出OK</li>
+                <li>エラーが出たらClaudeに「JSONを修正して」と伝えればOK</li>
+              </ul>
+            </div>
           </div>
         </div>
       )}
