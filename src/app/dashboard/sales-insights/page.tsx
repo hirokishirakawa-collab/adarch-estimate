@@ -5,15 +5,21 @@ import { useEffect, useState } from "react";
 // ---- Types ----
 interface IndustryInsight {
   industry: string;
+  area?: string;
   sent: number;
   replied: number;
   temperature: string;
+  method?: string;
+  hook?: string;
   summary: string;
 }
 
 interface TopResponse {
   industry: string;
+  companyScale?: string;
   responseSnippet: string;
+  replyDays?: number;
+  nextAction?: string;
   note: string;
 }
 
@@ -321,15 +327,34 @@ function InsightCard({ record }: { record: SalesInsightRecord }) {
                     className="bg-zinc-800/50 rounded-md px-4 py-3"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-white">
-                        {ins.industry}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-white">
+                          {ins.industry}
+                        </span>
+                        {ins.area && (
+                          <span className="text-[10px] text-zinc-500 bg-zinc-700/50 px-1.5 py-0.5 rounded">
+                            {ins.area}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-zinc-400">
                           {ins.sent}件 → {ins.replied}件
                         </span>
                         <TempBadge temp={ins.temperature} />
                       </div>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
+                      {ins.method && (
+                        <span className="text-[11px] text-zinc-500">
+                          手法: <span className="text-zinc-400">{ins.method}</span>
+                        </span>
+                      )}
+                      {ins.hook && (
+                        <span className="text-[11px] text-zinc-500">
+                          刺さった点: <span className="text-zinc-400">{ins.hook}</span>
+                        </span>
+                      )}
                     </div>
                     {ins.summary && (
                       <p className="text-xs text-zinc-400 mt-1">
@@ -354,15 +379,32 @@ function InsightCard({ record }: { record: SalesInsightRecord }) {
                     key={i}
                     className="bg-zinc-800/50 rounded-md px-4 py-3"
                   >
-                    <p className="text-xs text-zinc-500 mb-1">
-                      {resp.industry}
-                    </p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-zinc-500">
+                        {resp.industry}
+                      </span>
+                      {resp.companyScale && (
+                        <span className="text-[10px] text-zinc-500 bg-zinc-700/50 px-1.5 py-0.5 rounded">
+                          {resp.companyScale}
+                        </span>
+                      )}
+                      {resp.replyDays != null && (
+                        <span className="text-[10px] text-zinc-500 bg-zinc-700/50 px-1.5 py-0.5 rounded">
+                          {resp.replyDays}日で返信
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-white">
                       &ldquo;{resp.responseSnippet}&rdquo;
                     </p>
                     {resp.note && (
                       <p className="text-xs text-zinc-400 mt-1">
                         {resp.note}
+                      </p>
+                    )}
+                    {resp.nextAction && (
+                      <p className="text-xs text-blue-400/80 mt-1">
+                        → 次のアクション: {resp.nextAction}
                       </p>
                     )}
                   </div>
@@ -424,32 +466,42 @@ function SetupGuide() {
             <p className="text-zinc-400 mb-2">
               営業で送ったメール・返信内容・リストなどをClaudeに渡して、以下のように依頼してください：
             </p>
-            <div className="bg-zinc-800 rounded-md p-3 text-xs text-zinc-300 whitespace-pre-wrap font-mono">
+            <div className="bg-zinc-800 rounded-md p-3 text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-auto">
 {`この営業データを分析して、以下のJSON形式で出力してください。
+業種ごとに分類し、どんな営業手法で、何が刺さったかを分析してください。
 
 {
   "period": "2026-W11",
-  "totalSent": 送信した件数,
-  "totalReplied": 返信があった件数,
+  "totalSent": 送信した総件数,
+  "totalReplied": 返信があった総件数,
   "insights": [
     {
-      "industry": "業種名",
+      "industry": "業種名（例: 飲食、不動産、美容、IT）",
+      "area": "エリア（例: 東京都、関西、全国）",
       "sent": その業種への送信数,
       "replied": 返信数,
       "temperature": "hot / warm / cold",
-      "summary": "この業種での所感（1〜2文）"
+      "method": "営業手法（例: メール、フォーム、DM、電話）",
+      "hook": "刺さったポイント（例: SNS運用提案、動画制作の実績訴求）",
+      "summary": "この業種での分析・所感（2〜3文）"
     }
   ],
   "topResponses": [
     {
       "industry": "業種名",
+      "companyScale": "企業規模（例: 個人経営、中小、大手）",
       "responseSnippet": "実際の返信内容（要約可）",
-      "note": "補足メモ"
+      "replyDays": 送信から返信までの日数,
+      "nextAction": "次に取るべきアクション（例: 資料送付、打ち合わせ設定）",
+      "note": "補足（何が決め手だったか等）"
     }
   ],
-  "memo": "全体の所感（任意）"
+  "memo": "今週の全体所感・気づき・来週試したいこと"
 }`}
             </div>
+            <p className="text-xs text-zinc-500 mt-2">
+              ※ 各フィールドの入力例はClaudeへのヒントです。Claudeがデータから自動で判断します。
+            </p>
           </div>
 
           {/* Step 2 */}
