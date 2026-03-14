@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 
 // ---- Types ----
 interface IndustryInsight {
@@ -63,7 +62,6 @@ function TempBadge({ temp }: { temp: string }) {
 
 // ---- Page ----
 export default function SalesInsightsPage() {
-  const { data: session } = useSession();
   const [data, setData] = useState<SalesInsightRecord[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -104,10 +102,7 @@ export default function SalesInsightsPage() {
       </div>
 
       {/* Upload Form */}
-      <UploadForm
-        userName={session?.user?.name ?? ""}
-        onUploaded={loadData}
-      />
+      <UploadForm onUploaded={loadData} />
 
       {/* Setup Guide */}
       <SetupGuide />
@@ -146,13 +141,7 @@ export default function SalesInsightsPage() {
 }
 
 // ---- Upload Form ----
-function UploadForm({
-  userName,
-  onUploaded,
-}: {
-  userName: string;
-  onUploaded: () => void;
-}) {
+function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   const [json, setJson] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{
@@ -177,7 +166,7 @@ function UploadForm({
       const res = await fetch("/api/sales-insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...parsed, authorName: parsed.authorName || userName }),
+        body: JSON.stringify(parsed),
       });
       const result = await res.json();
 
