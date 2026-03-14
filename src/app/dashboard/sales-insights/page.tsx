@@ -15,10 +15,19 @@ interface IndustryInsight {
 }
 
 interface TopResponse {
+  companyName?: string;
   industry: string;
+  area?: string;
   companyScale?: string;
-  responseSnippet: string;
+  companyUrl?: string;
+  contactMethod?: string;
+  sentDate?: string;
+  replyDate?: string;
+  replyHours?: number;
   replyDays?: number;
+  sentSummary?: string;
+  responseSnippet: string;
+  responseType?: string;
   nextAction?: string;
   note: string;
 }
@@ -371,39 +380,98 @@ function InsightCard({ record }: { record: SalesInsightRecord }) {
           {topResponses.length > 0 && (
             <div>
               <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">
-                注目の返信
+                返信の詳細
               </p>
               <div className="space-y-2">
                 {topResponses.map((resp, i) => (
                   <div
                     key={i}
-                    className="bg-zinc-800/50 rounded-md px-4 py-3"
+                    className="bg-zinc-800/50 rounded-md px-4 py-3 space-y-2"
                   >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-zinc-500">
-                        {resp.industry}
-                      </span>
-                      {resp.companyScale && (
+                    {/* Company header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {resp.companyName ? (
+                          <span className="text-sm font-medium text-white">
+                            {resp.companyName}
+                          </span>
+                        ) : null}
                         <span className="text-[10px] text-zinc-500 bg-zinc-700/50 px-1.5 py-0.5 rounded">
-                          {resp.companyScale}
+                          {resp.industry}
                         </span>
-                      )}
-                      {resp.replyDays != null && (
-                        <span className="text-[10px] text-zinc-500 bg-zinc-700/50 px-1.5 py-0.5 rounded">
-                          {resp.replyDays}日で返信
+                        {resp.area && (
+                          <span className="text-[10px] text-zinc-500 bg-zinc-700/50 px-1.5 py-0.5 rounded">
+                            {resp.area}
+                          </span>
+                        )}
+                        {resp.companyScale && (
+                          <span className="text-[10px] text-zinc-500 bg-zinc-700/50 px-1.5 py-0.5 rounded">
+                            {resp.companyScale}
+                          </span>
+                        )}
+                      </div>
+                      {/* Reply speed badge */}
+                      {(resp.replyHours != null || resp.replyDays != null) && (
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                          (resp.replyHours != null && resp.replyHours <= 24) || (resp.replyDays != null && resp.replyDays <= 1)
+                            ? "bg-green-500/20 text-green-400 border-green-500/30"
+                            : (resp.replyDays != null && resp.replyDays <= 3)
+                              ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                              : "bg-zinc-700/60 text-zinc-400 border-zinc-600/40"
+                        }`}>
+                          {resp.replyHours != null
+                            ? `${resp.replyHours}時間で返信`
+                            : `${resp.replyDays}日で返信`}
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-white">
-                      &ldquo;{resp.responseSnippet}&rdquo;
-                    </p>
+
+                    {/* Company URL */}
+                    {resp.companyUrl && (
+                      <p className="text-[11px] text-zinc-500 truncate">
+                        {resp.companyUrl}
+                      </p>
+                    )}
+
+                    {/* Dates & method */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-zinc-500">
+                      {resp.contactMethod && (
+                        <span>手法: <span className="text-zinc-400">{resp.contactMethod}</span></span>
+                      )}
+                      {resp.sentDate && (
+                        <span>送付: <span className="text-zinc-400">{resp.sentDate}</span></span>
+                      )}
+                      {resp.replyDate && (
+                        <span>返信: <span className="text-zinc-400">{resp.replyDate}</span></span>
+                      )}
+                      {resp.responseType && (
+                        <span>反応: <span className="text-zinc-400">{resp.responseType}</span></span>
+                      )}
+                    </div>
+
+                    {/* What was sent */}
+                    {resp.sentSummary && (
+                      <div>
+                        <p className="text-[11px] text-zinc-500 mb-0.5">送った内容:</p>
+                        <p className="text-xs text-zinc-400">{resp.sentSummary}</p>
+                      </div>
+                    )}
+
+                    {/* Response */}
+                    <div>
+                      <p className="text-[11px] text-zinc-500 mb-0.5">返信内容:</p>
+                      <p className="text-sm text-white">
+                        &ldquo;{resp.responseSnippet}&rdquo;
+                      </p>
+                    </div>
+
                     {resp.note && (
-                      <p className="text-xs text-zinc-400 mt-1">
+                      <p className="text-xs text-zinc-400">
                         {resp.note}
                       </p>
                     )}
                     {resp.nextAction && (
-                      <p className="text-xs text-blue-400/80 mt-1">
+                      <p className="text-xs text-blue-400/80">
                         → 次のアクション: {resp.nextAction}
                       </p>
                     )}
@@ -488,12 +556,21 @@ function SetupGuide() {
   ],
   "topResponses": [
     {
+      "companyName": "会社名",
       "industry": "業種名",
-      "companyScale": "企業規模（例: 個人経営、中小、大手）",
+      "area": "所在地（例: 東京都渋谷区）",
+      "companyScale": "企業規模（例: 個人経営、中小10名、大手500名）",
+      "companyUrl": "会社HP（あれば）",
+      "contactMethod": "営業手法（例: メール、問い合わせフォーム、DM）",
+      "sentDate": "送付日（例: 3/10）",
+      "replyDate": "返信日（例: 3/11）",
+      "replyHours": 送付から返信までの時間数（24時間以内の場合）,
+      "replyDays": 送付から返信までの日数（1日以上の場合）,
+      "sentSummary": "送った営業文の要約（何を提案したか）",
       "responseSnippet": "実際の返信内容（要約可）",
-      "replyDays": 送信から返信までの日数,
+      "responseType": "反応の種類（例: 興味あり、資料請求、見積依頼、断り）",
       "nextAction": "次に取るべきアクション（例: 資料送付、打ち合わせ設定）",
-      "note": "補足（何が決め手だったか等）"
+      "note": "補足（何が決め手だったか、気づき等）"
     }
   ],
   "memo": "今週の全体所感・気づき・来週試したいこと"
