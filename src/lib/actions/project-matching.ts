@@ -163,7 +163,7 @@ async function notifyEligibleCompanies(params: {
     `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/dashboard/project-matching`,
   ].join("\n");
 
-  await broadcastChatMessage(eligibleSpaceIds, message);
+  await broadcastChatMessage(eligibleSpaceIds, message, { markAsRead: true });
 }
 
 // ----------------------------------------------------------------
@@ -890,7 +890,7 @@ export async function createProjectRequestAdmin(
 
       const spaceIds = companies.map((c) => c.chatSpaceId).filter(Boolean);
       if (spaceIds.length > 0) {
-        broadcastChatMessage(spaceIds, message).catch((err) =>
+        broadcastChatMessage(spaceIds, message, { markAsRead: true }).catch((err) =>
           console.error("[project-matching] Admin Chat notification error:", err)
         );
       }

@@ -73,11 +73,40 @@ export async function notifyCeo(text: string): Promise<void> {
 
 /**
  * 複数の spaceId に同じメッセージを送信（並列、失敗しても他は続行）
+ * options.markAsRead が true の場合、GAS経由で送信＋既読処理を行う
  */
 export async function broadcastChatMessage(
   spaceIds: string[],
-  text: string
+  text: string,
+  options?: { markAsRead?: boolean }
 ): Promise<{ sent: number; failed: number }> {
+  // GAS経由（送信＋既読処理）
+  if (options?.markAsRead) {
+    const gasUrl = process.env.GAS_BROADCAST_URL;
+    if (gasUrl) {
+      try {
+        const res = await fetch(gasUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            spaceIds: spaceIds.map((id) => id.replace(/^spaces\//, "")),
+            text,
+            apiKey: process.env.GROUP_SUPPORT_API_KEY,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          console.log(`[google-chat] GAS broadcast: ${data.sent} sent, ${data.failed} failed, ${data.read} read`);
+          return { sent: data.sent ?? 0, failed: data.failed ?? 0 };
+        }
+        console.error(`[google-chat] GAS broadcast failed (${res.status}), falling back to webhook`);
+      } catch (e) {
+        console.error("[google-chat] GAS broadcast error, falling back to webhook:", e);
+      }
+    }
+  }
+
+  // Webhook直接送信（フォールバック）
   const results = await Promise.allSettled(
     spaceIds.map((id) => sendChatMessage(id, text))
   );
