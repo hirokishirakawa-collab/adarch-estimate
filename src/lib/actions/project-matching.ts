@@ -156,7 +156,10 @@ async function notifyEligibleCompanies(params: {
     `🏷️ ${catLabel}（${freqLabel}）`,
     `💰 予算: ${budgetText}${prefText}`,
     "",
-    "▶ 詳細を確認して応募できます",
+    "この通知は募集要項をクリアしている方にのみ送付しています。",
+    "⚡ *先着順で決定* しますので、希望される方は白川まで個人チャットでご連絡ください。",
+    "",
+    "▶ 詳細はこちら",
     `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/dashboard/project-matching`,
   ].join("\n");
 
@@ -878,7 +881,10 @@ export async function createProjectRequestAdmin(
         `🏷️ ${catLabel}`,
         `💰 予算: ${budgetText}`,
         "",
-        "▶ 詳細を確認して応募できます",
+        "この通知は募集要項をクリアしている方にのみ送付しています。",
+        "⚡ *先着順で決定* しますので、希望される方は白川まで個人チャットでご連絡ください。",
+        "",
+        "▶ 詳細はこちら",
         `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/dashboard/project-matching/${created.id}`,
       ].join("\n");
 
