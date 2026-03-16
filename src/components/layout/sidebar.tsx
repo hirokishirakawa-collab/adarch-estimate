@@ -306,7 +306,7 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-teal-500/80",
     items: [
       {
-        href: "https://calendar.app.google/ZP3woztffUUoHivm6",
+        href: "https://calendar.app.google/DvCvNkUvw91Ytq9u8",
         label: "本部打ち合わせ予約",
         icon: CalendarCheck,
         minRole: "USER",
