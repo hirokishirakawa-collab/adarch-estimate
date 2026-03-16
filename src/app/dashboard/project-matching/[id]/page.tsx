@@ -16,6 +16,7 @@ import { ApplicationForm } from "./application-form";
 import { MatchButton } from "./match-button";
 import { EligibilityCard } from "./contribution-score-card";
 import { AdminControls } from "./admin-controls";
+import { CloseButton } from "./close-button";
 
 export default async function ProjectRequestDetailPage({
   params,
@@ -220,6 +221,16 @@ export default async function ProjectRequestDetailPage({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* クローズボタン（投稿者 or ADMIN、OPEN/MATCHED の場合） */}
+      {isOwner && (request.status === "OPEN" || request.status === "MATCHED") && (
+        <div className="flex justify-end">
+          <CloseButton
+            projectRequestId={request.id}
+            title={request.title}
+          />
         </div>
       )}
 
