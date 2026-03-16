@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import Link from "next/link";
 import { getOrGenerateDigest } from "@/lib/digest";
+import { db } from "@/lib/db";
 import type { UserRole } from "@/types/roles";
 import {
   Users,
@@ -10,6 +11,7 @@ import {
   TrendingUp,
   Sparkles,
   Search,
+  Activity,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -24,6 +26,48 @@ export default async function DashboardPage() {
 
   // ── ダイジェスト ──
   const digest = await getOrGenerateDigest();
+
+  // ── 営業インサイト サマリー ──
+  const [insightTotals, recentInsights] = await Promise.all([
+    db.salesInsight.aggregate({
+      _sum: { totalSent: true, totalReplied: true },
+      _count: true,
+    }),
+    db.salesInsight.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      include: {
+        groupCompany: { select: { name: true, emoji: true } },
+      },
+    }),
+  ]);
+
+  const insightSummary = {
+    totalReports: insightTotals._count,
+    totalSent: insightTotals._sum.totalSent ?? 0,
+    totalReplied: insightTotals._sum.totalReplied ?? 0,
+    replyRate:
+      insightTotals._sum.totalSent && insightTotals._sum.totalSent > 0
+        ? Math.round(
+            ((insightTotals._sum.totalReplied ?? 0) /
+              insightTotals._sum.totalSent) *
+              100
+          )
+        : 0,
+  };
+
+  // 直近のhotな業種を抽出
+  type InsightJson = { industry: string; temperature: string; replied: number };
+  const hotIndustries: string[] = [];
+  for (const r of recentInsights) {
+    const items = (r.insights as InsightJson[]) ?? [];
+    for (const item of items) {
+      if (item.temperature === "hot" && !hotIndustries.includes(item.industry)) {
+        hotIndustries.push(item.industry);
+      }
+    }
+    if (hotIndustries.length >= 3) break;
+  }
 
   // ── 挨拶 ──
   const hour = now.getHours();
@@ -97,6 +141,60 @@ export default async function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── 営業インサイト サマリー ── */}
+      {insightSummary.totalReports > 0 && (
+        <Link
+          href="/dashboard/sales-insights"
+          className="group block rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 via-purple-50 to-fuchsia-50 px-5 py-4 hover:border-violet-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-violet-400 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+              <Activity className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-zinc-800 group-hover:text-violet-700 transition-colors">
+                営業インサイト共有
+              </p>
+              <p className="text-[11px] text-zinc-500">
+                グループ全体の営業分析レポート
+              </p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-violet-300 group-hover:text-violet-500 group-hover:translate-x-1 transition-all flex-shrink-0" />
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            <div className="bg-white/70 rounded-lg px-3 py-2 border border-violet-100">
+              <p className="text-[10px] text-zinc-400">レポート数</p>
+              <p className="text-lg font-bold text-zinc-800">{insightSummary.totalReports}</p>
+            </div>
+            <div className="bg-white/70 rounded-lg px-3 py-2 border border-violet-100">
+              <p className="text-[10px] text-zinc-400">総送信数</p>
+              <p className="text-lg font-bold text-zinc-800">{insightSummary.totalSent}</p>
+            </div>
+            <div className="bg-white/70 rounded-lg px-3 py-2 border border-violet-100">
+              <p className="text-[10px] text-zinc-400">総返信数</p>
+              <p className="text-lg font-bold text-zinc-800">{insightSummary.totalReplied}</p>
+            </div>
+            <div className="bg-white/70 rounded-lg px-3 py-2 border border-violet-100">
+              <p className="text-[10px] text-zinc-400">返信率</p>
+              <p className="text-lg font-bold text-violet-600">{insightSummary.replyRate}%</p>
+            </div>
+          </div>
+          {hotIndustries.length > 0 && (
+            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] text-zinc-400">HOT業種:</span>
+              {hotIndustries.map((ind) => (
+                <span
+                  key={ind}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-600 border border-red-200"
+                >
+                  {ind}
+                </span>
+              ))}
+            </div>
+          )}
+        </Link>
       )}
 
       {/* ── ご利用ガイド ── */}
