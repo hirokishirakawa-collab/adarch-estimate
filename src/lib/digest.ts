@@ -85,6 +85,15 @@ interface BasicStats {
   newProjects: number;
 }
 
+interface SalesInsightSummary {
+  totalReports: number;
+  totalSent: number;
+  totalReplied: number;
+  replyRate: number;
+  hotIndustries: string[];
+  topHooks: string[];
+}
+
 interface DigestStats {
   newCustomers: number;
   newDeals: number;
@@ -102,6 +111,7 @@ interface DigestStats {
   topUsers: TopUser[];
   notableDeals: NotableDeal[];
   stageChanges: StageChange[];
+  salesInsights: SalesInsightSummary;
 }
 
 // ----------------------------------------------------------------
@@ -140,6 +150,8 @@ async function collectStats(since: Date): Promise<DigestStats> {
     notableDealsRaw,
     // ステージ変更
     stageChangesRaw,
+    // 営業インサイト
+    salesInsightsRaw,
   ] = await Promise.all([
     db.customer.count({ where: { createdAt: { gte: since } } }),
     db.deal.findMany({
@@ -209,6 +221,16 @@ async function collectStats(since: Date): Promise<DigestStats> {
       orderBy: { updatedAt: "desc" },
       take: 10,
     }),
+    // 営業インサイト: 直近のレポート
+    db.salesInsight.findMany({
+      where: { createdAt: { gte: since } },
+      select: {
+        totalSent: true,
+        totalReplied: true,
+        insights: true,
+        authorName: true,
+      },
+    }),
   ]);
 
   // 商談集計
@@ -270,6 +292,31 @@ async function collectStats(since: Date): Promise<DigestStats> {
     status: d.status,
   }));
 
+  // 営業インサイト集計
+  let siTotalSent = 0;
+  let siTotalReplied = 0;
+  const hotIndustriesSet = new Set<string>();
+  const hooksSet = new Set<string>();
+  for (const si of salesInsightsRaw) {
+    siTotalSent += si.totalSent;
+    siTotalReplied += si.totalReplied;
+    const insights = si.insights as any[];
+    if (Array.isArray(insights)) {
+      for (const ins of insights) {
+        if (ins.temperature === "hot" && ins.industry) hotIndustriesSet.add(ins.industry);
+        if (ins.hook) hooksSet.add(ins.hook);
+      }
+    }
+  }
+  const salesInsights: SalesInsightSummary = {
+    totalReports: salesInsightsRaw.length,
+    totalSent: siTotalSent,
+    totalReplied: siTotalReplied,
+    replyRate: siTotalSent > 0 ? Math.round((siTotalReplied / siTotalSent) * 100) : 0,
+    hotIndustries: Array.from(hotIndustriesSet).slice(0, 5),
+    topHooks: Array.from(hooksSet).slice(0, 5),
+  };
+
   return {
     newCustomers,
     newDeals: deals.length,
@@ -287,6 +334,7 @@ async function collectStats(since: Date): Promise<DigestStats> {
     topUsers,
     notableDeals,
     stageChanges,
+    salesInsights,
   };
 }
 
@@ -375,6 +423,13 @@ ${notableDealsText}
 
 【商談ステージ変更（既存案件の進捗）】
 ${stageChangesText}
+
+【営業インサイト（グループ全体の営業活動）】
+${data.salesInsights.totalReports > 0
+  ? `レポート数: ${data.salesInsights.totalReports}件 / 送信数: ${data.salesInsights.totalSent}件 / 返信数: ${data.salesInsights.totalReplied}件（返信率: ${data.salesInsights.replyRate}%）
+ホットな業種: ${data.salesInsights.hotIndustries.length > 0 ? data.salesInsights.hotIndustries.join("、") : "なし"}
+刺さった提案: ${data.salesInsights.topHooks.length > 0 ? data.salesInsights.topHooks.join("、") : "なし"}`
+  : "直近の営業インサイトレポートなし"}
 
 サマリーのみを出力してください（見出し・箇条書き・絵文字は不要、自然な文章で）。`;
 
