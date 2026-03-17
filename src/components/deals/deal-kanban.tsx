@@ -137,6 +137,11 @@ export function DealKanban({ deals: initialDeals, showArchived, sevenDaysAgo }: 
     setMounted(true);
   }, []);
 
+  // showArchived トグルで initialDeals が変わったら state を同期
+  useEffect(() => {
+    setDeals(initialDeals);
+  }, [initialDeals]);
+
   // MouseSensor: PC マウス操作 — activationConstraint.distance で
   //   クリックとドラッグを区別（5px 動かさないと開始しない）
   // TouchSensor: スマホ・タブレット — 150ms 長押しで開始
