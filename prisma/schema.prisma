@@ -266,11 +266,6 @@ model User {
 
   chatSpaceId  String?  // Google Chat 個人スペースID
 
-  // ---- Gmail連携（営業インサイト自動取得用）----
-  gmailAccessToken   String?  @db.Text
-  gmailRefreshToken  String?  @db.Text
-  gmailTokenExpiry   DateTime?
-
   // ---- グループ企業紐付け（メンバープロフィール用）----
   groupCompanyId String?
   groupCompany   GroupCompany? @relation("UserGroupCompany", fields: [groupCompanyId], references: [id], onDelete: SetNull)
