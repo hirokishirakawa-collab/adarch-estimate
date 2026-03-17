@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Eye, Pencil, Trash2, Link2, Check, Globe, GlobeLock } from "lucide-react";
+import { FileText, Eye, Pencil, Trash2, Link2, Check, Globe, GlobeLock, X, Loader2 } from "lucide-react";
 import { PROPOSAL_INDUSTRY_OPTIONS } from "@/lib/constants/proposals";
 import { useState } from "react";
 import { ProposalPreview } from "./proposal-preview";
@@ -23,20 +23,25 @@ interface ProposalListProps {
   onRefresh?: () => void;
 }
 
+const PROPOSALS_DOMAIN = "proposals.adarch.co.jp";
+
 export function ProposalList({ proposals, isAdmin, onRefresh }: ProposalListProps) {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [publishingId, setPublishingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // 公開ダイアログ
+  const [publishDialogId, setPublishDialogId] = useState<string | null>(null);
+  const [slugInput, setSlugInput] = useState("");
+  const [publishError, setPublishError] = useState("");
+  const [publishing, setPublishing] = useState(false);
 
   const getIndustryLabel = (value: string) => {
     return PROPOSAL_INDUSTRY_OPTIONS.find((o) => o.value === value)?.label || value;
   };
 
   const getPublicUrl = (slug: string) => {
-    const base = typeof window !== "undefined" ? window.location.origin : "";
-    return `${base}/p/${slug}`;
+    return `https://${PROPOSALS_DOMAIN}/p/${slug}`;
   };
 
   const handleCopyUrl = async (slug: string, id: string) => {
@@ -46,21 +51,54 @@ export function ProposalList({ proposals, isAdmin, onRefresh }: ProposalListProp
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handlePublish = async (id: string) => {
-    setPublishingId(id);
+  const openPublishDialog = (id: string, companyName: string) => {
+    // 企業名からslug候補を生成（英数字+ハイフンに変換）
+    const suggested = companyName
+      .replace(/株式会社|有限会社|合同会社|（株）|\(株\)/g, "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+    setPublishDialogId(id);
+    setSlugInput(suggested || "");
+    setPublishError("");
+  };
+
+  const handlePublish = async () => {
+    if (!publishDialogId) return;
+    const slug = slugInput.trim();
+    if (!slug) {
+      setPublishError("URLを入力してください");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(slug)) {
+      setPublishError("半角英数字・ハイフン・アンダースコアのみ使用できます");
+      return;
+    }
+
+    setPublishing(true);
+    setPublishError("");
     try {
-      const res = await fetch(`/api/proposals/${id}/publish`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        // コピー
-        const url = getPublicUrl(data.slug);
-        await navigator.clipboard.writeText(url);
-        setCopiedId(id);
-        setTimeout(() => setCopiedId(null), 2000);
-        onRefresh?.();
+      const res = await fetch(`/api/proposals/${publishDialogId}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPublishError(data.error || "公開に失敗しました");
+        return;
       }
+      // URLをクリップボードにコピー
+      const url = getPublicUrl(data.slug);
+      await navigator.clipboard.writeText(url);
+      setCopiedId(publishDialogId);
+      setTimeout(() => setCopiedId(null), 2000);
+      setPublishDialogId(null);
+      onRefresh?.();
+    } catch {
+      setPublishError("通信エラーが発生しました");
     } finally {
-      setPublishingId(null);
+      setPublishing(false);
     }
   };
 
@@ -133,9 +171,8 @@ export function ProposalList({ proposals, isAdmin, onRefresh }: ProposalListProp
                   </button>
                   {!p.isPublished ? (
                     <button
-                      onClick={() => handlePublish(p.id)}
-                      disabled={publishingId === p.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 disabled:opacity-50 transition-colors"
+                      onClick={() => openPublishDialog(p.id, p.companyName)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
                     >
                       <Globe className="w-3.5 h-3.5" />
                       公開
@@ -191,6 +228,71 @@ export function ProposalList({ proposals, isAdmin, onRefresh }: ProposalListProp
           ))}
         </div>
       </div>
+
+      {/* 公開ダイアログ */}
+      {publishDialogId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-zinc-800">提案書を公開</h3>
+              <button onClick={() => setPublishDialogId(null)} className="p-1 rounded-lg hover:bg-zinc-100">
+                <X className="w-4 h-4 text-zinc-400" />
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-500 mb-3">
+              クライアントに共有するURLを設定してください。
+            </p>
+
+            {/* URLプレビュー */}
+            <div className="bg-zinc-50 rounded-lg px-3 py-2.5 mb-4">
+              <p className="text-[10px] text-zinc-400 mb-1">公開URL</p>
+              <p className="text-sm text-zinc-700 font-mono break-all">
+                https://{PROPOSALS_DOMAIN}/p/<span className="text-blue-600 font-semibold">{slugInput || "..."}</span>
+              </p>
+            </div>
+
+            {/* slug入力 */}
+            <label className="block text-xs text-zinc-500 mb-1">URL（半角英数字・ハイフン）</label>
+            <input
+              type="text"
+              value={slugInput}
+              onChange={(e) => {
+                setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""));
+                setPublishError("");
+              }}
+              placeholder="tanaka-shoten"
+              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+              onKeyDown={(e) => { if (e.key === "Enter") handlePublish(); }}
+            />
+
+            {publishError && (
+              <p className="text-xs text-red-600 mt-2">{publishError}</p>
+            )}
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                onClick={() => setPublishDialogId(null)}
+                className="px-4 py-2 text-xs font-medium text-zinc-600 bg-zinc-100 rounded-lg hover:bg-zinc-200 transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handlePublish}
+                disabled={publishing || !slugInput.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                {publishing ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Globe className="w-3.5 h-3.5" />
+                )}
+                公開してURLをコピー
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {previewProposal && (
         <ProposalPreview
