@@ -51,3 +51,39 @@ export const strategyAdvisorSchema = z.object({
   budget: z.number().min(0),
   freeText: z.string().optional(),
 });
+
+// POST /api/leads/btob/search
+export const btobSearchSchema = z.object({
+  prefecture: z.string().optional().default(""),
+  city: z.string().optional().default(""),
+  businessItem: z.string().optional().default(""),
+  capitalFrom: z.number().int().min(0).optional(),
+  capitalTo: z.number().int().min(0).optional(),
+  employeeFrom: z.number().int().min(0).optional(),
+  employeeTo: z.number().int().min(0).optional(),
+  companyName: z.string().optional().default(""),
+  page: z.number().int().min(1).optional().default(1),
+  limit: z.number().int().min(1).max(50).optional().default(20),
+});
+
+// POST /api/leads/btob/score
+export const btobScoreSchema = z.object({
+  companies: z
+    .array(
+      z.object({
+        name: z.string(),
+        address: z.string(),
+        corporateNumber: z.string(),
+        capital: z.number().optional(),
+        employeeCount: z.number().optional(),
+        representativeName: z.string().optional(),
+        websiteUrl: z.string().optional(),
+        businessItems: z.array(z.string()).optional().default([]),
+        subsidies: z.array(z.string()).optional().default([]),
+      })
+    )
+    .min(1)
+    .max(50),
+  industry: z.string().min(1),
+  area: z.string().min(1),
+});

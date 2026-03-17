@@ -104,6 +104,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/leads/btob",
+        label: "BtoBリード獲得AI",
+        icon: Building2,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/leads/list",
         label: "リード管理",
         icon: ListChecks,

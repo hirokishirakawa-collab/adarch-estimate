@@ -193,6 +193,11 @@ enum TverCampaignStatus {
   REJECTED  // 否決
 }
 
+enum LeadSource {
+  GOOGLE_PLACES
+  GBIZINFO
+}
+
 // ==============================================================
 // Branch（拠点）
 // ==============================================================
@@ -1422,6 +1427,15 @@ model Lead {
   area            String?
   status          LeadStatus @default(UNTOUCHED)
   memo            String?    @db.Text
+  source          LeadSource @default(GOOGLE_PLACES)
+  corporateNumber String?
+  capital         BigInt?
+  employeeCount   Int?
+  representativeName String?
+  youtubeChannelUrl  String?
+  youtubeSubscribers Int?
+  youtubeLastUpload  DateTime?
+  subsidies       String[]   @default([])
   assigneeId      String?
   assignee        User?      @relation("LeadAssignee", fields: [assigneeId], references: [id])
   createdById     String?
@@ -1436,6 +1450,7 @@ model Lead {
   @@index([status])
   @@index([assigneeId])
   @@index([createdAt])
+  @@index([source])
   @@map("leads")
 }
 

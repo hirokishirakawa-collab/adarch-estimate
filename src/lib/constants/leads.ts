@@ -209,3 +209,87 @@ export type LeadStatusValue = (typeof LEAD_STATUS_OPTIONS)[number]["value"];
 export function getLeadStatusOption(value: string) {
   return LEAD_STATUS_OPTIONS.find((o) => o.value === value) ?? LEAD_STATUS_OPTIONS[0];
 }
+
+// ---------------------------------------------------------------
+// BtoB リード獲得AI 定数
+// ---------------------------------------------------------------
+
+/** BtoB 業種オプション（gBizINFO business_item values） */
+export const BTOB_INDUSTRY_OPTIONS = [
+  { value: "製造業", label: "製造業" },
+  { value: "建設業", label: "建設業" },
+  { value: "情報通信業", label: "情報通信業" },
+  { value: "卸売業", label: "卸売業・小売業" },
+  { value: "不動産業", label: "不動産業" },
+  { value: "運輸業", label: "運輸業・物流" },
+  { value: "医療", label: "医療・福祉" },
+  { value: "宿泊業", label: "宿泊業・飲食サービス業" },
+  { value: "教育", label: "教育・学習支援業" },
+  { value: "サービス業", label: "サービス業（その他）" },
+] as const;
+
+/** 資本金レンジオプション */
+export const CAPITAL_RANGE_OPTIONS = [
+  { label: "指定なし", from: undefined, to: undefined },
+  { label: "〜1,000万円", from: undefined, to: 10000000 },
+  { label: "1,000万〜5,000万円", from: 10000000, to: 50000000 },
+  { label: "5,000万〜1億円", from: 50000000, to: 100000000 },
+  { label: "1億円以上", from: 100000000, to: undefined },
+] as const;
+
+/** 従業員数レンジオプション */
+export const EMPLOYEE_RANGE_OPTIONS = [
+  { label: "指定なし", from: undefined, to: undefined },
+  { label: "〜10名", from: undefined, to: 10 },
+  { label: "10〜50名", from: 10, to: 50 },
+  { label: "50〜100名", from: 50, to: 100 },
+  { label: "100〜300名", from: 100, to: 300 },
+  { label: "300名以上", from: 300, to: undefined },
+] as const;
+
+/** BtoB スコア項目（合計100点） */
+export const BTOB_SCORE_ITEMS = [
+  { key: "industryMatch", label: "業種適合度", max: 20 },
+  { key: "scale", label: "企業規模", max: 20 },
+  { key: "digitalPresence", label: "デジタル活用度", max: 20 },
+  { key: "youtubeOpportunity", label: "YouTube活用余地", max: 20 },
+  { key: "growthSignal", label: "成長性", max: 10 },
+  { key: "accessibility", label: "接触しやすさ", max: 10 },
+] as const;
+
+export type BtoBScoreKey = (typeof BTOB_SCORE_ITEMS)[number]["key"];
+
+/** gBizINFO から取得する企業情報の型 */
+export interface BtoBCompanyLead {
+  name: string;
+  address: string;
+  corporateNumber: string;
+  capital?: number;
+  employeeCount?: number;
+  representativeName?: string;
+  websiteUrl?: string;
+  businessItems: string[];
+  subsidies: string[];
+}
+
+/** BtoB スコアリング結果の型 */
+export interface BtoBLeadScore {
+  total: number;
+  breakdown: Record<BtoBScoreKey, number>;
+  comment: string;
+}
+
+/** YouTube チャンネル情報 */
+export interface YouTubeChannelInfo {
+  url: string;
+  subscribers: number;
+  videoCount: number;
+  lastUpload?: string;
+}
+
+/** BtoB スコアリング済みリードの型 */
+export interface ScoredBtoBLead extends BtoBCompanyLead {
+  score: BtoBLeadScore;
+  digitalAnalysis?: WebsiteAnalysis;
+  youtubeChannel?: YouTubeChannelInfo;
+}
