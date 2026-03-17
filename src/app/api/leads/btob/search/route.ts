@@ -78,9 +78,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const data = await res.json();
+    const rawText = await res.text();
+    let data: any;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      console.error("[btob/search] gBizINFO non-JSON response:", rawText.slice(0, 500));
+      return NextResponse.json(
+        { error: `gBizINFO APIが不正なレスポンスを返しました`, debug: { url, status: res.status, body: rawText.slice(0, 300) } },
+        { status: 502 }
+      );
+    }
+
+    console.log("[btob/search] gBizINFO response keys:", Object.keys(data), "url:", url);
+
     const hojinInfos: any[] = data["hojin-infos"] ?? [];
     const totalCount: number = data["totalCount"] ?? hojinInfos.length;
+
+    // Debug: if empty, return the raw response structure
+    if (hojinInfos.length === 0) {
+      console.log("[btob/search] Empty result. Full response:", JSON.stringify(data).slice(0, 500));
+    }
 
     // Map to BtoBCompanyLead
     let companies: BtoBCompanyLead[] = hojinInfos.map((h: any) => ({

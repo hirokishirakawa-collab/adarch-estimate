@@ -44,18 +44,18 @@ export function BtoBSearchPanel() {
           body: JSON.stringify(params),
         });
 
+        const searchData = await searchRes.json();
+
         if (!searchRes.ok) {
-          const err = await searchRes.json();
-          throw new Error(err.error || "企業検索に失敗しました");
+          throw new Error(searchData.error || "企業検索に失敗しました");
         }
 
-        const { companies } = (await searchRes.json()) as {
-          companies: BtoBCompanyLead[];
-        };
+        const companies: BtoBCompanyLead[] = searchData.companies ?? [];
 
         if (companies.length === 0) {
+          const debugInfo = searchData.debug ? ` (debug: ${JSON.stringify(searchData.debug)})` : "";
           throw new Error(
-            "該当する企業が見つかりませんでした。条件を変更してお試しください。"
+            `該当する企業が見つかりませんでした。条件を変更してお試しください。${debugInfo}`
           );
         }
 
