@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { simulatorName, totalAmount, conditions, notes, reach } = body;
+  const { simulatorName, totalAmount, conditions, notes, reach, stores } = body;
 
   if (!simulatorName || typeof totalAmount !== "number") {
     return new NextResponse("Bad Request", { status: 400 });
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
       notes: notes ?? undefined,
       date: new Date().toISOString(),
       reach: reach ?? undefined,
+      stores: stores ?? undefined,
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

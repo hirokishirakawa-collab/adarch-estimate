@@ -12,12 +12,20 @@ interface ReachPotential {
   frequency: number;
 }
 
+interface StoreEntry {
+  name: string;
+  brand: string;
+  pref: string;
+  city: string;
+}
+
 interface Props {
   simulatorName: string;
   totalAmount: number;
   conditions?: string[];
   notes?: string;
   reach?: ReachPotential;
+  stores?: StoreEntry[];
   disabled?: boolean;
 }
 
@@ -27,6 +35,7 @@ export function SimulatorPDFButton({
   conditions,
   notes,
   reach,
+  stores,
   disabled,
 }: Props) {
   const [loading, setLoading] = useState(false);
@@ -37,7 +46,7 @@ export function SimulatorPDFButton({
       const res = await fetch("/api/simulator/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ simulatorName, totalAmount, conditions, notes, reach }),
+        body: JSON.stringify({ simulatorName, totalAmount, conditions, notes, reach, stores }),
       });
       if (!res.ok) throw new Error("PDF生成に失敗しました");
       const blob = await res.blob();

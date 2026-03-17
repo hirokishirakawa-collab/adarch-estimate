@@ -29,6 +29,13 @@ export interface ReachPotential {
   frequency: number;      // FQ
 }
 
+export interface StoreEntry {
+  name: string;
+  brand: string;
+  pref: string;
+  city: string;
+}
+
 export interface SimulatorPDFData {
   simulatorName: string;
   totalAmount: number;
@@ -37,6 +44,7 @@ export interface SimulatorPDFData {
   conditions?: string[];
   date?: string;
   reach?: ReachPotential;
+  stores?: StoreEntry[];
 }
 
 // ── ヘルパー ──
@@ -165,6 +173,18 @@ const s = StyleSheet.create({
   },
   fillBarLabel: { fontSize: 9, color: GRAY_MID, width: 100 },
   fillBarValue: { fontSize: 11, fontFamily: "NotoSansJP", fontWeight: "bold", width: 40, textAlign: "right" },
+
+  // 店舗一覧
+  storesSection: { marginBottom: 16 },
+  storesTitle: { fontSize: 10, fontFamily: "NotoSansJP", fontWeight: "bold", color: GRAY_DARK, marginBottom: 8 },
+  storesPrefGroup: { marginBottom: 6 },
+  storesPrefLabel: { fontSize: 9, fontFamily: "NotoSansJP", fontWeight: "bold", color: TEAL, marginBottom: 3, paddingBottom: 2, borderBottomWidth: 0.5, borderBottomColor: GRAY_BORDER },
+  storesRow: { flexDirection: "row", paddingVertical: 2, paddingHorizontal: 4 },
+  storesRowAlt: { backgroundColor: "#f9fafb" },
+  storesCell: { fontSize: 8.5, color: GRAY_DARK },
+  storesCellBrand: { fontSize: 8, color: GRAY_MID, width: 60 },
+  storesCellName: { fontSize: 8.5, color: GRAY_DARK, flex: 1 },
+  storesCellCity: { fontSize: 8, color: GRAY_MID, width: 80, textAlign: "right" },
 
   notesSection: {
     borderTopWidth: 1,
@@ -311,6 +331,37 @@ export function SimulatorPDFDocument({ data }: { data: SimulatorPDFData }) {
             </View>
           </View>
         )}
+
+        {/* 店舗一覧 */}
+        {data.stores && data.stores.length > 0 && (() => {
+          // 都道府県でグループ化
+          const grouped = new Map<string, typeof data.stores>();
+          for (const store of data.stores!) {
+            if (!grouped.has(store.pref)) grouped.set(store.pref, []);
+            grouped.get(store.pref)!.push(store);
+          }
+          let rowIdx = 0;
+          return (
+            <View style={s.storesSection} break>
+              <Text style={s.storesTitle}>対象店舗一覧（{data.stores!.length}店舗）</Text>
+              {Array.from(grouped.entries()).map(([pref, stores]) => (
+                <View key={pref} style={s.storesPrefGroup} wrap={false}>
+                  <Text style={s.storesPrefLabel}>{pref}（{stores!.length}店舗）</Text>
+                  {stores!.map((store) => {
+                    const alt = rowIdx++ % 2 === 1;
+                    return (
+                      <View key={store.name + store.brand} style={[s.storesRow, alt ? s.storesRowAlt : {}]}>
+                        <Text style={s.storesCellBrand}>{store.brand}</Text>
+                        <Text style={s.storesCellName}>{store.name}</Text>
+                        <Text style={s.storesCellCity}>{store.city}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          );
+        })()}
 
         {/* 備考 */}
         <View style={s.notesSection}>

@@ -139,6 +139,13 @@ export function SkylarkSimulator() {
     return total;
   }, [selectedPrefs, filteredPrefCount]);
 
+  // 選択中の店舗リスト（PDF用）
+  const selectedStoreList = useMemo(() => {
+    return SKYLARK_STORES.filter(
+      s => selectedPrefs.has(s.pref) && selectedBrands.has(s.brand as Brand)
+    );
+  }, [selectedPrefs, selectedBrands]);
+
   const prefList = SKYLARK_PREF_ORDER.filter(p => (filteredPrefCount.get(p) ?? 0) > 0);
 
   const togglePrefExpand = useCallback((pref: string) => {
@@ -459,6 +466,12 @@ export function SkylarkSimulator() {
                       calc.type === "dmb" ? "デジタルメニューブック (DMB)" : calc.type === "sticker" ? "テーブルステッカー" : "テーブルスタンド",
                       ...(calc.designFee > 0 ? ["デザイン制作費含む"] : []),
                     ]}
+                    stores={selectedStoreList.map(s => ({
+                      name: s.name,
+                      brand: s.brand,
+                      pref: s.pref,
+                      city: s.city,
+                    }))}
                   />
                   <span className="text-[11px] bg-zinc-100 text-zinc-500 px-2.5 py-1 rounded-full">
                     {calc.storeCount.toLocaleString()}店舗 / 4週間
