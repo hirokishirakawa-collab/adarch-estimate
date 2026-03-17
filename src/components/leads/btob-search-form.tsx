@@ -90,7 +90,6 @@ export function BtoBSearchForm({ onSubmit, loading }: BtoBSearchFormProps) {
           </label>
           <select
             name="businessItem"
-            required
             className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">選択してください</option>

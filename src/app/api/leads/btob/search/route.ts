@@ -91,23 +91,43 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return parsed.response;
   const body = parsed.data;
 
-  if (!body.companyName && !body.prefecture) {
+  if (!body.companyName && !body.prefecture && !body.businessItem) {
     return NextResponse.json(
-      { error: "企業名または都道府県を指定してください" },
+      { error: "企業名、都道府県、または業種を指定してください" },
       { status: 400 }
     );
   }
 
+  // 業種 → gBizINFO name検索用キーワードマッピング
+  const INDUSTRY_SEARCH_KEYWORDS: Record<string, string> = {
+    "製造業": "製造",
+    "建設業": "建設",
+    "情報通信業": "システム",
+    "卸売業": "商事",
+    "不動産業": "不動産",
+    "運輸業": "運輸",
+    "医療": "医療",
+    "宿泊業": "ホテル",
+    "教育": "学園",
+    "サービス業": "サービス",
+  };
+
   try {
     // Step 1: Search
+    // gBizINFO v1は name + prefecture のみ対応
+    // 業種はnameキーワードに変換して検索に組み込む
     const params = new URLSearchParams();
-    if (body.companyName) params.set("name", body.companyName);
+
+    const nameKeyword = body.companyName
+      || (body.businessItem ? INDUSTRY_SEARCH_KEYWORDS[body.businessItem] ?? body.businessItem : "");
+    if (nameKeyword) params.set("name", nameKeyword);
+
     if (body.prefecture) {
       const code = PREF_CODE_MAP[body.prefecture];
       if (code) params.set("prefecture", code);
     }
     // Fetch more than needed to allow post-filtering
-    const fetchLimit = Math.min((body.limit ?? 20) * 2, 100);
+    const fetchLimit = Math.min((body.limit ?? 20) * 3, 100);
     params.set("page", String(body.page ?? 1));
     params.set("limit", String(fetchLimit));
 
@@ -146,13 +166,8 @@ export async function POST(req: NextRequest) {
     if (body.employeeTo !== undefined) {
       companies = companies.filter((c) => c.employeeCount !== undefined && c.employeeCount <= body.employeeTo!);
     }
-    if (body.businessItem) {
-      const keyword = body.businessItem.toLowerCase();
-      companies = companies.filter((c) =>
-        c.businessItems.some((bi) => bi.toLowerCase().includes(keyword)) ||
-        c.name.toLowerCase().includes(keyword)
-      );
-    }
+    // Note: businessItem filtering is already done via name search keyword
+    // No additional post-fetch filter needed for businessItem
 
     // Limit to requested count
     const requestedLimit = body.limit ?? 20;
