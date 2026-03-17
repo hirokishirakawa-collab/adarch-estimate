@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateBody, leadScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
-import type { PlaceLead, WebsiteAnalysis, BusinessType } from "@/lib/constants/leads";
+import type { PlaceLead, WebsiteAnalysis, BusinessType, YouTubeChannelInfo } from "@/lib/constants/leads";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -253,8 +253,56 @@ async function analyzeWebsite(
 }
 
 // ----------------------------------------------------------------
+// YouTubeチャンネル検索
+// ----------------------------------------------------------------
+async function searchYouTubeChannel(
+  companyName: string,
+  apiKey: string
+): Promise<YouTubeChannelInfo | null> {
+  try {
+    const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
+    searchUrl.searchParams.set("part", "snippet");
+    searchUrl.searchParams.set("type", "channel");
+    searchUrl.searchParams.set("q", companyName);
+    searchUrl.searchParams.set("maxResults", "1");
+    searchUrl.searchParams.set("key", apiKey);
+
+    const searchRes = await fetch(searchUrl.toString());
+    if (!searchRes.ok) return null;
+
+    const searchData = await searchRes.json();
+    const items = searchData.items ?? [];
+    if (items.length === 0) return null;
+
+    const channelId = items[0].snippet?.channelId ?? items[0].id?.channelId;
+    if (!channelId) return null;
+
+    const statsUrl = new URL("https://www.googleapis.com/youtube/v3/channels");
+    statsUrl.searchParams.set("part", "statistics,contentDetails,snippet");
+    statsUrl.searchParams.set("id", channelId);
+    statsUrl.searchParams.set("key", apiKey);
+
+    const statsRes = await fetch(statsUrl.toString());
+    if (!statsRes.ok) return null;
+
+    const statsData = await statsRes.json();
+    const channel = statsData.items?.[0];
+    if (!channel) return null;
+
+    return {
+      url: `https://www.youtube.com/channel/${channelId}`,
+      subscribers: Number(channel.statistics?.subscriberCount ?? 0),
+      videoCount: Number(channel.statistics?.videoCount ?? 0),
+      lastUpload: channel.snippet?.publishedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ----------------------------------------------------------------
 // POST /api/leads/score
-// Webサイト分析 + Anthropic API で企業リストをスコアリング
+// Webサイト分析 + YouTube分析 + Anthropic API で企業リストをスコアリング
 // ----------------------------------------------------------------
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -277,12 +325,17 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return parsed.response;
   const body = parsed.data as { places: PlaceLead[]; industry: string; area: string };
 
-  // 全企業のWebサイトを並列で分析
+  // 全企業のWebサイト + YouTubeを並列で分析
   const allNames = body.places.map((p) => p.name);
-  const results = await Promise.all(
-    body.places.map((p) => analyzeWebsite(p.websiteUrl, p.name, allNames))
-  );
-  const analyses = results.map((r) => r.analysis);
+  const youtubeApiKey = process.env.YOUTUBE_API_KEY;
+
+  const [websiteResults, youtubeResults] = await Promise.all([
+    Promise.all(body.places.map((p) => analyzeWebsite(p.websiteUrl, p.name, allNames))),
+    youtubeApiKey
+      ? Promise.all(body.places.map((p) => searchYouTubeChannel(p.name, youtubeApiKey)))
+      : Promise.resolve(body.places.map(() => null)),
+  ]);
+  const analyses = websiteResults.map((r) => r.analysis);
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループの営業支援AIです。
 企業リストを受け取り、広告営業のリード（見込み客）としての優先度をスコアリングしてください。
@@ -301,6 +354,7 @@ export async function POST(req: NextRequest) {
    - 既に動画・SNSを活用している企業 → 提案余地が少ないため低得点（5-10点）
    - Webサイトがない企業 → デジタル全般の提案チャンスがあるため中得点（10-15点）
    ※ 重要: このスコアは「デジタルが進んでいる＝高得点」ではなく「アドアーチが提案できる余地が大きい＝高得点」
+   ※ YouTube情報が付記されている場合: チャンネルなし→YouTube開設+動画制作の提案チャンス大、チャンネルあるが動画数少/更新停止→リブート提案、活発→追加制作ニーズはあるが提案余地は限定的
 
 【重要ルール】
 - コメントに具体的な数値予測（「売上○％UP」「集客○倍」「○％改善」等）は絶対に書かない。効果は定性的な表現（「認知拡大が期待できる」「集客強化につながる」等）に留めること
@@ -332,8 +386,13 @@ export async function POST(req: NextRequest) {
 
   const placeSummary = body.places
     .map(
-      (p, i) =>
-        `${i + 1}. ${p.name} | ${p.address} | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary} | 企業タイプ:${analyses[i].businessType}(${analyses[i].businessTypeReason})`
+      (p, i) => {
+        const yt = youtubeResults[i];
+        const ytInfo = yt
+          ? `YouTube: ${yt.url} (登録者${yt.subscribers}人, ${yt.videoCount}本)`
+          : "YouTube: チャンネルなし";
+        return `${i + 1}. ${p.name} | ${p.address} | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary} | 企業タイプ:${analyses[i].businessType}(${analyses[i].businessTypeReason}) | ${ytInfo}`;
+      }
     )
     .join("\n");
 
@@ -368,13 +427,15 @@ ${placeSummary}
 
     const scores = JSON.parse(jsonMatch[0]);
 
-    // 各企業のWebサイト分析結果をインデックス付きで返す
+    // 各企業のWebサイト分析結果とYouTube情報をインデックス付きで返す
     const analysisMap: Record<string, typeof analyses[number]> = {};
+    const youtubeMap: Record<string, YouTubeChannelInfo | null> = {};
     body.places.forEach((p, i) => {
       analysisMap[p.name] = analyses[i];
+      youtubeMap[p.name] = youtubeResults[i];
     });
 
-    return NextResponse.json({ scores, analyses: analysisMap });
+    return NextResponse.json({ scores, analyses: analysisMap, youtube: youtubeMap });
   } catch (err) {
     console.error("Scoring error:", err);
     return NextResponse.json(
