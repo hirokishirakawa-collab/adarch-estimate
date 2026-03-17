@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createHash } from "crypto";
+import { notifyCeo } from "@/lib/google-chat";
 
 function hashIp(ip: string): string {
   return createHash("sha256").update(ip).digest("hex").slice(0, 16);
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
     // 提案書の存在・公開状態を確認
     const proposal = await db.proposal.findUnique({
       where: { id: proposalId },
-      select: { isPublished: true },
+      select: { isPublished: true, companyName: true, slug: true },
     });
 
     if (!proposal?.isPublished) {
@@ -43,6 +44,16 @@ export async function POST(req: NextRequest) {
           referrer,
         },
       });
+
+      // Google Chat通知（非同期、エラーでもレスポンスに影響させない）
+      const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+      notifyCeo(
+        `📄 提案書が閲覧されました\n` +
+        `企業名: ${proposal.companyName}\n` +
+        `日時: ${now}\n` +
+        `リファラー: ${referrer || "直接アクセス"}`
+      ).catch(() => {});
+
       return NextResponse.json({ viewId: view.id });
     }
 
