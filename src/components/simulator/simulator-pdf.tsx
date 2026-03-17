@@ -229,7 +229,6 @@ export function SimulatorPDFDocument({ data }: { data: SimulatorPDFData }) {
           </View>
           <View style={s.companyBlock}>
             <Text style={s.companyName}>Ad-Arch Group</Text>
-            <Text style={s.companyDetail}>株式会社 Ad-Arch</Text>
             <Text style={s.companyDetail}>info@adarch.co.jp</Text>
           </View>
         </View>
