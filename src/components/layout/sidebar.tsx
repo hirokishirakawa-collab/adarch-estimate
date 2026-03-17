@@ -127,13 +127,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Target,
         minRole: "USER",
       },
-      // 提案書AI - 非公開（URLアクセスは可能）
-      // {
-      //   href: "/dashboard/proposals",
-      //   label: "提案書AI",
-      //   icon: Sparkles,
-      //   minRole: "ADMIN",
-      // },
+      {
+        href: "/dashboard/proposals",
+        label: "提案書AI",
+        icon: Sparkles,
+        minRole: "USER",
+      },
     ],
   },
   {
