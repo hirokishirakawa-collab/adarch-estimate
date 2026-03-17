@@ -3,11 +3,21 @@
 import { useState } from "react";
 import { FileText, Loader2 } from "lucide-react";
 
+interface ReachPotential {
+  tverAudience: number;
+  reachPotential: number;
+  fillRate: number;
+  totalPop: number;
+  plays: number;
+  frequency: number;
+}
+
 interface Props {
   simulatorName: string;
   totalAmount: number;
   conditions?: string[];
   notes?: string;
+  reach?: ReachPotential;
   disabled?: boolean;
 }
 
@@ -16,6 +26,7 @@ export function SimulatorPDFButton({
   totalAmount,
   conditions,
   notes,
+  reach,
   disabled,
 }: Props) {
   const [loading, setLoading] = useState(false);
@@ -26,7 +37,7 @@ export function SimulatorPDFButton({
       const res = await fetch("/api/simulator/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ simulatorName, totalAmount, conditions, notes }),
+        body: JSON.stringify({ simulatorName, totalAmount, conditions, notes, reach }),
       });
       if (!res.ok) throw new Error("PDF生成に失敗しました");
       const blob = await res.blob();

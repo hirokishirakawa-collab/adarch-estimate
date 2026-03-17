@@ -9,23 +9,37 @@ import {
 } from "@react-pdf/renderer";
 import path from "path";
 
-// 日本語フォント登録
+// ── フォント登録（NotoSansJP Variable → Regular / Bold）──
+const fontPath = path.join(process.cwd(), "public/fonts/NotoSansJP.ttf");
 Font.register({
   family: "NotoSansJP",
-  src: path.join(process.cwd(), "public/fonts/NotoSansJP.ttf"),
+  fonts: [
+    { src: fontPath, fontWeight: "normal" },
+    { src: fontPath, fontWeight: "bold" },
+  ],
 });
 
-// 型定義
-export interface SimulatorPDFData {
-  simulatorName: string;   // シミュレーター名 (例: "すかいらーくインストア広告")
-  totalAmount: number;     // クライアント提示総額（税抜）
-  taxRate?: number;        // 消費税率 (デフォルト 0.10)
-  notes?: string;          // 備考
-  conditions?: string[];   // 主要条件（例: ["100店舗 / 4週間", "テーブルステッカー"]）
-  date?: string;           // 日付
+// ── 型定義 ──
+export interface ReachPotential {
+  tverAudience: number;   // TVer視聴者数
+  reachPotential: number; // 推定リーチ
+  fillRate: number;       // 充足度 (0-100)
+  totalPop: number;       // 対象人口
+  plays: number;          // 再生回数
+  frequency: number;      // FQ
 }
 
-// ヘルパー
+export interface SimulatorPDFData {
+  simulatorName: string;
+  totalAmount: number;
+  taxRate?: number;
+  notes?: string;
+  conditions?: string[];
+  date?: string;
+  reach?: ReachPotential;
+}
+
+// ── ヘルパー ──
 function fmtDate(d?: string): string {
   const date = d ? new Date(d) : new Date();
   return new Intl.DateTimeFormat("ja-JP", {
@@ -35,20 +49,32 @@ function fmtDate(d?: string): string {
   }).format(date);
 }
 
+function addDays(d: string | undefined, days: number): string {
+  const base = d ? new Date(d) : new Date();
+  base.setDate(base.getDate() + days);
+  return fmtDate(base.toISOString());
+}
+
 function fmtMoney(n: number): string {
   return `¥${Math.round(n).toLocaleString("ja-JP")}`;
 }
 
-// スタイル
+function fmtCount(n: number): string {
+  if (n >= 10000) return (n / 10000).toFixed(1) + "万";
+  return n.toLocaleString("ja-JP");
+}
+
+// ── カラー ──
 const TEAL = "#0f766e";
 const GRAY_DARK = "#1a1a1a";
 const GRAY_MID = "#6b7280";
 const GRAY_BORDER = "#e4e4e7";
 
+// ── スタイル ──
 const s = StyleSheet.create({
   page: {
     fontFamily: "NotoSansJP",
-    fontSize: 9,
+    fontSize: 10,
     color: GRAY_DARK,
     paddingTop: 40,
     paddingBottom: 48,
@@ -56,61 +82,99 @@ const s = StyleSheet.create({
   },
   headerRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 24 },
   titleBlock: { flexDirection: "column" },
-  titleMain: { fontSize: 22, fontFamily: "NotoSansJP", color: TEAL, fontWeight: "bold" },
-  titleSub: { fontSize: 8, color: GRAY_MID, marginTop: 3 },
+  titleMain: { fontSize: 24, fontFamily: "NotoSansJP", fontWeight: "bold", color: TEAL },
+  titleSub: { fontSize: 9, color: GRAY_MID, marginTop: 3 },
   metaBlock: { alignItems: "flex-end" },
-  metaLine: { flexDirection: "row", gap: 6, marginBottom: 3 },
-  metaLabel: { fontSize: 8, color: GRAY_MID, width: 54, textAlign: "right" },
-  metaValue: { fontSize: 8, color: GRAY_DARK },
-  divider: { borderBottomWidth: 1, borderBottomColor: TEAL, marginBottom: 20 },
+  metaLine: { flexDirection: "row", gap: 8, marginBottom: 4 },
+  metaLabel: { fontSize: 9, color: GRAY_MID, width: 60, textAlign: "right" },
+  metaValue: { fontSize: 9, color: GRAY_DARK },
+  divider: { borderBottomWidth: 1.5, borderBottomColor: TEAL, marginBottom: 20 },
 
   addressRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 24 },
   addressBlock: { flexDirection: "column" },
-  addressTo: { fontSize: 14, fontFamily: "NotoSansJP", color: GRAY_DARK, marginBottom: 4 },
-  greetingText: { fontSize: 8.5, color: GRAY_MID, marginTop: 4 },
+  addressTo: { fontSize: 15, fontFamily: "NotoSansJP", fontWeight: "bold", color: GRAY_DARK, marginBottom: 4 },
+  greetingText: { fontSize: 9.5, color: GRAY_MID, marginTop: 4, lineHeight: 1.5 },
   companyBlock: { alignItems: "flex-end" },
-  companyName: { fontSize: 11, fontFamily: "NotoSansJP", color: GRAY_DARK },
-  companyDetail: { fontSize: 7.5, color: GRAY_MID, marginTop: 2 },
+  companyName: { fontSize: 12, fontFamily: "NotoSansJP", fontWeight: "bold", color: GRAY_DARK },
+  companyDetail: { fontSize: 8.5, color: GRAY_MID, marginTop: 2 },
 
-  // 件名
   subjectSection: { marginBottom: 24 },
-  subjectText: { fontSize: 11, fontFamily: "NotoSansJP", color: GRAY_DARK },
+  subjectText: { fontSize: 12, fontFamily: "NotoSansJP", fontWeight: "bold", color: GRAY_DARK },
 
-  // 条件
   conditionsSection: { marginBottom: 20 },
-  conditionsLabel: { fontSize: 8, color: GRAY_MID, marginBottom: 6 },
-  conditionRow: { flexDirection: "row", gap: 6, marginBottom: 3 },
-  conditionDot: { fontSize: 8, color: TEAL },
-  conditionText: { fontSize: 9, color: GRAY_DARK },
+  conditionsLabel: { fontSize: 9, fontFamily: "NotoSansJP", fontWeight: "bold", color: GRAY_MID, marginBottom: 6 },
+  conditionRow: { flexDirection: "row", gap: 6, marginBottom: 4 },
+  conditionDot: { fontSize: 9, color: TEAL },
+  conditionText: { fontSize: 10, color: GRAY_DARK },
 
-  // 総額表示
   totalSection: {
     marginTop: 8,
     marginBottom: 24,
-    padding: 20,
+    padding: 24,
     backgroundColor: "#f0fdfa",
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: TEAL,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  totalLabel: { fontSize: 11, color: GRAY_MID, marginBottom: 10 },
+  totalAmount: { fontSize: 32, fontFamily: "NotoSansJP", fontWeight: "bold", color: TEAL },
+  totalTaxNote: { fontSize: 10, color: GRAY_MID, marginTop: 6 },
+  taxLine: { flexDirection: "row", gap: 24, marginTop: 10 },
+  taxItem: { fontSize: 10, color: GRAY_DARK },
+
+  // リーチセクション（TVer用）
+  reachSection: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: GRAY_BORDER,
+    borderRadius: 6,
+  },
+  reachTitle: { fontSize: 10, fontFamily: "NotoSansJP", fontWeight: "bold", color: GRAY_DARK, marginBottom: 10 },
+  reachGrid: { flexDirection: "row", gap: 16 },
+  reachCard: {
+    flex: 1,
+    padding: 10,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: GRAY_BORDER,
     borderRadius: 4,
     alignItems: "center",
   },
-  totalLabel: { fontSize: 10, color: GRAY_MID, marginBottom: 8 },
-  totalAmount: { fontSize: 28, fontFamily: "NotoSansJP", color: TEAL, fontWeight: "bold" },
-  totalTaxNote: { fontSize: 9, color: GRAY_MID, marginTop: 4 },
-  taxLine: { flexDirection: "row", gap: 20, marginTop: 8 },
-  taxItem: { fontSize: 8.5, color: GRAY_DARK },
+  reachCardLabel: { fontSize: 8.5, color: GRAY_MID, marginBottom: 4 },
+  reachCardValue: { fontSize: 14, fontFamily: "NotoSansJP", fontWeight: "bold", color: TEAL },
+  reachCardUnit: { fontSize: 8.5, color: GRAY_MID, marginTop: 2 },
+  fillBarContainer: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  fillBarBg: {
+    flex: 1,
+    height: 10,
+    backgroundColor: "#e2e8f0",
+    borderRadius: 5,
+    overflow: "hidden",
+  },
+  fillBarFill: {
+    height: 10,
+    borderRadius: 5,
+  },
+  fillBarLabel: { fontSize: 9, color: GRAY_MID, width: 100 },
+  fillBarValue: { fontSize: 11, fontFamily: "NotoSansJP", fontWeight: "bold", width: 40, textAlign: "right" },
 
-  // 備考
   notesSection: {
     borderTopWidth: 1,
     borderTopColor: GRAY_BORDER,
-    paddingTop: 10,
+    paddingTop: 12,
     marginTop: 4,
   },
-  notesLabel: { fontSize: 8, color: GRAY_MID, marginBottom: 4 },
-  notesText: { fontSize: 8.5, color: GRAY_DARK, lineHeight: 1.6 },
+  notesLabel: { fontSize: 9, fontFamily: "NotoSansJP", fontWeight: "bold", color: GRAY_MID, marginBottom: 4 },
+  notesText: { fontSize: 9.5, color: GRAY_DARK, lineHeight: 1.7 },
 
-  // フッター
   footer: {
     position: "absolute",
     bottom: 20,
@@ -122,17 +186,17 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  footerText: { fontSize: 7, color: GRAY_MID },
+  footerText: { fontSize: 7.5, color: GRAY_MID },
 });
 
-// PDF ドキュメント
+// ── PDF ドキュメント ──
 export function SimulatorPDFDocument({ data }: { data: SimulatorPDFData }) {
   const taxRate = data.taxRate ?? 0.10;
   const tax = Math.round(data.totalAmount * taxRate);
   const totalWithTax = data.totalAmount + tax;
 
   return (
-    <Document title={`${data.simulatorName} 概算見積`} author="Ad-Arch Group OS">
+    <Document title={`${data.simulatorName} 概算見積`} author="Ad-Arch Group">
       <Page size="A4" style={s.page}>
 
         {/* ヘッダー */}
@@ -145,6 +209,10 @@ export function SimulatorPDFDocument({ data }: { data: SimulatorPDFData }) {
             <View style={s.metaLine}>
               <Text style={s.metaLabel}>発行日</Text>
               <Text style={s.metaValue}>{fmtDate(data.date)}</Text>
+            </View>
+            <View style={s.metaLine}>
+              <Text style={s.metaLabel}>有効期限</Text>
+              <Text style={s.metaValue}>{addDays(data.date, 10)}</Text>
             </View>
           </View>
         </View>
@@ -160,8 +228,8 @@ export function SimulatorPDFDocument({ data }: { data: SimulatorPDFData }) {
             </Text>
           </View>
           <View style={s.companyBlock}>
-            <Text style={s.companyName}>株式会社 Ad-Arch</Text>
-            <Text style={s.companyDetail}>Ad-Arch Group OS</Text>
+            <Text style={s.companyName}>Ad-Arch Group</Text>
+            <Text style={s.companyDetail}>株式会社 Ad-Arch</Text>
             <Text style={s.companyDetail}>info@adarch.co.jp</Text>
           </View>
         </View>
@@ -195,6 +263,56 @@ export function SimulatorPDFDocument({ data }: { data: SimulatorPDFData }) {
           </View>
         </View>
 
+        {/* リーチポテンシャル（TVer用） */}
+        {data.reach && (
+          <View style={s.reachSection}>
+            <Text style={s.reachTitle}>リーチポテンシャル</Text>
+            <View style={s.reachGrid}>
+              <View style={s.reachCard}>
+                <Text style={s.reachCardLabel}>対象人口</Text>
+                <Text style={s.reachCardValue}>{fmtCount(data.reach.totalPop)}</Text>
+                <Text style={s.reachCardUnit}>人</Text>
+              </View>
+              <View style={s.reachCard}>
+                <Text style={s.reachCardLabel}>TVer視聴者数</Text>
+                <Text style={s.reachCardValue}>{fmtCount(data.reach.tverAudience)}</Text>
+                <Text style={s.reachCardUnit}>人（普及率30%）</Text>
+              </View>
+              <View style={s.reachCard}>
+                <Text style={s.reachCardLabel}>推定リーチ</Text>
+                <Text style={s.reachCardValue}>{fmtCount(data.reach.reachPotential)}</Text>
+                <Text style={s.reachCardUnit}>人（FQ {data.reach.frequency}回）</Text>
+              </View>
+            </View>
+            <View style={s.fillBarContainer}>
+              <Text style={s.fillBarLabel}>配信ボリューム充足度</Text>
+              <View style={s.fillBarBg}>
+                <View
+                  style={[
+                    s.fillBarFill,
+                    {
+                      width: `${Math.min(100, data.reach.fillRate)}%`,
+                      backgroundColor:
+                        data.reach.fillRate >= 80 ? "#34d399" :
+                        data.reach.fillRate >= 40 ? "#fbbf24" : "#94a3b8",
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={[
+                s.fillBarValue,
+                {
+                  color:
+                    data.reach.fillRate >= 80 ? "#059669" :
+                    data.reach.fillRate >= 40 ? "#d97706" : GRAY_MID,
+                },
+              ]}>
+                {data.reach.fillRate}%
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* 備考 */}
         <View style={s.notesSection}>
           <Text style={s.notesLabel}>備考</Text>
@@ -205,7 +323,7 @@ export function SimulatorPDFDocument({ data }: { data: SimulatorPDFData }) {
 
         {/* フッター */}
         <View style={s.footer} fixed>
-          <Text style={s.footerText}>Ad-Arch Group OS — {data.simulatorName} 概算見積</Text>
+          <Text style={s.footerText}>Ad-Arch Group — {data.simulatorName} 概算見積</Text>
           <Text style={s.footerText} render={({ pageNumber, totalPages }) =>
             `${pageNumber} / ${totalPages}`
           } />

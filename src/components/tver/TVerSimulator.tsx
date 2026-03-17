@@ -490,6 +490,14 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                     `${adSeconds}秒 / CPM ¥${cpm.toLocaleString()}`,
                     `再生回数: ${calcResult.plays.toLocaleString()}回`,
                   ]}
+                  reach={{
+                    tverAudience: calcResult.tverAudience,
+                    reachPotential: calcResult.reachPotential,
+                    fillRate: calcResult.fillRate,
+                    totalPop,
+                    plays: calcResult.plays,
+                    frequency,
+                  }}
                 />
               )}
               <button
