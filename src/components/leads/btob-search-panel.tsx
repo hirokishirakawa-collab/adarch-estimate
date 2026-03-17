@@ -59,59 +59,71 @@ export function BtoBSearchPanel() {
           );
         }
 
-        // 2) YouTube・Web エンリッチメント
-        setPhase("enriching");
+        // WebサイトURLがある企業を自動でエンリッチ+スコアリング
+        const companiesWithUrl = companies.filter((c) => c.websiteUrl);
+        const companiesWithoutUrl = companies.filter((c) => !c.websiteUrl);
 
-        const enrichRes = await fetch("/api/leads/btob/enrich", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            companies: companies.map((c) => ({
-              name: c.name,
-              websiteUrl: c.websiteUrl,
-            })),
-          }),
-        });
+        let enrichments: Record<string, { websiteAnalysis?: WebsiteAnalysis; youtubeChannel?: YouTubeChannelInfo | null }> = {};
+        let scores: Array<{ name: string; total: number; breakdown: BtoBLeadScore["breakdown"]; comment: string }> = [];
 
-        if (!enrichRes.ok) {
-          const err = await enrichRes.json();
-          throw new Error(err.error || "エンリッチメントに失敗しました");
+        if (companiesWithUrl.length > 0) {
+          // 2) YouTube・Web エンリッチメント（URL有り企業のみ）
+          setPhase("enriching");
+
+          const enrichRes = await fetch("/api/leads/btob/enrich", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              companies: companiesWithUrl.map((c) => ({
+                name: c.name,
+                websiteUrl: c.websiteUrl,
+              })),
+            }),
+          });
+
+          if (enrichRes.ok) {
+            const enrichData = await enrichRes.json();
+            enrichments = enrichData.enrichments ?? {};
+          }
+
+          // 3) AIスコアリング（全企業対象、エンリッチデータ付き）
+          setPhase("scoring");
+
+          const scoreRes = await fetch("/api/leads/btob/score", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              companies,
+              enrichments,
+              industry: params.businessItem,
+              area: [params.city, params.prefecture].filter(Boolean).join(" "),
+            }),
+          });
+
+          if (scoreRes.ok) {
+            const scoreData = await scoreRes.json();
+            scores = scoreData.scores ?? [];
+          }
+        } else {
+          // URL有り企業が0件 → エンリッチなしでスコアリングのみ
+          setPhase("scoring");
+
+          const scoreRes = await fetch("/api/leads/btob/score", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              companies,
+              enrichments: {},
+              industry: params.businessItem,
+              area: [params.city, params.prefecture].filter(Boolean).join(" "),
+            }),
+          });
+
+          if (scoreRes.ok) {
+            const scoreData = await scoreRes.json();
+            scores = scoreData.scores ?? [];
+          }
         }
-
-        const { enrichments } = (await enrichRes.json()) as {
-          enrichments: Record<
-            string,
-            { website?: WebsiteAnalysis; youtube?: YouTubeChannelInfo }
-          >;
-        };
-
-        // 3) AIスコアリング
-        setPhase("scoring");
-
-        const scoreRes = await fetch("/api/leads/btob/score", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            companies,
-            enrichments,
-            industry: params.businessItem,
-            area: [params.city, params.prefecture].filter(Boolean).join(" "),
-          }),
-        });
-
-        if (!scoreRes.ok) {
-          const err = await scoreRes.json();
-          throw new Error(err.error || "スコアリングに失敗しました");
-        }
-
-        const { scores } = (await scoreRes.json()) as {
-          scores: Array<{
-            name: string;
-            total: number;
-            breakdown: BtoBLeadScore["breakdown"];
-            comment: string;
-          }>;
-        };
 
         // 4) マージ
         const merged: ScoredBtoBLead[] = companies.map((company) => {
@@ -133,8 +145,8 @@ export function BtoBSearchPanel() {
                   },
                   comment: "スコアリング対象外",
                 },
-            digitalAnalysis: enrich?.website,
-            youtubeChannel: enrich?.youtube,
+            digitalAnalysis: enrich?.websiteAnalysis,
+            youtubeChannel: enrich?.youtubeChannel ?? undefined,
           };
         });
 
