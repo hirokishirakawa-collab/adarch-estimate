@@ -30,10 +30,11 @@ export interface ReachPotential {
 }
 
 export interface StoreEntry {
-  name: string;
-  brand: string;
-  pref: string;
-  city: string;
+  name: string;       // 店舗名 or 食堂名
+  brand: string;      // ブランド or 大学種別（国立/私立等）
+  pref: string;       // 都道府県
+  city: string;       // 市区町村 or キャンパス
+  univ?: string;      // 大学名（生協用）
 }
 
 export interface SimulatorPDFData {
@@ -334,8 +335,9 @@ export function SimulatorPDFDocument({ data }: { data: SimulatorPDFData }) {
 
         {/* 店舗一覧 */}
         {data.stores && data.stores.length > 0 && (() => {
+          const hasUniv = data.stores!.some(st => st.univ);
           // 都道府県でグループ化
-          const grouped = new Map<string, typeof data.stores>();
+          const grouped = new Map<string, (typeof data.stores)>();
           for (const store of data.stores!) {
             if (!grouped.has(store.pref)) grouped.set(store.pref, []);
             grouped.get(store.pref)!.push(store);
@@ -343,22 +345,58 @@ export function SimulatorPDFDocument({ data }: { data: SimulatorPDFData }) {
           let rowIdx = 0;
           return (
             <View style={s.storesSection} break>
-              <Text style={s.storesTitle}>対象店舗一覧（{data.stores!.length}店舗）</Text>
-              {Array.from(grouped.entries()).map(([pref, stores]) => (
-                <View key={pref} style={s.storesPrefGroup} wrap={false}>
-                  <Text style={s.storesPrefLabel}>{pref}（{stores!.length}店舗）</Text>
-                  {stores!.map((store) => {
-                    const alt = rowIdx++ % 2 === 1;
-                    return (
-                      <View key={store.name + store.brand} style={[s.storesRow, alt ? s.storesRowAlt : {}]}>
-                        <Text style={s.storesCellBrand}>{store.brand}</Text>
-                        <Text style={s.storesCellName}>{store.name}</Text>
-                        <Text style={s.storesCellCity}>{store.city}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              ))}
+              <Text style={s.storesTitle}>
+                {hasUniv ? `対象食堂一覧（${data.stores!.length}食堂）` : `対象店舗一覧（${data.stores!.length}店舗）`}
+              </Text>
+              {Array.from(grouped.entries()).map(([pref, stores]) => {
+                if (hasUniv) {
+                  // 大学別にサブグループ化
+                  const univMap = new Map<string, (typeof stores)>();
+                  for (const st of stores!) {
+                    const key = st.univ ?? st.name;
+                    if (!univMap.has(key)) univMap.set(key, []);
+                    univMap.get(key)!.push(st);
+                  }
+                  return (
+                    <View key={pref} style={s.storesPrefGroup}>
+                      <Text style={s.storesPrefLabel}>{pref}（{stores!.length}食堂）</Text>
+                      {Array.from(univMap.entries()).map(([univ, univStores]) => (
+                        <View key={univ} wrap={false} style={{ marginBottom: 4 }}>
+                          <View style={{ flexDirection: "row", gap: 6, marginBottom: 2, paddingLeft: 4 }}>
+                            <Text style={{ fontSize: 8.5, fontFamily: "NotoSansJP", fontWeight: "bold", color: GRAY_DARK }}>{univ}</Text>
+                            <Text style={{ fontSize: 8, color: GRAY_MID }}>({univStores!.length}食堂)</Text>
+                          </View>
+                          {univStores!.map((store) => {
+                            const alt = rowIdx++ % 2 === 1;
+                            return (
+                              <View key={store.name + (store.city ?? "")} style={[s.storesRow, alt ? s.storesRowAlt : {}, { paddingLeft: 12 }]}>
+                                <Text style={s.storesCellBrand}>{store.brand}</Text>
+                                <Text style={s.storesCellName}>{store.name}</Text>
+                                <Text style={s.storesCellCity}>{store.city}</Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      ))}
+                    </View>
+                  );
+                }
+                return (
+                  <View key={pref} style={s.storesPrefGroup} wrap={false}>
+                    <Text style={s.storesPrefLabel}>{pref}（{stores!.length}店舗）</Text>
+                    {stores!.map((store) => {
+                      const alt = rowIdx++ % 2 === 1;
+                      return (
+                        <View key={store.name + store.brand} style={[s.storesRow, alt ? s.storesRowAlt : {}]}>
+                          <Text style={s.storesCellBrand}>{store.brand}</Text>
+                          <Text style={s.storesCellName}>{store.name}</Text>
+                          <Text style={s.storesCellCity}>{store.city}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })}
             </View>
           );
         })()}

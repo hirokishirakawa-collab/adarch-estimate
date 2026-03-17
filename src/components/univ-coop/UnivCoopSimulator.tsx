@@ -508,6 +508,13 @@ export function UnivCoopSimulator() {
                     `総印刷枚数: ${calc.totalPrintSheets.toLocaleString()}枚`,
                     ...(addDesignFee ? [`デザイン制作費 ${designCount}案含む`] : []),
                   ]}
+                  stores={selectedList.map(st => ({
+                    name: st.store,
+                    brand: st.univType,
+                    pref: st.pref,
+                    city: st.campus || "",
+                    univ: st.campus ? `${st.univ}（${st.campus}）` : st.univ,
+                  }))}
                 />
               </div>
               <p className="text-[11px] text-zinc-500 mb-4">
