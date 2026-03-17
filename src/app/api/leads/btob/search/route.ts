@@ -7,8 +7,22 @@ import type { BtoBCompanyLead } from "@/lib/constants/leads";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-// gBizINFO v2 API base
-const GBIZ_API_BASE = "https://info.gbiz.go.jp/hojin/v2/hojin";
+// gBizINFO v1 API (v2 is scheduled for later in 2026)
+const GBIZ_API_BASE = "https://info.gbiz.go.jp/hojin/v1/hojin";
+
+// 都道府県名 → JIS X 0401 コード
+const PREF_CODE_MAP: Record<string, string> = {
+  "北海道": "01", "青森県": "02", "岩手県": "03", "宮城県": "04", "秋田県": "05",
+  "山形県": "06", "福島県": "07", "茨城県": "08", "栃木県": "09", "群馬県": "10",
+  "埼玉県": "11", "千葉県": "12", "東京都": "13", "神奈川県": "14", "新潟県": "15",
+  "富山県": "16", "石川県": "17", "福井県": "18", "山梨県": "19", "長野県": "20",
+  "岐阜県": "21", "静岡県": "22", "愛知県": "23", "三重県": "24", "滋賀県": "25",
+  "京都府": "26", "大阪府": "27", "兵庫県": "28", "奈良県": "29", "和歌山県": "30",
+  "鳥取県": "31", "島根県": "32", "岡山県": "33", "広島県": "34", "山口県": "35",
+  "徳島県": "36", "香川県": "37", "愛媛県": "38", "高知県": "39", "福岡県": "40",
+  "佐賀県": "41", "長崎県": "42", "熊本県": "43", "大分県": "44", "宮崎県": "45",
+  "鹿児島県": "46", "沖縄県": "47",
+};
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -23,26 +37,31 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return parsed.response;
   const body = parsed.data;
 
+  // At least one search criterion is required
+  if (!body.companyName && !body.prefecture && !body.businessItem) {
+    return NextResponse.json(
+      { error: "企業名、都道府県、または業種のいずれかを指定してください" },
+      { status: 400 }
+    );
+  }
+
   try {
-    // Build query params for gBizINFO API
     const params = new URLSearchParams();
     if (body.companyName) params.set("name", body.companyName);
-    if (body.prefecture) params.set("prefecture", body.prefecture);
-    if (body.city) params.set("city", body.city);
-    if (body.businessItem) params.set("business_item", body.businessItem);
-    if (body.capitalFrom !== undefined) params.set("capital_stock_from", String(body.capitalFrom));
-    if (body.capitalTo !== undefined) params.set("capital_stock_to", String(body.capitalTo));
-    if (body.employeeFrom !== undefined) params.set("employee_number_from", String(body.employeeFrom));
-    if (body.employeeTo !== undefined) params.set("employee_number_to", String(body.employeeTo));
+    if (body.prefecture) {
+      const code = PREF_CODE_MAP[body.prefecture];
+      if (code) params.set("prefecture", code);
+    }
+    // v1 API: name, prefecture, page, limit are the main search params
+    // capital_stock, employee_number, business_item filters are applied post-fetch
     params.set("page", String(body.page ?? 1));
-    params.set("limit", String(body.limit ?? 20));
+    params.set("limit", String(Math.min((body.limit ?? 20) * 3, 100))); // fetch more to allow post-filtering
 
     const url = `${GBIZ_API_BASE}?${params.toString()}`;
 
     const headers: Record<string, string> = {
       Accept: "application/json",
     };
-    // gBizINFO v2 uses X-hojinInfo-api-token header for auth
     const apiToken = process.env.GBIZINFO_API_TOKEN;
     if (apiToken) {
       headers["X-hojinInfo-api-token"] = apiToken;
@@ -52,20 +71,19 @@ export async function POST(req: NextRequest) {
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      console.error("[btob/search] gBizINFO error:", res.status, text);
+      console.error("[btob/search] gBizINFO error:", res.status, url, text);
       return NextResponse.json(
-        { error: `gBizINFO APIエラー (${res.status})` },
+        { error: `gBizINFO APIエラー (${res.status}): ${text.slice(0, 200)}` },
         { status: 502 }
       );
     }
 
     const data = await res.json();
-
-    // gBizINFO response: { "hojin-infos": [...], "totalCount": N, ... }
     const hojinInfos: any[] = data["hojin-infos"] ?? [];
-    const totalCount: number = data["totalCount"] ?? 0;
+    const totalCount: number = data["totalCount"] ?? hojinInfos.length;
 
-    const companies: BtoBCompanyLead[] = hojinInfos.map((h: any) => ({
+    // Map to BtoBCompanyLead
+    let companies: BtoBCompanyLead[] = hojinInfos.map((h: any) => ({
       name: h.name ?? "",
       address: h.location ?? "",
       corporateNumber: h.corporate_number ?? "",
@@ -74,18 +92,43 @@ export async function POST(req: NextRequest) {
       representativeName: h.representative_name ?? undefined,
       websiteUrl: h.company_url ?? undefined,
       businessItems: Array.isArray(h.business_items)
-        ? h.business_items.map((bi: any) => bi.business_item ?? "").filter(Boolean)
+        ? h.business_items.map((bi: any) => typeof bi === "string" ? bi : (bi.business_item ?? "")).filter(Boolean)
         : [],
       subsidies: Array.isArray(h.subsidies)
-        ? h.subsidies.map((s: any) => s.title ?? s.subsidy_name ?? "").filter(Boolean)
+        ? h.subsidies.map((s: any) => typeof s === "string" ? s : (s.title ?? s.subsidy_name ?? "")).filter(Boolean)
         : [],
     }));
+
+    // Post-fetch filtering (v1 doesn't support these as query params)
+    if (body.capitalFrom !== undefined) {
+      companies = companies.filter((c) => c.capital !== undefined && c.capital >= body.capitalFrom!);
+    }
+    if (body.capitalTo !== undefined) {
+      companies = companies.filter((c) => c.capital !== undefined && c.capital <= body.capitalTo!);
+    }
+    if (body.employeeFrom !== undefined) {
+      companies = companies.filter((c) => c.employeeCount !== undefined && c.employeeCount >= body.employeeFrom!);
+    }
+    if (body.employeeTo !== undefined) {
+      companies = companies.filter((c) => c.employeeCount !== undefined && c.employeeCount <= body.employeeTo!);
+    }
+    if (body.businessItem) {
+      const keyword = body.businessItem.toLowerCase();
+      companies = companies.filter((c) =>
+        c.businessItems.some((bi) => bi.toLowerCase().includes(keyword)) ||
+        c.name.toLowerCase().includes(keyword)
+      );
+    }
+
+    // Limit to requested count
+    const requestedLimit = body.limit ?? 20;
+    companies = companies.slice(0, requestedLimit);
 
     return NextResponse.json({
       companies,
       totalCount,
       page: body.page ?? 1,
-      limit: body.limit ?? 20,
+      limit: requestedLimit,
     });
   } catch (err) {
     console.error("[btob/search] error:", err);
