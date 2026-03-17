@@ -458,11 +458,28 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
             <div className="w-full h-full relative overflow-hidden" style={{ background: brand.slideBg }}>
               <ArchLines variant={3} />
               <div className="relative z-10 h-full flex flex-col items-center justify-center px-12 sm:px-16 py-10 text-center">
-                <div className="flex gap-1 mb-6">
-                  <div className="w-3 h-0.5 rounded-full" style={{ background: "#4285F4" }} />
-                  <div className="w-3 h-0.5 rounded-full" style={{ background: "#EA4335" }} />
-                  <div className="w-3 h-0.5 rounded-full" style={{ background: "#FBBC04" }} />
-                  <div className="w-3 h-0.5 rounded-full" style={{ background: "#34A853" }} />
+                {/* アイコン装飾 */}
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "#4285F4" }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "#EA4335" }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                    </svg>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "#FBBC04" }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m22 8-6 4 6 4V8Z" /><rect x="2" y="6" width="14" height="12" rx="2" />
+                    </svg>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "#34A853" }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                    </svg>
+                  </div>
                 </div>
                 <p className="text-xs tracking-widest font-medium mb-4" style={{ color: brand.textSub }}>
                   CREATIVE PROPOSAL
@@ -484,7 +501,6 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
                   <div className="w-3 h-0.5 rounded-full" style={{ background: "#FBBC04" }} />
                   <div className="w-3 h-0.5 rounded-full" style={{ background: "#34A853" }} />
                 </div>
-                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={5} total={TOTAL_SLIDES} />
               </div>
             </div>
           )}
