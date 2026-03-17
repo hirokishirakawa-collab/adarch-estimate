@@ -32,6 +32,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
 
   const role = (session.user.role ?? "USER") as UserRole;
   const isAdmin = role === "ADMIN";
+  const canSelect = true;
 
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
@@ -201,7 +202,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       </div>
 
       {/* ===== テーブル ===== */}
-      <LeadListTable leads={leads} users={users} isAdmin={isAdmin} />
+      <LeadListTable leads={leads} users={users} isAdmin={isAdmin} canSelect={canSelect} />
 
       {/* ===== ページネーション ===== */}
       {totalPages > 0 && (

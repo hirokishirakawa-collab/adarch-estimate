@@ -35,9 +35,10 @@ interface Props {
   leads: LeadRow[];
   users: Array<{ id: string; name: string | null; email: string }>;
   isAdmin?: boolean;
+  canSelect?: boolean;
 }
 
-export function LeadListTable({ leads, users, isAdmin }: Props) {
+export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
   const searchParams = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, startDeleting] = useTransition();
@@ -159,7 +160,7 @@ export function LeadListTable({ leads, users, isAdmin }: Props) {
       </div>
 
       {/* 選択削除バー */}
-      {isAdmin && selectedIds.size > 0 && (
+      {canSelect && selectedIds.size > 0 && (
         <div className="flex items-center justify-between px-4 py-2 bg-zinc-50 border-b border-zinc-200">
           <p className="text-sm text-zinc-700">
             <strong>{selectedIds.size}件</strong> 選択中
@@ -181,20 +182,22 @@ export function LeadListTable({ leads, users, isAdmin }: Props) {
               <FileText className="w-3.5 h-3.5" />
               {exporting === "pdf" ? "出力中..." : "選択分PDF"}
             </button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={handleDeleteSelected}
-              disabled={isDeleting}
-              className="gap-1.5"
-            >
-              {isDeleting ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="w-3.5 h-3.5" />
-              )}
-              削除
-            </Button>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleDeleteSelected}
+                disabled={isDeleting}
+                className="gap-1.5"
+              >
+                {isDeleting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                削除
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -203,7 +206,7 @@ export function LeadListTable({ leads, users, isAdmin }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-100 bg-zinc-50">
-              {isAdmin && (
+              {canSelect && (
                 <th className="px-3 py-2.5 w-10">
                   <input
                     type="checkbox"
@@ -243,6 +246,7 @@ export function LeadListTable({ leads, users, isAdmin }: Props) {
                 lead={lead}
                 users={users}
                 isAdmin={isAdmin}
+                canSelect={canSelect}
                 selected={selectedIds.has(lead.id)}
                 onToggleSelect={() => toggleSelect(lead.id)}
               />
@@ -258,12 +262,14 @@ function LeadRow({
   lead,
   users,
   isAdmin,
+  canSelect,
   selected,
   onToggleSelect,
 }: {
   lead: LeadRow;
   users: Array<{ id: string; name: string | null; email: string }>;
   isAdmin?: boolean;
+  canSelect?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
 }) {
@@ -375,7 +381,7 @@ function LeadRow({
       )}
     >
       {/* チェックボックス */}
-      {isAdmin && (
+      {canSelect && (
         <td className="px-3 py-3">
           <input
             type="checkbox"
@@ -575,7 +581,7 @@ function LeadRow({
     </tr>
     {hearingOpen && (
       <tr>
-        <td colSpan={isAdmin ? 8 : 7} className="px-0 py-0">
+        <td colSpan={canSelect ? 8 : 7} className="px-0 py-0">
           <HearingSheetForm
             leadId={lead.id}
             leadName={lead.name}
@@ -587,7 +593,7 @@ function LeadRow({
     )}
     {adviceOpen && (
       <tr>
-        <td colSpan={isAdmin ? 8 : 7} className="px-0 py-0">
+        <td colSpan={canSelect ? 8 : 7} className="px-0 py-0">
           <div className="bg-purple-50 border-t border-b border-purple-100 px-5 py-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
