@@ -18,6 +18,7 @@ const brand = {
 };
 
 interface ProposalContent {
+  presenter?: { company: string; name: string; email: string; phone: string };
   cover: { title: string; subtitle: string; date: string; to: string };
   companyIntro: { heading: string; description: string; strengths: string[] };
   proposal: { heading: string; challenge: string; solutions: { title: string; description: string }[] };
@@ -44,6 +45,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
   const c = proposal.content as ProposalContent;
   const companyName = proposal.companyName;
   const recipientName = c.cover.to;
+  const presenterCompany = c.presenter?.company || "Ad Arch Group";
   const [currentSlide, setCurrentSlide] = useState(0);
   const [downloading, setDownloading] = useState(false);
   const viewIdRef = useRef<string | null>(null);
@@ -150,7 +152,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
         }}
       >
         <div className="flex items-center gap-3">
-          <Image src="/logo-adarch.png" alt="Ad Arch Group" width={120} height={30} className="h-6 w-auto" />
+          <Image src="/logo-adarch.png" alt={presenterCompany} width={120} height={30} className="h-6 w-auto" />
           <span className="text-xs" style={{ color: brand.border }}>|</span>
           <p className="text-sm font-medium" style={{ color: brand.text }}>
             {companyName} 様 ご提案書
@@ -347,7 +349,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
                     );
                   })}
                 </div>
-                <SlideFooter companyName={companyName} slideNum={2} total={TOTAL_SLIDES} />
+                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={2} total={TOTAL_SLIDES} />
               </div>
             </div>
           )}
@@ -409,7 +411,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
                     );
                   })}
                 </div>
-                <SlideFooter companyName={companyName} slideNum={3} total={TOTAL_SLIDES} />
+                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={3} total={TOTAL_SLIDES} />
               </div>
             </div>
           )}
@@ -446,7 +448,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
                     );
                   })}
                 </div>
-                <SlideFooter companyName={companyName} slideNum={4} total={TOTAL_SLIDES} />
+                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={4} total={TOTAL_SLIDES} />
               </div>
             </div>
           )}
@@ -482,7 +484,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
                   <div className="w-3 h-0.5 rounded-full" style={{ background: "#FBBC04" }} />
                   <div className="w-3 h-0.5 rounded-full" style={{ background: "#34A853" }} />
                 </div>
-                <SlideFooter companyName={companyName} slideNum={5} total={TOTAL_SLIDES} />
+                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={5} total={TOTAL_SLIDES} />
               </div>
             </div>
           )}
@@ -532,9 +534,23 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
                     <p className="text-xs tracking-wider mb-2" style={{ color: brand.accent }}>
                       CONTACT
                     </p>
-                    <p className="text-sm leading-relaxed" style={{ color: "#FFFFFFCC" }}>
-                      {c.nextSteps.contact}
+                    <p className="text-sm font-medium mb-1" style={{ color: "#FFFFFFEE" }}>
+                      {presenterCompany}
                     </p>
+                    {c.presenter?.name && (
+                      <p className="text-xs mb-1" style={{ color: "#FFFFFFBB" }}>
+                        担当: {c.presenter.name}
+                      </p>
+                    )}
+                    <p className="text-xs leading-relaxed" style={{ color: "#FFFFFF99" }}>
+                      {c.presenter?.phone && <>{c.presenter.phone}<br /></>}
+                      {c.presenter?.email && <>{c.presenter.email}</>}
+                    </p>
+                    {c.nextSteps.contact && (
+                      <p className="text-xs leading-relaxed mt-2" style={{ color: "#FFFFFFAA" }}>
+                        {c.nextSteps.contact}
+                      </p>
+                    )}
                     <div className="flex gap-1 mt-3">
                       <div className="w-3 h-0.5 rounded-full" style={{ background: "#4285F4" }} />
                       <div className="w-3 h-0.5 rounded-full" style={{ background: "#EA4335" }} />
@@ -543,7 +559,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
                     </div>
                   </div>
                 </div>
-                <SlideFooter companyName={companyName} slideNum={6} total={TOTAL_SLIDES} />
+                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={6} total={TOTAL_SLIDES} />
               </div>
             </div>
           )}
@@ -660,16 +676,12 @@ function SlideHeader({ label, title }: { label: string; title: string }) {
   );
 }
 
-function SlideFooter({ companyName, slideNum, total }: { companyName: string; slideNum: number; total: number }) {
+function SlideFooter({ companyName, presenterCompany, slideNum, total }: { companyName: string; presenterCompany: string; slideNum: number; total: number }) {
   return (
     <div className="absolute bottom-4 left-12 right-12 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <Image src="/logo-adarch.png" alt="Ad Arch Group" width={80} height={20} className="h-3.5 w-auto opacity-30" />
-        <span className="text-xs" style={{ color: "#D0CDC6" }}>|</span>
-        <p className="text-xs" style={{ color: "#C0BDB5" }}>
-          {companyName} 様 ご提案書
-        </p>
-      </div>
+      <p className="text-xs" style={{ color: "#C0BDB5" }}>
+        {companyName} 様 ご提案書 — {presenterCompany}
+      </p>
       <p className="text-xs" style={{ color: "#C0BDB5" }}>
         {slideNum} / {total}
       </p>

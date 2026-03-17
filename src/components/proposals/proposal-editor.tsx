@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Save, Loader2, X, Plus, Trash2 } from "lucide-react";
 
 interface ProposalContent {
+  presenter?: { company: string; name: string; email: string; phone: string };
   cover: { title: string; subtitle: string; date: string; to: string };
   companyIntro: { heading: string; description: string; strengths: string[] };
   proposal: { heading: string; challenge: string; solutions: { title: string; description: string }[] };
@@ -23,11 +24,22 @@ interface ProposalEditorProps {
 
 export function ProposalEditor({ proposal, onClose, onSaved }: ProposalEditorProps) {
   const [companyName, setCompanyName] = useState(proposal.companyName);
-  const [content, setContent] = useState<ProposalContent>(
-    JSON.parse(JSON.stringify(proposal.content))
-  );
+  const [content, setContent] = useState<ProposalContent>(() => {
+    const parsed = JSON.parse(JSON.stringify(proposal.content));
+    if (!parsed.presenter) {
+      parsed.presenter = { company: "Ad Arch Group", name: "", email: "", phone: "" };
+    }
+    return parsed;
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const updatePresenter = (field: string, value: string) => {
+    setContent((prev) => ({
+      ...prev,
+      presenter: { ...prev.presenter!, [field]: value },
+    }));
+  };
 
   const updateCover = (field: keyof ProposalContent["cover"], value: string) => {
     setContent((prev) => ({ ...prev, cover: { ...prev.cover, [field]: value } }));
@@ -169,6 +181,24 @@ export function ProposalEditor({ proposal, onClose, onSaved }: ProposalEditorPro
 
         {/* Editor */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+          {/* 自社情報 */}
+          <Section title="自社情報（提案元）">
+            <Label text="会社名" />
+            <Input value={content.presenter?.company || ""} onChange={(v) => updatePresenter("company", v)} placeholder="株式会社アドアーチ" />
+            <Label text="担当者名" />
+            <Input value={content.presenter?.name || ""} onChange={(v) => updatePresenter("name", v)} placeholder="山田 太郎" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label text="メールアドレス" />
+                <Input value={content.presenter?.email || ""} onChange={(v) => updatePresenter("email", v)} placeholder="yamada@example.com" />
+              </div>
+              <div>
+                <Label text="電話番号" />
+                <Input value={content.presenter?.phone || ""} onChange={(v) => updatePresenter("phone", v)} placeholder="03-xxxx-xxxx" />
+              </div>
+            </div>
+          </Section>
+
           {/* 提案先企業名 */}
           <Section title="提案先企業名">
             <Input value={companyName} onChange={setCompanyName} placeholder="株式会社ABC" />
