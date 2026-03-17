@@ -167,8 +167,11 @@ export async function POST(req: NextRequest) {
     if (body.employeeTo !== undefined) {
       companies = companies.filter((c) => c.employeeCount === undefined || c.employeeCount <= body.employeeTo!);
     }
-    // Note: businessItem filtering is already done via name search keyword
-    // No additional post-fetch filter needed for businessItem
+    // 市区町村フィルタ（住所に含まれるかで判定）
+    if (body.city) {
+      const cityKeyword = body.city.trim();
+      companies = companies.filter((c) => c.address.includes(cityKeyword));
+    }
 
     // Limit to requested count
     const requestedLimit = body.limit ?? 20;
