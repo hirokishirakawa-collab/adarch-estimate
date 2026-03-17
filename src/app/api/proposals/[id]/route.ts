@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-// DELETE /api/proposals/:id — ADMIN only
+// DELETE /api/proposals/:id — ADMIN can delete any, others can delete own
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,11 +15,19 @@ export async function DELETE(
   }
 
   const user = await db.user.findUnique({ where: { email: session.user.email } });
-  if (!user || user.role !== "ADMIN") {
+  if (!user) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
+
+  // Non-ADMIN users can only delete their own proposals
+  if (user.role !== "ADMIN") {
+    const proposal = await db.proposal.findUnique({ where: { id } });
+    if (!proposal || proposal.userId !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   await db.proposal.delete({ where: { id } }).catch(() => null);
 

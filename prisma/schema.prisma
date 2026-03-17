@@ -1634,9 +1634,37 @@ model Proposal {
   content     Json     // 生成されたページコンテンツ
   createdAt   DateTime @default(now())
 
+  // Web提案書フィールド
+  slug        String?  @unique // 公開URL用スラッグ（/p/[slug]）
+  isPublished Boolean  @default(false) // 公開状態
+  publishedAt DateTime? // 公開日時
+  title       String?  // 公開時の提案書タイトル
+  views       ProposalView[] @relation("ProposalViews")
+
   @@index([userId])
   @@index([createdAt(sort: Desc)])
+  @@index([slug])
   @@map("proposals")
+}
+
+// ==============================================================
+// ProposalView（Web提案書 閲覧トラッキング）
+// ==============================================================
+
+model ProposalView {
+  id           String   @id @default(cuid())
+  proposalId   String
+  proposal     Proposal @relation("ProposalViews", fields: [proposalId], references: [id], onDelete: Cascade)
+  viewerIp     String?  // 閲覧者IP（ハッシュ化推奨）
+  userAgent    String?  // ブラウザ情報
+  referrer     String?  // 流入元
+  duration     Int      @default(0) // 滞在時間（秒）
+  scrollDepth  Int      @default(0) // スクロール深度（%）
+  viewedAt     DateTime @default(now())
+
+  @@index([proposalId])
+  @@index([viewedAt(sort: Desc)])
+  @@map("proposal_views")
 }
 
 // ==============================================================
