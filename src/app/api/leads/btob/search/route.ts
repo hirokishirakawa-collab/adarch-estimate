@@ -5,10 +5,10 @@ import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import type { BtoBCompanyLead } from "@/lib/constants/leads";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
-// gBizINFO v1 API (v2 is scheduled for later in 2026)
-const GBIZ_API_BASE = "https://info.gbiz.go.jp/hojin/v1/hojin";
+// gBizINFO v1 API
+const GBIZ_BASE = "https://info.gbiz.go.jp/hojin/v1/hojin";
 
 // 都道府県名 → JIS X 0401 コード
 const PREF_CODE_MAP: Record<string, string> = {
@@ -24,6 +24,60 @@ const PREF_CODE_MAP: Record<string, string> = {
   "鹿児島県": "46", "沖縄県": "47",
 };
 
+const API_TOKEN = () => process.env.GBIZINFO_API_TOKEN ?? "";
+
+const gbizHeaders = () => ({
+  Accept: "application/json",
+  "X-hojinInfo-api-token": API_TOKEN(),
+});
+
+// Step 1: Search by name/prefecture (returns basic info only)
+async function searchCompanies(params: URLSearchParams): Promise<{ corporateNumbers: string[]; totalCount: number }> {
+  const url = `${GBIZ_BASE}?${params.toString()}`;
+  const res = await fetch(url, { headers: gbizHeaders() });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`gBizINFO search error (${res.status}): ${text.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const infos: any[] = data["hojin-infos"] ?? [];
+  return {
+    corporateNumbers: infos.map((h: any) => h.corporate_number).filter(Boolean),
+    totalCount: data["totalCount"] ?? infos.length,
+  };
+}
+
+// Step 2: Get detail for a single company (returns full info)
+async function getCompanyDetail(corporateNumber: string): Promise<BtoBCompanyLead | null> {
+  try {
+    const url = `${GBIZ_BASE}/${corporateNumber}`;
+    const res = await fetch(url, { headers: gbizHeaders() });
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const h = data["hojin-infos"]?.[0];
+    if (!h) return null;
+
+    return {
+      name: h.name ?? "",
+      address: h.location ?? "",
+      corporateNumber: h.corporate_number ?? "",
+      capital: h.capital_stock ? Number(h.capital_stock) : undefined,
+      employeeCount: h.employee_number ? Number(h.employee_number) : undefined,
+      representativeName: h.representative_name?.replace(/\s+/g, " ").trim() ?? undefined,
+      websiteUrl: h.company_url ?? undefined,
+      businessItems: h.business_summary ? [h.business_summary] : [],
+      subsidies: Array.isArray(h.subsidies)
+        ? h.subsidies.map((s: any) => typeof s === "string" ? s : (s.title ?? "")).filter(Boolean)
+        : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
@@ -37,87 +91,49 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return parsed.response;
   const body = parsed.data;
 
-  // At least one search criterion is required
-  if (!body.companyName && !body.prefecture && !body.businessItem) {
+  if (!body.companyName && !body.prefecture) {
     return NextResponse.json(
-      { error: "企業名、都道府県、または業種のいずれかを指定してください" },
+      { error: "企業名または都道府県を指定してください" },
       { status: 400 }
     );
   }
 
   try {
+    // Step 1: Search
     const params = new URLSearchParams();
     if (body.companyName) params.set("name", body.companyName);
     if (body.prefecture) {
       const code = PREF_CODE_MAP[body.prefecture];
       if (code) params.set("prefecture", code);
     }
-    // v1 API: name, prefecture, page, limit are the main search params
-    // capital_stock, employee_number, business_item filters are applied post-fetch
+    // Fetch more than needed to allow post-filtering
+    const fetchLimit = Math.min((body.limit ?? 20) * 2, 100);
     params.set("page", String(body.page ?? 1));
-    params.set("limit", String(Math.min((body.limit ?? 20) * 3, 100))); // fetch more to allow post-filtering
+    params.set("limit", String(fetchLimit));
 
-    const url = `${GBIZ_API_BASE}?${params.toString()}`;
+    const { corporateNumbers, totalCount } = await searchCompanies(params);
 
-    const headers: Record<string, string> = {
-      Accept: "application/json",
-    };
-    const apiToken = process.env.GBIZINFO_API_TOKEN;
-    if (apiToken) {
-      headers["X-hojinInfo-api-token"] = apiToken;
+    if (corporateNumbers.length === 0) {
+      return NextResponse.json({
+        companies: [],
+        totalCount: 0,
+        page: body.page ?? 1,
+        limit: body.limit ?? 20,
+      });
     }
 
-    const res = await fetch(url, { headers });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.error("[btob/search] gBizINFO error:", res.status, url, text);
-      return NextResponse.json(
-        { error: `gBizINFO APIエラー (${res.status}): ${text.slice(0, 200)}` },
-        { status: 502 }
-      );
+    // Step 2: Get details in parallel (max 20 concurrent)
+    const batchSize = 20;
+    let allDetails: (BtoBCompanyLead | null)[] = [];
+    for (let i = 0; i < corporateNumbers.length; i += batchSize) {
+      const batch = corporateNumbers.slice(i, i + batchSize);
+      const results = await Promise.all(batch.map(getCompanyDetail));
+      allDetails = allDetails.concat(results);
     }
 
-    const rawText = await res.text();
-    let data: any;
-    try {
-      data = JSON.parse(rawText);
-    } catch {
-      console.error("[btob/search] gBizINFO non-JSON response:", rawText.slice(0, 500));
-      return NextResponse.json(
-        { error: `gBizINFO APIが不正なレスポンスを返しました`, debug: { url, status: res.status, body: rawText.slice(0, 300) } },
-        { status: 502 }
-      );
-    }
+    let companies = allDetails.filter((c): c is BtoBCompanyLead => c !== null);
 
-    console.log("[btob/search] gBizINFO response keys:", Object.keys(data), "url:", url);
-
-    const hojinInfos: any[] = data["hojin-infos"] ?? [];
-    const totalCount: number = data["totalCount"] ?? hojinInfos.length;
-
-    // Debug: if empty, return the raw response structure
-    if (hojinInfos.length === 0) {
-      console.log("[btob/search] Empty result. Full response:", JSON.stringify(data).slice(0, 500));
-    }
-
-    // Map to BtoBCompanyLead
-    let companies: BtoBCompanyLead[] = hojinInfos.map((h: any) => ({
-      name: h.name ?? "",
-      address: h.location ?? "",
-      corporateNumber: h.corporate_number ?? "",
-      capital: h.capital_stock ? Number(h.capital_stock) : undefined,
-      employeeCount: h.employee_number ? Number(h.employee_number) : undefined,
-      representativeName: h.representative_name ?? undefined,
-      websiteUrl: h.company_url ?? undefined,
-      businessItems: Array.isArray(h.business_items)
-        ? h.business_items.map((bi: any) => typeof bi === "string" ? bi : (bi.business_item ?? "")).filter(Boolean)
-        : [],
-      subsidies: Array.isArray(h.subsidies)
-        ? h.subsidies.map((s: any) => typeof s === "string" ? s : (s.title ?? s.subsidy_name ?? "")).filter(Boolean)
-        : [],
-    }));
-
-    // Post-fetch filtering (v1 doesn't support these as query params)
+    // Step 3: Post-fetch filtering
     if (body.capitalFrom !== undefined) {
       companies = companies.filter((c) => c.capital !== undefined && c.capital >= body.capitalFrom!);
     }
@@ -150,9 +166,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[btob/search] error:", err);
-    return NextResponse.json(
-      { error: "企業検索中にエラーが発生しました" },
-      { status: 500 }
-    );
+    const msg = err instanceof Error ? err.message : "企業検索中にエラーが発生しました";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
