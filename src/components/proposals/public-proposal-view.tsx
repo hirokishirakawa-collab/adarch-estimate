@@ -35,11 +35,12 @@ interface PublicProposalViewProps {
     publishedAt: Date | null;
   };
   slug: string;
+  preview?: boolean;
 }
 
 const TOTAL_SLIDES = 6;
 
-export function PublicProposalView({ proposal }: PublicProposalViewProps) {
+export function PublicProposalView({ proposal, preview }: PublicProposalViewProps) {
   const c = proposal.content as ProposalContent;
   const companyName = proposal.companyName;
   const recipientName = c.cover.to;
@@ -69,8 +70,9 @@ export function PublicProposalView({ proposal }: PublicProposalViewProps) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [goNext, goPrev]);
 
-  // ─── トラッキング: ページビュー ───
+  // ─── トラッキング: ページビュー（プレビュー時はスキップ） ───
   useEffect(() => {
+    if (preview) return;
     fetch("/api/tracking", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -81,7 +83,7 @@ export function PublicProposalView({ proposal }: PublicProposalViewProps) {
         if (data.viewId) viewIdRef.current = data.viewId;
       })
       .catch(() => {});
-  }, [proposal.id]);
+  }, [proposal.id, preview]);
 
   // ─── トラッキング: 離脱時送信 ───
   const sendUpdate = useCallback(() => {
