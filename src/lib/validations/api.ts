@@ -37,6 +37,12 @@ export const proposalGenerateSchema = z.object({
   industry: z.string().min(1, "業種は必須です"),
   challenge: z.string().min(1, "課題は必須です"),
   hearingSheetId: z.string().optional(),
+  presenter: z.object({
+    company: z.string(),
+    name: z.string(),
+    email: z.string(),
+    phone: z.string(),
+  }).optional(),
 });
 
 // POST /api/strategy-advisor

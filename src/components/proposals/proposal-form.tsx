@@ -75,6 +75,10 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
   const [companyName, setCompanyName] = useState("");
   const [industry, setIndustry] = useState("restaurant");
   const [challenge, setChallenge] = useState("");
+  const [presenterCompany, setPresenterCompany] = useState("");
+  const [presenterName, setPresenterName] = useState("");
+  const [presenterEmail, setPresenterEmail] = useState("");
+  const [presenterPhone, setPresenterPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -132,6 +136,12 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
           industry,
           challenge: challenge.trim(),
           hearingSheetId: activeHearing?.id || undefined,
+          presenter: {
+            company: presenterCompany.trim() || "Ad Arch Group",
+            name: presenterName.trim(),
+            email: presenterEmail.trim(),
+            phone: presenterPhone.trim(),
+          },
         }),
       });
       if (!res.ok) {
@@ -158,6 +168,53 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
       <div className="flex items-center gap-2">
         <Sparkles className="w-4 h-4 text-blue-600" />
         <p className="text-sm font-semibold text-zinc-800">提案書を生成</p>
+      </div>
+
+      {/* 自社情報 */}
+      <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 space-y-3">
+        <p className="text-xs font-semibold text-zinc-600">自社情報（提案元）</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">会社名</label>
+            <input
+              type="text"
+              value={presenterCompany}
+              onChange={(e) => setPresenterCompany(e.target.value)}
+              placeholder="例: 株式会社アドアーチ名古屋"
+              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">担当者名</label>
+            <input
+              type="text"
+              value={presenterName}
+              onChange={(e) => setPresenterName(e.target.value)}
+              placeholder="例: 山田 太郎"
+              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">メールアドレス</label>
+            <input
+              type="email"
+              value={presenterEmail}
+              onChange={(e) => setPresenterEmail(e.target.value)}
+              placeholder="例: yamada@adarch.co.jp"
+              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">電話番号</label>
+            <input
+              type="tel"
+              value={presenterPhone}
+              onChange={(e) => setPresenterPhone(e.target.value)}
+              placeholder="例: 052-xxx-xxxx"
+              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+          </div>
+        </div>
       </div>
 
       {/* 顧客選択 */}

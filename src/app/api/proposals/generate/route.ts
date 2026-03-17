@@ -247,7 +247,9 @@ Webサイト: ${leadData.websiteUrl || "なし"}`;
 
   const client = new Anthropic({ apiKey });
 
-  const systemPrompt = `あなたはアドアーチグループの提案書作成AIアシスタントです。
+  const presenterName = body.presenter?.company || "アドアーチグループ";
+
+  const systemPrompt = `あなたは${presenterName}（アドアーチグループ）の提案書作成AIアシスタントです。
 アドアーチグループは映像制作・広告代理を中心としたクリエイティブ企業グループです。
 
 以下の情報をもとに、提案書のコンテンツを生成してください。
@@ -261,7 +263,7 @@ Webサイト: ${leadData.websiteUrl || "なし"}`;
     "to": "提案先企業名 御中"
   },
   "companyIntro": {
-    "heading": "アドアーチグループについて",
+    "heading": "${presenterName}について",
     "description": "グループ紹介文（3〜4文）",
     "strengths": ["強み1", "強み2", "強み3"]
   },
@@ -344,6 +346,11 @@ ${hearingSection}`;
       { error: "AI応答のパースに失敗しました", raw: text },
       { status: 500 }
     );
+  }
+
+  // presenterをcontentにマージ
+  if (body.presenter) {
+    content.presenter = body.presenter;
   }
 
   // DB保存
