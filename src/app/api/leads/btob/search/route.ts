@@ -154,17 +154,18 @@ export async function POST(req: NextRequest) {
     let companies = allDetails.filter((c): c is BtoBCompanyLead => c !== null);
 
     // Step 3: Post-fetch filtering
+    // 資本金・従業員数が未登録(undefined)の企業は除外せず残す
     if (body.capitalFrom !== undefined) {
-      companies = companies.filter((c) => c.capital !== undefined && c.capital >= body.capitalFrom!);
+      companies = companies.filter((c) => c.capital === undefined || c.capital >= body.capitalFrom!);
     }
     if (body.capitalTo !== undefined) {
-      companies = companies.filter((c) => c.capital !== undefined && c.capital <= body.capitalTo!);
+      companies = companies.filter((c) => c.capital === undefined || c.capital <= body.capitalTo!);
     }
     if (body.employeeFrom !== undefined) {
-      companies = companies.filter((c) => c.employeeCount !== undefined && c.employeeCount >= body.employeeFrom!);
+      companies = companies.filter((c) => c.employeeCount === undefined || c.employeeCount >= body.employeeFrom!);
     }
     if (body.employeeTo !== undefined) {
-      companies = companies.filter((c) => c.employeeCount !== undefined && c.employeeCount <= body.employeeTo!);
+      companies = companies.filter((c) => c.employeeCount === undefined || c.employeeCount <= body.employeeTo!);
     }
     // Note: businessItem filtering is already done via name search keyword
     // No additional post-fetch filter needed for businessItem
