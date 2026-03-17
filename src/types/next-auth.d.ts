@@ -8,6 +8,7 @@ declare module "next-auth" {
       role: UserRole;
       email: string;
       enabledFeatures: string[];
+      hasGmail: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -17,5 +18,6 @@ declare module "next-auth/jwt" {
     role?: UserRole;
     email?: string;
     enabledFeatures?: string[];
+    hasGmail?: boolean;
   }
 }

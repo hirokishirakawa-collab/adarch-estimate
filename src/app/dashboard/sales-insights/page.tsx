@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 // ---- Types ----
 interface IndustryInsight {
@@ -118,6 +119,9 @@ export default function SalesInsightsPage() {
 
       {/* Upload Form */}
       <UploadForm onUploaded={loadData} />
+
+      {/* Gmail Auto Fetch */}
+      <GmailTemplateBuilder />
 
       {/* Setup Guide */}
       <SetupGuide />
@@ -492,6 +496,168 @@ function InsightCard({ record }: { record: SalesInsightRecord }) {
               </p>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Gmail Fetch + Template Builder ----
+function GmailTemplateBuilder() {
+  const { data: session } = useSession();
+  const hasGmail = session?.user?.hasGmail ?? false;
+  const [loading, setLoading] = useState(false);
+  const [emailData, setEmailData] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [days, setDays] = useState(7);
+  const [copied, setCopied] = useState(false);
+
+  const fetchEmails = async () => {
+    setLoading(true);
+    setError(null);
+    setEmailData(null);
+    try {
+      const res = await fetch(`/api/gmail/sent?days=${days}`);
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.needsReauth) {
+          setError("Gmail連携が必要です。一度ログアウトして再ログインしてください。");
+        } else {
+          setError(data.error ?? "取得に失敗しました");
+        }
+        return;
+      }
+      if (data.count === 0) {
+        setError(`過去${days}日間の送信メールが見つかりませんでした`);
+        return;
+      }
+
+      // メールデータをテンプレートに整形
+      const lines = data.emails.map((e: { date: string; to: string; subject: string; body: string }, i: number) => {
+        const d = new Date(e.date);
+        const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
+        return `■ ${dateStr} → ${e.to}\n件名: ${e.subject}\n本文:\n${e.body}`;
+      });
+
+      const template = `以下は過去${days}日間に送信した営業メール${data.count}通です。
+これを分析して、以下のJSON形式で出力してください。
+業種ごとに分類し、どんな営業手法で、何が刺さったかを分析してください。
+返信があった企業は1社ずつ詳細に記録してください。
+
+=== 送信メールデータ ===
+${lines.join("\n\n---\n\n")}
+=== ここまで ===
+
+出力JSON形式:
+{
+  "period": "${new Date().getFullYear()}-W${String(Math.ceil((new Date().getTime() - new Date(new Date().getFullYear(), 0, 1).getTime()) / 604800000)).padStart(2, "0")}",
+  "totalSent": 送信した総件数,
+  "totalReplied": 返信があった総件数,
+  "insights": [
+    {
+      "industry": "業種名（例: 飲食、不動産、美容、IT）",
+      "area": "エリア（例: 東京都、関西、全国）",
+      "sent": その業種への送信数,
+      "replied": 返信数,
+      "temperature": "hot / warm / cold",
+      "method": "営業手法（例: メール、フォーム、DM、電話）",
+      "hook": "刺さったポイント（例: SNS運用提案、動画制作の実績訴求）",
+      "summary": "この業種での分析・所感（2〜3文）"
+    }
+  ],
+  "topResponses": [
+    {
+      "companyName": "会社名",
+      "industry": "業種名",
+      "area": "所在地（例: 東京都渋谷区）",
+      "companyScale": "企業規模（例: 個人経営、中小10名、大手500名）",
+      "companyUrl": "会社HP（あれば）",
+      "contactMethod": "メール",
+      "sentDate": "送付日",
+      "replyDate": "返信日",
+      "replyHours": 送付から返信までの時間数,
+      "replyDays": 送付から返信までの日数,
+      "sentSummary": "送った営業文の要約（何を提案したか）",
+      "responseSnippet": "実際の返信内容（要約可）",
+      "responseType": "反応の種類（例: 興味あり、資料請求、見積依頼、断り）",
+      "nextAction": "次に取るべきアクション",
+      "note": "補足（何が決め手だったか、気づき等）"
+    }
+  ],
+  "memo": "今週の全体所感・気づき・来週試したいこと"
+}`;
+      setEmailData(template);
+    } catch {
+      setError("通信エラーが発生しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopy = () => {
+    if (!emailData) return;
+    navigator.clipboard.writeText(emailData);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!hasGmail) return null;
+
+  return (
+    <div className="bg-gradient-to-r from-emerald-950/80 to-teal-950/60 border border-emerald-500/30 rounded-xl p-5 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+          <span className="text-lg">📧</span>
+        </div>
+        <div>
+          <p className="text-sm font-bold text-white">Gmailから営業メールを自動取得</p>
+          <p className="text-xs text-emerald-300/70 mt-0.5">
+            送信済みメールを取得し、Claudeへの依頼テンプレートを自動生成します
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-emerald-300/70">期間:</span>
+          <select
+            value={days}
+            onChange={(e) => setDays(Number(e.target.value))}
+            className="bg-black/30 border border-emerald-500/20 rounded-md px-2 py-1 text-xs text-emerald-200 focus:outline-none"
+          >
+            <option value={3}>過去3日</option>
+            <option value={7}>過去7日</option>
+            <option value={14}>過去14日</option>
+            <option value={30}>過去30日</option>
+          </select>
+        </div>
+        <button
+          onClick={fetchEmails}
+          disabled={loading}
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white text-xs font-medium rounded-md transition-colors"
+        >
+          {loading ? "取得中..." : "送信メールを取得"}
+        </button>
+      </div>
+
+      {error && (
+        <p className="text-xs text-red-400">{error}</p>
+      )}
+
+      {emailData && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-emerald-400">生成されたテンプレート（Claudeに貼り付けてください）</p>
+            <button
+              onClick={handleCopy}
+              className="px-3 py-1 text-xs font-medium rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
+            >
+              {copied ? "コピーしました!" : "コピー"}
+            </button>
+          </div>
+          <div className="bg-black/40 border border-emerald-500/10 rounded-lg p-4 text-xs text-emerald-100/80 whitespace-pre-wrap font-mono overflow-x-auto max-h-[400px] overflow-y-auto">
+            {emailData}
+          </div>
         </div>
       )}
     </div>
