@@ -520,9 +520,10 @@ export function OmoChannelSimulator() {
                   totalAmount={Math.round(calc.total * 1.20)}
                   conditions={[
                     `${isInbound ? "インバウンドロール" : "日本語ロール"}`,
-                    `${AREA_META[area].label}`,
+                    `${AREA_META[area].label}（${AREA_META[area].sub}）`,
+                    ...(isInbound ? ["30秒"] : [`${dur}`]),
                     `${PERIODS.find(p => p.id === period)?.label ?? period}`,
-                    ...(useInfo ? ["インフォマーシャル含む"] : []),
+                    ...calc.rows.map(r => `${r.label}: ¥${r.price.toLocaleString("ja-JP")}`),
                   ]}
                 />
               )}

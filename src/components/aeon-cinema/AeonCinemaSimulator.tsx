@@ -556,6 +556,12 @@ export function AeonCinemaSimulator() {
                       ? `シネアド ${duration}秒 / ${CINEMA_AD_COLS.find(c => c.key === colKey)?.label ?? ""}`
                       : `ロビー: ${LOBBY_COLS.find(c => c.key === lobbyKey)?.label ?? ""}`,
                   ]}
+                  stores={selectedList.map(t => ({
+                    name: `イオンシネマ${t.name}`,
+                    brand: `${t.sc}SC`,
+                    pref: t.pref,
+                    city: t.facility,
+                  }))}
                 />
               )}
             </div>

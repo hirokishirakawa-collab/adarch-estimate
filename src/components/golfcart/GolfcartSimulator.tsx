@@ -574,8 +574,17 @@ export function GolfcartSimulator() {
                   conditions={[
                     `${weeks}週間`,
                     `${calc.rows.length}メニュー選択`,
+                    ...(selectedCourses.size > 0 ? [`Select Ads: ${selectedCourses.size}ゴルフ場`] : []),
                     ...(calc.totalImpressions > 0 ? [`想定IMP: ${fmtImp(calc.totalImpressions)}`] : []),
                   ]}
+                  stores={selectedCourses.size > 0 ? GOLF_COURSES.flatMap(g =>
+                    g.courses.filter(c => selectedCourses.has(c.key)).map(c => ({
+                      name: c.name,
+                      brand: `${c.carts}台 / ${c.holes}H`,
+                      pref: g.pref,
+                      city: "",
+                    }))
+                  ) : undefined}
                 />
               )}
               <button
