@@ -79,6 +79,7 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
   const [presenterName, setPresenterName] = useState("");
   const [presenterEmail, setPresenterEmail] = useState("");
   const [presenterPhone, setPresenterPhone] = useState("");
+  const [proposalTitle, setProposalTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -136,6 +137,7 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
           industry,
           challenge: challenge.trim(),
           hearingSheetId: activeHearing?.id || undefined,
+          proposalTitle: proposalTitle.trim() || undefined,
           presenter: {
             company: presenterCompany.trim() || "Ad Arch Group",
             name: presenterName.trim(),
@@ -253,6 +255,17 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
           </div>
         </div>
       )}
+
+      <div>
+        <label className="block text-xs text-zinc-500 mb-1">提案書タイトル（空欄ならAI自動生成）</label>
+        <input
+          type="text"
+          value={proposalTitle}
+          onChange={(e) => setProposalTitle(e.target.value)}
+          placeholder="例: 映像制作・広告プロモーションのご提案"
+          className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+        />
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>

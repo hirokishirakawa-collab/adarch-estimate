@@ -323,9 +323,13 @@ ${leadSection}
 
 ${hearingSection}`;
 
+  const titleInstruction = body.proposalTitle
+    ? `\n提案書タイトル: 「${body.proposalTitle}」を cover.title にそのまま使用してください`
+    : "";
+
   const userPrompt = `提案先企業: ${body.companyName}
 業種: ${body.industry}
-課題・ニーズ: ${body.challenge}`;
+課題・ニーズ: ${body.challenge}${titleInstruction}`;
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-20250514",
