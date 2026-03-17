@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     // 提案書の存在・公開状態を確認
     const proposal = await db.proposal.findUnique({
       where: { id: proposalId },
-      select: { isPublished: true, companyName: true, slug: true },
+      select: { isPublished: true, companyName: true, slug: true, user: { select: { name: true, email: true } } },
     });
 
     if (!proposal?.isPublished) {
@@ -47,9 +47,11 @@ export async function POST(req: NextRequest) {
 
       // Google Chat通知（非同期、エラーでもレスポンスに影響させない）
       const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+      const author = proposal.user?.name || proposal.user?.email || "不明";
       notifyCeo(
         `📄 提案書が閲覧されました\n` +
         `企業名: ${proposal.companyName}\n` +
+        `作成者: ${author}\n` +
         `日時: ${now}\n` +
         `リファラー: ${referrer || "直接アクセス"}`
       ).catch(() => {});
