@@ -428,22 +428,31 @@ export async function saveBtoBLeadsFromSearch(
 
   let savedCount = 0;
 
+  // BigIntの安全な変換（undefinedや不正な値でクラッシュしないように）
+  function safeBigInt(value: number | string | undefined | null): bigint | null {
+    if (value === undefined || value === null) return null;
+    try { return BigInt(Math.floor(Number(value))); } catch { return null; }
+  }
+
   try {
     for (const lead of leads) {
+      const address = lead.address || "";
+      const capitalBigint = safeBigInt(lead.capital);
+
       const existing = await db.lead.findUnique({
-        where: { name_address: { name: lead.name, address: lead.address ?? "" } },
+        where: { name_address: { name: lead.name, address } },
       });
 
       if (existing) {
         await db.lead.update({
           where: { id: existing.id },
           data: {
-            scoreTotal: lead.score.total,
-            scoreBreakdown: lead.score.breakdown as Record<string, number>,
-            scoreComment: lead.score.comment,
+            scoreTotal: lead.score?.total ?? 0,
+            scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
+            scoreComment: lead.score?.comment ?? null,
             source: "GBIZINFO",
-            corporateNumber: lead.corporateNumber,
-            capital: lead.capital ? BigInt(lead.capital) : null,
+            corporateNumber: lead.corporateNumber ?? null,
+            capital: capitalBigint,
             employeeCount: lead.employeeCount ?? null,
             representativeName: lead.representativeName ?? null,
             youtubeChannelUrl: lead.youtubeChannel?.url ?? null,
@@ -455,16 +464,16 @@ export async function saveBtoBLeadsFromSearch(
         const created = await db.lead.create({
           data: {
             name: lead.name,
-            address: lead.address || null,
+            address: address || null,
             websiteUrl: lead.websiteUrl || null,
-            scoreTotal: lead.score.total,
-            scoreBreakdown: lead.score.breakdown as Record<string, number>,
-            scoreComment: lead.score.comment,
+            scoreTotal: lead.score?.total ?? 0,
+            scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
+            scoreComment: lead.score?.comment ?? null,
             industry,
             area,
             source: "GBIZINFO",
-            corporateNumber: lead.corporateNumber,
-            capital: lead.capital ? BigInt(lead.capital) : null,
+            corporateNumber: lead.corporateNumber ?? null,
+            capital: capitalBigint,
             employeeCount: lead.employeeCount ?? null,
             representativeName: lead.representativeName ?? null,
             youtubeChannelUrl: lead.youtubeChannel?.url ?? null,
@@ -479,7 +488,7 @@ export async function saveBtoBLeadsFromSearch(
           data: {
             leadId: created.id,
             action: "CREATED",
-            detail: `BtoBリード獲得AIから保存（スコア: ${lead.score.total}）`,
+            detail: `BtoBリード獲得AIから保存（スコア: ${lead.score?.total ?? 0}）`,
             staffName,
           },
         });
