@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { ChevronDown, ChevronRight, Search, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MUNICIPALITIES, PREFECTURES } from "@/data/tver-municipalities";
+import { SimulatorPDFButton } from "@/components/simulator/simulator-pdf-button";
 
 // ----------------------------------------------------------------
 // 定数
@@ -479,13 +480,26 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
         <div className="bg-zinc-900 rounded-xl p-4 space-y-3 text-white">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-zinc-300">シミュレーション結果</p>
-            <button
-              onClick={resetAll}
-              className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
-            >
-              <RotateCcw className="w-3 h-3" />
-              リセット
-            </button>
+            <div className="flex items-center gap-2">
+              {selected.size > 0 && (
+                <SimulatorPDFButton
+                  simulatorName="TVer広告"
+                  totalAmount={calcResult.budget + fees.subtotal}
+                  conditions={[
+                    `${selected.size}市区町村 / 推定人口 ${formatCount(totalPop)}人`,
+                    `${adSeconds}秒 / CPM ¥${cpm.toLocaleString()}`,
+                    `再生回数: ${calcResult.plays.toLocaleString()}回`,
+                  ]}
+                />
+              )}
+              <button
+                onClick={resetAll}
+                className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" />
+                リセット
+              </button>
+            </div>
           </div>
 
           {selected.size === 0 && (

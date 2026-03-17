@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { ChevronDown, ChevronRight, RotateCcw, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SKYLARK_STORES, SKYLARK_PREF_ORDER } from "@/data/skylark-stores";
+import { SimulatorPDFButton } from "@/components/simulator/simulator-pdf-button";
 
 // ────────────────────────────────────────────────────────────────
 // 価格テーブル
@@ -449,9 +450,20 @@ export function SkylarkSimulator() {
             <div className="bg-white rounded-xl border border-zinc-200 p-5">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm font-bold text-zinc-900">シミュレーション結果</p>
-                <span className="text-[11px] bg-zinc-100 text-zinc-500 px-2.5 py-1 rounded-full">
-                  {calc.storeCount.toLocaleString()}店舗 / 4週間
-                </span>
+                <div className="flex items-center gap-2">
+                  <SimulatorPDFButton
+                    simulatorName="すかいらーくインストア広告"
+                    totalAmount={calc.clientPrice}
+                    conditions={[
+                      `${calc.storeCount.toLocaleString()}店舗 / 4週間`,
+                      calc.type === "dmb" ? "デジタルメニューブック (DMB)" : calc.type === "sticker" ? "テーブルステッカー" : "テーブルスタンド",
+                      ...(calc.designFee > 0 ? ["デザイン制作費含む"] : []),
+                    ]}
+                  />
+                  <span className="text-[11px] bg-zinc-100 text-zinc-500 px-2.5 py-1 rounded-full">
+                    {calc.storeCount.toLocaleString()}店舗 / 4週間
+                  </span>
+                </div>
               </div>
 
               {calc.type === "dmb" ? (

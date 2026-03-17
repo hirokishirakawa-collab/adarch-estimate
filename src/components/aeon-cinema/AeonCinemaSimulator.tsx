@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SimulatorPDFButton } from "@/components/simulator/simulator-pdf-button";
 import {
   AEON_THEATERS,
   AEON_AREA_ORDER,
@@ -543,7 +544,21 @@ export function AeonCinemaSimulator() {
 
           {/* Ad-Arch価格 */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4">
-            <h3 className="text-sm font-semibold text-blue-800 mb-3">Ad-Arch 提示価格</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-blue-800">Ad-Arch 提示価格</h3>
+              {hasSelection && (
+                <SimulatorPDFButton
+                  simulatorName="イオンシネマ広告"
+                  totalAmount={clientPrice}
+                  conditions={[
+                    `${selectedList.length}劇場 / 合計${totalSC}SC`,
+                    adMode === "cinema"
+                      ? `シネアド ${duration}秒 / ${CINEMA_AD_COLS.find(c => c.key === colKey)?.label ?? ""}`
+                      : `ロビー: ${LOBBY_COLS.find(c => c.key === lobbyKey)?.label ?? ""}`,
+                  ]}
+                />
+              )}
+            </div>
             <div className="space-y-3">
               {/* クライアント価格 */}
               <div className="bg-white rounded-lg p-3 border border-blue-100">

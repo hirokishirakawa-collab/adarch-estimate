@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { ChevronDown, ChevronRight, RotateCcw, GraduationCap, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UNIV_STORES, UNIV_PREF_ORDER } from "@/data/univ-stores";
+import { SimulatorPDFButton } from "@/components/simulator/simulator-pdf-button";
 
 // ────────────────────────────────────────────────────────────────
 // 価格テーブル
@@ -496,7 +497,19 @@ export function UnivCoopSimulator() {
 
             {/* Ad-Arch 提示価格 */}
             <div className="bg-zinc-950 rounded-xl border border-zinc-800 p-5">
-              <p className="text-xs font-bold text-white mb-1">Ad-Arch 提示価格</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-bold text-white">Ad-Arch 提示価格</p>
+                <SimulatorPDFButton
+                  simulatorName="大学生協トレイ広告"
+                  totalAmount={calc.clientPriceWithDesign}
+                  conditions={[
+                    `${calc.storeCount}食堂 / ${months}ヶ月`,
+                    `${sheetsPerStore}枚/月/食堂`,
+                    `総印刷枚数: ${calc.totalPrintSheets.toLocaleString()}枚`,
+                    ...(addDesignFee ? [`デザイン制作費 ${designCount}案含む`] : []),
+                  ]}
+                />
+              </div>
               <p className="text-[11px] text-zinc-500 mb-4">
                 運用管理費 = 定価 × 20%
                 {addDesignFee && " ／ デザイン制作費は別途加算"}

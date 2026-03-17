@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SimulatorPDFButton } from "@/components/simulator/simulator-pdf-button";
 
 // ================================================================
 // 型・定数
@@ -512,13 +513,27 @@ export function OmoChannelSimulator() {
         <div className="bg-zinc-900 rounded-xl p-4 space-y-3 text-white">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-zinc-300">見積もり結果</p>
-            <button
-              onClick={reset}
-              className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
-            >
-              <RotateCcw className="w-3 h-3" />
-              リセット
-            </button>
+            <div className="flex items-center gap-2">
+              {calc.rows.length > 0 && (
+                <SimulatorPDFButton
+                  simulatorName="おもチャンネル広告"
+                  totalAmount={Math.round(calc.total * 1.20)}
+                  conditions={[
+                    `${isInbound ? "インバウンドロール" : "日本語ロール"}`,
+                    `${AREA_META[area].label}`,
+                    `${PERIODS.find(p => p.id === period)?.label ?? period}`,
+                    ...(useInfo ? ["インフォマーシャル含む"] : []),
+                  ]}
+                />
+              )}
+              <button
+                onClick={reset}
+                className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" />
+                リセット
+              </button>
+            </div>
           </div>
 
           {/* 警告メッセージ */}

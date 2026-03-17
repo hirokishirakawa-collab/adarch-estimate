@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SimulatorPDFButton } from "@/components/simulator/simulator-pdf-button";
 
 // ================================================================
 // 型・定数
@@ -565,13 +566,26 @@ export function GolfcartSimulator() {
         <div className="bg-zinc-900 rounded-xl p-4 space-y-3 text-white">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-zinc-300">見積もり結果</p>
-            <button
-              onClick={reset}
-              className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
-            >
-              <RotateCcw className="w-3 h-3" />
-              リセット
-            </button>
+            <div className="flex items-center gap-2">
+              {calc.rows.length > 0 && (
+                <SimulatorPDFButton
+                  simulatorName="ゴルフカートサイネージ広告"
+                  totalAmount={Math.round(calc.mediaCost * 1.20)}
+                  conditions={[
+                    `${weeks}週間`,
+                    `${calc.rows.length}メニュー選択`,
+                    ...(calc.totalImpressions > 0 ? [`想定IMP: ${fmtImp(calc.totalImpressions)}`] : []),
+                  ]}
+                />
+              )}
+              <button
+                onClick={reset}
+                className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" />
+                リセット
+              </button>
+            </div>
           </div>
 
           {calc.rows.length === 0 ? (
