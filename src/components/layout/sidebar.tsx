@@ -41,6 +41,7 @@ import {
   ListChecks,
   Activity,
   Film,
+  Eye,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -132,6 +133,12 @@ const NAV_SECTIONS: NavSection[] = [
         label: "提案書AI",
         icon: Sparkles,
         minRole: "USER",
+      },
+      {
+        href: "/dashboard/proposals/analytics",
+        label: "提案書 閲覧分析",
+        icon: Eye,
+        minRole: "ADMIN",
       },
     ],
   },
