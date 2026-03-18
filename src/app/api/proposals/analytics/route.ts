@@ -4,18 +4,11 @@ import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-// GET /api/proposals/analytics — 公開提案書の閲覧統計（ADMIN専用）
+// GET /api/proposals/analytics — 公開提案書の閲覧統計（全認証ユーザー）
 export async function GET(_req: NextRequest) {
   const session = await auth();
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await db.user.findUnique({
-    where: { email: session.user.email },
-  });
-  if (!user || user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const proposals = await db.proposal.findMany({

@@ -138,7 +138,7 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/proposals/analytics",
         label: "提案書 閲覧分析",
         icon: Eye,
-        minRole: "ADMIN",
+        minRole: "USER",
       },
     ],
   },
