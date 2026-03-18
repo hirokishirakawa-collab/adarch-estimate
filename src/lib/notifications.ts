@@ -282,6 +282,41 @@ export async function sendDealNotification(
 }
 
 // ---------------------------------------------------------------
+// プロジェクト通知（案件進捗スペースへ送信）
+// ---------------------------------------------------------------
+export type ProjectNotificationPayload = {
+  eventType: "PROJECT_UPDATED" | "DESCRIPTION_UPDATED";
+  projectId: string;
+  projectTitle: string;
+  customerName: string | null;
+  staffName: string;
+  detail: string;
+};
+
+export async function sendProjectNotification(
+  payload: ProjectNotificationPayload
+): Promise<void> {
+  const { projectTitle, customerName, staffName, projectId, detail } = payload;
+  const url = appUrl(`/dashboard/projects/${projectId}`);
+
+  const emoji = payload.eventType === "DESCRIPTION_UPDATED" ? "📝" : "🔧";
+  const label = payload.eventType === "DESCRIPTION_UPDATED"
+    ? "プロジェクトメモ更新通知"
+    : "プロジェクト更新通知";
+
+  const text = [
+    `${emoji} ${label}`,
+    customerName ? `顧客: ${customerName} 様` : null,
+    `案件: ${projectTitle}`,
+    `操作者: ${staffName}`,
+    `更新: ${detail}`,
+    `🔗 ${url}`,
+  ].filter(Boolean).join("\n");
+
+  await sendChatMessage(DEAL_CHAT_SPACE_ID, text);
+}
+
+// ---------------------------------------------------------------
 // 内部: 件名・HTML 本文を組み立てる
 // ---------------------------------------------------------------
 function buildEmail(payload: DealNotificationPayload): {

@@ -2,12 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import type { ProjectStatus, ExpenseCategory, BillingStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 import { logAudit } from "@/lib/audit";
+import { sendProjectNotification } from "@/lib/notifications";
 
 // ---------------------------------------------------------------
 // 共通ユーティリティ
@@ -135,8 +137,11 @@ export async function updateProject(
   if (oldDeadlineStr !== newDeadlineStr)
     diffs.push(`「${FIELD_LABELS.deadline}」を「${oldDeadlineStr ?? "未設定"}」から「${newDeadlineStr ?? "未設定"}」に変更しました`);
 
+  // メモ（description）のみ更新かどうか
+  const isDescriptionOnly = diffs.length === 1 && (existing.description ?? "") !== (description ?? "");
+
   try {
-    await db.project.update({
+    const updated = await db.project.update({
       where: { id: projectId },
       data: {
         title,
@@ -145,6 +150,10 @@ export async function updateProject(
         description,
         staffName: staffNameField,
         customerId: customerIdRaw || null,
+      },
+      select: {
+        title: true,
+        customer: { select: { name: true } },
       },
     });
 
@@ -158,6 +167,33 @@ export async function updateProject(
           projectId,
         },
       });
+
+      // Google Chat 通知
+      const customerName = updated.customer?.name ?? null;
+      if (isDescriptionOnly && description) {
+        const snippet = description.length > 60 ? description.slice(0, 60) + "…" : description;
+        after(() =>
+          sendProjectNotification({
+            eventType: "DESCRIPTION_UPDATED",
+            projectId,
+            projectTitle: updated.title,
+            customerName,
+            staffName,
+            detail: `メモ更新「${snippet}」`,
+          })
+        );
+      } else {
+        after(() =>
+          sendProjectNotification({
+            eventType: "PROJECT_UPDATED",
+            projectId,
+            projectTitle: updated.title,
+            customerName,
+            staffName,
+            detail: diffs.join("、"),
+          })
+        );
+      }
     }
     logAudit({ action: "project_updated", email: info.email, name: staffName, entity: "project", entityId: projectId, detail: `${diffs.length}件変更` });
   } catch (e) {
