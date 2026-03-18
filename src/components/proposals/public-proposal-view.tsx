@@ -421,26 +421,26 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
             </div>
           )}
 
-          {/* ━━━ スライド2: 課題 & 提案 ━━━ */}
+          {/* ━━━ スライド2: ご提案 ━━━ */}
           {currentSlide === 2 && (
             <div className="w-full h-full relative overflow-hidden" style={{ background: brand.slideBg }}>
               <ArchLines variant={2} />
               <ScaledContent scale={getEffectiveScale("proposal", c)}>
               <div className="relative z-10 h-full flex flex-col justify-center px-12 sm:px-16 py-10">
                 <SlideHeader
-                  label={`${companyName} 様の課題に対するご提案`}
+                  label={`${companyName} 様へのご提案`}
                   title={c.proposal.heading}
                 />
-                {/* 課題ボックス */}
+                {/* 提案の背景ボックス */}
                 <div
                   className="rounded-lg px-5 py-4 mb-5"
                   style={{
                     background: brand.bg,
-                    borderLeft: `3px solid #EA4335`,
+                    borderLeft: `3px solid ${brand.accent}`,
                   }}
                 >
-                  <p className="text-xs font-medium tracking-wider mb-1" style={{ color: "#EA4335" }}>
-                    {companyName} 様の課題
+                  <p className="text-xs font-medium tracking-wider mb-1" style={{ color: brand.accent }}>
+                    {companyName} 様にお力になれること
                   </p>
                   <p className="text-sm leading-relaxed" style={{ color: brand.text }}>
                     {c.proposal.challenge}

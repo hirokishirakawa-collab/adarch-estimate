@@ -294,11 +294,11 @@ export function ProposalForm({ onGenerated }: ProposalFormProps) {
       </div>
 
       <div>
-        <label className="block text-xs text-zinc-500 mb-1">課題・ニーズ *</label>
+        <label className="block text-xs text-zinc-500 mb-1">ご提案したいこと *</label>
         <textarea
           value={challenge}
           onChange={(e) => setChallenge(e.target.value)}
-          placeholder="例: Web広告は実施しているが動画制作のノウハウがなく、ブランディング動画を制作したい"
+          placeholder="例: 映像制作を通じたブランディング強化、SNS向け動画コンテンツのご提案"
           rows={3}
           className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
           required

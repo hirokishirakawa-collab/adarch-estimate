@@ -258,12 +258,12 @@ export function ProposalEditor({ proposal, onClose, onSaved }: ProposalEditorPro
             <AddButton onClick={() => updateCompanyIntro("strengths", [...content.companyIntro.strengths, ""])} label="強みを追加" />
           </Section>
 
-          {/* 課題 & 提案 */}
-          <Section title="課題 & 提案">
+          {/* ご提案 */}
+          <Section title="ご提案内容">
             <FontScaleControl sectionKey="proposal" content={content} onChange={updateFontScale} />
             <Label text="セクション見出し" />
             <Input value={content.proposal.heading} onChange={(v) => updateProposal("heading", v)} />
-            <Label text="課題" />
+            <Label text="お力になれること" />
             <Textarea value={content.proposal.challenge} onChange={(v) => updateProposal("challenge", v)} rows={2} />
             <Label text="ソリューション" />
             {content.proposal.solutions.map((sol, i) => (
