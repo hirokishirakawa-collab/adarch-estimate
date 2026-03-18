@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import { Download, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Loader2, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 // ─── ブランドカラー（明るめ） ───
 const brand = {
@@ -38,6 +38,7 @@ interface PublicProposalViewProps {
   };
   slug: string;
   preview?: boolean;
+  onClose?: () => void;
 }
 
 // ─── 自動フィット: コンテンツ量に応じてスケール計算 ───
@@ -106,7 +107,7 @@ function ScaledContent({ scale, children }: { scale: number; children: React.Rea
 
 const TOTAL_SLIDES = 6;
 
-export function PublicProposalView({ proposal, preview }: PublicProposalViewProps) {
+export function PublicProposalView({ proposal, preview, onClose }: PublicProposalViewProps) {
   const c = proposal.content as ProposalContent;
   const companyName = proposal.companyName;
   const recipientName = c.cover.to;
@@ -229,7 +230,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
             {companyName} 様 ご提案書
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <span className="text-xs" style={{ color: brand.textSub }}>
             {currentSlide + 1} / {TOTAL_SLIDES}
           </span>
@@ -250,6 +251,15 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
             )}
             PDF
           </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded bg-zinc-600 hover:bg-zinc-700 text-white transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              閉じる
+            </button>
+          )}
         </div>
       </header>
 
