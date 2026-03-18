@@ -305,6 +305,9 @@ model User {
   salesActivities SalesActivity[] @relation("SalesActivities")
   proposals       Proposal[]      @relation("Proposals")
 
+  // ---- ヘルプチャットボット ----
+  chatbotConversations ChatbotConversation[] @relation("ChatbotConversations")
+
   @@index([branchId])
   @@index([branchId2])
   @@index([role])
@@ -1706,6 +1709,35 @@ model SalesInsight {
   @@index([period])
   @@index([createdAt(sort: Desc)])
   @@map("sales_insights")
+}
+
+// ==============================================================
+// ChatbotConversation（ヘルプチャットボット会話履歴）
+// ==============================================================
+
+model ChatbotConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("ChatbotConversations", fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatbotMessage[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@map("chatbot_conversations")
+}
+
+model ChatbotMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   ChatbotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String   // "user" | "assistant"
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId])
+  @@map("chatbot_messages")
 }
 
 /// システム設定（キーバリュー）。提案書AIのアンロック閾値等を管理。

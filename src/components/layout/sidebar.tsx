@@ -45,6 +45,7 @@ import {
   Eye,
   ChevronDown,
   ChevronRight,
+  MessageCircle,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -357,6 +358,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/login-logs",
         label: "操作ログ",
         icon: ClipboardList,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/admin/chatbot-logs",
+        label: "チャットボット履歴",
+        icon: MessageCircle,
         minRole: "ADMIN",
       },
     ],

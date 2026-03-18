@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { ChatbotWidget } from "@/components/chatbot/chatbot-widget";
 import { Toaster } from "sonner";
 import type { UserRole } from "@/types/roles";
 
@@ -23,7 +24,8 @@ export default async function DashboardLayout({
   return (
     <>
       <DashboardShell user={user}>{children}</DashboardShell>
-      <Toaster richColors position="bottom-right" />
+      <ChatbotWidget />
+      <Toaster richColors position="top-right" />
     </>
   );
 }
