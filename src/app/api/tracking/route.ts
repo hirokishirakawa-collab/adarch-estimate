@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createHash } from "crypto";
-import { notifyCeo } from "@/lib/google-chat";
+import { sendChatMessage } from "@/lib/google-chat";
 
 function hashIp(ip: string): string {
   return createHash("sha256").update(ip).digest("hex").slice(0, 16);
@@ -48,7 +48,8 @@ export async function POST(req: NextRequest) {
       // Google Chat通知（非同期、エラーでもレスポンスに影響させない）
       const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
       const author = proposal.user?.name || proposal.user?.email || "不明";
-      notifyCeo(
+      sendChatMessage(
+        "AAQAp6XvXqE",
         `📄 提案書が閲覧されました\n` +
         `企業名: ${proposal.companyName}\n` +
         `作成者: ${author}\n` +
