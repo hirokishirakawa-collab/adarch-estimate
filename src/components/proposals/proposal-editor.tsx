@@ -385,3 +385,94 @@ function AddButton({ onClick, label }: { onClick: () => void; label: string }) {
     </button>
   );
 }
+
+// ─── 文字サイズ自動計算 ───
+function calcAutoScale(sectionKey: string, content: ProposalContent): number {
+  switch (sectionKey) {
+    case "companyIntro": {
+      const chars = content.companyIntro.description.length + content.companyIntro.strengths.join("").length;
+      const count = content.companyIntro.strengths.length;
+      if (count > 5 || chars > 400) return 0.75;
+      if (count > 4 || chars > 300) return 0.82;
+      if (count > 3 || chars > 200) return 0.9;
+      return 1;
+    }
+    case "proposal": {
+      const chars = content.proposal.challenge.length + content.proposal.solutions.reduce((a, s) => a + s.title.length + s.description.length, 0);
+      const count = content.proposal.solutions.length;
+      if (count > 5 || chars > 600) return 0.7;
+      if (count > 4 || chars > 450) return 0.78;
+      if (count > 3 || chars > 300) return 0.85;
+      if (count > 2 || chars > 200) return 0.92;
+      return 1;
+    }
+    case "cases": {
+      const chars = content.cases.items.reduce((a, item) => a + item.title.length + item.description.length, 0);
+      const count = content.cases.items.length;
+      if (count > 6 || chars > 500) return 0.7;
+      if (count > 4 || chars > 400) return 0.78;
+      if (count > 3 || chars > 250) return 0.85;
+      if (count > 2 || chars > 150) return 0.92;
+      return 1;
+    }
+    case "nextSteps": {
+      const chars = content.nextSteps.steps.join("").length + content.nextSteps.contact.length;
+      const count = content.nextSteps.steps.length;
+      if (count > 6 || chars > 400) return 0.78;
+      if (count > 5 || chars > 300) return 0.85;
+      if (count > 4 || chars > 200) return 0.92;
+      return 1;
+    }
+    default:
+      return 1;
+  }
+}
+
+function FontScaleControl({
+  sectionKey,
+  content,
+  onChange,
+}: {
+  sectionKey: string;
+  content: ProposalContent;
+  onChange: (sectionKey: string, value: number | undefined) => void;
+}) {
+  const manual = content.styleOverrides?.[sectionKey]?.fontScale;
+  const auto = calcAutoScale(sectionKey, content);
+  const current = manual ?? auto;
+  const isAuto = manual === undefined;
+
+  return (
+    <div className="flex items-center gap-1.5 py-1.5 px-2 rounded-lg bg-zinc-50 border border-zinc-100">
+      <span className="text-xs text-zinc-400 mr-1">文字サイズ</span>
+      <button
+        type="button"
+        onClick={() => onChange(sectionKey, Math.max(0.6, Math.round((current - 0.05) * 100) / 100))}
+        className="w-6 h-6 rounded bg-white border border-zinc-200 text-zinc-500 text-sm font-bold hover:bg-zinc-100 transition-colors flex items-center justify-center"
+      >
+        −
+      </button>
+      <span className="text-xs font-mono text-zinc-600 w-10 text-center">
+        {Math.round(current * 100)}%
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(sectionKey, Math.min(1.3, Math.round((current + 0.05) * 100) / 100))}
+        className="w-6 h-6 rounded bg-white border border-zinc-200 text-zinc-500 text-sm font-bold hover:bg-zinc-100 transition-colors flex items-center justify-center"
+      >
+        +
+      </button>
+      {!isAuto ? (
+        <button
+          type="button"
+          onClick={() => onChange(sectionKey, undefined)}
+          className="text-xs text-blue-500 hover:text-blue-600 ml-1 whitespace-nowrap"
+        >
+          自動に戻す
+        </button>
+      ) : (
+        <span className="text-xs text-emerald-500 ml-1">自動</span>
+      )}
+    </div>
+  );
+}
