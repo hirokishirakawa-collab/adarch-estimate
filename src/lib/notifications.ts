@@ -200,6 +200,14 @@ export type DealNotificationPayload =
       staffName: string;
     }
   | {
+      eventType: "NOTES_UPDATED";
+      dealId: string;
+      customerName: string;
+      dealTitle: string;
+      notesSnippet: string;
+      staffName: string;
+    }
+  | {
       eventType: "DEAL_UPDATED";
       dealId: string;
       customerName: string;
@@ -236,6 +244,7 @@ export async function sendDealNotification(
     LOG_ADDED:      "活動記録通知",
     DEAL_CREATED:   "新規商談登録通知",
     DEAL_UPDATED:   "商談情報更新通知",
+    NOTES_UPDATED:  "商談メモ更新通知",
   };
 
   let updateLine: string;
@@ -252,6 +261,8 @@ export async function sendDealNotification(
       ? ` / 金額: ¥${payload.amount.toLocaleString("ja-JP")}`
       : "";
     updateLine = `更新: 新規登録（${payload.statusLabel}${amt}）`;
+  } else if (payload.eventType === "NOTES_UPDATED") {
+    updateLine = `更新: メモ更新「${payload.notesSnippet}」`;
   } else {
     updateLine = `更新: 情報更新（${payload.statusLabel}）`;
   }
@@ -287,6 +298,7 @@ function buildEmail(payload: DealNotificationPayload): {
     LOG_ADDED:      "活動記録通知",
     DEAL_CREATED:   "新規商談登録通知",
     DEAL_UPDATED:   "商談情報更新通知",
+    NOTES_UPDATED:  "商談メモ更新通知",
   };
   const subject = `【アドアーチOS】${eventLabels[payload.eventType] ?? "商談通知"}：${customerName} 様`;
 
@@ -307,6 +319,12 @@ function buildEmail(payload: DealNotificationPayload): {
       <tr>
         <th style="${thStyle}">更新内容</th>
         <td style="${tdStyle}">[${escHtml(typeLabel)}] ${escHtml(snippet)}</td>
+      </tr>`;
+  } else if (payload.eventType === "NOTES_UPDATED") {
+    updateRow = `
+      <tr>
+        <th style="${thStyle}">更新内容</th>
+        <td style="${tdStyle}">メモ更新「${escHtml(payload.notesSnippet)}」</td>
       </tr>`;
   } else if (payload.eventType === "DEAL_CREATED") {
     const amountStr =

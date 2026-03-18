@@ -383,11 +383,32 @@ export async function updateDealNotes(
   if (!info) return { error: "ログインが必要です" };
   if (info.role === "USER") return { error: "権限がありません" };
 
+  const trimmed = notes.trim();
+
   try {
-    await db.deal.update({
+    const deal = await db.deal.update({
       where: { id: dealId },
-      data: { notes: notes.trim() || null },
+      data: { notes: trimmed || null },
+      select: {
+        title: true,
+        customer: { select: { name: true } },
+      },
     });
+
+    // メモが空でなければ Google Chat に通知
+    if (trimmed) {
+      const snippet = trimmed.length > 60 ? trimmed.slice(0, 60) + "…" : trimmed;
+      after(() =>
+        sendDealNotification({
+          eventType: "NOTES_UPDATED",
+          dealId,
+          customerName: deal.customer.name,
+          dealTitle: deal.title,
+          notesSnippet: snippet,
+          staffName: info.staffName,
+        })
+      );
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[updateDealNotes] DB error:", msg);
