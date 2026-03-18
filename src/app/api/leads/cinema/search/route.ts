@@ -9,25 +9,46 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 // ----------------------------------------------------------------
-// ジオコーディング: 住所 → 緯度経度
+// Google Places Text Search で劇場の座標を取得
 // ----------------------------------------------------------------
-async function geocodeAddress(
-  address: string,
+async function findTheaterLocation(
+  theaterName: string,
+  theaterAddress: string,
   apiKey: string
 ): Promise<{ lat: number; lng: number } | null> {
-  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
-  url.searchParams.set("address", address);
-  url.searchParams.set("key", apiKey);
-  url.searchParams.set("language", "ja");
+  const fieldMask = "places.location,places.displayName";
+  const query = `イオンシネマ${theaterName}`;
 
-  const res = await fetch(url.toString());
-  if (!res.ok) return null;
+  const res = await fetch(
+    "https://places.googleapis.com/v1/places:searchText",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": fieldMask,
+      },
+      body: JSON.stringify({
+        textQuery: query,
+        maxResultCount: 1,
+        languageCode: "ja",
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    console.error("Theater location search failed:", res.status, await res.text());
+    return null;
+  }
 
   const data = await res.json();
-  const loc = data.results?.[0]?.geometry?.location;
-  if (!loc) return null;
+  const place = data.places?.[0];
+  if (!place?.location) return null;
 
-  return { lat: loc.lat, lng: loc.lng };
+  const loc = place.location as { latitude?: number; longitude?: number };
+  if (!loc.latitude || !loc.longitude) return null;
+
+  return { lat: loc.latitude, lng: loc.longitude };
 }
 
 // ----------------------------------------------------------------
@@ -74,9 +95,10 @@ export async function POST(req: NextRequest) {
   const body = parsed.data;
 
   try {
-    // 1) 劇場の座標を取得
-    const theaterLoc = await geocodeAddress(
-      `イオンシネマ${body.theaterName} ${body.theaterAddress}`,
+    // 1) Google Places Text Search で劇場の座標を取得
+    const theaterLoc = await findTheaterLocation(
+      body.theaterName,
+      body.theaterAddress,
       apiKey
     );
     if (!theaterLoc) {
