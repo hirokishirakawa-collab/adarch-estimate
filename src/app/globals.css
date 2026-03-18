@@ -125,3 +125,41 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ━━━ 提案書PDF印刷用 ━━━ */
+@media print {
+  /* 横向き */
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+
+  /* UI要素を非表示 */
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* 印刷用スライド一覧を表示 */
+  [data-print-slides] {
+    display: block !important;
+  }
+
+  /* 各スライドページ */
+  .print-slide {
+    page-break-after: always;
+    page-break-inside: avoid;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+  .print-slide:last-child {
+    page-break-after: auto;
+  }
+
+  /* bodyのスクロール解除 */
+  body {
+    overflow: visible !important;
+    background: white !important;
+  }
+}
