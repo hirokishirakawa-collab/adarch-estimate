@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Download, Loader2, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 // ─── ブランドカラー（明るめ） ───
 const brand = {
@@ -113,6 +113,8 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
   const recipientName = c.cover.to;
   const presenterCompany = c.presenter?.company || "Ad Arch Group";
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [downloading, setDownloading] = useState(false);
+  const slideCardRef = useRef<HTMLDivElement>(null);
   const viewIdRef = useRef<string | null>(null);
   const startTimeRef = useRef(Date.now());
   const maxSlideRef = useRef(0);
@@ -183,7 +185,48 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
     };
   }, [sendUpdate]);
 
-  // PDF機能は一時無効化（再実装予定）
+  // ─── PDF ダウンロード（html2canvas + jsPDF） ───
+  const handleDownloadPdf = async () => {
+    if (!slideCardRef.current || downloading) return;
+    setDownloading(true);
+    const originalSlide = currentSlide;
+
+    try {
+      const [html2canvas, { jsPDF }] = await Promise.all([
+        import("html2canvas-pro").then((m) => m.default),
+        import("jspdf"),
+      ]);
+
+      // A4横: 297mm × 210mm
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageW = 297;
+      const pageH = 210;
+
+      for (let i = 0; i < TOTAL_SLIDES; i++) {
+        setCurrentSlide(i);
+        // DOMの再レンダリングを待つ
+        await new Promise((r) => setTimeout(r, 100));
+
+        const canvas = await html2canvas(slideCardRef.current!, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: null,
+        });
+
+        const imgData = canvas.toDataURL("image/jpeg", 0.92);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, 0, pageW, pageH);
+      }
+
+      pdf.save(`提案書_${companyName}_${new Date().toISOString().split("T")[0]}.pdf`);
+    } catch (err) {
+      console.error("PDF生成エラー:", err);
+      alert(`PDF生成エラー: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setCurrentSlide(originalSlide);
+      setDownloading(false);
+    }
+  };
 
   return (
     <div
@@ -209,6 +252,23 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
           <span className="text-xs" style={{ color: brand.textSub }}>
             {currentSlide + 1} / {TOTAL_SLIDES}
           </span>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={downloading}
+            className="flex items-center gap-2 px-4 py-1.5 text-xs font-medium rounded transition-all"
+            style={{
+              background: downloading ? brand.accent + "66" : brand.accent,
+              color: brand.bg,
+              letterSpacing: "0.05em",
+            }}
+          >
+            {downloading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5" />
+            )}
+            PDF
+          </button>
           {onClose && (
             <button
               onClick={onClose}
@@ -247,6 +307,7 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
 
         {/* スライドカード */}
         <div
+          ref={slideCardRef}
           className="w-full rounded-lg shadow-lg overflow-hidden"
           style={{
             maxWidth: 960,
