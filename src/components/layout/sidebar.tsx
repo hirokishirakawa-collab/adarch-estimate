@@ -111,6 +111,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/leads/cinema",
+        label: "シネアドリード獲得AI",
+        icon: Clapperboard,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/leads/list",
         label: "リード管理",
         icon: ListChecks,

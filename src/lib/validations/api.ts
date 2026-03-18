@@ -73,6 +73,42 @@ export const btobSearchSchema = z.object({
   limit: z.number().int().min(1).max(50).optional().default(20),
 });
 
+// POST /api/leads/cinema/search
+export const cinemaSearchSchema = z.object({
+  theaterId: z.number().int(),
+  theaterName: z.string().min(1),
+  theaterAddress: z.string().min(1),
+  radius: z.number().int().min(1000).max(20000), // meters
+  industries: z.array(z.string()).min(1, "業種を1つ以上選択してください"),
+  count: z.number().int().min(1).max(50).optional().default(20),
+});
+
+// POST /api/leads/cinema/score
+export const cinemaScoreSchema = z.object({
+  places: z
+    .array(
+      z.object({
+        name: z.string(),
+        address: z.string(),
+        phone: z.string(),
+        rating: z.number(),
+        ratingCount: z.number(),
+        types: z.array(z.string()),
+        mapsUrl: z.string(),
+        websiteUrl: z.string(),
+        businessStatus: z.string(),
+        distanceKm: z.number(),
+        radiusBand: z.number(),
+        lat: z.number(),
+        lng: z.number(),
+      })
+    )
+    .min(1)
+    .max(50),
+  theaterName: z.string().min(1),
+  industry: z.string().min(1),
+});
+
 // POST /api/leads/btob/score
 export const btobScoreSchema = z.object({
   companies: z

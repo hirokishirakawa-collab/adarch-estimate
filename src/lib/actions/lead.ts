@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { sendChatMessage } from "@/lib/google-chat";
 import { getLeadStatusOption } from "@/lib/constants/leads";
 import type { ScoredLead, ScoredBtoBLead } from "@/lib/constants/leads";
+import type { ScoredCinemaLead } from "@/lib/constants/cinema-leads";
 import type { LeadStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 
@@ -502,6 +503,92 @@ export async function saveBtoBLeadsFromSearch(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[saveBtoBLeadsFromSearch] DB error:", msg, e);
+    return { saved: savedCount, error: "保存中にエラーが発生しました" };
+  }
+}
+
+// ---------------------------------------------------------------
+// シネアド検索結果をリードとして一括保存する
+// ---------------------------------------------------------------
+export async function saveCinemaLeadsFromSearch(
+  leads: ScoredCinemaLead[],
+  industry: string,
+  area: string
+): Promise<{ saved: number; error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { saved: 0, error: "ログインが必要です" };
+
+  const staffName = session.user.name ?? session.user.email ?? "不明";
+  const email = session.user.email ?? "";
+  const user = await db.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  let savedCount = 0;
+
+  try {
+    for (const lead of leads) {
+      const address = lead.address || "";
+      const existing = await db.lead.findUnique({
+        where: { name_address: { name: lead.name, address } },
+      });
+
+      if (existing) {
+        await db.lead.update({
+          where: { id: existing.id },
+          data: {
+            scoreTotal: lead.score?.total ?? 0,
+            scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
+            scoreComment: lead.score?.comment ?? null,
+            source: "CINEMA_AD",
+            distanceKm: lead.distanceKm ?? null,
+            cinemaTheaterName: area,
+          },
+        });
+      } else {
+        const created = await db.lead.create({
+          data: {
+            name: lead.name,
+            address: address || null,
+            phone: lead.phone || null,
+            rating: lead.rating,
+            ratingCount: lead.ratingCount,
+            types: lead.types,
+            mapsUrl: lead.mapsUrl || null,
+            websiteUrl: lead.websiteUrl || null,
+            businessStatus: lead.businessStatus || null,
+            scoreTotal: lead.score?.total ?? 0,
+            scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
+            scoreComment: lead.score?.comment ?? null,
+            industry,
+            area,
+            source: "CINEMA_AD",
+            distanceKm: lead.distanceKm ?? null,
+            cinemaTheaterName: area,
+            createdById: user?.id ?? null,
+            assigneeId: user?.id ?? null,
+          },
+        });
+
+        await db.leadLog.create({
+          data: {
+            leadId: created.id,
+            action: "CREATED",
+            detail: `シネアドリード獲得AIから保存（スコア: ${lead.score?.total ?? 0}、距離: ${lead.distanceKm}km）`,
+            staffName,
+          },
+        });
+
+        savedCount++;
+      }
+    }
+
+    revalidatePath("/dashboard/leads/list");
+    return { saved: savedCount };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[saveCinemaLeadsFromSearch] DB error:", msg, e);
     return { saved: savedCount, error: "保存中にエラーが発生しました" };
   }
 }

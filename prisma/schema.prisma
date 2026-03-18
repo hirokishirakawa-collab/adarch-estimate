@@ -196,6 +196,7 @@ enum TverCampaignStatus {
 enum LeadSource {
   GOOGLE_PLACES
   GBIZINFO
+  CINEMA_AD
 }
 
 // ==============================================================
@@ -1436,6 +1437,9 @@ model Lead {
   youtubeSubscribers Int?
   youtubeLastUpload  DateTime?
   subsidies       String[]   @default([])
+  cinemaTheaterId Int?
+  cinemaTheaterName String?
+  distanceKm      Float?
   assigneeId      String?
   assignee        User?      @relation("LeadAssignee", fields: [assigneeId], references: [id])
   createdById     String?
