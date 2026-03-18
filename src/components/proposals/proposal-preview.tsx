@@ -15,12 +15,13 @@ interface ProposalPreviewProps {
 export function ProposalPreview({ proposal, onClose }: ProposalPreviewProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-      {/* 閉じるボタン */}
+      {/* 閉じるボタン — PDFボタンの右横に配置 */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+        className="absolute top-[11px] right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-red-500 hover:bg-red-600 text-white transition-colors shadow-sm"
       >
-        <X className="w-5 h-5 text-white" />
+        <X className="w-3.5 h-3.5" />
+        閉じる
       </button>
 
       {/* スライドビュー */}

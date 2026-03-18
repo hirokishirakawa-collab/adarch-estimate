@@ -187,17 +187,23 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
   const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
-      const { pdf } = await import("@react-pdf/renderer");
-      const { ProposalPdfDocument } = await import("./proposal-pdf");
-      const blob = await pdf(<ProposalPdfDocument content={c} />).toBlob();
+      const [{ pdf }, { ProposalPdfDocument }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("./proposal-pdf"),
+      ]);
+      const doc = <ProposalPdfDocument content={c} />;
+      const blob = await pdf(doc).toBlob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `提案書_${companyName}_${new Date().toISOString().split("T")[0]}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `提案書_${companyName}_${new Date().toISOString().split("T")[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error("PDF生成エラー:", err);
+      alert("PDFの生成に失敗しました。ページを再読み込みしてお試しください。");
     } finally {
       setDownloading(false);
     }
