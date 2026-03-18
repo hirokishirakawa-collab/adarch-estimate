@@ -204,7 +204,7 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error("PDF生成エラー:", err);
-      alert("PDFの生成に失敗しました。ページを再読み込みしてお試しください。");
+      alert(`PDF生成エラー: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDownloading(false);
     }
