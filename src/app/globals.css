@@ -127,8 +127,13 @@
 }
 
 /* ━━━ 提案書PDF印刷用 ━━━ */
+
+/* 画面では非表示 */
+.print-slides-container {
+  display: none;
+}
+
 @media print {
-  /* 横向き */
   @page {
     size: A4 landscape;
     margin: 0;
@@ -140,7 +145,7 @@
   }
 
   /* 印刷用スライド一覧を表示 */
-  [data-print-slides] {
+  .print-slides-container {
     display: block !important;
   }
 
@@ -157,9 +162,17 @@
     page-break-after: auto;
   }
 
-  /* bodyのスクロール解除 */
-  body {
+  /* 親コンテナの制約を解除 */
+  body,
+  html {
     overflow: visible !important;
+    height: auto !important;
     background: white !important;
+  }
+
+  /* 提案書ビューの高さ制限を解除 */
+  [data-proposal-root] {
+    height: auto !important;
+    overflow: visible !important;
   }
 }

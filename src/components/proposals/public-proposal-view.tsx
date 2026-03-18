@@ -190,6 +190,7 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
 
   return (
     <div
+      data-proposal-root
       style={{ background: brand.canvasBg, height: "100vh", overflow: "hidden" }}
       className="flex flex-col"
     >
@@ -661,8 +662,8 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
         ))}
       </div>
 
-      {/* ━━━ 印刷用: 全スライドを展開（画面では非表示） ━━━ */}
-      <div data-print-slides style={{ display: "none" }}>
+      {/* ━━━ 印刷用: 全スライドを展開（画面では非表示、印刷時のみ表示） ━━━ */}
+      <div className="print-slides-container">
         <PrintSlides content={c} companyName={companyName} recipientName={recipientName} presenterCompany={presenterCompany} />
       </div>
     </div>
