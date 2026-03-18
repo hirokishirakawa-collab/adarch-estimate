@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -42,6 +43,8 @@ import {
   Activity,
   Film,
   Eye,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -55,6 +58,7 @@ interface NavItem {
   badge?: string; // "準備中" などのラベル
   external?: boolean; // true のとき新しいタブで開く
   requiredFeature?: string; // ADMINが許可した機能のみ表示
+  children?: NavItem[]; // 折りたたみサブメニュー
 }
 
 interface NavSection {
@@ -103,24 +107,12 @@ const NAV_SECTIONS: NavSection[] = [
         label: "リード獲得AI",
         icon: Crosshair,
         minRole: "USER",
-      },
-      {
-        href: "/dashboard/leads/btob",
-        label: "BtoBリード獲得AI",
-        icon: Building2,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/leads/cinema",
-        label: "シネアドリード獲得AI",
-        icon: Clapperboard,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/leads/list",
-        label: "リード管理",
-        icon: ListChecks,
-        minRole: "USER",
+        children: [
+          { href: "/dashboard/leads", label: "BtoC リード", icon: Crosshair, minRole: "USER" },
+          { href: "/dashboard/leads/btob", label: "BtoB リード", icon: Building2, minRole: "USER" },
+          { href: "/dashboard/leads/cinema", label: "シネアド リード", icon: Clapperboard, minRole: "USER" },
+          { href: "/dashboard/leads/list", label: "リード管理", icon: ListChecks, minRole: "USER" },
+        ],
       },
       {
         href: "/dashboard/sales-insights",
@@ -410,6 +402,23 @@ interface SidebarProps {
 export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const roleStyle = ROLE_STYLES[user.role];
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (href: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(href)) next.delete(href);
+      else next.add(href);
+      return next;
+    });
+  };
+
+  // children のいずれかが active なら親グループも開く
+  const isGroupActive = (item: NavItem) =>
+    item.children?.some(
+      (child) =>
+        pathname === child.href || pathname.startsWith(child.href + "/")
+    ) ?? false;
   const initial = user.name?.[0]?.toUpperCase() ?? "U";
 
   return (
@@ -510,6 +519,65 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
               </p>
               <ul className="space-y-0.5">
                 {visibleItems.map((item) => {
+                  // --- 折りたたみグループ ---
+                  if (item.children && item.children.length > 0) {
+                    const groupActive = isGroupActive(item);
+                    const isOpen_ = expandedGroups.has(item.href) || groupActive;
+
+                    return (
+                      <li key={item.href}>
+                        <button
+                          onClick={() => toggleGroup(item.href)}
+                          className={cn(
+                            "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs transition-all duration-100 w-full",
+                            groupActive
+                              ? "text-white bg-zinc-800/80"
+                              : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                          )}
+                        >
+                          <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="truncate flex-1 text-left">{item.label}</span>
+                          {isOpen_ ? (
+                            <ChevronDown className="w-3 h-3 flex-shrink-0 opacity-50" />
+                          ) : (
+                            <ChevronRight className="w-3 h-3 flex-shrink-0 opacity-50" />
+                          )}
+                        </button>
+                        {isOpen_ && (
+                          <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-zinc-800 pl-2">
+                            {item.children
+                              .filter((child) => hasMinRole(user.role, child.minRole))
+                              .map((child) => {
+                                const childActive =
+                                  child.href === "/dashboard/leads"
+                                    ? pathname === "/dashboard/leads"
+                                    : pathname === child.href ||
+                                      pathname.startsWith(child.href + "/");
+
+                                return (
+                                  <li key={child.href}>
+                                    <Link
+                                      href={child.href}
+                                      className={cn(
+                                        "flex items-center gap-2 px-2 py-1 rounded-md text-[11px] transition-all duration-100",
+                                        childActive
+                                          ? "bg-blue-600 text-white shadow-sm"
+                                          : "text-zinc-500 hover:text-white hover:bg-zinc-800"
+                                      )}
+                                    >
+                                      <child.icon className="w-3 h-3 flex-shrink-0" />
+                                      <span className="truncate">{child.label}</span>
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                          </ul>
+                        )}
+                      </li>
+                    );
+                  }
+
+                  // --- 通常アイテム ---
                   const isActive =
                     item.href === "/dashboard"
                       ? pathname === "/dashboard"
