@@ -48,13 +48,15 @@ export async function POST(req: NextRequest) {
       // Google Chat通知（非同期、エラーでもレスポンスに影響させない）
       const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
       const author = proposal.user?.name || proposal.user?.email || "不明";
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://adarch-estimate-production.up.railway.app";
+      const previewUrl = `${appUrl}/dashboard/proposals?preview=${proposalId}`;
       sendChatMessage(
         "AAQAp6XvXqE",
         `📄 提案書が閲覧されました\n` +
         `企業名: ${proposal.companyName}\n` +
         `作成者: ${author}\n` +
         `日時: ${now}\n` +
-        `リファラー: ${referrer || "直接アクセス"}`
+        `プレビュー: ${previewUrl}`
       ).catch(() => {});
 
       return NextResponse.json({ viewId: view.id });
