@@ -68,11 +68,6 @@ export default function ProposalAnalyticsPage() {
 
   useEffect(() => {
     if (!user) return;
-    if (user.role !== "ADMIN") {
-      setError("この機能は管理者のみ利用できます");
-      setLoading(false);
-      return;
-    }
     fetch("/api/proposals/analytics")
       .then((r) => {
         if (!r.ok) throw new Error("Failed to fetch analytics");
