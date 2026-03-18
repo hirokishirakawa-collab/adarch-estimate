@@ -373,6 +373,29 @@ export async function createDealLog(
 }
 
 // ---------------------------------------------------------------
+// 活動ログを削除する（ADMIN のみ）
+// ---------------------------------------------------------------
+export async function deleteDealLog(
+  logId: string
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role !== "ADMIN") return { error: "管理者のみ削除できます" };
+
+  try {
+    const log = await db.dealLog.delete({ where: { id: logId } });
+    logAudit({ action: "deal_log_deleted", email: info.email, name: info.staffName, entity: "dealLog", entityId: logId, detail: `dealId=${log.dealId}` });
+    revalidatePath(`/dashboard/deals/${log.dealId}`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[deleteDealLog] DB error:", msg);
+    return { error: "削除に失敗しました" };
+  }
+
+  return {};
+}
+
+// ---------------------------------------------------------------
 // 商談メモ（notes）だけをインライン更新する
 // ---------------------------------------------------------------
 export async function updateDealNotes(

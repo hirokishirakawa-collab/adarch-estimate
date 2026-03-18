@@ -1,5 +1,10 @@
+"use client";
+
+import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { ACTIVITY_TYPE_OPTIONS } from "@/lib/constants/crm";
+import { deleteDealLog } from "@/lib/actions/deal";
+import { Trash2 } from "lucide-react";
 
 type DealLogEntry = {
   id: string;
@@ -11,6 +16,7 @@ type DealLogEntry = {
 
 interface Props {
   logs: DealLogEntry[];
+  isAdmin?: boolean;
 }
 
 function formatDate(date: Date): string {
@@ -44,8 +50,24 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
-function LogEntry({ log, isLast }: { log: DealLogEntry; isLast: boolean }) {
+function LogEntry({ log, isLast, isAdmin }: { log: DealLogEntry; isLast: boolean; isAdmin: boolean }) {
   const meta = ACTIVITY_TYPE_OPTIONS.find((o) => o.value === log.type);
+  const [isPending, startTransition] = useTransition();
+  const [deleted, setDeleted] = useState(false);
+
+  if (deleted) return null;
+
+  const handleDelete = () => {
+    if (!confirm("この活動記録を削除しますか？")) return;
+    startTransition(async () => {
+      const res = await deleteDealLog(log.id);
+      if (res.error) {
+        alert(res.error);
+      } else {
+        setDeleted(true);
+      }
+    });
+  };
 
   return (
     <div className="flex gap-4">
@@ -76,6 +98,16 @@ function LogEntry({ log, isLast }: { log: DealLogEntry; isLast: boolean }) {
               {meta?.icon} {meta?.label ?? log.type}
             </span>
             <span className="text-[11px] text-zinc-400">{formatDate(log.createdAt)}</span>
+            {isAdmin && (
+              <button
+                onClick={handleDelete}
+                disabled={isPending}
+                className="ml-auto p-1 rounded text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                title="この記録を削除"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           <div className="px-4 py-3">
             <p className="text-sm text-zinc-700 leading-relaxed whitespace-pre-wrap">
@@ -99,7 +131,7 @@ function LogEntry({ log, isLast }: { log: DealLogEntry; isLast: boolean }) {
   );
 }
 
-export function DealLogTimeline({ logs }: Props) {
+export function DealLogTimeline({ logs, isAdmin = false }: Props) {
   if (logs.length === 0) {
     return (
       <div className="px-6 py-10 text-center">
@@ -113,7 +145,7 @@ export function DealLogTimeline({ logs }: Props) {
   return (
     <div className="px-6 py-5 space-y-0">
       {logs.map((log, i) => (
-        <LogEntry key={log.id} log={log} isLast={i === logs.length - 1} />
+        <LogEntry key={log.id} log={log} isLast={i === logs.length - 1} isAdmin={isAdmin} />
       ))}
     </div>
   );

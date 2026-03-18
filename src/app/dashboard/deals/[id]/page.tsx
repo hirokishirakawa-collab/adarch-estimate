@@ -227,7 +227,7 @@ export default async function DealDetailPage({ params }: PageProps) {
                   活動履歴 ({deal.dealLogs.length})
                 </h2>
               </div>
-              <DealLogTimeline logs={deal.dealLogs} />
+              <DealLogTimeline logs={deal.dealLogs} isAdmin={role === "ADMIN"} />
             </div>
           </div>
         </div>
