@@ -17,7 +17,7 @@ interface Props {
 
 function fmtDate(d: Date | null | undefined): string {
   if (!d) return "—";
-  return new Intl.DateTimeFormat("ja-JP", { dateStyle: "long" }).format(new Date(d));
+  return new Intl.DateTimeFormat("ja-JP", { dateStyle: "long", timeZone: "Asia/Tokyo" }).format(new Date(d));
 }
 
 function fmtBudget(v: unknown): string {

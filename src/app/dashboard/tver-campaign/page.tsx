@@ -9,7 +9,7 @@ import {
 function fmtDate(d: Date | null): string {
   if (!d) return "—";
   return new Intl.DateTimeFormat("ja-JP", {
-    year: "numeric", month: "short", day: "numeric",
+    year: "numeric", month: "short", day: "numeric", timeZone: "Asia/Tokyo",
   }).format(new Date(d));
 }
 

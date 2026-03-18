@@ -33,6 +33,7 @@ function fmtDate(d: Date | null | undefined, withYear = true): string {
     year: withYear ? "numeric" : undefined,
     month: "long",
     day: "numeric",
+    timeZone: "Asia/Tokyo",
   }).format(new Date(d));
 }
 

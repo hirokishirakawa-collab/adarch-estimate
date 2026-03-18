@@ -70,7 +70,7 @@ export default async function EstimateDetailPage({ params }: PageProps) {
 
   const fmt = (d: Date | null | undefined) =>
     d
-      ? new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric" }).format(new Date(d))
+      ? new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Tokyo" }).format(new Date(d))
       : "—";
 
   return (

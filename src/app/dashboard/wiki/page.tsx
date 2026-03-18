@@ -30,7 +30,7 @@ export default async function WikiPage({ searchParams }: PageProps) {
   });
 
   const fmt = (d: Date) =>
-    new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "short", day: "numeric" }).format(
+    new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "short", day: "numeric", timeZone: "Asia/Tokyo" }).format(
       new Date(d)
     );
 

@@ -104,6 +104,7 @@ export default async function ProjectRequestDetailPage({
                 year: "numeric",
                 month: "short",
                 day: "numeric",
+                timeZone: "Asia/Tokyo",
               })}
             </span>
           )}
@@ -112,6 +113,7 @@ export default async function ProjectRequestDetailPage({
             {new Date(request.createdAt).toLocaleDateString("ja-JP", {
               month: "short",
               day: "numeric",
+              timeZone: "Asia/Tokyo",
             })}
           </span>
         </div>
@@ -196,6 +198,7 @@ export default async function ProjectRequestDetailPage({
                             day: "numeric",
                             hour: "2-digit",
                             minute: "2-digit",
+                            timeZone: "Asia/Tokyo",
                           })}
                         </span>
                       </div>

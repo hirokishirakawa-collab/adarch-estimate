@@ -57,7 +57,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   // 日付フォーマット
   const fmt = (d: Date | null | undefined) =>
     d
-      ? new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric" }).format(new Date(d))
+      ? new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Tokyo" }).format(new Date(d))
       : "—";
 
   const today = new Date();

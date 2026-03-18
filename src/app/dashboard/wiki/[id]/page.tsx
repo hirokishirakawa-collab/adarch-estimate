@@ -33,6 +33,7 @@ export default async function WikiArticlePage({ params }: PageProps) {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Asia/Tokyo",
     }).format(new Date(d));
 
   const deleteAction = deleteArticle.bind(null, article.id);

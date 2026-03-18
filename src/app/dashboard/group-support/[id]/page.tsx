@@ -55,6 +55,7 @@ export default async function GroupCompanyDetailPage({
       year: "numeric",
       month: "short",
       day: "numeric",
+      timeZone: "Asia/Tokyo",
     });
 
   const fmtTime = (d: Date) =>
@@ -63,6 +64,7 @@ export default async function GroupCompanyDetailPage({
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Asia/Tokyo",
     });
 
   return (

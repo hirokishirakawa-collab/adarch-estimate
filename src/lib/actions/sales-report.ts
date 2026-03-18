@@ -59,7 +59,7 @@ export async function createRevenueReport(
     return { error: "保存に失敗しました" };
   }
 
-  const monthLabel = targetMonth.toLocaleDateString("ja-JP", { year: "numeric", month: "long", timeZone: "UTC" });
+  const monthLabel = targetMonth.toLocaleDateString("ja-JP", { year: "numeric", month: "long", timeZone: "Asia/Tokyo" });
   after(async () => {
     await sendRevenueNotification({
       eventType: "REVENUE_CREATED",
@@ -119,7 +119,7 @@ export async function updateRevenueReport(
     return { error: "更新に失敗しました" };
   }
 
-  const monthLabel = targetMonth.toLocaleDateString("ja-JP", { year: "numeric", month: "long", timeZone: "UTC" });
+  const monthLabel = targetMonth.toLocaleDateString("ja-JP", { year: "numeric", month: "long", timeZone: "Asia/Tokyo" });
   after(async () => {
     await sendRevenueNotification({
       eventType: "REVENUE_UPDATED",

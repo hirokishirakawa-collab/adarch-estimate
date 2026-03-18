@@ -269,7 +269,7 @@ function InsightCard({ record }: { record: SalesInsightRecord }) {
       : 0;
   const insights = (record.insights ?? []) as IndustryInsight[];
   const topResponses = (record.topResponses ?? []) as TopResponse[];
-  const date = new Date(record.createdAt).toLocaleDateString("ja-JP");
+  const date = new Date(record.createdAt).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" });
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">

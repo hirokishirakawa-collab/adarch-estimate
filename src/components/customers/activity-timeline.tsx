@@ -21,6 +21,7 @@ function formatDate(date: Date): string {
     weekday: "short",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Tokyo",
   }).format(date);
 }
 
