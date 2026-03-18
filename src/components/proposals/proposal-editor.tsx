@@ -169,7 +169,7 @@ export function ProposalEditor({ proposal, onClose, onSaved }: ProposalEditorPro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col mx-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col mx-4 relative">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 flex-shrink-0">
           <p className="text-sm font-bold text-zinc-800">提案書を編集</p>
@@ -182,11 +182,11 @@ export function ProposalEditor({ proposal, onClose, onSaved }: ProposalEditorPro
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               保存
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors">
-              <X className="w-4 h-4 text-zinc-500" />
-            </button>
           </div>
         </div>
+        <button onClick={onClose} className="absolute top-3 left-3 p-1.5 rounded-full bg-red-100 hover:bg-red-200 transition-colors z-10">
+          <X className="w-4 h-4 text-red-500" />
+        </button>
 
         {error && (
           <div className="mx-6 mt-4 px-3 py-2 text-xs text-red-600 bg-red-50 rounded-lg">{error}</div>
