@@ -1,3 +1,6 @@
+// このファイルはサーバー専用（API ルートから呼び出す）
+// @react-pdf/renderer は Node.js でのみ動作します
+
 import {
   Document,
   Page,
@@ -6,19 +9,15 @@ import {
   StyleSheet,
   Font,
 } from "@react-pdf/renderer";
+import path from "path";
 
-// Noto Sans JP フォント登録（ローカルファイルで CORS エラー回避）
+// 日本語フォント登録（サーバーサイド：絶対パスで指定）
+const fontDir = path.join(process.cwd(), "public/fonts");
 Font.register({
   family: "NotoSansJP",
   fonts: [
-    {
-      src: "/fonts/NotoSansJP-Regular.ttf",
-      fontWeight: 400,
-    },
-    {
-      src: "/fonts/NotoSansJP-Bold.ttf",
-      fontWeight: 700,
-    },
+    { src: path.join(fontDir, "NotoSansJP-Regular.ttf"), fontWeight: 400 },
+    { src: path.join(fontDir, "NotoSansJP-Bold.ttf"), fontWeight: 700 },
   ],
 });
 

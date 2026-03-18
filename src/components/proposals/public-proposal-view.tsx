@@ -184,16 +184,20 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
     };
   }, [sendUpdate]);
 
-  // ─── PDF ダウンロード ───
+  // ─── PDF ダウンロード（サーバーサイド生成） ───
   const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
-      const [{ pdf }, { ProposalPdfDocument }] = await Promise.all([
-        import("@react-pdf/renderer"),
-        import("./proposal-pdf"),
-      ]);
-      const doc = <ProposalPdfDocument content={c} />;
-      const blob = await pdf(doc).toBlob();
+      const res = await fetch("/api/proposals/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(c),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || "PDF生成に失敗しました");
+      }
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
