@@ -32,6 +32,7 @@ interface ProposalContent {
   };
   cases: { heading: string; items: { title: string; description: string }[] };
   nextSteps: { heading: string; steps: string[]; contact: string };
+  styleOverrides?: { [key: string]: { fontScale?: number } };
 }
 
 const colors = {
@@ -235,8 +236,66 @@ interface Props {
   content: ProposalContent;
 }
 
+// フォントサイズにスケールを適用
+function sf(base: number, scale: number): number {
+  return Math.round(base * scale * 10) / 10;
+}
+
+// 自動スケール計算（Web側と同じロジック）
+function calcAutoScale(sectionKey: string, content: ProposalContent): number {
+  switch (sectionKey) {
+    case "companyIntro": {
+      const chars = content.companyIntro.description.length + content.companyIntro.strengths.join("").length;
+      const count = content.companyIntro.strengths.length;
+      if (count > 5 || chars > 400) return 0.75;
+      if (count > 4 || chars > 300) return 0.82;
+      if (count > 3 || chars > 200) return 0.9;
+      return 1;
+    }
+    case "proposal": {
+      const chars = content.proposal.challenge.length + content.proposal.solutions.reduce((a, sol) => a + sol.title.length + sol.description.length, 0);
+      const count = content.proposal.solutions.length;
+      if (count > 5 || chars > 600) return 0.7;
+      if (count > 4 || chars > 450) return 0.78;
+      if (count > 3 || chars > 300) return 0.85;
+      if (count > 2 || chars > 200) return 0.92;
+      return 1;
+    }
+    case "cases": {
+      const chars = content.cases.items.reduce((a, item) => a + item.title.length + item.description.length, 0);
+      const count = content.cases.items.length;
+      if (count > 6 || chars > 500) return 0.7;
+      if (count > 4 || chars > 400) return 0.78;
+      if (count > 3 || chars > 250) return 0.85;
+      if (count > 2 || chars > 150) return 0.92;
+      return 1;
+    }
+    case "nextSteps": {
+      const chars = content.nextSteps.steps.join("").length + content.nextSteps.contact.length;
+      const count = content.nextSteps.steps.length;
+      if (count > 6 || chars > 400) return 0.78;
+      if (count > 5 || chars > 300) return 0.85;
+      if (count > 4 || chars > 200) return 0.92;
+      return 1;
+    }
+    default:
+      return 1;
+  }
+}
+
+function getScale(sectionKey: string, content: ProposalContent): number {
+  const manual = content.styleOverrides?.[sectionKey]?.fontScale;
+  if (manual !== undefined) return manual;
+  return calcAutoScale(sectionKey, content);
+}
+
 export function ProposalPdfDocument({ content }: Props) {
   const c = content;
+
+  const introScale = getScale("companyIntro", c);
+  const proposalScale = getScale("proposal", c);
+  const casesScale = getScale("cases", c);
+  const stepsScale = getScale("nextSteps", c);
 
   return (
     <Document>
@@ -252,12 +311,12 @@ export function ProposalPdfDocument({ content }: Props) {
 
       {/* Page 2: Company Intro */}
       <Page size="A4" style={s.page}>
-        <Text style={s.sectionHeading}>{c.companyIntro.heading}</Text>
-        <Text style={s.paragraph}>{c.companyIntro.description}</Text>
+        <Text style={[s.sectionHeading, { fontSize: sf(16, introScale) }]}>{c.companyIntro.heading}</Text>
+        <Text style={[s.paragraph, { fontSize: sf(10, introScale) }]}>{c.companyIntro.description}</Text>
         <View style={s.strengthsRow}>
           {c.companyIntro.strengths.map((str, i) => (
             <View key={i} style={s.strengthBox}>
-              <Text style={s.strengthText}>{str}</Text>
+              <Text style={[s.strengthText, { fontSize: sf(9, introScale) }]}>{str}</Text>
             </View>
           ))}
         </View>
@@ -269,14 +328,14 @@ export function ProposalPdfDocument({ content }: Props) {
 
       {/* Page 3: Proposal */}
       <Page size="A4" style={s.page}>
-        <Text style={s.sectionHeading}>{c.proposal.heading}</Text>
+        <Text style={[s.sectionHeading, { fontSize: sf(16, proposalScale) }]}>{c.proposal.heading}</Text>
         <View style={s.challengeBox}>
-          <Text style={s.challengeText}>{c.proposal.challenge}</Text>
+          <Text style={[s.challengeText, { fontSize: sf(10, proposalScale) }]}>{c.proposal.challenge}</Text>
         </View>
         {c.proposal.solutions.map((sol, i) => (
-          <View key={i} style={s.solutionCard}>
-            <Text style={s.solutionTitle}>{sol.title}</Text>
-            <Text style={s.solutionDesc}>{sol.description}</Text>
+          <View key={i} style={[s.solutionCard, { padding: Math.round(14 * proposalScale) }]}>
+            <Text style={[s.solutionTitle, { fontSize: sf(11, proposalScale) }]}>{sol.title}</Text>
+            <Text style={[s.solutionDesc, { fontSize: sf(9, proposalScale) }]}>{sol.description}</Text>
           </View>
         ))}
         <View style={s.footer}>
@@ -287,11 +346,11 @@ export function ProposalPdfDocument({ content }: Props) {
 
       {/* Page 4: Cases */}
       <Page size="A4" style={s.page}>
-        <Text style={s.sectionHeading}>{c.cases.heading}</Text>
+        <Text style={[s.sectionHeading, { fontSize: sf(16, casesScale) }]}>{c.cases.heading}</Text>
         {c.cases.items.map((item, i) => (
-          <View key={i} style={s.caseItem}>
-            <Text style={s.caseTitle}>{item.title}</Text>
-            <Text style={s.caseDesc}>{item.description}</Text>
+          <View key={i} style={[s.caseItem, { padding: Math.round(14 * casesScale) }]}>
+            <Text style={[s.caseTitle, { fontSize: sf(10, casesScale) }]}>{item.title}</Text>
+            <Text style={[s.caseDesc, { fontSize: sf(9, casesScale) }]}>{item.description}</Text>
           </View>
         ))}
         <View style={s.footer}>
@@ -302,16 +361,16 @@ export function ProposalPdfDocument({ content }: Props) {
 
       {/* Page 5: Next Steps */}
       <Page size="A4" style={s.page}>
-        <Text style={s.sectionHeading}>{c.nextSteps.heading}</Text>
+        <Text style={[s.sectionHeading, { fontSize: sf(16, stepsScale) }]}>{c.nextSteps.heading}</Text>
         {c.nextSteps.steps.map((step, i) => (
           <View key={i} style={s.stepRow}>
             <View style={s.stepNumber}>
-              <Text style={s.stepNumberText}>{i + 1}</Text>
+              <Text style={[s.stepNumberText, { fontSize: sf(9, stepsScale) }]}>{i + 1}</Text>
             </View>
-            <Text style={s.stepText}>{step}</Text>
+            <Text style={[s.stepText, { fontSize: sf(10, stepsScale) }]}>{step}</Text>
           </View>
         ))}
-        <Text style={s.contactText}>{c.nextSteps.contact}</Text>
+        <Text style={[s.contactText, { fontSize: sf(10, stepsScale) }]}>{c.nextSteps.contact}</Text>
         <View style={s.footer}>
           <Text style={s.footerText}>Ad-Arch Group</Text>
           <Text style={s.footerText}>5</Text>
