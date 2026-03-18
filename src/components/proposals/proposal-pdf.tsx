@@ -12,11 +12,11 @@ Font.register({
   family: "NotoSansJP",
   fonts: [
     {
-      src: "https://fonts.gstatic.com/s/notosansjp/v53/N0bM2dCQP02ZOjhiAN5QMdlbS4HKjR5RCL8.ttf",
+      src: "https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf",
       fontWeight: 400,
     },
     {
-      src: "https://fonts.gstatic.com/s/notosansjp/v53/N0bM2dCQP02ZOjhiAN5QMdlbS4GujB5RCL8.ttf",
+      src: "https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFPYk75s.ttf",
       fontWeight: 700,
     },
   ],
