@@ -7,16 +7,16 @@ import {
   Font,
 } from "@react-pdf/renderer";
 
-// Noto Sans JP フォント登録
+// Noto Sans JP フォント登録（ローカルファイルで CORS エラー回避）
 Font.register({
   family: "NotoSansJP",
   fonts: [
     {
-      src: "https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf",
+      src: "/fonts/NotoSansJP-Regular.ttf",
       fontWeight: 400,
     },
     {
-      src: "https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFPYk75s.ttf",
+      src: "/fonts/NotoSansJP-Bold.ttf",
       fontWeight: 700,
     },
   ],
