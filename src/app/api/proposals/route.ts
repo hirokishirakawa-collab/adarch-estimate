@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-// GET /api/proposals — 自分の提案書一覧
+// GET /api/proposals — 全社の提案書一覧
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.email) {
@@ -17,9 +17,11 @@ export async function GET(req: NextRequest) {
   }
 
   const proposals = await db.proposal.findMany({
-    where: { userId: user.id },
     orderBy: { createdAt: "desc" },
-    take: 50,
+    take: 100,
+    include: {
+      user: { select: { name: true, email: true } },
+    },
   });
 
   return NextResponse.json({ proposals });

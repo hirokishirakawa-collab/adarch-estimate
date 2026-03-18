@@ -15,6 +15,7 @@ interface ProposalData {
   createdAt: string;
   slug?: string | null;
   isPublished?: boolean;
+  user?: { name: string | null; email: string };
 }
 
 interface ProposalListProps {
@@ -152,6 +153,7 @@ export function ProposalList({ proposals, isAdmin, onRefresh }: ProposalListProp
                   </div>
                   <p className="text-xs text-zinc-400 mt-0.5">
                     {getIndustryLabel(p.industry)} · {new Date(p.createdAt).toLocaleDateString("ja-JP")}
+                    {p.user?.name && <span> · {p.user.name}</span>}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
