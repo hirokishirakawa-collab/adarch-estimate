@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { MessageCircle, X, Send, Loader2 } from "lucide-react";
+import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -66,7 +66,7 @@ export function ChatbotWidget() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       sendMessage();
     }
@@ -80,7 +80,7 @@ export function ChatbotWidget() {
           {/* ヘッダー */}
           <div className="flex items-center justify-between px-4 py-3 bg-blue-600 text-white">
             <div className="flex items-center gap-2">
-              <MessageCircle className="w-4 h-4" />
+              <Bot className="w-4 h-4" />
               <span className="text-sm font-semibold">ヘルプアシスタント</span>
             </div>
             <button onClick={() => setOpen(false)} className="p-1 hover:bg-blue-700 rounded-md transition-colors">
@@ -93,7 +93,7 @@ export function ChatbotWidget() {
             {messages.length === 0 && (
               <div className="text-center py-8">
                 <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <MessageCircle className="w-6 h-6 text-blue-500" />
+                  <Bot className="w-6 h-6 text-blue-500" />
                 </div>
                 <p className="text-sm font-medium text-zinc-700">使い方でお困りですか？</p>
                 <p className="text-xs text-zinc-400 mt-1">何でもお気軽にご質問ください</p>
@@ -111,10 +111,15 @@ export function ChatbotWidget() {
               </div>
             )}
             {messages.map((msg, i) => (
-              <div key={i} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
+              <div key={i} className={cn("flex items-start gap-2", msg.role === "user" ? "justify-end" : "justify-start")}>
+                {msg.role === "assistant" && (
+                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Bot className="w-3.5 h-3.5 text-blue-600" />
+                  </div>
+                )}
                 <div
                   className={cn(
-                    "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap",
+                    "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap",
                     msg.role === "user"
                       ? "bg-blue-600 text-white rounded-br-md"
                       : "bg-zinc-100 text-zinc-800 rounded-bl-md"
@@ -125,7 +130,10 @@ export function ChatbotWidget() {
               </div>
             ))}
             {loading && (
-              <div className="flex justify-start">
+              <div className="flex items-start gap-2 justify-start">
+                <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Bot className="w-3.5 h-3.5 text-blue-600" />
+                </div>
                 <div className="bg-zinc-100 rounded-2xl rounded-bl-md px-4 py-2">
                   <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
                 </div>
@@ -141,9 +149,9 @@ export function ChatbotWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="質問を入力..."
-                rows={1}
-                className="flex-1 resize-none text-sm px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-20"
+                placeholder="質問を入力...&#10;⌘+Enter で送信"
+                rows={3}
+                className="flex-1 resize-none text-sm px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-24"
               />
               <button
                 onClick={() => sendMessage()}
