@@ -105,8 +105,8 @@ export async function POST(req: NextRequest) {
 
   // ---- データ収集（並行実行） ----
 
-  const [projects, achievements, placesInfo, leadData, hearingSheet] = await Promise.all([
-    // 1. プロジェクト実績
+  const [projects, placesInfo, leadData, hearingSheet] = await Promise.all([
+    // 1. アドアーチグループのプロジェクト実績（自社サーバーのデータのみ）
     db.project.findMany({
       where: { status: { in: ["COMPLETED", "IN_PROGRESS"] } },
       select: {
@@ -118,22 +118,10 @@ export async function POST(req: NextRequest) {
       take: 30,
     }),
 
-    // 2. 競合実績DB
-    db.videoAchievement.findMany({
-      select: {
-        companyName: true,
-        industry: true,
-        videoType: true,
-        contentSummary: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 30,
-    }),
-
-    // 3. Google Places API で提案先の口コミ・評価を取得
+    // 2. Google Places API で提案先の口コミ・評価を取得（提案先企業の情報として使用）
     fetchPlacesInfo(body.companyName),
 
-    // 4. リードDBに該当企業があればスコア情報を取得
+    // 3. リードDBに該当企業があればスコア情報を取得（営業履歴として使用）
     db.lead.findFirst({
       where: { name: { contains: body.companyName } },
       select: {
@@ -148,7 +136,7 @@ export async function POST(req: NextRequest) {
       },
     }),
 
-    // 5. ヒアリングシート
+    // 4. ヒアリングシート（営業履歴として使用）
     body.hearingSheetId
       ? db.hearingSheet.findUnique({ where: { id: body.hearingSheetId } })
       : Promise.resolve(null),
@@ -163,14 +151,6 @@ export async function POST(req: NextRequest) {
       const industry = p.customer?.industry || "";
       const desc = p.description ? `（${p.description.slice(0, 80)}）` : "";
       return `- ${p.title} / ${customer}${industry ? ` [${industry}]` : ""}${desc}`;
-    })
-    .join("\n");
-
-  const achievementLines = achievements
-    .filter((a) => a.companyName)
-    .map((a) => {
-      const summary = a.contentSummary ? `（${a.contentSummary.slice(0, 80)}）` : "";
-      return `- ${a.companyName} [${a.industry}] ${a.videoType}${summary}`;
     })
     .join("\n");
 
@@ -296,9 +276,10 @@ Webサイト: ${leadData.websiteUrl || "なし"}`;
 【重要ルール】
 - 日付は必ず「${dateStr}」を使用してください
 - アドアーチグループの強みは「全国ネットワーク」「映像制作のプロフェッショナル」「広告運用からクリエイティブまでワンストップ」
-- 関連実績は、以下の「実際のプロジェクト実績」と「映像制作実績」から、提案先の業種・課題に近いものを選んで記載してください
+- 【最重要】実績データはアドアーチグループのサーバーに登録されている「実際のプロジェクト実績」のみ使用してください。それ以外のソースから実績を生成・捏造することは絶対に禁止です
+- 下記の「実際のプロジェクト実績」に記載のある案件のみを「関連実績」セクションに使用してください。データにない実績は一切記載しないでください
 - 実績データが提案先の業種に合わない場合は、最も近いものを選び、業種横断的な価値（映像制作力・広告運用力など）を強調してください
-- 絶対に架空の実績を作らないでください。下記データにある実績のみ使用してください
+- 実績データが「（データなし）」の場合は、casesセクションのitemsを空配列にしてください。架空の実績で埋めることは絶対にしないでください
 - 顧客名はそのまま記載して構いません
 - ソリューションは提案先の業種に最適化し、下記の「アドアーチが提供可能な広告媒体」から適切なものを提案に組み込んでください
 - 提案先のGoogle口コミ情報がある場合、口コミから読み取れる強みやポテンシャルを活かした提案にしてください（例: 口コミで「ファンが熱い」→ファンマーケティング提案）
@@ -312,11 +293,8 @@ Webサイト: ${leadData.websiteUrl || "なし"}`;
 --- アドアーチが提供可能な広告媒体（業種マッチ） ---
 ${matchingMedia.length > 0 ? mediaLines : "（業種に直接マッチする媒体なし。以下全媒体から最適なものを選択してください）\n" + allMediaLines}
 
---- 実際のプロジェクト実績 ---
-${projectLines || "（データなし）"}
-
---- 映像制作実績（競合分析データベースより） ---
-${achievementLines || "（データなし）"}
+--- アドアーチグループの実際のプロジェクト実績（自社サーバー登録データ） ---
+${projectLines || "（データなし — 実績セクションは空にしてください）"}
 
 ${placesSection}
 
