@@ -24,6 +24,7 @@ interface ProposalContent {
   proposal: { heading: string; challenge: string; solutions: { title: string; description: string }[] };
   cases: { heading: string; items: { title: string; description: string }[] };
   nextSteps: { heading: string; steps: string[]; contact: string };
+  styleOverrides?: { [key: string]: { fontScale?: number } };
 }
 
 interface PublicProposalViewProps {
@@ -37,6 +38,70 @@ interface PublicProposalViewProps {
   };
   slug: string;
   preview?: boolean;
+}
+
+// ─── 自動フィット: コンテンツ量に応じてスケール計算 ───
+function calcAutoScale(sectionKey: string, content: ProposalContent): number {
+  switch (sectionKey) {
+    case "companyIntro": {
+      const chars = content.companyIntro.description.length + content.companyIntro.strengths.join("").length;
+      const count = content.companyIntro.strengths.length;
+      if (count > 5 || chars > 400) return 0.75;
+      if (count > 4 || chars > 300) return 0.82;
+      if (count > 3 || chars > 200) return 0.9;
+      return 1;
+    }
+    case "proposal": {
+      const chars = content.proposal.challenge.length + content.proposal.solutions.reduce((a, s) => a + s.title.length + s.description.length, 0);
+      const count = content.proposal.solutions.length;
+      if (count > 5 || chars > 600) return 0.7;
+      if (count > 4 || chars > 450) return 0.78;
+      if (count > 3 || chars > 300) return 0.85;
+      if (count > 2 || chars > 200) return 0.92;
+      return 1;
+    }
+    case "cases": {
+      const chars = content.cases.items.reduce((a, item) => a + item.title.length + item.description.length, 0);
+      const count = content.cases.items.length;
+      if (count > 6 || chars > 500) return 0.7;
+      if (count > 4 || chars > 400) return 0.78;
+      if (count > 3 || chars > 250) return 0.85;
+      if (count > 2 || chars > 150) return 0.92;
+      return 1;
+    }
+    case "nextSteps": {
+      const chars = content.nextSteps.steps.join("").length + content.nextSteps.contact.length;
+      const count = content.nextSteps.steps.length;
+      if (count > 6 || chars > 400) return 0.78;
+      if (count > 5 || chars > 300) return 0.85;
+      if (count > 4 || chars > 200) return 0.92;
+      return 1;
+    }
+    default:
+      return 1;
+  }
+}
+
+function getEffectiveScale(sectionKey: string, content: ProposalContent): number {
+  const manual = content.styleOverrides?.[sectionKey]?.fontScale;
+  if (manual !== undefined) return manual;
+  return calcAutoScale(sectionKey, content);
+}
+
+function ScaledContent({ scale, children }: { scale: number; children: React.ReactNode }) {
+  if (scale >= 0.99) return <>{children}</>;
+  return (
+    <div
+      style={{
+        transform: `scale(${scale})`,
+        transformOrigin: "top left",
+        width: `${100 / scale}%`,
+        height: `${100 / scale}%`,
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 const TOTAL_SLIDES = 6;
@@ -317,6 +382,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
           {currentSlide === 1 && (
             <div className="w-full h-full relative overflow-hidden" style={{ background: brand.slideBg }}>
               <ArchLines variant={1} />
+              <ScaledContent scale={getEffectiveScale("companyIntro", c)}>
               <div className="relative z-10 h-full flex flex-col justify-center px-12 sm:px-16 py-10">
                 <SlideHeader
                   label={`${companyName} 様への私たちの紹介`}
@@ -351,6 +417,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
                 </div>
                 <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={2} total={TOTAL_SLIDES} />
               </div>
+              </ScaledContent>
             </div>
           )}
 
@@ -358,7 +425,8 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
           {currentSlide === 2 && (
             <div className="w-full h-full relative overflow-hidden" style={{ background: brand.slideBg }}>
               <ArchLines variant={2} />
-              <div className="relative z-10 h-full flex flex-col justify-center px-12 sm:px-16 py-10 overflow-y-auto">
+              <ScaledContent scale={getEffectiveScale("proposal", c)}>
+              <div className="relative z-10 h-full flex flex-col justify-center px-12 sm:px-16 py-10">
                 <SlideHeader
                   label={`${companyName} 様の課題に対するご提案`}
                   title={c.proposal.heading}
@@ -413,6 +481,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
                 </div>
                 <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={3} total={TOTAL_SLIDES} />
               </div>
+              </ScaledContent>
             </div>
           )}
 
@@ -420,6 +489,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
           {currentSlide === 3 && (
             <div className="w-full h-full relative overflow-hidden" style={{ background: brand.slideBg }}>
               <ArchLines variant={3} />
+              <ScaledContent scale={getEffectiveScale("cases", c)}>
               <div className="relative z-10 h-full flex flex-col justify-center px-12 sm:px-16 py-10">
                 <SlideHeader
                   label={`${companyName} 様と同業界での実績`}
@@ -450,6 +520,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
                 </div>
                 <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={4} total={TOTAL_SLIDES} />
               </div>
+              </ScaledContent>
             </div>
           )}
 
@@ -509,6 +580,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
           {currentSlide === 5 && (
             <div className="w-full h-full relative overflow-hidden" style={{ background: brand.slideBg }}>
               <ArchLines variant={4} />
+              <ScaledContent scale={getEffectiveScale("nextSteps", c)}>
               <div className="relative z-10 h-full flex flex-col justify-center px-12 sm:px-16 py-10">
                 <SlideHeader
                   label={`${companyName} 様とのお取り組みに向けて`}
@@ -577,6 +649,7 @@ export function PublicProposalView({ proposal, preview }: PublicProposalViewProp
                 </div>
                 <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={6} total={TOTAL_SLIDES} />
               </div>
+              </ScaledContent>
             </div>
           )}
         </div>

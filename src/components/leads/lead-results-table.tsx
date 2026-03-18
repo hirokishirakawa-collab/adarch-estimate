@@ -4,8 +4,9 @@ import { useState, useMemo } from "react";
 import { getPriorityLabel, PRIORITY_LABELS } from "@/lib/constants/leads";
 import type { ScoredLead } from "@/lib/constants/leads";
 import { LeadDetailPanel } from "./lead-detail-panel";
-import { ChevronDown, ChevronUp, ArrowUpDown, Filter } from "lucide-react";
+import { ChevronDown, ChevronUp, ArrowUpDown, Filter, EyeOff, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getLeadStatusOption } from "@/lib/constants/leads";
 
 type SortKey = "score" | "name";
 
@@ -13,19 +14,33 @@ interface LeadResultsTableProps {
   leads: ScoredLead[];
   addedNames: Set<string>;
   onToggleAdd: (name: string) => void;
+  existingMap?: Record<string, string>; // "name|address" → status
 }
 
 export function LeadResultsTable({
   leads,
   addedNames,
   onToggleAdd,
+  existingMap = {},
 }: LeadResultsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [filterPriority, setFilterPriority] = useState<string | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [hideExisting, setHideExisting] = useState(true);
+
+  const getExistingStatus = (lead: ScoredLead) =>
+    existingMap[`${lead.name}|${lead.address ?? ""}`] ?? null;
+
+  const existingCount = useMemo(
+    () => leads.filter((l) => getExistingStatus(l)).length,
+    [leads, existingMap]
+  );
 
   const filtered = useMemo(() => {
     let list = [...leads];
+    if (hideExisting) {
+      list = list.filter((l) => !getExistingStatus(l));
+    }
     if (filterPriority) {
       const pDef = PRIORITY_LABELS.find((p) => p.key === filterPriority);
       if (pDef) {
@@ -42,7 +57,7 @@ export function LeadResultsTable({
         : a.name.localeCompare(b.name, "ja")
     );
     return list;
-  }, [leads, sortKey, filterPriority]);
+  }, [leads, sortKey, filterPriority, hideExisting, existingMap]);
 
   const counts = useMemo(() => {
     const c = { high: 0, normal: 0, low: 0 };
@@ -64,6 +79,22 @@ export function LeadResultsTable({
           <span className="text-zinc-500">⚪ {counts.low}</span>
         </p>
         <div className="flex gap-1.5 ml-auto">
+          {existingCount > 0 && (
+            <Button
+              size="xs"
+              variant={hideExisting ? "default" : "outline"}
+              onClick={() => setHideExisting(!hideExisting)}
+              className="gap-1"
+            >
+              {hideExisting ? (
+                <EyeOff className="w-3 h-3" />
+              ) : (
+                <Eye className="w-3 h-3" />
+              )}
+              登録済み{existingCount}件{hideExisting ? "を除外中" : "を表示中"}
+            </Button>
+          )}
+          <span className="w-px bg-zinc-200" />
           <Button
             size="xs"
             variant={sortKey === "score" ? "default" : "outline"}
@@ -128,11 +159,15 @@ export function LeadResultsTable({
             {filtered.map((lead, i) => {
               const priority = getPriorityLabel(lead.score.total);
               const isExpanded = expandedIdx === i;
+              const existingStatus = getExistingStatus(lead);
+              const statusOption = existingStatus
+                ? getLeadStatusOption(existingStatus)
+                : null;
               return (
                 <tr key={`${lead.name}-${i}`} className="group">
                   <td colSpan={5} className="p-0">
                     <div
-                      className="grid grid-cols-[2rem_1fr_1fr_5rem_5rem] sm:grid-cols-[2rem_1fr_1fr_5rem_5rem] items-center cursor-pointer hover:bg-zinc-50 transition-colors"
+                      className={`grid grid-cols-[2rem_1fr_1fr_5rem_5rem] sm:grid-cols-[2rem_1fr_1fr_5rem_5rem] items-center cursor-pointer hover:bg-zinc-50 transition-colors ${existingStatus ? "opacity-60" : ""}`}
                       onClick={() => setExpandedIdx(isExpanded ? null : i)}
                     >
                       <div className="px-4 py-3 flex items-center">
@@ -143,8 +178,13 @@ export function LeadResultsTable({
                         )}
                       </div>
                       <div className="px-4 py-3">
-                        <p className="font-medium text-zinc-900 truncate">
+                        <p className="font-medium text-zinc-900 truncate flex items-center gap-1.5">
                           {lead.name}
+                          {statusOption && (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${statusOption.className}`}>
+                              {statusOption.icon} {statusOption.label}
+                            </span>
+                          )}
                         </p>
                       </div>
                       <div className="px-4 py-3 hidden sm:block">

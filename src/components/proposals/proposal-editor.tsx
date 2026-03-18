@@ -10,6 +10,7 @@ interface ProposalContent {
   proposal: { heading: string; challenge: string; solutions: { title: string; description: string }[] };
   cases: { heading: string; items: { title: string; description: string }[] };
   nextSteps: { heading: string; steps: string[]; contact: string };
+  styleOverrides?: { [key: string]: { fontScale?: number } };
 }
 
 interface ProposalEditorProps {
@@ -33,6 +34,18 @@ export function ProposalEditor({ proposal, onClose, onSaved }: ProposalEditorPro
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const updateFontScale = (sectionKey: string, value: number | undefined) => {
+    setContent((prev) => {
+      const overrides = { ...prev.styleOverrides };
+      if (value === undefined) {
+        delete overrides[sectionKey];
+      } else {
+        overrides[sectionKey] = { ...overrides[sectionKey], fontScale: value };
+      }
+      return { ...prev, styleOverrides: overrides };
+    });
+  };
 
   const updatePresenter = (field: string, value: string) => {
     setContent((prev) => ({
@@ -218,6 +231,7 @@ export function ProposalEditor({ proposal, onClose, onSaved }: ProposalEditorPro
 
           {/* 会社紹介 */}
           <Section title="会社紹介">
+            <FontScaleControl sectionKey="companyIntro" content={content} onChange={updateFontScale} />
             <Label text="セクション見出し" />
             <Input value={content.companyIntro.heading} onChange={(v) => updateCompanyIntro("heading", v)} />
             <Label text="紹介文" />
@@ -246,6 +260,7 @@ export function ProposalEditor({ proposal, onClose, onSaved }: ProposalEditorPro
 
           {/* 課題 & 提案 */}
           <Section title="課題 & 提案">
+            <FontScaleControl sectionKey="proposal" content={content} onChange={updateFontScale} />
             <Label text="セクション見出し" />
             <Input value={content.proposal.heading} onChange={(v) => updateProposal("heading", v)} />
             <Label text="課題" />
@@ -269,6 +284,7 @@ export function ProposalEditor({ proposal, onClose, onSaved }: ProposalEditorPro
 
           {/* 実績・事例 */}
           <Section title="実績・事例">
+            <FontScaleControl sectionKey="cases" content={content} onChange={updateFontScale} />
             <Label text="セクション見出し" />
             <Input value={content.cases.heading} onChange={(v) => setContent((prev) => ({ ...prev, cases: { ...prev.cases, heading: v } }))} />
             {content.cases.items.map((item, i) => (
@@ -289,6 +305,7 @@ export function ProposalEditor({ proposal, onClose, onSaved }: ProposalEditorPro
 
           {/* ネクストステップ */}
           <Section title="ネクストステップ">
+            <FontScaleControl sectionKey="nextSteps" content={content} onChange={updateFontScale} />
             <Label text="セクション見出し" />
             <Input value={content.nextSteps.heading} onChange={(v) => updateNextSteps("heading", v)} />
             <Label text="ステップ" />

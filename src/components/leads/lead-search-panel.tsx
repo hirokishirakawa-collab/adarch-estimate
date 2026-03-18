@@ -7,7 +7,7 @@ import { LeadSearchForm } from "./lead-search-form";
 import { LeadResultsTable } from "./lead-results-table";
 import { Loader2, AlertCircle, RotateCcw, Save, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { saveLeadsFromSearch } from "@/lib/actions/lead";
+import { saveLeadsFromSearch, checkExistingLeads } from "@/lib/actions/lead";
 
 type Phase = "form" | "searching" | "scoring" | "done" | "error";
 
@@ -17,6 +17,7 @@ export function LeadSearchPanel() {
   const [addedNames, setAddedNames] = useState<Set<string>>(new Set());
   const [errorMsg, setErrorMsg] = useState("");
   const [searchParams, setSearchParams] = useState({ industry: "", area: "" });
+  const [existingMap, setExistingMap] = useState<Record<string, string>>({});
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [isSaving, startSaving] = useTransition();
 
@@ -106,6 +107,13 @@ export function LeadSearchPanel() {
         });
 
         merged.sort((a, b) => b.score.total - a.score.total);
+
+        // 4) 既存リードチェック
+        const existMap = await checkExistingLeads(
+          merged.map((m) => ({ name: m.name, address: m.address ?? "" }))
+        );
+        setExistingMap(existMap);
+
         setLeads(merged);
         setSearchParams({
           industry: params.industry,
@@ -185,6 +193,7 @@ export function LeadSearchPanel() {
           leads={leads}
           addedNames={addedNames}
           onToggleAdd={handleToggleAdd}
+          existingMap={existingMap}
         />
       )}
 

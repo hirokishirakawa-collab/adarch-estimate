@@ -11,13 +11,14 @@
 
 import fs from "fs";
 import csv from "csv-parse/sync";
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 import { PrismaClient } from "../../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import Anthropic from "@anthropic-ai/sdk";
 
 // ── Prisma 接続 ──────────────────────────────────────────────────
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL!.replace(/\s+/g, "") });
 const db = new PrismaClient({ adapter });
 
 // ── 都道府県リスト（住所から抽出用）────────────────────────────
@@ -178,9 +179,33 @@ async function main() {
   const dbUsers = await db.user.findMany({
     select: { id: true, name: true, email: true },
   });
+  // 完全一致用マップ（スペース除去済み名前 → ユーザー）
   const userByName = new Map(
-    dbUsers.filter((u) => u.name).map((u) => [u.name!, u])
+    dbUsers.filter((u) => u.name).map((u) => [u.name!.replace(/\s+/g, ""), u])
   );
+
+  // 冒頭2文字マッチ用: CSV所有者名 → DBユーザー
+  function matchOwner(csvOwnerName: string): typeof dbUsers[0] {
+    // (解除済) → admin
+    if (csvOwnerName.startsWith("(解除済)")) return adminUser;
+
+    const clean = csvOwnerName.replace(/\s+/g, "");
+
+    // 1. 完全一致（スペース除去後）
+    const exact = userByName.get(clean);
+    if (exact) return exact;
+
+    // 2. 冒頭2文字が合致するユーザーを探す
+    if (clean.length >= 2) {
+      const prefix = clean.slice(0, 2);
+      for (const u of dbUsers) {
+        const dbName = (u.name ?? "").replace(/\s+/g, "");
+        if (dbName.length >= 2 && dbName.slice(0, 2) === prefix) return u;
+      }
+    }
+
+    return adminUser;
+  }
 
   console.log(`  DBユーザー数: ${dbUsers.length}`);
   console.log(`  ユーザー名一覧: ${dbUsers.map((u) => u.name).join(", ")}\n`);
@@ -202,10 +227,10 @@ async function main() {
     const ownerName = row["所有者"]?.trim() ?? "";
     ownerNames.add(ownerName);
 
-    // (解除済) ユーザーまたは未登録ユーザーをチェック
-    const cleanOwner = ownerName.replace(/^\(解除済\)/, "").trim();
-    if (!userByName.has(cleanOwner) && !userByName.has(ownerName)) {
-      missingOwners.add(ownerName);
+    // マッチできないユーザーをチェック
+    const matched = matchOwner(ownerName);
+    if (matched === adminUser && ownerName !== (adminUser.name ?? "").replace(/\s+/g, "")) {
+      missingOwners.add(`${ownerName} → ${adminUser.name}(フォールバック)`);
     }
 
     const cn = row["会社名"]?.trim();
@@ -261,8 +286,7 @@ async function main() {
 
     // 所有者マッチ
     const ownerName = row["所有者"]?.trim() ?? "";
-    const cleanOwner = ownerName.replace(/^\(解除済\)/, "").trim();
-    const owner = userByName.get(cleanOwner) ?? userByName.get(ownerName) ?? adminUser;
+    const owner = matchOwner(ownerName);
 
     // 住所から都道府県を抽出
     const rawAddress = row["住所"]?.trim() ?? "";
@@ -324,9 +348,12 @@ async function main() {
       isCreator: csvBool(row["制作スタッフ（クリエイター）"]),
       prefecture,
       ...regionFlags,
-      aiIndustry: ai?.industry ?? null,
-      aiSummary: ai?.summary ?? null,
-      aiTags: ai?.tags ?? null,
+      // --skip-ai 時は AI フィールドを上書きしない
+      ...(skipAI ? {} : {
+        aiIndustry: ai?.industry ?? null,
+        aiSummary: ai?.summary ?? null,
+        aiTags: ai?.tags ?? null,
+      }),
       sharedMemoTitle: row["共有メモタイトル"]?.trim() || null,
       exchangePlace: row["名刺交換場所"]?.trim() || null,
       workHistory: row["仕事経過"]?.trim() || null,
@@ -334,6 +361,11 @@ async function main() {
       textMemo: row["テキストメモ"]?.trim() || null,
       ownerId: owner.id,
     };
+
+    // create 時は AI フィールドを含める（null でも）
+    const createData = skipAI
+      ? { ...data, aiIndustry: null, aiSummary: null, aiTags: null }
+      : data;
 
     try {
       const result = await db.businessCard.upsert({
@@ -344,7 +376,7 @@ async function main() {
             firstName: firstName || "",
           },
         },
-        create: data,
+        create: createData,
         update: data,
       });
 
