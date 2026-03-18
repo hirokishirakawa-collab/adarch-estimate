@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -9,7 +10,132 @@ interface Message {
   content: string;
 }
 
+// ページ別サジェスト定義
+const PAGE_SUGGESTIONS: Record<string, string[]> = {
+  "/dashboard/estimates": [
+    "見積もりの作り方を教えて",
+    "PDFで出力するには？",
+    "テンプレートの使い方は？",
+  ],
+  "/dashboard/proposals": [
+    "提案書をAIで作るには？",
+    "提案書をWeb公開したい",
+    "閲覧分析はどこで見る？",
+  ],
+  "/dashboard/customers": [
+    "新規顧客の登録方法は？",
+    "先着ロックって何？",
+    "顧客を検索したい",
+  ],
+  "/dashboard/deals": [
+    "新しい商談を作りたい",
+    "カンバン表示の切り替えは？",
+    "商談ログの追加方法は？",
+  ],
+  "/dashboard/billing": [
+    "請求依頼の出し方は？",
+    "経費を自動で入れるには？",
+    "申請後のフローは？",
+  ],
+  "/dashboard/business-cards": [
+    "名刺を写真から登録したい",
+    "名刺の検索方法は？",
+    "コラボ希望フラグとは？",
+  ],
+  "/dashboard/projects": [
+    "新規プロジェクトの作成方法は？",
+    "Google Driveフォルダは自動で作られる？",
+    "経費を登録したい",
+  ],
+  "/dashboard/leads": [
+    "リード検索のやり方は？",
+    "AIスコアリングとは？",
+    "リードを顧客に転換したい",
+  ],
+  "/dashboard/wiki": [
+    "Wiki記事の書き方は？",
+    "記事を検索したい",
+    "記事を編集するには？",
+  ],
+  "/dashboard/sales-insights": [
+    "インサイトの投稿方法は？",
+    "他拠点の営業情報を見たい",
+  ],
+  "/dashboard/cutsheet": [
+    "カット表の作り方は？",
+    "動画URLから自動生成できる？",
+  ],
+  "/dashboard/strategy-advisor": [
+    "AIに広告戦略を相談したい",
+    "予算の入れ方は？",
+  ],
+};
+
+const DEFAULT_SUGGESTIONS = [
+  "このシステムで何ができる？",
+  "見積もりの作り方は？",
+  "名刺を登録したい",
+];
+
+function getSuggestions(pathname: string): string[] {
+  // 完全一致を先にチェック、次にプレフィックスマッチ
+  if (PAGE_SUGGESTIONS[pathname]) return PAGE_SUGGESTIONS[pathname];
+  for (const [path, suggestions] of Object.entries(PAGE_SUGGESTIONS)) {
+    if (pathname.startsWith(path + "/")) return suggestions;
+  }
+  return DEFAULT_SUGGESTIONS;
+}
+
+// パスから日本語ページ名を取得
+function getPageLabel(pathname: string): string {
+  const map: Record<string, string> = {
+    "/dashboard": "ダッシュボード",
+    "/dashboard/estimates": "公式見積もり",
+    "/dashboard/proposals": "提案書AI",
+    "/dashboard/proposals/analytics": "提案書 閲覧分析",
+    "/dashboard/customers": "顧客管理",
+    "/dashboard/deals": "商談管理",
+    "/dashboard/billing": "請求依頼",
+    "/dashboard/business-cards": "名刺管理",
+    "/dashboard/projects": "プロジェクト一覧",
+    "/dashboard/leads": "リード獲得AI",
+    "/dashboard/leads/btob": "BtoB リード",
+    "/dashboard/leads/cinema": "シネアド リード",
+    "/dashboard/leads/list": "リード管理",
+    "/dashboard/wiki": "社内Wiki",
+    "/dashboard/sales-insights": "営業インサイト共有",
+    "/dashboard/cutsheet": "動画カット表AI",
+    "/dashboard/strategy-advisor": "提案戦略アドバイザー",
+    "/dashboard/video-achievements": "競合実績スクレイピング",
+    "/dashboard/project-matching": "案件マッチング",
+    "/dashboard/group-profiles": "メンバー紹介",
+    "/dashboard/sales-report": "売上報告",
+    "/dashboard/portfolio": "実績フォルダ検索",
+    "/dashboard/tver-review": "TVer業態考査申請",
+    "/dashboard/tver-campaign": "TVer配信申請",
+    "/dashboard/tver-creative-review": "TVer クリエイティブ考査申請",
+    "/dashboard/media": "媒体依頼",
+    "/dashboard/tver-simulator": "TVer広告シミュレーター",
+    "/dashboard/taxi-ads-simulator": "タクシー広告",
+    "/dashboard/skylark-simulator": "すかいらーくインストア",
+    "/dashboard/univ-coop-simulator": "大学生協広告",
+    "/dashboard/aeon-cinema-simulator": "イオンシネマ",
+    "/dashboard/golfcart-simulator": "ゴルフカート",
+    "/dashboard/omochannel-simulator": "おもチャンネル",
+    "/dashboard/admin/users": "メンバー管理",
+    "/dashboard/login-logs": "操作ログ",
+    "/dashboard/group-support": "グループサポート",
+  };
+  // 完全一致 → プレフィックスマッチ
+  if (map[pathname]) return map[pathname];
+  for (const [path, label] of Object.entries(map)) {
+    if (pathname.startsWith(path + "/")) return label;
+  }
+  return "ダッシュボード";
+}
+
 export function ChatbotWidget() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -17,6 +143,9 @@ export function ChatbotWidget() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const suggestions = useMemo(() => getSuggestions(pathname), [pathname]);
+  const pageLabel = useMemo(() => getPageLabel(pathname), [pathname]);
 
   useEffect(() => {
     if (open && inputRef.current) inputRef.current.focus();
@@ -29,10 +158,10 @@ export function ChatbotWidget() {
   const sendMessage = async (text?: string) => {
     const msg = text?.trim() || input.trim();
     if (!msg || loading) return;
-    send(msg);
+    doSend(msg);
   };
 
-  const send = async (text: string) => {
+  const doSend = async (text: string) => {
     if (!text || loading) return;
 
     setInput("");
@@ -43,7 +172,12 @@ export function ChatbotWidget() {
       const res = await fetch("/api/chatbot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, conversationId }),
+        body: JSON.stringify({
+          message: text,
+          conversationId,
+          currentPage: pathname,
+          pageLabel,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -81,7 +215,10 @@ export function ChatbotWidget() {
           <div className="flex items-center justify-between px-4 py-3 bg-blue-600 text-white">
             <div className="flex items-center gap-2">
               <Bot className="w-4 h-4" />
-              <span className="text-sm font-semibold">ヘルプアシスタント</span>
+              <div>
+                <span className="text-sm font-semibold">ヘルプアシスタント</span>
+                <span className="text-[10px] text-blue-200 ml-2">{pageLabel}</span>
+              </div>
             </div>
             <button onClick={() => setOpen(false)} className="p-1 hover:bg-blue-700 rounded-md transition-colors">
               <X className="w-4 h-4" />
@@ -98,7 +235,7 @@ export function ChatbotWidget() {
                 <p className="text-sm font-medium text-zinc-700">使い方でお困りですか？</p>
                 <p className="text-xs text-zinc-400 mt-1">何でもお気軽にご質問ください</p>
                 <div className="mt-4 space-y-2">
-                  {["見積もりの作り方は？", "提案書の公開方法は？", "名刺を登録したい"].map((q) => (
+                  {suggestions.map((q) => (
                     <button
                       key={q}
                       onClick={() => sendMessage(q)}
@@ -149,7 +286,7 @@ export function ChatbotWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="質問を入力...&#10;⌘+Enter で送信"
+                placeholder={"質問を入力...\n⌘+Enter で送信"}
                 rows={3}
                 className="flex-1 resize-none text-sm px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-24"
               />
