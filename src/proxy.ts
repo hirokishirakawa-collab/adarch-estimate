@@ -23,12 +23,73 @@ const PROTECTED_PATHS: { prefix: string; role: UserRole }[] = [
 ];
 
 // ----------------------------------------------------------------
+// 不正アクセス検知: 簡易レートリミット（メモリ内）
+// ----------------------------------------------------------------
+const accessAttempts = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1分間
+const RATE_LIMIT_MAX = 30; // 1分間に30回以上の未認証アクセスで検知
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = accessAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    accessAttempts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  entry.count++;
+  // 古いエントリを掃除（100件超えたら期限切れを削除）
+  if (accessAttempts.size > 100) {
+    for (const [key, val] of accessAttempts) {
+      if (now > val.resetAt) accessAttempts.delete(key);
+    }
+  }
+  return entry.count > RATE_LIMIT_MAX;
+}
+
+// ----------------------------------------------------------------
+// ヘルパー: IP・UA取得
+// ----------------------------------------------------------------
+function getClientInfo(req: NextAuthRequest) {
+  const ipAddress =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown";
+  const userAgent = req.headers.get("user-agent") ?? "unknown";
+  return { ipAddress, userAgent };
+}
+
+/**
+ * 監査ログを非同期で記録（ミドルウェアはEdge Runtimeなので動的import）
+ */
+async function recordSecurityEvent(
+  action: string,
+  detail: string,
+  email: string | null,
+  ipAddress: string,
+  userAgent: string,
+) {
+  try {
+    const { logAudit } = await import("@/lib/audit");
+    await logAudit({
+      action,
+      email: email ?? "anonymous",
+      detail,
+      ipAddress,
+      userAgent,
+    });
+  } catch {
+    console.error(`[Security] ログ記録失敗: ${action} ${detail}`);
+  }
+}
+
+// ----------------------------------------------------------------
 // ミドルウェア本体
 // ----------------------------------------------------------------
 export default auth((req: NextAuthRequest) => {
   const { auth: session, nextUrl } = req;
   const pathname = nextUrl.pathname;
   const isAuthenticated = !!session;
+  const { ipAddress, userAgent } = getClientInfo(req);
 
   // 1. 公開パスはそのまま通す
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
@@ -39,8 +100,33 @@ export default auth((req: NextAuthRequest) => {
     return NextResponse.next();
   }
 
-  // 2. 未認証はログインページへリダイレクト
+  // 2. 未認証アクセス → ログ記録 + レートリミットチェック
   if (!isAuthenticated) {
+    const isRateLimited = checkRateLimit(ipAddress);
+
+    if (isRateLimited) {
+      // 大量アクセス検知 → 429 返却 + ログ
+      recordSecurityEvent(
+        "rate_limit_exceeded",
+        `path=${pathname} ip=${ipAddress}`,
+        null,
+        ipAddress,
+        userAgent,
+      );
+      return new NextResponse("Too Many Requests", { status: 429 });
+    }
+
+    // 通常の未認証アクセス（センシティブなパスのみログ記録）
+    if (pathname.startsWith("/admin") || pathname.startsWith("/api/")) {
+      recordSecurityEvent(
+        "unauthenticated_access",
+        `path=${pathname}`,
+        null,
+        ipAddress,
+        userAgent,
+      );
+    }
+
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
@@ -48,10 +134,19 @@ export default auth((req: NextAuthRequest) => {
 
   // 3. ロールベースのアクセス制御
   const userRole = session.user?.role as UserRole | undefined;
+  const userEmail = session.user?.email ?? "unknown";
 
   for (const { prefix, role } of PROTECTED_PATHS) {
     if (pathname.startsWith(prefix)) {
       if (!userRole || !hasMinRole(userRole, role)) {
+        // 権限不足 → ログ記録
+        recordSecurityEvent(
+          "unauthorized_access",
+          `path=${pathname} required=${role} actual=${userRole ?? "none"}`,
+          userEmail,
+          ipAddress,
+          userAgent,
+        );
         return NextResponse.redirect(new URL("/unauthorized", req.url));
       }
       break;
