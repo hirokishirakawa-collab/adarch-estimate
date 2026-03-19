@@ -58,8 +58,17 @@ function getClientInfo(req: NextAuthRequest) {
   return { ipAddress, userAgent };
 }
 
+/** 通知が必要なセキュリティイベント */
+const ALERT_ACTIONS = new Set([
+  "rate_limit_exceeded",
+  "unauthorized_access",
+]);
+
+/** セキュリティ通知先スペース */
+const SECURITY_CHAT_SPACE_ID = "AAQAxSqou_g";
+
 /**
- * 監査ログを非同期で記録（ミドルウェアはEdge Runtimeなので動的import）
+ * 監査ログを記録 + 重要度の高いイベントは Google Chat に即時通知
  */
 async function recordSecurityEvent(
   action: string,
@@ -68,6 +77,7 @@ async function recordSecurityEvent(
   ipAddress: string,
   userAgent: string,
 ) {
+  // 1. DB に監査ログ記録
   try {
     const { logAudit } = await import("@/lib/audit");
     await logAudit({
@@ -79,6 +89,29 @@ async function recordSecurityEvent(
     });
   } catch {
     console.error(`[Security] ログ記録失敗: ${action} ${detail}`);
+  }
+
+  // 2. 重要イベントは Google Chat に即時通知
+  if (ALERT_ACTIONS.has(action)) {
+    try {
+      const { sendChatMessage } = await import("@/lib/google-chat");
+      const labels: Record<string, string> = {
+        rate_limit_exceeded: "大量アクセス検知（レートリミット超過）",
+        unauthorized_access: "権限外アクセス検知",
+      };
+      const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+      const text = [
+        `🚨 ${labels[action] ?? action}`,
+        `時刻: ${now}`,
+        `IP: ${ipAddress}`,
+        `ユーザー: ${email ?? "anonymous"}`,
+        `詳細: ${detail}`,
+        `UA: ${userAgent.slice(0, 100)}`,
+      ].join("\n");
+      await sendChatMessage(SECURITY_CHAT_SPACE_ID, text);
+    } catch {
+      console.error(`[Security] Chat通知失敗: ${action}`);
+    }
   }
 }
 

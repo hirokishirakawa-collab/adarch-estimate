@@ -67,6 +67,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           ipAddress,
           userAgent,
         });
+        // 不正ログイン試行を Google Chat に即時通知
+        try {
+          const { sendChatMessage } = await import("@/lib/google-chat");
+          const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          await sendChatMessage("AAQAxSqou_g", [
+            `🚨 不正ログイン試行検知`,
+            `時刻: ${now}`,
+            `メール: ${profile.email}`,
+            `名前: ${(profile.name as string) ?? "不明"}`,
+            `IP: ${ipAddress ?? "不明"}`,
+            `理由: 許可外ドメイン（${domain}）`,
+          ].join("\n"));
+        } catch {
+          // 通知失敗してもログイン拒否は継続
+        }
         return false;
       }
 
