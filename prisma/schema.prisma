@@ -197,6 +197,7 @@ enum LeadSource {
   GOOGLE_PLACES
   GBIZINFO
   CINEMA_AD
+  CSV_IMPORT
 }
 
 // ==============================================================
