@@ -92,6 +92,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/leads/list",
+        label: "リード管理",
+        icon: ListChecks,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/deals",
         label: "商談管理（SFA）",
         icon: TrendingUp,
@@ -112,7 +118,6 @@ const NAV_SECTIONS: NavSection[] = [
           { href: "/dashboard/leads", label: "BtoC リード", icon: Crosshair, minRole: "USER" },
           { href: "/dashboard/leads/btob", label: "BtoB リード", icon: Building2, minRole: "USER" },
           { href: "/dashboard/leads/cinema", label: "シネアド リード", icon: Clapperboard, minRole: "USER" },
-          { href: "/dashboard/leads/list", label: "リード管理", icon: ListChecks, minRole: "USER" },
         ],
       },
       {
