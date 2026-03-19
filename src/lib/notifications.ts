@@ -757,14 +757,16 @@ export async function sendEstimateNotification(
   const { subject, html } = buildEstimateEmail(payload);
   await sendEmail("estimate", to, subject, html);
 
-  notifyCeo([
+  const chatText = [
     `📝 見積発行`,
     `顧客: ${payload.customerName}`,
     `件名: ${payload.title}`,
     `金額: ¥${payload.totalInclTax.toLocaleString("ja-JP")}（税込）`,
     `担当: ${payload.staffName}`,
     `🔗 ${appUrl(`/dashboard/estimates/${payload.estimationId}`)}`,
-  ].join("\n")).catch(() => {});
+  ].join("\n");
+  notifyCeo(chatText).catch(() => {});
+  sendChatMessage("AAQAxSqou_g", chatText).catch(() => {});
 }
 
 function buildEstimateEmail(payload: EstimateNotificationPayload): {
