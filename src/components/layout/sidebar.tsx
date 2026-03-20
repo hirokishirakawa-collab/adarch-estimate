@@ -152,6 +152,60 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    section: "広告媒体シミュレーター",
+    color: "text-indigo-500/80",
+    items: [
+      {
+        href: "/dashboard/strategy-advisor",
+        label: "提案戦略アドバイザー（AI）",
+        icon: Sparkles,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/tver-simulator",
+        label: "TVer広告シミュレーター",
+        icon: Tv2,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/taxi-ads-simulator",
+        label: "タクシー広告（TOKYO PRIME）",
+        icon: Car,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/skylark-simulator",
+        label: "すかいらーくインストア",
+        icon: UtensilsCrossed,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/univ-coop-simulator",
+        label: "大学生協広告",
+        icon: GraduationCap,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/aeon-cinema-simulator",
+        label: "イオンシネマ",
+        icon: Clapperboard,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/golfcart-simulator",
+        label: "ゴルフカート（Golfcart Vision）",
+        icon: Flag,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/omochannel-simulator",
+        label: "おもチャンネル（アパホテル）",
+        icon: Tv2,
+        minRole: "USER",
+      },
+    ],
+  },
+    {
     section: "制作・プロジェクト",
     color: "text-violet-500/80",
     items: [
@@ -268,60 +322,7 @@ const NAV_SECTIONS: NavSection[] = [
       },
     ],
   },
-  {
-    section: "ツール",
-    color: "text-zinc-600",
-    items: [
-      {
-        href: "/dashboard/strategy-advisor",
-        label: "提案戦略アドバイザー（AI）",
-        icon: Sparkles,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/tver-simulator",
-        label: "TVer広告シミュレーター",
-        icon: Tv2,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/taxi-ads-simulator",
-        label: "タクシー広告（TOKYO PRIME）",
-        icon: Car,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/skylark-simulator",
-        label: "すかいらーくインストア",
-        icon: UtensilsCrossed,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/univ-coop-simulator",
-        label: "大学生協広告",
-        icon: GraduationCap,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/aeon-cinema-simulator",
-        label: "イオンシネマ",
-        icon: Clapperboard,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/golfcart-simulator",
-        label: "ゴルフカート（Golfcart Vision）",
-        icon: Flag,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/omochannel-simulator",
-        label: "おもチャンネル（アパホテル）",
-        icon: Tv2,
-        minRole: "USER",
-      },
-    ],
-  },
+
   {
     section: "SNS簡易制作（Studio）",
     color: "text-fuchsia-500/80",
