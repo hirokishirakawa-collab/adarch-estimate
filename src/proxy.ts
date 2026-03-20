@@ -149,8 +149,8 @@ export default auth((req: NextAuthRequest) => {
       return new NextResponse("Too Many Requests", { status: 429 });
     }
 
-    // 通常の未認証アクセス（センシティブなパスのみログ記録）
-    if (pathname.startsWith("/admin") || pathname.startsWith("/api/")) {
+    // 通常の未認証アクセス（センシティブなパスのみログ記録、Telegram webhookは除外）
+    if ((pathname.startsWith("/admin") || pathname.startsWith("/api/")) && !pathname.startsWith("/api/telegram")) {
       recordSecurityEvent(
         "unauthenticated_access",
         `path=${pathname}`,
