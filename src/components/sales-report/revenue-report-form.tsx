@@ -9,6 +9,7 @@ interface Props {
     amount?: number;
     targetMonth?: string; // "YYYY-MM"
     projectName?: string | null;
+    staffName?: string | null;
     memo?: string | null;
   };
 }
@@ -24,10 +25,26 @@ export function RevenueReportForm({ action, defaultValues }: Props) {
         </div>
       )}
 
-      {/* 金額（税抜） */}
+      {/* 報告月 */}
       <div>
         <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-          金額（税抜）<span className="text-red-500 ml-0.5">*</span>
+          報告月<span className="text-red-500 ml-0.5">*</span>
+        </label>
+        <input
+          type="month"
+          name="targetMonth"
+          defaultValue={defaultValues?.targetMonth ?? new Date().toISOString().slice(0, 7)}
+          required
+          className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg
+                     focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400
+                     bg-white text-zinc-900"
+        />
+      </div>
+
+      {/* アドアーチグループ案件 売上金額（税抜） */}
+      <div>
+        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+          アドアーチグループ案件 売上金額（税抜）<span className="text-red-500 ml-0.5">*</span>
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
@@ -44,23 +61,7 @@ export function RevenueReportForm({ action, defaultValues }: Props) {
                        bg-white text-zinc-900"
           />
         </div>
-        <p className="mt-1 text-[11px] text-zinc-400">税抜の売上金額を入力してください</p>
-      </div>
-
-      {/* 計上月 */}
-      <div>
-        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-          計上月<span className="text-red-500 ml-0.5">*</span>
-        </label>
-        <input
-          type="month"
-          name="targetMonth"
-          defaultValue={defaultValues?.targetMonth ?? new Date().toISOString().slice(0, 7)}
-          required
-          className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg
-                     focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400
-                     bg-white text-zinc-900"
-        />
+        <p className="mt-1 text-[11px] text-zinc-400">0円の場合も報告してください</p>
       </div>
 
       {/* 関連プロジェクト（自由記述） */}
@@ -81,16 +82,37 @@ export function RevenueReportForm({ action, defaultValues }: Props) {
         <p className="mt-1 text-[11px] text-zinc-400">対象の案件がある場合は自由に記入してください</p>
       </div>
 
-      {/* メモ */}
+      {/* 今の状況 */}
       <div>
         <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-          メモ・備考
+          今の状況
+        </label>
+        <select
+          name="staffName"
+          defaultValue={defaultValues?.staffName ?? ""}
+          className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg
+                     focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400
+                     bg-white text-zinc-900"
+        >
+          <option value="">選択してください</option>
+          <option value="順調に稼働中">順調に稼働中</option>
+          <option value="案件を探している">案件を探している</option>
+          <option value="別業務で多忙">別業務で多忙</option>
+          <option value="体制を見直し中">体制を見直し中</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+
+      {/* 補足コメント */}
+      <div>
+        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+          補足コメント
         </label>
         <textarea
           name="memo"
           rows={4}
           defaultValue={defaultValues?.memo ?? ""}
-          placeholder="内訳や特記事項を自由に記入してください"
+          placeholder="案件の状況、困っていること、本部への相談など自由に記入してください"
           className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg
                      focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400
                      bg-white text-zinc-900 resize-y"

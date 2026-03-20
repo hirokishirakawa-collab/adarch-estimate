@@ -115,7 +115,7 @@ export default async function GroupSupportPage() {
                   今週
                 </th>
                 <th className="text-center px-3 py-2 text-zinc-500 font-medium">
-                  売上報告（{prevMonthLabel}）
+                  月次報告（{prevMonthLabel}）
                 </th>
                 <th className="text-left px-3 py-2 text-zinc-500 font-medium">
                   最終共有

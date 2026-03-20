@@ -41,8 +41,8 @@ export default async function EditSalesReportPage({ params }: Props) {
           <BarChart2 className="text-amber-600" style={{ width: "1.125rem", height: "1.125rem" }} />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-zinc-900">売上報告を編集</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">金額はすべて税抜で入力してください</p>
+          <h2 className="text-lg font-bold text-zinc-900">月次報告を編集</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">毎月の状況を共有してください。売上が0円の月も報告をお願いします。</p>
         </div>
       </div>
 
@@ -53,6 +53,7 @@ export default async function EditSalesReportPage({ params }: Props) {
             amount: Number(report.amount),
             targetMonth: new Date(report.targetMonth).toISOString().slice(0, 7),
             projectName: report.projectName,
+            staffName: report.staffName,
             memo: report.memo,
           }}
         />

@@ -21,8 +21,8 @@ export default async function NewSalesReportPage() {
           <BarChart2 className="text-amber-600" style={{ width: "1.125rem", height: "1.125rem" }} />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-zinc-900">売上を報告する</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">金額はすべて税抜で入力してください</p>
+          <h2 className="text-lg font-bold text-zinc-900">月次報告を作成</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">毎月の状況を共有してください。売上が0円の月も報告をお願いします。</p>
         </div>
       </div>
 

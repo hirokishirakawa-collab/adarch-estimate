@@ -248,7 +248,7 @@ const NAV_SECTIONS: NavSection[] = [
       },
       {
         href: "/dashboard/sales-report",
-        label: "売上報告",
+        label: "月次報告",
         icon: BarChart2,
         minRole: "MANAGER",
       },

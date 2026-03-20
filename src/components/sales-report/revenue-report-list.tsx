@@ -57,7 +57,7 @@ function exportCsv(reports: Report[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `売上報告_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `月次報告_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -66,7 +66,7 @@ function DeleteButton({ reportId }: { reportId: string }) {
   const [isPending, startTransition] = useTransition();
 
   function handleDelete() {
-    if (!confirm("この売上報告を削除してもよいですか？")) return;
+    if (!confirm("この月次報告を削除してもよいですか？")) return;
     startTransition(async () => {
       await deleteRevenueReport(reportId);
     });
@@ -207,7 +207,7 @@ export function RevenueReportList({ reports }: Props) {
               {reports.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-16 text-center text-sm text-zinc-400">
-                    売上報告がまだありません
+                    月次報告がまだありません
                   </td>
                 </tr>
               )}

@@ -663,14 +663,14 @@ const TOURS: Record<string, TourStep[]> = {
   "/dashboard/sales-report": [
     {
       popover: {
-        title: "売上報告",
-        description: "自社の月次売上を報告・管理します。金額はすべて税抜で入力してください。",
+        title: "月次報告",
+        description: "毎月の活動状況と売上を報告します。金額はすべて税抜で入力してください。",
       },
     },
     {
       element: "[data-tour='report-new']",
       popover: {
-        title: "売上を報告",
+        title: "月次報告を作成",
         description: "月次の売上実績を入力して報告します。",
         side: "bottom",
       },
@@ -679,7 +679,7 @@ const TOURS: Record<string, TourStep[]> = {
       element: "[data-tour='report-list']",
       popover: {
         title: "報告一覧",
-        description: "過去の売上報告を確認・編集できます。",
+        description: "過去の月次報告を確認・編集できます。",
         side: "top",
       },
     },

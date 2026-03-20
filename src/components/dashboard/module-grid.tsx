@@ -98,7 +98,7 @@ const MODULES: Module[] = [
   {
     id: "sales",
     href: "/sales-report",
-    label: "売上報告",
+    label: "月次報告",
     description: "実績集計・管理者分析ダッシュボード",
     icon: BarChart2,
     iconBg: "bg-rose-50",

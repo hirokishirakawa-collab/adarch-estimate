@@ -51,9 +51,9 @@ export default async function SalesReportPage() {
             <BarChart2 className="text-amber-600" style={{ width: "1.125rem", height: "1.125rem" }} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-zinc-900">売上報告</h2>
+            <h2 className="text-lg font-bold text-zinc-900">月次報告</h2>
             <p className="text-xs text-zinc-500 mt-0.5">
-              自社の月次売上を管理します（金額はすべて税抜）
+              毎月の活動状況と売上を報告します
             </p>
           </div>
         </div>
@@ -65,7 +65,7 @@ export default async function SalesReportPage() {
                      text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
-          売上を報告する
+          月次報告を作成
         </Link>
       </div>
 
