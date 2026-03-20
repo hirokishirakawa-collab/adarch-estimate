@@ -16,7 +16,7 @@ export default function BtoBLeadSearchPage() {
       </div>
 
       {/* 使い方ガイド */}
-      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-100 px-5 py-4">
+      <div data-tour="btob-guide" className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-100 px-5 py-4">
         <p className="text-xs font-semibold text-indigo-700 mb-2">使い方</p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-indigo-600">
           <span className="inline-flex items-center gap-1 px-2 py-1 bg-white rounded-md border border-indigo-100 font-medium">
@@ -39,7 +39,7 @@ export default function BtoBLeadSearchPage() {
       </div>
 
       {/* スコアリング基準 */}
-      <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
+      <div data-tour="btob-scoring" className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
         <p className="text-xs font-semibold text-zinc-700 mb-3">AIスコアリング基準（合計100点）</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div className="flex gap-2">
@@ -87,7 +87,9 @@ export default function BtoBLeadSearchPage() {
         </div>
       </div>
 
-      <BtoBSearchPanel />
+      <div data-tour="btob-search">
+        <BtoBSearchPanel />
+      </div>
     </div>
   );
 }

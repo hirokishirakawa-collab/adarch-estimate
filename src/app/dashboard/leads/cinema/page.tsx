@@ -28,7 +28,7 @@ export default function CinemaLeadsPage() {
       </div>
 
       {/* 使い方 */}
-      <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
+      <div data-tour="cinema-guide" className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
         <p className="text-xs font-semibold text-zinc-700 mb-3">使い方</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-[11px]">
           <div>
@@ -58,7 +58,9 @@ export default function CinemaLeadsPage() {
         </div>
       </div>
 
-      <CinemaSearchPanel />
+      <div data-tour="cinema-search">
+        <CinemaSearchPanel />
+      </div>
     </div>
   );
 }

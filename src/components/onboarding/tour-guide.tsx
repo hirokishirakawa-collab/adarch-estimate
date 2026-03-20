@@ -336,6 +336,63 @@ const TOURS: Record<string, TourStep[]> = {
     },
   ],
 
+  "/dashboard/leads/btob": [
+    {
+      popover: {
+        title: "BtoBリード獲得AI",
+        description: "経産省の企業データベース（gBizINFO）から、広告予算がありそうなBtoB企業を検索・スコアリングします。",
+      },
+    },
+    {
+      element: "[data-tour='btob-guide']",
+      popover: {
+        title: "使い方",
+        description: "① 条件を指定して検索 → ② YouTube・Webを自動分析 → ③ AIがスコアリング → ④ リード管理に保存",
+        side: "bottom",
+      },
+    },
+    {
+      element: "[data-tour='btob-scoring']",
+      popover: {
+        title: "AIスコアリング基準",
+        description: "業種適合度・企業規模・デジタル活用度・YouTube活用余地・成長性・接触しやすさの6軸で合計100点満点でスコアリングします。",
+        side: "bottom",
+      },
+    },
+    {
+      element: "[data-tour='btob-search']",
+      popover: {
+        title: "検索パネル",
+        description: "業種・エリア・従業員規模などの条件を入力して検索します。結果にAIスコアが付与されます。",
+        side: "top",
+      },
+    },
+  ],
+  "/dashboard/leads/cinema": [
+    {
+      popover: {
+        title: "イオンシネマ広告 リード獲得AI",
+        description: "劇場周辺の対象企業をマップ付きで自動リスト化します。シネアド営業に最適。",
+      },
+    },
+    {
+      element: "[data-tour='cinema-guide']",
+      popover: {
+        title: "使い方",
+        description: "① 劇場選択 → ② 半径・業種設定 → ③ マップ＋スコア確認 → ④ 選択して保存",
+        side: "bottom",
+      },
+    },
+    {
+      element: "[data-tour='cinema-search']",
+      popover: {
+        title: "検索パネル",
+        description: "劇場をエリアから選択し、検索半径（3〜20km）と対象業種を指定します。同心円マップ上に候補企業が表示されます。",
+        side: "top",
+      },
+    },
+  ],
+
   // ================================================================
   // 広告媒体シミュレーター
   // ================================================================
