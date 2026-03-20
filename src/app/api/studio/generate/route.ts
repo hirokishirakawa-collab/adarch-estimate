@@ -1,21 +1,22 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { auth } from "@/lib/auth";
 import { db as prisma } from "@/lib/db";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user?.email)
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user || !user.branchId) return NextResponse.json({ error: "No branch" }, { status: 400 });
+  if (!user || !user.branchId)
+    return new Response(JSON.stringify({ error: "No branch" }), { status: 400 });
 
   const body = await req.json();
   const { studioClientId, month, postsPerMonth } = body;
 
-  // クライアント情報を取得（ヒアリングデータ含む）
   const studioClient = studioClientId
     ? await prisma.studioClient.findUnique({ where: { id: studioClientId } })
     : null;
@@ -28,7 +29,6 @@ export async function POST(req: NextRequest) {
   const snsAccounts = studioClient?.snsAccounts || body.snsAccounts;
   const posts = studioClient?.postsPerMonth || postsPerMonth || 12;
 
-  // 過去の制作物があれば参照
   let pastContext = "";
   if (studioClientId) {
     const pastProductions = await prisma.production.findMany({
@@ -105,29 +105,52 @@ ${pastContext}
 
 フォーマットはMarkdownで、見出し・表・箇条書きを使って見やすく整形してください。`;
 
-  const message = await client.messages.create({
+  // ストリーミングで生成
+  const stream = await anthropic.messages.stream({
     model: "claude-sonnet-4-20250514",
     max_tokens: 8000,
     messages: [{ role: "user", content: prompt }],
   });
 
-  const text = message.content[0].type === "text" ? message.content[0].text : "";
+  let fullText = "";
 
-  // 制作物をDBに保存
-  if (studioClientId) {
-    await prisma.production.create({
-      data: {
-        type: "SNS_PLAN",
-        title: `${month} SNS運用プラン`,
-        content: text,
-        month: month,
-        inputData: { businessType, businessName, area, target, sellingPoints, snsAccounts, postsPerMonth: posts },
-        studioClientId,
-        branchId: user.branchId,
-        createdById: user.id,
-      },
-    });
-  }
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      for await (const event of stream) {
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          const chunk = event.delta.text;
+          fullText += chunk;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`));
+        }
+      }
 
-  return NextResponse.json({ result: text });
+      // 完了後にDBに保存
+      if (studioClientId && fullText.length > 0) {
+        await prisma.production.create({
+          data: {
+            type: "SNS_PLAN",
+            title: `${month} SNS運用プラン`,
+            content: fullText,
+            month,
+            inputData: { businessType, businessName, area, target, sellingPoints, snsAccounts, postsPerMonth: posts },
+            studioClientId,
+            branchId: user.branchId!,
+            createdById: user.id,
+          },
+        });
+      }
+
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
+      controller.close();
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }

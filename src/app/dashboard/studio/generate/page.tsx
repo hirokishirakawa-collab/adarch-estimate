@@ -64,6 +64,7 @@ export default function GeneratePage() {
     e.preventDefault();
     setLoading(true);
     setResult("");
+    setActiveTab("all");
 
     const res = await fetch("/api/studio/generate", {
       method: "POST",
@@ -73,9 +74,40 @@ export default function GeneratePage() {
         ...form,
       }),
     });
-    const data = await res.json();
-    setResult(data.result || "エラーが発生しました");
-    setActiveTab("all");
+
+    const reader = res.body?.getReader();
+    if (!reader) {
+      setResult("エラーが発生しました");
+      setLoading(false);
+      return;
+    }
+
+    const decoder = new TextDecoder();
+    let accumulated = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n");
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.done) break;
+            if (data.text) {
+              accumulated += data.text;
+              setResult(accumulated);
+            }
+          } catch {
+            // ignore parse errors on partial chunks
+          }
+        }
+      }
+    }
+
     setLoading(false);
   };
 
@@ -215,63 +247,75 @@ export default function GeneratePage() {
             </div>
           )}
 
-          {loading && (
+          {loading && !result && (
             <div className="bg-white rounded-xl border p-12 text-center">
               <div className="animate-pulse">
                 <Wand2 className="h-12 w-12 text-fuchsia-400 mx-auto mb-4" />
                 <h3 className="text-lg font-bold text-zinc-900 mb-2">プランを生成中...</h3>
-                <p className="text-zinc-500 text-sm mb-6">AIが最適な運用プランを作成しています（30-60秒）</p>
-                <div className="space-y-2 max-w-xs mx-auto">
-                  {["コンテンツカレンダー", "カット表（4本分）", "撮影指示書", "キャプション+ハッシュタグ", "KPI目標設定"].map((t) => (
-                    <div key={t} className="flex items-center gap-2 text-sm text-zinc-400">
-                      <div className="w-2 h-2 bg-fuchsia-400 rounded-full animate-pulse" />{t}
-                    </div>
-                  ))}
-                </div>
+                <p className="text-zinc-500 text-sm">AIが接続中です...</p>
               </div>
             </div>
           )}
 
-          {result && sections && (
+          {result && (
             <div>
-              <div className="flex gap-1 mb-4 bg-white rounded-lg p-1 border overflow-x-auto">
-                {[
-                  { key: "all", label: "すべて" },
-                  { key: "calendar", label: "カレンダー" },
-                  { key: "cutsheet", label: "カット表" },
-                  { key: "shooting", label: "撮影指示書" },
-                  { key: "caption", label: "キャプション" },
-                  { key: "kpi", label: "KPI" },
-                ].map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition ${
-                      activeTab === tab.key ? "bg-fuchsia-600 text-white" : "text-zinc-600 hover:bg-zinc-100"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+              {/* Streaming indicator */}
+              {loading && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-fuchsia-50 border border-fuchsia-200 rounded-lg">
+                  <div className="w-2 h-2 bg-fuchsia-500 rounded-full animate-pulse" />
+                  <span className="text-sm text-fuchsia-700 font-medium">生成中...</span>
+                </div>
+              )}
+
+              {/* Tabs - only show when not streaming or enough content */}
+              {!loading && (
+                <div className="flex gap-1 mb-4 bg-white rounded-lg p-1 border overflow-x-auto">
+                  {[
+                    { key: "all", label: "すべて" },
+                    { key: "calendar", label: "カレンダー" },
+                    { key: "cutsheet", label: "カット表" },
+                    { key: "shooting", label: "撮影指示書" },
+                    { key: "caption", label: "キャプション" },
+                    { key: "kpi", label: "KPI" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition ${
+                        activeTab === tab.key ? "bg-fuchsia-600 text-white" : "text-zinc-600 hover:bg-zinc-100"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="bg-white rounded-xl border p-6">
                 <div
                   className="prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{
-                    __html: markdownToHtml(activeTab === "all" ? result : sections[activeTab as keyof typeof sections] || ""),
+                    __html: markdownToHtml(
+                      activeTab === "all" || loading
+                        ? result
+                        : sections
+                          ? sections[activeTab as keyof typeof sections] || ""
+                          : ""
+                    ),
                   }}
                 />
               </div>
 
-              <div className="flex gap-3 mt-4">
-                <button onClick={() => { navigator.clipboard.writeText(result); alert("コピーしました"); }} className="px-4 py-2 bg-white border rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50">
-                  全文コピー
-                </button>
-                <button onClick={() => window.print()} className="px-4 py-2 bg-white border rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50">
-                  PDF印刷
-                </button>
-              </div>
+              {!loading && (
+                <div className="flex gap-3 mt-4">
+                  <button onClick={() => { navigator.clipboard.writeText(result); alert("コピーしました"); }} className="px-4 py-2 bg-white border rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+                    全文コピー
+                  </button>
+                  <button onClick={() => window.print()} className="px-4 py-2 bg-white border rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+                    PDF印刷
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
