@@ -172,6 +172,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/studio/competitor",
+        label: "競合分析",
+        icon: Crosshair,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/studio/library",
         label: "制作ライブラリ",
         icon: ImagePlus,
