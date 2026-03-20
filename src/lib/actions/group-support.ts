@@ -28,6 +28,11 @@ export async function getGroupCompanies() {
   await requireAdmin();
   const weekId = getWeekId();
 
+  // 前月の月初・月末を算出
+  const now = new Date();
+  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
   const companies = await db.groupCompany.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
@@ -40,10 +45,34 @@ export async function getGroupCompanies() {
         orderBy: { createdAt: "desc" },
         take: 1,
       },
+      linkedUsers: {
+        select: { branchId: true },
+      },
     },
   });
 
-  return { companies, weekId };
+  // 前月の売上報告を一括取得（branchId別）
+  const prevMonthReports = await db.revenueReport.findMany({
+    where: {
+      targetMonth: {
+        gte: prevMonthStart,
+        lte: prevMonthEnd,
+      },
+    },
+    select: { branchId: true },
+  });
+  const reportedBranches = new Set(prevMonthReports.map((r) => r.branchId));
+
+  // 各企業に前月売上報告有無を付与
+  const companiesWithReport = companies.map((c) => {
+    const branchIds = c.linkedUsers
+      .map((u) => u.branchId)
+      .filter((id): id is string => !!id);
+    const hasReport = branchIds.some((id) => reportedBranches.has(id));
+    return { ...c, prevMonthReportSubmitted: hasReport };
+  });
+
+  return { companies: companiesWithReport, weekId, prevMonthStart };
 }
 
 // ----------------------------------------------------------------

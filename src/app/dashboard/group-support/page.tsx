@@ -25,7 +25,11 @@ export default async function GroupSupportPage() {
   const role = (session?.user?.role ?? "USER") as UserRole;
   if (role !== "ADMIN") redirect("/dashboard");
 
-  const { companies, weekId } = await getGroupCompanies();
+  const { companies, weekId, prevMonthStart } = await getGroupCompanies();
+
+  const prevMonthLabel = new Intl.DateTimeFormat("ja-JP", {
+    month: "long",
+  }).format(prevMonthStart);
 
   // ステータス集計
   const counts: Record<WeeklyStatus, number> = {
@@ -110,6 +114,9 @@ export default async function GroupSupportPage() {
                 <th className="text-center px-3 py-2 text-zinc-500 font-medium">
                   今週
                 </th>
+                <th className="text-center px-3 py-2 text-zinc-500 font-medium">
+                  売上報告（{prevMonthLabel}）
+                </th>
                 <th className="text-left px-3 py-2 text-zinc-500 font-medium">
                   最終共有
                 </th>
@@ -152,6 +159,17 @@ export default async function GroupSupportPage() {
                         {cfg.emoji} {cfg.label}
                       </span>
                     </td>
+                    <td className="px-3 py-2 text-center">
+                      {row.prevMonthReportSubmitted ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          ✅ 報告済
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-600 border border-red-200">
+                          ❌ 未報告
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-zinc-500">
                       {fmt(lastSub?.createdAt)}
                     </td>
@@ -164,7 +182,7 @@ export default async function GroupSupportPage() {
               {rows.length === 0 && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-3 py-8 text-center text-zinc-400"
                   >
                     登録企業がありません
