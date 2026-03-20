@@ -152,60 +152,6 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    section: "Studio（制作OS）",
-    color: "text-fuchsia-500/80",
-    items: [
-      {
-        href: "/dashboard/studio",
-        label: "Studio ホーム",
-        icon: Palette,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/studio/clients",
-        label: "クライアント管理",
-        icon: Users,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/studio/generate",
-        label: "SNSプラン生成",
-        icon: Wand2,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/studio/caption",
-        label: "キャプション生成",
-        icon: MessageCircle,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/studio/subtitle",
-        label: "自動字幕生成",
-        icon: Captions,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/studio/results",
-        label: "成果ダッシュボード",
-        icon: BarChart2,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/studio/insights",
-        label: "営業インサイト",
-        icon: Lightbulb,
-        minRole: "ADMIN",
-      },
-      {
-        href: "/dashboard/studio/library",
-        label: "制作ライブラリ",
-        icon: ImagePlus,
-        minRole: "USER",
-      },
-    ],
-  },
-  {
     section: "制作・プロジェクト",
     color: "text-violet-500/80",
     items: [
@@ -372,6 +318,60 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/omochannel-simulator",
         label: "おもチャンネル（アパホテル）",
         icon: Tv2,
+        minRole: "USER",
+      },
+    ],
+  },
+  {
+    section: "SNS簡易制作（Studio）",
+    color: "text-fuchsia-500/80",
+    items: [
+      {
+        href: "/dashboard/studio",
+        label: "Studio ホーム",
+        icon: Palette,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/clients",
+        label: "クライアント管理",
+        icon: Users,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/generate",
+        label: "SNSプラン生成",
+        icon: Wand2,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/caption",
+        label: "キャプション生成",
+        icon: MessageCircle,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/subtitle",
+        label: "自動字幕生成",
+        icon: Captions,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/results",
+        label: "成果ダッシュボード",
+        icon: BarChart2,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/insights",
+        label: "営業インサイト",
+        icon: Lightbulb,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/studio/library",
+        label: "制作ライブラリ",
+        icon: ImagePlus,
         minRole: "USER",
       },
     ],
