@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Wand2 } from "lucide-react";
 
 interface StudioClient {
@@ -27,9 +28,11 @@ const MONTHS = [
 ];
 
 export default function GeneratePage() {
+  const searchParams = useSearchParams();
+  const initialClientId = searchParams.get("clientId") || "";
   const [clients, setClients] = useState<StudioClient[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState("");
-  const [mode, setMode] = useState<"client" | "manual">("client");
+  const [selectedClientId, setSelectedClientId] = useState(initialClientId);
+  const [mode, setMode] = useState<"client" | "manual">(initialClientId ? "client" : "client");
   const [form, setForm] = useState({
     businessType: "", businessName: "", area: "", target: "",
     sellingPoints: "", snsAccounts: "", month: "2026年4月", postsPerMonth: "12",
