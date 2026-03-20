@@ -316,21 +316,8 @@ export default function GeneratePage() {
 
               {!loading && (
                 <div className="flex gap-3 mt-4">
-                  <button onClick={() => { navigator.clipboard.writeText(result); alert("コピーしました"); }} className="px-4 py-2 bg-white border rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+                  <button onClick={() => { navigator.clipboard.writeText(result); alert("コピーしました"); }} className="px-4 py-2 bg-fuchsia-600 text-white rounded-lg text-sm font-medium hover:bg-fuchsia-700">
                     全文コピー
-                  </button>
-                  {productionId && (
-                    <a
-                      href={`/api/studio/pdf?id=${productionId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-fuchsia-600 text-white rounded-lg text-sm font-medium hover:bg-fuchsia-700"
-                    >
-                      PDF出力
-                    </a>
-                  )}
-                  <button onClick={() => window.print()} className="px-4 py-2 bg-white border rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50">
-                    ブラウザ印刷
                   </button>
                 </div>
               )}

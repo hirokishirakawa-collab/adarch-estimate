@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, Eye, ChevronDown, ChevronRight, FileDown } from "lucide-react";
+import { Trash2, Eye, ChevronDown, ChevronRight } from "lucide-react";
 
 interface ProductionItem {
   id: string;
@@ -74,15 +74,6 @@ export function LibraryList({
               <span className="text-xs px-2 py-1 bg-fuchsia-50 text-fuchsia-700 rounded">
                 {TYPE_LABELS[p.type] || p.type}
               </span>
-              <a
-                href={`/api/studio/pdf?id=${p.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1.5 rounded-md text-zinc-400 hover:text-blue-600 hover:bg-blue-50 transition"
-                title="PDF出力"
-              >
-                <FileDown className="h-4 w-4" />
-              </a>
               {isAdmin && (
                 <button
                   onClick={() => handleDelete(p.id, p.title)}
