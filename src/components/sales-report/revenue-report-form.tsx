@@ -107,7 +107,7 @@ export function RevenueReportForm({ action, defaultValues }: Props) {
       {/* アドアーチグループ案件 売上金額（税抜） */}
       <div>
         <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-          アドアーチグループ案件 売上金額（税抜）<span className="text-red-500 ml-0.5">*</span>
+          今月の売上金額（税抜）<span className="text-red-500 ml-0.5">*</span>
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
