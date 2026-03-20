@@ -448,6 +448,7 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const roleStyle = ROLE_STYLES[user.role];
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
   const toggleGroup = (href: string) => {
     setExpandedGroups((prev) => {
@@ -457,6 +458,27 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
       return next;
     });
   };
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  };
+
+  // セクション内のいずれかのアイテムが active ならそのセクションを開く
+  const isSectionActive = (section: typeof NAV_SECTIONS[number]) =>
+    section.items.some(
+      (item) =>
+        pathname === item.href ||
+        pathname.startsWith(item.href + "/") ||
+        item.children?.some(
+          (child) =>
+            pathname === child.href || pathname.startsWith(child.href + "/")
+        )
+    );
 
   // children のいずれかが active なら親グループも開く
   const isGroupActive = (item: NavItem) =>
@@ -552,16 +574,26 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
           });
           if (visibleItems.length === 0) return null;
 
+          const sectionOpen = expandedSections.has(section.section) || isSectionActive(section);
+
           return (
             <div key={section.section}>
-              <p
+              <button
+                onClick={() => toggleSection(section.section)}
                 className={cn(
-                  "px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest",
-                  section.color
+                  "flex items-center justify-between w-full px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest hover:opacity-100 transition-opacity",
+                  section.color,
+                  sectionOpen ? "opacity-100" : "opacity-60"
                 )}
               >
-                {section.section}
-              </p>
+                <span>{section.section}</span>
+                {sectionOpen ? (
+                  <ChevronDown className="w-3 h-3 opacity-50" />
+                ) : (
+                  <ChevronRight className="w-3 h-3 opacity-50" />
+                )}
+              </button>
+              {sectionOpen && (
               <ul className="space-y-0.5">
                 {visibleItems.map((item) => {
                   // --- 折りたたみグループ ---
@@ -667,6 +699,7 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
                   );
                 })}
               </ul>
+              )}
             </div>
           );
         })}
