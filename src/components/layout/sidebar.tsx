@@ -49,6 +49,8 @@ import {
   Palette,
   Wand2,
   ImagePlus,
+  Captions,
+  Lightbulb,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -170,6 +172,30 @@ const NAV_SECTIONS: NavSection[] = [
         label: "SNSプラン生成",
         icon: Wand2,
         minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/caption",
+        label: "キャプション生成",
+        icon: MessageCircle,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/subtitle",
+        label: "自動字幕生成",
+        icon: Captions,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/results",
+        label: "成果ダッシュボード",
+        icon: BarChart2,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/insights",
+        label: "営業インサイト",
+        icon: Lightbulb,
+        minRole: "ADMIN",
       },
       {
         href: "/dashboard/studio/library",
