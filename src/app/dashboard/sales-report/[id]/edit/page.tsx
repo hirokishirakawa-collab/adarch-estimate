@@ -55,6 +55,9 @@ export default async function EditSalesReportPage({ params }: Props) {
             projectName: report.projectName,
             staffName: report.staffName,
             memo: report.memo,
+            currentProjects: report.currentProjects,
+            nextMonthProjects: report.nextMonthProjects,
+            supportRequest: report.supportRequest,
           }}
         />
       </div>

@@ -38,8 +38,14 @@ export async function createRevenueReport(
   const targetMonth = new Date(`${targetMonthRaw}-01T00:00:00.000Z`);
   if (isNaN(targetMonth.getTime())) return { error: "計上月の形式が正しくありません" };
 
-  const projectName = (formData.get("projectName") as string)?.trim() || null;
-  const memo        = (formData.get("memo") as string)?.trim() || null;
+  const projectName       = (formData.get("projectName") as string)?.trim() || null;
+  const staffName         = (formData.get("staffName") as string)?.trim() || null;
+  const memo              = (formData.get("memo") as string)?.trim() || null;
+  const currentProjectsRaw  = (formData.get("currentProjects") as string)?.trim();
+  const nextMonthProjectsRaw = (formData.get("nextMonthProjects") as string)?.trim();
+  const currentProjects   = currentProjectsRaw ? parseInt(currentProjectsRaw, 10) : null;
+  const nextMonthProjects = nextMonthProjectsRaw ? parseInt(nextMonthProjectsRaw, 10) : null;
+  const supportRequest    = (formData.get("supportRequest") as string)?.trim() || null;
 
   try {
     const created = await db.revenueReport.create({
@@ -47,7 +53,11 @@ export async function createRevenueReport(
         amount,
         targetMonth,
         projectName,
+        staffName,
         memo,
+        currentProjects,
+        nextMonthProjects,
+        supportRequest,
         branchId: info.branchId,
         createdById: info.userId,
       },
@@ -104,13 +114,19 @@ export async function updateRevenueReport(
   const targetMonth = new Date(`${targetMonthRaw}-01T00:00:00.000Z`);
   if (isNaN(targetMonth.getTime())) return { error: "計上月の形式が正しくありません" };
 
-  const projectName = (formData.get("projectName") as string)?.trim() || null;
-  const memo        = (formData.get("memo") as string)?.trim() || null;
+  const projectName       = (formData.get("projectName") as string)?.trim() || null;
+  const staffName         = (formData.get("staffName") as string)?.trim() || null;
+  const memo              = (formData.get("memo") as string)?.trim() || null;
+  const currentProjectsRaw  = (formData.get("currentProjects") as string)?.trim();
+  const nextMonthProjectsRaw = (formData.get("nextMonthProjects") as string)?.trim();
+  const currentProjects   = currentProjectsRaw ? parseInt(currentProjectsRaw, 10) : null;
+  const nextMonthProjects = nextMonthProjectsRaw ? parseInt(nextMonthProjectsRaw, 10) : null;
+  const supportRequest    = (formData.get("supportRequest") as string)?.trim() || null;
 
   try {
     await db.revenueReport.update({
       where: { id: reportId },
-      data: { amount, targetMonth, projectName, memo },
+      data: { amount, targetMonth, projectName, staffName, memo, currentProjects, nextMonthProjects, supportRequest },
     });
     logAudit({ action: "revenue_report_updated", email: info.email, name: info.staffName, entity: "revenue_report", entityId: reportId, detail: `${targetMonthRaw} ${amount.toLocaleString()}円` });
   } catch (e) {

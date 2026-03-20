@@ -11,6 +11,9 @@ interface Props {
     projectName?: string | null;
     staffName?: string | null;
     memo?: string | null;
+    currentProjects?: number | null;
+    nextMonthProjects?: number | null;
+    supportRequest?: string | null;
   };
 }
 
@@ -39,6 +42,66 @@ export function RevenueReportForm({ action, defaultValues }: Props) {
                      focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400
                      bg-white text-zinc-900"
         />
+      </div>
+
+      {/* 今の状況 */}
+      <div>
+        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+          今の状況<span className="text-red-500 ml-0.5">*</span>
+        </label>
+        <select
+          name="staffName"
+          defaultValue={defaultValues?.staffName ?? ""}
+          required
+          className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg
+                     focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400
+                     bg-white text-zinc-900"
+        >
+          <option value="">選択してください</option>
+          <option value="順調に稼働中">順調に稼働中</option>
+          <option value="案件を探している">案件を探している</option>
+          <option value="別業務で多忙">別業務で多忙</option>
+          <option value="体制を見直し中">体制を見直し中</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+
+      {/* 今月の案件数 */}
+      <div>
+        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+          今月の案件数
+        </label>
+        <input
+          type="number"
+          name="currentProjects"
+          min={0}
+          step={1}
+          defaultValue={defaultValues?.currentProjects ?? ""}
+          placeholder="0"
+          className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg
+                     focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400
+                     bg-white text-zinc-900"
+        />
+        <p className="mt-1 text-[11px] text-zinc-400">進行中・完了含めた案件の合計数</p>
+      </div>
+
+      {/* 来月の見込み案件数 */}
+      <div>
+        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+          来月の見込み案件数
+        </label>
+        <input
+          type="number"
+          name="nextMonthProjects"
+          min={0}
+          step={1}
+          defaultValue={defaultValues?.nextMonthProjects ?? ""}
+          placeholder="0"
+          className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg
+                     focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400
+                     bg-white text-zinc-900"
+        />
+        <p className="mt-1 text-[11px] text-zinc-400">確定・見込み含めた件数</p>
       </div>
 
       {/* アドアーチグループ案件 売上金額（税抜） */}
@@ -73,33 +136,32 @@ export function RevenueReportForm({ action, defaultValues }: Props) {
           type="text"
           name="projectName"
           defaultValue={defaultValues?.projectName ?? ""}
-          placeholder="例: ○○ビル 外壁改修工事"
+          placeholder="例: ○○株式会社 CM制作"
           maxLength={200}
           className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg
                      focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400
                      bg-white text-zinc-900"
         />
-        <p className="mt-1 text-[11px] text-zinc-400">対象の案件がある場合は自由に記入してください</p>
       </div>
 
-      {/* 今の状況 */}
+      {/* 本部に相談したいこと */}
       <div>
         <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-          今の状況
+          本部に相談したいこと
         </label>
         <select
-          name="staffName"
-          defaultValue={defaultValues?.staffName ?? ""}
+          name="supportRequest"
+          defaultValue={defaultValues?.supportRequest ?? ""}
           className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg
                      focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400
                      bg-white text-zinc-900"
         >
-          <option value="">選択してください</option>
-          <option value="順調に稼働中">順調に稼働中</option>
-          <option value="案件を探している">案件を探している</option>
-          <option value="別業務で多忙">別業務で多忙</option>
-          <option value="体制を見直し中">体制を見直し中</option>
-          <option value="その他">その他</option>
+          <option value="">特になし</option>
+          <option value="案件紹介希望">案件紹介してほしい</option>
+          <option value="営業支援希望">営業を手伝ってほしい</option>
+          <option value="制作支援希望">制作を手伝ってほしい</option>
+          <option value="契約相談">契約について相談したい</option>
+          <option value="その他相談">その他（補足コメントに記入）</option>
         </select>
       </div>
 
@@ -110,7 +172,7 @@ export function RevenueReportForm({ action, defaultValues }: Props) {
         </label>
         <textarea
           name="memo"
-          rows={4}
+          rows={3}
           defaultValue={defaultValues?.memo ?? ""}
           placeholder="案件の状況、困っていること、本部への相談など自由に記入してください"
           className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg

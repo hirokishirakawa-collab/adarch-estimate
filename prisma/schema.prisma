@@ -600,9 +600,12 @@ model RevenueReport {
   targetMonth DateTime // 計上月（月初日 YYYY-MM-01 で保存）
   memo        String?  @db.Text // 備考
 
-  // ---- プロジェクト名（自由記述）------------------------------
-  projectName String? // 関連プロジェクト名（自由入力）
-  staffName   String? // 担当者名
+  // ---- 月次報告フィールド ------------------------------------
+  projectName       String? // 関連プロジェクト名（自由入力）
+  staffName         String? // 今の状況（選択値）
+  currentProjects   Int?    // 今月の案件数
+  nextMonthProjects Int?    // 来月の見込み案件数
+  supportRequest    String? // 本部に相談したいこと（選択値）
 
   // ---- 作成者（データ保護の軸）--------------------------------
   createdById String
