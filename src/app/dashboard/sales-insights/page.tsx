@@ -117,14 +117,16 @@ export default function SalesInsightsPage() {
       </div>
 
       {/* Upload Form */}
-      <UploadForm onUploaded={loadData} />
+      <div data-tour="insight-upload">
+        <UploadForm onUploaded={loadData} />
+      </div>
 
       {/* Setup Guide */}
       <SetupGuide />
 
       {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div data-tour="insight-summary" className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <SummaryCard label="レポート数" value={summary.totalReports} />
           <SummaryCard label="総送信数" value={summary.totalSent} />
           <SummaryCard label="総返信数" value={summary.totalReplied} />
@@ -138,14 +140,14 @@ export default function SalesInsightsPage() {
 
       {/* Reports */}
       {data.length === 0 ? (
-        <div className="text-center py-16 text-zinc-500">
+        <div data-tour="insight-list" className="text-center py-16 text-zinc-500">
           <p className="text-lg mb-2">まだレポートがありません</p>
           <p className="text-sm">
             下の「使い方ガイド」を参考に、Claudeの分析結果を貼り付けて送信してください
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div data-tour="insight-list" className="space-y-4">
           {data.map((record) => (
             <InsightCard key={record.id} record={record} />
           ))}

@@ -49,6 +49,7 @@ export default async function WikiPage({ searchParams }: PageProps) {
         </div>
         <Link
           href="/dashboard/wiki/new"
+          data-tour="wiki-new"
           className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white text-xs font-medium rounded-lg hover:bg-teal-700 transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -57,7 +58,7 @@ export default async function WikiPage({ searchParams }: PageProps) {
       </div>
 
       {/* 検索 */}
-      <form method="GET" className="flex items-center gap-2">
+      <form data-tour="wiki-search" method="GET" className="flex items-center gap-2">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
           <input

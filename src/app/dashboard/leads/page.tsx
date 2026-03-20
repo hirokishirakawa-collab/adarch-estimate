@@ -26,7 +26,7 @@ export default function LeadsPage() {
       </div>
 
       {/* 利用方法 */}
-      <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
+      <div data-tour="lead-guide" className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
         <p className="text-xs font-semibold text-zinc-700 mb-3">使い方</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="flex gap-3">
@@ -76,7 +76,9 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      <LeadSearchPanel />
+      <div data-tour="lead-search-panel">
+        <LeadSearchPanel />
+      </div>
     </div>
   );
 }

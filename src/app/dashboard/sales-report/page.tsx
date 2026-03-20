@@ -60,6 +60,7 @@ export default async function SalesReportPage() {
 
         <Link
           href="/dashboard/sales-report/new"
+          data-tour="report-new"
           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white
                      text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
@@ -82,7 +83,9 @@ export default async function SalesReportPage() {
             自分の報告
           </p>
         )}
-        <RevenueReportList reports={reports} />
+        <div data-tour="report-list">
+          <RevenueReportList reports={reports} />
+        </div>
       </div>
     </div>
   );

@@ -78,7 +78,7 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
             <p className="text-xs text-zinc-500 mt-0.5">受注案件の進行状況を一元管理</p>
           </div>
         </div>
-        <Link href="/dashboard/projects/new">
+        <Link href="/dashboard/projects/new" data-tour="project-new">
           <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
             <Plus className="w-3.5 h-3.5" />
             新規プロジェクト
@@ -87,7 +87,7 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
       </div>
 
       {/* サマリーカード */}
-      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+      <div data-tour="project-summary" className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
           <p className="text-[11px] text-zinc-500">全件</p>
           <p className="text-xl font-bold text-zinc-900 mt-0.5">
@@ -107,14 +107,14 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
       </div>
 
       {/* 検索・フィルタ */}
-      <div className="bg-white rounded-xl border border-zinc-200 px-4 py-3">
+      <div data-tour="project-search" className="bg-white rounded-xl border border-zinc-200 px-4 py-3">
         <Suspense fallback={null}>
           <ProjectSearch />
         </Suspense>
       </div>
 
       {/* テーブル */}
-      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      <div data-tour="project-table" className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
         <ProjectTable projects={projects} isAdmin={role === "ADMIN"} />
         <div className="border-t border-zinc-100 px-4 py-3 flex items-center justify-between">
           <p className="text-xs text-zinc-500">

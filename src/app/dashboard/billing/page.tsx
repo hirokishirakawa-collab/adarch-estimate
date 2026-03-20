@@ -25,6 +25,7 @@ export default async function BillingPage() {
 
         <Link
           href="/dashboard/billing/new"
+          data-tour="billing-new"
           className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white
                      text-xs font-medium rounded-lg hover:bg-violet-700 transition-colors"
         >
@@ -33,7 +34,9 @@ export default async function BillingPage() {
         </Link>
       </div>
 
-      <InvoiceRequestList requests={requests} role={role} />
+      <div data-tour="billing-list">
+        <InvoiceRequestList requests={requests} role={role} />
+      </div>
     </div>
   );
 }

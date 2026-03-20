@@ -39,6 +39,7 @@ export default async function TverCampaignPage() {
 
         <Link
           href="/dashboard/tver-campaign/new"
+          data-tour="campaign-new"
           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white
                      text-xs font-medium rounded-lg hover:bg-blue-800 transition-colors"
         >
@@ -48,7 +49,7 @@ export default async function TverCampaignPage() {
       </div>
 
       {/* テーブル */}
-      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      <div data-tour="campaign-table" className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

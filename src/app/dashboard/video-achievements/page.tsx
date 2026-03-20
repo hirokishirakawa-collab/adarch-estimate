@@ -87,6 +87,7 @@ export default async function VideoAchievementsPage({ searchParams }: PageProps)
         </div>
         <div className="flex items-center gap-2">
           <Link
+            data-tour="achievement-scrape"
             href="/dashboard/video-achievements/scrape"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors"
           >
@@ -103,13 +104,15 @@ export default async function VideoAchievementsPage({ searchParams }: PageProps)
         </div>
       </div>
 
-      <AchievementTracker
-        achievements={achievements}
-        role={role}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalCount={totalCount}
-      />
+      <div data-tour="achievement-tracker">
+        <AchievementTracker
+          achievements={achievements}
+          role={role}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalCount={totalCount}
+        />
+      </div>
     </div>
   );
 }

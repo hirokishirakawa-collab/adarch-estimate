@@ -164,7 +164,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div data-tour="lead-list-import" className="flex items-center gap-3">
           <LeadCsvImport />
           <LeadExportButtons />
           {isAdmin && <LeadDeleteAllButton totalCount={totalAll} />}
@@ -172,7 +172,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       </div>
 
       {/* ===== サマリーカード ===== */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div data-tour="lead-list-summary" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
           <p className="text-[11px] text-zinc-500">総リード数</p>
           <p className="text-xl font-bold text-zinc-900 mt-0.5">
@@ -194,7 +194,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       </div>
 
       {/* ===== フィルター ===== */}
-      <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
+      <div data-tour="lead-list-filters" className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
         <Suspense>
           <LeadListFilters
             users={users}
@@ -205,7 +205,9 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       </div>
 
       {/* ===== テーブル ===== */}
-      <LeadListTable leads={leads} users={users} isAdmin={isAdmin} canSelect={canSelect} />
+      <div data-tour="lead-list-table">
+        <LeadListTable leads={leads} users={users} isAdmin={isAdmin} canSelect={canSelect} />
+      </div>
 
       {/* ===== ページネーション ===== */}
       {totalPages > 0 && (

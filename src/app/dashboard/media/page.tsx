@@ -25,6 +25,7 @@ export default async function MediaPage() {
 
         <Link
           href="/dashboard/media/new"
+          data-tour="media-new"
           className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white
                      text-xs font-medium rounded-lg hover:bg-amber-700 transition-colors"
         >

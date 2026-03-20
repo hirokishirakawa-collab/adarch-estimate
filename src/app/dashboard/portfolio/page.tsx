@@ -56,6 +56,7 @@ export default async function PortfolioPage({
   });
 
   return (
+    <div data-tour="portfolio-search">
     <PortfolioExplorer
       items={items.map((item) => ({
         id: item.id,
@@ -77,5 +78,6 @@ export default async function PortfolioPage({
       query={q}
       typeFilter={typeFilter}
     />
+    </div>
   );
 }

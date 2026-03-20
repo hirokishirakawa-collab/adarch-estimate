@@ -125,6 +125,7 @@ export default async function BusinessCardsPage(props: {
         </div>
         <Link
           href="/dashboard/business-cards/new"
+          data-tour="card-new"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -133,7 +134,7 @@ export default async function BusinessCardsPage(props: {
       </div>
 
       {/* サマリーカード */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div data-tour="card-summary" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "全名刺数", value: totalCards },
           { label: "コラボ希望", value: collabCount },
@@ -156,7 +157,9 @@ export default async function BusinessCardsPage(props: {
 
       {/* 検索・フィルタ */}
       <Suspense fallback={null}>
+        <div data-tour="card-search">
         <CardSearch />
+        </div>
       </Suspense>
 
       {/* テーブル */}

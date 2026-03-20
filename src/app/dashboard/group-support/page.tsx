@@ -59,11 +59,13 @@ export default async function GroupSupportPage() {
           <h1 className="text-lg font-bold text-zinc-900">グループサポート</h1>
           <p className="text-xs text-zinc-500 mt-0.5">{weekId}</p>
         </div>
-        <GenerateReportButton weekId={weekId} />
+        <div data-tour="support-report">
+          <GenerateReportButton weekId={weekId} />
+        </div>
       </div>
 
       {/* ステータスサマリー */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div data-tour="support-summary" className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {(
           Object.entries(STATUS_CONFIG) as [
             WeeklyStatus,
@@ -91,7 +93,7 @@ export default async function GroupSupportPage() {
       </div>
 
       {/* テーブル */}
-      <div className="rounded-lg border border-zinc-200 overflow-hidden bg-white">
+      <div data-tour="support-table" className="rounded-lg border border-zinc-200 overflow-hidden bg-white">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>

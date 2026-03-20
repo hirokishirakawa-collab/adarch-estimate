@@ -118,14 +118,16 @@ export default async function LoginLogsPage({ searchParams }: PageProps) {
       </div>
 
       {/* ===== 検索・フィルター ===== */}
-      <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
+      <div data-tour="log-search" className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
         <Suspense>
           <LoginLogSearch />
         </Suspense>
       </div>
 
       {/* ===== テーブル ===== */}
-      <LoginLogTable logs={logs} />
+      <div data-tour="log-table">
+        <LoginLogTable logs={logs} />
+      </div>
 
       {/* ===== ページネーション ===== */}
       {totalPages > 0 && (

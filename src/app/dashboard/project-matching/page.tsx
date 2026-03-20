@@ -47,6 +47,7 @@ export default async function ProjectMatchingPage() {
           </Link>
           <Link
             href="/dashboard/project-matching/new"
+            data-tour="matching-post"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -56,6 +57,7 @@ export default async function ProjectMatchingPage() {
       </div>
 
       {/* 案件リスト */}
+      <div data-tour="matching-list">
       {requests.length === 0 ? (
         <div className="rounded-lg border border-zinc-200 bg-white p-12 text-center">
           <p className="text-sm text-zinc-500">
@@ -151,6 +153,8 @@ export default async function ProjectMatchingPage() {
           })}
         </div>
       )}
+
+      </div>
 
       {/* 締め切り済み案件 */}
       {closedRequests.length > 0 && (

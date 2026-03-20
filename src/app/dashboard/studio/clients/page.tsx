@@ -31,6 +31,7 @@ export default async function StudioClientsPage() {
         <h1 className="text-2xl font-bold text-zinc-900">クライアント管理</h1>
         <Link
           href="/dashboard/studio/clients/new"
+          data-tour="studio-client-new"
           className="flex items-center gap-2 bg-fuchsia-600 text-white px-4 py-2 rounded-lg hover:bg-fuchsia-700 transition"
         >
           <Plus className="h-4 w-4" />

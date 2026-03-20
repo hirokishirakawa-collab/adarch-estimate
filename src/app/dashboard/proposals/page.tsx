@@ -139,8 +139,12 @@ export default function ProposalsPage() {
         </p>
       </div>
 
-      <ProposalForm onGenerated={fetchData} />
-      <ProposalList proposals={proposals} isAdmin={isAdmin} onRefresh={fetchData} />
+      <div data-tour="proposal-form">
+        <ProposalForm onGenerated={fetchData} />
+      </div>
+      <div data-tour="proposal-list">
+        <ProposalList proposals={proposals} isAdmin={isAdmin} onRefresh={fetchData} />
+      </div>
     </div>
   );
 }

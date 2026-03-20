@@ -114,7 +114,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             </p>
           </div>
         </div>
-        <Link href="/dashboard/customers/new">
+        <Link data-tour="customer-new" href="/dashboard/customers/new">
           <Button size="sm" className="gap-1.5">
             <Plus className="w-3.5 h-3.5" />
             ＋新規顧客を追加
@@ -123,7 +123,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       </div>
 
       {/* ===== サマリーカード ===== */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div data-tour="customer-summary" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
           <p className="text-[11px] text-zinc-500">総顧客数</p>
           <p className="text-xl font-bold text-zinc-900 mt-0.5">
@@ -156,18 +156,20 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       </div>
 
       {/* ===== 検索・フィルター ===== */}
-      <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
+      <div data-tour="customer-search" className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
         <Suspense>
           <CustomerSearch />
         </Suspense>
       </div>
 
       {/* ===== 顧客テーブル ===== */}
+      <div data-tour="customer-table">
       <CustomerTable
         customers={customers}
         userRole={role}
         userBranchId={userBranchId}
       />
+      </div>
 
       {/* ===== ページネーション ===== */}
       {totalPages > 0 && (

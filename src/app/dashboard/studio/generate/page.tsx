@@ -144,7 +144,7 @@ export default function GeneratePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Input */}
-        <div className="lg:col-span-1">
+        <div data-tour="generate-input" className="lg:col-span-1">
           <div className="bg-white rounded-xl border p-5 sticky top-4">
             {/* Mode toggle */}
             <div className="flex gap-2 mb-4">
@@ -246,7 +246,7 @@ export default function GeneratePage() {
         </div>
 
         {/* Right: Output */}
-        <div className="lg:col-span-2">
+        <div data-tour="generate-output" className="lg:col-span-2">
           {!result && !loading && (
             <div className="bg-white rounded-xl border p-12 text-center">
               <Wand2 className="h-16 w-16 text-fuchsia-200 mx-auto mb-4" />

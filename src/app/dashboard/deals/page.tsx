@@ -84,7 +84,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
             <h2 className="text-lg font-bold text-zinc-900">商談管理 (SFA)</h2>
             <p className="text-xs text-zinc-500 mt-0.5">パイプラインをカンバンで管理</p>
           </div>
-          <DealViewTabs />
+          <div data-tour="deal-view"><DealViewTabs /></div>
         </div>
         <div className="flex items-center gap-2">
           <DealSearch
@@ -93,6 +93,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
           />
           <ArchiveToggle showArchived={showArchived} archivedCount={archivedCount} />
           <Link
+            data-tour="deal-new"
             href="/dashboard/deals/new"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
           >
@@ -103,7 +104,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
       </div>
 
       {/* サマリーカード */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div data-tour="deal-summary" className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-zinc-200 px-4 py-3">
           <div className="flex items-center gap-1.5 mb-1">
             <p className="text-[11px] text-zinc-400">商談総数</p>
@@ -134,7 +135,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
       </div>
 
       {/* カンバンボード */}
-      <div className="bg-white rounded-xl border border-zinc-200 p-4">
+      <div data-tour="deal-kanban" className="bg-white rounded-xl border border-zinc-200 p-4">
         {deals.length === 0 && !showArchived ? (
           <div className="py-20 text-center">
             <p className="text-sm text-zinc-400">商談がありません。</p>

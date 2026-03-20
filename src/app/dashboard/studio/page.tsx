@@ -49,7 +49,7 @@ export default async function StudioHome() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div data-tour="studio-summary" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded-xl border p-5">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-fuchsia-50 rounded-lg">
@@ -89,6 +89,7 @@ export default async function StudioHome() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <Link
           href="/dashboard/studio/generate"
+          data-tour="studio-generate"
           className="bg-gradient-to-br from-fuchsia-500 to-purple-600 rounded-xl p-6 text-white hover:from-fuchsia-600 hover:to-purple-700 transition"
         >
           <Wand2 className="h-8 w-8 mb-3" />
@@ -99,6 +100,7 @@ export default async function StudioHome() {
         </Link>
         <Link
           href="/dashboard/studio/clients"
+          data-tour="studio-clients"
           className="bg-white rounded-xl border p-6 hover:border-fuchsia-300 transition"
         >
           <Users className="h-8 w-8 mb-3 text-fuchsia-600" />

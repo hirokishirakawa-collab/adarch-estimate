@@ -50,7 +50,7 @@ export default async function AdminUsersPage() {
       </div>
 
       {/* サマリーカード */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div data-tour="user-summary" className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {summaryCards.map(({ label, count, cls, bg }) => (
           <div key={label} className={`${bg} border border-zinc-200 rounded-xl px-4 py-3`}>
             <p className="text-[11px] text-zinc-500 font-semibold mb-0.5">{label}</p>
@@ -63,10 +63,14 @@ export default async function AdminUsersPage() {
       </div>
 
       {/* メンバー登録フォーム */}
-      <RegisterMemberForm />
+      <div data-tour="user-register">
+        <RegisterMemberForm />
+      </div>
 
       {/* ユーザーテーブル */}
-      <UserTable users={users} callerEmail={callerEmail} groupCompanies={groupCompanies} />
+      <div data-tour="user-table">
+        <UserTable users={users} callerEmail={callerEmail} groupCompanies={groupCompanies} />
+      </div>
     </div>
   );
 }
