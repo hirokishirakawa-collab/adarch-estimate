@@ -18,15 +18,18 @@ export async function POST(req: NextRequest) {
 
   // Generate share token (store in metadata)
   const shareToken = randomBytes(16).toString("hex");
+  const existingMeta = typeof production.metadata === "object" && production.metadata !== null
+    ? (production.metadata as Record<string, unknown>)
+    : {};
   await prisma.production.update({
     where: { id: productionId },
     data: {
-      metadata: {
-        ...(typeof production.metadata === "object" && production.metadata !== null ? production.metadata : {}),
+      metadata: JSON.parse(JSON.stringify({
+        ...existingMeta,
         shareToken,
         sharedAt: new Date().toISOString(),
         sharedBy: user.email,
-      } as Record<string, unknown>,
+      })),
     },
   });
 
