@@ -148,6 +148,7 @@ ${pastContext}
       }
 
       // 完了後にDBに保存 + 操作ログ記録
+      let savedProductionId: string | null = null;
       if (studioClientId && fullText.length > 0) {
         const production = await prisma.production.create({
           data: {
@@ -164,6 +165,8 @@ ${pastContext}
         });
 
         // 操作ログ
+        savedProductionId = production.id;
+
         await prisma.auditLog.create({
           data: {
             action: "studio_plan_generated",
@@ -176,7 +179,7 @@ ${pastContext}
         });
       }
 
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, productionId: savedProductionId })}\n\n`));
       controller.close();
     },
   });

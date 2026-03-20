@@ -40,6 +40,7 @@ export default function GeneratePage() {
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [productionId, setProductionId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/studio/clients").then((r) => r.json()).then(setClients);
@@ -68,6 +69,7 @@ export default function GeneratePage() {
     setLoading(true);
     setResult("");
     setActiveTab("all");
+    setProductionId(null);
 
     const res = await fetch("/api/studio/generate", {
       method: "POST",
@@ -99,7 +101,10 @@ export default function GeneratePage() {
         if (line.startsWith("data: ")) {
           try {
             const data = JSON.parse(line.slice(6));
-            if (data.done) break;
+            if (data.done) {
+              if (data.productionId) setProductionId(data.productionId);
+              break;
+            }
             if (data.text) {
               accumulated += data.text;
               setResult(accumulated);
@@ -314,8 +319,18 @@ export default function GeneratePage() {
                   <button onClick={() => { navigator.clipboard.writeText(result); alert("コピーしました"); }} className="px-4 py-2 bg-white border rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50">
                     全文コピー
                   </button>
+                  {productionId && (
+                    <a
+                      href={`/api/studio/pdf?id=${productionId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-fuchsia-600 text-white rounded-lg text-sm font-medium hover:bg-fuchsia-700"
+                    >
+                      PDF出力
+                    </a>
+                  )}
                   <button onClick={() => window.print()} className="px-4 py-2 bg-white border rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50">
-                    PDF印刷
+                    ブラウザ印刷
                   </button>
                 </div>
               )}
