@@ -28,6 +28,18 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // 操作ログ
+  await prisma.auditLog.create({
+    data: {
+      action: "studio_client_created",
+      email: user.email,
+      name: user.name,
+      entity: "studio_client",
+      entityId: client.id,
+      detail: `Studioクライアント登録: ${body.name}（${body.businessType} / ${body.area}）`,
+    },
+  });
+
   return NextResponse.json(client);
 }
 

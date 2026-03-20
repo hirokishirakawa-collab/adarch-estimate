@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { db as prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { ImagePlus } from "lucide-react";
+import { LibraryList } from "./library-list";
 
 export default async function LibraryPage() {
   const session = await auth();
@@ -16,7 +17,10 @@ export default async function LibraryPage() {
   const productions = await prisma.production.findMany({
     where: branchFilter,
     orderBy: { createdAt: "desc" },
-    include: { studioClient: true },
+    include: {
+      studioClient: true,
+      createdBy: { select: { name: true, email: true } },
+    },
   });
 
   return (
@@ -33,21 +37,19 @@ export default async function LibraryPage() {
           <p className="text-zinc-500">SNSプラン生成で作成した制作物がここに表示されます。</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {productions.map((p) => (
-            <div key={p.id} className="bg-white rounded-xl border p-4 hover:border-fuchsia-300 transition">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-zinc-900">{p.title}</h3>
-                  <p className="text-sm text-zinc-500">{p.studioClient.name} · {p.month} · {new Date(p.createdAt).toLocaleDateString("ja-JP")}</p>
-                </div>
-                <span className="text-xs px-2 py-1 bg-fuchsia-50 text-fuchsia-700 rounded">
-                  {p.type === "SNS_PLAN" ? "SNSプラン" : p.type === "CUTSHEET" ? "カット表" : p.type === "REPORT" ? "レポート" : p.type}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+        <LibraryList
+          productions={productions.map((p) => ({
+            id: p.id,
+            title: p.title,
+            type: p.type,
+            month: p.month,
+            clientName: p.studioClient.name,
+            createdByName: p.createdBy?.name || p.createdBy?.email || "不明",
+            createdAt: p.createdAt.toISOString(),
+            contentPreview: p.content.substring(0, 200),
+          }))}
+          isAdmin={isAdmin}
+        />
       )}
     </div>
   );

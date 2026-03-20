@@ -125,18 +125,31 @@ ${pastContext}
         }
       }
 
-      // 完了後にDBに保存
+      // 完了後にDBに保存 + 操作ログ記録
       if (studioClientId && fullText.length > 0) {
-        await prisma.production.create({
+        const production = await prisma.production.create({
           data: {
             type: "SNS_PLAN",
             title: `${month} SNS運用プラン`,
             content: fullText,
             month,
             inputData: { businessType, businessName, area, target, sellingPoints, snsAccounts, postsPerMonth: posts },
+            metadata: { tokens: fullText.length, model: "claude-sonnet-4-20250514", generatedAt: new Date().toISOString() },
             studioClientId,
             branchId: user.branchId!,
             createdById: user.id,
+          },
+        });
+
+        // 操作ログ
+        await prisma.auditLog.create({
+          data: {
+            action: "studio_plan_generated",
+            email: user.email,
+            name: user.name,
+            entity: "production",
+            entityId: production.id,
+            detail: `SNSプラン生成: ${businessName} / ${month} / ${posts}本`,
           },
         });
       }
