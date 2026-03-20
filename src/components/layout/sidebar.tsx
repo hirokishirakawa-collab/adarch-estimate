@@ -46,6 +46,9 @@ import {
   ChevronDown,
   ChevronRight,
   MessageCircle,
+  Palette,
+  Wand2,
+  ImagePlus,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -142,6 +145,36 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/proposals/analytics",
         label: "提案書 閲覧分析",
         icon: Eye,
+        minRole: "USER",
+      },
+    ],
+  },
+  {
+    section: "Studio（制作OS）",
+    color: "text-fuchsia-500/80",
+    items: [
+      {
+        href: "/dashboard/studio",
+        label: "Studio ホーム",
+        icon: Palette,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/clients",
+        label: "クライアント管理",
+        icon: Users,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/generate",
+        label: "SNSプラン生成",
+        icon: Wand2,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/studio/library",
+        label: "制作ライブラリ",
+        icon: ImagePlus,
         minRole: "USER",
       },
     ],

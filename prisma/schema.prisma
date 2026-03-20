@@ -234,6 +234,11 @@ model Branch {
   tverCampaigns              TverCampaign[]
   tverCreativeReviews        TverCreativeReview[]
 
+  // Studio
+  studioClients              StudioClient[]     @relation("StudioClients")
+  studioProductions          Production[]       @relation("StudioProductions")
+  studioResults              MonthlyResult[]    @relation("StudioResults")
+
   @@map("branches")
 }
 
@@ -309,6 +314,10 @@ model User {
   // ---- ヘルプチャットボット ----
   chatbotConversations ChatbotConversation[] @relation("ChatbotConversations")
 
+  // ---- Studio（制作OS）----
+  studioClientsCreated  StudioClient[] @relation("StudioClientCreator")
+  productionsCreated    Production[]   @relation("ProductionCreator")
+
   @@index([branchId])
   @@index([branchId2])
   @@index([role])
@@ -375,6 +384,9 @@ model Customer {
 
   // ---- ヒアリングシート ----
   hearingSheets HearingSheet[] @relation("CustomerHearingSheets")
+
+  // ---- Studio（制作OS）----
+  studioClients StudioClient[] @relation("StudioCustomer")
 
   @@index([branchId])
   @@index([lockedByUserId])
@@ -1459,6 +1471,10 @@ model Lead {
   @@index([assigneeId])
   @@index([createdAt])
   @@index([source])
+
+  // ---- Studio（制作OS）----
+  studioClients StudioClient[] @relation("StudioLead")
+
   @@map("leads")
 }
 
@@ -1748,4 +1764,149 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 
   @@map("app_settings")
+}
+
+// ==============================================================
+// Ad Arch Studio — 制作OS
+// パートナー向けSNS運用・制作ツール
+//
+// データフロー:
+//   Lead → Customer → StudioClient → SNSプラン生成 → 制作物 → 成果データ
+//   → 統計 → 営業インサイトに還元
+// ==============================================================
+
+enum StudioClientStatus {
+  ACTIVE    // 運用中
+  PAUSED    // 一時停止
+  CHURNED   // 解約
+}
+
+enum ProductionType {
+  SNS_PLAN       // SNS運用プラン（カレンダー+カット表+撮影指示+キャプション+KPI）
+  CUTSHEET       // カット表単体
+  CAPTION        // キャプション+ハッシュタグ
+  REPORT         // 月次レポート
+  SHOOTING_GUIDE // 撮影指示書
+  SHORT_VIDEO    // ショート動画
+  THUMBNAIL      // サムネイル/バナー
+}
+
+/// Studio用クライアント。Customerと紐づけ可能（営業→制作の連携）。
+/// パートナー（Branch）ごとにクライアントを管理。ヒアリングデータが蓄積され、毎月の生成に再利用される。
+model StudioClient {
+  id             String              @id @default(cuid())
+  name           String              // 店舗名・企業名
+  businessType   String              // 業種
+  area           String              // エリア
+  target         String              // ターゲット
+  sellingPoints  String?             @db.Text // 強み・売り
+  snsAccounts    String?             // SNSアカウント
+  brandColors    String?             // ブランドカラー（HEX等）
+  logoUrl        String?             // ロゴURL
+  monthlyBudget  Int?                // 月額予算
+  contractStart  DateTime?           // 契約開始日
+  postsPerMonth  Int                 @default(12) // 月間投稿数
+  status         StudioClientStatus  @default(ACTIVE)
+  notes          String?             @db.Text
+
+  // ヒアリング蓄積（フリーフォーム。生成時に毎回参照）
+  hearingData    Json?               // 追加ヒアリング情報（JSON）
+
+  // 営業連携
+  customerId     String?             // 既存Customer（経営OS）と紐づけ
+  customer       Customer?           @relation("StudioCustomer", fields: [customerId], references: [id])
+  leadId         String?             // リード獲得AIと紐づけ
+  lead           Lead?               @relation("StudioLead", fields: [leadId], references: [id])
+
+  // マルチテナント（パートナー別）
+  branchId       String
+  branch         Branch              @relation("StudioClients", fields: [branchId], references: [id])
+  createdById    String?
+  createdBy      User?               @relation("StudioClientCreator", fields: [createdById], references: [id])
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  // Relations
+  productions    Production[]
+  results        MonthlyResult[]
+
+  @@index([branchId])
+  @@index([customerId])
+  @@map("studio_clients")
+}
+
+/// 制作物。SNSプラン・カット表・キャプション・レポート等。AIが生成した内容を保存。
+model Production {
+  id             String          @id @default(cuid())
+  type           ProductionType  // 種別
+  title          String          // タイトル（例: "2026年4月 SNS運用プラン"）
+  content        String          @db.Text // 生成された内容（Markdown）
+  month          String?         // 対象月（例: "2026-04"）
+  inputData      Json?           // 生成時の入力パラメータ（再生成用）
+  metadata       Json?           // トークン数・モデル・生成時間等
+
+  // 紐づけ
+  studioClientId String
+  studioClient   StudioClient    @relation(fields: [studioClientId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch          @relation("StudioProductions", fields: [branchId], references: [id])
+  createdById    String?
+  createdBy      User?           @relation("ProductionCreator", fields: [createdById], references: [id])
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([studioClientId])
+  @@index([branchId])
+  @@index([type])
+  @@index([month])
+  @@map("studio_productions")
+}
+
+/// 月次成果データ。Instagram Insights等の数値を保存。
+/// Production（制作物）と同じ月で紐づけることで「何を投稿したら何が起きたか」を分析可能。
+model MonthlyResult {
+  id             String       @id @default(cuid())
+  month          String       // 対象月（例: "2026-04"）
+
+  // Instagram Insights
+  followers      Int?         // フォロワー数（月末時点）
+  followersGain  Int?         // フォロワー増減
+  reach          Int?         // リーチ数
+  impressions    Int?         // インプレッション数
+  engagementRate Float?       // エンゲージメント率
+  saves          Int?         // 保存数
+  shares         Int?         // シェア数
+  profileVisits  Int?         // プロフィールアクセス数
+  websiteClicks  Int?         // ウェブサイトクリック数
+
+  // 投稿別データ（JSON配列）
+  postMetrics    Json?        // [{postId, type, reach, likes, comments, saves, shares}]
+
+  // Google Analytics等
+  webSessions    Int?         // Webサイトセッション数
+  webPageviews   Int?         // ページビュー数
+  webBounceRate  Float?       // 直帰率
+
+  // AI分析
+  aiSummary      String?      @db.Text // AIによる月次サマリー
+  aiSuggestions  String?      @db.Text // AIによる改善提案
+
+  // 生データ保存（再分析用）
+  rawData        Json?        // Instagram Insights/GA等のJSON原本
+
+  // 紐づけ
+  studioClientId String
+  studioClient   StudioClient @relation(fields: [studioClientId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch       @relation("StudioResults", fields: [branchId], references: [id])
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([studioClientId, month])
+  @@index([branchId])
+  @@index([month])
+  @@map("studio_monthly_results")
 }
