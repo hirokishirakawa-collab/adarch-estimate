@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { GlobalSearch } from "@/components/layout/global-search";
+import { TourGuide, TourHelpButton } from "@/components/onboarding/tour-guide";
 import type { UserRole } from "@/types/roles";
 
 interface Props {
@@ -39,6 +40,8 @@ export function DashboardShell({ user, children }: Props) {
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <TourGuide />
+      <TourHelpButton />
     </div>
   );
 }

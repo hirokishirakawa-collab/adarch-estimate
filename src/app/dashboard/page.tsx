@@ -101,6 +101,7 @@ export default async function DashboardPage() {
       {/* ── リード獲得AI ── */}
       <Link
         href="/dashboard/leads"
+        data-tour="lead-ai"
         className="group block relative overflow-hidden rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 px-6 py-5 hover:border-orange-300 hover:shadow-md transition-all"
       >
         <div className="flex items-center gap-4">
@@ -121,7 +122,7 @@ export default async function DashboardPage() {
 
       {/* ── グループダイジェスト ── */}
       {digest && (
-        <div className="relative overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50 px-5 py-4">
+        <div data-tour="digest" className="relative overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50 px-5 py-4">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 flex-shrink-0 w-7 h-7 bg-white/70 rounded-lg flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-indigo-500" />
@@ -198,7 +199,7 @@ export default async function DashboardPage() {
       )}
 
       {/* ── ご利用ガイド ── */}
-      <div className="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 px-5 py-4">
+      <div data-tour="guide-flow" className="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 px-5 py-4">
         <p className="text-[11px] font-semibold text-emerald-700 mb-2.5">ご利用の流れ</p>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-emerald-200 text-xs font-medium text-zinc-700">
@@ -222,7 +223,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── クイックアクション（ご利用の流れに沿った4つ） ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div data-tour="quick-actions" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Link
           href="/dashboard/customers/new"
           className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all text-center"

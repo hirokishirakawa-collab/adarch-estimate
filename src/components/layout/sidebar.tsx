@@ -589,7 +589,7 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
       </div>
 
       {/* ナビゲーション */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4 scrollbar-thin">
+      <nav data-tour="sidebar" className="flex-1 overflow-y-auto px-3 py-3 space-y-4 scrollbar-thin">
         {NAV_SECTIONS.map((section) => {
           const visibleItems = section.items.filter((item) => {
             if (!hasMinRole(user.role, item.minRole)) return false;
