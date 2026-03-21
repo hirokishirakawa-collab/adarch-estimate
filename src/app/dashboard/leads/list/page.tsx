@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { Suspense } from "react";
 import { ListChecks } from "lucide-react";
+import Link from "next/link";
 import { db } from "@/lib/db";
 import type { LeadStatus } from "@/generated/prisma/client";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption } from "@/lib/constants/leads";
@@ -173,22 +174,33 @@ export default async function LeadListPage({ searchParams }: PageProps) {
 
       {/* ===== サマリーカード ===== */}
       <div data-tour="lead-list-summary" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+        <Link
+          href="/dashboard/leads/list"
+          className={`rounded-lg border px-4 py-3 transition-all hover:shadow-md ${
+            !statusParam
+              ? "bg-white border-blue-400 ring-2 ring-blue-200"
+              : "bg-white border-zinc-200 hover:border-zinc-300"
+          }`}
+        >
           <p className="text-[11px] text-zinc-500">総リード数</p>
           <p className="text-xl font-bold text-zinc-900 mt-0.5">
             {totalAll.toLocaleString()}
           </p>
-        </div>
+        </Link>
         {LEAD_STATUS_OPTIONS.map((opt) => {
           const count = statusCounts[opt.value as keyof typeof statusCounts];
+          const isActive = statusParam === opt.value;
           return (
-            <div
+            <Link
               key={opt.value}
-              className={`rounded-lg border px-4 py-3 ${opt.className}`}
+              href={`/dashboard/leads/list?status=${opt.value}`}
+              className={`rounded-lg border px-4 py-3 transition-all hover:shadow-md ${opt.className} ${
+                isActive ? "ring-2 ring-offset-1 ring-current" : ""
+              }`}
             >
               <p className="text-[11px] opacity-80">{opt.icon} {opt.label}</p>
               <p className="text-xl font-bold mt-0.5">{count}</p>
-            </div>
+            </Link>
           );
         })}
       </div>
