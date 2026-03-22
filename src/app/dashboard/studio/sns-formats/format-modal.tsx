@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Copy, Check, FileText, Terminal } from "lucide-react";
 import { type SnsFormat, OVERLAYS } from "./format-data";
 import { SHOOT_TIPS, SHOOT_MAP } from "./shoot-data";
 
@@ -13,44 +13,12 @@ export function FormatModal({ format: f, onClose, userId, branchId, clients }: {
   clients: { id: string; name: string; businessType: string }[];
 }) {
   const [selectedTelop, setSelectedTelop] = useState(f.rtlp);
-  const [selectedClient, setSelectedClient] = useState("");
-  const [ordering, setOrdering] = useState(false);
-  const [orderResult, setOrderResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [copiedShoot, setCopiedShoot] = useState(false);
+  const [copiedCmd, setCopiedCmd] = useState(false);
   const ov = OVERLAYS[f.ind] || OVERLAYS.general;
 
-  async function handleOrder() {
-    setOrdering(true);
-    setOrderResult(null);
-    try {
-      const res = await fetch("/api/studio/sns-formats/order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          formatId: f.id,
-          formatName: f.nm,
-          telopId: selectedTelop,
-          industry: f.ind,
-          taste: f.taste,
-          duration: f.dur,
-          platforms: f.pf.join(","),
-          structure: f.st,
-          studioClientId: selectedClient || null,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setOrderResult({ success: true, message: `依頼を受け付けました（ID: ${data.id}）` });
-      } else {
-        setOrderResult({ success: false, message: data.error || "エラーが発生しました" });
-      }
-    } catch {
-      setOrderResult({ success: false, message: "通信エラー" });
-    } finally {
-      setOrdering(false);
-    }
-  }
-
-  function copyShootGuide() {
+  // 撮影依頼書テキスト生成
+  function genShootText() {
     const tips = SHOOT_TIPS[f.ind] || SHOOT_TIPS.general;
     const common = SHOOT_TIPS._common;
     const pid = f.id.split("_").slice(1, -1).join("_");
@@ -59,7 +27,6 @@ export function FormatModal({ format: f, onClose, userId, branchId, clients }: {
     let t = `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     t += `📋 撮影依頼書\n`;
     t += `${f.nm}（${f.dur}）\n`;
-    t += `フォーマットID: ${f.id}\n`;
     t += `配信先: ${f.pf.join(" / ").toUpperCase()}\n`;
     t += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     t += `【基本ルール】\n`;
@@ -70,11 +37,48 @@ export function FormatModal({ format: f, onClose, userId, branchId, clients }: {
       const tip = (tips as any)[mk] || "";
       t += `${i + 1}. ${s.l}（${s.d}）\n`;
       if (tip) t += `   → ${tip}\n`;
-      t += `\n`;
     });
-    t += `━━━━━━━━━━━━━━━━━━━━━━━━━━\nAd Arch Group / SNS Format Studio\n`;
+    t += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    t += `Ad Arch Group / SNS Format Studio\n`;
+    return t;
+  }
 
-    navigator.clipboard.writeText(t);
+  // Claude実行コマンド生成
+  function genClaudeCommand() {
+    const structure = f.st.map((s) => `${s.l}(${s.d})`).join(" → ");
+    return `SNSフォーマット自動編集を実行してください。
+
+【フォーマット情報】
+・名前: ${f.nm}
+・ID: ${f.id}
+・業種: ${f.ind}
+・尺: ${f.dur}
+・配信先: ${f.pf.join(", ")}
+・構成: ${structure}
+・テロップスタイル: ${selectedTelop}
+
+【実行手順】
+1. 素材フォルダ内のメディアをPremiere Proにインポート
+2. シーケンス「${f.nm}」を作成
+3. 以下の構成でクリップを配置:
+${f.st.map((s, i) => `   ${i + 1}. ${s.l} — ${s.d}`).join("\n")}
+4. テロップスタイル「${selectedTelop}」でテロップを配置
+5. マーカーを各セクション区切りに追加
+6. BGMを配置
+
+素材フォルダ: （ここに素材パスを入力）`;
+  }
+
+  function copyShoot() {
+    navigator.clipboard.writeText(genShootText());
+    setCopiedShoot(true);
+    setTimeout(() => setCopiedShoot(false), 2000);
+  }
+
+  function copyCommand() {
+    navigator.clipboard.writeText(genClaudeCommand());
+    setCopiedCmd(true);
+    setTimeout(() => setCopiedCmd(false), 2000);
   }
 
   return (
@@ -96,7 +100,6 @@ export function FormatModal({ format: f, onClose, userId, branchId, clients }: {
               ))}
             </div>
           </div>
-          {/* Phone */}
           <div className="absolute right-8 top-1/2 -translate-y-1/2 w-[130px] h-[232px] bg-black border-2 border-white/15 rounded-2xl overflow-hidden shadow-2xl z-10">
             <img src={f.pimg} alt="" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50" />
@@ -141,9 +144,12 @@ export function FormatModal({ format: f, onClose, userId, branchId, clients }: {
             </div>
           </div>
 
-          {/* Shoot guide */}
+          {/* ━━━ 撮影依頼書（クライアント向け） ━━━ */}
           <div>
-            <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">撮影依頼書</h3>
+            <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+              <FileText className="w-3 h-3 inline mr-1" />
+              撮影依頼書（クライアントに渡す）
+            </h3>
             <div className="bg-zinc-50 rounded-lg border border-zinc-200 p-4 space-y-2">
               {f.st.map((s, i) => {
                 const tips = SHOOT_TIPS[f.ind] || SHOOT_TIPS.general;
@@ -162,43 +168,41 @@ export function FormatModal({ format: f, onClose, userId, branchId, clients }: {
                 );
               })}
             </div>
-            <button onClick={copyShootGuide} className="mt-2 text-xs text-fuchsia-600 hover:text-fuchsia-700 font-medium">
-              📋 撮影依頼書をコピー
+            <button
+              onClick={copyShoot}
+              className="mt-2 flex items-center gap-1.5 text-xs text-fuchsia-600 hover:text-fuchsia-700 font-medium transition"
+            >
+              {copiedShoot ? <><Check className="w-3 h-3" /> コピーしました</> : <><Copy className="w-3 h-3" /> 撮影依頼書をコピー</>}
             </button>
           </div>
 
-          {/* Order section */}
-          <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-5">
-            <h3 className="font-bold text-zinc-900 mb-3">このフォーマットで制作する</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-zinc-500 block mb-1">クライアント（任意）</label>
-                <select
-                  value={selectedClient}
-                  onChange={(e) => setSelectedClient(e.target.value)}
-                  className="w-full text-sm border border-zinc-300 rounded-lg px-3 py-2 bg-white"
-                >
-                  <option value="">選択なし</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}（{c.businessType}）</option>
-                  ))}
-                </select>
-              </div>
-              <div className="text-xs text-zinc-400">
-                選択中: {f.nm} / テロップ: {selectedTelop} / {f.dur}
-              </div>
-              {orderResult && (
-                <div className={`text-sm p-3 rounded-lg ${orderResult.success ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
-                  {orderResult.message}
-                </div>
-              )}
+          {/* ━━━ 制作コマンド（Claude実行用） ━━━ */}
+          <div className="bg-zinc-900 rounded-xl p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-white">制作コマンド（Claudeに貼り付け）</h3>
+            </div>
+            <p className="text-xs text-zinc-400">
+              以下をコピーして、Premiere連携済みの Claude に貼り付けると自動編集が実行されます。
+              素材フォルダのパスだけ書き換えてください。
+            </p>
+            <div className="bg-black/50 rounded-lg p-4 font-mono text-xs text-emerald-300 leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap">
+              {genClaudeCommand()}
+            </div>
+            <div className="flex gap-2">
               <button
-                onClick={handleOrder}
-                disabled={ordering}
-                className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-semibold py-3 rounded-xl hover:from-fuchsia-700 hover:to-purple-700 transition disabled:opacity-50"
+                onClick={copyCommand}
+                className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2 ${
+                  copiedCmd
+                    ? "bg-emerald-600 text-white"
+                    : "bg-emerald-500 text-white hover:bg-emerald-400"
+                }`}
               >
-                {ordering ? "送信中..." : "この構成で依頼する"}
+                {copiedCmd ? <><Check className="w-4 h-4" /> コピー済み</> : <><Copy className="w-4 h-4" /> 制作コマンドをコピー</>}
               </button>
+            </div>
+            <div className="text-[10px] text-zinc-500 leading-relaxed">
+              💡 コピー後、Claude Code で貼り付け → 素材パスを指定 → 自動でPremiere Proが編集を実行します。API費用はかかりません。
             </div>
           </div>
         </div>
