@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Link2, Loader2, Check, ChevronDown, ChevronUp, Eye, Copy, Terminal } from "lucide-react";
+import { Sparkles, Link2, Loader2, Check, ChevronDown, ChevronUp, Eye, Copy, Terminal, FileText, Printer } from "lucide-react";
 
 type AnalysisResult = {
   nm: string;
@@ -39,6 +39,7 @@ export function VideoAnalyzer() {
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(true);
   const [copiedCmd, setCopiedCmd] = useState(false);
+  const [copiedShoot, setCopiedShoot] = useState(false);
 
   async function handleAnalyze() {
     if (!url.trim()) return;
@@ -89,6 +90,32 @@ ${result.st.map((s, i) => `   ${i + 1}. ${s.l} — ${s.d}`).join("\n")}
 6. BGMを配置
 
 素材フォルダ: （ここに素材パスを入力）`;
+  }
+
+  function genShootGuide() {
+    if (!result) return "";
+    let t = `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    t += `📋 撮影依頼書\n`;
+    t += `${result.nm}（${result.dur}）\n`;
+    t += `配信先: ${result.pf.join(" / ").toUpperCase()}\n`;
+    t += `参考動画: ${result.source_url}\n`;
+    t += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    t += `【基本ルール】\n`;
+    t += `・縦撮影（9:16）。スマホを縦に固定してください\n`;
+    t += `・自然光を活用。窓に向かって撮影するのがベストです\n`;
+    t += `・各カットは指定秒数の2〜3倍の長さで撮影してください（編集で調整します）\n`;
+    t += `・最低1080p（フルHD）以上で撮影してください\n`;
+    t += `・テロップが入るので、画面下部20%には重要な要素を入れないでください\n`;
+    t += `・BGMを入れるので環境音は気にしなくてOKです\n\n`;
+    t += `【撮影カット】\n`;
+    result.st.forEach((s, i) => { t += `${i + 1}. ${s.l}（${s.d}）\n`; });
+    if (result.shooting_tips) t += `\n【撮影のコツ】\n${result.shooting_tips}\n`;
+    t += `\n【素材の送付方法】\n`;
+    t += `・撮影した動画をGoogleドライブ or ギガファイル便でお送りください\n`;
+    t += `・ファイル名に番号をつけてください（例: 01_フック.mp4, 02_施術.mp4）\n`;
+    t += `・BGMの希望があればお知らせください\n\n`;
+    t += `━━━━━━━━━━━━━━━━━━━━━━━━━━\nAd Arch Group / SNS Format Studio\n発行日: ${new Date().toLocaleDateString("ja-JP")}\n`;
+    return t;
   }
 
   return (
@@ -214,6 +241,31 @@ ${result.st.map((s, i) => `   ${i + 1}. ${s.l} — ${s.d}`).join("\n")}
                     <div className="text-[10px] font-semibold text-zinc-400 uppercase mb-1">テロップ</div>
                     <div className="text-xs text-zinc-700">{result.telop_analysis.main_style}</div>
                   </div>
+                </div>
+
+                {/* Shooting guide */}
+                <div>
+                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <FileText className="w-3 h-3" /> 撮影依頼書（クライアントに渡す）
+                  </h3>
+                  <div className="bg-zinc-50 rounded-lg border border-zinc-200 p-4 space-y-2">
+                    <div className="text-xs text-zinc-500 mb-2">📱 縦撮影（9:16）/ 自然光推奨 / 各カット指定秒数の2〜3倍で撮影</div>
+                    {result.st.map((s, i) => (
+                      <div key={i} className="flex gap-3 text-xs">
+                        <span className="font-bold text-fuchsia-600 w-5 shrink-0">{i + 1}</span>
+                        <span className="font-semibold text-zinc-900">{s.l}（{s.d}）</span>
+                      </div>
+                    ))}
+                    {result.shooting_tips && (
+                      <div className="text-xs text-zinc-500 mt-2 pt-2 border-t">💡 {result.shooting_tips}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(genShootGuide()); setCopiedShoot(true); setTimeout(() => setCopiedShoot(false), 2000); }}
+                    className="mt-2 flex items-center gap-1.5 text-xs text-fuchsia-600 hover:text-fuchsia-700 font-medium transition"
+                  >
+                    {copiedShoot ? <><Check className="w-3 h-3" /> コピーしました</> : <><Copy className="w-3 h-3" /> 撮影依頼書をコピー</>}
+                  </button>
                 </div>
 
                 {/* Command */}
