@@ -43,7 +43,7 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
               // Google OAuth リダイレクト・アバター画像
-              "img-src 'self' data: https://lh3.googleusercontent.com https://lh4.googleusercontent.com",
+              "img-src 'self' data: https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://images.unsplash.com",
               // Sentry への送信を許可
               "connect-src 'self' https://*.ingest.sentry.io",
               "font-src 'self'",
