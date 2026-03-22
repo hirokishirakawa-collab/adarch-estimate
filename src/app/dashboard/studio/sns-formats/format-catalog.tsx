@@ -22,7 +22,7 @@ export function FormatCatalog({ userId, branchId, clients }: {
   return (
     <div>
       {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div data-tour="sns-format-filters" className="flex flex-wrap gap-2 mb-6">
         {Object.entries(FILTERS).map(([key, f]) => (
           <div key={key} className="flex items-center gap-1 bg-zinc-100 rounded-lg p-1">
             <span className="text-xs text-zinc-400 px-2">{(f as any).l}</span>
@@ -53,7 +53,7 @@ export function FormatCatalog({ userId, branchId, clients }: {
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div data-tour="sns-format-grid" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map((f) => (
           <FormatCard key={f.id} format={f} onClick={() => setSelectedFormat(f)} />
         ))}

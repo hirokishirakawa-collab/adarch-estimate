@@ -912,6 +912,52 @@ const TOURS: Record<string, TourStep[]> = {
       },
     },
   ],
+  "/dashboard/studio/sns-formats": [
+    {
+      popover: {
+        title: "SNSフォーマット自動編集",
+        description: "266種類のフォーマットから選んで、Adobe Premiere Proで自動編集。テロップ・BGM・構成がすべて自動で組み上がります。",
+      },
+    },
+    {
+      element: "[data-tour='sns-format-guide']",
+      popover: {
+        title: "使い方ガイド",
+        description: "4ステップの流れを確認できます。初めての方はまずここを開いてください。",
+        side: "bottom",
+      },
+    },
+    {
+      element: "[data-tour='sns-format-orders']",
+      popover: {
+        title: "最近の依頼",
+        description: "過去の依頼と進捗状況（受付→編集中→完了）を確認できます。",
+        side: "bottom",
+      },
+    },
+    {
+      element: "[data-tour='sns-format-filters']",
+      popover: {
+        title: "フィルター",
+        description: "19業種・6テイスト・4配信先で絞り込み。クライアントの業種を選ぶと最適なフォーマットだけが表示されます。",
+        side: "bottom",
+      },
+    },
+    {
+      element: "[data-tour='sns-format-grid']",
+      popover: {
+        title: "フォーマット一覧",
+        description: "カードをクリックすると詳細が表示されます。スマホプレビュー・構成タイムライン・テロップスタイルを確認できます。",
+        side: "top",
+      },
+    },
+    {
+      popover: {
+        title: "依頼の流れ",
+        description: "① フォーマットを選択 → ② テロップスタイルを選ぶ → ③ 撮影依頼書をクライアントに渡す → ④「この構成で依頼する」で自動編集がスタートします。API費用は一切かかりません。",
+      },
+    },
+  ],
 
   // ================================================================
   // 管理者

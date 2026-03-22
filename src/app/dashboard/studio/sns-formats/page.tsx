@@ -16,14 +16,12 @@ export default async function SnsFormatsPage() {
   const isAdmin = user.role === "ADMIN";
   const branchFilter = isAdmin ? {} : { branchId: user.branchId! };
 
-  // Get studio clients for the order dropdown
   const clients = await prisma.studioClient.findMany({
     where: { ...branchFilter, status: "ACTIVE" },
     select: { id: true, name: true, businessType: true },
     orderBy: { name: "asc" },
   });
 
-  // Get recent orders
   const recentOrders = await prisma.snsFormatOrder.findMany({
     where: isAdmin ? {} : { branchId: user.branchId! },
     orderBy: { createdAt: "desc" },
@@ -46,7 +44,7 @@ export default async function SnsFormatsPage() {
       </div>
 
       {/* How it works */}
-      <div className="bg-white rounded-xl border mb-6">
+      <div data-tour="sns-format-guide" className="bg-white rounded-xl border mb-6">
         <details>
           <summary className="px-5 py-4 cursor-pointer flex items-center justify-between hover:bg-zinc-50 transition rounded-xl">
             <span className="text-sm font-bold text-zinc-900">使い方 — Adobe Premiere Pro × AI 自動編集</span>
@@ -87,7 +85,7 @@ export default async function SnsFormatsPage() {
 
       {/* Recent orders */}
       {recentOrders.length > 0 && (
-        <div className="bg-white rounded-xl border mb-6">
+        <div data-tour="sns-format-orders" className="bg-white rounded-xl border mb-6">
           <div className="px-4 py-3 border-b">
             <h2 className="text-sm font-bold text-zinc-900">最近の依頼</h2>
           </div>
