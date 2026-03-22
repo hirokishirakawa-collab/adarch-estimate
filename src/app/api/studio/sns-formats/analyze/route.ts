@@ -21,14 +21,18 @@ export async function POST(req: Request) {
     const tmpDir = `/tmp/sns_analyze_${Date.now()}`;
     execSync(`mkdir -p ${tmpDir}/frames`);
 
-    // Download
+    // Download (try yt-dlp command first, fallback to python module)
     try {
       execSync(
-        `python3 -m yt_dlp --no-check-certificates -o "${tmpDir}/video.%(ext)s" "${url}"`,
-        { timeout: 60000, stdio: "pipe" }
+        `yt-dlp --no-check-certificates --no-warnings -o "${tmpDir}/video.%(ext)s" "${url}" 2>&1 || python3 -m yt_dlp --no-check-certificates --no-warnings -o "${tmpDir}/video.%(ext)s" "${url}" 2>&1`,
+        { timeout: 120000, stdio: "pipe", shell: "/bin/sh" }
       );
-    } catch {
-      return NextResponse.json({ error: "動画のダウンロードに失敗しました。URLを確認してください。" }, { status: 400 });
+    } catch (dlErr: any) {
+      const msg = dlErr.stderr?.toString() || dlErr.stdout?.toString() || dlErr.message || "";
+      return NextResponse.json({
+        error: "動画のダウンロードに失敗しました。URLを確認してください。",
+        detail: msg.slice(0, 300),
+      }, { status: 400 });
     }
 
     // Find downloaded file

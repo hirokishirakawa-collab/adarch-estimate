@@ -1,6 +1,7 @@
 FROM node:24-alpine
 
-RUN apk add --no-cache openssl ffmpeg
+RUN apk add --no-cache openssl ffmpeg python3 py3-pip \
+    && pip3 install --break-system-packages yt-dlp
 
 WORKDIR /app
 
