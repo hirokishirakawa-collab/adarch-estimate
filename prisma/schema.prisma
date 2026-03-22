@@ -1982,6 +1982,9 @@ model SnsReferenceFormat {
   sourceDuration Float?    // 元動画の尺（秒）
   sourceResolution String? // 解像度（例: 1080x1920）
 
+  // サムネイル（解析時のフレームキャプチャ）
+  thumbnailBase64 String?  @db.Text // 代表フレームのbase64 JPEG
+
   // 解析結果
   title          String    // フォーマット名（例: 美容室ビフォーアフター）
   description    String?   // 説明

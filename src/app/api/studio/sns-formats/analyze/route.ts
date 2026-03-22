@@ -96,6 +96,11 @@ export async function POST(req: Request) {
       };
     });
 
+    // Pick representative thumbnail (middle frame = highlight area)
+    const thumbIndex = Math.min(Math.floor(frameFiles.length * 0.6), frameFiles.length - 1);
+    const thumbData = fs.readFileSync(path.join(`${tmpDir}/frames`, frameFiles[thumbIndex]));
+    const thumbnailBase64 = `data:image/jpeg;base64,${thumbData.toString("base64")}`;
+
     // Step 6: Claude Vision analysis
     const analysisPrompt = `あなたはSNS動画のフォーマット分析の専門家です。以下のフレーム画像は1本のSNS動画（${duration.toFixed(1)}秒、${width}x${height}）から抽出したものです。
 カット変化点の秒数: ${cutPoints.map(c => c.toFixed(1)).join(", ")}
@@ -188,6 +193,7 @@ export async function POST(req: Request) {
       data: {
         sourceUrl: url,
         sourceViews: sourceViews ? parseInt(sourceViews) : null,
+        thumbnailBase64,
         sourceDuration: duration,
         sourceResolution: `${width}x${height}`,
         title: analysis.title,
@@ -210,7 +216,7 @@ export async function POST(req: Request) {
     // Cleanup
     execSync(`rm -rf ${tmpDir}`);
 
-    return NextResponse.json({ ...formatTemplate, savedId: saved.id });
+    return NextResponse.json({ ...formatTemplate, savedId: saved.id, thumbnailBase64 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "解析エラー" }, { status: 500 });
   }
