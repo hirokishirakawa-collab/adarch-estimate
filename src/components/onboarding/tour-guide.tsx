@@ -920,6 +920,14 @@ const TOURS: Record<string, TourStep[]> = {
       },
     },
     {
+      element: "[data-tour='sns-format-analyzer']",
+      popover: {
+        title: "参考動画からフォーマット作成",
+        description: "InstagramリールやTikTokのURLを貼るだけで、構成・テロップ・撮影のコツをAIが自動解析。バズ動画の「型」を抽出してすぐに使えます。",
+        side: "bottom",
+      },
+    },
+    {
       element: "[data-tour='sns-format-guide']",
       popover: {
         title: "使い方ガイド",

@@ -3,6 +3,7 @@ import { db as prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Play } from "lucide-react";
 import { FormatCatalog } from "./format-catalog";
+import { VideoAnalyzer } from "./video-analyzer";
 
 export default async function SnsFormatsPage() {
   const session = await auth();
@@ -42,6 +43,9 @@ export default async function SnsFormatsPage() {
           </p>
         </div>
       </div>
+
+      {/* Video Analyzer - Top Feature */}
+      <VideoAnalyzer />
 
       {/* How it works */}
       <div data-tour="sns-format-guide" className="bg-white rounded-xl border mb-6">
