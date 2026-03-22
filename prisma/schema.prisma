@@ -239,6 +239,7 @@ model Branch {
   studioProductions          Production[]       @relation("StudioProductions")
   studioResults              MonthlyResult[]    @relation("StudioResults")
   snsFormatOrders            SnsFormatOrder[]   @relation("SnsFormatOrders")
+  snsReferenceFormats        SnsReferenceFormat[] @relation("SnsReferenceFormats")
 
   @@map("branches")
 }
@@ -319,6 +320,7 @@ model User {
   studioClientsCreated  StudioClient[]   @relation("StudioClientCreator")
   productionsCreated    Production[]     @relation("ProductionCreator")
   snsFormatOrders       SnsFormatOrder[] @relation("SnsFormatOrderCreator")
+  snsReferenceFormats   SnsReferenceFormat[] @relation("SnsReferenceFormatCreator")
 
   @@index([branchId])
   @@index([branchId2])
@@ -1968,4 +1970,46 @@ model SnsFormatOrder {
   @@index([status])
   @@index([createdById])
   @@map("sns_format_orders")
+}
+
+/// 参考動画から解析・生成されたフォーマット。バズ動画の構成を抽出してテンプレート化。
+model SnsReferenceFormat {
+  id             String    @id @default(cuid())
+
+  // 元動画情報
+  sourceUrl      String    // 元動画のURL（Instagram/TikTok等）
+  sourceViews    Int?      // 元動画の再生数（手動入力）
+  sourceDuration Float?    // 元動画の尺（秒）
+  sourceResolution String? // 解像度（例: 1080x1920）
+
+  // 解析結果
+  title          String    // フォーマット名（例: 美容室ビフォーアフター）
+  description    String?   // 説明
+  industry       String    // 業種
+  taste          String    // テイスト
+  duration       String    // 丸めた尺（例: 15秒）
+  platforms      String    // 配信先（例: reel,tiktok）
+  structure      Json      // 構成タイムライン
+  cutPoints      Json?     // カット変化点の秒数配列
+
+  // テロップ分析
+  telopAnalysis  Json?     // テロップスタイル・配置・色等
+  recommendedTelops String? // 推奨テロップID（カンマ区切り）
+  hookTechnique  String?   // フック技法の説明
+  shootingTips   String?   // 撮影のコツ
+
+  // メタデータ
+  branchId       String
+  branch         Branch    @relation("SnsReferenceFormats", fields: [branchId], references: [id])
+  createdById    String
+  createdBy      User      @relation("SnsReferenceFormatCreator", fields: [createdById], references: [id])
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([branchId])
+  @@index([createdById])
+  @@index([industry])
+  @@index([createdAt])
+  @@map("sns_reference_formats")
 }

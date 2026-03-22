@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { db as prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -10,7 +11,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { url } = await req.json();
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!user?.branchId) {
+    return NextResponse.json({ error: "User not found" }, { status: 403 });
+  }
+
+  const { url, sourceViews } = await req.json();
   if (!url) {
     return NextResponse.json({ error: "URL is required" }, { status: 400 });
   }
@@ -177,11 +183,58 @@ export async function POST(req: Request) {
       cut_points: cutPoints,
     };
 
+    // Save to DB
+    const saved = await prisma.snsReferenceFormat.create({
+      data: {
+        sourceUrl: url,
+        sourceViews: sourceViews ? parseInt(sourceViews) : null,
+        sourceDuration: duration,
+        sourceResolution: `${width}x${height}`,
+        title: analysis.title,
+        description: analysis.description,
+        industry: analysis.industry,
+        taste: analysis.taste,
+        duration: analysis.duration,
+        platforms: analysis.platforms.join(","),
+        structure: analysis.structure,
+        cutPoints: cutPoints,
+        telopAnalysis: analysis.telop_analysis,
+        recommendedTelops: analysis.recommended_telops.join(","),
+        hookTechnique: analysis.hook_technique,
+        shootingTips: analysis.shooting_tips,
+        branchId: user.branchId!,
+        createdById: user.id,
+      },
+    });
+
     // Cleanup
     execSync(`rm -rf ${tmpDir}`);
 
-    return NextResponse.json(formatTemplate);
+    return NextResponse.json({ ...formatTemplate, savedId: saved.id });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "解析エラー" }, { status: 500 });
   }
+}
+
+// 履歴一覧
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!user?.branchId) {
+    return NextResponse.json({ error: "User not found" }, { status: 403 });
+  }
+
+  const isAdmin = user.role === "ADMIN";
+  const refs = await prisma.snsReferenceFormat.findMany({
+    where: isAdmin ? {} : { branchId: user.branchId },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    include: { createdBy: { select: { name: true } } },
+  });
+
+  return NextResponse.json(refs);
 }
