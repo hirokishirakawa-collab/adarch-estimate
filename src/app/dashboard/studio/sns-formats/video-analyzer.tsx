@@ -70,6 +70,8 @@ export function VideoAnalyzer() {
   function genCommand() {
     if (!result) return "";
     const structure = result.st.map((s) => `${s.l}(${s.d})`).join(" → ");
+    const ta = result.telop_analysis;
+
     return `SNSフォーマット自動編集を実行してください。
 
 【フォーマット情報】
@@ -77,17 +79,24 @@ export function VideoAnalyzer() {
 ・業種: ${result.ind}
 ・尺: ${result.dur}
 ・構成: ${structure}
-・テロップスタイル: ${result.rtlp}
 ・参考動画: ${result.source_url}
+
+【テロップ指示】
+・スタイル: ${ta.main_style}
+・配置: ${ta.position}
+・フォント: ${ta.font_style}
+・色: ${ta.color}
+・背景: ${ta.background}
+・アニメーション: ${ta.animation}
+※ テロップ内容はクライアントの情報に合わせて作成してください
 
 【実行手順】
 1. 素材フォルダ内のメディアをPremiere Proにインポート
-2. シーケンス「${result.nm}」を作成
+2. シーケンス「${result.nm}」を新規作成
 3. 以下の構成でクリップを配置:
 ${result.st.map((s, i) => `   ${i + 1}. ${s.l} — ${s.d}`).join("\n")}
-4. テロップスタイル「${result.rtlp}」でテロップを配置
+4. 上記のテロップ指示に基づいてテロップを配置
 5. マーカーを各セクション区切りに追加
-6. BGMを配置
 
 素材フォルダ: （ここに素材パスを入力）`;
   }

@@ -68,8 +68,9 @@ export function FormatGallery({ initialFormats }: { initialFormats: ReferenceFor
 
   function genCommand(f: ReferenceFormat) {
     const st = f.structure as any[];
-    const telop = f.recommendedTelops?.split(",")[0] || "solid_white";
     const structure = st.map((s: any) => `${s.label}(${s.duration})`).join(" → ");
+    const telopAnalysis = f.telopAnalysis as any;
+
     return `SNSフォーマット自動編集を実行してください。
 
 【フォーマット情報】
@@ -77,17 +78,24 @@ export function FormatGallery({ initialFormats }: { initialFormats: ReferenceFor
 ・業種: ${f.industry}
 ・尺: ${f.duration}
 ・構成: ${structure}
-・テロップスタイル: ${telop}
 ・参考動画: ${f.sourceUrl}
+
+【テロップ指示】
+${telopAnalysis ? `・スタイル: ${telopAnalysis.main_style || ""}
+・配置: ${telopAnalysis.position || "下部"}
+・フォント: ${telopAnalysis.font_style || "ゴシック系太字"}
+・色: ${telopAnalysis.color || "白"}
+・背景: ${telopAnalysis.background || "なし"}
+・アニメーション: ${telopAnalysis.animation || "なし"}` : "・参考動画のテロップスタイルを再現してください"}
+※ テロップ内容はクライアントの情報に合わせて作成してください
 
 【実行手順】
 1. 素材フォルダ内のメディアをPremiere Proにインポート
-2. シーケンス「${f.title}」を作成
+2. シーケンス「${f.title}」を新規作成
 3. 以下の構成でクリップを配置:
 ${st.map((s: any, i: number) => `   ${i + 1}. ${s.label} — ${s.duration}`).join("\n")}
-4. テロップスタイル「${telop}」でテロップを配置
+4. 上記のテロップ指示に基づいてテロップを配置
 5. マーカーを各セクション区切りに追加
-6. BGMを配置
 
 素材フォルダ: （ここに素材パスを入力）`;
   }

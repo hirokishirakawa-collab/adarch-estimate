@@ -80,13 +80,10 @@ async function runAutoEdit(order: {
     var videoTrack = seq.videoTracks[0];
     var audioTrack = seq.audioTracks[0];
     var clips = [];
-    var bgmClip = null;
     for (var i = 0; i < root.children.numItems; i++) {
       var item = root.children[i];
       if (item.isSequence()) continue;
-      if (item.name.match(/\\.(mp3|wav|aac)$/i)) {
-        bgmClip = item;
-      } else if (item.name.match(/\\.(mp4|mov|avi|mkv)$/i)) {
+      if (item.name.match(/\\.(mp4|mov|avi|mkv|jpg|jpeg|png)$/i)) {
         clips.push(item);
       }
     }
@@ -99,10 +96,7 @@ async function runAutoEdit(order: {
       videoTrack.insertClip(clips[s], startTicks);
       placed++;
     }
-    if (bgmClip) {
-      audioTrack.insertClip(bgmClip, "0");
-    }
-    return JSON.stringify({placed: placed, bgm: bgmClip ? true : false});
+    return JSON.stringify({placed: placed});
   `;
   const placeResult = await executeJsx(placeJsx);
   if (!placeResult.success) throw new Error("クリップ配置失敗: " + JSON.stringify(placeResult));
@@ -119,14 +113,16 @@ async function runAutoEdit(order: {
     await executeJsx(markerJsx);
   }
 
-  // 6. Add telop (MOGRT) if available
-  if (order.telopId) {
-    const mogrtPath = "/Applications/Adobe Premiere Pro 2025/Adobe Premiere Pro 2025.app/Contents/Essential Graphics/Titles/Bold Title.mogrt";
-    // Add telop on first slot (hook text)
+  // 6. Add telop (MOGRT) on each section
+  const mogrtPath = "/Applications/Adobe Premiere Pro 2025/Adobe Premiere Pro 2025.app/Contents/Essential Graphics/Titles/Bold Title.mogrt";
+  const tps = 254016000000;
+
+  for (let i = 0; i < structure.length; i++) {
+    const startTicks = String(Math.round(slotStarts[i] * tps));
+    const text = structure[i].l || "";
     const telopJsx = `
       var seq = app.project.activeSequence;
-      var mogrtPath = "${mogrtPath}";
-      seq.importMGT(mogrtPath, "0", 1, 0);
+      seq.importMGT("${mogrtPath}", "${startTicks}", 1, 0);
       var track = seq.videoTracks[1];
       var clip = track.clips[track.clips.numItems - 1];
       var comps = clip.components;
@@ -134,7 +130,7 @@ async function runAutoEdit(order: {
         if (comps[i].displayName === "テキスト") {
           for (var j = 0; j < comps[i].properties.numItems; j++) {
             if (comps[i].properties[j].displayName === "ソーステキスト") {
-              comps[i].properties[j].setValue("${structure[0]?.l || ""}");
+              comps[i].properties[j].setValue("${text}");
             }
           }
         }
