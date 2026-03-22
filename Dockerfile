@@ -10,6 +10,7 @@ RUN npm ci
 COPY . .
 
 # ビルド時: prisma generate → next build（DATABASE_URL 不要）
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build
 
 EXPOSE 8080
