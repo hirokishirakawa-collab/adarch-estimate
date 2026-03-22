@@ -238,6 +238,7 @@ model Branch {
   studioClients              StudioClient[]     @relation("StudioClients")
   studioProductions          Production[]       @relation("StudioProductions")
   studioResults              MonthlyResult[]    @relation("StudioResults")
+  snsFormatOrders            SnsFormatOrder[]   @relation("SnsFormatOrders")
 
   @@map("branches")
 }
@@ -315,8 +316,9 @@ model User {
   chatbotConversations ChatbotConversation[] @relation("ChatbotConversations")
 
   // ---- Studio（制作OS）----
-  studioClientsCreated  StudioClient[] @relation("StudioClientCreator")
-  productionsCreated    Production[]   @relation("ProductionCreator")
+  studioClientsCreated  StudioClient[]   @relation("StudioClientCreator")
+  productionsCreated    Production[]     @relation("ProductionCreator")
+  snsFormatOrders       SnsFormatOrder[] @relation("SnsFormatOrderCreator")
 
   @@index([branchId])
   @@index([branchId2])
@@ -1785,13 +1787,22 @@ enum StudioClientStatus {
 }
 
 enum ProductionType {
-  SNS_PLAN       // SNS運用プラン（カレンダー+カット表+撮影指示+キャプション+KPI）
-  CUTSHEET       // カット表単体
-  CAPTION        // キャプション+ハッシュタグ
-  REPORT         // 月次レポート
-  SHOOTING_GUIDE // 撮影指示書
-  SHORT_VIDEO    // ショート動画
-  THUMBNAIL      // サムネイル/バナー
+  SNS_PLAN         // SNS運用プラン（カレンダー+カット表+撮影指示+キャプション+KPI）
+  CUTSHEET         // カット表単体
+  CAPTION          // キャプション+ハッシュタグ
+  REPORT           // 月次レポート
+  SHOOTING_GUIDE   // 撮影依頼書
+  SHORT_VIDEO      // ショート動画
+  THUMBNAIL        // サムネイル/バナー
+  SNS_FORMAT_VIDEO // SNSフォーマット自動編集動画
+}
+
+enum SnsFormatOrderStatus {
+  PENDING     // 依頼受付
+  UPLOADING   // 素材アップロード中
+  PROCESSING  // 自動編集中（Premiere実行中）
+  COMPLETED   // 完了
+  FAILED      // 失敗
 }
 
 /// Studio用クライアント。Customerと紐づけ可能（営業→制作の連携）。
@@ -1833,6 +1844,7 @@ model StudioClient {
   // Relations
   productions    Production[]
   results        MonthlyResult[]
+  snsFormatOrders SnsFormatOrder[] @relation("SnsFormatOrders")
 
   @@index([branchId])
   @@index([customerId])
@@ -1912,4 +1924,48 @@ model MonthlyResult {
   @@index([branchId])
   @@index([month])
   @@map("studio_monthly_results")
+}
+
+/// SNSフォーマット自動編集の依頼。カタログから選択→素材アップ→Premiere自動編集→納品。
+model SnsFormatOrder {
+  id             String                @id @default(cuid())
+  status         SnsFormatOrderStatus  @default(PENDING)
+
+  // フォーマット選択
+  formatId       String                // カタログのフォーマットID（例: beauty_ba_tru）
+  formatName     String                // フォーマット名（例: ビフォーアフター）
+  telopId        String?               // テロップスタイルID（例: beauty_after）
+  industry       String                // 業種
+  taste          String                // テイスト
+  duration       String                // 尺（例: 15秒）
+  platforms      String                // 配信先（例: reel,tiktok,shorts）
+  structure      Json                  // 構成タイムライン（JSONで保存）
+
+  // 素材
+  mediaPaths     Json?                 // アップロードされた素材パスの配列
+  bgmPath        String?               // BGMファイルパス
+
+  // 出力
+  outputPath     String?               // 書き出し先パス
+  thumbnailPath  String?               // サムネイルパス
+  premiereProject String?              // Premiereプロジェクトファイルパス
+  errorMessage   String?               @db.Text // エラー時のメッセージ
+
+  // 紐づけ
+  studioClientId String?
+  studioClient   StudioClient?         @relation("SnsFormatOrders", fields: [studioClientId], references: [id])
+  productionId   String?               // 完了後にProductionレコードと紐づけ
+  branchId       String
+  branch         Branch                @relation("SnsFormatOrders", fields: [branchId], references: [id])
+  createdById    String
+  createdBy      User                  @relation("SnsFormatOrderCreator", fields: [createdById], references: [id])
+
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([branchId])
+  @@index([studioClientId])
+  @@index([status])
+  @@index([createdById])
+  @@map("sns_format_orders")
 }

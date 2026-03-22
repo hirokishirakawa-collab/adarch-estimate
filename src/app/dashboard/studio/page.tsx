@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { db as prisma } from "@/lib/db";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Palette, Users, Wand2, BarChart2, Plus } from "lucide-react";
+import { Palette, Users, Wand2, BarChart2, Plus, Play } from "lucide-react";
 
 export default async function StudioHome() {
   const session = await auth();
@@ -86,7 +86,7 @@ export default async function StudioHome() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Link
           href="/dashboard/studio/generate"
           data-tour="studio-generate"
@@ -95,7 +95,17 @@ export default async function StudioHome() {
           <Wand2 className="h-8 w-8 mb-3" />
           <h3 className="text-lg font-bold">SNSプランを生成</h3>
           <p className="text-sm text-white/80 mt-1">
-            クライアント情報を入力して、カレンダー・カット表・撮影指示書・キャプションを一括生成
+            カレンダー・カット表・撮影依頼書・キャプションを一括生成
+          </p>
+        </Link>
+        <Link
+          href="/dashboard/studio/sns-formats"
+          className="bg-gradient-to-br from-indigo-500 to-fuchsia-500 rounded-xl p-6 text-white hover:from-indigo-600 hover:to-fuchsia-600 transition"
+        >
+          <Play className="h-8 w-8 mb-3" />
+          <h3 className="text-lg font-bold">SNSフォーマット</h3>
+          <p className="text-sm text-white/80 mt-1">
+            266種のフォーマットから選んで自動編集。Premiere Pro連携で即納品
           </p>
         </Link>
         <Link
@@ -106,7 +116,7 @@ export default async function StudioHome() {
           <Users className="h-8 w-8 mb-3 text-fuchsia-600" />
           <h3 className="text-lg font-bold text-zinc-900">クライアント管理</h3>
           <p className="text-sm text-zinc-500 mt-1">
-            クライアント情報・ヒアリングデータの管理。蓄積データで毎月の生成精度が向上
+            クライアント情報・ヒアリングデータの管理
           </p>
         </Link>
       </div>

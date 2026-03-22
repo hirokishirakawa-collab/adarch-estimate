@@ -51,6 +51,7 @@ import {
   ImagePlus,
   Captions,
   Lightbulb,
+  Play,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -368,6 +369,12 @@ const NAV_SECTIONS: NavSection[] = [
         label: "営業インサイト",
         icon: Lightbulb,
         minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/studio/sns-formats",
+        label: "SNSフォーマット",
+        icon: Play,
+        minRole: "USER",
       },
       {
         href: "/dashboard/studio/library",
