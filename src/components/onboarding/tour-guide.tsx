@@ -915,54 +915,30 @@ const TOURS: Record<string, TourStep[]> = {
   "/dashboard/studio/sns-formats": [
     {
       popover: {
-        title: "SNSフォーマット自動編集",
-        description: "266種類のフォーマットから選んで、Adobe Premiere Proで自動編集。テロップ・BGM・構成がすべて自動で組み上がります。",
+        title: "SNSフォーマット",
+        description: "バズっている参考動画のURLを貼るだけで、構成・テロップ・撮影のコツをAIが自動解析。抽出したフォーマットでクライアントの動画を自動制作できます。",
       },
     },
     {
       element: "[data-tour='sns-format-analyzer']",
       popover: {
-        title: "参考動画からフォーマット作成",
-        description: "InstagramリールやTikTokのURLを貼るだけで、構成・テロップ・撮影のコツをAIが自動解析。バズ動画の「型」を抽出してすぐに使えます。",
+        title: "参考動画からフォーマット生成",
+        description: "Instagram リールや TikTok のURLを貼って「解析する」を押すと、AIが動画の構成・テロップスタイル・フック技法を自動抽出します。結果は自動でDBに保存されます。",
         side: "bottom",
       },
     },
     {
-      element: "[data-tour='sns-format-guide']",
+      element: "[data-tour='sns-format-recent']",
       popover: {
-        title: "使い方ガイド",
-        description: "4ステップの流れを確認できます。初めての方はまずここを開いてください。",
-        side: "bottom",
-      },
-    },
-    {
-      element: "[data-tour='sns-format-orders']",
-      popover: {
-        title: "最近の依頼",
-        description: "過去の依頼と進捗状況（受付→編集中→完了）を確認できます。",
-        side: "bottom",
-      },
-    },
-    {
-      element: "[data-tour='sns-format-filters']",
-      popover: {
-        title: "フィルター",
-        description: "19業種・6テイスト・4配信先で絞り込み。クライアントの業種を選ぶと最適なフォーマットだけが表示されます。",
-        side: "bottom",
-      },
-    },
-    {
-      element: "[data-tour='sns-format-grid']",
-      popover: {
-        title: "フォーマット一覧",
-        description: "カードをクリックすると詳細が表示されます。スマホプレビュー・構成タイムライン・テロップスタイルを確認できます。",
+        title: "最近の生成",
+        description: "過去に解析・生成したフォーマットの履歴です。元動画のリンク・再生数・登録日を確認できます。",
         side: "top",
       },
     },
     {
       popover: {
-        title: "依頼の流れ",
-        description: "① フォーマットを選択 → ② テロップスタイルを選ぶ → ③ 撮影依頼書をクライアントに渡す → ④「この構成で依頼する」で自動編集がスタートします。API費用は一切かかりません。",
+        title: "制作の流れ",
+        description: "① バズ動画のURLで解析 → ② 撮影依頼書をクライアントに渡す → ③ 素材が届いたら制作コマンドをコピー → ④ Premiere連携のClaudeに貼り付けて自動編集。API費用は解析時のみ約¥5〜10/回です。",
       },
     },
   ],

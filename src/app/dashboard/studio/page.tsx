@@ -105,7 +105,7 @@ export default async function StudioHome() {
           <Play className="h-8 w-8 mb-3" />
           <h3 className="text-lg font-bold">SNSフォーマット</h3>
           <p className="text-sm text-white/80 mt-1">
-            266種のフォーマットから選んで自動編集。Premiere Pro連携で即納品
+            参考動画からフォーマットを自動生成。Premiere Pro連携で即制作
           </p>
         </Link>
         <Link
