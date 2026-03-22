@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
       monthlyBudget: body.monthlyBudget || null,
       postsPerMonth: body.postsPerMonth || 12,
       notes: body.notes || null,
+      customerId: body.customerId || null,
       branchId: user.branchId,
       createdById: user.id,
     },
