@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import { RevenueReportList } from "@/components/sales-report/revenue-report-list";
 import { AdminRevenueSummary } from "@/components/sales-report/admin-revenue-summary";
+import { AdminReportList } from "@/components/sales-report/admin-report-list";
 import { BarChart2, Plus } from "lucide-react";
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
@@ -33,7 +34,7 @@ export default async function SalesReportPage() {
       where,
       orderBy: { targetMonth: "desc" },
     }),
-    // Admin のみ全件取得（集計用）
+    // Admin のみ全件取得（集計用＋詳細一覧用）
     role === "ADMIN"
       ? db.revenueReport.findMany({
           include: { createdBy: { select: { name: true, email: true } } },
@@ -73,6 +74,16 @@ export default async function SalesReportPage() {
       {adminReports && (
         <div className="border-b border-zinc-100 pb-8">
           <AdminRevenueSummary reports={adminReports} />
+        </div>
+      )}
+
+      {/* 管理者: 全員の報告一覧（Admin のみ） */}
+      {adminReports && (
+        <div>
+          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">
+            全パートナーの報告一覧
+          </p>
+          <AdminReportList reports={adminReports} />
         </div>
       )}
 
