@@ -194,6 +194,6 @@ export default auth((req: NextAuthRequest) => {
 // ----------------------------------------------------------------
 export const config = {
   matcher: [
-    "/((?!api/auth|api/cron|api/group-support|api/portfolio/sync|api/tracking|api/telegram|group-support/submit|p/|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|public).*)",
+    "/((?!api/auth|api/cron|api/group-support|api/portfolio/sync|api/tracking|api/telegram|group-support/submit|p/|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
   ],
 };
