@@ -113,10 +113,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const { db } = await import("@/lib/db");
           const dbUser = await db.user.findUnique({
             where: { email },
-            select: { role: true, enabledFeatures: true },
+            select: { role: true, enabledFeatures: true, isActive: true },
           });
           token.role = dbUser?.role ?? resolveRole(email);
           token.enabledFeatures = dbUser?.enabledFeatures ?? [];
+          token.isActive = dbUser?.isActive ?? true;
         } catch {
           // DB エラー時は env ベースのフォールバック
           token.role = resolveRole(email);
@@ -134,6 +135,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role as UserRole;
         session.user.email = token.email as string;
         session.user.enabledFeatures = (token.enabledFeatures as string[]) ?? [];
+        session.user.isActive = (token.isActive as boolean) ?? true;
       }
       return session;
     },

@@ -48,20 +48,27 @@ export async function createRevenueReport(
   const supportRequest    = (formData.get("supportRequest") as string)?.trim() || null;
 
   try {
-    const created = await db.revenueReport.create({
-      data: {
-        amount,
-        targetMonth,
-        projectName,
-        staffName,
-        memo,
-        currentProjects,
-        nextMonthProjects,
-        supportRequest,
-        branchId: info.branchId,
-        createdById: info.userId,
-      },
-    });
+    const [created] = await db.$transaction([
+      db.revenueReport.create({
+        data: {
+          amount,
+          targetMonth,
+          projectName,
+          staffName,
+          memo,
+          currentProjects,
+          nextMonthProjects,
+          supportRequest,
+          branchId: info.branchId,
+          createdById: info.userId,
+        },
+      }),
+      // 月次報告提出でアカウント自動復帰
+      db.user.update({
+        where: { id: info.userId },
+        data: { isActive: true },
+      }),
+    ]);
     logAudit({ action: "revenue_report_created", email: info.email, name: info.staffName, entity: "revenue_report", entityId: created.id, detail: `${targetMonthRaw} ${amount.toLocaleString()}円` });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
