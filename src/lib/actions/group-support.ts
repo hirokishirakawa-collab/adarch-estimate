@@ -28,8 +28,10 @@ export async function getGroupCompanies() {
   await requireAdmin();
   const weekId = getWeekId();
 
-  // 前月の月初・月末を算出
+  // 当月・前月の月初・月末を算出
   const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
   const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
@@ -51,28 +53,39 @@ export async function getGroupCompanies() {
     },
   });
 
-  // 前月の売上報告を一括取得（branchId別）
-  const prevMonthReports = await db.revenueReport.findMany({
-    where: {
-      targetMonth: {
-        gte: prevMonthStart,
-        lte: prevMonthEnd,
+  // 当月＋前月の売上報告を一括取得（branchId別）
+  const [currentMonthReports, prevMonthReports] = await Promise.all([
+    db.revenueReport.findMany({
+      where: {
+        targetMonth: { gte: currentMonthStart, lte: currentMonthEnd },
       },
-    },
-    select: { branchId: true },
-  });
-  const reportedBranches = new Set(prevMonthReports.map((r) => r.branchId));
+      select: { branchId: true },
+    }),
+    db.revenueReport.findMany({
+      where: {
+        targetMonth: { gte: prevMonthStart, lte: prevMonthEnd },
+      },
+      select: { branchId: true },
+    }),
+  ]);
+  const currentReportedBranches = new Set(currentMonthReports.map((r) => r.branchId));
+  const prevReportedBranches = new Set(prevMonthReports.map((r) => r.branchId));
 
-  // 各企業に前月売上報告有無を付与
+  // 各企業に当月・前月の売上報告有無を付与
   const companiesWithReport = companies.map((c) => {
     const branchIds = c.linkedUsers
       .map((u) => u.branchId)
       .filter((id): id is string => !!id);
-    const hasReport = branchIds.some((id) => reportedBranches.has(id));
-    return { ...c, prevMonthReportSubmitted: hasReport };
+    const hasCurrentReport = branchIds.some((id) => currentReportedBranches.has(id));
+    const hasPrevReport = branchIds.some((id) => prevReportedBranches.has(id));
+    return {
+      ...c,
+      prevMonthReportSubmitted: hasPrevReport,
+      currentMonthReportSubmitted: hasCurrentReport,
+    };
   });
 
-  return { companies: companiesWithReport, weekId, prevMonthStart };
+  return { companies: companiesWithReport, weekId, prevMonthStart, currentMonthStart };
 }
 
 // ----------------------------------------------------------------
