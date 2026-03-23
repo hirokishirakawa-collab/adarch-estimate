@@ -79,6 +79,9 @@ export function LeadSearchPanel() {
             total: number;
             breakdown: LeadScore["breakdown"];
             comment: string;
+            hypothesis?: string;
+            recommendedApproach?: string;
+            dmText?: string;
           }>;
           analyses: Record<string, WebsiteAnalysis>;
         };
@@ -89,7 +92,14 @@ export function LeadSearchPanel() {
           return {
             ...place,
             score: s
-              ? { total: s.total, breakdown: s.breakdown, comment: s.comment }
+              ? {
+                  total: s.total,
+                  breakdown: s.breakdown,
+                  comment: s.comment,
+                  hypothesis: s.hypothesis,
+                  recommendedApproach: s.recommendedApproach,
+                  dmText: s.dmText,
+                }
               : {
                   total: 0,
                   breakdown: {

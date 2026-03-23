@@ -155,6 +155,9 @@ export interface LeadScore {
   total: number;
   breakdown: Record<ScoreKey, number>;
   comment: string;
+  hypothesis?: string;
+  recommendedApproach?: string;
+  dmText?: string;
 }
 
 /** Google Places から取得する企業情報の型 */

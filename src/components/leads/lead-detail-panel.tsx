@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { SCORE_ITEMS, getPriorityLabel } from "@/lib/constants/leads";
 import type { ScoredLead, WebsiteAnalysis, BusinessType } from "@/lib/constants/leads";
 import {
@@ -19,6 +20,11 @@ import {
   Store,
   Landmark,
   GitBranch,
+  Lightbulb,
+  Target,
+  Copy,
+  CheckCheck,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -227,6 +233,31 @@ function DigitalAnalysisCard({ analysis }: { analysis: WebsiteAnalysis }) {
   );
 }
 
+function DmCopyButton({ dmText }: { dmText: string }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    const text = dmText.replace(/\\n/g, "\n");
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+        copied
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"
+      }`}
+    >
+      {copied ? <CheckCheck className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied ? "コピー済み" : "DM文をコピー"}
+    </button>
+  );
+}
+
 export function LeadDetailPanel({
   lead,
   isAdded,
@@ -236,6 +267,46 @@ export function LeadDetailPanel({
 
   return (
     <div className="bg-zinc-50 border-t border-zinc-200 px-5 py-4 space-y-4">
+      {/* 課題仮説 + 推奨アプローチ */}
+      {(lead.score.hypothesis || lead.score.recommendedApproach) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {lead.score.hypothesis && (
+            <div className="bg-amber-50 rounded-lg border border-amber-200 px-4 py-3">
+              <p className="text-xs font-medium text-amber-600 mb-1 flex items-center gap-1.5">
+                <Lightbulb className="w-3.5 h-3.5" />
+                課題仮説
+              </p>
+              <p className="text-sm text-amber-900">{lead.score.hypothesis}</p>
+            </div>
+          )}
+          {lead.score.recommendedApproach && (
+            <div className="bg-blue-50 rounded-lg border border-blue-200 px-4 py-3">
+              <p className="text-xs font-medium text-blue-600 mb-1 flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5" />
+                推奨アプローチ
+              </p>
+              <p className="text-sm text-blue-900 font-medium">{lead.score.recommendedApproach}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* DM文 */}
+      {lead.score.dmText && (
+        <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5" />
+              初回DM文（そのまま送信可能）
+            </p>
+            <DmCopyButton dmText={lead.score.dmText} />
+          </div>
+          <p className="text-sm text-zinc-700 whitespace-pre-line leading-relaxed bg-zinc-50 rounded-lg px-3 py-2.5 border border-zinc-100">
+            {lead.score.dmText.replace(/\\n/g, "\n")}
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* 基本情報 */}
         <div className="space-y-2">
