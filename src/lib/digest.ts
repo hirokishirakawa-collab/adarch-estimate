@@ -377,8 +377,7 @@ async function generateSummary(data: DigestStats, prev: BasicStats): Promise<str
   const notableDealsText = data.notableDeals.length > 0
     ? data.notableDeals.map((d) => {
       const status = STATUS_LABELS[d.status] ?? d.status;
-      const amount = d.amount ? `${Math.round(d.amount / 10000)}万円` : "";
-      return `${d.customerName}「${d.title}」${status}${amount ? ` ${amount}` : ""}`;
+      return `${d.customerName}「${d.title}」${status}`;
     }).join(" / ")
     : "なし";
 
@@ -397,20 +396,21 @@ async function generateSummary(data: DigestStats, prev: BasicStats): Promise<str
 - 注目案件があれば顧客名に触れてリアリティを出してください。
 - 商談のステージ変更があれば進捗として積極的に言及してください（「○○社の案件が提案フェーズに前進」等）。
 - 前回比で増えている指標があれば勢いを強調、減っている場合も「次の一手に期待」等前向きに。
+- 金額（万円・円）は一切出力しないでください。件数やアクション数のみ使用。
 - 数値が0の項目は省略し、動きがあった部分にフォーカス。
 - どの拠点が活発かを必ず言及。
 - データがすべて0の場合は「新しい動きの準備期間」といった前向きなメッセージに。
 
 【集計データ（直近3日間）】
 - 新規顧客: ${compareTrend(data.newCustomers, prev.newCustomers)}
-- 新規商談: ${compareTrend(data.newDeals, prev.newDeals)}（合計金額: ${data.dealTotalAmount > 0 ? `${Math.round(data.dealTotalAmount / 10000)}万円` : "—"}）
+- 新規商談: ${compareTrend(data.newDeals, prev.newDeals)}
 - 商談ステータス別: ${Object.entries(data.dealsByStatus).map(([k, v]) => `${STATUS_LABELS[k] ?? k}: ${v}件`).join(", ") || "—"}
 - 新規PJ: ${compareTrend(data.newProjects, prev.newProjects)} / 更新PJ: ${data.updatedProjects}件
 - 見積作成: ${data.newEstimations}件
 - 請求依頼: ${data.newInvoiceRequests}件
 - TVer配信申請: ${data.newTverCampaigns}件
 - グループ連携依頼: ${data.newCollaborations}件
-- 売上報告: ${data.newRevenueReports}件（合計: ${data.revenueTotalAmount > 0 ? `${Math.round(data.revenueTotalAmount / 10000)}万円` : "—"}）
+- 売上報告: ${data.newRevenueReports}件
 
 【拠点別アクション数】
 ${branchText}
