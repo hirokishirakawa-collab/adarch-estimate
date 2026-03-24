@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { db as prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { Play } from "lucide-react";
+import Link from "next/link";
+import { Play, BookOpen } from "lucide-react";
 import { VideoAnalyzer } from "./video-analyzer";
 import { FormatGallery } from "./format-gallery";
 
@@ -34,6 +35,16 @@ export default async function SnsFormatsPage() {
           生成したフォーマットをClaudeに渡すと、Adobe Premiere Proで自動編集されます。
         </p>
       </div>
+
+      {/* Wiki Guide Banner */}
+      <Link
+        href="/dashboard/wiki"
+        className="flex items-center gap-3 bg-gradient-to-r from-violet-50 to-pink-50 border border-violet-200 rounded-xl px-5 py-3 mb-6 hover:border-violet-300 transition group"
+      >
+        <BookOpen className="h-5 w-5 text-violet-500 flex-shrink-0" />
+        <p className="text-sm text-zinc-700 flex-1"><span className="font-bold">SNS Auto Studio セットアップガイド</span> — 初めての方はこちら</p>
+        <span className="text-xs text-violet-500 font-semibold group-hover:translate-x-0.5 transition-transform">Wiki →</span>
+      </Link>
 
       {/* Main: Video Analyzer */}
       <VideoAnalyzer />

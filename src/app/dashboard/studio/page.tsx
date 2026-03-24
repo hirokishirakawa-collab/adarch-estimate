@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { db as prisma } from "@/lib/db";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Palette, Users, Wand2, BarChart2, Plus, Play } from "lucide-react";
+import { Palette, Users, Wand2, BarChart2, Plus, Play, BookOpen } from "lucide-react";
 
 export default async function StudioHome() {
   const session = await auth();
@@ -47,6 +47,19 @@ export default async function StudioHome() {
           新規クライアント
         </Link>
       </div>
+
+      {/* Wiki Guide Banner */}
+      <Link
+        href="/dashboard/wiki"
+        className="flex items-center gap-3 bg-gradient-to-r from-violet-50 to-pink-50 border border-violet-200 rounded-xl px-5 py-3 mb-8 hover:border-violet-300 transition group"
+      >
+        <BookOpen className="h-5 w-5 text-violet-500 flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-bold text-zinc-800">SNS Auto Studio セットアップガイド</p>
+          <p className="text-xs text-zinc-500">Premiere Pro自動編集の環境構築手順・素材準備ルール・カタログの使い方</p>
+        </div>
+        <span className="text-xs text-violet-500 font-semibold group-hover:translate-x-0.5 transition-transform">Wiki →</span>
+      </Link>
 
       {/* Stats */}
       <div data-tour="studio-summary" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
