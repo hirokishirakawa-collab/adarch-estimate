@@ -16,10 +16,7 @@ export default async function SnsFormatsPage() {
   });
   if (!user) redirect("/login");
 
-  const isAdmin = user.role === "ADMIN";
-
   const formats = await prisma.snsReferenceFormat.findMany({
-    where: isAdmin ? {} : { branchId: user.branchId! },
     orderBy: { createdAt: "desc" },
     include: { createdBy: { select: { name: true } } },
   });
@@ -42,7 +39,7 @@ export default async function SnsFormatsPage() {
 
       {/* Wiki Guide Banner */}
       <Link
-        href="/dashboard/wiki"
+        href="/dashboard/wiki/cmn49o4tp0000nlbloayqe9zh"
         className="flex items-center gap-3 bg-gradient-to-r from-violet-50 to-pink-50 border border-violet-200 rounded-xl px-5 py-3 mb-6 hover:border-violet-300 transition group"
       >
         <BookOpen className="h-5 w-5 text-violet-500 flex-shrink-0" />

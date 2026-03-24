@@ -1088,6 +1088,9 @@ export function TourGuide() {
   useEffect(() => {
     if (hasRun) return;
 
+    // 自動起動はメインダッシュボードの初回のみ
+    if (pathname !== "/dashboard") return;
+
     const tourSteps = TOURS[pathname];
     if (!tourSteps) return;
 
