@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { UnivCoopSimulator } from "@/components/univ-coop/UnivCoopSimulator";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export const metadata = { title: "大学生協広告シミュレーター" };
 
@@ -19,6 +20,7 @@ export default async function UnivCoopSimulatorPage() {
           <p className="text-xs text-zinc-500 mt-0.5">
             食堂・枚数・月数から掲載費・印刷費・発送費・Ad-Arch提示価格を概算します
           </p>
+          <WikiHelpLink query="大学生協" />
         </div>
       </div>
       <UnivCoopSimulator />

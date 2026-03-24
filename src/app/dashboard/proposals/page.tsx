@@ -5,6 +5,7 @@ import { FileText, ArrowLeft, Settings } from "lucide-react";
 import Link from "next/link";
 import { ProposalForm } from "@/components/proposals/proposal-form";
 import { ProposalList } from "@/components/proposals/proposal-list";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 interface ProposalData {
   id: string;
@@ -82,9 +83,12 @@ export default function ProposalsPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">提案書AI</h2>
-            <p className="text-xs text-zinc-500">
-              企業情報を入力してAIが提案書を自動生成。ヒアリングシートがある場合は、その内容を元に提案書が自動生成されます。
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-zinc-500">
+                企業情報を入力してAIが提案書を自動生成。ヒアリングシートがある場合は、その内容を元に提案書が自動生成されます。
+              </p>
+              <WikiHelpLink query="提案書AI" />
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">

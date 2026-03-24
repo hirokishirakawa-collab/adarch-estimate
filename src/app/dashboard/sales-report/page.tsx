@@ -9,6 +9,7 @@ import { AdminReportList } from "@/components/sales-report/admin-report-list";
 import { BarChart2, Plus } from "lucide-react";
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function SalesReportPage() {
   const session = await auth();
@@ -53,9 +54,12 @@ export default async function SalesReportPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">月次報告</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              毎月の活動状況と売上を報告します
-            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-xs text-zinc-500">
+                毎月の活動状況と売上を報告します
+              </p>
+              <WikiHelpLink query="月次報告" />
+            </div>
           </div>
         </div>
 

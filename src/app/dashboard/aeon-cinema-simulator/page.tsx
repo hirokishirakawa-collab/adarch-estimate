@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AeonCinemaSimulator } from "@/components/aeon-cinema/AeonCinemaSimulator";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export const metadata = { title: "イオンシネマ広告シミュレーター" };
 
@@ -19,6 +20,7 @@ export default async function AeonCinemaSimulatorPage() {
           <p className="text-xs text-zinc-500 mt-0.5">
             98劇場のシネアド（15秒/30秒）・ロビープロモーション料金を概算します（2025年10月改定）
           </p>
+          <WikiHelpLink query="イオンシネマ" />
         </div>
       </div>
       <AeonCinemaSimulator />

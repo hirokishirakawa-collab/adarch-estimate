@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Tv2, Plus } from "lucide-react";
 import { getAdvertiserReviewList } from "@/lib/actions/advertiser-review";
 import { AdvertiserReviewTable } from "@/components/tver/AdvertiserReviewTable";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function TVerReviewPage() {
   const { reviews, role } = await getAdvertiserReviewList();
@@ -20,6 +21,7 @@ export default async function TVerReviewPage() {
                 ? "全拠点の業態考査申請を管理します"
                 : "TVer広告主の業態考査を申請します"}
             </p>
+            <WikiHelpLink query="TVer審査" />
           </div>
         </div>
 

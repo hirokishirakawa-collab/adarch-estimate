@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { DealKanban } from "@/components/deals/deal-kanban";
 import { DealSearch } from "@/components/deals/deal-search";
 import { ArchiveToggle } from "@/components/deals/archive-toggle";
@@ -83,6 +84,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
           <div>
             <h2 className="text-lg font-bold text-zinc-900">商談管理 (SFA)</h2>
             <p className="text-xs text-zinc-500 mt-0.5">パイプラインをカンバンで管理</p>
+            <WikiHelpLink query="商談管理" />
           </div>
           <div data-tour="deal-view"><DealViewTabs /></div>
         </div>

@@ -3,6 +3,7 @@ import { db as prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Play, BookOpen } from "lucide-react";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { VideoAnalyzer } from "./video-analyzer";
 import { FormatGallery } from "./format-gallery";
 
@@ -26,10 +27,13 @@ export default async function SnsFormatsPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-zinc-900 flex items-center gap-2">
-          <Play className="h-6 w-6 text-fuchsia-500" />
-          SNSフォーマット
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-zinc-900 flex items-center gap-2">
+            <Play className="h-6 w-6 text-fuchsia-500" />
+            SNSフォーマット
+          </h1>
+          <WikiHelpLink query="SNSフォーマット分析" />
+        </div>
         <p className="text-zinc-500 mt-1 text-sm">
           バズっている参考動画のURLを貼るだけで、構成・テロップ・撮影依頼書を自動生成。
           生成したフォーマットをClaudeに渡すと、Adobe Premiere Proで自動編集されます。

@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { TVerSimulator } from "@/components/tver/TVerSimulator";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export const metadata = { title: "TVer広告シミュレーター" };
 
@@ -26,6 +27,7 @@ export default async function TVerSimulatorPage({
           <p className="text-xs text-zinc-500 mt-0.5">
             エリア・秒数・予算から配信コストとリーチを概算します
           </p>
+          <WikiHelpLink query="TVerシミュレーター" />
         </div>
       </div>
       <TVerSimulator initialBudget={initialBudget} />

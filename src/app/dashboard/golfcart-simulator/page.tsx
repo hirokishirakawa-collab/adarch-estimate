@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Flag } from "lucide-react";
 import { GolfcartSimulator } from "@/components/golfcart/GolfcartSimulator";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export const metadata = { title: "ゴルフカート広告シミュレーター（Golfcart Vision）" };
 
@@ -20,6 +21,7 @@ export default async function GolfcartSimulatorPage() {
           <p className="text-xs text-zinc-500 mt-0.5">
             メニュー・週数・ゴルフ場を選択して掲載費と想定インプレッションを概算します
           </p>
+          <WikiHelpLink query="ゴルフカート" />
         </div>
       </div>
       <GolfcartSimulator />

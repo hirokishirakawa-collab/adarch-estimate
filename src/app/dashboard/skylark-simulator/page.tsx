@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { SkylarkSimulator } from "@/components/skylark/SkylarkSimulator";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export const metadata = { title: "すかいらーくインストア広告シミュレーター" };
 
@@ -19,6 +20,7 @@ export default async function SkylarkSimulatorPage() {
           <p className="text-xs text-zinc-500 mt-0.5">
             エリア・ブランド・商品タイプから媒体費・製作費・Ad-Arch提示価格を概算します
           </p>
+          <WikiHelpLink query="すかいらーく" />
         </div>
       </div>
       <SkylarkSimulator />

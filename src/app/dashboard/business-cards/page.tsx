@@ -9,6 +9,7 @@ import { CardSearch } from "@/components/business-cards/card-search";
 import { CardTable } from "@/components/business-cards/card-table";
 import { ITEMS_PER_PAGE } from "@/lib/constants/business-cards";
 import type { RegionValue } from "@/lib/constants/business-cards";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function BusinessCardsPage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -118,9 +119,12 @@ export default async function BusinessCardsPage(props: {
           </div>
           <div>
             <h1 className="text-lg font-bold text-zinc-900">名刺管理</h1>
-            <p className="text-xs text-zinc-500">
-              Eight エクスポートデータの一元管理・検索・マッチング
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-zinc-500">
+                Eight エクスポートデータの一元管理・検索・マッチング
+              </p>
+              <WikiHelpLink query="名刺管理" />
+            </div>
           </div>
         </div>
         <Link

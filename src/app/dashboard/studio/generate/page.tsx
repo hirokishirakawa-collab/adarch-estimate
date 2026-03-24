@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Wand2 } from "lucide-react";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 interface StudioClient {
   id: string;
@@ -137,10 +138,13 @@ export default function GeneratePage() {
         Studio ホームに戻る
       </Link>
 
-      <h1 className="text-2xl font-bold text-zinc-900 mb-6 flex items-center gap-2">
-        <Wand2 className="h-6 w-6 text-fuchsia-500" />
-        SNS運用プラン生成
-      </h1>
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-zinc-900 flex items-center gap-2">
+          <Wand2 className="h-6 w-6 text-fuchsia-500" />
+          SNS運用プラン生成
+        </h1>
+        <WikiHelpLink query="SNSプラン自動生成" />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Input */}

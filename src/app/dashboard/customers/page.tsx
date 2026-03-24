@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Plus, Users } from "lucide-react";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
@@ -112,6 +113,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
               全拠点の顧客データを一元表示
               {role !== "ADMIN" && " — 他拠点の商談金額は非表示"}
             </p>
+            <WikiHelpLink query="顧客管理" />
           </div>
         </div>
         <Link data-tour="customer-new" href="/dashboard/customers/new">

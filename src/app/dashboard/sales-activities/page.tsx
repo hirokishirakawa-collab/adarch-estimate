@@ -5,6 +5,7 @@ import { Activity, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { ActivityForm } from "@/components/proposals/activity-form";
 import { ActivityList } from "@/components/proposals/activity-list";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 interface ActivityData {
   id: string;
@@ -60,9 +61,12 @@ export default function SalesActivitiesPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">営業アクティビティ</h2>
-            <p className="text-xs text-zinc-500">
-              商談・アプローチ等の営業活動を記録
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-zinc-500">
+                商談・アプローチ等の営業活動を記録
+              </p>
+              <WikiHelpLink query="営業活動記録" />
+            </div>
           </div>
         </div>
         <Link

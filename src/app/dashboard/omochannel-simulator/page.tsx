@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Tv2 } from "lucide-react";
 import { OmoChannelSimulator } from "@/components/omochannel/OmoChannelSimulator";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export const metadata = { title: "おもチャンネル（アパホテル）シミュレーター" };
 
@@ -20,6 +21,7 @@ export default async function OmoChannelSimulatorPage() {
           <p className="text-xs text-zinc-500 mt-0.5">
             ターゲット・エリア・期間を選択して掲載費を概算します（全52,963室）
           </p>
+          <WikiHelpLink query="おもチャンネル" />
         </div>
       </div>
       <OmoChannelSimulator />

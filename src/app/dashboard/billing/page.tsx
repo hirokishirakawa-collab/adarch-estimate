@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CreditCard, Plus } from "lucide-react";
 import { getInvoiceRequestList } from "@/lib/actions/billing";
 import { InvoiceRequestList } from "@/components/billing/invoice-request-list";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function BillingPage() {
   const { requests, role } = await getInvoiceRequestList();
@@ -15,11 +16,14 @@ export default async function BillingPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">請求依頼</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              {role === "ADMIN"
-                ? "全社の請求依頼を管理します"
-                : "本部宛の請求依頼を申請・管理します（自分の依頼のみ表示）"}
-            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-xs text-zinc-500">
+                {role === "ADMIN"
+                  ? "全社の請求依頼を管理します"
+                  : "本部宛の請求依頼を申請・管理します（自分の依頼のみ表示）"}
+              </p>
+              <WikiHelpLink query="請求管理" />
+            </div>
           </div>
         </div>
 

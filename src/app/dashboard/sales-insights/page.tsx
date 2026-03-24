@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 // ---- Types ----
 interface IndustryInsight {
@@ -111,9 +112,12 @@ export default function SalesInsightsPage() {
         <h1 className="text-xl font-bold text-white">
           営業インサイト共有
         </h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          各メンバーがClaudeで分析した営業結果を集約しています
-        </p>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="text-sm text-zinc-400">
+            各メンバーがClaudeで分析した営業結果を集約しています
+          </p>
+          <WikiHelpLink query="営業インサイト" />
+        </div>
       </div>
 
       {/* Upload Form */}

@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Upload, FileVideo, Loader2, ExternalLink, Film } from "lucide-react";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 const ACCEPTED_FORMATS = ["video/mp4", "video/quicktime", "video/webm"];
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
@@ -126,6 +127,7 @@ export function CutSheetPage() {
             <h1 className="text-2xl font-bold text-gray-900">
               動画カット表ツール
             </h1>
+            <WikiHelpLink query="カット表生成" />
           </div>
           <p className="text-gray-500">
             動画をアップロードすると、シーン検出・音声書き起こしを行い、Google

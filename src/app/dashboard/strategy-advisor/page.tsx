@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { StrategyAdvisor } from "@/components/strategy-advisor/StrategyAdvisor";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export const metadata = { title: "提案戦略アドバイザー（AI）" };
 
@@ -20,9 +21,12 @@ export default async function StrategyAdvisorPage() {
           <h2 className="text-lg font-bold text-zinc-900">
             提案戦略アドバイザー（AI）
           </h2>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            ターゲット・目的・予算を入力すると、AIが最適な媒体プランを提案します
-          </p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs text-zinc-500">
+              ターゲット・目的・予算を入力すると、AIが最適な媒体プランを提案します
+            </p>
+            <WikiHelpLink query="提案戦略アドバイザー" />
+          </div>
         </div>
       </div>
 

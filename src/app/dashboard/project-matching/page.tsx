@@ -9,6 +9,7 @@ import {
   formatBudget,
 } from "@/lib/constants/project-matching";
 import { Plus, Users, MapPin, Calendar, EyeOff, Archive } from "lucide-react";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function ProjectMatchingPage() {
   const session = await auth();
@@ -25,7 +26,10 @@ export default async function ProjectMatchingPage() {
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-zinc-900">案件マッチング</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold text-zinc-900">案件マッチング</h1>
+            <WikiHelpLink query="案件マッチング" />
+          </div>
           <p className="text-xs text-zinc-500 mt-0.5">
             グループ企業間で案件を紹介し合えます
           </p>

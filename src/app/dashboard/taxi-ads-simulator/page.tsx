@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Car } from "lucide-react";
 import { TaxiAdsSimulator } from "@/components/taxi/TaxiAdsSimulator";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export const metadata = { title: "タクシー広告シミュレーター（TOKYO PRIME）" };
 
@@ -20,6 +21,7 @@ export default async function TaxiAdsSimulatorPage() {
           <p className="text-xs text-zinc-500 mt-0.5">
             メニュー・週数・エリアを選択して掲載費と想定インプレッションを概算します
           </p>
+          <WikiHelpLink query="タクシー広告シミュレーター" />
         </div>
       </div>
       <TaxiAdsSimulator />

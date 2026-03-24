@@ -1,6 +1,7 @@
 import { Target, Search, Sparkles, ListChecks, ArrowRight, Save } from "lucide-react";
 import { LeadSearchPanel } from "@/components/leads/lead-search-panel";
 import Link from "next/link";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default function LeadsPage() {
   return (
@@ -12,9 +13,12 @@ export default function LeadsPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">リード獲得AI</h2>
-            <p className="text-xs text-zinc-500">
-              エリア・業種を指定して営業候補リストを自動生成
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-zinc-500">
+                エリア・業種を指定して営業候補リストを自動生成
+              </p>
+              <WikiHelpLink query="リード獲得AI" />
+            </div>
           </div>
         </div>
         <Link

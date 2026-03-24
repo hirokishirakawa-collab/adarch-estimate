@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import { Target, Plus, Link2 } from "lucide-react";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { AchievementTracker } from "@/components/video-achievements/achievement-tracker";
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
@@ -81,7 +82,10 @@ export default async function VideoAchievementsPage({ searchParams }: PageProps)
             <Target className="text-blue-600" style={{ width: "1.125rem", height: "1.125rem" }} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-zinc-900">動画実績DB（自動収集）</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-zinc-900">動画実績DB（自動収集）</h2>
+              <WikiHelpLink query="動画実績管理" />
+            </div>
             <p className="text-xs text-zinc-500 mt-0.5">競合制作会社の実績から攻略ターゲットを発見する</p>
           </div>
         </div>

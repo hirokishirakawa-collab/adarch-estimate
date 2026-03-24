@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Tv2, Plus, ExternalLink } from "lucide-react";
 import { getTverCampaignList } from "@/lib/actions/tver-campaign";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import {
   getCampaignStatusOption,
   getBudgetTypeLabel,
@@ -34,6 +35,7 @@ export default async function TverCampaignPage() {
             <p className="text-xs text-zinc-500 mt-0.5">
               {isAdmin ? "全拠点のTVer配信申請を管理します" : "TVer広告の配信を申請します"}
             </p>
+            <WikiHelpLink query="TVer配信申請" />
           </div>
         </div>
 

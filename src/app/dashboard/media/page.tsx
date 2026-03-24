@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Megaphone, Plus } from "lucide-react";
 import { getMediaRequestList } from "@/lib/actions/media";
 import { MediaRequestTable } from "@/components/media/media-request-table";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function MediaPage() {
   const { requests, role } = await getMediaRequestList();
@@ -20,6 +21,7 @@ export default async function MediaPage() {
                 ? "全拠点の媒体広告掲載依頼を管理します"
                 : "媒体広告の掲載依頼を申請・管理します"}
             </p>
+            <WikiHelpLink query="媒体依頼管理" />
           </div>
         </div>
 

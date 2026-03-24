@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Tv2, Plus, ExternalLink } from "lucide-react";
 import { getTverCreativeReviewList } from "@/lib/actions/tver-creative-review";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   SUBMITTED: { label: "申請中",  className: "bg-amber-50  text-amber-700  border-amber-200"  },
@@ -31,6 +32,7 @@ export default async function TverCreativeReviewPage() {
             <p className="text-xs text-zinc-500 mt-0.5">
               {isAdmin ? "全拠点のクリエイティブ考査申請を管理します" : "TVer広告素材の考査を申請します"}
             </p>
+            <WikiHelpLink query="TVer審査" />
           </div>
         </div>
 

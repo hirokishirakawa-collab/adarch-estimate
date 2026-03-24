@@ -21,6 +21,7 @@ import {
   FileVideo,
   Files,
 } from "lucide-react";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 // ----------------------------------------------------------------
 // Types
@@ -157,7 +158,10 @@ export function PortfolioExplorer({
             <HardDrive className="w-[1.125rem] h-[1.125rem] text-blue-600" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">実績フォルダ検索</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-gray-900">実績フォルダ検索</h1>
+              <WikiHelpLink query="ポートフォリオ" />
+            </div>
             <p className="text-xs text-gray-500 mt-0.5">
               Google Drive の実績フォルダから素材・案件を検索
             </p>

@@ -6,6 +6,7 @@ import { getMockBranchId } from "@/lib/data/customers";
 import type { UserRole } from "@/types/roles";
 import { EstimateTable } from "@/components/estimates/estimate-table";
 import { ESTIMATION_STATUS_OPTIONS } from "@/lib/constants/estimates";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function EstimatesPage() {
   const session = await auth();
@@ -45,7 +46,10 @@ export default async function EstimatesPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">公式見積もり</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">標準単価マスタを使って素早く見積書を作成</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-xs text-zinc-500">標準単価マスタを使って素早く見積書を作成</p>
+              <WikiHelpLink query="見積作成ツール" />
+            </div>
           </div>
         </div>
         <Link data-tour="estimate-new" href="/dashboard/estimates/new">
