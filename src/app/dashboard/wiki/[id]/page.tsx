@@ -5,7 +5,8 @@ import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import { WikiArticleContent } from "@/components/wiki/wiki-article-content";
 import { deleteArticle } from "@/lib/actions/wiki";
-import { BookOpen, ChevronLeft, Pencil, Trash2 } from "lucide-react";
+import { BookOpen, ChevronLeft, Pencil } from "lucide-react";
+import { WikiDeleteButton } from "@/components/wiki/wiki-delete-button";
 import type { UserRole } from "@/types/roles";
 
 interface PageProps {
@@ -72,18 +73,7 @@ export default async function WikiArticlePage({ params }: PageProps) {
               <Pencil className="w-3.5 h-3.5" />
               編集
             </Link>
-            <form action={deleteAction}>
-              <button
-                type="submit"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
-                onClick={(e) => {
-                  if (!confirm("この記事を削除しますか？")) e.preventDefault();
-                }}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                削除
-              </button>
-            </form>
+            <WikiDeleteButton action={deleteAction} />
           </div>
         </div>
       </div>
