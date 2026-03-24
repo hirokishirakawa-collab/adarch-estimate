@@ -2016,3 +2016,18 @@ model SnsReferenceFormat {
   @@index([createdAt])
   @@map("sns_reference_formats")
 }
+
+// ────────────────────────────────────────────────────────────────
+// モバイルアプリ プッシュ通知トークン
+// ────────────────────────────────────────────────────────────────
+model PushToken {
+  id        String   @id @default(cuid())
+  token     String   @unique // ExponentPushToken[xxx]
+  email     String
+  platform  String?  // ios / android
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@map("push_tokens")
+}
