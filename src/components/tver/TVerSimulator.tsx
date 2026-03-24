@@ -16,11 +16,11 @@ type AdSeconds = 6 | 15 | 30 | 45 | 60;
 
 // CPMフロア価格（ネット）/ 令和最新版
 const AD_FORMATS: { seconds: AdSeconds; label: string; cpm: number; note?: string }[] = [
-  { seconds: 6,  label: "6秒",  cpm: 1600, note: "バンパー" },
-  { seconds: 15, label: "15秒", cpm: 2200, note: "標準" },
-  { seconds: 30, label: "30秒", cpm: 2600 },
-  { seconds: 45, label: "45秒", cpm: 3000 },
-  { seconds: 60, label: "60秒", cpm: 3700 },
+  { seconds: 6,  label: "6秒",  cpm: 3200, note: "バンパー" },
+  { seconds: 15, label: "15秒", cpm: 4400, note: "標準" },
+  { seconds: 30, label: "30秒", cpm: 5200 },
+  { seconds: 45, label: "45秒", cpm: 6000 },
+  { seconds: 60, label: "60秒", cpm: 7400 },
 ];
 
 // ----------------------------------------------------------------
