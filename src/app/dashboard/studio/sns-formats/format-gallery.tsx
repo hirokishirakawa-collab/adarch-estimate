@@ -140,6 +140,8 @@ ${st.map((s: any, i: number) => `   ${i + 1}. ${s.label} — ${s.duration}`).joi
 
   function printShootGuide(f: ReferenceFormat) {
     const st = f.structure as any[];
+    const totalSec = st.reduce((sum: number, s: any) => sum + parseFloat(s.duration), 0);
+    const colors = ["#8B5CF6","#3B82F6","#6BA0F4","#EC4899","#10B981","#F59E0B","#EF4444"];
     const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>撮影依頼書 - ${f.title}</title>
 <sty` + `le>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -153,40 +155,52 @@ body{font-family:'Helvetica Neue','Noto Sans JP',sans-serif;padding:40px;max-wid
 .section h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e0e0e0}
 .rule{background:#f8f8f8;border-left:3px solid #8B5CF6;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:16px}
 .rule div{margin-bottom:2px}
-.cut{display:flex;gap:14px;padding:12px 16px;border:1px solid #e8e8e8;border-radius:10px;margin-bottom:8px}
-.cut-num{width:28px;height:28px;background:#1a1a1a;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.cut{display:flex;gap:14px;padding:12px 16px;border:1px solid #e8e8e8;border-radius:10px;margin-bottom:8px;align-items:center}
+.cut-num{width:28px;height:28px;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
 .cut-title{font-weight:700}
+.cut-dur{font-size:12px;color:#888;margin-left:auto;flex-shrink:0}
 .footer{margin-top:32px;padding-top:16px;border-top:2px solid #1a1a1a;font-size:11px;color:#888;display:flex;justify-content:space-between}
-.timeline{display:flex;gap:2px;border-radius:8px;overflow:hidden;height:32px;margin-bottom:16px}
-.tl-b{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:rgba(255,255,255,.9)}
+.tl-wrap{margin-bottom:20px}
+.tl-bar{display:flex;gap:2px;border-radius:8px;overflow:hidden;height:44px}
+.tl-b{display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,.95)}
+.tl-b-label{font-size:10px;font-weight:700}
+.tl-b-dur{font-size:9px;opacity:.7}
+.tl-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.tl-legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:#555}
+.tl-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tl-total{text-align:right;font-size:11px;color:#888;margin-top:4px}
 </sty` + `le></he` + `ad><bo` + `dy>
 <div class="header">
-  <div><h1>📋 撮影依頼書</h1><div style="margin-top:6px"><span class="badge">${f.title}</span><span class="badge">${f.duration}</span>${f.platforms.split(",").map(p => '<span class="badge">' + p.toUpperCase() + '</span>').join("")}</div></div>
+  <div><h1>撮影依頼書</h1><div style="margin-top:6px"><span class="badge">${f.title}</span><span class="badge">${f.duration}</span>${f.platforms.split(",").map(p => '<span class="badge">' + p.toUpperCase() + '</span>').join("")}</div></div>
   <div class="meta">Ad Arch Group<br>SNS Format Studio<br>${new Date().toLocaleDateString("ja-JP")}</div>
 </div>
 <div class="section"><h2>参考動画</h2><div class="rule"><div>${f.sourceUrl}</div>${f.sourceViews ? '<div>再生数: ' + f.sourceViews.toLocaleString() + '</div>' : ''}</div></div>
 <div class="section"><h2>構成タイムライン</h2>
-<div class="timeline">${st.map((s: any, i: number) => { const colors = ["rgba(139,92,246,.5)","rgba(59,130,246,.4)","rgba(59,130,246,.3)","rgba(236,72,153,.45)","rgba(16,185,129,.4)"]; return '<div class="tl-b" style="flex:' + parseFloat(s.duration) + ';background:' + colors[i % colors.length] + '">' + s.label + '</div>'; }).join("")}</div></div>
+<div class="tl-wrap">
+<div class="tl-bar">${st.map((s: any, i: number) => '<div class="tl-b" style="flex:' + parseFloat(s.duration) + ';background:' + colors[i % colors.length] + '"><span class="tl-b-label">' + s.label + '</span><span class="tl-b-dur">' + s.duration + '</span></div>').join("")}</div>
+<div class="tl-legend">${st.map((s: any, i: number) => '<div class="tl-legend-item"><div class="tl-legend-dot" style="background:' + colors[i % colors.length] + '"></div>' + (i + 1) + '. ' + s.label + '（' + s.duration + '）</div>').join("")}</div>
+<div class="tl-total">合計: ${totalSec.toFixed(1)}秒</div>
+</div></div>
 <div class="section"><h2>基本ルール（必ずお読みください）</h2>
 <div class="rule">
-<div>📱 縦撮影（9:16）。スマホを縦に固定してください</div>
-<div>💡 自然光を活用。窓に向かって撮影するのがベストです</div>
-<div>⏱ 各カットは指定秒数の2〜3倍の長さで撮影してください</div>
-<div>📐 最低1080p（フルHD）以上で撮影してください</div>
-<div>📝 テロップが入るので、画面下部20%には重要な要素を入れないでください</div>
-<div>🔇 BGMを入れるので環境音は気にしなくてOKです</div>
+<div>縦撮影（9:16）。スマホを縦に固定してください</div>
+<div>自然光を活用。窓に向かって撮影するのがベストです</div>
+<div>各カットは指定秒数の2〜3倍の長さで撮影してください</div>
+<div>最低1080p（フルHD）以上で撮影してください</div>
+<div>テロップが入るので、画面下部20%には重要な要素を入れないでください</div>
+<div>BGMを入れるので環境音は気にしなくてOKです</div>
 </div></div>
 <div class="section"><h2>撮影カット</h2>
-${st.map((s: any, i: number) => '<div class="cut"><div class="cut-num">' + (i + 1) + '</div><div><div class="cut-title">' + s.label + '（' + s.duration + '）</div></div></div>').join("")}
+${st.map((s: any, i: number) => '<div class="cut"><div class="cut-num" style="background:' + colors[i % colors.length] + '">' + (i + 1) + '</div><div><div class="cut-title">' + s.label + '</div></div><div class="cut-dur">' + s.duration + '</div></div>').join("")}
 </div>
 ${f.shootingTips ? '<div class="section"><h2>撮影のコツ</h2><div class="rule"><div>' + f.shootingTips + '</div></div></div>' : ''}
 <div class="section"><h2>素材の送付方法</h2>
 <div class="rule">
-<div>📁 撮影した動画をGoogleドライブ or ギガファイル便でお送りください</div>
-<div>📱 ファイル名に番号をつけてください（例: 01_フック.mp4, 02_施術.mp4）</div>
-<div>🎵 BGMの希望があればお知らせください（なければこちらで選定します）</div>
+<div>撮影した動画をGoogleドライブ or ギガファイル便でお送りください</div>
+<div>ファイル名に番号をつけてください（例: 01_フック.mp4, 02_施術.mp4）</div>
+<div>BGMの希望があればお知らせください（なければこちらで選定します）</div>
 </div></div>
-<div class="footer"><div>© Ad Arch Group — SNS Format Studio</div><div>${new Date().toLocaleDateString("ja-JP")}</div></div>
+<div class="footer"><div>Ad Arch Group — SNS Format Studio</div><div>${new Date().toLocaleDateString("ja-JP")}</div></div>
 <scr` + `ipt>window.print()</scr` + `ipt>
 </bo` + `dy></ht` + `ml>`;
     const blob = new Blob([html], { type: "text/html" });
