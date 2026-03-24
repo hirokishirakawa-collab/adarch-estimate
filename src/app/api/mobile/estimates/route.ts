@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const limitParam = searchParams.get("limit");
   const limit = limitParam ? Math.min(Math.max(1, parseInt(limitParam, 10)), 100) : 50;
 
-  const validStatuses: EstimationStatus[] = ["DRAFT", "ISSUED", "ACCEPTED", "REJECTED", "EXPIRED"];
+  const validStatuses: EstimationStatus[] = ["DRAFT", "ISSUED", "SENT", "ACCEPTED", "REJECTED"];
   const statusFilter =
     statusParam && validStatuses.includes(statusParam as EstimationStatus)
       ? (statusParam as EstimationStatus)

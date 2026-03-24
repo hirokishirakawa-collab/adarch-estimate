@@ -198,6 +198,8 @@ enum LeadSource {
   GBIZINFO
   CINEMA_AD
   CSV_IMPORT
+  MANUAL
+  SIGNBOARD_SCAN
 }
 
 // ==============================================================
