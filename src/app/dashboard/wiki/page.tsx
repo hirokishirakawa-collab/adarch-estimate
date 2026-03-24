@@ -7,11 +7,11 @@ import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
 
 interface PageProps {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; tag?: string }>;
 }
 
 export default async function WikiPage({ searchParams }: PageProps) {
-  const { q } = await searchParams;
+  const { q, tag } = await searchParams;
 
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
@@ -20,14 +20,32 @@ export default async function WikiPage({ searchParams }: PageProps) {
 
   const where: Prisma.WikiArticleWhereInput = {
     ...(role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId }),
-    ...(q ? { title: { contains: q, mode: "insensitive" } } : {}),
+    ...(q
+      ? {
+          OR: [
+            { title: { contains: q, mode: "insensitive" } },
+            { body: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+    ...(tag ? { tags: { some: { name: tag } } } : {}),
   };
 
-  const articles = await db.wikiArticle.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true, authorName: true, updatedAt: true, createdAt: true },
-  });
+  const [articles, allTags] = await Promise.all([
+    db.wikiArticle.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        authorName: true,
+        updatedAt: true,
+        createdAt: true,
+        tags: { select: { id: true, name: true, color: true } },
+      },
+    }),
+    db.wikiTag.findMany({ orderBy: { name: "asc" } }),
+  ]);
 
   const fmt = (d: Date) =>
     new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "short", day: "numeric", timeZone: "Asia/Tokyo" }).format(
@@ -65,31 +83,52 @@ export default async function WikiPage({ searchParams }: PageProps) {
             name="q"
             type="text"
             defaultValue={q}
-            placeholder="記事タイトルで検索"
+            placeholder="タイトル・本文で検索"
             className="pl-8 pr-3 py-1.5 text-xs border border-zinc-200 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
+        {tag && <input type="hidden" name="tag" value={tag} />}
         <button
           type="submit"
           className="px-3 py-1.5 text-xs bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg transition-colors"
         >
           検索
         </button>
-        {q && (
+        {(q || tag) && (
           <Link href="/dashboard/wiki" className="text-xs text-zinc-500 hover:text-zinc-700">
             クリア
           </Link>
         )}
       </form>
 
+      {/* タグフィルター */}
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {allTags.map((t) => (
+            <Link
+              key={t.id}
+              href={tag === t.name ? `/dashboard/wiki${q ? `?q=${q}` : ""}` : `/dashboard/wiki?tag=${encodeURIComponent(t.name)}${q ? `&q=${q}` : ""}`}
+              className={`px-2.5 py-1 text-xs rounded-full border transition-all ${
+                tag === t.name
+                  ? "border-transparent text-white font-semibold"
+                  : "border-zinc-200 text-zinc-500 hover:border-zinc-300"
+              }`}
+              style={tag === t.name ? { backgroundColor: t.color } : {}}
+            >
+              {t.name}
+            </Link>
+          ))}
+        </div>
+      )}
+
       {/* 記事一覧 */}
       <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
         {articles.length === 0 ? (
           <div className="py-20 text-center">
             <p className="text-sm text-zinc-400">
-              {q ? "条件に一致する記事がありません" : "記事がまだありません"}
+              {q || tag ? "条件に一致する記事がありません" : "記事がまだありません"}
             </p>
-            {!q && (
+            {!q && !tag && (
               <Link
                 href="/dashboard/wiki/new"
                 className="mt-3 inline-flex items-center gap-1 text-xs text-teal-600 hover:underline"
@@ -110,9 +149,24 @@ export default async function WikiPage({ searchParams }: PageProps) {
                     <p className="text-sm font-semibold text-zinc-800 group-hover:text-teal-700 transition-colors">
                       {article.title}
                     </p>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">
-                      {article.authorName} · 更新: {fmt(article.updatedAt)}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-[11px] text-zinc-400">
+                        {article.authorName} · 更新: {fmt(article.updatedAt)}
+                      </p>
+                      {article.tags.length > 0 && (
+                        <div className="flex gap-1">
+                          {article.tags.map((t) => (
+                            <span
+                              key={t.id}
+                              className="px-1.5 py-0.5 text-[10px] rounded-full text-white font-medium"
+                              style={{ backgroundColor: t.color }}
+                            >
+                              {t.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <span className="text-[11px] text-zinc-400 flex-shrink-0">
                     作成: {fmt(article.createdAt)}

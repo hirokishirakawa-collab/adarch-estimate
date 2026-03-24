@@ -24,7 +24,7 @@ export default async function WikiArticlePage({ params }: PageProps) {
   const where =
     role === "ADMIN" || !userBranchId ? { id } : { id, branchId: userBranchId };
 
-  const article = await db.wikiArticle.findFirst({ where });
+  const article = await db.wikiArticle.findFirst({ where, include: { tags: true } });
   if (!article) notFound();
 
   const fmt = (d: Date) =>
@@ -59,9 +59,24 @@ export default async function WikiArticlePage({ params }: PageProps) {
             </div>
             <div>
               <h1 className="text-xl font-bold text-zinc-900">{article.title}</h1>
-              <p className="text-xs text-zinc-400 mt-1">
-                {article.authorName} · 更新: {fmt(article.updatedAt)}
-              </p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <p className="text-xs text-zinc-400">
+                  {article.authorName} · 更新: {fmt(article.updatedAt)}
+                </p>
+                {article.tags.length > 0 && (
+                  <div className="flex gap-1">
+                    {article.tags.map((t) => (
+                      <span
+                        key={t.id}
+                        className="px-2 py-0.5 text-[10px] rounded-full text-white font-medium"
+                        style={{ backgroundColor: t.color }}
+                      >
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

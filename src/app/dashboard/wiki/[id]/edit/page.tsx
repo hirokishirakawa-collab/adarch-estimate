@@ -23,7 +23,10 @@ export default async function EditWikiPage({ params }: PageProps) {
   const where =
     role === "ADMIN" || !userBranchId ? { id } : { id, branchId: userBranchId };
 
-  const article = await db.wikiArticle.findFirst({ where });
+  const [article, allTags] = await Promise.all([
+    db.wikiArticle.findFirst({ where, include: { tags: true } }),
+    db.wikiTag.findMany({ orderBy: { name: "asc" } }),
+  ]);
   if (!article) notFound();
 
   const boundAction = updateArticle.bind(null, article.id);
@@ -53,6 +56,8 @@ export default async function EditWikiPage({ params }: PageProps) {
           action={boundAction}
           defaultTitle={article.title}
           defaultBody={article.body}
+          defaultTags={article.tags.map((t) => t.name).join(",")}
+          availableTags={allTags}
           submitLabel="更新する"
         />
       </div>

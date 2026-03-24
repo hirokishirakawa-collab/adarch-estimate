@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { WikiArticleForm } from "@/components/wiki/wiki-article-form";
 import { createArticle } from "@/lib/actions/wiki";
+import { db } from "@/lib/db";
 import { BookOpen, ChevronLeft } from "lucide-react";
 
-export default function NewWikiPage() {
+export default async function NewWikiPage() {
+  const allTags = await db.wikiTag.findMany({ orderBy: { name: "asc" } });
+
   return (
     <div className="px-6 py-6 max-w-3xl mx-auto w-full">
       <Link
@@ -25,7 +28,7 @@ export default function NewWikiPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-zinc-200 p-6">
-        <WikiArticleForm action={createArticle} submitLabel="記事を作成" />
+        <WikiArticleForm action={createArticle} submitLabel="記事を作成" availableTags={allTags} />
       </div>
     </div>
   );

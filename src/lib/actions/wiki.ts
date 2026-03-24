@@ -21,6 +21,21 @@ async function getSessionInfo() {
   return { role, email, name, branchId };
 }
 
+async function syncTags(tagNames: string[]) {
+  const tagIds: string[] = [];
+  for (const name of tagNames) {
+    const trimmed = name.trim();
+    if (!trimmed) continue;
+    const tag = await db.wikiTag.upsert({
+      where: { name: trimmed },
+      update: {},
+      create: { name: trimmed },
+    });
+    tagIds.push(tag.id);
+  }
+  return tagIds;
+}
+
 // ---------------------------------------------------------------
 // Wiki記事を作成する
 // ---------------------------------------------------------------
@@ -39,10 +54,20 @@ export async function createArticle(
   const body = (formData.get("body") as string)?.trim();
   if (!body) return { error: "本文は必須です" };
 
+  const tagsRaw = (formData.get("tags") as string) ?? "";
+  const tagNames = tagsRaw.split(",").filter(Boolean);
+  const tagIds = await syncTags(tagNames);
+
   let articleId: string;
   try {
     const article = await db.wikiArticle.create({
-      data: { title, body, authorName: name, branchId },
+      data: {
+        title,
+        body,
+        authorName: name,
+        branchId,
+        tags: { connect: tagIds.map((id) => ({ id })) },
+      },
     });
     articleId = article.id;
     logAudit({ action: "wiki_article_created", email: info.email, name, entity: "wiki_article", entityId: article.id, detail: title });
@@ -74,10 +99,18 @@ export async function updateArticle(
   const body = (formData.get("body") as string)?.trim();
   if (!body) return { error: "本文は必須です" };
 
+  const tagsRaw = (formData.get("tags") as string) ?? "";
+  const tagNames = tagsRaw.split(",").filter(Boolean);
+  const tagIds = await syncTags(tagNames);
+
   try {
     await db.wikiArticle.update({
       where: { id: articleId },
-      data: { title, body },
+      data: {
+        title,
+        body,
+        tags: { set: tagIds.map((id) => ({ id })) },
+      },
     });
     logAudit({ action: "wiki_article_updated", email: info.email, name: info.name, entity: "wiki_article", entityId: articleId, detail: title });
   } catch (e) {
