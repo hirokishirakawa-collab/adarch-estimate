@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "LeadSource" ADD VALUE 'MANUAL';
+ALTER TYPE "LeadSource" ADD VALUE 'SIGNBOARD_SCAN';
