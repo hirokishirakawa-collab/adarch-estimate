@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { getPriorityLabel, PRIORITY_LABELS, BTOB_SCORE_ITEMS } from "@/lib/constants/leads";
 import type { ScoredBtoBLead, BtoBLeadScore, WebsiteAnalysis, YouTubeChannelInfo } from "@/lib/constants/leads";
-import { ChevronDown, ChevronUp, ArrowUpDown, Filter, EyeOff, Eye, Plus, Check, ExternalLink, Youtube } from "lucide-react";
+import { ChevronDown, ChevronUp, ArrowUpDown, Filter, EyeOff, Eye, Plus, Check, Loader2, ExternalLink, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getLeadStatusOption } from "@/lib/constants/leads";
 
@@ -11,8 +11,9 @@ type SortKey = "score" | "name" | "capital" | "employee";
 
 interface BtoBResultsTableProps {
   leads: ScoredBtoBLead[];
-  addedNames: Set<string>;
-  onToggleAdd: (name: string) => void;
+  savedNames: Set<string>;
+  savingName: string | null;
+  onSaveLead: (name: string) => void;
   existingMap?: Record<string, string>;
 }
 
@@ -28,8 +29,9 @@ function formatEmployee(count?: number): string {
 
 export function BtoBResultsTable({
   leads,
-  addedNames,
-  onToggleAdd,
+  savedNames,
+  savingName,
+  onSaveLead,
   existingMap = {},
 }: BtoBResultsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("score");
@@ -242,8 +244,9 @@ export function BtoBResultsTable({
                     {isExpanded && (
                       <BtoBDetailPanel
                         lead={lead}
-                        isAdded={addedNames.has(lead.name)}
-                        onToggleAdd={() => onToggleAdd(lead.name)}
+                        isSaved={savedNames.has(lead.name)}
+                        isSaving={savingName === lead.name}
+                        onSave={() => onSaveLead(lead.name)}
                       />
                     )}
                   </td>
@@ -267,12 +270,14 @@ export function BtoBResultsTable({
 // ---------------------------------------------------------------
 function BtoBDetailPanel({
   lead,
-  isAdded,
-  onToggleAdd,
+  isSaved,
+  isSaving,
+  onSave,
 }: {
   lead: ScoredBtoBLead;
-  isAdded: boolean;
-  onToggleAdd: () => void;
+  isSaved: boolean;
+  isSaving: boolean;
+  onSave: () => void;
 }) {
   const priority = getPriorityLabel(lead.score.total);
 
@@ -419,15 +424,18 @@ function BtoBDetailPanel({
         </span>
         <Button
           size="sm"
-          variant={isAdded ? "outline" : "default"}
-          onClick={onToggleAdd}
+          variant={isSaved ? "outline" : "default"}
+          onClick={onSave}
+          disabled={isSaved || isSaving}
         >
-          {isAdded ? (
+          {isSaving ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : isSaved ? (
             <Check className="w-3.5 h-3.5" />
           ) : (
             <Plus className="w-3.5 h-3.5" />
           )}
-          {isAdded ? "追加済み" : "営業リストへ追加"}
+          {isSaving ? "保存中..." : isSaved ? "保存済み" : "営業リストへ保存"}
         </Button>
       </div>
     </div>

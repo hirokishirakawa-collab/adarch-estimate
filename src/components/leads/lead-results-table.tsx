@@ -12,15 +12,17 @@ type SortKey = "score" | "name";
 
 interface LeadResultsTableProps {
   leads: ScoredLead[];
-  addedNames: Set<string>;
-  onToggleAdd: (name: string) => void;
+  savedNames: Set<string>;
+  savingName: string | null;
+  onSaveLead: (name: string) => void;
   existingMap?: Record<string, string>; // "name|address" → status
 }
 
 export function LeadResultsTable({
   leads,
-  addedNames,
-  onToggleAdd,
+  savedNames,
+  savingName,
+  onSaveLead,
   existingMap = {},
 }: LeadResultsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("score");
@@ -208,8 +210,9 @@ export function LeadResultsTable({
                     {isExpanded && (
                       <LeadDetailPanel
                         lead={lead}
-                        isAdded={addedNames.has(lead.name)}
-                        onToggleAdd={() => onToggleAdd(lead.name)}
+                        isSaved={savedNames.has(lead.name)}
+                        isSaving={savingName === lead.name}
+                        onSave={() => onSaveLead(lead.name)}
                       />
                     )}
                   </td>

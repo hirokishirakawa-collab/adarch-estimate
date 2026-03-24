@@ -10,6 +10,7 @@ import {
   Globe,
   Plus,
   Check,
+  Loader2,
   Video,
   VideoOff,
   Share2,
@@ -60,8 +61,9 @@ const BUSINESS_TYPE_CONFIG: Record<
 
 interface LeadDetailPanelProps {
   lead: ScoredLead;
-  isAdded: boolean;
-  onToggleAdd: () => void;
+  isSaved: boolean;
+  isSaving: boolean;
+  onSave: () => void;
 }
 
 // 企業タイプ（チェーン/独立/FC/支店）を文章で表示
@@ -229,8 +231,9 @@ function DigitalAnalysisCard({ analysis }: { analysis: WebsiteAnalysis }) {
 
 export function LeadDetailPanel({
   lead,
-  isAdded,
-  onToggleAdd,
+  isSaved,
+  isSaving,
+  onSave,
 }: LeadDetailPanelProps) {
   const priority = getPriorityLabel(lead.score.total);
 
@@ -336,15 +339,18 @@ export function LeadDetailPanel({
         </span>
         <Button
           size="sm"
-          variant={isAdded ? "outline" : "default"}
-          onClick={onToggleAdd}
+          variant={isSaved ? "outline" : "default"}
+          onClick={onSave}
+          disabled={isSaved || isSaving}
         >
-          {isAdded ? (
+          {isSaving ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : isSaved ? (
             <Check className="w-3.5 h-3.5" />
           ) : (
             <Plus className="w-3.5 h-3.5" />
           )}
-          {isAdded ? "追加済み" : "営業リストへ追加"}
+          {isSaving ? "保存中..." : isSaved ? "保存済み" : "営業リストへ保存"}
         </Button>
       </div>
     </div>

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import type { BtoBCompanyLead, ScoredBtoBLead, BtoBLeadScore, WebsiteAnalysis, YouTubeChannelInfo } from "@/lib/constants/leads";
 import { BtoBSearchForm } from "./btob-search-form";
 import { BtoBResultsTable } from "./btob-results-table";
-import { Loader2, AlertCircle, RotateCcw, Save, ListChecks } from "lucide-react";
+import { Loader2, AlertCircle, RotateCcw, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { saveBtoBLeadsFromSearch, checkExistingLeads } from "@/lib/actions/lead";
 
@@ -14,12 +14,11 @@ type Phase = "form" | "searching" | "enriching" | "scoring" | "done" | "error";
 export function BtoBSearchPanel() {
   const [phase, setPhase] = useState<Phase>("form");
   const [leads, setLeads] = useState<ScoredBtoBLead[]>([]);
-  const [addedNames, setAddedNames] = useState<Set<string>>(new Set());
+  const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
+  const [savingName, setSavingName] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [searchParams, setSearchParams] = useState({ industry: "", area: "" });
   const [existingMap, setExistingMap] = useState<Record<string, string>>({});
-  const [savedCount, setSavedCount] = useState<number | null>(null);
-  const [isSaving, startSaving] = useTransition();
 
   const handleSearch = useCallback(
     async (params: {
@@ -163,7 +162,7 @@ export function BtoBSearchPanel() {
           industry: params.businessItem,
           area: [params.city, params.prefecture].filter(Boolean).join(" "),
         });
-        setSavedCount(null);
+        setSavedNames(new Set());
         setPhase("done");
       } catch (err) {
         setErrorMsg(
@@ -175,14 +174,27 @@ export function BtoBSearchPanel() {
     []
   );
 
-  const handleToggleAdd = useCallback((name: string) => {
-    setAddedNames((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }, []);
+  const handleSaveLead = useCallback(
+    async (name: string) => {
+      const lead = leads.find((l) => l.name === name);
+      if (!lead || savedNames.has(name) || savingName) return;
+
+      setSavingName(name);
+      try {
+        const result = await saveBtoBLeadsFromSearch(
+          [lead],
+          searchParams.industry,
+          searchParams.area
+        );
+        if (!result.error) {
+          setSavedNames((prev) => new Set(prev).add(name));
+        }
+      } finally {
+        setSavingName(null);
+      }
+    },
+    [leads, savedNames, savingName, searchParams]
+  );
 
   const handleReset = useCallback(() => {
     setPhase("form");
@@ -239,75 +251,26 @@ export function BtoBSearchPanel() {
       {phase === "done" && leads.length > 0 && (
         <BtoBResultsTable
           leads={leads}
-          addedNames={addedNames}
-          onToggleAdd={handleToggleAdd}
+          savedNames={savedNames}
+          savingName={savingName}
+          onSaveLead={handleSaveLead}
           existingMap={existingMap}
         />
       )}
 
-      {/* リード保存バー */}
-      {phase === "done" && leads.length > 0 && (
-        <div className="bg-blue-50 rounded-xl border border-blue-200 px-5 py-3 flex items-center justify-between">
-          {savedCount !== null ? (
-            <div className="flex items-center gap-3">
-              <p className="text-sm text-emerald-700">
-                <strong>{savedCount}件</strong> のリードを保存しました
-              </p>
-              <Link
-                href="/dashboard/leads/list"
-                className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline font-medium"
-              >
-                <ListChecks className="w-3.5 h-3.5" />
-                リード管理を開く
-              </Link>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between w-full">
-              <p className="text-sm text-blue-700">
-                {addedNames.size > 0 ? (
-                  <>
-                    <strong>{addedNames.size}件</strong> 選択中（結果一覧の「+」ボタンで企業を選択）
-                  </>
-                ) : (
-                  <>結果一覧の「+」ボタンで保存したい企業を選択してください</>
-                )}
-              </p>
-              <div className="flex items-center gap-2">
-                {addedNames.size > 0 && (
-                  <button
-                    onClick={() => setAddedNames(new Set())}
-                    className="text-xs text-zinc-500 hover:text-zinc-700 underline"
-                  >
-                    選択解除
-                  </button>
-                )}
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    const selectedLeads = leads.filter((l) => addedNames.has(l.name));
-                    if (selectedLeads.length === 0) return;
-                    startSaving(async () => {
-                      const result = await saveBtoBLeadsFromSearch(
-                        selectedLeads,
-                        searchParams.industry,
-                        searchParams.area
-                      );
-                      setSavedCount(result.saved);
-                    });
-                  }}
-                  disabled={isSaving || addedNames.size === 0}
-                  className="gap-1.5"
-                >
-                  {isSaving ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Save className="w-3.5 h-3.5" />
-                  )}
-                  選択した{addedNames.size}件を保存
-                </Button>
-              </div>
-            </div>
-          )}
+      {/* 保存済みリンク */}
+      {phase === "done" && savedNames.size > 0 && (
+        <div className="bg-emerald-50 rounded-xl border border-emerald-200 px-5 py-3 flex items-center gap-3">
+          <p className="text-sm text-emerald-700">
+            <strong>{savedNames.size}件</strong> をリード管理に保存しました
+          </p>
+          <Link
+            href="/dashboard/leads/list"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline font-medium"
+          >
+            <ListChecks className="w-3.5 h-3.5" />
+            リード管理を開く
+          </Link>
         </div>
       )}
     </div>

@@ -7,22 +7,24 @@ import {
   CINEMA_SCORE_ITEMS,
 } from "@/lib/constants/cinema-leads";
 import type { ScoredCinemaLead, CinemaScoreKey } from "@/lib/constants/cinema-leads";
-import { ChevronDown, ChevronUp, ArrowUpDown, Filter, MapPin, Plus, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, ArrowUpDown, Filter, MapPin, Plus, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type SortKey = "score" | "distance" | "name";
 
 interface CinemaResultsTableProps {
   leads: ScoredCinemaLead[];
-  addedNames: Set<string>;
-  onToggleAdd: (name: string) => void;
+  savedNames: Set<string>;
+  savingName: string | null;
+  onSaveLead: (name: string) => void;
   existingMap?: Record<string, string>;
 }
 
 export function CinemaResultsTable({
   leads,
-  addedNames,
-  onToggleAdd,
+  savedNames,
+  savingName,
+  onSaveLead,
   existingMap = {},
 }: CinemaResultsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("score");
@@ -175,7 +177,8 @@ export function CinemaResultsTable({
               const bandColor = RADIUS_BAND_COLORS[lead.radiusBand];
               const isExpanded = expandedIdx === i;
               const existing = getExistingStatus(lead);
-              const isAdded = addedNames.has(lead.name);
+              const isSaved = savedNames.has(lead.name);
+              const isSavingThis = savingName === lead.name;
 
               return (
                 <tr key={`${lead.name}-${i}`} className="group">
@@ -216,18 +219,20 @@ export function CinemaResultsTable({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!existing) onToggleAdd(lead.name);
+                            if (!existing && !isSaved && !isSavingThis) onSaveLead(lead.name);
                           }}
-                          disabled={!!existing}
+                          disabled={!!existing || isSaved || isSavingThis}
                           className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
                             existing
                               ? "bg-zinc-100 text-zinc-400 cursor-not-allowed"
-                              : isAdded
-                              ? "bg-blue-600 text-white"
+                              : isSaved
+                              ? "bg-emerald-600 text-white"
+                              : isSavingThis
+                              ? "bg-blue-100 text-blue-500"
                               : "bg-zinc-100 text-zinc-500 hover:bg-blue-100 hover:text-blue-600"
                           }`}
                         >
-                          {isAdded ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                          {isSavingThis ? <Loader2 className="w-3 h-3 animate-spin" /> : isSaved ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
                         </button>
                       </div>
                     </div>
