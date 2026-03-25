@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { markLessonComplete } from "@/lib/actions/learning";
+import { Check } from "lucide-react";
 
 export function LessonCompleteButton({ lessonId }: { lessonId: string }) {
   const [isPending, startTransition] = useTransition();
@@ -10,9 +11,10 @@ export function LessonCompleteButton({ lessonId }: { lessonId: string }) {
     <button
       disabled={isPending}
       onClick={() => startTransition(() => markLessonComplete(lessonId))}
-      className="px-3 py-1.5 text-xs font-medium text-zinc-600 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors disabled:opacity-50"
+      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors disabled:opacity-50"
     >
-      {isPending ? "..." : "完了"}
+      <Check className="w-3.5 h-3.5" />
+      {isPending ? "記録中..." : "学習完了にする"}
     </button>
   );
 }

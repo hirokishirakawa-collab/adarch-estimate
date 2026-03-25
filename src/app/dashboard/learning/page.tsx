@@ -2,8 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { GraduationCap, BookOpen, CheckCircle, Clock, Plus } from "lucide-react";
-import type { UserRole } from "@/types/roles";
+import { GraduationCap, BookOpen, CheckCircle, Trophy, ChevronRight, Play, FileText, ClipboardCheck } from "lucide-react";
 
 export default async function LearningPage() {
   const session = await auth();
@@ -16,12 +15,11 @@ export default async function LearningPage() {
 
   const isAdmin = user.role === "ADMIN";
 
-  // コース一覧（公開済み or ADMIN）
   const courses = await db.learningCourse.findMany({
     where: isAdmin ? {} : { published: true },
     orderBy: { sortOrder: "asc" },
     include: {
-      lessons: { select: { id: true } },
+      lessons: { select: { id: true, type: true } },
       tests: { select: { id: true } },
       enrollments: {
         where: { userId: user.id },
@@ -30,80 +28,84 @@ export default async function LearningPage() {
     },
   });
 
-  // ユーザーの合格テスト数
-  const passedTests = await db.learningAttempt.count({
-    where: { userId: user.id, passed: true },
-  });
-
-  // ユーザーの完了レッスン数
-  const completedLessons = await db.learningProgress.count({
+  // ユーザーの完了レッスンID
+  const completedProgress = await db.learningProgress.findMany({
     where: { userId: user.id, completed: true },
+    select: { lessonId: true },
   });
+  const completedLessonIds = new Set(completedProgress.map((p) => p.lessonId));
 
-  const totalLessons = courses.reduce((sum, c) => sum + c.lessons.length, 0);
+  // ユーザーの合格テストID
+  const passedAttempts = await db.learningAttempt.findMany({
+    where: { userId: user.id, passed: true },
+    select: { testId: true },
+  });
+  const passedTestIds = new Set(passedAttempts.map((a) => a.testId));
+
+  // 集計
+  const totalCourses = courses.length;
+  const completedCourses = courses.filter((c) => c.enrollments[0]?.status === "completed").length;
+  const totalTests = courses.reduce((s, c) => s + c.tests.length, 0);
+  const passedTests = courses.reduce((s, c) => s + c.tests.filter((t) => passedTestIds.has(t.id)).length, 0);
+
+  const categoryConfig: Record<string, { label: string; color: string; bg: string }> = {
+    onboard: { label: "オンボード", color: "text-emerald-700", bg: "bg-emerald-50" },
+    media: { label: "媒体テスト", color: "text-blue-700", bg: "bg-blue-50" },
+    advanced: { label: "上級", color: "text-violet-700", bg: "bg-violet-50" },
+  };
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
+      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
-            <GraduationCap className="w-5 h-5 text-emerald-600" />
+          <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center shadow-sm">
+            <GraduationCap className="w-5 h-5 text-white" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-zinc-900">ラーニング</h1>
-            <p className="text-xs text-zinc-500">オンボード教材・媒体取扱テスト</p>
+            <p className="text-xs text-zinc-500">教材を学習してテストに合格すると、媒体の販売権限が付与されます</p>
           </div>
         </div>
-        {isAdmin && (
-          <Link
-            href="/dashboard/learning/admin"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            コース管理
-          </Link>
-        )}
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-xl border p-5">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-50 rounded-lg">
-              <BookOpen className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-zinc-900">{completedLessons}/{totalLessons}</p>
-              <p className="text-sm text-zinc-500">教材完了</p>
-            </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <div className="bg-white rounded-xl border p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <BookOpen className="w-4 h-4 text-zinc-400" />
+            <span className="text-[11px] font-medium text-zinc-500">コース</span>
           </div>
+          <p className="text-2xl font-bold text-zinc-900">{totalCourses}</p>
         </div>
-        <div className="bg-white rounded-xl border p-5">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-zinc-900">{passedTests}</p>
-              <p className="text-sm text-zinc-500">合格テスト</p>
-            </div>
+        <div className="bg-white rounded-xl border p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <CheckCircle className="w-4 h-4 text-emerald-500" />
+            <span className="text-[11px] font-medium text-zinc-500">修了済み</span>
           </div>
+          <p className="text-2xl font-bold text-emerald-600">{completedCourses}</p>
         </div>
-        <div className="bg-white rounded-xl border p-5">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-violet-50 rounded-lg">
-              <Clock className="w-5 h-5 text-violet-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-zinc-900">{courses.length}</p>
-              <p className="text-sm text-zinc-500">コース数</p>
-            </div>
+        <div className="bg-white rounded-xl border p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <ClipboardCheck className="w-4 h-4 text-blue-500" />
+            <span className="text-[11px] font-medium text-zinc-500">テスト合格</span>
           </div>
+          <p className="text-2xl font-bold text-blue-600">{passedTests}<span className="text-sm font-normal text-zinc-400">/{totalTests}</span></p>
+        </div>
+        <div className="bg-white rounded-xl border p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Trophy className="w-4 h-4 text-amber-500" />
+            <span className="text-[11px] font-medium text-zinc-500">達成率</span>
+          </div>
+          <p className="text-2xl font-bold text-amber-600">
+            {totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0}
+            <span className="text-sm font-normal text-zinc-400">%</span>
+          </p>
         </div>
       </div>
 
-      {/* Course List */}
-      <div className="space-y-4">
+      {/* Course Cards */}
+      <div className="space-y-3">
         {courses.length === 0 ? (
           <div className="bg-white rounded-xl border p-12 text-center">
             <GraduationCap className="w-12 h-12 text-zinc-300 mx-auto mb-4" />
@@ -113,56 +115,90 @@ export default async function LearningPage() {
           courses.map((course) => {
             const enrollment = course.enrollments[0];
             const isCompleted = enrollment?.status === "completed";
-            const isFrozen = enrollment?.status === "frozen";
-            const categoryLabel =
-              course.category === "onboard" ? "オンボード" :
-              course.category === "media" ? "媒体テスト" : "上級";
-            const categoryColor =
-              course.category === "onboard" ? "bg-emerald-50 text-emerald-700" :
-              course.category === "media" ? "bg-blue-50 text-blue-700" : "bg-violet-50 text-violet-700";
+            const cat = categoryConfig[course.category] ?? categoryConfig.media;
+
+            const lessonCount = course.lessons.length;
+            const completedCount = course.lessons.filter((l) => completedLessonIds.has(l.id)).length;
+            const testCount = course.tests.length;
+            const passedCount = course.tests.filter((t) => passedTestIds.has(t.id)).length;
+            const totalSteps = lessonCount + testCount;
+            const doneSteps = completedCount + passedCount;
+            const pct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
+
+            const hasVideo = course.lessons.some((l) => l.type === "video");
 
             return (
               <Link
                 key={course.id}
                 href={`/dashboard/learning/${course.id}`}
-                className="block bg-white rounded-xl border hover:border-emerald-300 transition-colors p-6 group"
+                className="group block bg-white rounded-xl border hover:shadow-md transition-all duration-200"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${categoryColor}`}>
-                        {categoryLabel}
+                <div className="p-5 flex items-center gap-5">
+                  {/* Progress Ring */}
+                  <div className="relative flex-shrink-0">
+                    <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
+                      <circle cx="28" cy="28" r="24" fill="none" stroke="#f4f4f5" strokeWidth="4" />
+                      <circle
+                        cx="28" cy="28" r="24" fill="none"
+                        stroke={isCompleted ? "#10b981" : pct > 0 ? "#3b82f6" : "#e4e4e7"}
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                        strokeDasharray={`${(pct / 100) * 150.8} 150.8`}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      {isCompleted ? (
+                        <CheckCircle className="w-5 h-5 text-emerald-500" />
+                      ) : (
+                        <span className="text-xs font-bold text-zinc-600">{pct}%</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${cat.bg} ${cat.color}`}>
+                        {cat.label}
                       </span>
                       {isCompleted && (
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-green-50 text-green-700">
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-700">
                           合格済み
                         </span>
                       )}
-                      {isFrozen && (
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-50 text-red-700">
-                          凍結中
-                        </span>
-                      )}
-                      {!isAdmin && !course.published && (
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-zinc-100 text-zinc-500">
-                          非公開
-                        </span>
-                      )}
                     </div>
-                    <h3 className="text-lg font-bold text-zinc-900 group-hover:text-emerald-700 transition-colors">
+                    <h3 className="text-[15px] font-bold text-zinc-900 group-hover:text-blue-700 transition-colors truncate">
                       {course.title}
                     </h3>
                     {course.description && (
-                      <p className="text-sm text-zinc-500 mt-1 line-clamp-2">{course.description}</p>
+                      <p className="text-xs text-zinc-500 mt-0.5 line-clamp-1">{course.description}</p>
                     )}
-                    <div className="flex items-center gap-4 mt-3 text-xs text-zinc-400">
-                      <span>{course.lessons.length} 教材</span>
-                      <span>{course.tests.length} テスト</span>
+                    <div className="flex items-center gap-3 mt-2">
+                      {hasVideo && (
+                        <span className="flex items-center gap-1 text-[11px] text-zinc-400">
+                          <Play className="w-3 h-3" /> 動画あり
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1 text-[11px] text-zinc-400">
+                        <FileText className="w-3 h-3" /> {lessonCount}教材
+                      </span>
+                      <span className="flex items-center gap-1 text-[11px] text-zinc-400">
+                        <ClipboardCheck className="w-3 h-3" /> {testCount}テスト
+                      </span>
                     </div>
+                    {/* Progress bar */}
+                    {totalSteps > 0 && (
+                      <div className="mt-2.5 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${isCompleted ? "bg-emerald-500" : "bg-blue-500"}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div className="text-zinc-300 group-hover:text-emerald-500 transition-colors ml-4">
-                    →
-                  </div>
+
+                  {/* Arrow */}
+                  <ChevronRight className="w-5 h-5 text-zinc-300 group-hover:text-blue-500 transition-colors flex-shrink-0" />
                 </div>
               </Link>
             );
