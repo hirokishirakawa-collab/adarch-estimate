@@ -199,11 +199,6 @@ export default async function ProjectMatchingPage() {
                       <div className="flex items-center gap-3 mt-1.5 text-[11px] text-zinc-400">
                         <span>{req.postedByCompany.name}</span>
                         <span>予算: {formatBudget(req.budget)}</span>
-                        {req.matchedCompany && (
-                          <span className="text-emerald-600">
-                            → {req.matchedCompany.name}
-                          </span>
-                        )}
                         <span>応募 {req.applications.length}件</span>
                       </div>
                     </div>

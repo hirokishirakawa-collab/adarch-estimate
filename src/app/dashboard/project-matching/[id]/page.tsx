@@ -126,11 +126,19 @@ export default async function ProjectRequestDetailPage({
           </div>
         )}
 
-        {/* マッチ済みの場合 */}
-        {request.matchedCompany && (
+        {/* マッチ済みの場合（投稿者/ADMINにはマッチ先表示、それ以外は応募数のみ） */}
+        {request.matchedCompany && isOwner && (
           <div className="mt-4 rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
             <Trophy className="w-3.5 h-3.5 inline mr-1" />
             マッチ先: {request.matchedCompany.name}（{request.matchedCompany.ownerName}）
+          </div>
+        )}
+
+        {/* クローズ済み：全員に応募数を公開 */}
+        {request.status === "CLOSED" && (
+          <div className="mt-4 rounded-md bg-zinc-50 border border-zinc-200 px-3 py-2 text-xs text-zinc-600">
+            <Trophy className="w-3.5 h-3.5 inline mr-1" />
+            この案件は終了しました — {request.applications.length}名が応募しました
           </div>
         )}
       </div>
