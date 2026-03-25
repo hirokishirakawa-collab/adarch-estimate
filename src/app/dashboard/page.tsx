@@ -29,6 +29,7 @@ import {
   Film,
   BarChart2,
   HardDrive,
+  FolderOpen,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -114,28 +115,6 @@ export default async function DashboardPage() {
           </span>
         )}
       </div>
-
-      {/* ── リード獲得AI ── */}
-      <Link
-        href="/dashboard/leads"
-        data-tour="lead-ai"
-        className="group block relative overflow-hidden rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 px-6 py-5 hover:border-orange-300 hover:shadow-md transition-all"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-amber-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-            <Search className="w-6 h-6 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-zinc-800 group-hover:text-orange-700 transition-colors">
-              リード獲得AI
-            </p>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              AIがエリア・業種から見込み顧客を自動検索・スコアリング
-            </p>
-          </div>
-          <ArrowRight className="w-5 h-5 text-orange-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all flex-shrink-0" />
-        </div>
-      </Link>
 
       {/* ── グループダイジェスト ── */}
       {digest && (
@@ -238,6 +217,54 @@ export default async function DashboardPage() {
           同じ顧客で新しい仕事が始まった場合は、商談管理 または プロジェクト一覧から新規追加してください
         </p>
       </div>
+
+      {/* ── リード獲得AI ── */}
+      <Link
+        href="/dashboard/leads"
+        data-tour="lead-ai"
+        className="group block relative overflow-hidden rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 px-6 py-5 hover:border-orange-300 hover:shadow-md transition-all"
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-amber-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+            <Search className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-zinc-800 group-hover:text-orange-700 transition-colors">
+              リード獲得AI
+            </p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              AIがエリア・業種から見込み顧客を自動検索・スコアリング
+            </p>
+          </div>
+          <ArrowRight className="w-5 h-5 text-orange-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all flex-shrink-0" />
+        </div>
+      </Link>
+
+      {/* ── 実績格納リンク ── */}
+      <a
+        href="https://drive.google.com/drive/folders/11CJPv-D_37Vn1zntRzI9Qqc2SV89fKPT?usp=drive_link"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group block relative overflow-hidden rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 px-6 py-5 hover:border-amber-400 hover:shadow-lg transition-all ring-1 ring-amber-200/50"
+      >
+        <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-bold px-3 py-1 rounded-bl-lg">
+          実績はここに格納
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-105 transition-transform animate-pulse">
+            <FolderOpen className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-zinc-800 group-hover:text-amber-700 transition-colors">
+              実績フォルダ（Google Drive）
+            </p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              案件の実績データ・制作物はこちらに格納してください
+            </p>
+          </div>
+          <ExternalLink className="w-5 h-5 text-amber-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
+        </div>
+      </a>
 
       {/* ── クイックアクション（ご利用の流れに沿った4つ） ── */}
       <div data-tour="quick-actions" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
