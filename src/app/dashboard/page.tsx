@@ -87,6 +87,14 @@ export default async function DashboardPage() {
     if (hotIndustries.length >= 3) break;
   }
 
+  // ── 実績フォルダ更新 ──
+  const recentPortfolio = await db.portfolioItem.findMany({
+    where: { itemType: "file" },
+    orderBy: { lastUpdated: "desc" },
+    take: 8,
+    select: { name: true, parentName: true, lastUpdated: true, driveUrl: true, path: true },
+  });
+
   // ── 挨拶 ──
   const hour = now.getHours();
   const timeGreeting =
@@ -248,31 +256,64 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ── 実績格納リンク ── */}
-      <a
-        href="https://drive.google.com/drive/folders/11CJPv-D_37Vn1zntRzI9Qqc2SV89fKPT?usp=drive_link"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="group block relative overflow-hidden rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 px-6 py-5 hover:border-amber-400 hover:shadow-lg transition-all ring-1 ring-amber-200/50"
-      >
-        <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-bold px-3 py-1 rounded-bl-lg">
-          実績はここに格納
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-105 transition-transform animate-pulse">
-            <FolderOpen className="w-6 h-6 text-white" />
+      {/* ── 実績フォルダ 更新情報 ── */}
+      <div className="rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 overflow-hidden ring-1 ring-amber-200/50">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+              <FolderOpen className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-zinc-800">実績フォルダ — 最近の更新</p>
+              <p className="text-[10px] text-zinc-500 mt-0.5">制作物の追加・更新を自動検知</p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-zinc-800 group-hover:text-amber-700 transition-colors">
-              実績フォルダ（Google Drive）
-            </p>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              案件の実績データ・制作物はこちらに格納してください
-            </p>
-          </div>
-          <ExternalLink className="w-5 h-5 text-amber-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
+          <a
+            href="https://drive.google.com/drive/folders/11CJPv-D_37Vn1zntRzI9Qqc2SV89fKPT?usp=drive_link"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-[11px]
+                       font-semibold rounded-lg hover:bg-amber-600 transition-colors"
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            フォルダを開く
+          </a>
         </div>
-      </a>
+
+        {recentPortfolio.length > 0 ? (
+          <div className="border-t border-amber-200/60 divide-y divide-amber-100/80">
+            {recentPortfolio.map((item, i) => (
+              <a
+                key={i}
+                href={item.driveUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-6 py-2.5 hover:bg-amber-100/40 transition-colors group"
+              >
+                <Film className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-zinc-800 truncate group-hover:text-amber-700">
+                    {item.name}
+                  </p>
+                  <p className="text-[10px] text-zinc-400 truncate">
+                    {item.parentName ?? item.path}
+                  </p>
+                </div>
+                <p className="text-[10px] text-zinc-400 whitespace-nowrap flex-shrink-0">
+                  {new Intl.DateTimeFormat("ja-JP", {
+                    month: "numeric", day: "numeric", timeZone: "Asia/Tokyo",
+                  }).format(new Date(item.lastUpdated))}
+                </p>
+                <ExternalLink className="w-3 h-3 text-zinc-300 group-hover:text-amber-500 flex-shrink-0" />
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="border-t border-amber-200/60 px-6 py-8 text-center">
+            <p className="text-xs text-zinc-400">更新情報はまだありません</p>
+          </div>
+        )}
+      </div>
 
       {/* ── クイックアクション（ご利用の流れに沿った4つ） ── */}
       <div data-tour="quick-actions" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
