@@ -296,6 +296,7 @@ model User {
   reviewedAdvertiserReviews   AdvertiserReview[]         @relation("ReviewedAdvertiserReview")
   tverCampaigns               TverCampaign[]
   tverCreativeReviews         TverCreativeReview[]
+  reviewedTverCreativeReviews TverCreativeReview[] @relation("ReviewedTverCreativeReview")
   videoAchievements           VideoAchievement[]   @relation("VideoAchievementCreatedBy")
 
   // ---- 名刺管理 ----
@@ -1020,6 +1021,10 @@ model TverCreativeReview {
 
   // ── 申請ステータス
   status           TverCreativeReviewStatus @default(SUBMITTED)
+  reviewNote       String?                  @db.Text // 審査コメント（管理者記入）
+  reviewedAt       DateTime?                // 承認/否決日時
+  reviewedById     String?
+  reviewedBy       User?                    @relation("ReviewedTverCreativeReview", fields: [reviewedById], references: [id])
 
   // ── 申請者
   createdById      String

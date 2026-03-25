@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Tv2, ExternalLink } from "lucide-react";
 import { getTverCreativeReviewById } from "@/lib/actions/tver-creative-review";
 import { DeleteButton } from "./DeleteButton";
+import { StatusUpdateForm } from "./StatusUpdateForm";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -106,6 +107,18 @@ export default async function TverCreativeReviewDetailPage({ params }: Props) {
           </tbody>
         </table>
       </div>
+
+      {/* 管理者用：ステータス更新 */}
+      {isAdmin && (
+        <div className="bg-white rounded-xl border border-zinc-200 p-5 mb-5">
+          <h3 className="text-sm font-bold text-zinc-900 mb-4">考査審査（管理者）</h3>
+          <StatusUpdateForm
+            reviewId={review.id}
+            currentStatus={review.status}
+            currentReviewNote={review.reviewNote}
+          />
+        </div>
+      )}
 
       {/* メタ情報 */}
       <p className="text-xs text-zinc-400">

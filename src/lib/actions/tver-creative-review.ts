@@ -59,6 +59,50 @@ export async function createTverCreativeReview(
 }
 
 // ---------------------------------------------------------------
+// ステータス更新（管理者のみ）
+// ---------------------------------------------------------------
+export async function updateTverCreativeReviewStatus(
+  reviewId: string,
+  _prev: { error?: string } | null,
+  formData: FormData
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role !== "ADMIN") return { error: "管理者のみ操作できます" };
+
+  const status     = (formData.get("status")     as string)?.trim();
+  const reviewNote = (formData.get("reviewNote") as string)?.trim() || null;
+
+  if (!status) return { error: "ステータスを選択してください" };
+
+  const existing = await db.tverCreativeReview.findUnique({
+    where: { id: reviewId },
+    select: { id: true, projectName: true, status: true },
+  });
+  if (!existing) return { error: "対象の申請が見つかりません" };
+
+  try {
+    await db.tverCreativeReview.update({
+      where: { id: reviewId },
+      data: {
+        status:       status as Prisma.TverCreativeReviewUpdateInput["status"],
+        reviewNote,
+        reviewedAt:   new Date(),
+        reviewedById: info.userId,
+      },
+    });
+    logAudit({ action: "tver_creative_review_status_updated", email: info.email, name: info.staffName, entity: "tver_creative_review", entityId: reviewId, detail: `${existing.projectName}: ${status}` });
+  } catch (e) {
+    console.error("[updateTverCreativeReviewStatus] DB error:", e instanceof Error ? e.message : e);
+    return { error: "更新に失敗しました" };
+  }
+
+  revalidatePath(`/dashboard/tver-creative-review/${reviewId}`);
+  revalidatePath("/dashboard/tver-creative-review");
+  redirect(`/dashboard/tver-creative-review/${reviewId}`);
+}
+
+// ---------------------------------------------------------------
 // 一覧取得
 // ---------------------------------------------------------------
 export async function getTverCreativeReviewList() {
