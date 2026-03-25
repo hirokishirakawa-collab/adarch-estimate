@@ -12,6 +12,23 @@ import {
   Sparkles,
   Search,
   Activity,
+  Zap,
+  ExternalLink,
+  FileText,
+  Crosshair,
+  Tv2,
+  CreditCard,
+  BookOpen,
+  ContactRound,
+  Handshake,
+  Megaphone,
+  Palette,
+  CalendarCheck,
+  Target,
+  Eye,
+  Film,
+  BarChart2,
+  HardDrive,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -275,6 +292,249 @@ export default async function DashboardPage() {
             <p className="text-[10px] text-zinc-400 mt-0.5">顧客ページから</p>
           </div>
         </Link>
+      </div>
+
+      {/* ── OS更新情報 ── */}
+      <div className="rounded-xl border border-sky-200 bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 px-5 py-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 bg-gradient-to-br from-sky-400 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Zap className="w-4 h-4 text-white" />
+          </div>
+          <p className="text-sm font-bold text-zinc-800">OS 更新情報</p>
+        </div>
+        <div className="space-y-2.5">
+          {[
+            {
+              date: "2026.03.25",
+              title: "ダッシュボード リンクツリー追加",
+              desc: "主要機能へのクイックアクセスをダッシュボードに追加しました",
+              tag: "NEW",
+            },
+            {
+              date: "2026.03.24",
+              title: "リード獲得AI — シネアド・BtoBリード対応",
+              desc: "シネアド専用リードとBtoBリード検索に対応しました",
+              tag: "NEW",
+            },
+            {
+              date: "2026.03.22",
+              title: "提案書AI — 閲覧トラッキング",
+              desc: "Web提案書の閲覧状況をリアルタイムで分析できるようになりました",
+              tag: "機能追加",
+            },
+            {
+              date: "2026.03.20",
+              title: "SNS簡易制作（Studio）正式リリース",
+              desc: "SNSプラン生成・キャプション生成・自動字幕など制作支援ツールを公開",
+              tag: "リリース",
+            },
+            {
+              date: "2026.03.18",
+              title: "案件マッチング機能",
+              desc: "グループ内のスキル・実績に基づく案件マッチングを開始しました",
+              tag: "機能追加",
+            },
+          ].map((item) => (
+            <div
+              key={item.date + item.title}
+              className="flex items-start gap-3 bg-white/60 rounded-lg px-3 py-2.5 border border-sky-100"
+            >
+              <p className="text-[10px] text-zinc-400 font-mono whitespace-nowrap mt-0.5">
+                {item.date}
+              </p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold text-zinc-800 truncate">
+                    {item.title}
+                  </p>
+                  <span
+                    className={`flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${
+                      item.tag === "NEW"
+                        ? "bg-sky-100 text-sky-600 border border-sky-200"
+                        : item.tag === "リリース"
+                          ? "bg-emerald-100 text-emerald-600 border border-emerald-200"
+                          : "bg-violet-100 text-violet-600 border border-violet-200"
+                    }`}
+                  >
+                    {item.tag}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── リンクツリー ── */}
+      <div className="space-y-4">
+        <p className="text-sm font-bold text-zinc-800">クイックリンク</p>
+
+        {/* 営業 */}
+        <div>
+          <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-widest mb-2">営業</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {[
+              { href: "/dashboard/customers", label: "顧客管理", icon: Users, iconClass: "text-blue-500" },
+              { href: "/dashboard/deals", label: "商談管理（SFA）", icon: TrendingUp, iconClass: "text-blue-500" },
+              { href: "/dashboard/estimates", label: "公式見積もり", icon: FileText, iconClass: "text-blue-500" },
+              { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, iconClass: "text-orange-500" },
+              { href: "/dashboard/sales-insights", label: "営業インサイト", icon: Activity, iconClass: "text-violet-500" },
+              { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, iconClass: "text-rose-500" },
+              { href: "/dashboard/proposals", label: "提案書AI", icon: Sparkles, iconClass: "text-amber-500" },
+              { href: "/dashboard/proposals/analytics", label: "提案書 閲覧分析", icon: Eye, iconClass: "text-amber-500" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="group flex items-center gap-2.5 px-3 py-2.5 bg-white border border-zinc-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/50 transition-all"
+              >
+                <link.icon className={`w-4 h-4 flex-shrink-0 ${link.iconClass}`} />
+                <span className="text-[11px] font-medium text-zinc-700 group-hover:text-zinc-900 truncate">{link.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* 広告媒体シミュレーター */}
+        <div>
+          <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-widest mb-2">広告媒体シミュレーター</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {[
+              { href: "/dashboard/strategy-advisor", label: "提案戦略アドバイザー（AI）", icon: Sparkles },
+              { href: "/dashboard/tver-simulator", label: "TVer広告", icon: Tv2 },
+              { href: "/dashboard/taxi-ads-simulator", label: "タクシー広告", icon: Tv2 },
+              { href: "/dashboard/skylark-simulator", label: "すかいらーく", icon: Tv2 },
+              { href: "/dashboard/aeon-cinema-simulator", label: "イオンシネマ", icon: Tv2 },
+              { href: "/dashboard/golfcart-simulator", label: "ゴルフカート", icon: Tv2 },
+              { href: "/dashboard/omochannel-simulator", label: "おもチャンネル", icon: Tv2 },
+              { href: "/dashboard/univ-coop-simulator", label: "大学生協広告", icon: Tv2 },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="group flex items-center gap-2.5 px-3 py-2.5 bg-white border border-zinc-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50/50 transition-all"
+              >
+                <link.icon className="w-4 h-4 flex-shrink-0 text-indigo-500" />
+                <span className="text-[11px] font-medium text-zinc-700 group-hover:text-zinc-900 truncate">{link.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* 制作・プロジェクト */}
+        <div>
+          <p className="text-[10px] font-semibold text-violet-500 uppercase tracking-widest mb-2">制作・プロジェクト</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {[
+              { href: "/dashboard/projects", label: "プロジェクト一覧", icon: FolderKanban },
+              { href: "/dashboard/cutsheet", label: "動画カット表AI", icon: Film },
+              { href: "/dashboard/project-matching", label: "案件マッチング", icon: Handshake },
+              { href: "/dashboard/group-profiles", label: "メンバー紹介", icon: Users },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="group flex items-center gap-2.5 px-3 py-2.5 bg-white border border-zinc-200 rounded-lg hover:border-violet-300 hover:bg-violet-50/50 transition-all"
+              >
+                <link.icon className="w-4 h-4 flex-shrink-0 text-violet-500" />
+                <span className="text-[11px] font-medium text-zinc-700 group-hover:text-zinc-900 truncate">{link.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* SNS簡易制作（Studio） */}
+        <div>
+          <p className="text-[10px] font-semibold text-fuchsia-500 uppercase tracking-widest mb-2">SNS簡易制作（Studio）</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {[
+              { href: "/dashboard/studio", label: "Studio ホーム", icon: Palette },
+              { href: "/dashboard/studio/clients", label: "クライアント管理", icon: Users },
+              { href: "/dashboard/studio/generate", label: "SNSプラン生成", icon: Sparkles },
+              { href: "/dashboard/studio/caption", label: "キャプション生成", icon: PenLine },
+              { href: "/dashboard/studio/results", label: "成果ダッシュボード", icon: BarChart2 },
+              { href: "/dashboard/studio/library", label: "制作ライブラリ", icon: HardDrive },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="group flex items-center gap-2.5 px-3 py-2.5 bg-white border border-zinc-200 rounded-lg hover:border-fuchsia-300 hover:bg-fuchsia-50/50 transition-all"
+              >
+                <link.icon className="w-4 h-4 flex-shrink-0 text-fuchsia-500" />
+                <span className="text-[11px] font-medium text-zinc-700 group-hover:text-zinc-900 truncate">{link.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* 経理・データベース・サポート */}
+        <div>
+          <p className="text-[10px] font-semibold text-teal-500 uppercase tracking-widest mb-2">経理・データベース・サポート</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {[
+              { href: "/dashboard/billing", label: "請求依頼", icon: CreditCard, iconClass: "text-amber-500" },
+              { href: "/dashboard/sales-report", label: "月次報告", icon: BarChart2, iconClass: "text-amber-500" },
+              { href: "/dashboard/business-cards", label: "名刺管理", icon: ContactRound, iconClass: "text-teal-500" },
+              { href: "/dashboard/wiki", label: "社内Wiki", icon: BookOpen, iconClass: "text-teal-500" },
+              { href: "/dashboard/portfolio", label: "実績フォルダ検索", icon: HardDrive, iconClass: "text-teal-500" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="group flex items-center gap-2.5 px-3 py-2.5 bg-white border border-zinc-200 rounded-lg hover:border-teal-300 hover:bg-teal-50/50 transition-all"
+              >
+                <link.icon className={`w-4 h-4 flex-shrink-0 ${link.iconClass}`} />
+                <span className="text-[11px] font-medium text-zinc-700 group-hover:text-zinc-900 truncate">{link.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* 広告申請 */}
+        <div>
+          <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-widest mb-2">広告申請</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {[
+              { href: "/dashboard/tver-review", label: "TVer業態考査申請", icon: Tv2 },
+              { href: "/dashboard/tver-campaign", label: "TVer配信申請", icon: Tv2 },
+              { href: "/dashboard/tver-creative-review", label: "TVer クリエイティブ考査", icon: Tv2 },
+              { href: "/dashboard/media", label: "媒体依頼", icon: Megaphone },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="group flex items-center gap-2.5 px-3 py-2.5 bg-white border border-zinc-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/50 transition-all"
+              >
+                <link.icon className="w-4 h-4 flex-shrink-0 text-blue-500" />
+                <span className="text-[11px] font-medium text-zinc-700 group-hover:text-zinc-900 truncate">{link.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* 外部リンク */}
+        <div>
+          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2">外部リンク</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {[
+              { href: "https://calendar.app.google/DvCvNkUvw91Ytq9u8", label: "本部打ち合わせ予約" },
+              { href: "https://drive.google.com/drive/folders/11CJPv-D_37Vn1zntRzI9Qqc2SV89fKPT?usp=drive_link", label: "実績フォルダ（Drive）" },
+              { href: "https://drive.google.com/drive/folders/1p9QtqSbPrBAkof5-10jeusyG6T2y7cB8?usp=drive_link", label: "グループ運用データ（Drive）" },
+            ].map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-2.5 px-3 py-2.5 bg-white border border-zinc-200 rounded-lg hover:border-zinc-400 hover:bg-zinc-50 transition-all"
+              >
+                <ExternalLink className="w-4 h-4 flex-shrink-0 text-zinc-400" />
+                <span className="text-[11px] font-medium text-zinc-700 group-hover:text-zinc-900 truncate">{link.label}</span>
+              </a>
+            ))}
+          </div>
+        </div>
       </div>
 
     </div>
