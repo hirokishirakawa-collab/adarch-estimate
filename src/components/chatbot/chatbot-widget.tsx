@@ -319,8 +319,8 @@ export function ChatbotWidget() {
             ))}
             {loading && (
               <div className="flex items-start gap-2 justify-start">
-                <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Bot className="w-3.5 h-3.5 text-blue-600" />
+                <div className="flex-shrink-0 mt-0.5">
+                  <AssistantAvatarSmall />
                 </div>
                 <div className="bg-zinc-100 rounded-2xl rounded-bl-md px-4 py-2">
                   <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
