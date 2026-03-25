@@ -91,7 +91,7 @@ export default async function DashboardPage() {
   const recentPortfolio = await db.portfolioItem.findMany({
     where: { itemType: "file" },
     orderBy: { lastUpdated: "desc" },
-    take: 8,
+    take: 5,
     select: { name: true, parentName: true, lastUpdated: true, driveUrl: true, path: true },
   });
 
@@ -288,17 +288,15 @@ export default async function DashboardPage() {
                 href={item.driveUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 px-6 py-2.5 hover:bg-amber-100/40 transition-colors group"
+                className="flex items-center gap-2.5 px-6 py-2 hover:bg-amber-100/40 transition-colors group"
               >
-                <Film className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-zinc-800 truncate group-hover:text-amber-700">
-                    {item.name}
-                  </p>
-                  <p className="text-[10px] text-zinc-400 truncate">
-                    {item.parentName ?? item.path}
-                  </p>
-                </div>
+                <Film className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                <p className="text-[11px] font-semibold text-zinc-800 truncate group-hover:text-amber-700 min-w-0 flex-1">
+                  {item.name}
+                </p>
+                <p className="text-[10px] text-zinc-400 truncate max-w-[120px] flex-shrink-0 hidden sm:block">
+                  {item.parentName ?? ""}
+                </p>
                 <p className="text-[10px] text-zinc-400 whitespace-nowrap flex-shrink-0">
                   {new Intl.DateTimeFormat("ja-JP", {
                     month: "numeric", day: "numeric", timeZone: "Asia/Tokyo",
