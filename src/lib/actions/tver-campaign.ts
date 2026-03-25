@@ -30,6 +30,7 @@ export async function createTverCampaign(
   const companionMobile   = (formData.get("companionMobile")   as string)?.trim() || "NONE";
   const companionPc       = (formData.get("companionPc")       as string)?.trim() || "NONE";
   const landingPageUrl    = (formData.get("landingPageUrl")    as string)?.trim() || null;
+  const areas             = formData.getAll("areas").map((v) => (v as string).trim()).filter(Boolean);
 
   // バリデーション
   if (!advertiserId)   return { error: "広告主を選択してください" };
@@ -39,6 +40,7 @@ export async function createTverCampaign(
   if (!startDateRaw)   return { error: "配信開始日を入力してください" };
   if (!endDateRaw)     return { error: "配信終了日を入力してください" };
   if (!budgetType)     return { error: "予算タイプを選択してください" };
+  if (areas.length === 0) return { error: "配信エリアを1つ以上選択してください" };
 
   const startDate = new Date(startDateRaw);
   const endDate   = new Date(endDateRaw);
@@ -76,6 +78,7 @@ export async function createTverCampaign(
         freqCapCount: freqCapCount   ?? null,
         companionMobile: companionMobile as Prisma.TverCampaignCreateInput["companionMobile"],
         companionPc:     companionPc     as Prisma.TverCampaignCreateInput["companionPc"],
+        areas,
         landingPageUrl:  landingPageUrl  ?? null,
         status:       "SUBMITTED",
         createdById:  info.userId,

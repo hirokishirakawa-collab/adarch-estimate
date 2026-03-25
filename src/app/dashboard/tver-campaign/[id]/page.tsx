@@ -9,6 +9,7 @@ import {
   getCompanionMobileLabel,
   getCompanionPcLabel,
   getFreqCapUnitLabel,
+  getAreaLabel,
 } from "@/lib/constants/tver-campaign";
 
 interface Props {
@@ -100,6 +101,32 @@ export default async function TverCampaignDetailPage({ params }: Props) {
                 <td className="px-5 py-3 text-sm text-zinc-800">{value}</td>
               </tr>
             ))}
+
+            {/* 配信エリア */}
+            <tr>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-zinc-500
+                             whitespace-nowrap bg-zinc-50 align-top">
+                配信エリア
+              </th>
+              <td className="px-5 py-3">
+                {campaign.areas.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {campaign.areas.map((code) => (
+                      <span
+                        key={code}
+                        className="inline-flex items-center px-2 py-0.5 text-[11px]
+                                   font-medium rounded-full bg-blue-50 text-blue-700
+                                   border border-blue-200"
+                      >
+                        {getAreaLabel(code)}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-sm text-zinc-400">未設定</span>
+                )}
+              </td>
+            </tr>
 
             {/* LP URL */}
             {campaign.landingPageUrl && (

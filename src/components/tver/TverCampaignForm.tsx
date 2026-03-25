@@ -8,6 +8,7 @@ import {
   FREQ_CAP_UNIT_OPTIONS,
   COMPANION_MOBILE_OPTIONS,
   COMPANION_PC_OPTIONS,
+  TVER_AREA_GROUPS,
 } from "@/lib/constants/tver-campaign";
 
 type Advertiser = { id: string; name: string; productUrl: string };
@@ -32,6 +33,37 @@ export function TverCampaignForm({ action, advertisers }: Props) {
   const [detail, setDetail]           = useState<AdvertiserDetail | null>(null);
   const [isFetching, startFetch]      = useTransition();
   const [hasFreqCap, setHasFreqCap]   = useState(false);
+  const [selectedAreas, setSelectedAreas] = useState<Set<string>>(new Set());
+
+  function toggleArea(code: string) {
+    setSelectedAreas((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }
+
+  function toggleRegion(areas: readonly { code: string }[]) {
+    setSelectedAreas((prev) => {
+      const next = new Set(prev);
+      const allSelected = areas.every((a) => next.has(a.code));
+      for (const a of areas) {
+        if (allSelected) next.delete(a.code);
+        else next.add(a.code);
+      }
+      return next;
+    });
+  }
+
+  function selectAll() {
+    const all = TVER_AREA_GROUPS.flatMap((g) => g.areas.map((a) => a.code));
+    setSelectedAreas(new Set(all));
+  }
+
+  function clearAll() {
+    setSelectedAreas(new Set());
+  }
 
   const inputCls =
     "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg " +
@@ -368,6 +400,84 @@ export function TverCampaignForm({ action, advertisers }: Props) {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════
+          配信エリア
+      ════════════════════════════════════ */}
+      <section>
+        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">
+          配信エリア<span className="text-red-500 ml-0.5">*</span>
+        </h3>
+
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            type="button"
+            onClick={selectAll}
+            className="px-2.5 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50
+                       border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
+          >
+            全選択
+          </button>
+          <button
+            type="button"
+            onClick={clearAll}
+            className="px-2.5 py-1 text-[11px] font-semibold text-zinc-500 bg-zinc-50
+                       border border-zinc-200 rounded-md hover:bg-zinc-100 transition-colors"
+          >
+            全解除
+          </button>
+          <span className="text-[11px] text-zinc-400 ml-1">
+            {selectedAreas.size > 0 ? `${selectedAreas.size}エリア選択中` : "未選択"}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {TVER_AREA_GROUPS.map((group) => {
+            const allSelected = group.areas.every((a) => selectedAreas.has(a.code));
+            const someSelected = group.areas.some((a) => selectedAreas.has(a.code));
+            return (
+              <div
+                key={group.region}
+                className="p-3 border border-zinc-200 rounded-lg bg-zinc-50"
+              >
+                <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                    onChange={() => toggleRegion(group.areas)}
+                    className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+                  />
+                  <span className="text-xs font-bold text-zinc-700">{group.region}</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5 ml-5">
+                  {group.areas.map((area) => (
+                    <label
+                      key={area.code}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px]
+                                  cursor-pointer border transition-colors
+                                  ${selectedAreas.has(area.code)
+                                    ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
+                                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                                  }`}
+                    >
+                      <input
+                        type="checkbox"
+                        name="areas"
+                        value={area.code}
+                        checked={selectedAreas.has(area.code)}
+                        onChange={() => toggleArea(area.code)}
+                        className="sr-only"
+                      />
+                      {area.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 

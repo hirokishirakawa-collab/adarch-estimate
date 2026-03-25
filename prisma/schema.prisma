@@ -967,6 +967,9 @@ model TverCampaign {
   companionMobile    TverCompanionMobile   @default(NONE)
   companionPc        TverCompanionPc       @default(NONE)
 
+  // ── 配信エリア
+  areas              String[]              // 選択されたエリアコード
+
   // ── URL
   landingPageUrl     String?               // リンク先 LP URL
 
