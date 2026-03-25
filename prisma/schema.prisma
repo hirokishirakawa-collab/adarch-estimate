@@ -324,6 +324,11 @@ model User {
   snsFormatOrders       SnsFormatOrder[] @relation("SnsFormatOrderCreator")
   snsReferenceFormats   SnsReferenceFormat[] @relation("SnsReferenceFormatCreator")
 
+  // ---- ラーニングシステム ----
+  learningEnrollments  LearningEnrollment[]
+  learningProgress     LearningProgress[]
+  learningAttempts     LearningAttempt[]
+
   @@index([branchId])
   @@index([branchId2])
   @@index([role])
@@ -2043,4 +2048,130 @@ model PushToken {
 
   @@index([email])
   @@map("push_tokens")
+}
+
+// ==============================================================
+// Learning System（ラーニングシステム）
+// ==============================================================
+
+/// 学習コース。オンボード・媒体別テストなどをまとめる単位。
+model LearningCourse {
+  id          String           @id @default(cuid())
+  title       String
+  description String?          @db.Text
+  category    String           @default("onboard") // onboard, media, advanced
+  sortOrder   Int              @default(0)
+  published   Boolean          @default(false)
+  lessons     LearningLesson[]
+  tests       LearningTest[]
+  enrollments LearningEnrollment[]
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("learning_courses")
+}
+
+/// 教材（動画・PDF等）。コース内の学習コンテンツ。
+model LearningLesson {
+  id          String         @id @default(cuid())
+  courseId    String
+  course      LearningCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  type        String         @default("video") // video, pdf, text
+  contentUrl  String?        // HeyGen動画URL or PDFリンク
+  body        String?        @db.Text // テキスト教材の場合
+  durationMin Int?           // 動画の場合の目安時間（分）
+  sortOrder   Int            @default(0)
+  progress    LearningProgress[]
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([courseId])
+  @@map("learning_lessons")
+}
+
+/// テスト定義。コースに紐づく選択式テスト。
+model LearningTest {
+  id            String           @id @default(cuid())
+  courseId       String
+  course        LearningCourse   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title         String
+  passingScore  Int              @default(80) // 合格ライン（%）
+  maxAttempts   Int              @default(3)  // 最大受験回数
+  questions     LearningQuestion[]
+  attempts      LearningAttempt[]
+
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([courseId])
+  @@map("learning_tests")
+}
+
+/// テスト問題。選択式。
+model LearningQuestion {
+  id          String       @id @default(cuid())
+  testId      String
+  test        LearningTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  question    String       @db.Text
+  choices     String       @db.Text // JSON: ["選択肢A","選択肢B","選択肢C","選択肢D"]
+  correctIndex Int         // 正解のインデックス（0始まり）
+  explanation String?      @db.Text // 解説
+  sortOrder   Int          @default(0)
+
+  createdAt   DateTime     @default(now())
+
+  @@index([testId])
+  @@map("learning_questions")
+}
+
+/// 受講登録。ユーザーとコースの紐づけ。
+model LearningEnrollment {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId   String
+  course    LearningCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status    String         @default("in_progress") // in_progress, completed, frozen
+
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([userId, courseId])
+  @@map("learning_enrollments")
+}
+
+/// 教材の進捗。ユーザーが各レッスンをどこまで見たか。
+model LearningProgress {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId  String
+  lesson    LearningLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completed Boolean        @default(false)
+
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([userId, lessonId])
+  @@map("learning_progress")
+}
+
+/// テスト受験記録。スコアと合否を記録。
+model LearningAttempt {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testId    String
+  test      LearningTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  score     Int          // 得点（%）
+  passed    Boolean
+  answers   String       @db.Text // JSON: [選択したインデックスの配列]
+
+  createdAt DateTime     @default(now())
+
+  @@index([userId, testId])
+  @@map("learning_attempts")
 }
