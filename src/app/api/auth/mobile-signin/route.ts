@@ -4,7 +4,12 @@ import { SignJWT } from "jose";
 
 export const runtime = "nodejs";
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID!);
+const googleClient = new OAuth2Client();
+const ALLOWED_AUDIENCES = [
+  process.env.GOOGLE_CLIENT_ID!,
+  process.env.GOOGLE_IOS_CLIENT_ID ?? "819989589315-p09ne6mkli1fkmokh24ail0m68bh02kb.apps.googleusercontent.com",
+  process.env.GOOGLE_ANDROID_CLIENT_ID ?? "819989589315-7tkei76qbgdjla04a2u38ivqfa6ls2u7.apps.googleusercontent.com",
+].filter(Boolean);
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN ?? "adarch.co.jp";
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
@@ -22,10 +27,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "idToken required" }, { status: 400 });
     }
 
-    // Google ID token を検証
+    // Google ID token を検証（Web/iOS/Android いずれのClient IDでも受け入れ）
     const ticket = await googleClient.verifyIdToken({
       idToken,
-      audience: process.env.GOOGLE_CLIENT_ID!,
+      audience: ALLOWED_AUDIENCES,
     });
     const payload = ticket.getPayload();
     if (!payload?.email) {
