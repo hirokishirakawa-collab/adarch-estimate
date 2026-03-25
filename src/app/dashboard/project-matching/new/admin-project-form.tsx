@@ -122,7 +122,6 @@ export function AdminProjectRequestForm({
       {/* 予算・エリア */}
       <div className="grid grid-cols-2 gap-3">
         <AdminBudgetField />
-        </div>
         <div>
           <label className="block text-xs font-medium text-zinc-700 mb-1">
             エリア
