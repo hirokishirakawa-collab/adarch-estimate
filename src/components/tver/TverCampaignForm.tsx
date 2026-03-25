@@ -8,6 +8,7 @@ import {
   FREQ_CAP_UNIT_OPTIONS,
   COMPANION_MOBILE_OPTIONS,
   COMPANION_PC_OPTIONS,
+  GENDER_TARGET_OPTIONS,
   TVER_AREA_GROUPS,
 } from "@/lib/constants/tver-campaign";
 
@@ -32,7 +33,7 @@ export function TverCampaignForm({ action, advertisers }: Props) {
   const [selectedId, setSelectedId]   = useState("");
   const [detail, setDetail]           = useState<AdvertiserDetail | null>(null);
   const [isFetching, startFetch]      = useTransition();
-  const [hasFreqCap, setHasFreqCap]   = useState(false);
+  const [hasFreqCap, setHasFreqCap]   = useState(true);
   const [selectedAreas, setSelectedAreas] = useState<Set<string>>(new Set());
 
   function toggleArea(code: string) {
@@ -334,6 +335,34 @@ export function TverCampaignForm({ action, advertisers }: Props) {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* 性別ターゲティング */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 mb-2">
+              性別ターゲティング<span className="text-red-500 ml-0.5">*</span>
+            </label>
+            <div className="flex gap-2">
+              {GENDER_TARGET_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5
+                             border border-zinc-200 rounded-lg cursor-pointer
+                             hover:border-blue-300 hover:bg-blue-50/50
+                             has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50
+                             transition-colors"
+                >
+                  <input
+                    type="radio"
+                    name="genderTarget"
+                    value={opt.value}
+                    defaultChecked={opt.value === "ALL"}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm text-zinc-700">{opt.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
       </section>

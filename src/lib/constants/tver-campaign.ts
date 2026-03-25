@@ -33,6 +33,16 @@ export const COMPANION_PC_OPTIONS = [
   { value: "BANNER", label: "バナー" },
 ] as const;
 
+export const GENDER_TARGET_OPTIONS = [
+  { value: "ALL",    label: "指定なし（全性別）" },
+  { value: "MALE",   label: "男性" },
+  { value: "FEMALE", label: "女性" },
+] as const;
+
+export function getGenderTargetLabel(value: string): string {
+  return GENDER_TARGET_OPTIONS.find((o) => o.value === value)?.label ?? value;
+}
+
 // ---------------------------------------------------------------
 // TVer 配信エリア
 // ---------------------------------------------------------------

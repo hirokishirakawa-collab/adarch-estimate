@@ -180,6 +180,12 @@ enum TverCompanionPc {
   BANNER  // バナー
 }
 
+enum TverGenderTarget {
+  ALL    // 全性別
+  MALE   // 男性
+  FEMALE // 女性
+}
+
 enum DisclosureStatus {
   PENDING  // 申請中
   APPROVED // 承認
@@ -967,7 +973,8 @@ model TverCampaign {
   companionMobile    TverCompanionMobile   @default(NONE)
   companionPc        TverCompanionPc       @default(NONE)
 
-  // ── 配信エリア
+  // ── ターゲティング
+  genderTarget       TverGenderTarget      @default(ALL)
   areas              String[]              // 選択されたエリアコード
 
   // ── URL

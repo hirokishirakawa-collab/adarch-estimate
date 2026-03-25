@@ -30,6 +30,7 @@ export async function createTverCampaign(
   const companionMobile   = (formData.get("companionMobile")   as string)?.trim() || "NONE";
   const companionPc       = (formData.get("companionPc")       as string)?.trim() || "NONE";
   const landingPageUrl    = (formData.get("landingPageUrl")    as string)?.trim() || null;
+  const genderTarget      = (formData.get("genderTarget")      as string)?.trim() || "ALL";
   const areas             = formData.getAll("areas").map((v) => (v as string).trim()).filter(Boolean);
 
   // バリデーション
@@ -78,6 +79,7 @@ export async function createTverCampaign(
         freqCapCount: freqCapCount   ?? null,
         companionMobile: companionMobile as Prisma.TverCampaignCreateInput["companionMobile"],
         companionPc:     companionPc     as Prisma.TverCampaignCreateInput["companionPc"],
+        genderTarget: genderTarget as Prisma.TverCampaignCreateInput["genderTarget"],
         areas,
         landingPageUrl:  landingPageUrl  ?? null,
         status:       "SUBMITTED",

@@ -10,6 +10,7 @@ import {
   getCompanionPcLabel,
   getFreqCapUnitLabel,
   getAreaLabel,
+  getGenderTargetLabel,
 } from "@/lib/constants/tver-campaign";
 
 interface Props {
@@ -89,6 +90,7 @@ export default async function TverCampaignDetailPage({ params }: Props) {
               ["配信期間", `${fmtDate(campaign.startDate)} 〜 ${fmtDate(campaign.endDate)}`],
               ["予算タイプ", getBudgetTypeLabel(campaign.budgetType)],
               ["フリークエンシーキャップ", freqCapText],
+              ["性別ターゲティング", getGenderTargetLabel(campaign.genderTarget)],
               ["コンパニオン AD（モバイル）", getCompanionMobileLabel(campaign.companionMobile)],
               ["コンパニオン AD（PC）", getCompanionPcLabel(campaign.companionPc)],
               ["登録拠点", campaign.branch?.name ?? "—"],
