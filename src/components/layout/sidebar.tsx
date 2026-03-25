@@ -396,11 +396,10 @@ const NAV_SECTIONS: NavSection[] = [
         external: true,
       },
       {
-        href: "https://lms.learningbox.online/index.php?action=login",
-        label: "研修",
+        href: "/dashboard/learning",
+        label: "ラーニング",
         icon: GraduationCap,
         minRole: "USER",
-        external: true,
       },
     ],
   },
