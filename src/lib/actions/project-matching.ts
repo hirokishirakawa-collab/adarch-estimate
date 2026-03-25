@@ -314,7 +314,7 @@ export async function getClosedProjectRequests() {
       postedByCompany: { select: { name: true, ownerName: true } },
       matchedCompany: { select: { name: true } },
       applications: {
-        select: { id: true, applicantCompanyId: true },
+        select: { id: true, applicantCompanyId: true, isMatched: true },
       },
     },
   });
@@ -564,15 +564,26 @@ export async function matchProject(
     if (request.postedByCompanyId !== companyId && user.role !== "ADMIN") {
       return { error: "この案件のマッチング権限がありません" };
     }
-    if (request.status !== "OPEN") return { error: "この案件は既に募集を終了しています" };
+    if (request.status !== "OPEN" && request.status !== "MATCHED") {
+      return { error: "この案件は既に募集を終了しています" };
+    }
 
-    await db.projectRequest.update({
-      where: { id: projectRequestId },
-      data: {
-        status: "MATCHED",
-        matchedCompanyId: applicantCompanyId,
-      },
+    // 応募に isMatched フラグを立てる
+    await db.projectApplication.updateMany({
+      where: { projectRequestId, applicantCompanyId },
+      data: { isMatched: true },
     });
+
+    // ステータスを MATCHED に（初回のみ更新）
+    if (request.status === "OPEN") {
+      await db.projectRequest.update({
+        where: { id: projectRequestId },
+        data: {
+          status: "MATCHED",
+          matchedCompanyId: applicantCompanyId,
+        },
+      });
+    }
 
     logAudit({
       action: "project_matched",
@@ -582,21 +593,6 @@ export async function matchProject(
       entityId: projectRequestId,
       detail: `matched with ${applicantCompanyId}`,
     });
-
-    // 選ばれなかった応募者にメール通知（非同期で送信、失敗してもエラーにしない）
-    const { sendProjectClosedEmail } = await import("@/lib/resend");
-    const notSelected = request.applications.filter(
-      (a) => a.applicantCompanyId !== applicantCompanyId
-    );
-    for (const app of notSelected) {
-      sendProjectClosedEmail({
-        to: app.applicantUser.email,
-        applicantName: app.applicantUser.name ?? app.applicantCompany.name,
-        projectTitle: request.title,
-      }).catch((err) =>
-        console.error("[project-matching] Notification email error:", err)
-      );
-    }
 
     revalidatePath("/dashboard/project-matching");
     revalidatePath(`/dashboard/project-matching/${projectRequestId}`);

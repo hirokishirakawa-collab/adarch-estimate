@@ -126,21 +126,16 @@ export default async function ProjectRequestDetailPage({
           </div>
         )}
 
-        {/* マッチ済みの場合（投稿者/ADMINにはマッチ先表示、それ以外は応募数のみ） */}
-        {request.matchedCompany && isOwner && (
-          <div className="mt-4 rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
-            <Trophy className="w-3.5 h-3.5 inline mr-1" />
-            マッチ先: {request.matchedCompany.name}（{request.matchedCompany.ownerName}）
-          </div>
-        )}
-
-        {/* クローズ済み：全員に応募数を公開 */}
-        {request.status === "CLOSED" && (
-          <div className="mt-4 rounded-md bg-zinc-50 border border-zinc-200 px-3 py-2 text-xs text-zinc-600">
-            <Trophy className="w-3.5 h-3.5 inline mr-1" />
-            この案件は終了しました — {request.applications.length}名が応募しました
-          </div>
-        )}
+        {/* クローズ済み：全員に決定数を公開 */}
+        {request.status === "CLOSED" && (() => {
+          const matchedCount = request.applications.filter((a) => a.isMatched).length;
+          return (
+            <div className="mt-4 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700">
+              <Trophy className="w-3.5 h-3.5 inline mr-1" />
+              この案件は終了しました — {matchedCount}名の参加が決定しました
+            </div>
+          );
+        })()}
       </div>
 
       {/* 応募エリア（他社の案件 & OPEN の場合） */}
@@ -219,13 +214,19 @@ export default async function ProjectRequestDetailPage({
                         {app.message}
                       </p>
                     </div>
-                    {request.status === "OPEN" && (
-                      <MatchButton
-                        projectRequestId={request.id}
-                        applicantCompanyId={app.applicantCompany.id}
-                        applicantName={app.applicantCompany.name}
-                        projectTitle={request.title}
-                      />
+                    {(request.status === "OPEN" || request.status === "MATCHED") && (
+                      app.isMatched ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-semibold bg-emerald-50 border border-emerald-200 text-emerald-700">
+                          <Trophy className="w-3 h-3 mr-1" />決定済み
+                        </span>
+                      ) : (
+                        <MatchButton
+                          projectRequestId={request.id}
+                          applicantCompanyId={app.applicantCompany.id}
+                          applicantName={app.applicantCompany.name}
+                          projectTitle={request.title}
+                        />
+                      )
                     )}
                   </div>
                 </div>

@@ -1452,6 +1452,7 @@ model ProjectApplication {
   applicantUser      User           @relation("Applications", fields: [applicantUserId], references: [id], onDelete: Cascade)
   message            String         @db.Text // 一言メッセージ
   contributionScore  Int            @default(0) // 応募時点の貢献度
+  isMatched          Boolean        @default(false) // マッチ決定フラグ
 
   createdAt DateTime @default(now())
 
