@@ -219,12 +219,8 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── リード獲得AI ── */}
-      <Link
-        href="/dashboard/leads"
-        data-tour="lead-ai"
-        className="group block relative overflow-hidden rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 px-6 py-5 hover:border-orange-300 hover:shadow-md transition-all"
-      >
-        <div className="flex items-center gap-4">
+      <div data-tour="lead-ai" className="relative overflow-hidden rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 px-6 py-5">
+        <Link href="/dashboard/leads" className="group flex items-center gap-4">
           <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-amber-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
             <Search className="w-6 h-6 text-white" />
           </div>
@@ -237,8 +233,20 @@ export default async function DashboardPage() {
             </p>
           </div>
           <ArrowRight className="w-5 h-5 text-orange-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all flex-shrink-0" />
+        </Link>
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-orange-200/60">
+          <span className="text-[10px] text-zinc-400 mr-1">検索タイプ:</span>
+          <Link href="/dashboard/leads" className="text-[11px] font-semibold text-orange-600 bg-orange-100 hover:bg-orange-200 px-2.5 py-1 rounded-full border border-orange-200 transition-colors">
+            BtoC
+          </Link>
+          <Link href="/dashboard/leads/btob" className="text-[11px] font-semibold text-blue-600 bg-blue-100 hover:bg-blue-200 px-2.5 py-1 rounded-full border border-blue-200 transition-colors">
+            BtoB
+          </Link>
+          <Link href="/dashboard/leads/cinema" className="text-[11px] font-semibold text-purple-600 bg-purple-100 hover:bg-purple-200 px-2.5 py-1 rounded-full border border-purple-200 transition-colors">
+            シネアド
+          </Link>
         </div>
-      </Link>
+      </div>
 
       {/* ── 実績格納リンク ── */}
       <a
