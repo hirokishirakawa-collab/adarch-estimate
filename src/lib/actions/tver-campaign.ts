@@ -115,6 +115,48 @@ export async function createTverCampaign(
 }
 
 // ---------------------------------------------------------------
+// ステータス更新（管理者のみ）
+// ---------------------------------------------------------------
+export async function updateTverCampaignStatus(
+  campaignId: string,
+  _prev: { error?: string } | null,
+  formData: FormData
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role !== "ADMIN") return { error: "管理者のみ操作できます" };
+
+  const status     = (formData.get("status")     as string)?.trim();
+  const reviewNote = (formData.get("reviewNote") as string)?.trim() || null;
+
+  if (!status) return { error: "ステータスを選択してください" };
+
+  const existing = await db.tverCampaign.findUnique({
+    where: { id: campaignId },
+    select: { id: true, campaignName: true, status: true },
+  });
+  if (!existing) return { error: "対象の申請が見つかりません" };
+
+  try {
+    await db.tverCampaign.update({
+      where: { id: campaignId },
+      data: {
+        status:     status as Prisma.TverCampaignUpdateInput["status"],
+        reviewNote,
+      },
+    });
+    logAudit({ action: "tver_campaign_status_updated", email: info.email, name: info.staffName, entity: "tver_campaign", entityId: campaignId, detail: `${existing.campaignName}: ${status}` });
+  } catch (e) {
+    console.error("[updateTverCampaignStatus] DB error:", e instanceof Error ? e.message : e);
+    return { error: "更新に失敗しました" };
+  }
+
+  revalidatePath(`/dashboard/tver-campaign/${campaignId}`);
+  revalidatePath("/dashboard/tver-campaign");
+  redirect(`/dashboard/tver-campaign/${campaignId}`);
+}
+
+// ---------------------------------------------------------------
 // 削除（管理者のみ）
 // ---------------------------------------------------------------
 export async function deleteTverCampaign(campaignId: string): Promise<void> {

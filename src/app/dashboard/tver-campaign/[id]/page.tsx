@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Tv2, ExternalLink } from "lucide-react";
 import { getTverCampaignById } from "@/lib/actions/tver-campaign";
 import { DeleteButton } from "./DeleteButton";
+import { StatusUpdateForm } from "./StatusUpdateForm";
 import {
   getCampaignStatusOption,
   getBudgetTypeLabel,
@@ -169,8 +170,20 @@ export default async function TverCampaignDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* 管理者コメント */}
-      {campaign.reviewNote && (
+      {/* 管理者用：ステータス更新 */}
+      {isAdmin && (
+        <div className="bg-white rounded-xl border border-zinc-200 p-5 mb-5">
+          <h3 className="text-sm font-bold text-zinc-900 mb-4">ステータス管理（管理者）</h3>
+          <StatusUpdateForm
+            campaignId={campaign.id}
+            currentStatus={campaign.status}
+            currentReviewNote={campaign.reviewNote}
+          />
+        </div>
+      )}
+
+      {/* 管理者コメント（非Admin向け表示） */}
+      {!isAdmin && campaign.reviewNote && (
         <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-5 py-4 mb-5">
           <p className="text-xs font-semibold text-zinc-500 mb-2">管理者コメント</p>
           <p className="text-sm text-zinc-700 whitespace-pre-wrap leading-relaxed">
