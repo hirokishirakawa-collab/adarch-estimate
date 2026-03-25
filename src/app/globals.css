@@ -149,27 +149,37 @@
   font-size: 11px;
   color: #a1a1aa;
 }
-.adarch-tour-popover .driver-popover-next-btn {
-  background: #2563eb;
-  color: #fff;
-  border: none;
+/* ボタンの既存スタイルを確実にリセットして二重表示を防止 */
+.adarch-tour-popover .driver-popover-navigation-btns button {
+  all: unset;
+  cursor: pointer;
   border-radius: 6px;
   padding: 6px 16px;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  box-sizing: border-box;
+}
+.adarch-tour-popover .driver-popover-next-btn {
+  background: #2563eb !important;
+  color: #fff !important;
 }
 .adarch-tour-popover .driver-popover-next-btn:hover {
-  background: #1d4ed8;
+  background: #1d4ed8 !important;
 }
 .adarch-tour-popover .driver-popover-prev-btn {
-  background: #f4f4f5;
-  color: #52525b;
-  border: 1px solid #e4e4e7;
-  border-radius: 6px;
-  padding: 6px 16px;
-  font-size: 12px;
-  font-weight: 600;
+  background: #f4f4f5 !important;
+  color: #52525b !important;
+  border: 1px solid #e4e4e7 !important;
 }
 .adarch-tour-popover .driver-popover-prev-btn:hover {
-  background: #e4e4e7;
+  background: #e4e4e7 !important;
+}
+/* 閉じるボタン(×) */
+.adarch-tour-popover .driver-popover-close-btn {
+  color: #a1a1aa;
+}
+.adarch-tour-popover .driver-popover-close-btn:hover {
+  color: #18181b;
 }

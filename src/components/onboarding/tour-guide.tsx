@@ -1156,10 +1156,11 @@ export function TourHelpButton() {
   return (
     <button
       onClick={startTour}
-      className="fixed bottom-20 right-5 z-50 w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center text-sm font-bold transition-all hover:scale-110"
+      className="fixed bottom-20 right-5 z-50 flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg shadow-blue-500/30 transition-all hover:scale-105 hover:shadow-xl hover:shadow-blue-500/40 ring-2 ring-blue-400/30"
       title="使い方ガイドを表示"
     >
-      ?
+      <span className="text-base font-bold">?</span>
+      <span className="text-xs font-semibold">ガイド</span>
     </button>
   );
 }
