@@ -2,8 +2,59 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
-import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react";
+import { X, Send, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// ── アシスタントキャラクター SVG ──
+function AssistantAvatar({ size = 40, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 80 80" fill="none" className={className}>
+      {/* 顔の丸 */}
+      <circle cx="40" cy="40" r="36" fill="url(#avatar-gradient)" />
+      {/* 目（左） */}
+      <ellipse cx="30" cy="36" rx="4" ry="5" fill="#fff" />
+      <ellipse cx="31" cy="37" rx="2" ry="2.5" fill="#1e3a5f" />
+      {/* 目（右） */}
+      <ellipse cx="50" cy="36" rx="4" ry="5" fill="#fff" />
+      <ellipse cx="51" cy="37" rx="2" ry="2.5" fill="#1e3a5f" />
+      {/* 口（笑顔） */}
+      <path d="M32 48 Q40 56 48 48" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+      {/* ヘッドセット */}
+      <path d="M16 36 Q16 16 40 16 Q64 16 64 36" stroke="#1e40af" strokeWidth="3" fill="none" />
+      <rect x="12" y="32" width="8" height="12" rx="4" fill="#1e40af" />
+      <rect x="60" y="32" width="8" height="12" rx="4" fill="#1e40af" />
+      {/* マイク */}
+      <line x1="12" y1="44" x2="12" y2="50" stroke="#1e40af" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="52" r="3" fill="#1e40af" />
+      {/* グラデーション定義 */}
+      <defs>
+        <linearGradient id="avatar-gradient" x1="10" y1="10" x2="70" y2="70">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#6366f1" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function AssistantAvatarSmall() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 80 80" fill="none">
+      <circle cx="40" cy="40" r="36" fill="url(#avatar-sm-gradient)" />
+      <ellipse cx="30" cy="36" rx="4" ry="5" fill="#fff" />
+      <ellipse cx="31" cy="37" rx="2" ry="2.5" fill="#1e3a5f" />
+      <ellipse cx="50" cy="36" rx="4" ry="5" fill="#fff" />
+      <ellipse cx="51" cy="37" rx="2" ry="2.5" fill="#1e3a5f" />
+      <path d="M32 48 Q40 56 48 48" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+      <defs>
+        <linearGradient id="avatar-sm-gradient" x1="10" y1="10" x2="70" y2="70">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#6366f1" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
 
 interface Message {
   role: "user" | "assistant";
@@ -212,11 +263,11 @@ export function ChatbotWidget() {
       {open && (
         <div className="fixed bottom-20 right-4 z-50 w-[360px] max-h-[520px] bg-white rounded-2xl shadow-2xl border border-zinc-200 flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200">
           {/* ヘッダー */}
-          <div className="flex items-center justify-between px-4 py-3 bg-blue-600 text-white">
-            <div className="flex items-center gap-2">
-              <Bot className="w-4 h-4" />
+          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+            <div className="flex items-center gap-2.5">
+              <AssistantAvatarSmall />
               <div>
-                <span className="text-sm font-semibold">ヘルプアシスタント</span>
+                <span className="text-sm font-semibold">アーチくん</span>
                 <span className="text-[10px] text-blue-200 ml-2">{pageLabel}</span>
               </div>
             </div>
@@ -229,11 +280,11 @@ export function ChatbotWidget() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[300px] max-h-[360px]">
             {messages.length === 0 && (
               <div className="text-center py-8">
-                <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Bot className="w-6 h-6 text-blue-500" />
+                <div className="mx-auto mb-3">
+                  <AssistantAvatar size={56} className="mx-auto" />
                 </div>
-                <p className="text-sm font-medium text-zinc-700">使い方でお困りですか？</p>
-                <p className="text-xs text-zinc-400 mt-1">何でもお気軽にご質問ください</p>
+                <p className="text-sm font-bold text-zinc-700">アーチくんです！</p>
+                <p className="text-xs text-zinc-400 mt-1">使い方や機能のこと、なんでも聞いてください</p>
                 <div className="mt-4 space-y-2">
                   {suggestions.map((q) => (
                     <button
@@ -250,8 +301,8 @@ export function ChatbotWidget() {
             {messages.map((msg, i) => (
               <div key={i} className={cn("flex items-start gap-2", msg.role === "user" ? "justify-end" : "justify-start")}>
                 {msg.role === "assistant" && (
-                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Bot className="w-3.5 h-3.5 text-blue-600" />
+                  <div className="flex-shrink-0 mt-0.5">
+                    <AssistantAvatarSmall />
                   </div>
                 )}
                 <div
@@ -302,22 +353,30 @@ export function ChatbotWidget() {
         </div>
       )}
 
-      {/* フローティングボタン */}
-      <button
-        onClick={() => setOpen((prev) => !prev)}
-        className={cn(
-          "fixed bottom-4 right-4 z-50 w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105",
-          open
-            ? "bg-zinc-700 hover:bg-zinc-800"
-            : "bg-blue-600 hover:bg-blue-700"
+      {/* フローティングボタン — キャラクター + 吹き出し */}
+      <div className="fixed bottom-4 right-4 z-50 flex items-end gap-2">
+        {/* 吹き出し（閉じている時のみ表示） */}
+        {!open && (
+          <div className="mb-2 bg-white rounded-xl shadow-lg border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 animate-bounce-gentle relative">
+            お困りですか？
+            {/* 吹き出しの三角 */}
+            <div className="absolute -right-1.5 bottom-2.5 w-3 h-3 bg-white border-r border-b border-zinc-200 rotate-[-45deg]" />
+          </div>
         )}
-      >
-        {open ? (
-          <X className="w-5 h-5 text-white" />
-        ) : (
-          <MessageCircle className="w-5 h-5 text-white" />
-        )}
-      </button>
+        <button
+          onClick={() => setOpen((prev) => !prev)}
+          className={cn(
+            "rounded-full shadow-lg shadow-blue-500/25 transition-all duration-200 hover:scale-110 hover:shadow-xl hover:shadow-blue-500/40",
+            open ? "bg-zinc-700 hover:bg-zinc-800 w-12 h-12 flex items-center justify-center" : ""
+          )}
+        >
+          {open ? (
+            <X className="w-5 h-5 text-white" />
+          ) : (
+            <AssistantAvatar size={52} />
+          )}
+        </button>
+      </div>
     </>
   );
 }

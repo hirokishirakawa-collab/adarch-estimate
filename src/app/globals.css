@@ -183,3 +183,12 @@
 .adarch-tour-popover .driver-popover-close-btn:hover {
   color: #18181b;
 }
+
+/* チャットボット吹き出しアニメーション */
+@keyframes bounce-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.animate-bounce-gentle {
+  animation: bounce-gentle 2s ease-in-out infinite;
+}
