@@ -226,6 +226,61 @@ export default async function DashboardPage() {
         </p>
       </div>
 
+      {/* ── クイックアクション（ご利用の流れに沿った4つ） ── */}
+      <div data-tour="quick-actions" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link
+          href="/dashboard/customers/new"
+          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all text-center"
+        >
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+            <Users className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-zinc-700 group-hover:text-blue-700">顧客を登録</p>
+            <p className="text-[10px] text-zinc-400 mt-0.5">STEP 1</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/dashboard/deals"
+          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-violet-300 hover:bg-violet-50 transition-all text-center"
+        >
+          <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center group-hover:bg-violet-200 transition-colors">
+            <TrendingUp className="w-5 h-5 text-violet-600" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-zinc-700 group-hover:text-violet-700">商談管理</p>
+            <p className="text-[10px] text-zinc-400 mt-0.5">STEP 2</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/dashboard/projects"
+          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-emerald-300 hover:bg-emerald-50 transition-all text-center"
+        >
+          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+            <FolderKanban className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-zinc-700 group-hover:text-emerald-700">プロジェクト</p>
+            <p className="text-[10px] text-zinc-400 mt-0.5">STEP 3</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/dashboard/customers"
+          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-amber-300 hover:bg-amber-50 transition-all text-center"
+        >
+          <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center group-hover:bg-amber-200 transition-colors">
+            <PenLine className="w-5 h-5 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-zinc-700 group-hover:text-amber-700">活動を記録</p>
+            <p className="text-[10px] text-zinc-400 mt-0.5">顧客ページから</p>
+          </div>
+        </Link>
+      </div>
+
       {/* ── リード獲得AI ── */}
       <div data-tour="lead-ai" className="relative overflow-hidden rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 px-6 py-5">
         <Link href="/dashboard/leads" className="group flex items-center gap-4">
@@ -311,61 +366,6 @@ export default async function DashboardPage() {
             <p className="text-xs text-zinc-400">更新情報はまだありません</p>
           </div>
         )}
-      </div>
-
-      {/* ── クイックアクション（ご利用の流れに沿った4つ） ── */}
-      <div data-tour="quick-actions" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Link
-          href="/dashboard/customers/new"
-          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all text-center"
-        >
-          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-            <Users className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-zinc-700 group-hover:text-blue-700">顧客を登録</p>
-            <p className="text-[10px] text-zinc-400 mt-0.5">STEP 1</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/dashboard/deals"
-          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-violet-300 hover:bg-violet-50 transition-all text-center"
-        >
-          <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center group-hover:bg-violet-200 transition-colors">
-            <TrendingUp className="w-5 h-5 text-violet-600" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-zinc-700 group-hover:text-violet-700">商談管理</p>
-            <p className="text-[10px] text-zinc-400 mt-0.5">STEP 2</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/dashboard/projects"
-          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-emerald-300 hover:bg-emerald-50 transition-all text-center"
-        >
-          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
-            <FolderKanban className="w-5 h-5 text-emerald-600" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-zinc-700 group-hover:text-emerald-700">プロジェクト</p>
-            <p className="text-[10px] text-zinc-400 mt-0.5">STEP 3</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/dashboard/customers"
-          className="group flex flex-col items-center gap-2 px-4 py-4 bg-white border border-zinc-200 rounded-xl hover:border-amber-300 hover:bg-amber-50 transition-all text-center"
-        >
-          <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center group-hover:bg-amber-200 transition-colors">
-            <PenLine className="w-5 h-5 text-amber-600" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-zinc-700 group-hover:text-amber-700">活動を記録</p>
-            <p className="text-[10px] text-zinc-400 mt-0.5">顧客ページから</p>
-          </div>
-        </Link>
       </div>
 
       {/* ── OS更新情報 ── */}
