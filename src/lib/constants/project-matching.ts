@@ -50,7 +50,7 @@ export const STATUS_CONFIG: Record<
  * 金額をフォーマット（例: 500000 → "50万円", 1200000 → "120万円"）
  */
 export function formatBudget(amount: number | null | undefined): string {
-  if (amount == null) return "未定";
+  if (amount == null) return "マッチング後相談";
   if (amount >= 10000) return `${Math.round(amount / 10000)}万円`;
   return `${amount.toLocaleString()}円`;
 }

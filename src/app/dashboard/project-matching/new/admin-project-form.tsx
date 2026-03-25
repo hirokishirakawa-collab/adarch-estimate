@@ -121,18 +121,7 @@ export function AdminProjectRequestForm({
 
       {/* 予算・エリア */}
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">
-            予算（税抜・円）
-          </label>
-          <input
-            type="number"
-            name="budget"
-            min="0"
-            step="1"
-            placeholder="例: 500000"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-          />
+        <AdminBudgetField />
         </div>
         <div>
           <label className="block text-xs font-medium text-zinc-700 mb-1">
@@ -228,5 +217,63 @@ export function AdminProjectRequestForm({
         </button>
       </div>
     </form>
+  );
+}
+
+function AdminBudgetField() {
+  const [budgetType, setBudgetType] = useState<"amount" | "negotiable">("amount");
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-zinc-700 mb-1">予算</label>
+      <div className="flex gap-2 mb-2">
+        <label
+          className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md border text-xs cursor-pointer transition-colors
+            ${budgetType === "amount"
+              ? "border-blue-400 bg-blue-50 text-blue-700 font-semibold"
+              : "border-zinc-200 text-zinc-500 hover:border-zinc-300"
+            }`}
+        >
+          <input
+            type="radio"
+            name="budgetType"
+            value="amount"
+            checked={budgetType === "amount"}
+            onChange={() => setBudgetType("amount")}
+            className="sr-only"
+          />
+          金額を指定
+        </label>
+        <label
+          className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md border text-xs cursor-pointer transition-colors
+            ${budgetType === "negotiable"
+              ? "border-blue-400 bg-blue-50 text-blue-700 font-semibold"
+              : "border-zinc-200 text-zinc-500 hover:border-zinc-300"
+            }`}
+        >
+          <input
+            type="radio"
+            name="budgetType"
+            value="negotiable"
+            checked={budgetType === "negotiable"}
+            onChange={() => setBudgetType("negotiable")}
+            className="sr-only"
+          />
+          マッチング後相談
+        </label>
+      </div>
+      {budgetType === "amount" ? (
+        <input
+          type="number"
+          name="budget"
+          min="0"
+          step="1"
+          placeholder="例: 500000（税抜・円）"
+          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+        />
+      ) : (
+        <input type="hidden" name="budget" value="" />
+      )}
+    </div>
   );
 }
