@@ -40,7 +40,7 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               // Next.js の inline script / style を許可
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "script-src 'self' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
               // Google OAuth リダイレクト・アバター画像
               "img-src 'self' data: https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://images.unsplash.com",

@@ -21,11 +21,16 @@ export default async function DealsPage({ searchParams }: PageProps) {
   const { showArchived: showArchivedParam } = await searchParams;
   const showArchived = showArchivedParam === "true";
 
-  await auth();
+  const session = await auth();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  // 全拠点の商談を表示
-  const whereBase: Prisma.DealWhereInput = {};
+  // ロールに応じた拠点フィルタ
+  const role = (session?.user?.role ?? "USER") as string;
+  const currentUser = await db.user.findUnique({
+    where: { email: session?.user?.email ?? "" },
+    select: { branchId: true },
+  });
+  const whereBase: Prisma.DealWhereInput = role === "ADMIN" ? {} : { branchId: currentUser?.branchId ?? undefined };
 
   // アーカイブ数 (7日以上前にクローズした案件)
   const archivedCount = await db.deal.count({

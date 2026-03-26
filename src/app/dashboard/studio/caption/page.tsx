@@ -118,8 +118,12 @@ export default function CaptionPage() {
   );
 }
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function markdownToHtml(md: string): string {
-  return md
+  return escapeHtml(md)
     .replace(/^### (.*$)/gm, '<h3 class="text-lg font-bold mt-6 mb-2 text-zinc-900">$1</h3>')
     .replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold mt-8 mb-3 text-zinc-900 border-b pb-2">$1</h2>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')

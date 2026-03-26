@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   }
 
   const proposals = await db.proposal.findMany({
+    where: user.role === "ADMIN" ? {} : { userId: user.id },
     orderBy: { createdAt: "desc" },
     take: 100,
     include: {

@@ -1,5 +1,6 @@
 import { db as prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
+import sanitizeHtml from "sanitize-html";
 
 export default async function SharePage({
   params,
@@ -32,7 +33,10 @@ export default async function SharePage({
         {/* Content */}
         <div
           className="prose prose-sm max-w-none"
-          dangerouslySetInnerHTML={{ __html: markdownToHtml(production.content) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(markdownToHtml(production.content), {
+            allowedTags: ["h1", "h2", "h3", "strong", "em", "li", "br", "div", "table", "tr", "td"],
+            allowedAttributes: { "*": ["class"] },
+          }) }}
         />
 
         {/* Footer */}
