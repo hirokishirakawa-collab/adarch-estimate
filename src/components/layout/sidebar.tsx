@@ -227,7 +227,7 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/review",
         label: "映像チェッカー",
         icon: Eye,
-        minRole: "USER",
+        minRole: "ADMIN",
       },
       {
         href: "/dashboard/cutsheet",
