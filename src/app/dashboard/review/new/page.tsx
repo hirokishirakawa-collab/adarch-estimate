@@ -9,7 +9,7 @@ export default async function NewReviewPage() {
   if (!info) redirect("/login");
 
   return (
-    <div className="min-h-screen -m-4 md:-m-6 p-4 md:p-6 bg-black">
+    <div className="min-h-full bg-black p-6 md:p-8">
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <Link

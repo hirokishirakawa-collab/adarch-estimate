@@ -34,7 +34,7 @@ export default async function ReviewListPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-full bg-black p-6 md:p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white/90">映像チェッカー</h1>

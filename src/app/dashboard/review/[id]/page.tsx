@@ -42,7 +42,7 @@ export default async function ReviewDetailPage(props: {
   const canDelete = info.role === "ADMIN" || review.createdBy === info.email;
 
   return (
-    <div className="space-y-4">
+    <div className="min-h-full bg-black p-6 md:p-8 space-y-4">
       <div className="flex items-center justify-between">
         <Link
           href="/dashboard/review"
