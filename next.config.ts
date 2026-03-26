@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Server Actions のボディサイズ上限を500MBに（動画アップロード対応）
   serverActions: {
-    bodySizeLimit: "500mb",
+    bodySizeLimit: "5gb",
   },
   // nodemailer など Node.js 専用モジュールをクライアントバンドルから除外
   serverExternalPackages: ["nodemailer", "googleapis", "fluent-ffmpeg", "sharp"],
