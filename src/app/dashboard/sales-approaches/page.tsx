@@ -137,6 +137,11 @@ export default async function SalesApproachesPage({ searchParams }: Props) {
                   <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full bg-zinc-50 border border-zinc-200 text-zinc-600">
                     {getMethodLabel(a.method)}
                   </span>
+                  {a.customer && (
+                    <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-50 border border-blue-200 text-blue-700">
+                      {a.customer.name}
+                    </span>
+                  )}
                   {a.targetDesc && (
                     <span className="text-[10px] text-zinc-400">{a.targetDesc}</span>
                   )}

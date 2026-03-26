@@ -25,6 +25,7 @@ export async function createSalesApproach(
 
   const industry    = (formData.get("industry")    as string)?.trim();
   const targetDesc  = (formData.get("targetDesc")  as string)?.trim() || null;
+  const customerId  = (formData.get("customerId")  as string)?.trim() || null;
   const method      = (formData.get("method")      as string)?.trim();
   const messageBody = (formData.get("messageBody") as string)?.trim();
   const result      = (formData.get("result")      as string)?.trim();
@@ -42,6 +43,7 @@ export async function createSalesApproach(
         authorId: info.userId,
         industry,
         targetDesc,
+        customerId,
         method: method as Prisma.SalesApproachCreateInput["method"],
         messageBody,
         result: result as Prisma.SalesApproachCreateInput["result"],
@@ -79,7 +81,25 @@ export async function getSalesApproaches(filters?: {
     include: {
       groupCompany: { select: { name: true, ownerName: true } },
       author: { select: { name: true } },
+      customer: { select: { id: true, name: true } },
     },
+  });
+}
+
+// ---------------------------------------------------------------
+// 自拠点の顧客一覧（紐づけ用）
+// ---------------------------------------------------------------
+export async function getMyCustomersForApproach() {
+  const info = await getSessionInfo();
+  if (!info) return [];
+
+  const where = info.role === "ADMIN" ? {} : info.branchId ? { branchId: info.branchId } : { branchId: "__none__" };
+
+  return db.customer.findMany({
+    where,
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, industry: true },
+    take: 500,
   });
 }
 

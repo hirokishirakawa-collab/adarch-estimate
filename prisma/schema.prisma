@@ -397,6 +397,7 @@ model Customer {
   invoiceRequests InvoiceRequest[]
   estimations     Estimation[]
   mediaRequests   MediaRequest[]
+  salesApproaches SalesApproach[] @relation("SalesApproachCustomer")
 
   // ---- リード管理 ----
   convertedFromLead Lead? @relation("LeadConvertedCustomer")
@@ -1804,6 +1805,8 @@ model SalesApproach {
   // ── 送り先
   industry       String               // 業種
   targetDesc     String?  @db.Text    // 送り先の特徴（自由記入）
+  customerId     String?              // 顧客管理との紐づけ（任意）
+  customer       Customer? @relation("SalesApproachCustomer", fields: [customerId], references: [id])
 
   // ── アプローチ内容
   method         SalesApproachMethod  // 送信方法
