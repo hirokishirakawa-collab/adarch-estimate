@@ -31,6 +31,11 @@ export async function verifyMobileToken(
 
     if (!payload.email || typeof payload.email !== "string") return null;
 
+    const isActive = typeof payload.isActive === "boolean" ? payload.isActive : true;
+
+    // 停止中ユーザーはAPIアクセス拒否
+    if (!isActive) return null;
+
     return {
       email: payload.email,
       name: typeof payload.name === "string" ? payload.name : undefined,
@@ -39,7 +44,7 @@ export async function verifyMobileToken(
       enabledFeatures: Array.isArray(payload.enabledFeatures)
         ? (payload.enabledFeatures as string[])
         : [],
-      isActive: typeof payload.isActive === "boolean" ? payload.isActive : true,
+      isActive,
     };
   } catch {
     return null;

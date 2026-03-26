@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // standalone 出力（Dockerイメージ軽量化）
+  output: "standalone",
   // 動画アップロード用: ボディサイズ上限を500MBに
   experimental: {
     middlewareClientMaxBodySize: "500mb",

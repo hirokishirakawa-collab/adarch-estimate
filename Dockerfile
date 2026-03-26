@@ -19,17 +19,17 @@ RUN apk add --no-cache openssl ffmpeg python3 py3-pip \
 
 WORKDIR /app
 
-COPY --from=builder /app/package.json /app/package-lock.json* ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/src/generated ./src/generated
-COPY --from=builder /app/next.config.ts ./
-COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 EXPOSE 8080
 ENV HOSTNAME="0.0.0.0"
+ENV PORT=8080
 
 COPY scripts/start.sh /start.sh
 RUN chmod +x /start.sh

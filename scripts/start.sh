@@ -11,8 +11,12 @@ fi
 # 本番 DB にマイグレーションを適用（DATABASE_URL が無い場合はスキップ）
 if [ -n "$DATABASE_URL" ]; then
   echo "Running prisma migrate deploy..."
-  ./node_modules/.bin/prisma migrate deploy || echo "Migration failed (non-fatal), continuing..."
-  echo "Migration done."
+  if ! ./node_modules/.bin/prisma migrate deploy; then
+    echo "ERROR: Migration failed. Check database connectivity and schema."
+    echo "Starting app anyway, but some features may not work correctly."
+  else
+    echo "Migration done."
+  fi
 fi
 
-exec npm run start
+exec node server.js

@@ -119,8 +119,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.enabledFeatures = dbUser?.enabledFeatures ?? [];
           token.isActive = dbUser?.isActive ?? true;
         } catch {
-          // DB エラー時は env ベースのフォールバック
+          // DB エラー時は env ベースのフォールバック（安全側: isActive=false）
           token.role = resolveRole(email);
+          token.isActive = false;
         }
       }
       return token;
