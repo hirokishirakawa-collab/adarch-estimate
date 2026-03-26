@@ -3,43 +3,65 @@ import Image from "next/image";
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0a10] relative overflow-hidden">
-      {/* Subtle radial gradient glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(217,170,75,0.08)_0%,transparent_70%)]" />
+    <div className="min-h-screen flex flex-col md:flex-row">
+      {/* Left: Visual / Branding */}
+      <div className="flex-1 bg-[#f5f0eb] flex items-center justify-center relative overflow-hidden min-h-[40vh] md:min-h-screen">
+        {/* Background arch watermark */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] pointer-events-none">
+          <div className="w-[400px] h-[400px] border-[6px] border-zinc-900 border-b-0 rounded-t-full" />
+        </div>
 
-      <div className="relative w-full max-w-sm mx-4">
-        {/* Glassmorphic card */}
-        <div className="bg-white/[0.04] border border-white/[0.08] backdrop-blur rounded-2xl p-10 space-y-8 relative overflow-hidden">
-          {/* Top highlight line (amber gradient) */}
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" />
+        <div className="relative z-10 px-10 py-16 md:px-16">
+          {/* Arch mark */}
+          <div className="w-12 h-12 border-[3px] border-zinc-900 border-b-0 rounded-t-full mb-10" />
 
           {/* Logo */}
-          <div className="text-center space-y-3">
-            <div className="flex justify-center">
-              <Image
-                src="/logo_white.png"
-                alt="Ad Arch Group"
-                width={160}
-                height={32}
-                className="opacity-90"
-              />
-            </div>
-            <p className="text-[11px] tracking-[3px] uppercase text-amber-700/50">
-              GROUP OS
-            </p>
+          <div className="mb-10">
+            <Image
+              src="/logo-adarch.png"
+              alt="Ad Arch Group"
+              width={200}
+              height={40}
+              className="h-8 w-auto"
+            />
           </div>
+
+          {/* Tagline */}
+          <h1 className="text-[44px] md:text-[52px] font-black text-zinc-900 leading-[1.05] tracking-tight">
+            Frame<br />
+            <span className="font-light italic tracking-normal">the future.</span>
+          </h1>
+
+          <p className="mt-6 text-[13px] text-zinc-400 tracking-[4px] uppercase">
+            Video Production & Advertising
+          </p>
+        </div>
+      </div>
+
+      {/* Right: Login Form */}
+      <div className="w-full md:w-[440px] bg-white flex flex-col items-center justify-center px-8 py-16 md:py-0 border-l border-[#e8e0d8]">
+        <div className="w-full max-w-[320px]">
+          {/* Logo */}
+          <div className="mb-1">
+            <Image
+              src="/logo-adarch.png"
+              alt="Ad Arch Group"
+              width={140}
+              height={28}
+              className="h-6 w-auto"
+            />
+          </div>
+          <p className="text-[10px] font-semibold tracking-[3px] uppercase text-amber-700/60 mb-12">
+            GROUP OS
+          </p>
 
           {/* Heading */}
-          <div className="text-center space-y-2">
-            <h1 className="text-lg font-bold text-white/90">
-              ログイン
-            </h1>
-            <p className="text-sm text-white/40">
-              社内システムへようこそ
-            </p>
-          </div>
+          <h2 className="text-[22px] font-bold text-zinc-900 mb-2">ログイン</h2>
+          <p className="text-[13px] text-zinc-400 mb-8 leading-relaxed">
+            Googleアカウントで<br />グループOSにアクセス
+          </p>
 
-          {/* Google sign-in button (Server Action) */}
+          {/* Google sign-in */}
           <form
             action={async () => {
               "use server";
@@ -48,40 +70,34 @@ export default function LoginPage() {
           >
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-3 bg-white text-zinc-900 hover:bg-zinc-100 font-medium py-3 px-4 rounded-xl transition-colors text-sm"
+              className="w-full flex items-center justify-center gap-3 bg-zinc-900 text-white hover:bg-zinc-800 font-semibold py-3.5 px-5 rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-lg text-sm"
             >
-              {/* Google SVG icon */}
-              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-                <path
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  fill="#4285F4"
-                />
-                <path
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  fill="#34A853"
-                />
-                <path
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                  fill="#FBBC05"
-                />
-                <path
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  fill="#EA4335"
-                />
+              <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
               </svg>
               Google でログイン
             </button>
           </form>
 
-          {/* Notice */}
-          <p className="text-center text-xs text-white/30">
-            @adarch.co.jp アカウントのみ利用可能です
-          </p>
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-7">
+            <span className="flex-1 h-px bg-zinc-200" />
+            <span className="text-[10px] text-zinc-300 tracking-widest">INFO</span>
+            <span className="flex-1 h-px bg-zinc-200" />
+          </div>
+
+          {/* Domain note */}
+          <div className="text-center text-[12px] text-zinc-400 bg-zinc-50 py-3 px-4 rounded-lg">
+            <strong className="text-zinc-500">@adarch.co.jp</strong> のみ許可
+          </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-white/20 mt-6">
-          Ad Arch Group
+        <p className="text-[11px] text-zinc-300 tracking-wider mt-auto pt-12">
+          Ad Arch Group &copy; 2026
         </p>
       </div>
     </div>
