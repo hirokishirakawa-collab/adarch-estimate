@@ -110,10 +110,10 @@ export default async function DashboardPage() {
       });
       if (!report) {
         const day = now.getDate();
-        if (day >= 25) {
-          reportWarning = `${now.getMonth() + 1}月の月次報告が未提出です。月末までに提出しないとアカウントが停止されます。`;
+        if (day >= 28) {
+          reportWarning = `${now.getMonth() + 1}月の月次報告が未提出です。月次未報告の場合、翌月1日にOSアクセスが停止されます。`;
           reportUrgent = true;
-        } else if (day >= 16) {
+        } else if (day >= 25) {
           reportWarning = `${now.getMonth() + 1}月の月次報告が未提出です。月末までに提出してください。`;
         }
       }
