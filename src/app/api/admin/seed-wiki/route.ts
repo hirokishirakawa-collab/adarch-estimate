@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-// POST /api/admin/seed-wiki — ヘルプガイド記事を一括作成（ADMIN限定・一回限り）
-export async function POST() {
+// GET /api/admin/seed-wiki — ヘルプガイド記事を一括作成（ADMIN限定）
+export async function GET() {
   const session = await auth();
   if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
