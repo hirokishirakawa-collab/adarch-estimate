@@ -6,28 +6,20 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Left: Visual / Branding */}
       <div className="flex-1 bg-[#f5f0eb] flex items-center justify-center relative overflow-hidden min-h-[40vh] md:min-h-screen">
-        {/* Background arch watermark */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] pointer-events-none">
-          <div className="w-[400px] h-[400px] border-[6px] border-zinc-900 border-b-0 rounded-t-full" />
-        </div>
-
         <div className="relative z-10 px-10 py-16 md:px-16">
-          {/* Arch mark */}
-          <div className="w-12 h-12 border-[3px] border-zinc-900 border-b-0 rounded-t-full mb-10" />
-
           {/* Logo */}
-          <div className="mb-10">
+          <div className="mb-12">
             <Image
               src="/logo-adarch.png"
               alt="Ad Arch Group"
-              width={200}
-              height={40}
-              className="h-8 w-auto"
+              width={220}
+              height={44}
+              className="h-9 w-auto"
             />
           </div>
 
           {/* Tagline */}
-          <h1 className="text-[44px] md:text-[52px] font-black text-zinc-900 leading-[1.05] tracking-tight">
+          <h1 className="text-[40px] md:text-[48px] font-black text-zinc-900 leading-[1.1] tracking-tight">
             Frame<br />
             <span className="font-light italic tracking-normal">the future.</span>
           </h1>
@@ -39,26 +31,17 @@ export default function LoginPage() {
       </div>
 
       {/* Right: Login Form */}
-      <div className="w-full md:w-[440px] bg-white flex flex-col items-center justify-center px-8 py-16 md:py-0 border-l border-[#e8e0d8]">
-        <div className="w-full max-w-[320px]">
-          {/* Logo */}
-          <div className="mb-1">
-            <Image
-              src="/logo-adarch.png"
-              alt="Ad Arch Group"
-              width={140}
-              height={28}
-              className="h-6 w-auto"
-            />
-          </div>
-          <p className="text-[10px] font-semibold tracking-[3px] uppercase text-amber-700/60 mb-12">
+      <div className="w-full md:w-[460px] bg-white flex flex-col items-center justify-center px-10 py-16 md:py-0 border-l border-[#e8e0d8]">
+        <div className="w-full max-w-[340px]">
+          {/* OS Label */}
+          <p className="text-[11px] font-semibold tracking-[3px] uppercase text-amber-700/60 mb-10">
             GROUP OS
           </p>
 
           {/* Heading */}
-          <h2 className="text-[22px] font-bold text-zinc-900 mb-2">ログイン</h2>
-          <p className="text-[13px] text-zinc-400 mb-8 leading-relaxed">
-            Googleアカウントで<br />グループOSにアクセス
+          <h2 className="text-[24px] font-bold text-zinc-900 mb-2">ログイン</h2>
+          <p className="text-[14px] text-zinc-400 mb-10 leading-relaxed">
+            Googleアカウントでグループ<br />OSにアクセスしましょう
           </p>
 
           {/* Google sign-in */}
