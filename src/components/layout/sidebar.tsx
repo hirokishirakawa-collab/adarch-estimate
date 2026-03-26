@@ -53,6 +53,7 @@ import {
   Lightbulb,
   Play,
   Send,
+  AlertTriangle,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -460,11 +461,11 @@ const NAV_SECTIONS: NavSection[] = [
 const ROLE_STYLES: Record<UserRole, { label: string; className: string }> = {
   ADMIN: {
     label: "ADMIN",
-    className: "bg-amber-500/15 text-amber-400 border border-amber-500/30",
+    className: "bg-amber-500/12 text-amber-500 border border-amber-500/20",
   },
   MANAGER: {
     label: "MANAGER",
-    className: "bg-blue-500/15 text-blue-400 border border-blue-500/30",
+    className: "bg-blue-500/12 text-blue-400 border border-blue-500/20",
   },
   USER: {
     label: "USER",
@@ -485,12 +486,13 @@ interface SidebarProps {
   };
   isOpen: boolean;
   onClose: () => void;
+  reportWarning?: "yellow" | "red" | null;
 }
 
 // ----------------------------------------------------------------
 // Sidebar コンポーネント
 // ----------------------------------------------------------------
-export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
+export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) {
   const pathname = usePathname();
   const roleStyle = ROLE_STYLES[user.role];
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -534,6 +536,8 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
     ) ?? false;
   const initial = user.name?.[0]?.toUpperCase() ?? "U";
 
+  const warningColor = reportWarning === "red" ? "red" : "yellow";
+
   return (
     <>
       {/* モバイル用オーバーレイ */}
@@ -546,222 +550,348 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 bg-zinc-950 border-r border-zinc-800/80 flex flex-col flex-shrink-0",
+          "fixed inset-y-0 left-0 z-40 w-64 flex flex-col flex-shrink-0",
           "transform transition-transform duration-300 ease-in-out",
           "md:relative md:translate-x-0 md:w-60",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
+        style={{
+          background: "linear-gradient(180deg, #0d0d14 0%, #0a0a10 50%, #0d0d14 100%)",
+          borderRight: "1px solid rgba(255, 255, 255, 0.06)",
+          position: isOpen ? "fixed" : undefined,
+        }}
       >
-      {/* ロゴ */}
-      <div className="px-5 h-14 flex items-center justify-between border-b border-zinc-800/80">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Building2 className="w-3.5 h-3.5 text-white" />
-          </div>
-          <div className="leading-none">
-            <p className="text-xs font-bold text-white">Ad-Arch</p>
-            <p className="text-[10px] text-zinc-500 mt-0.5">Group OS</p>
-          </div>
-        </div>
-        {/* モバイル用閉じるボタン */}
-        <button
-          onClick={onClose}
-          className="md:hidden p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+        {/* Ambient glow */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: "radial-gradient(ellipse at 30% 20%, rgba(180, 140, 60, 0.03) 0%, transparent 50%)",
+          }}
+        />
 
-      {/* ユーザー情報 */}
-      <div className="px-4 py-3.5 border-b border-zinc-800/80">
-        <div className="flex items-center gap-2.5">
-          {user.image ? (
-            <Image
-              src={user.image}
-              alt=""
-              width={32}
-              height={32}
-              className="w-8 h-8 rounded-full ring-1 ring-zinc-700"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-              {initial}
+        {/* ロゴ */}
+        <div className="relative px-5 pt-5 pb-4 border-b border-white/[0.06]">
+          <div className="flex items-center justify-between">
+            <div>
+              <Image src="/logo_white.png" alt="Ad Arch Group" width={140} height={28} />
+              <p className="text-[10px] font-medium tracking-[3px] uppercase text-amber-700/50 mt-1.5">
+                GROUP OS
+              </p>
             </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-white truncate">
-              {user.name ?? "ユーザー"}
-            </p>
-            <p className="text-[11px] text-zinc-500 truncate">{user.email}</p>
+            {/* モバイル用閉じるボタン */}
+            <button
+              onClick={onClose}
+              className="md:hidden p-1 rounded-md text-white/30 hover:text-white/70 hover:bg-white/[0.06] transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
-        <div className="mt-2.5">
-          <span
+
+        {/* ユーザー情報カード */}
+        <div className="relative mx-3 my-3 p-3 rounded-xl bg-gradient-to-br from-white/[0.04] to-white/[0.02] border border-white/[0.06]">
+          {/* Top highlight line */}
+          <div className="absolute top-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-amber-600/20 to-transparent" />
+          <div className="flex items-center gap-2.5">
+            {user.image ? (
+              <Image
+                src={user.image}
+                alt=""
+                width={36}
+                height={36}
+                className="w-9 h-9 rounded-[10px] ring-1 ring-white/[0.06]"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-sm font-bold text-[#0d0d14] flex-shrink-0">
+                {initial}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-white/90 truncate">
+                {user.name ?? "ユーザー"}
+              </p>
+              <p className="text-[10px] text-white/35 truncate">{user.email}</p>
+            </div>
+          </div>
+          <div className="mt-2.5">
+            <span
+              className={cn(
+                "inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold tracking-wide",
+                roleStyle.className
+              )}
+            >
+              {roleStyle.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Report Warning */}
+        {reportWarning && (
+          <Link
+            href="/dashboard/sales-report/new"
             className={cn(
-              "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide",
-              roleStyle.className
+              "mx-3 mb-2 p-2.5 rounded-[10px] flex items-center gap-2.5 cursor-pointer transition-all",
+              warningColor === "red"
+                ? "bg-gradient-to-br from-red-500/10 to-red-500/[0.04] border border-red-500/20 hover:border-red-500/35"
+                : "bg-gradient-to-br from-yellow-500/10 to-yellow-500/[0.04] border border-yellow-500/20 hover:border-yellow-500/35"
             )}
           >
-            {roleStyle.label}
-          </span>
-        </div>
-      </div>
-
-      {/* ナビゲーション */}
-      <nav data-tour="sidebar" className="flex-1 overflow-y-auto px-3 py-3 space-y-4 scrollbar-thin">
-        {NAV_SECTIONS.map((section) => {
-          const visibleItems = section.items.filter((item) => {
-            if (!hasMinRole(user.role, item.minRole)) return false;
-            // requiredFeature がある場合: ADMINは常に表示、それ以外は許可されている場合のみ
-            if (item.requiredFeature && user.role !== "ADMIN") {
-              return (user.enabledFeatures ?? []).includes(item.requiredFeature);
-            }
-            return true;
-          });
-          if (visibleItems.length === 0) return null;
-
-          const sectionOpen = expandedSections.has(section.section) || isSectionActive(section);
-
-          return (
-            <div key={section.section}>
-              <button
-                onClick={() => toggleSection(section.section)}
+            <div className="relative">
+              <div
                 className={cn(
-                  "flex items-center justify-between w-full px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest hover:opacity-100 transition-opacity",
-                  section.color,
-                  sectionOpen ? "opacity-100" : "opacity-60"
+                  "w-8 h-8 rounded-lg flex items-center justify-center",
+                  warningColor === "red" ? "bg-red-500/15" : "bg-yellow-500/15"
                 )}
               >
-                <span>{section.section}</span>
-                {sectionOpen ? (
-                  <ChevronDown className="w-3 h-3 opacity-50" />
-                ) : (
-                  <ChevronRight className="w-3 h-3 opacity-50" />
+                <AlertTriangle
+                  className={cn(
+                    "w-4 h-4",
+                    warningColor === "red" ? "text-red-500" : "text-yellow-500"
+                  )}
+                />
+              </div>
+              <span
+                className={cn(
+                  "w-1.5 h-1.5 rounded-full animate-pulse absolute -top-0.5 -right-0.5",
+                  warningColor === "red" ? "bg-red-500" : "bg-yellow-500"
                 )}
-              </button>
-              {sectionOpen && (
-              <ul className="space-y-0.5">
-                {visibleItems.map((item) => {
-                  // --- 折りたたみグループ ---
-                  if (item.children && item.children.length > 0) {
-                    const groupActive = isGroupActive(item);
-                    const isOpen_ = expandedGroups.has(item.href) || groupActive;
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p
+                className={cn(
+                  "text-[10px] font-bold",
+                  warningColor === "red" ? "text-red-500" : "text-yellow-500"
+                )}
+              >
+                月次報告 未提出
+              </p>
+              <p
+                className={cn(
+                  "text-[9px]",
+                  warningColor === "red" ? "text-red-500/60" : "text-yellow-500/60"
+                )}
+              >
+                {warningColor === "red"
+                  ? "翌月1日にアクセス停止"
+                  : "月末までに提出してください"}
+              </p>
+            </div>
+            <span
+              className={cn(
+                "text-xs flex-shrink-0",
+                warningColor === "red" ? "text-red-500/40" : "text-yellow-500/40"
+              )}
+            >
+              ›
+            </span>
+          </Link>
+        )}
+
+        {/* ナビゲーション */}
+        <nav
+          data-tour="sidebar"
+          className="relative flex-1 overflow-y-auto px-3 py-3 space-y-4"
+          style={{
+            scrollbarWidth: "thin",
+            scrollbarColor: "rgba(255,255,255,0.08) transparent",
+          }}
+        >
+          <style>{`
+            nav[data-tour="sidebar"]::-webkit-scrollbar { width: 3px; }
+            nav[data-tour="sidebar"]::-webkit-scrollbar-track { background: transparent; }
+            nav[data-tour="sidebar"]::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+          `}</style>
+          {NAV_SECTIONS.map((section) => {
+            const visibleItems = section.items.filter((item) => {
+              if (!hasMinRole(user.role, item.minRole)) return false;
+              // requiredFeature がある場合: ADMINは常に表示、それ以外は許可されている場合のみ
+              if (item.requiredFeature && user.role !== "ADMIN") {
+                return (user.enabledFeatures ?? []).includes(item.requiredFeature);
+              }
+              return true;
+            });
+            if (visibleItems.length === 0) return null;
+
+            const sectionOpen = expandedSections.has(section.section) || isSectionActive(section);
+
+            return (
+              <div key={section.section}>
+                <button
+                  onClick={() => toggleSection(section.section)}
+                  className="flex items-center gap-2 px-2.5 py-2 w-full text-[9px] font-semibold tracking-[1.5px] uppercase text-white/25 cursor-pointer hover:text-white/40 transition-colors"
+                >
+                  <span className="flex-shrink-0">{section.section}</span>
+                  <span className="flex-1 h-px bg-gradient-to-r from-white/[0.06] to-transparent" />
+                  {sectionOpen ? (
+                    <ChevronDown className="w-3 h-3 text-white/20 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-3 h-3 text-white/20 flex-shrink-0" />
+                  )}
+                </button>
+                {sectionOpen && (
+                <ul className="space-y-0.5">
+                  {visibleItems.map((item) => {
+                    // --- 折りたたみグループ ---
+                    if (item.children && item.children.length > 0) {
+                      const groupActive = isGroupActive(item);
+                      const isOpen_ = expandedGroups.has(item.href) || groupActive;
+
+                      return (
+                        <li key={item.href}>
+                          <button
+                            onClick={() => toggleGroup(item.href)}
+                            className={cn(
+                              "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-xs transition-all duration-150 w-full group",
+                              groupActive
+                                ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
+                                : "text-white/45 hover:text-white/85 hover:bg-white/[0.04]"
+                            )}
+                          >
+                            {groupActive && (
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                            )}
+                            <item.icon
+                              className={cn(
+                                "w-4 h-4 flex-shrink-0 transition-colors",
+                                groupActive
+                                  ? "text-amber-500"
+                                  : "text-white/30 group-hover:text-amber-600/70"
+                              )}
+                            />
+                            <span className="truncate flex-1 text-left">{item.label}</span>
+                            {item.badge && !groupActive && (
+                              <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500/60 border border-amber-500/15 font-semibold tracking-wide flex-shrink-0">
+                                {item.badge}
+                              </span>
+                            )}
+                            {isOpen_ ? (
+                              <ChevronDown className="w-3 h-3 flex-shrink-0 text-white/20" />
+                            ) : (
+                              <ChevronRight className="w-3 h-3 flex-shrink-0 text-white/20" />
+                            )}
+                          </button>
+                          {isOpen_ && (
+                            <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-white/[0.05] pl-2.5">
+                              {item.children
+                                .filter((child) => hasMinRole(user.role, child.minRole))
+                                .map((child) => {
+                                  const childActive =
+                                    child.href === "/dashboard/leads"
+                                      ? pathname === "/dashboard/leads"
+                                      : pathname === child.href ||
+                                        pathname.startsWith(child.href + "/");
+
+                                  return (
+                                    <li key={child.href}>
+                                      <Link
+                                        href={child.href}
+                                        className={cn(
+                                          "relative flex items-center gap-2 text-[11px] py-[5px] px-2.5 rounded-lg transition-all duration-150 group",
+                                          childActive
+                                            ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
+                                            : "text-white/45 hover:text-white/85 hover:bg-white/[0.04]"
+                                        )}
+                                      >
+                                        {childActive && (
+                                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                                        )}
+                                        <child.icon
+                                          className={cn(
+                                            "w-3.5 h-3.5 flex-shrink-0 transition-colors",
+                                            childActive
+                                              ? "text-amber-500"
+                                              : "text-white/30 group-hover:text-amber-600/70"
+                                          )}
+                                        />
+                                        <span className="truncate">{child.label}</span>
+                                      </Link>
+                                    </li>
+                                  );
+                                })}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    }
+
+                    // --- 通常アイテム ---
+                    const isActive =
+                      item.href === "/dashboard"
+                        ? pathname === "/dashboard"
+                        : pathname === item.href ||
+                          pathname.startsWith(item.href + "/");
+
+                    const isMonthlyReport = item.href === "/dashboard/sales-report";
+
+                    const linkClass = cn(
+                      "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-xs transition-all duration-150 group",
+                      isActive
+                        ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
+                        : "text-white/45 hover:text-white/85 hover:bg-white/[0.04]"
+                    );
+                    const linkContent = (
+                      <>
+                        {isActive && (
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                        )}
+                        <item.icon
+                          className={cn(
+                            "w-4 h-4 flex-shrink-0 transition-colors",
+                            isActive
+                              ? "text-amber-500"
+                              : "text-white/30 group-hover:text-amber-600/70"
+                          )}
+                        />
+                        <span className="truncate flex-1">{item.label}</span>
+                        {isMonthlyReport && reportWarning && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                        )}
+                        {item.badge && !isActive && (
+                          <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500/60 border border-amber-500/15 font-semibold tracking-wide flex-shrink-0">
+                            {item.badge}
+                          </span>
+                        )}
+                      </>
+                    );
 
                     return (
                       <li key={item.href}>
-                        <button
-                          onClick={() => toggleGroup(item.href)}
-                          className={cn(
-                            "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs transition-all duration-100 w-full",
-                            groupActive
-                              ? "text-white bg-zinc-800/80"
-                              : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                          )}
-                        >
-                          <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span className="truncate flex-1 text-left">{item.label}</span>
-                          {isOpen_ ? (
-                            <ChevronDown className="w-3 h-3 flex-shrink-0 opacity-50" />
-                          ) : (
-                            <ChevronRight className="w-3 h-3 flex-shrink-0 opacity-50" />
-                          )}
-                        </button>
-                        {isOpen_ && (
-                          <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-zinc-800 pl-2">
-                            {item.children
-                              .filter((child) => hasMinRole(user.role, child.minRole))
-                              .map((child) => {
-                                const childActive =
-                                  child.href === "/dashboard/leads"
-                                    ? pathname === "/dashboard/leads"
-                                    : pathname === child.href ||
-                                      pathname.startsWith(child.href + "/");
-
-                                return (
-                                  <li key={child.href}>
-                                    <Link
-                                      href={child.href}
-                                      className={cn(
-                                        "flex items-center gap-2 px-2 py-1 rounded-md text-[11px] transition-all duration-100",
-                                        childActive
-                                          ? "bg-blue-600 text-white shadow-sm"
-                                          : "text-zinc-500 hover:text-white hover:bg-zinc-800"
-                                      )}
-                                    >
-                                      <child.icon className="w-3 h-3 flex-shrink-0" />
-                                      <span className="truncate">{child.label}</span>
-                                    </Link>
-                                  </li>
-                                );
-                              })}
-                          </ul>
+                        {item.external ? (
+                          <a
+                            href={item.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={linkClass}
+                          >
+                            {linkContent}
+                          </a>
+                        ) : (
+                          <Link href={item.href} className={linkClass}>
+                            {linkContent}
+                          </Link>
                         )}
                       </li>
                     );
-                  }
+                  })}
+                </ul>
+                )}
+              </div>
+            );
+          })}
+        </nav>
 
-                  // --- 通常アイテム ---
-                  const isActive =
-                    item.href === "/dashboard"
-                      ? pathname === "/dashboard"
-                      : pathname === item.href ||
-                        pathname.startsWith(item.href + "/");
-
-                  const linkClass = cn(
-                    "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs transition-all duration-100",
-                    isActive
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                  );
-                  const linkContent = (
-                    <>
-                      <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span className="truncate flex-1">{item.label}</span>
-                      {item.badge && !isActive && (
-                        <span className="text-[9px] px-1 py-0.5 rounded bg-zinc-800 text-zinc-500 border border-zinc-700 flex-shrink-0">
-                          {item.badge}
-                        </span>
-                      )}
-                    </>
-                  );
-
-                  return (
-                    <li key={item.href}>
-                      {item.external ? (
-                        <a
-                          href={item.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={linkClass}
-                        >
-                          {linkContent}
-                        </a>
-                      ) : (
-                        <Link href={item.href} className={linkClass}>
-                          {linkContent}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-              )}
-            </div>
-          );
-        })}
-      </nav>
-
-      {/* ログアウト */}
-      <div className="px-3 py-3 border-t border-zinc-800/80">
-        <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-md text-xs text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all duration-100"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>ログアウト</span>
-        </button>
-      </div>
-    </aside>
+        {/* ログアウト */}
+        <div className="relative px-3 py-3 border-t border-white/[0.06]">
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs text-white/30 hover:bg-red-500/8 hover:text-red-400/70 transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>ログアウト</span>
+          </button>
+        </div>
+      </aside>
     </>
   );
 }
