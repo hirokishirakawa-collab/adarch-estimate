@@ -13,6 +13,16 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { id } = await params;
+
+  // Verify the client belongs to the user's branch (ADMIN can access all)
+  const existingClient = await prisma.studioClient.findUnique({ where: { id } });
+  if (!existingClient) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (user.role !== "ADMIN" && existingClient.branchId !== user.branchId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const body = await req.json();
 
   const updated = await prisma.studioClient.update({

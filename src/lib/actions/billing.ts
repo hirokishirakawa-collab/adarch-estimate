@@ -329,6 +329,7 @@ async function fetchList(where: Prisma.InvoiceRequestWhereInput) {
   return db.invoiceRequest.findMany({
     where,
     orderBy: { createdAt: "desc" },
+    take: 500,
     include: {
       customer:  { select: { id: true, name: true } },
       createdBy: { select: { name: true } },

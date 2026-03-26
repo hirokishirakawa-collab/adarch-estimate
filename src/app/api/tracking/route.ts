@@ -11,8 +11,16 @@ function hashIp(ip: string): string {
 
 /** シンプルなIP別レートリミット（公開エンドポイント用） */
 const ipCounts = new Map<string, { count: number; resetAt: number }>();
+let lastCleanup = Date.now();
 function checkPublicRateLimit(ip: string): boolean {
   const now = Date.now();
+  // 60秒ごとに期限切れエントリを削除（メモリリーク防止）
+  if (now - lastCleanup > 60_000) {
+    for (const [key, val] of ipCounts) {
+      if (val.resetAt < now) ipCounts.delete(key);
+    }
+    lastCleanup = now;
+  }
   const entry = ipCounts.get(ip);
   if (!entry || entry.resetAt < now) {
     ipCounts.set(ip, { count: 1, resetAt: now + 60_000 });

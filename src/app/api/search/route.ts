@@ -24,39 +24,44 @@ export async function GET(request: Request) {
 
   const branchFilter = userBranchId ? { branchId: userBranchId } : {};
 
-  const [customers, projects, deals] = await Promise.all([
-    db.customer.findMany({
-      where: {
-        ...branchFilter,
-        OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { nameKana: { contains: q, mode: "insensitive" } },
-          { contactName: { contains: q, mode: "insensitive" } },
-        ],
-      },
-      select: { id: true, name: true, nameKana: true },
-      take: 5,
-      orderBy: { updatedAt: "desc" },
-    }),
-    db.project.findMany({
-      where: {
-        ...branchFilter,
-        title: { contains: q, mode: "insensitive" },
-      },
-      select: { id: true, title: true, status: true },
-      take: 5,
-      orderBy: { updatedAt: "desc" },
-    }),
-    db.deal.findMany({
-      where: {
-        ...branchFilter,
-        title: { contains: q, mode: "insensitive" },
-      },
-      select: { id: true, title: true, status: true, customerId: true },
-      take: 5,
-      orderBy: { updatedAt: "desc" },
-    }),
-  ]);
+  try {
+    const [customers, projects, deals] = await Promise.all([
+      db.customer.findMany({
+        where: {
+          ...branchFilter,
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { nameKana: { contains: q, mode: "insensitive" } },
+            { contactName: { contains: q, mode: "insensitive" } },
+          ],
+        },
+        select: { id: true, name: true, nameKana: true },
+        take: 5,
+        orderBy: { updatedAt: "desc" },
+      }),
+      db.project.findMany({
+        where: {
+          ...branchFilter,
+          title: { contains: q, mode: "insensitive" },
+        },
+        select: { id: true, title: true, status: true },
+        take: 5,
+        orderBy: { updatedAt: "desc" },
+      }),
+      db.deal.findMany({
+        where: {
+          ...branchFilter,
+          title: { contains: q, mode: "insensitive" },
+        },
+        select: { id: true, title: true, status: true, customerId: true },
+        take: 5,
+        orderBy: { updatedAt: "desc" },
+      }),
+    ]);
 
-  return Response.json({ customers, projects, deals });
+    return Response.json({ customers, projects, deals });
+  } catch (e) {
+    console.error("[GET /api/search]", e);
+    return Response.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

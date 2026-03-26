@@ -37,8 +37,8 @@ function createPrismaClient(): PrismaClient {
 
   const adapter = new PrismaPg({
     connectionString,
-    // Transaction Mode Serverless: 各 Lambda インスタンスは接続 1 本で十分
-    max: process.env.NODE_ENV === "production" ? 1 : 10,
+    // Railway は長時間稼働プロセスのため接続プール 5 本に拡大
+    max: process.env.NODE_ENV === "production" ? 5 : 10,
   });
 
   return new PrismaClient({ adapter });

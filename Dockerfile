@@ -34,4 +34,7 @@ ENV HOSTNAME="0.0.0.0"
 COPY scripts/start.sh /start.sh
 RUN chmod +x /start.sh
 
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
 CMD ["/start.sh"]

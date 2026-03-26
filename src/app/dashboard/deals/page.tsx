@@ -62,6 +62,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
       assignedTo: { select: { name: true } },
     },
     orderBy: { updatedAt: "desc" },
+    take: 500,
   });
 
   const wonCount = deals.filter((d) => d.status === "CLOSED_WON").length;

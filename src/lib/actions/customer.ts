@@ -75,39 +75,42 @@ export async function createCustomer(
 
   let customerId: string;
   try {
-    // ---- 顧客を作成 ----
-    const customer = await db.customer.create({
-      data: {
-        name,
-        nameKana,
-        corporateNumber,
-        contactName,
-        email: emailField,
-        phone,
-        website,
-        industry: industry || null,
-        source: source || null,
-        rank: (rank || "B") as CustomerRank,
-        status: (status || "PROSPECT") as CustomerStatus,
-        postalCode,
-        prefecture: prefecture || null,
-        address,
-        building,
-        notes,
-        branchId: effectiveBranchId,
-        staffName,
-      },
-    });
+    // ---- 顧客を作成 + 初回商談を自動作成（トランザクション） ----
+    const customer = await db.$transaction(async (tx) => {
+      const c = await tx.customer.create({
+        data: {
+          name,
+          nameKana,
+          corporateNumber,
+          contactName,
+          email: emailField,
+          phone,
+          website,
+          industry: industry || null,
+          source: source || null,
+          rank: (rank || "B") as CustomerRank,
+          status: (status || "PROSPECT") as CustomerStatus,
+          postalCode,
+          prefecture: prefecture || null,
+          address,
+          building,
+          notes,
+          branchId: effectiveBranchId,
+          staffName,
+        },
+      });
 
-    // ---- 初回商談を自動作成 ----
-    await db.deal.create({
-      data: {
-        title: `${name} 初回商談`,
-        status: "PROSPECTING" as DealStatus,
-        amount: null,
-        customerId: customer.id,
-        branchId: effectiveBranchId,
-      },
+      await tx.deal.create({
+        data: {
+          title: `${name} 初回商談`,
+          status: "PROSPECTING" as DealStatus,
+          amount: null,
+          customerId: c.id,
+          branchId: effectiveBranchId,
+        },
+      });
+
+      return c;
     });
 
     customerId = customer.id;
@@ -297,42 +300,44 @@ export async function updateCustomer(
   );
 
   try {
-    // 顧客情報を更新
-    await db.customer.update({
-      where: { id: customerId },
-      data: {
-        name,
-        nameKana,
-        corporateNumber,
-        contactName,
-        email: emailField,
-        phone,
-        website,
-        industry,
-        source,
-        rank:       rank       as CustomerRank,
-        status:     status     as CustomerStatus,
-        postalCode,
-        prefecture,
-        address,
-        building,
-        notes,
-      },
+    // 顧客情報を更新 + 変更ログ記録（トランザクション）
+    await db.$transaction(async (tx) => {
+      await tx.customer.update({
+        where: { id: customerId },
+        data: {
+          name,
+          nameKana,
+          corporateNumber,
+          contactName,
+          email: emailField,
+          phone,
+          website,
+          industry,
+          source,
+          rank:       rank       as CustomerRank,
+          status:     status     as CustomerStatus,
+          postalCode,
+          prefecture,
+          address,
+          building,
+          notes,
+        },
+      });
+
+      // 変更ログを ActivityLog に自動記録
+      if (changedFields.length > 0) {
+        await tx.activityLog.createMany({
+          data: changedFields.map((key) => ({
+            customerId,
+            type: "SYSTEM" as ActivityType,
+            content: `${FIELD_LABELS[key]} を「${humanize(key, oldValues[key])}」から「${humanize(key, newValues[key])}」に変更しました`,
+            staffName,
+          })),
+        });
+      }
     });
 
     logAudit({ action: "customer_updated", email: session.user.email ?? "", name: staffName, entity: "customer", entityId: customerId, detail: `${changedFields.length}件変更` });
-
-    // 変更ログを ActivityLog に自動記録
-    if (changedFields.length > 0) {
-      await db.activityLog.createMany({
-        data: changedFields.map((key) => ({
-          customerId,
-          type: "SYSTEM" as ActivityType,
-          content: `${FIELD_LABELS[key]} を「${humanize(key, oldValues[key])}」から「${humanize(key, newValues[key])}」に変更しました`,
-          staffName,
-        })),
-      });
-    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[updateCustomer] DB error:", msg, e);
@@ -503,12 +508,12 @@ export async function deleteCustomers(
   if (!ids.length) return { deleted: 0 };
 
   try {
-    // 商談を先に削除（外部キー制約）
-    await db.deal.deleteMany({ where: { customerId: { in: ids } } });
-    // ActivityLog を削除
-    await db.activityLog.deleteMany({ where: { customerId: { in: ids } } });
-    // 顧客を削除
-    const result = await db.customer.deleteMany({ where: { id: { in: ids } } });
+    // 商談・ActivityLog・顧客を一括削除（トランザクション）
+    const result = await db.$transaction(async (tx) => {
+      await tx.deal.deleteMany({ where: { customerId: { in: ids } } });
+      await tx.activityLog.deleteMany({ where: { customerId: { in: ids } } });
+      return tx.customer.deleteMany({ where: { id: { in: ids } } });
+    });
     logAudit({ action: "customer_deleted", email: session?.user?.email ?? "", entity: "customer", detail: `${result.count}件削除` });
 
     revalidatePath("/dashboard/customers");

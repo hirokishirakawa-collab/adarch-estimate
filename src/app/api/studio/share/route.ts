@@ -16,6 +16,11 @@ export async function POST(req: NextRequest) {
   const production = await prisma.production.findUnique({ where: { id: productionId } });
   if (!production) return NextResponse.json({ error: "Production not found" }, { status: 404 });
 
+  // Verify the production belongs to the user's branch (ADMIN can access all)
+  if (user.role !== "ADMIN" && production.branchId !== user.branchId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // Generate share token (store in metadata)
   const shareToken = randomBytes(16).toString("hex");
   const existingMeta = typeof production.metadata === "object" && production.metadata !== null

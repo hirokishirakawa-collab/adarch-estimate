@@ -49,7 +49,15 @@ const nextConfig: NextConfig = {
               "font-src 'self'",
               // iframe 禁止（X-Frame-Options と二重防御）
               "frame-ancestors 'none'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
             ].join("; "),
+          },
+          // HSTS（HTTPS 強制）
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
           },
         ],
       },

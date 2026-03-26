@@ -299,43 +299,45 @@ export async function convertLeadToCustomer(
       null;
     if (!effectiveBranchId) return { error: "拠点情報が見つかりません" };
 
-    // 顧客を作成
-    const customer = await db.customer.create({
-      data: {
-        name: lead.name,
-        phone: lead.phone,
-        address: lead.address,
-        industry: lead.industry,
-        status: "PROSPECT",
-        rank: "C",
-        branchId: effectiveBranchId,
-        staffName,
-      },
-    });
-
-    // リードを更新
-    await db.lead.update({
-      where: { id: leadId },
-      data: {
-        status: "DEAL_CONVERTED",
-        convertedCustomerId: customer.id,
-      },
-    });
-
-    // ヒアリングシートを顧客に引き継ぎ
+    // 顧客作成 + リード更新 + ヒアリング移行 + ログ記録（トランザクション）
     const { copyHearingToCustomer } = await import("@/lib/actions/hearing");
-    await copyHearingToCustomer(leadId, customer.id).catch((err) =>
-      console.error("[convertLeadToCustomer] Hearing copy error:", err)
-    );
+    const customer = await db.$transaction(async (tx) => {
+      const c = await tx.customer.create({
+        data: {
+          name: lead.name,
+          phone: lead.phone,
+          address: lead.address,
+          industry: lead.industry,
+          status: "PROSPECT",
+          rank: "C",
+          branchId: effectiveBranchId,
+          staffName,
+        },
+      });
 
-    // ログ記録
-    await db.leadLog.create({
-      data: {
-        leadId,
-        action: "CONVERTED",
-        detail: `顧客「${customer.name}」(ID: ${customer.id}) に転換`,
-        staffName,
-      },
+      await tx.lead.update({
+        where: { id: leadId },
+        data: {
+          status: "DEAL_CONVERTED",
+          convertedCustomerId: c.id,
+        },
+      });
+
+      // ヒアリングシートを顧客に引き継ぎ
+      await copyHearingToCustomer(leadId, c.id).catch((err) =>
+        console.error("[convertLeadToCustomer] Hearing copy error:", err)
+      );
+
+      await tx.leadLog.create({
+        data: {
+          leadId,
+          action: "CONVERTED",
+          detail: `顧客「${c.name}」(ID: ${c.id}) に転換`,
+          staffName,
+        },
+      });
+
+      return c;
     });
 
     // Chat通知

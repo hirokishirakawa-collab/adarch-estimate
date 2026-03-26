@@ -11,8 +11,13 @@ import type { LeadStatus } from "@/generated/prisma/client";
 // ---------------------------------------------------------------
 export async function GET(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await db.user.findUnique({ where: { email: session.user.email } });
+  if (!user) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const params = req.nextUrl.searchParams;
@@ -30,8 +35,14 @@ export async function GET(req: NextRequest) {
     status?: LeadStatus;
     industry?: string;
     area?: { contains: string; mode: "insensitive" };
+    createdBy?: { branchId: string };
   };
   const where: WhereInput = {};
+
+  // Non-ADMIN users can only export their branch's leads
+  if (user.role !== "ADMIN" && user.branchId) {
+    where.createdBy = { branchId: user.branchId };
+  }
 
   // 選択IDが指定されている場合はそのIDのみ対象
   if (idsParam) {

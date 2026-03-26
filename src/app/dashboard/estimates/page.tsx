@@ -24,6 +24,7 @@ export default async function EstimatesPage() {
         items: { select: { amount: true } },
       },
       orderBy: { createdAt: "desc" },
+      take: 500,
     }),
     db.estimation.groupBy({
       by: ["status"],

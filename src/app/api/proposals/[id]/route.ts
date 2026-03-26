@@ -29,19 +29,24 @@ export async function PUT(
     }
   }
 
-  const body = await req.json();
-  const { companyName, content } = body;
+  try {
+    const body = await req.json();
+    const { companyName, content } = body;
 
-  if (!companyName || !content) {
-    return NextResponse.json({ error: "companyName and content are required" }, { status: 400 });
+    if (!companyName || !content) {
+      return NextResponse.json({ error: "companyName and content are required" }, { status: 400 });
+    }
+
+    const updated = await db.proposal.update({
+      where: { id },
+      data: { companyName, content },
+    });
+
+    return NextResponse.json({ ok: true, proposal: updated });
+  } catch (e) {
+    console.error("[PUT /api/proposals/:id]", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  const updated = await db.proposal.update({
-    where: { id },
-    data: { companyName, content },
-  });
-
-  return NextResponse.json({ ok: true, proposal: updated });
 }
 
 // DELETE /api/proposals/:id — ADMIN can delete any, others can delete own
@@ -69,7 +74,12 @@ export async function DELETE(
     }
   }
 
-  await db.proposal.delete({ where: { id } }).catch(() => null);
+  try {
+    await db.proposal.delete({ where: { id } }).catch(() => null);
 
-  return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("[DELETE /api/proposals/:id]", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
