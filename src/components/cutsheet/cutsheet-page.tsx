@@ -118,18 +118,18 @@ export function CutSheetPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-zinc-50 p-6">
       <div className="mx-auto max-w-2xl">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <Film className="h-8 w-8 text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-zinc-900">
               動画カット表ツール
             </h1>
             <WikiHelpLink query="カット表生成" />
           </div>
-          <p className="text-gray-500">
+          <p className="text-zinc-500">
             動画をアップロードすると、シーン検出・音声書き起こしを行い、Google
             Sheets にカット表を自動生成します。
           </p>
@@ -148,7 +148,7 @@ export function CutSheetPage() {
                 ? "border-blue-500 bg-blue-50"
                 : file
                   ? "border-green-300 bg-green-50"
-                  : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"
+                  : "border-zinc-300 bg-zinc-50 hover:border-zinc-400 hover:bg-zinc-100"
             }`}
           >
             <input
@@ -162,21 +162,21 @@ export function CutSheetPage() {
             {file ? (
               <>
                 <FileVideo className="mb-3 h-12 w-12 text-green-500" />
-                <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="text-sm font-medium text-zinc-900">{file.name}</p>
+                <p className="mt-1 text-xs text-zinc-500">
                   {formatFileSize(file.size)}
                 </p>
-                <p className="mt-2 text-xs text-gray-400">
+                <p className="mt-2 text-xs text-zinc-400">
                   クリックしてファイルを変更
                 </p>
               </>
             ) : (
               <>
-                <Upload className="mb-3 h-12 w-12 text-gray-400" />
-                <p className="text-sm font-medium text-gray-700">
+                <Upload className="mb-3 h-12 w-12 text-zinc-400" />
+                <p className="text-sm font-medium text-zinc-700">
                   ドラッグ＆ドロップ、またはクリックしてファイルを選択
                 </p>
-                <p className="mt-2 text-xs text-gray-400">
+                <p className="mt-2 text-xs text-zinc-400">
                   MP4, MOV, WebM（最大 500MB）
                 </p>
               </>
@@ -195,15 +195,15 @@ export function CutSheetPage() {
                   ) : index === currentStep ? (
                     <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
                   ) : (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-bold text-gray-400">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-200 text-xs font-bold text-zinc-400">
                       {index + 1}
                     </div>
                   )}
                   <span
                     className={`text-sm ${
                       index <= currentStep
-                        ? "font-medium text-gray-900"
-                        : "text-gray-400"
+                        ? "font-medium text-zinc-900"
+                        : "text-zinc-400"
                     }`}
                   >
                     {label}
