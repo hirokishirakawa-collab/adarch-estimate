@@ -205,6 +205,44 @@ export async function toggleFeature(
 }
 
 // ---------------------------------------------------------------
+// アカウント停止/復活トグル（ADMIN 専用）
+// ---------------------------------------------------------------
+export async function toggleUserActive(
+  userId: string,
+): Promise<{ error?: string; success?: boolean }> {
+  const { callerEmail } = await requireAdmin();
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { email: true, isActive: true },
+  });
+  if (!user) return { error: "ユーザーが見つかりません" };
+  if (user.email === callerEmail) return { error: "自分自身は停止できません" };
+
+  const newState = !user.isActive;
+
+  try {
+    await db.user.update({
+      where: { id: userId },
+      data: { isActive: newState },
+    });
+    logAudit({
+      action: "user_active_toggled",
+      email: callerEmail,
+      entity: "user",
+      entityId: userId,
+      detail: `${user.email}: ${user.isActive ? "停止" : "復活"}`,
+    });
+  } catch (e) {
+    console.error("[toggleUserActive] DB error:", e instanceof Error ? e.message : e);
+    return { error: "更新に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/admin/users");
+  return { success: true };
+}
+
+// ---------------------------------------------------------------
 // ロール変更（ADMIN 専用）
 // 自分自身のロールは変更不可（ロックアウト防止）
 // ---------------------------------------------------------------

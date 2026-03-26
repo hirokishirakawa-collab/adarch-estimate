@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Loader2, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
-import { updateUserRole, updateUserInfo, deleteUser, toggleFeature } from "@/lib/actions/admin";
+import { updateUserRole, updateUserInfo, deleteUser, toggleFeature, toggleUserActive } from "@/lib/actions/admin";
 import { BRANCH_MAP } from "@/lib/data/customers";
 
 // ---------------------------------------------------------------
@@ -13,6 +13,7 @@ type UserRow = {
   name: string | null;
   email: string;
   role: string;
+  isActive: boolean;
   branchId:  string | null;
   branchId2: string | null;
   groupCompanyId: string | null;
@@ -287,6 +288,41 @@ function FeatureToggle({
 }
 
 // ---------------------------------------------------------------
+// アカウント停止/復活トグル
+// ---------------------------------------------------------------
+function ActiveToggle({ userId, isActive, disabled }: { userId: string; isActive: boolean; disabled: boolean }) {
+  const [isPending, setIsPending] = useState(false);
+  const [active, setActive] = useState(isActive);
+
+  const handleToggle = async () => {
+    if (!active && !window.confirm("このユーザーのアカウントを停止しますか？")) return;
+    setIsPending(true);
+    const result = await toggleUserActive(userId);
+    if (result.success) setActive(!active);
+    setIsPending(false);
+  };
+
+  if (disabled) {
+    return <span className="text-[10px] text-zinc-400">—</span>;
+  }
+
+  return (
+    <button
+      onClick={handleToggle}
+      disabled={isPending}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border transition-colors ${
+        active
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+          : "bg-red-50 text-red-600 border-red-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+      } ${isPending ? "opacity-50" : ""}`}
+      title={active ? "クリックで停止" : "クリックで復活"}
+    >
+      {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : active ? "稼働中" : "停止中"}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------
 // テーブル本体
 // ---------------------------------------------------------------
 function fmtDate(d: Date): string {
@@ -312,6 +348,7 @@ export function UserTable({ users, callerEmail, groupCompanies }: Props) {
                 ["名前・拠点（編集可）", "text-left"],
                 ["現在のロール",  "text-left"],
                 ["ロール変更",    "text-left"],
+                ["状態",          "text-center"],
                 ["機能許可",      "text-left"],
                 ["登録日",        "text-left"],
                 ["",              "text-left"],
@@ -377,6 +414,11 @@ export function UserTable({ users, callerEmail, groupCompanies }: Props) {
                     )}
                   </td>
 
+                  {/* 状態 */}
+                  <td className="px-4 py-3 text-center">
+                    <ActiveToggle userId={user.id} isActive={user.isActive} disabled={isSelf} />
+                  </td>
+
                   {/* 機能許可 */}
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
@@ -411,7 +453,7 @@ export function UserTable({ users, callerEmail, groupCompanies }: Props) {
 
             {users.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-16 text-center text-sm text-zinc-400">
+                <td colSpan={8} className="px-4 py-16 text-center text-sm text-zinc-400">
                   登録済みのユーザーがいません
                 </td>
               </tr>
