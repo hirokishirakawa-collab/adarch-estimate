@@ -52,6 +52,7 @@ import {
   Captions,
   Lightbulb,
   Play,
+  Send,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -130,6 +131,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/sales-insights",
         label: "営業インサイト共有",
         icon: Activity,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/sales-approaches",
+        label: "営業アプローチ共有",
+        icon: Send,
         minRole: "USER",
       },
       {

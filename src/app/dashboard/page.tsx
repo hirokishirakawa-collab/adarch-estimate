@@ -454,6 +454,7 @@ export default async function DashboardPage() {
               { href: "/dashboard/estimates", label: "公式見積もり", icon: FileText, iconClass: "text-blue-500" },
               { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, iconClass: "text-orange-500" },
               { href: "/dashboard/sales-insights", label: "営業インサイト", icon: Activity, iconClass: "text-violet-500" },
+              { href: "/dashboard/sales-approaches", label: "営業アプローチ共有", icon: Search, iconClass: "text-teal-500" },
               { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, iconClass: "text-rose-500" },
               { href: "/dashboard/proposals", label: "提案書AI", icon: Sparkles, iconClass: "text-amber-500" },
               { href: "/dashboard/proposals/analytics", label: "提案書 閲覧分析", icon: Eye, iconClass: "text-amber-500" },

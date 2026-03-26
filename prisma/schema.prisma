@@ -321,6 +321,7 @@ model User {
   // ---- 提案書AI ----
   salesActivities SalesActivity[] @relation("SalesActivities")
   proposals       Proposal[]      @relation("Proposals")
+  salesApproaches SalesApproach[] @relation("SalesApproachAuthor")
 
   // ---- ヘルプチャットボット ----
   chatbotConversations ChatbotConversation[] @relation("ChatbotConversations")
@@ -1316,6 +1317,7 @@ model GroupCompany {
   matchedRequests        ProjectRequest[]   @relation("MatchedRequests")
   applications           ProjectApplication[] @relation("Applications")
   salesInsights          SalesInsight[]
+  salesApproaches        SalesApproach[]
 
   @@index([phase])
   @@map("group_companies")
@@ -1767,6 +1769,57 @@ model SalesInsight {
   @@index([period])
   @@index([createdAt(sort: Desc)])
   @@map("sales_insights")
+}
+
+// ==============================================================
+// SalesApproach（営業アプローチ共有）
+// ==============================================================
+
+enum SalesApproachResult {
+  DEAL        // 商談化
+  REPLIED_NG  // 返信あり（不成立）
+  NO_REPLY    // 未返信
+  REJECTED    // 拒否
+}
+
+enum SalesApproachMethod {
+  EMAIL       // メール
+  FORM        // 問い合わせフォーム
+  DM          // DM（SNS等）
+  PHONE       // 電話
+  VISIT       // 訪問
+  OTHER       // その他
+}
+
+/// グループ内で営業アプローチ（成功・失敗）を共有。
+model SalesApproach {
+  id             String              @id @default(cuid())
+
+  // ── 投稿者
+  groupCompanyId String
+  groupCompany   GroupCompany         @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User                 @relation("SalesApproachAuthor", fields: [authorId], references: [id])
+
+  // ── 送り先
+  industry       String               // 業種
+  targetDesc     String?  @db.Text    // 送り先の特徴（自由記入）
+
+  // ── アプローチ内容
+  method         SalesApproachMethod  // 送信方法
+  messageBody    String   @db.Text    // 送信文面
+
+  // ── 結果
+  result         SalesApproachResult  // 結果
+  learnings      String?  @db.Text    // 学び・振り返り
+
+  createdAt      DateTime @default(now())
+
+  @@index([groupCompanyId])
+  @@index([result])
+  @@index([industry])
+  @@index([createdAt(sort: Desc)])
+  @@map("sales_approaches")
 }
 
 // ==============================================================
