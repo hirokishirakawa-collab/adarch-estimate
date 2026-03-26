@@ -84,6 +84,23 @@ export async function getSalesApproaches(filters?: {
 }
 
 // ---------------------------------------------------------------
+// 削除（管理者のみ）
+// ---------------------------------------------------------------
+export async function deleteSalesApproach(id: string): Promise<void> {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return;
+
+  try {
+    await db.salesApproach.delete({ where: { id } });
+    logAudit({ action: "sales_approach_deleted", email: info.email, name: info.staffName, entity: "sales_approach", entityId: id });
+  } catch (e) {
+    console.error("[deleteSalesApproach] error:", e instanceof Error ? e.message : e);
+  }
+
+  revalidatePath("/dashboard/sales-approaches");
+}
+
+// ---------------------------------------------------------------
 // 集計
 // ---------------------------------------------------------------
 export async function getSalesApproachStats() {

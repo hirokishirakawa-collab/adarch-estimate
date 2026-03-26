@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Plus, Send, MessageSquare } from "lucide-react";
+import { auth } from "@/lib/auth";
 import { getSalesApproaches, getSalesApproachStats } from "@/lib/actions/sales-approach";
 import { getResultOption, getMethodLabel, RESULT_OPTIONS, INDUSTRY_OPTIONS } from "@/lib/constants/sales-approach";
+import { DeleteButton } from "./delete-button";
 
 interface Props {
   searchParams: Promise<{ result?: string; industry?: string }>;
@@ -14,6 +16,8 @@ function fmtDate(d: Date): string {
 }
 
 export default async function SalesApproachesPage({ searchParams }: Props) {
+  const session = await auth();
+  const isAdmin = session?.user?.role === "ADMIN";
   const params = await searchParams;
   const [approaches, stats] = await Promise.all([
     getSalesApproaches({ result: params.result, industry: params.industry }),
@@ -158,10 +162,13 @@ export default async function SalesApproachesPage({ searchParams }: Props) {
                 )}
 
                 {/* 投稿者・日時 */}
-                <p className="text-[10px] text-zinc-400">
-                  {a.groupCompany.name}（{a.author?.name ?? a.groupCompany.ownerName}）
-                  ／ {fmtDate(a.createdAt)}
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-zinc-400">
+                    {a.groupCompany.name}（{a.author?.name ?? a.groupCompany.ownerName}）
+                    ／ {fmtDate(a.createdAt)}
+                  </p>
+                  {isAdmin && <DeleteButton id={a.id} />}
+                </div>
               </div>
             );
           })}
