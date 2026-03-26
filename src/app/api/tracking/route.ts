@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createHash } from "crypto";
 import { sendChatMessage } from "@/lib/google-chat";
+import { createInAppNotification } from "@/lib/notifications";
 
 function hashIp(ip: string): string {
   return createHash("sha256").update(ip).digest("hex").slice(0, 16);
@@ -83,6 +84,19 @@ export async function POST(req: NextRequest) {
         `日時: ${now}\n` +
         `プレビュー: ${previewUrl}`
       ).catch(() => {});
+
+      // In-app notification to proposal creator
+      if (proposal.user?.email) {
+        const proposalUser = await db.user.findUnique({ where: { email: proposal.user.email }, select: { id: true } });
+        if (proposalUser) {
+          createInAppNotification({
+            userId: proposalUser.id,
+            type: "PROPOSAL_VIEWED",
+            title: `提案書が閲覧されました: ${proposal.companyName}`,
+            linkUrl: `/dashboard/proposals?preview=${proposalId}`,
+          }).catch(() => {});
+        }
+      }
 
       return NextResponse.json({ viewId: view.id });
     }

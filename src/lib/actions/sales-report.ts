@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
-import { sendRevenueNotification } from "@/lib/notifications";
+import { sendRevenueNotification, notifyAdmins } from "@/lib/notifications";
 import type { UserRole } from "@/types/roles";
 import { logAudit } from "@/lib/audit";
 
@@ -77,6 +77,8 @@ export async function createRevenueReport(
   }
 
   const monthLabel = targetMonth.toLocaleDateString("ja-JP", { year: "numeric", month: "long", timeZone: "Asia/Tokyo" });
+  const capturedName = info.staffName;
+  const capturedBranchId = info.branchId;
   after(async () => {
     await sendRevenueNotification({
       eventType: "REVENUE_CREATED",
@@ -86,6 +88,13 @@ export async function createRevenueReport(
       projectName,
       staffName: info.email,
     });
+
+    notifyAdmins({
+      type: "REPORT_SUBMITTED",
+      title: `月次報告提出: ${monthLabel}`,
+      message: `${capturedName}（${capturedBranchId}）`,
+      linkUrl: `/dashboard/sales-report`,
+    }).catch(() => {});
   });
 
   revalidatePath("/dashboard/sales-report");

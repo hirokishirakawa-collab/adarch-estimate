@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { sendCustomerNotification } from "@/lib/notifications";
+import { sendCustomerNotification, notifyAdmins } from "@/lib/notifications";
 import { logAudit } from "@/lib/audit";
 import { getMockBranchId } from "@/lib/data/customers";
 import type {
@@ -141,6 +141,12 @@ export async function createCustomer(
       industry: capturedIndustry,
       staffName: capturedStaff,
     });
+
+    notifyAdmins({
+      type: "SYSTEM",
+      title: `新規顧客登録: ${capturedName}`,
+      linkUrl: `/dashboard/customers/${capturedId}`,
+    }).catch(() => {});
   });
 
   redirect(`/dashboard/customers/${customerId}`);

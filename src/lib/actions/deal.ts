@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import type { DealStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
-import { sendDealNotification } from "@/lib/notifications";
+import { sendDealNotification, notifyAdmins, createInAppNotification } from "@/lib/notifications";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 import { logAudit } from "@/lib/audit";
 
@@ -53,6 +53,26 @@ async function createProjectFromDeal(dealId: string, staffName: string) {
     });
 
     console.log(`[createProjectFromDeal] Created project ${project.id} from deal ${dealId}`);
+
+    // Notify assignee
+    if (deal.assignedTo) {
+      const assignee = await db.user.findFirst({ where: { name: deal.assignedTo.name }, select: { id: true } });
+      if (assignee) {
+        createInAppNotification({
+          userId: assignee.id,
+          type: "PROJECT_CREATED",
+          title: `プロジェクト自動作成: ${project.title}`,
+          linkUrl: `/dashboard/projects/${project.id}`,
+        }).catch(() => {});
+      }
+    }
+
+    notifyAdmins({
+      type: "PROJECT_CREATED",
+      title: `プロジェクト自動作成: ${project.title}`,
+      message: `商談「${deal.title}」から`,
+      linkUrl: `/dashboard/projects/${project.id}`,
+    }).catch(() => {});
   } catch (e) {
     console.error("[createProjectFromDeal]", e);
   }
@@ -278,6 +298,16 @@ export async function updateDealStatus(
         statusLabel,
         staffName: capturedInfo.staffName,
       });
+
+      // In-app: 受注通知
+      if (status === "CLOSED_WON") {
+        notifyAdmins({
+          type: "DEAL_WON",
+          title: `商談受注: ${captured.title}`,
+          message: `${captured.customer.name}`,
+          linkUrl: `/dashboard/deals/${dealId}`,
+        }).catch(() => {});
+      }
     });
   }
 
@@ -365,6 +395,16 @@ export async function updateDeal(
         staffName:    capturedStaffName,
       }
     );
+
+    // In-app: 受注通知
+    if (capturedStatus === "CLOSED_WON") {
+      notifyAdmins({
+        type: "DEAL_WON",
+        title: `商談受注: ${capturedTitle}`,
+        message: `${capturedCustomer}`,
+        linkUrl: `/dashboard/deals/${capturedDealId}`,
+      }).catch(() => {});
+    }
   });
 
   revalidatePath("/dashboard/deals");
