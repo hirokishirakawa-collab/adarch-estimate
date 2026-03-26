@@ -69,6 +69,22 @@ const TOURS: Record<string, TourStep[]> = {
       },
     },
     {
+      element: "[data-tour='notification-bell']",
+      popover: {
+        title: "通知センター",
+        description: "商談受注・提案書閲覧・月次報告などの通知をリアルタイムで確認できます。ベルアイコンをクリックしてください。",
+        side: "bottom",
+      },
+    },
+    {
+      element: "[data-tour='sidebar']",
+      popover: {
+        title: "お気に入りピン留め",
+        description: "各ページの★アイコンをクリックすると、サイドバーの上部にピン留めされます。最大5ページまで。",
+        side: "right",
+      },
+    },
+    {
       popover: {
         title: "ツアー完了！",
         description: "基本的な使い方は以上です。各ページにも個別ガイドがあります。右下の「？」ボタンからいつでも再開できます。",
@@ -115,6 +131,14 @@ const TOURS: Record<string, TourStep[]> = {
       popover: {
         title: "顧客一覧",
         description: "顧客をクリックすると詳細ページへ。活動記録の入力やステータス変更ができます。",
+        side: "top",
+      },
+    },
+    {
+      element: "[data-tour='customer-table']",
+      popover: {
+        title: "一括操作",
+        description: "チェックボックスで複数の顧客を選択すると、ステータスの一括変更や一括削除ができます。",
         side: "top",
       },
     },
@@ -182,6 +206,14 @@ const TOURS: Record<string, TourStep[]> = {
         side: "bottom",
       },
     },
+    {
+      element: "[data-tour='lead-list-table']",
+      popover: {
+        title: "一括操作",
+        description: "チェックボックスで複数のリードを選択すると、ステータス一括変更・担当者一括割当ができます。",
+        side: "top",
+      },
+    },
   ],
   "/dashboard/deals": [
     {
@@ -220,6 +252,12 @@ const TOURS: Record<string, TourStep[]> = {
         title: "カンバンボード",
         description: "ドラッグ&ドロップで商談のステージを変更できます。",
         side: "top",
+      },
+    },
+    {
+      popover: {
+        title: "受注→プロジェクト自動作成",
+        description: "商談を「受注」にドラッグすると、自動でプロジェクトが作成されます。商談詳細からプロジェクトへのリンクも表示されます。",
       },
     },
   ],
@@ -664,14 +702,14 @@ const TOURS: Record<string, TourStep[]> = {
     {
       popover: {
         title: "月次報告",
-        description: "毎月の活動状況と売上を報告します。金額はすべて税抜で入力してください。",
+        description: "毎月の状況を報告してください。未提出の場合、翌月1日にアカウントが一時停止されます。",
       },
     },
     {
       element: "[data-tour='report-new']",
       popover: {
-        title: "月次報告を作成",
-        description: "月次の売上実績を入力して報告します。",
+        title: "新規報告",
+        description: "ここから月次報告を作成します。売上が0円の月も報告が必要です。",
         side: "bottom",
       },
     },
@@ -931,7 +969,7 @@ const TOURS: Record<string, TourStep[]> = {
       element: "[data-tour='sns-format-recent']",
       popover: {
         title: "② フォーマット一覧",
-        description: "解析したフォーマットがキャプチャ画像付きで自動追加されます。業種フィルターや再生数ソートで整理できます。カードをクリックすると詳細を確認できます。",
+        description: "生成済みフォーマットを管理。ADMINはチェックボックスで選択して一括削除もできます。",
         side: "top",
       },
     },
@@ -1043,6 +1081,22 @@ const TOURS: Record<string, TourStep[]> = {
         title: "ログ一覧",
         description: "誰が・いつ・何をしたかを時系列で確認できます。",
         side: "top",
+      },
+    },
+  ],
+  "/dashboard/admin/audit-logs": [
+    {
+      popover: {
+        title: "操作ログ（詳細）",
+        description: "OS内の全操作を確認できます。ログイン履歴、不正アクセス、ロール変更など。",
+      },
+    },
+    {
+      element: "[data-tour='audit-filters']",
+      popover: {
+        title: "フィルター",
+        description: "アクション種別やメールアドレスで絞り込みできます。",
+        side: "bottom",
       },
     },
   ],

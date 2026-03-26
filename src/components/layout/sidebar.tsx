@@ -599,12 +599,12 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
         {/* ロゴ */}
         <div className="relative px-5 pt-5 pb-4 border-b border-amber-900/20">
           <div className="flex items-center justify-between">
-            <div>
+            <Link href="/dashboard" className="no-underline cursor-pointer">
               <Image src="/logo_white.png" alt="Ad Arch Group" width={140} height={28} />
               <p className="text-[11px] font-medium tracking-[3px] uppercase text-amber-700/50 mt-1.5">
                 GROUP OS
               </p>
-            </div>
+            </Link>
             {/* モバイル用閉じるボタン */}
             <button
               onClick={onClose}

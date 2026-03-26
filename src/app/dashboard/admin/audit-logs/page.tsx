@@ -163,6 +163,7 @@ export default async function AuditLogsPage({ searchParams }: PageProps) {
       <form
         action="/dashboard/admin/audit-logs"
         method="GET"
+        data-tour="audit-filters"
         className="bg-white rounded-xl border border-zinc-200 px-5 py-4 flex flex-wrap items-end gap-3"
       >
         {/* アクション種別 */}

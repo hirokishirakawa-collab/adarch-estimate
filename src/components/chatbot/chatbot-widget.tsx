@@ -108,6 +108,11 @@ const PAGE_SUGGESTIONS: Record<string, string[]> = {
     "記事を検索したい",
     "記事を編集するには？",
   ],
+  "/dashboard/sales-report": [
+    "月次報告の出し方は？",
+    "報告を出さないとどうなる？",
+    "売上0円でも報告が必要？",
+  ],
   "/dashboard/sales-insights": [
     "インサイトの投稿方法は？",
     "他拠点の営業情報を見たい",
@@ -174,6 +179,7 @@ function getPageLabel(pathname: string): string {
     "/dashboard/golfcart-simulator": "ゴルフカート",
     "/dashboard/omochannel-simulator": "おもチャンネル",
     "/dashboard/admin/users": "メンバー管理",
+    "/dashboard/admin/audit-logs": "操作ログ（詳細）",
     "/dashboard/login-logs": "操作ログ",
     "/dashboard/group-support": "グループサポート",
   };
