@@ -4,9 +4,11 @@ import { withSentryConfig } from "@sentry/nextjs";
 const nextConfig: NextConfig = {
   // standalone 出力（Dockerイメージ軽量化）
   output: "standalone",
-  // Server Actions のボディサイズ上限を500MBに（動画アップロード対応）
-  serverActions: {
-    bodySizeLimit: "5gb",
+  // Server Actions のボディサイズ上限を5GBに（動画アップロード対応）
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "5gb",
+    },
   },
   // nodemailer など Node.js 専用モジュールをクライアントバンドルから除外
   serverExternalPackages: ["nodemailer", "googleapis", "fluent-ffmpeg", "sharp"],
