@@ -574,7 +574,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
           <div className="flex items-center justify-between">
             <div>
               <Image src="/logo_white.png" alt="Ad Arch Group" width={140} height={28} />
-              <p className="text-[10px] font-medium tracking-[3px] uppercase text-amber-700/50 mt-1.5">
+              <p className="text-[11px] font-medium tracking-[3px] uppercase text-amber-700/50 mt-1.5">
                 GROUP OS
               </p>
             </div>
@@ -607,16 +607,16 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-white/90 truncate">
+              <p className="text-[13px] font-semibold text-white/90 truncate">
                 {user.name ?? "ユーザー"}
               </p>
-              <p className="text-[10px] text-white/35 truncate">{user.email}</p>
+              <p className="text-[11px] text-white/40 truncate">{user.email}</p>
             </div>
           </div>
           <div className="mt-2.5">
             <span
               className={cn(
-                "inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold tracking-wide",
+                "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide",
                 roleStyle.className
               )}
             >
@@ -660,7 +660,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
             <div className="flex-1 min-w-0">
               <p
                 className={cn(
-                  "text-[10px] font-bold",
+                  "text-[11px] font-bold",
                   warningColor === "red" ? "text-red-500" : "text-yellow-500"
                 )}
               >
@@ -668,7 +668,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
               </p>
               <p
                 className={cn(
-                  "text-[9px]",
+                  "text-[10px]",
                   warningColor === "red" ? "text-red-500/60" : "text-yellow-500/60"
                 )}
               >
@@ -719,7 +719,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
               <div key={section.section}>
                 <button
                   onClick={() => toggleSection(section.section)}
-                  className="flex items-center gap-2 px-2.5 py-2 w-full text-[9px] font-semibold tracking-[1.5px] uppercase text-white/25 cursor-pointer hover:text-white/40 transition-colors"
+                  className="flex items-center gap-2 px-2.5 py-2 w-full text-[10px] font-semibold tracking-[1.5px] uppercase text-white/30 cursor-pointer hover:text-white/40 transition-colors"
                 >
                   <span className="flex-shrink-0">{section.section}</span>
                   <span className="flex-1 h-px bg-gradient-to-r from-white/[0.06] to-transparent" />
@@ -742,7 +742,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
                           <button
                             onClick={() => toggleGroup(item.href)}
                             className={cn(
-                              "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-xs transition-all duration-150 w-full group",
+                              "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 w-full group",
                               groupActive
                                 ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
                                 : "text-white/45 hover:text-white/85 hover:bg-white/[0.04]"
@@ -761,7 +761,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
                             />
                             <span className="truncate flex-1 text-left">{item.label}</span>
                             {item.badge && !groupActive && (
-                              <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500/60 border border-amber-500/15 font-semibold tracking-wide flex-shrink-0">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500/60 border border-amber-500/15 font-semibold tracking-wide flex-shrink-0">
                                 {item.badge}
                               </span>
                             )}
@@ -787,7 +787,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
                                       <Link
                                         href={child.href}
                                         className={cn(
-                                          "relative flex items-center gap-2 text-[11px] py-[5px] px-2.5 rounded-lg transition-all duration-150 group",
+                                          "relative flex items-center gap-2 text-xs py-[5px] px-2.5 rounded-lg transition-all duration-150 group",
                                           childActive
                                             ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
                                             : "text-white/45 hover:text-white/85 hover:bg-white/[0.04]"
@@ -825,7 +825,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
                     const isMonthlyReport = item.href === "/dashboard/sales-report";
 
                     const linkClass = cn(
-                      "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-xs transition-all duration-150 group",
+                      "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
                       isActive
                         ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
                         : "text-white/45 hover:text-white/85 hover:bg-white/[0.04]"
@@ -848,7 +848,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
                         )}
                         {item.badge && !isActive && (
-                          <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500/60 border border-amber-500/15 font-semibold tracking-wide flex-shrink-0">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500/60 border border-amber-500/15 font-semibold tracking-wide flex-shrink-0">
                             {item.badge}
                           </span>
                         )}
@@ -885,7 +885,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
         <div className="relative px-3 py-3 border-t border-white/[0.06]">
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs text-white/30 hover:bg-red-500/8 hover:text-red-400/70 transition-all"
+            className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-[13px] text-white/35 hover:bg-red-500/8 hover:text-red-400/70 transition-all"
           >
             <LogOut className="w-4 h-4" />
             <span>ログアウト</span>
