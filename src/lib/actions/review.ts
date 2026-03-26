@@ -4,36 +4,26 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
-import { uploadReviewVideo } from "@/lib/storage";
 
 // ---------------------------------------------------------------
-// レビュー新規作成
+// レビュー新規作成（動画は事前にAPI Routeでアップロード済み）
 // ---------------------------------------------------------------
 export async function createReview(
-  _prev: { error?: string } | null,
+  _prev: { error?: string; reviewId?: string } | null,
   formData: FormData
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; reviewId?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
 
   const title       = (formData.get("title") as string)?.trim();
   const description = (formData.get("description") as string)?.trim() || null;
-  const beforeVideo = formData.get("beforeVideo") as File | null;
-  const afterVideo  = formData.get("afterVideo") as File | null;
+  const beforePath  = (formData.get("beforePath") as string)?.trim();
+  const afterPath   = (formData.get("afterPath") as string)?.trim();
+  const beforeFileName = (formData.get("beforeFileName") as string)?.trim();
+  const afterFileName  = (formData.get("afterFileName") as string)?.trim();
 
   if (!title) return { error: "タイトルは必須です" };
-  if (!beforeVideo || beforeVideo.size === 0) return { error: "修正前の動画を選択してください" };
-  if (!afterVideo  || afterVideo.size  === 0) return { error: "修正後の動画を選択してください" };
-
-  // Upload videos
-  const [beforePath, afterPath] = await Promise.all([
-    uploadReviewVideo(beforeVideo, "before/"),
-    uploadReviewVideo(afterVideo, "after/"),
-  ]);
-
-  if (!beforePath || !afterPath) {
-    return { error: "動画のアップロードに失敗しました" };
-  }
+  if (!beforePath || !afterPath) return { error: "動画をアップロードしてください" };
 
   const review = await db.videoReview.create({
     data: {
@@ -41,9 +31,9 @@ export async function createReview(
       description,
       status: "UPLOADING",
       beforeVideoPath: beforePath,
-      beforeFileName:  beforeVideo.name,
+      beforeFileName:  beforeFileName || "before.mp4",
       afterVideoPath:  afterPath,
-      afterFileName:   afterVideo.name,
+      afterFileName:   afterFileName || "after.mp4",
       branchId:  info.branchId,
       createdBy: info.email,
       staffName: info.staffName,

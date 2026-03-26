@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "5gb",
     },
+    proxyClientMaxBodySize: "5gb",
   },
   // nodemailer など Node.js 専用モジュールをクライアントバンドルから除外
   serverExternalPackages: ["nodemailer", "googleapis", "fluent-ffmpeg", "sharp"],
