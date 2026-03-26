@@ -62,7 +62,7 @@ export function UploadForm() {
           <button
             type="button"
             onClick={() => beforeRef.current?.click()}
-            className="w-full h-36 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-white/10 rounded-xl hover:border-amber-500/30 hover:bg-amber-500/[0.03] transition-all cursor-pointer"
+            className="w-full h-36 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-amber-500/25 rounded-xl bg-amber-500/[0.03] hover:border-amber-500/50 hover:bg-amber-500/[0.06] transition-all cursor-pointer"
           >
             {beforeFile ? (
               <>
@@ -76,9 +76,9 @@ export function UploadForm() {
               </>
             ) : (
               <>
-                <Upload className="w-8 h-8 text-white/20" />
-                <span className="text-sm text-white/40">
-                  ドラッグ&ドロップ または クリック
+                <Upload className="w-8 h-8 text-amber-500/40" />
+                <span className="text-sm text-amber-500/50">
+                  動画をドロップ または クリックして選択
                 </span>
               </>
             )}
@@ -102,7 +102,7 @@ export function UploadForm() {
           <button
             type="button"
             onClick={() => afterRef.current?.click()}
-            className="w-full h-36 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-white/10 rounded-xl hover:border-amber-500/30 hover:bg-amber-500/[0.03] transition-all cursor-pointer"
+            className="w-full h-36 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-amber-500/25 rounded-xl bg-amber-500/[0.03] hover:border-amber-500/50 hover:bg-amber-500/[0.06] transition-all cursor-pointer"
           >
             {afterFile ? (
               <>
@@ -116,9 +116,9 @@ export function UploadForm() {
               </>
             ) : (
               <>
-                <Upload className="w-8 h-8 text-white/20" />
-                <span className="text-sm text-white/40">
-                  ドラッグ&ドロップ または クリック
+                <Upload className="w-8 h-8 text-amber-500/40" />
+                <span className="text-sm text-amber-500/50">
+                  動画をドロップ または クリックして選択
                 </span>
               </>
             )}
