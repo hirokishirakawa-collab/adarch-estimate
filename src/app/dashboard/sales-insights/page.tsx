@@ -110,7 +110,7 @@ export default function SalesInsightsPage() {
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-white">
-          営業インサイト共有
+          営業分析レポート
         </h1>
         <div className="flex items-center gap-2 mt-1">
           <p className="text-sm text-zinc-400">

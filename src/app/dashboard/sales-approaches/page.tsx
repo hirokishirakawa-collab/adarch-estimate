@@ -29,9 +29,9 @@ export default async function SalesApproachesPage({ searchParams }: Props) {
             <Send className="text-teal-700" style={{ width: "1.125rem", height: "1.125rem" }} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-zinc-900">営業アプローチ共有</h2>
+            <h2 className="text-lg font-bold text-zinc-900">アプローチ事例集</h2>
             <p className="text-xs text-zinc-500 mt-0.5">
-              成功も失敗もグループの資産に — どんな文面でどう送ったか共有します
+              成功も失敗もグループの資産に — どんな文面でどう送ったか
             </p>
           </div>
         </div>

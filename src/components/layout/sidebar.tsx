@@ -128,18 +128,6 @@ const NAV_SECTIONS: NavSection[] = [
         ],
       },
       {
-        href: "/dashboard/sales-insights",
-        label: "営業インサイト共有",
-        icon: Activity,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/sales-approaches",
-        label: "営業アプローチ共有",
-        icon: Send,
-        minRole: "USER",
-      },
-      {
         href: "/dashboard/video-achievements",
         label: "競合実績スクレイピング（自動収集）",
         icon: Target,
@@ -231,15 +219,33 @@ const NAV_SECTIONS: NavSection[] = [
         requiredFeature: "cutsheet",
       },
       {
-        href: "/dashboard/project-matching",
-        label: "案件マッチング",
-        icon: Handshake,
-        minRole: "USER",
-      },
-      {
         href: "/dashboard/group-profiles",
         label: "メンバー紹介",
         icon: Users2,
+        minRole: "USER",
+      },
+    ],
+  },
+  {
+    section: "グループ共有",
+    color: "text-teal-500/80",
+    items: [
+      {
+        href: "/dashboard/sales-insights",
+        label: "営業分析レポート",
+        icon: Activity,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/sales-approaches",
+        label: "アプローチ事例集",
+        icon: Send,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/project-matching",
+        label: "案件マッチング",
+        icon: Handshake,
         minRole: "USER",
       },
     ],

@@ -311,6 +311,49 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* ── グループ共有への依頼 ── */}
+      <div className="rounded-xl border border-teal-200 bg-gradient-to-r from-teal-50 via-emerald-50 to-cyan-50 px-5 py-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Activity className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-zinc-800">グループに共有しましょう</p>
+            <p className="text-[10px] text-zinc-500">あなたの経験がグループ全体の力になります</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Link
+            href="/dashboard/sales-insights"
+            className="group flex items-start gap-3 p-3 bg-white/70 rounded-lg border border-teal-100 hover:border-teal-300 hover:shadow-sm transition-all"
+          >
+            <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Activity className="w-4 h-4 text-violet-600" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-zinc-800 group-hover:text-teal-700">営業分析レポート</p>
+              <p className="text-[10px] text-zinc-500 mt-0.5 leading-relaxed">
+                今月の送信数・返信率・反応が良かった業種をAI分析で共有
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/dashboard/sales-approaches/new"
+            className="group flex items-start gap-3 p-3 bg-white/70 rounded-lg border border-teal-100 hover:border-teal-300 hover:shadow-sm transition-all"
+          >
+            <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Search className="w-4 h-4 text-teal-600" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-zinc-800 group-hover:text-teal-700">アプローチ事例を投稿</p>
+              <p className="text-[10px] text-zinc-500 mt-0.5 leading-relaxed">
+                どんな文面でどこに送ったか — 成功も失敗もグループの資産に
+              </p>
+            </div>
+          </Link>
+        </div>
+      </div>
+
       {/* ── 実績フォルダ 更新情報 ── */}
       <div className="rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 overflow-hidden ring-1 ring-amber-200/50">
         <div className="px-6 py-4 flex items-center justify-between">
@@ -453,8 +496,8 @@ export default async function DashboardPage() {
               { href: "/dashboard/deals", label: "商談管理（SFA）", icon: TrendingUp, iconClass: "text-blue-500" },
               { href: "/dashboard/estimates", label: "公式見積もり", icon: FileText, iconClass: "text-blue-500" },
               { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, iconClass: "text-orange-500" },
-              { href: "/dashboard/sales-insights", label: "営業インサイト", icon: Activity, iconClass: "text-violet-500" },
-              { href: "/dashboard/sales-approaches", label: "営業アプローチ共有", icon: Search, iconClass: "text-teal-500" },
+              { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, iconClass: "text-violet-500" },
+              { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Search, iconClass: "text-teal-500" },
               { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, iconClass: "text-rose-500" },
               { href: "/dashboard/proposals", label: "提案書AI", icon: Sparkles, iconClass: "text-amber-500" },
               { href: "/dashboard/proposals/analytics", label: "提案書 閲覧分析", icon: Eye, iconClass: "text-amber-500" },
