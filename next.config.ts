@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
     middlewareClientMaxBodySize: "500mb",
   },
   // nodemailer など Node.js 専用モジュールをクライアントバンドルから除外
-  serverExternalPackages: ["nodemailer", "googleapis"],
+  serverExternalPackages: ["nodemailer", "googleapis", "fluent-ffmpeg", "sharp"],
   // Google アカウントのアバター画像を next/image で表示するため許可
   images: {
     remotePatterns: [

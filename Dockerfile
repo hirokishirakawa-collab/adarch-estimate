@@ -14,8 +14,8 @@ RUN npm run build
 # ---- Production stage ----
 FROM node:24-alpine
 
-RUN apk add --no-cache openssl ffmpeg python3 py3-pip \
-    && pip3 install --break-system-packages yt-dlp
+RUN apk add --no-cache openssl ffmpeg python3 py3-pip py3-numpy py3-pillow \
+    && pip3 install --break-system-packages yt-dlp scipy
 
 WORKDIR /app
 
@@ -24,6 +24,7 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src/generated ./src/generated
+COPY --from=builder /app/src/lib/video-analysis/scripts ./src/lib/video-analysis/scripts
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 EXPOSE 8080
@@ -32,6 +33,10 @@ ENV PORT=8080
 
 COPY scripts/start.sh /start.sh
 RUN chmod +x /start.sh
+
+# ストレージボリューム用ディレクトリ
+RUN mkdir -p /data/storage && chmod 777 /data/storage
+ENV STORAGE_PATH=/data/storage
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser

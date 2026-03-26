@@ -224,6 +224,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/review",
+        label: "映像チェッカー",
+        icon: Eye,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/cutsheet",
         label: "動画カット表AI",
         icon: Film,

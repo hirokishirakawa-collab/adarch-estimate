@@ -2308,3 +2308,112 @@ model UserFavorite {
   @@index([userId])
   @@map("user_favorites")
 }
+
+// ==============================================================
+// 映像チェッカー（Video Review）
+// ==============================================================
+
+enum VideoReviewStatus {
+  UPLOADING
+  ANALYZING
+  COMPLETED
+  FAILED
+  APPROVED
+  REJECTED
+}
+
+enum ChangeType {
+  TELOP
+  CUT_REPLACE
+  COLOR
+  DURATION
+  ANIMATION
+  OTHER
+}
+
+model VideoReview {
+  id          String            @id @default(cuid())
+  title       String
+  description String?           @db.Text
+  status      VideoReviewStatus @default(UPLOADING)
+
+  beforeVideoPath String
+  beforeFileName  String
+  beforeDuration  Float?
+  beforeFps       Float?
+
+  afterVideoPath  String
+  afterFileName   String
+  afterDuration   Float?
+  afterFps        Float?
+
+  analysisStartedAt  DateTime?
+  analysisFinishedAt DateTime?
+  analysisError      String?    @db.Text
+  totalChanges       Int        @default(0)
+
+  approvedAt    DateTime?
+  approvedBy    String?
+  rejectedAt    DateTime?
+  rejectedBy    String?
+  rejectionNote String?         @db.Text
+
+  branchId  String?
+  createdBy String
+  staffName String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  changes VideoReviewChange[]
+  notes   VideoReviewNote[]
+
+  @@index([branchId])
+  @@index([status])
+  @@index([createdBy])
+  @@map("video_reviews")
+}
+
+model VideoReviewChange {
+  id       String      @id @default(cuid())
+  reviewId String
+  review   VideoReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  type        ChangeType
+  timecodeIn  Float
+  timecodeOut Float?
+  description String     @db.Text
+  confidence  Float      @default(0)
+
+  beforeFramePath String?
+  afterFramePath  String?
+  diffFramePath   String?
+
+  regionX      Int?
+  regionY      Int?
+  regionWidth  Int?
+  regionHeight Int?
+
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([reviewId])
+  @@map("video_review_changes")
+}
+
+model VideoReviewNote {
+  id       String      @id @default(cuid())
+  reviewId String
+  review   VideoReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  timecode Float
+  text     String @db.Text
+  author   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reviewId])
+  @@map("video_review_notes")
+}
