@@ -556,21 +556,21 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{
-          background: "linear-gradient(180deg, #0d0d14 0%, #0a0a10 50%, #0d0d14 100%)",
-          borderRight: "1px solid rgba(255, 255, 255, 0.06)",
+          background: "linear-gradient(180deg, #1c1914 0%, #171310 50%, #1c1914 100%)",
+          borderRight: "1px solid rgba(200, 170, 100, 0.08)",
           position: isOpen ? "fixed" : undefined,
         }}
       >
-        {/* Ambient glow */}
+        {/* Warm ambient glow */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            background: "radial-gradient(ellipse at 30% 20%, rgba(180, 140, 60, 0.03) 0%, transparent 50%)",
+            background: "radial-gradient(ellipse at 30% 20%, rgba(200, 170, 100, 0.05) 0%, transparent 50%)",
           }}
         />
 
         {/* ロゴ */}
-        <div className="relative px-5 pt-5 pb-4 border-b border-white/[0.06]">
+        <div className="relative px-5 pt-5 pb-4 border-b border-amber-900/20">
           <div className="flex items-center justify-between">
             <div>
               <Image src="/logo_white.png" alt="Ad Arch Group" width={140} height={28} />
@@ -589,7 +589,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
         </div>
 
         {/* ユーザー情報カード */}
-        <div className="relative mx-3 my-3 p-3 rounded-xl bg-gradient-to-br from-white/[0.04] to-white/[0.02] border border-white/[0.06]">
+        <div className="relative mx-3 my-3 p-3 rounded-xl bg-gradient-to-br from-amber-900/10 to-amber-950/5 border border-amber-900/15">
           {/* Top highlight line */}
           <div className="absolute top-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-amber-600/20 to-transparent" />
           <div className="flex items-center gap-2.5">
@@ -722,7 +722,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
                   className="flex items-center gap-2 px-2.5 py-2 w-full text-[10px] font-semibold tracking-[1.5px] uppercase text-white/30 cursor-pointer hover:text-white/40 transition-colors"
                 >
                   <span className="flex-shrink-0">{section.section}</span>
-                  <span className="flex-1 h-px bg-gradient-to-r from-white/[0.06] to-transparent" />
+                  <span className="flex-1 h-px bg-gradient-to-r from-amber-800/15 to-transparent" />
                   {sectionOpen ? (
                     <ChevronDown className="w-3 h-3 text-white/20 flex-shrink-0" />
                   ) : (
@@ -745,7 +745,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
                               "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 w-full group",
                               groupActive
                                 ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                                : "text-white/45 hover:text-white/85 hover:bg-white/[0.04]"
+                                : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
                             )}
                           >
                             {groupActive && (
@@ -772,7 +772,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
                             )}
                           </button>
                           {isOpen_ && (
-                            <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-white/[0.05] pl-2.5">
+                            <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-amber-800/10 pl-2.5">
                               {item.children
                                 .filter((child) => hasMinRole(user.role, child.minRole))
                                 .map((child) => {
@@ -790,7 +790,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
                                           "relative flex items-center gap-2 text-xs py-[5px] px-2.5 rounded-lg transition-all duration-150 group",
                                           childActive
                                             ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                                            : "text-white/45 hover:text-white/85 hover:bg-white/[0.04]"
+                                            : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
                                         )}
                                       >
                                         {childActive && (
@@ -828,7 +828,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
                       "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
                       isActive
                         ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                        : "text-white/45 hover:text-white/85 hover:bg-white/[0.04]"
+                        : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
                     );
                     const linkContent = (
                       <>
@@ -882,7 +882,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
         </nav>
 
         {/* ログアウト */}
-        <div className="relative px-3 py-3 border-t border-white/[0.06]">
+        <div className="relative px-3 py-3 border-t border-amber-900/15">
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-[13px] text-white/35 hover:bg-red-500/8 hover:text-red-400/70 transition-all"

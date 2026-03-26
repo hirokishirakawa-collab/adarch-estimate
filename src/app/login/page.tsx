@@ -32,7 +32,7 @@ export default function LoginPage() {
 
       {/* Right: Login Form */}
       <div className="w-full md:w-[460px] bg-white flex flex-col items-center justify-center px-10 py-16 md:py-0 border-l border-[#e8e0d8]">
-        <div className="w-full max-w-[340px]">
+        <div className="w-full max-w-[340px] flex flex-col items-start justify-center md:min-h-screen md:py-20">
           {/* OS Label */}
           <p className="text-[11px] font-semibold tracking-[3px] uppercase text-amber-700/60 mb-10">
             GROUP OS
@@ -78,10 +78,10 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <p className="text-[11px] text-zinc-300 tracking-wider mt-auto pt-12">
-          Ad Arch Group &copy; 2026
-        </p>
+          {/* Footer */}
+          <p className="text-[11px] text-zinc-300 tracking-wider mt-16">
+            Ad Arch Group &copy; 2026
+          </p>
       </div>
     </div>
   );

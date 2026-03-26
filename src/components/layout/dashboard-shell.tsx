@@ -29,7 +29,7 @@ export function DashboardShell({ user, reportWarning, children }: Props) {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950">
+    <div className="flex h-screen overflow-hidden bg-[#1c1914]">
       <Sidebar user={user} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} reportWarning={reportWarning} />
       <div className="flex-1 flex flex-col overflow-hidden bg-zinc-50 min-w-0">
         <Header
