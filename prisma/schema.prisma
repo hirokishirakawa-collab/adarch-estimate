@@ -23,29 +23,29 @@ datasource db {
 // ==============================================================
 
 enum Role {
-  ADMIN   // 本部: 全拠点・全データ フルアクセス
+  ADMIN // 本部: 全拠点・全データ フルアクセス
   MANAGER // 代表: 自拠点の財務・売上・全実務ツール
-  USER    // 一般社員: 実務ツールのみ / 財務データアクセス不可
+  USER // 一般社員: 実務ツールのみ / 財務データアクセス不可
 }
 
 enum DealStatus {
   PROSPECTING // 見込み
-  QUALIFYING  // 検討中
-  PROPOSAL    // 提案中
+  QUALIFYING // 検討中
+  PROPOSAL // 提案中
   NEGOTIATION // 交渉中
-  CLOSED_WON  // 受注
+  CLOSED_WON // 受注
   CLOSED_LOST // 失注
-  DORMANT     // 休眠
-  DEFERRED    // 保留
+  DORMANT // 休眠
+  DEFERRED // 保留
 }
 
 enum ActivityType {
-  CALL    // 電話
-  EMAIL   // メール
-  VISIT   // 訪問
+  CALL // 電話
+  EMAIL // メール
+  VISIT // 訪問
   MEETING // Web会議
-  OTHER   // その他
-  SYSTEM  // システム自動ログ（顧客情報変更など）
+  OTHER // その他
+  SYSTEM // システム自動ログ（顧客情報変更など）
 }
 
 enum CustomerRank {
@@ -57,146 +57,146 @@ enum CustomerRank {
 
 enum CustomerStatus {
   PROSPECT // 見込み
-  ACTIVE   // 取引中
+  ACTIVE // 取引中
   INACTIVE // 休眠
-  BLOCKED  // 取引回避
+  BLOCKED // 取引回避
 }
 
 enum ProjectStatus {
-  ORDERED      // 受注済み
-  IN_PROGRESS  // 進行中
-  COMPLETED    // 完了
-  ON_HOLD      // 保留
-  CANCELLED    // キャンセル
+  ORDERED // 受注済み
+  IN_PROGRESS // 進行中
+  COMPLETED // 完了
+  ON_HOLD // 保留
+  CANCELLED // キャンセル
 }
 
 enum ExpenseCategory {
-  LABOR        // 人件費
-  MATERIAL     // 材料費
-  SUBCONTRACT  // 外注費
-  TRANSPORT    // 交通・運送費
+  LABOR // 人件費
+  MATERIAL // 材料費
+  SUBCONTRACT // 外注費
+  TRANSPORT // 交通・運送費
   COMMUNICATION // 通信費
-  OTHER        // その他
+  OTHER // その他
 }
 
 enum ProjectLogType {
-  SYSTEM          // システム自動ログ（フィールド変更）
-  NOTE            // 手動メモ
-  EXPENSE_ADDED   // 経費追加
+  SYSTEM // システム自動ログ（フィールド変更）
+  NOTE // 手動メモ
+  EXPENSE_ADDED // 経費追加
   EXPENSE_DELETED // 経費削除
 }
 
 enum LeadStatus {
-  UNTOUCHED      // 未対応
-  CALLED         // 架電済み
-  APPOINTMENT    // アポ獲得
+  UNTOUCHED // 未対応
+  CALLED // 架電済み
+  APPOINTMENT // アポ獲得
   DEAL_CONVERTED // 商談化
-  SKIPPED        // スキップ
+  SKIPPED // スキップ
 }
 
 enum BillingStatus {
   UNBILLED // 未請求
-  BILLED   // 請求済み
-  PAID     // 入金済み
+  BILLED // 請求済み
+  PAID // 入金済み
 }
 
 enum InvoiceRequestStatus {
-  DRAFT     // 未提出
+  DRAFT // 未提出
   SUBMITTED // 提出済
 }
 
 enum EstimationStatus {
-  DRAFT    // 下書き（未発行・通知なし）
-  ISSUED   // 発行済み（通知送信済み）
-  SENT     // 送付済み（顧客に送付）
+  DRAFT // 下書き（未発行・通知なし）
+  ISSUED // 発行済み（通知送信済み）
+  SENT // 送付済み（顧客に送付）
   ACCEPTED // 承認済み
   REJECTED // 却下
 }
 
 enum CollaborationRequestType {
-  SHOOTING_SUPPORT   // 撮影支援
-  EDITING_RESOURCE   // 編集リソース協力
-  EQUIPMENT_CAST     // 機材・キャスト手配
-  KNOWLEDGE_SHARING  // 知見共有・相談
-  PROXY_VISIT        // クライアント別拠点の代理視察及び営業
-  OTHER              // その他
+  SHOOTING_SUPPORT // 撮影支援
+  EDITING_RESOURCE // 編集リソース協力
+  EQUIPMENT_CAST // 機材・キャスト手配
+  KNOWLEDGE_SHARING // 知見共有・相談
+  PROXY_VISIT // クライアント別拠点の代理視察及び営業
+  OTHER // その他
 }
 
 enum CollaborationStatus {
-  PENDING    // 未対応
-  REVIEWING  // 検討中
-  ACCEPTED   // 受諾
-  DECLINED   // 辞退
-  COMPLETED  // 完了
+  PENDING // 未対応
+  REVIEWING // 検討中
+  ACCEPTED // 受諾
+  DECLINED // 辞退
+  COMPLETED // 完了
 }
 
 enum MediaType {
-  TVER            // TVer
-  CINE_AD         // シネアド（イオンシネマ）
+  TVER // TVer
+  CINE_AD // シネアド（イオンシネマ）
   DIGITAL_SIGNAGE // デジタルサイネージ
-  TAXI            // タクシー広告
-  APA_HOTEL       // アパホテル
-  UNIVERSITY      // 大学広告
-  SKYLARK         // すかいらーく広告
-  GOLF_CART       // ゴルフカート
-  ACQUISITION     // 取得依頼
-  OTHER           // その他
+  TAXI // タクシー広告
+  APA_HOTEL // アパホテル
+  UNIVERSITY // 大学広告
+  SKYLARK // すかいらーく広告
+  GOLF_CART // ゴルフカート
+  ACQUISITION // 取得依頼
+  OTHER // その他
 }
 
 enum MediaRequestStatus {
-  PENDING    // 依頼中
-  REVIEWING  // 確認中
-  COMPLETED  // 完了
-  CANCELLED  // キャンセル
+  PENDING // 依頼中
+  REVIEWING // 確認中
+  COMPLETED // 完了
+  CANCELLED // キャンセル
 }
 
 enum AdvertiserReviewStatus {
-  PENDING   // 審査中（デフォルト）
-  APPROVED  // 承認
-  REJECTED  // 否決
+  PENDING // 審査中（デフォルト）
+  APPROVED // 承認
+  REJECTED // 否決
 }
 
 enum TverCampaignBudgetType {
-  TOTAL   // 期間予算
+  TOTAL // 期間予算
   MONTHLY // 月次予算（毎月1日更新）
 }
 
 enum TverFrequencyCapUnit {
   LIFETIME // 全期間
-  WEEKLY   // 1週間
-  DAILY    // 1日
-  HOURLY   // 1時間
+  WEEKLY // 1週間
+  DAILY // 1日
+  HOURLY // 1時間
 }
 
 enum TverCompanionMobile {
-  NONE        // 利用しない
-  BANNER      // バナー
-  ICON_TEXT   // アイコン/テキスト
-  TEXT        // テキスト
+  NONE // 利用しない
+  BANNER // バナー
+  ICON_TEXT // アイコン/テキスト
+  TEXT // テキスト
 }
 
 enum TverCompanionPc {
-  NONE    // 利用しない
-  BANNER  // バナー
+  NONE // 利用しない
+  BANNER // バナー
 }
 
 enum TverGenderTarget {
-  ALL    // 全性別
-  MALE   // 男性
+  ALL // 全性別
+  MALE // 男性
   FEMALE // 女性
 }
 
 enum DisclosureStatus {
-  PENDING  // 申請中
+  PENDING // 申請中
   APPROVED // 承認
   REJECTED // 却下
 }
 
 enum TverCampaignStatus {
-  DRAFT     // 下書き
+  DRAFT // 下書き
   SUBMITTED // 申請済み
-  APPROVED  // 承認
-  REJECTED  // 否決
+  APPROVED // 承認
+  REJECTED // 否決
 }
 
 enum LeadSource {
@@ -217,7 +217,7 @@ enum LeadSource {
 /// テナント（拠点）ごとにデータが分離される。
 model Branch {
   id       String  @id @default(cuid())
-  name     String  // 拠点名（例: 東京支社、大阪支店）
+  name     String // 拠点名（例: 東京支社、大阪支店）
   code     String  @unique // 拠点コード・英数字（例: TKY, OSK）
   address  String? // 住所
   isActive Boolean @default(true) // 無効化フラグ
@@ -226,28 +226,28 @@ model Branch {
   updatedAt DateTime @updatedAt
 
   // Relations
-  users                      User[]  @relation("PrimaryBranch")
-  users2                     User[]  @relation("SecondaryBranch")
-  customers                  Customer[]
-  deals                      Deal[]
-  projects                   Project[]
-  expenses                   Expense[]
-  wikiArticles               WikiArticle[]
-  revenueReports             RevenueReport[]
-  invoiceRequests            InvoiceRequest[]
-  estimations                Estimation[]
-  collaborationRequests      GroupCollaborationRequest[]
-  mediaRequests              MediaRequest[]
-  advertiserReviews          AdvertiserReview[]
-  tverCampaigns              TverCampaign[]
-  tverCreativeReviews        TverCreativeReview[]
+  users                 User[]                      @relation("PrimaryBranch")
+  users2                User[]                      @relation("SecondaryBranch")
+  customers             Customer[]
+  deals                 Deal[]
+  projects              Project[]
+  expenses              Expense[]
+  wikiArticles          WikiArticle[]
+  revenueReports        RevenueReport[]
+  invoiceRequests       InvoiceRequest[]
+  estimations           Estimation[]
+  collaborationRequests GroupCollaborationRequest[]
+  mediaRequests         MediaRequest[]
+  advertiserReviews     AdvertiserReview[]
+  tverCampaigns         TverCampaign[]
+  tverCreativeReviews   TverCreativeReview[]
 
   // Studio
-  studioClients              StudioClient[]     @relation("StudioClients")
-  studioProductions          Production[]       @relation("StudioProductions")
-  studioResults              MonthlyResult[]    @relation("StudioResults")
-  snsFormatOrders            SnsFormatOrder[]   @relation("SnsFormatOrders")
-  snsReferenceFormats        SnsReferenceFormat[] @relation("SnsReferenceFormats")
+  studioClients       StudioClient[]       @relation("StudioClients")
+  studioProductions   Production[]         @relation("StudioProductions")
+  studioResults       MonthlyResult[]      @relation("StudioResults")
+  snsFormatOrders     SnsFormatOrder[]     @relation("SnsFormatOrders")
+  snsReferenceFormats SnsReferenceFormat[] @relation("SnsReferenceFormats")
 
   @@map("branches")
 }
@@ -268,21 +268,21 @@ model User {
   name  String? // 表示名
   image String? // プロフィール画像 URL
 
-  role     Role    @default(MANAGER)
+  role      Role    @default(MANAGER)
   // ■ branchId = null → 本部（ADMIN）→ WHERE 句なしで全拠点アクセス
   // ■ branchId あり   → 拠点スコープ → WHERE branchId IN (branchId, branchId2)
   branchId  String?
   branchId2 String? // 第2担当拠点（複数拠点担当の場合）
-  branch    Branch? @relation("PrimaryBranch",   fields: [branchId],  references: [id])
+  branch    Branch? @relation("PrimaryBranch", fields: [branchId], references: [id])
   branch2   Branch? @relation("SecondaryBranch", fields: [branchId2], references: [id])
 
   isActive     Boolean @default(true) // 本部がアカウントを有効/無効管理
-  suspendCount Int     @default(0)   // 累計停止回数
+  suspendCount Int     @default(0) // 累計停止回数
 
   // ADMINが個別に許可するオプション機能（例: "cutsheet", "proposals"）
   enabledFeatures String[] @default([])
 
-  chatSpaceId  String?  // Google Chat 個人スペースID
+  chatSpaceId String? // Google Chat 個人スペースID
 
   // ---- グループ企業紐付け（メンバープロフィール用）----
   groupCompanyId String?
@@ -292,32 +292,32 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  assignedDeals               Deal[]                     @relation("AssignedTo")
-  createdDeals                Deal[]                     @relation("CreatedBy")
-  lockedCustomers             Customer[]                 @relation("LockedBy") // 先着ロック中の顧客
+  assignedDeals               Deal[]                      @relation("AssignedTo")
+  createdDeals                Deal[]                      @relation("CreatedBy")
+  lockedCustomers             Customer[]                  @relation("LockedBy") // 先着ロック中の顧客
   revenueReports              RevenueReport[]
   invoiceRequests             InvoiceRequest[]
   collaborationRequests       GroupCollaborationRequest[]
   mediaRequests               MediaRequest[]
-  createdAdvertiserReviews    AdvertiserReview[]         @relation("CreatedAdvertiserReview")
-  reviewedAdvertiserReviews   AdvertiserReview[]         @relation("ReviewedAdvertiserReview")
+  createdAdvertiserReviews    AdvertiserReview[]          @relation("CreatedAdvertiserReview")
+  reviewedAdvertiserReviews   AdvertiserReview[]          @relation("ReviewedAdvertiserReview")
   tverCampaigns               TverCampaign[]
   tverCreativeReviews         TverCreativeReview[]
-  reviewedTverCreativeReviews TverCreativeReview[] @relation("ReviewedTverCreativeReview")
-  videoAchievements           VideoAchievement[]   @relation("VideoAchievementCreatedBy")
+  reviewedTverCreativeReviews TverCreativeReview[]        @relation("ReviewedTverCreativeReview")
+  videoAchievements           VideoAchievement[]          @relation("VideoAchievementCreatedBy")
 
   // ---- 名刺管理 ----
-  ownedBusinessCards           BusinessCard[]       @relation("OwnedBusinessCards")
-  disclosureRequestsSent       DisclosureRequest[]  @relation("DisclosureRequester")
-  disclosureRequestsReviewed   DisclosureRequest[]  @relation("DisclosureReviewer")
+  ownedBusinessCards         BusinessCard[]      @relation("OwnedBusinessCards")
+  disclosureRequestsSent     DisclosureRequest[] @relation("DisclosureRequester")
+  disclosureRequestsReviewed DisclosureRequest[] @relation("DisclosureReviewer")
 
   // ---- 案件マッチング ----
-  postedProjectRequests        ProjectRequest[]     @relation("PostedRequests")
-  projectApplications          ProjectApplication[] @relation("Applications")
+  postedProjectRequests ProjectRequest[]     @relation("PostedRequests")
+  projectApplications   ProjectApplication[] @relation("Applications")
 
   // ---- リード管理 ----
-  assignedLeads   Lead[] @relation("LeadAssignee")
-  createdLeads    Lead[] @relation("LeadCreatedBy")
+  assignedLeads Lead[] @relation("LeadAssignee")
+  createdLeads  Lead[] @relation("LeadCreatedBy")
 
   // ---- 提案書AI ----
   salesActivities SalesActivity[] @relation("SalesActivities")
@@ -328,15 +328,21 @@ model User {
   chatbotConversations ChatbotConversation[] @relation("ChatbotConversations")
 
   // ---- Studio（制作OS）----
-  studioClientsCreated  StudioClient[]   @relation("StudioClientCreator")
-  productionsCreated    Production[]     @relation("ProductionCreator")
-  snsFormatOrders       SnsFormatOrder[] @relation("SnsFormatOrderCreator")
-  snsReferenceFormats   SnsReferenceFormat[] @relation("SnsReferenceFormatCreator")
+  studioClientsCreated StudioClient[]       @relation("StudioClientCreator")
+  productionsCreated   Production[]         @relation("ProductionCreator")
+  snsFormatOrders      SnsFormatOrder[]     @relation("SnsFormatOrderCreator")
+  snsReferenceFormats  SnsReferenceFormat[] @relation("SnsReferenceFormatCreator")
 
   // ---- ラーニングシステム ----
-  learningEnrollments  LearningEnrollment[]
-  learningProgress     LearningProgress[]
-  learningAttempts     LearningAttempt[]
+  learningEnrollments LearningEnrollment[]
+  learningProgress    LearningProgress[]
+  learningAttempts    LearningAttempt[]
+
+  // ---- アプリ内通知 ----
+  notifications Notification[]
+
+  // ---- お気に入り（ピン留め）----
+  favorites UserFavorite[]
 
   @@index([branchId])
   @@index([branchId2])
@@ -357,24 +363,24 @@ model User {
 ///   他の営業は lockExpiresAt まで同一顧客への新規商談作成を制限される。
 model Customer {
   id              String         @id @default(cuid())
-  recordNumber    Int            @default(autoincrement()) @unique // kintone 互換の通し番号
-  name            String         // 顧客名（法人名）
-  nameKana        String?        // ふりがな（検索用）
+  recordNumber    Int            @unique @default(autoincrement()) // kintone 互換の通し番号
+  name            String // 顧客名（法人名）
+  nameKana        String? // ふりがな（検索用）
   corporateNumber String?        @db.VarChar(13) // 法人番号（13桁）
-  contactName     String?        // 担当者名
-  email           String?        // 担当者メールアドレス
-  phone           String?        // 電話番号
-  website         String?        // 公式サイト URL
-  industry        String?        // 業種
-  source          String?        // 流入経路
+  contactName     String? // 担当者名
+  email           String? // 担当者メールアドレス
+  phone           String? // 電話番号
+  website         String? // 公式サイト URL
+  industry        String? // 業種
+  source          String? // 流入経路
   rank            CustomerRank   @default(B) // 顧客ランク A〜D
   status          CustomerStatus @default(PROSPECT) // 取引ステータス
   postalCode      String?        @db.VarChar(8) // 郵便番号（例: 100-0001）
-  prefecture      String?        // 都道府県
-  address         String?        // 住所（番地）
-  building        String?        // ビル名・部屋番号
+  prefecture      String? // 都道府県
+  address         String? // 住所（番地）
+  building        String? // ビル名・部屋番号
   notes           String?        @db.Text // 備考・メモ
-  staffName       String?        // 社内担当者名（登録者）
+  staffName       String? // 社内担当者名（登録者）
 
   // ---- 先着優先ロック -------------------------------------------
   // ロック中は他の営業担当者が新規商談を作成できない
@@ -398,7 +404,7 @@ model Customer {
   invoiceRequests InvoiceRequest[]
   estimations     Estimation[]
   mediaRequests   MediaRequest[]
-  salesApproaches SalesApproach[] @relation("SalesApproachCustomer")
+  salesApproaches SalesApproach[]  @relation("SalesApproachCustomer")
 
   // ---- リード管理 ----
   convertedFromLead Lead? @relation("LeadConvertedCustomer")
@@ -421,10 +427,10 @@ model Customer {
 
 /// 営業活動の記録。電話・メール・訪問・Web会議などを時系列で管理する。
 model ActivityLog {
-  id         String       @id @default(cuid())
-  type       ActivityType @default(OTHER)
-  content    String       @db.Text // 活動内容
-  staffName  String                // 記録者名（ログイン名から自動取得）
+  id        String       @id @default(cuid())
+  type      ActivityType @default(OTHER)
+  content   String       @db.Text // 活動内容
+  staffName String // 記録者名（ログイン名から自動取得）
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -448,12 +454,12 @@ model ActivityLog {
 ///   理由: 拠点フィルタリングのクエリを Customer JOIN なしで実行できるようにするため。
 model Deal {
   id                String     @id @default(cuid())
-  title             String     // 商談タイトル（例: ○○ビル 外壁改修工事）
+  title             String // 商談タイトル（例: ○○ビル 外壁改修工事）
   amount            Decimal?   @db.Decimal(15, 0) // 見積金額（円）
   status            DealStatus @default(PROSPECTING)
-  probability       Int?       // 受注確度 0〜100（%）
-  expectedCloseDate DateTime?  // 受注予定日
-  closedAt          DateTime?  // 実際の受注/失注日
+  probability       Int? // 受注確度 0〜100（%）
+  expectedCloseDate DateTime? // 受注予定日
+  closedAt          DateTime? // 実際の受注/失注日
   notes             String?    @db.Text // 商談メモ・経緯
 
   // ---- 担当者 --------------------------------------------------
@@ -471,9 +477,10 @@ model Deal {
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])
 
-  dealLogs       DealLog[]
-  hearingSheet   HearingSheet?
-  decisionSheet  DecisionSheet?
+  dealLogs      DealLog[]
+  hearingSheet  HearingSheet?
+  decisionSheet DecisionSheet?
+  project       Project?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -499,7 +506,7 @@ model DealLog {
   staffName String
 
   dealId String
-  deal   Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -517,32 +524,36 @@ model DealLog {
 /// Customer（顧客）と Branch（拠点）の両方に紐づく。
 model Project {
   id          String        @id @default(cuid())
-  title       String        // プロジェクト名
+  title       String // プロジェクト名
   status      ProjectStatus @default(IN_PROGRESS)
-  deadline    DateTime?     // 納期
+  deadline    DateTime? // 納期
   budget      Decimal?      @db.Decimal(15, 0) // 予算（円）
   description String?       @db.Text // 概要・説明
-  staffName   String?       // 担当者名（登録者）
+  staffName   String? // 担当者名（登録者）
+
+  // ---- 商談との紐づき（受注時に自動作成）------------------------------
+  dealId String? @unique
+  deal   Deal?   @relation(fields: [dealId], references: [id], onDelete: SetNull)
 
   // ---- 顧客との紐づき（任意: 顧客未確定のプロジェクトも可）----------
-  customerId  String?
-  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   // ---- マルチテナント（必須）----------------------------------------
-  branchId    String
-  branch      Branch    @relation(fields: [branchId], references: [id])
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   billingStatus BillingStatus @default(UNBILLED) // 請求ステータス
 
   // Relations
-  expenses               Expense[]
-  logs                   ProjectLog[]
-  invoiceRequests        InvoiceRequest[]
-  estimations            Estimation[]
-  collaborationRequests  GroupCollaborationRequest[]
+  expenses              Expense[]
+  logs                  ProjectLog[]
+  invoiceRequests       InvoiceRequest[]
+  estimations           Estimation[]
+  collaborationRequests GroupCollaborationRequest[]
 
   @@index([branchId])
   @@index([customerId])
@@ -563,18 +574,18 @@ model Project {
 /// 予算と経費の差分から利益を自動計算する。
 model Expense {
   id        String          @id @default(cuid())
-  title     String          // 経費名・内容
+  title     String // 経費名・内容
   amount    Decimal         @db.Decimal(15, 0) // 金額（円）
   category  ExpenseCategory @default(OTHER)
   date      DateTime        @default(now()) // 発生日
   notes     String?         @db.Text // 備考
-  staffName String?         // 記録者
+  staffName String? // 記録者
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  branchId  String
-  branch    Branch  @relation(fields: [branchId], references: [id])
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -624,8 +635,8 @@ model RevenueReport {
   // ---- 月次報告フィールド ------------------------------------
   projectName       String? // 関連プロジェクト名（自由入力）
   staffName         String? // 今の状況（選択値）
-  currentProjects   Int?    // 今月の案件数
-  nextMonthProjects Int?    // 来月の見込み案件数
+  currentProjects   Int? // 今月の案件数
+  nextMonthProjects Int? // 来月の見込み案件数
   supportRequest    String? // 本部に相談したいこと（選択値）
 
   // ---- 作成者（データ保護の軸）--------------------------------
@@ -652,48 +663,48 @@ model RevenueReport {
 /// 本部へ提出する請求依頼。
 /// 作成者本人と ADMIN（本部）のみが閲覧・操作できる。
 model InvoiceRequest {
-  id               String               @id @default(cuid())
+  id String @id @default(cuid())
 
   // ── 請求情報
-  subject          String               // 件名
-  contactName      String?              // 請求先担当者名
-  contactEmail     String               // 請求先担当者メールアドレス（必須）
-  billingDate      DateTime             // 請求日
-  dueDate          DateTime?            // 支払期限
-  details          String?              @db.Text // 内訳
+  subject      String // 件名
+  contactName  String? // 請求先担当者名
+  contactEmail String // 請求先担当者メールアドレス（必須）
+  billingDate  DateTime // 請求日
+  dueDate      DateTime? // 支払期限
+  details      String?   @db.Text // 内訳
 
   // ── 金額（10%税計算結果も保存）
-  amountExclTax    Decimal              @db.Decimal(15, 0) // 税抜金額
-  taxAmount        Decimal              @db.Decimal(15, 0) // 消費税額（10%）
-  amountInclTax    Decimal              @db.Decimal(15, 0) // 税込金額
+  amountExclTax Decimal @db.Decimal(15, 0) // 税抜金額
+  taxAmount     Decimal @db.Decimal(15, 0) // 消費税額（10%）
+  amountInclTax Decimal @db.Decimal(15, 0) // 税込金額
 
   // ── 検収・添付
-  inspectionStatus String?              // 検収状況
-  fileUrl          String?              // 請求書PDF URL
-  notes            String?              @db.Text // 備考
+  inspectionStatus String? // 検収状況
+  fileUrl          String? // 請求書PDF URL
+  notes            String? @db.Text // 備考
 
   // ── ステータス
-  status           InvoiceRequestStatus @default(DRAFT)
+  status InvoiceRequestStatus @default(DRAFT)
 
   // ── プロジェクト紐付け（任意）
-  projectId        String?
-  project          Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   // ── 請求先顧客（CustomerテーブルのFK）
-  customerId       String?
-  customer         Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   // ── 作成者（データ保護の主軸）
-  createdById      String
-  createdBy        User                 @relation(fields: [createdById], references: [id])
-  creatorEmail     String               // 通知用（非正規化）
+  createdById  String
+  createdBy    User   @relation(fields: [createdById], references: [id])
+  creatorEmail String // 通知用（非正規化）
 
   // ── マルチテナント
-  branchId         String
-  branch           Branch               @relation(fields: [branchId], references: [id])
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
 
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([branchId])
   @@index([createdById])
@@ -713,10 +724,10 @@ model InvoiceRequest {
 /// スタッフ向けに原価目安（costPrice）を保持するが、PDF には出力しない。
 model EstimationTemplate {
   id        String   @id @default(cuid())
-  category  String   // カテゴリ（例: 企画・進行）
-  name      String   // 品目・サービス名
+  category  String // カテゴリ（例: 企画・進行）
+  name      String // 品目・サービス名
   unitPrice Decimal  @db.Decimal(15, 0) // 標準単価（税抜）
-  unit      String   // 単位（例: 日、式）
+  unit      String // 単位（例: 日、式）
   spec      String?  @db.Text // 仕様・提供範囲
   costPrice Decimal? @db.Decimal(15, 0) // 原価目安（スタッフ内部用・PDF非出力）
   sortOrder Int      @default(0)
@@ -736,37 +747,37 @@ model EstimationTemplate {
 /// 顧客向けの見積書。複数の EstimationItem を持つ。
 model Estimation {
   id           String           @id @default(cuid())
-  title        String           // 見積タイトル
+  title        String // 見積タイトル
   status       EstimationStatus @default(DRAFT)
   estimateDate DateTime         @default(now()) // 見積日
-  validUntil   DateTime?        // 有効期限
+  validUntil   DateTime? // 有効期限
   notes        String?          @db.Text // 備考
-  staffName    String?          // 担当者名
+  staffName    String? // 担当者名
 
   // ---- 顧客との紐づき（任意）------------------------------------
-  customerId   String?
-  customer     Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   // ---- プロジェクトとの紐づき（任意）----------------------------
-  projectId    String?
-  project      Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   // ---- 出精値引き（内部用・PDF非出力）--------------------------
-  discountAmount     Decimal?  @db.Decimal(15, 0) // 値引き額（税抜・正の数で入力し合計からマイナス）
-  discountReason     String?   // BUDGET_FIRST | EXISTING | INVESTMENT | OTHER
-  discountReasonNote String?   // 「その他」の場合の自由記述
+  discountAmount     Decimal? @db.Decimal(15, 0) // 値引き額（税抜・正の数で入力し合計からマイナス）
+  discountReason     String? // BUDGET_FIRST | EXISTING | INVESTMENT | OTHER
+  discountReasonNote String? // 「その他」の場合の自由記述
 
   // ---- 作成者メール（通知用・非正規化）------------------------
   createdByEmail String?
 
   // ---- マルチテナント（必須）------------------------------------
-  branchId     String
-  branch       Branch           @relation(fields: [branchId], references: [id])
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
 
-  items        EstimationItem[]
+  items EstimationItem[]
 
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([branchId])
   @@index([customerId])
@@ -781,22 +792,22 @@ model Estimation {
 
 /// 見積書の各行明細。マスタから補完されるが独立して編集可能。
 model EstimationItem {
-  id           String     @id @default(cuid())
-  name         String     // 品目名
-  spec         String?    @db.Text // 仕様・備考
-  quantity     Int        @default(1) // 数量
-  unit         String?    // 単位
-  unitPrice    Decimal    @db.Decimal(15, 0) // 単価
-  amount       Decimal    @db.Decimal(15, 0) // 金額（数量 × 単価）
-  costPrice    Decimal?   @db.Decimal(15, 0) // 原価目安（内部用・PDF非出力）
-  sortOrder    Int        @default(0)
-  templateId   String?    // 参照元マスタ ID（任意）
+  id         String   @id @default(cuid())
+  name       String // 品目名
+  spec       String?  @db.Text // 仕様・備考
+  quantity   Int      @default(1) // 数量
+  unit       String? // 単位
+  unitPrice  Decimal  @db.Decimal(15, 0) // 単価
+  amount     Decimal  @db.Decimal(15, 0) // 金額（数量 × 単価）
+  costPrice  Decimal? @db.Decimal(15, 0) // 原価目安（内部用・PDF非出力）
+  sortOrder  Int      @default(0)
+  templateId String? // 参照元マスタ ID（任意）
 
   estimationId String
   estimation   Estimation @relation(fields: [estimationId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([estimationId])
   @@map("estimation_items")
@@ -808,16 +819,16 @@ model EstimationItem {
 
 /// 社内Wikiの記事。Markdownで記述・表示される。
 model WikiArticle {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   title      String
-  body       String   @db.Text
+  body       String    @db.Text
   authorName String
   branchId   String
-  branch     Branch   @relation(fields: [branchId], references: [id])
+  branch     Branch    @relation(fields: [branchId], references: [id])
   tags       WikiTag[]
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([branchId])
   @@map("wiki_articles")
@@ -842,12 +853,12 @@ model GroupCollaborationRequest {
   id              String                   @id @default(cuid())
   projectId       String?
   project         Project?                 @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  counterpartName String                   // 連携先代表（相手）
+  counterpartName String // 連携先代表（相手）
   requestType     CollaborationRequestType
-  budget          String?                  // 希望予算（自由入力）
+  budget          String? // 希望予算（自由入力）
   description     String                   @db.Text // 依頼内容・条件
-  desiredDate     DateTime?                // 希望納期・実施日
-  attachmentUrl   String?                  // 添付ファイル URL
+  desiredDate     DateTime? // 希望納期・実施日
+  attachmentUrl   String? // 添付ファイル URL
   status          CollaborationStatus      @default(PENDING)
   replyNote       String?                  @db.Text // やり取り・回答
   branchId        String?
@@ -874,12 +885,12 @@ model GroupCollaborationRequest {
 model MediaRequest {
   id            String             @id @default(cuid())
   mediaType     MediaType
-  mediaName     String             // 媒体名（自由入力）
+  mediaName     String // 媒体名（自由入力）
   customerId    String?
   customer      Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  startDate     DateTime?          // 掲載開始日
-  endDate       DateTime?          // 掲載終了日
-  budget        String?            // 費用・予算（自由入力）
+  startDate     DateTime? // 掲載開始日
+  endDate       DateTime? // 掲載終了日
+  budget        String? // 費用・予算（自由入力）
   description   String?            @db.Text
   attachmentUrl String?
   status        MediaRequestStatus @default(PENDING)
@@ -906,38 +917,38 @@ model MediaRequest {
 /// 申請者が提出 → 管理者が APPROVED/REJECTED に更新。
 /// APPROVED になった広告主のみ、次フェーズの TVer配信申請で選択可能。
 model AdvertiserReview {
-  id                   String                 @id @default(cuid())
+  id String @id @default(cuid())
 
   // ── 広告主情報
-  name                 String                 // 広告主様名（必須）
-  websiteUrl           String                 // 企業ページ URL（必須）
-  corporateNumber      String?                @db.VarChar(13) // 法人番号（13桁）
-  hasNoCorporateNumber Boolean                @default(false) // 法人番号なしフラグ
-  productUrl           String                 // 商材サイト URL（必須）
-  desiredStartDate     DateTime?              // 広告展開希望日
-  remarks              String?                @db.Text // 備考
+  name                 String // 広告主様名（必須）
+  websiteUrl           String // 企業ページ URL（必須）
+  corporateNumber      String?   @db.VarChar(13) // 法人番号（13桁）
+  hasNoCorporateNumber Boolean   @default(false) // 法人番号なしフラグ
+  productUrl           String // 商材サイト URL（必須）
+  desiredStartDate     DateTime? // 広告展開希望日
+  remarks              String?   @db.Text // 備考
 
   // ── 考査ステータス
-  status               AdvertiserReviewStatus @default(PENDING)
-  reviewNote           String?                @db.Text // 審査コメント（管理者記入）
-  reviewedAt           DateTime?              // 承認/否決日時
-  reviewedById         String?
-  reviewedBy           User?                  @relation("ReviewedAdvertiserReview", fields: [reviewedById], references: [id])
+  status       AdvertiserReviewStatus @default(PENDING)
+  reviewNote   String?                @db.Text // 審査コメント（管理者記入）
+  reviewedAt   DateTime? // 承認/否決日時
+  reviewedById String?
+  reviewedBy   User?                  @relation("ReviewedAdvertiserReview", fields: [reviewedById], references: [id])
 
   // ── 申請者（担当者）
-  createdById          String
-  createdBy            User                   @relation("CreatedAdvertiserReview", fields: [createdById], references: [id])
-  creatorEmail         String                 // 通知用（非正規化）
+  createdById  String
+  createdBy    User   @relation("CreatedAdvertiserReview", fields: [createdById], references: [id])
+  creatorEmail String // 通知用（非正規化）
 
   // ── マルチテナント
-  branchId             String
-  branch               Branch                 @relation(fields: [branchId], references: [id])
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
 
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  tverCampaigns        TverCampaign[]
-  tverCreativeReviews  TverCreativeReview[]
+  tverCampaigns       TverCampaign[]
+  tverCreativeReviews TverCreativeReview[]
 
   @@index([branchId])
   @@index([createdById])
@@ -953,51 +964,51 @@ model AdvertiserReview {
 /// TVer広告の配信申請。
 /// 業態考査で APPROVED になった広告主のみ選択可能。
 model TverCampaign {
-  id                 String                @id @default(cuid())
+  id String @id @default(cuid())
 
   // ── 広告主（業態考査承認済みのみ）
-  advertiserId       String
-  advertiser         AdvertiserReview      @relation(fields: [advertiserId], references: [id])
+  advertiserId String
+  advertiser   AdvertiserReview @relation(fields: [advertiserId], references: [id])
 
   // ── 案件基本情報
-  campaignName       String                // キャンペーン名
-  budget             Decimal               @db.Decimal(15, 0) // 広告予算（円・税抜）
-  startDate          DateTime              // 配信開始日
-  endDate            DateTime              // 配信終了日
+  campaignName String // キャンペーン名
+  budget       Decimal  @db.Decimal(15, 0) // 広告予算（円・税抜）
+  startDate    DateTime // 配信開始日
+  endDate      DateTime // 配信終了日
 
   // ── 予算タイプ
-  budgetType         TverCampaignBudgetType // 期間予算 / 月次予算
+  budgetType TverCampaignBudgetType // 期間予算 / 月次予算
 
   // ── フリークエンシーキャップ（任意）
-  freqCapUnit        TverFrequencyCapUnit? // カウント単位
-  freqCapCount       Int?                  // 回数
+  freqCapUnit  TverFrequencyCapUnit? // カウント単位
+  freqCapCount Int? // 回数
 
   // ── コンパニオン AD
-  companionMobile    TverCompanionMobile   @default(NONE)
-  companionPc        TverCompanionPc       @default(NONE)
+  companionMobile TverCompanionMobile @default(NONE)
+  companionPc     TverCompanionPc     @default(NONE)
 
   // ── ターゲティング
-  genderTarget       TverGenderTarget      @default(ALL)
-  areas              String[]              // 選択されたエリアコード
+  genderTarget TverGenderTarget @default(ALL)
+  areas        String[] // 選択されたエリアコード
 
   // ── URL
-  landingPageUrl     String?               // リンク先 LP URL
+  landingPageUrl String? // リンク先 LP URL
 
   // ── 申請ステータス
-  status             TverCampaignStatus    @default(SUBMITTED)
-  reviewNote         String?               @db.Text // 管理者コメント
+  status     TverCampaignStatus @default(SUBMITTED)
+  reviewNote String?            @db.Text // 管理者コメント
 
   // ── 申請者（担当者）
-  createdById        String
-  createdBy          User                  @relation(fields: [createdById], references: [id])
-  creatorEmail       String                // 通知用（非正規化）
+  createdById  String
+  createdBy    User   @relation(fields: [createdById], references: [id])
+  creatorEmail String // 通知用（非正規化）
 
   // ── マルチテナント
-  branchId           String
-  branch             Branch                @relation(fields: [branchId], references: [id])
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
 
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([branchId])
   @@index([createdById])
@@ -1020,36 +1031,36 @@ enum TverCreativeReviewStatus {
 /// TVer クリエイティブ（素材）の考査申請。
 /// 業態考査で APPROVED になった広告主のみ選択可能。
 model TverCreativeReview {
-  id               String                   @id @default(cuid())
+  id String @id @default(cuid())
 
   // ── 広告主（業態考査承認済みのみ）
-  advertiserId     String
-  advertiser       AdvertiserReview         @relation(fields: [advertiserId], references: [id])
+  advertiserId String
+  advertiser   AdvertiserReview @relation(fields: [advertiserId], references: [id])
 
   // ── 案件情報
-  projectName      String                   // プロジェクト名
-  numberOfAssets   Int                      // 本数
-  driveUrl         String                   // データ格納リンク
-  remarks          String?                  @db.Text // 備考
+  projectName    String // プロジェクト名
+  numberOfAssets Int // 本数
+  driveUrl       String // データ格納リンク
+  remarks        String? @db.Text // 備考
 
   // ── 申請ステータス
-  status           TverCreativeReviewStatus @default(SUBMITTED)
-  reviewNote       String?                  @db.Text // 審査コメント（管理者記入）
-  reviewedAt       DateTime?                // 承認/否決日時
-  reviewedById     String?
-  reviewedBy       User?                    @relation("ReviewedTverCreativeReview", fields: [reviewedById], references: [id])
+  status       TverCreativeReviewStatus @default(SUBMITTED)
+  reviewNote   String?                  @db.Text // 審査コメント（管理者記入）
+  reviewedAt   DateTime? // 承認/否決日時
+  reviewedById String?
+  reviewedBy   User?                    @relation("ReviewedTverCreativeReview", fields: [reviewedById], references: [id])
 
   // ── 申請者
-  createdById      String
-  createdBy        User                     @relation(fields: [createdById], references: [id])
-  creatorEmail     String
+  createdById  String
+  createdBy    User   @relation(fields: [createdById], references: [id])
+  creatorEmail String
 
   // ── マルチテナント
-  branchId         String
-  branch           Branch                   @relation(fields: [branchId], references: [id])
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
 
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([branchId])
   @@index([createdById])
@@ -1069,12 +1080,12 @@ model TverCreativeReview {
 /// 全操作の監査ログ。ログイン・作成・更新・削除を記録し、セキュリティ監査に活用。
 model AuditLog {
   id        String   @id @default(cuid())
-  action    String   // "login_success", "login_failed", "customer_created", "deal_updated" 等
+  action    String // "login_success", "login_failed", "customer_created", "deal_updated" 等
   email     String
   name      String?
-  entity    String?  // "customer", "deal", "project" 等（ログイン時は null）
-  entityId  String?  // 対象レコードの ID
-  detail    String?  // 補足情報（変更内容の要約など）
+  entity    String? // "customer", "deal", "project" 等（ログイン時は null）
+  entityId  String? // 対象レコードの ID
+  detail    String? // 補足情報（変更内容の要約など）
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
@@ -1091,16 +1102,16 @@ model AuditLog {
 
 model VideoAchievement {
   id                String   @id @default(cuid())
-  companyName       String                        // ターゲット企業名
-  prefecture        String                        // 都道府県
-  industry          String   @default("不明")    // 業種
-  productionCompany String                        // 競合制作会社名
-  videoType         String   @default("不明")    // 動画種別
-  referenceUrl      String?                       // 実績ページURL/YouTube
-  contentSummary    String?  @db.Text            // AIによる制作内容分析
-  sourceUrl         String?                       // スクレイピング元URL
-  publishedAt       String?                       // 掲載日（例: "2024年3月"）
-  isProcessed       Boolean  @default(false)      // CRM連携済みフラグ
+  companyName       String // ターゲット企業名
+  prefecture        String // 都道府県
+  industry          String   @default("不明") // 業種
+  productionCompany String // 競合制作会社名
+  videoType         String   @default("不明") // 動画種別
+  referenceUrl      String? // 実績ページURL/YouTube
+  contentSummary    String?  @db.Text // AIによる制作内容分析
+  sourceUrl         String? // スクレイピング元URL
+  publishedAt       String? // 掲載日（例: "2024年3月"）
+  isProcessed       Boolean  @default(false) // CRM連携済みフラグ
   createdById       String?
   createdBy         User?    @relation("VideoAchievementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt         DateTime @default(now())
@@ -1121,8 +1132,8 @@ model VideoAchievement {
 /// 24時間ごとに再生成される。全ユーザーが同一の内容を閲覧する。
 model DashboardDigest {
   id        String   @id @default("singleton")
-  content   String   // AI生成サマリー（3〜5行テキスト）
-  dataJson  String?  // 元データJSON（デバッグ用）
+  content   String // AI生成サマリー（3〜5行テキスト）
+  dataJson  String? // 元データJSON（デバッグ用）
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1137,70 +1148,70 @@ model DashboardDigest {
 /// 公開フィールド（会社名・部署・役職など）と秘匿フィールド（メール・個人電話など）を分離し、
 /// 秘匿フィールドの閲覧には所有者承認 or ADMIN 権限が必要。
 model BusinessCard {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // ---- 公開フィールド（全ユーザー閲覧可） ----
-  companyName     String                // 会社名
-  department      String?               // 部署
-  title           String?               // 役職
-  lastName        String                // 姓
-  firstName       String?               // 名
-  lastNameKana    String?               // 姓カナ
-  firstNameKana   String?               // 名カナ
-  prefecture      String?               // 都道府県
-  companyPhone    String?               // 会社電話番号
-  url             String?               // 会社URL
-  exchangeDate    DateTime?             // 名刺交換日
-  tags            String?               // タグ（カンマ区切り）
-  wantsCollab     Boolean  @default(false)  // コラボレーション希望
-  isOrdered       Boolean  @default(false)  // 受注済み
-  isCompetitor    Boolean  @default(false)  // 競合
-  isCreator       Boolean  @default(false)  // 映像クリエイター
+  companyName   String // 会社名
+  department    String? // 部署
+  title         String? // 役職
+  lastName      String // 姓
+  firstName     String? // 名
+  lastNameKana  String? // 姓カナ
+  firstNameKana String? // 名カナ
+  prefecture    String? // 都道府県
+  companyPhone  String? // 会社電話番号
+  url           String? // 会社URL
+  exchangeDate  DateTime? // 名刺交換日
+  tags          String? // タグ（カンマ区切り）
+  wantsCollab   Boolean   @default(false) // コラボレーション希望
+  isOrdered     Boolean   @default(false) // 受注済み
+  isCompetitor  Boolean   @default(false) // 競合
+  isCreator     Boolean   @default(false) // 映像クリエイター
 
   // ---- 地域フラグ（12区分） ----
-  regionHokkaido  Boolean  @default(false) // 北海道
-  regionTohoku    Boolean  @default(false) // 東北
-  regionKitakanto Boolean  @default(false) // 北関東
-  regionSaitama   Boolean  @default(false) // 埼玉
-  regionChiba     Boolean  @default(false) // 千葉
-  regionTokyo     Boolean  @default(false) // 東京
-  regionKanagawa  Boolean  @default(false) // 神奈川
-  regionChubu     Boolean  @default(false) // 中部
-  regionKansai    Boolean  @default(false) // 関西
-  regionChugoku   Boolean  @default(false) // 中国
-  regionShikoku   Boolean  @default(false) // 四国
-  regionKyushu    Boolean  @default(false) // 九州・沖縄
+  regionHokkaido  Boolean @default(false) // 北海道
+  regionTohoku    Boolean @default(false) // 東北
+  regionKitakanto Boolean @default(false) // 北関東
+  regionSaitama   Boolean @default(false) // 埼玉
+  regionChiba     Boolean @default(false) // 千葉
+  regionTokyo     Boolean @default(false) // 東京
+  regionKanagawa  Boolean @default(false) // 神奈川
+  regionChubu     Boolean @default(false) // 中部
+  regionKansai    Boolean @default(false) // 関西
+  regionChugoku   Boolean @default(false) // 中国
+  regionShikoku   Boolean @default(false) // 四国
+  regionKyushu    Boolean @default(false) // 九州・沖縄
 
   // ---- AI エンリッチメント ----
-  aiIndustry      String?               // AI判定の業界カテゴリ
-  aiSummary       String?  @db.Text     // AI生成の事業概要
-  aiTags          String?               // AI生成のタグ（カンマ区切り）
+  aiIndustry String? // AI判定の業界カテゴリ
+  aiSummary  String? @db.Text // AI生成の事業概要
+  aiTags     String? // AI生成のタグ（カンマ区切り）
 
   // ---- 秘匿フィールド（所有者/ADMIN/開示承認者のみ閲覧可） ----
-  email           String?               // メールアドレス
-  directPhone     String?               // 直通電話
-  mobilePhone     String?               // 携帯電話
-  fax             String?               // FAX
-  postalCode      String?  @db.VarChar(8) // 郵便番号
-  address         String?               // 住所（詳細）
-  sharedMemoTitle String?               // 共有メモタイトル
-  exchangePlace   String?               // 名刺交換場所
-  workHistory     String?  @db.Text     // 経歴
-  personality     String?  @db.Text     // 人柄メモ
-  textMemo        String?  @db.Text     // テキストメモ
+  email           String? // メールアドレス
+  directPhone     String? // 直通電話
+  mobilePhone     String? // 携帯電話
+  fax             String? // FAX
+  postalCode      String? @db.VarChar(8) // 郵便番号
+  address         String? // 住所（詳細）
+  sharedMemoTitle String? // 共有メモタイトル
+  exchangePlace   String? // 名刺交換場所
+  workHistory     String? @db.Text // 経歴
+  personality     String? @db.Text // 人柄メモ
+  textMemo        String? @db.Text // テキストメモ
 
   // ---- 名刺画像 ----
-  cardImageUrl    String?               // Supabase Storage URL
+  cardImageUrl String? // Supabase Storage URL
 
   // ---- 所有者（CSVの「所有者」→ User.name でマッチ） ----
-  ownerId         String
-  owner           User     @relation("OwnedBusinessCards", fields: [ownerId], references: [id])
+  ownerId String
+  owner   User   @relation("OwnedBusinessCards", fields: [ownerId], references: [id])
 
   // ---- 開示申請 ----
   disclosureRequests DisclosureRequest[]
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([companyName, lastName, firstName])
   @@index([ownerId])
@@ -1217,24 +1228,24 @@ model BusinessCard {
 /// 名刺の秘匿フィールドの閲覧を申請するワークフロー。
 /// 1名刺につき1ユーザー1件まで（重複防止）。
 model DisclosureRequest {
-  id              String           @id @default(cuid())
+  id String @id @default(cuid())
 
-  businessCardId  String
-  businessCard    BusinessCard     @relation(fields: [businessCardId], references: [id], onDelete: Cascade)
+  businessCardId String
+  businessCard   BusinessCard @relation(fields: [businessCardId], references: [id], onDelete: Cascade)
 
-  requesterId     String
-  requester       User             @relation("DisclosureRequester", fields: [requesterId], references: [id])
+  requesterId String
+  requester   User   @relation("DisclosureRequester", fields: [requesterId], references: [id])
 
-  purpose         String           @db.Text // 開示目的
-  status          DisclosureStatus @default(PENDING)
+  purpose String           @db.Text // 開示目的
+  status  DisclosureStatus @default(PENDING)
 
-  reviewedById    String?
-  reviewedBy      User?            @relation("DisclosureReviewer", fields: [reviewedById], references: [id])
-  reviewNote      String?          @db.Text
-  reviewedAt      DateTime?
+  reviewedById String?
+  reviewedBy   User?     @relation("DisclosureReviewer", fields: [reviewedById], references: [id])
+  reviewNote   String?   @db.Text
+  reviewedAt   DateTime?
 
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([businessCardId, requesterId])
   @@index([businessCardId])
@@ -1263,63 +1274,63 @@ model AIMatchingCache {
 // ==============================================================
 
 enum GroupCompanyPhase {
-  ONBOARDING   // 導入期
-  GROWING      // 成長期
-  STABLE       // 安定期
+  ONBOARDING // 導入期
+  GROWING // 成長期
+  STABLE // 安定期
   RESTRUCTURING // 立て直し期
 }
 
 enum WeeklyStatus {
-  GREEN  // いい感じ
+  GREEN // いい感じ
   YELLOW // ちょっと苦戦
-  RED    // 手が止まっている
-  NONE   // 未共有
+  RED // 手が止まっている
+  NONE // 未共有
 }
 
 enum ContactType {
   WEEKLY_SUBMISSION // 週次共有（Bot経由）
-  FOLLOW_UP         // 声かけ（Bot自動）
-  CEO_COMMENT       // 社長コメント
-  MANUAL_NOTE       // 手動メモ（ダッシュボード）
+  FOLLOW_UP // 声かけ（Bot自動）
+  CEO_COMMENT // 社長コメント
+  MANUAL_NOTE // 手動メモ（ダッシュボード）
 }
 
 /// グループ加盟企業マスタ。Google Chat スペースと1対1で紐づく。
 model GroupCompany {
-  id           String            @id @default(cuid())
-  name         String            // 企業名
-  ownerName    String            // 代表者名
-  chatSpaceId  String            @unique // Google Chat スペース ID
-  phase        GroupCompanyPhase @default(ONBOARDING)
-  memo         String?           @db.Text // 本部メモ
-  isActive     Boolean           @default(true)
+  id          String            @id @default(cuid())
+  name        String // 企業名
+  ownerName   String // 代表者名
+  chatSpaceId String            @unique // Google Chat スペース ID
+  phase       GroupCompanyPhase @default(ONBOARDING)
+  memo        String?           @db.Text // 本部メモ
+  isActive    Boolean           @default(true)
 
   // ---- プロフィール情報 ----
-  emoji        String?           // プロフィールアイコン（絵文字）
-  genre        String?           // ジャンル（営業 / 制作 / 両方 / その他）
-  specialty    String?           @db.Text // 得意な仕事
-  workHistory  String?           @db.Text // これまでの仕事
-  prefecture   String?           // 都道府県
-  bio          String?           @db.Text // 自己紹介
-  twitterUrl   String?           // X (Twitter)
-  instagramUrl String?           // Instagram
-  facebookUrl  String?           // Facebook
-  lineId       String?           // LINE ID
-  youtubeUrl   String?           // YouTube
-  tiktokUrl    String?           // TikTok
-  websiteUrl   String?           // Webサイト
+  emoji        String? // プロフィールアイコン（絵文字）
+  genre        String? // ジャンル（営業 / 制作 / 両方 / その他）
+  specialty    String? @db.Text // 得意な仕事
+  workHistory  String? @db.Text // これまでの仕事
+  prefecture   String? // 都道府県
+  bio          String? @db.Text // 自己紹介
+  twitterUrl   String? // X (Twitter)
+  instagramUrl String? // Instagram
+  facebookUrl  String? // Facebook
+  lineId       String? // LINE ID
+  youtubeUrl   String? // YouTube
+  tiktokUrl    String? // TikTok
+  websiteUrl   String? // Webサイト
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  weeklySubmissions WeeklySubmission[]
-  contactHistories  ContactHistory[]
-  linkedUsers            User[]             @relation("UserGroupCompany")
-  collaborationMembers   CollaborationHighlightMember[]
-  postedRequests         ProjectRequest[]   @relation("PostedRequests")
-  matchedRequests        ProjectRequest[]   @relation("MatchedRequests")
-  applications           ProjectApplication[] @relation("Applications")
-  salesInsights          SalesInsight[]
-  salesApproaches        SalesApproach[]
+  weeklySubmissions    WeeklySubmission[]
+  contactHistories     ContactHistory[]
+  linkedUsers          User[]                         @relation("UserGroupCompany")
+  collaborationMembers CollaborationHighlightMember[]
+  postedRequests       ProjectRequest[]               @relation("PostedRequests")
+  matchedRequests      ProjectRequest[]               @relation("MatchedRequests")
+  applications         ProjectApplication[]           @relation("Applications")
+  salesInsights        SalesInsight[]
+  salesApproaches      SalesApproach[]
 
   @@index([phase])
   @@map("group_companies")
@@ -1330,7 +1341,7 @@ model WeeklySubmission {
   id             String       @id @default(cuid())
   groupCompanyId String
   groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
-  weekId         String       // ISO週番号（例: "2026-W10"）
+  weekId         String // ISO週番号（例: "2026-W10"）
 
   q1 String // 今週の調子は？
   q2 String @db.Text // 先週やったこと
@@ -1349,13 +1360,13 @@ model WeeklySubmission {
 
 /// コンタクト履歴（統一タイムライン）。週次共有・声かけ・社長コメント・手動メモを一元管理。
 model ContactHistory {
-  id             String      @id @default(cuid())
+  id             String       @id @default(cuid())
   groupCompanyId String
   groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
   type           ContactType
-  content        String      @db.Text // 内容
-  actorName      String?     // 実行者名（Bot / 社長名 / スタッフ名）
-  weekId         String?     // 関連する週（任意）
+  content        String       @db.Text // 内容
+  actorName      String? // 実行者名（Bot / 社長名 / スタッフ名）
+  weekId         String? // 関連する週（任意）
 
   createdAt DateTime @default(now())
 
@@ -1367,10 +1378,10 @@ model ContactHistory {
 /// 連携案件ハイライト。複数の代表が関わる案件を華やかに表示。
 model CollaborationHighlight {
   id          String   @id @default(cuid())
-  title       String                        // 案件タイトル
-  description String   @db.Text             // 詳細
-  emoji       String?                       // アイコン絵文字
-  isActive    Boolean  @default(true)       // 表示中フラグ
+  title       String // 案件タイトル
+  description String   @db.Text // 詳細
+  emoji       String? // アイコン絵文字
+  isActive    Boolean  @default(true) // 表示中フラグ
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1386,7 +1397,7 @@ model CollaborationHighlightMember {
   highlight      CollaborationHighlight @relation(fields: [highlightId], references: [id], onDelete: Cascade)
   groupCompanyId String
   groupCompany   GroupCompany           @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
-  role           String?                // メンバーの役割（任意）
+  role           String? // メンバーの役割（任意）
 
   @@unique([highlightId, groupCompanyId])
   @@map("collaboration_highlight_members")
@@ -1397,35 +1408,35 @@ model CollaborationHighlightMember {
 // ==============================================================
 
 enum ProjectRequestStatus {
-  OPEN     // 募集中
-  MATCHED  // マッチ済み
-  CLOSED   // 終了
+  OPEN // 募集中
+  MATCHED // マッチ済み
+  CLOSED // 終了
 }
 
 enum ProjectRequestCategory {
   PARTIAL_SALES // 部分営業対応（挨拶）
-  SHOOTING      // 撮影
-  EDITING       // 編集
-  OTHER         // その他
+  SHOOTING // 撮影
+  EDITING // 編集
+  OTHER // その他
 }
 
 enum ProjectFrequency {
-  REGULAR  // レギュラー
+  REGULAR // レギュラー
   ONE_TIME // 単発
 }
 
 /// 案件マッチング：グループ企業間で案件を紹介し合う。
 model ProjectRequest {
-  id          String               @id @default(cuid())
-  title       String               // 案件名
-  description String               @db.Text // 詳細
+  id          String                 @id @default(cuid())
+  title       String // 案件名
+  description String                 @db.Text // 詳細
   category    ProjectRequestCategory
-  prefecture  String?              // エリア（都道府県）
-  budget      Int?                 // 予算（税抜・円）
-  frequency   ProjectFrequency     @default(ONE_TIME) // レギュラー or 単発
-  deadline    DateTime?            // 希望納期
-  status      ProjectRequestStatus @default(OPEN)
-  isHidden    Boolean              @default(false) // ADMIN非公開フラグ
+  prefecture  String? // エリア（都道府県）
+  budget      Int? // 予算（税抜・円）
+  frequency   ProjectFrequency       @default(ONE_TIME) // レギュラー or 単発
+  deadline    DateTime? // 希望納期
+  status      ProjectRequestStatus   @default(OPEN)
+  isHidden    Boolean                @default(false) // ADMIN非公開フラグ
 
   postedByCompanyId String
   postedByCompany   GroupCompany @relation("PostedRequests", fields: [postedByCompanyId], references: [id], onDelete: Cascade)
@@ -1472,54 +1483,54 @@ model ProjectApplication {
 /// リード獲得AIで取得した営業候補企業を管理するテーブル。
 /// ステータス管理・担当者アサイン・顧客への転換を行う。
 model Lead {
-  id              String     @id @default(cuid())
-  name            String
-  address         String?
-  phone           String?
-  rating          Float      @default(0)
-  ratingCount     Int        @default(0)
-  types           String[]   @default([])
-  mapsUrl         String?
-  websiteUrl      String?
-  businessStatus  String?
-  scoreTotal      Int        @default(0)
-  scoreBreakdown  Json?
-  scoreComment    String?    @db.Text
-  industry        String?
-  area            String?
-  status          LeadStatus @default(UNTOUCHED)
-  memo            String?    @db.Text
-  source          LeadSource @default(GOOGLE_PLACES)
-  corporateNumber String?
-  capital         BigInt?
-  employeeCount   Int?
-  representativeName String?
-  youtubeChannelUrl  String?
-  youtubeSubscribers Int?
-  youtubeLastUpload  DateTime?
-  subsidies       String[]   @default([])
-  cinemaTheaterId Int?
-  cinemaTheaterName String?
-  distanceKm      Float?
-  assigneeId      String?
-  assignee        User?      @relation("LeadAssignee", fields: [assigneeId], references: [id])
-  createdById     String?
-  createdBy       User?      @relation("LeadCreatedBy", fields: [createdById], references: [id])
-  convertedCustomerId String? @unique
-  convertedCustomer   Customer? @relation("LeadConvertedCustomer", fields: [convertedCustomerId], references: [id])
-  logs            LeadLog[]
-  hearingSheet    HearingSheet?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id                  String        @id @default(cuid())
+  name                String
+  address             String?
+  phone               String?
+  rating              Float         @default(0)
+  ratingCount         Int           @default(0)
+  types               String[]      @default([])
+  mapsUrl             String?
+  websiteUrl          String?
+  businessStatus      String?
+  scoreTotal          Int           @default(0)
+  scoreBreakdown      Json?
+  scoreComment        String?       @db.Text
+  industry            String?
+  area                String?
+  status              LeadStatus    @default(UNTOUCHED)
+  memo                String?       @db.Text
+  source              LeadSource    @default(GOOGLE_PLACES)
+  corporateNumber     String?
+  capital             BigInt?
+  employeeCount       Int?
+  representativeName  String?
+  youtubeChannelUrl   String?
+  youtubeSubscribers  Int?
+  youtubeLastUpload   DateTime?
+  subsidies           String[]      @default([])
+  cinemaTheaterId     Int?
+  cinemaTheaterName   String?
+  distanceKm          Float?
+  assigneeId          String?
+  assignee            User?         @relation("LeadAssignee", fields: [assigneeId], references: [id])
+  createdById         String?
+  createdBy           User?         @relation("LeadCreatedBy", fields: [createdById], references: [id])
+  convertedCustomerId String?       @unique
+  convertedCustomer   Customer?     @relation("LeadConvertedCustomer", fields: [convertedCustomerId], references: [id])
+  logs                LeadLog[]
+  hearingSheet        HearingSheet?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  // ---- Studio（制作OS）----
+  studioClients StudioClient[] @relation("StudioLead")
+
   @@unique([name, address])
   @@index([status])
   @@index([assigneeId])
   @@index([createdAt])
   @@index([source])
-
-  // ---- Studio（制作OS）----
-  studioClients StudioClient[] @relation("StudioLead")
-
   @@map("leads")
 }
 
@@ -1536,6 +1547,7 @@ model LeadLog {
   leadId    String
   lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
   @@index([leadId])
   @@index([createdAt])
   @@map("lead_logs")
@@ -1556,48 +1568,48 @@ model HearingSheet {
   deal       Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   // --- A. 顧客理解（WHO） ---
-  businessDescription String?   @db.Text   /// 事業内容
-  targetCustomers     String[]  @default([]) /// ターゲット顧客層
-  tradeArea           String?              /// 商圏
-  annualRevenue       String?              /// 年商規模
-  employeeCount       String?              /// 従業員数
+  businessDescription String?  @db.Text /// 事業内容
+  targetCustomers     String[] @default([]) /// ターゲット顧客層
+  tradeArea           String? /// 商圏
+  annualRevenue       String? /// 年商規模
+  employeeCount       String? /// 従業員数
 
   // --- B. 現状把握（NOW） ---
-  currentChannels     String[]  @default([]) /// 現在の集客手段
-  monthlyAdBudget     String?              /// 月間広告費
-  pastEfforts         String?   @db.Text   /// 過去に試した施策
-  competitors         String?   @db.Text   /// 競合で気になる会社
+  currentChannels String[] @default([]) /// 現在の集客手段
+  monthlyAdBudget String? /// 月間広告費
+  pastEfforts     String?  @db.Text /// 過去に試した施策
+  competitors     String?  @db.Text /// 競合で気になる会社
 
   // --- C. 課題・ニーズ（WANT） ---
-  primaryChallenge    String?              /// 最も解決したい課題
-  challengeDetail     String?   @db.Text   /// 課題の詳細
-  interestedServices  String[]  @default([]) /// 興味のあるサービス
-  desiredTimeline     String?              /// 希望開始時期
+  primaryChallenge   String? /// 最も解決したい課題
+  challengeDetail    String?  @db.Text /// 課題の詳細
+  interestedServices String[] @default([]) /// 興味のあるサービス
+  desiredTimeline    String? /// 希望開始時期
 
   // --- D. 意思決定（DECISION） ---
-  decisionMaker       String?              /// 決裁者
-  decisionProcess     String?              /// 決裁プロセス
-  budgetStatus        String?              /// 予算確保状況
-  competingVendors    String?   @db.Text   /// 検討中の他社
+  decisionMaker    String? /// 決裁者
+  decisionProcess  String? /// 決裁プロセス
+  budgetStatus     String? /// 予算確保状況
+  competingVendors String? @db.Text /// 検討中の他社
 
   // --- E. 動画制作（VIDEO） ---
-  videoPurposes       String[]  @default([]) /// 動画の用途
-  videoDuration       String?              /// 希望する動画の長さ
-  videoShootingType   String?              /// 撮影の有無
-  videoCast           String?              /// 出演者
-  videoReference      String?   @db.Text   /// 参考にしたい動画・イメージ
-  videoDeadline       DateTime?            /// 納品希望日
-  videoPublishTo      String[]  @default([]) /// 動画の公開先
-  videoBudget         String?              /// 予算感（動画制作）
+  videoPurposes     String[]  @default([]) /// 動画の用途
+  videoDuration     String? /// 希望する動画の長さ
+  videoShootingType String? /// 撮影の有無
+  videoCast         String? /// 出演者
+  videoReference    String?   @db.Text /// 参考にしたい動画・イメージ
+  videoDeadline     DateTime? /// 納品希望日
+  videoPublishTo    String[]  @default([]) /// 動画の公開先
+  videoBudget       String? /// 予算感（動画制作）
 
   // --- F. 温度感（TEMPERATURE） ---
-  temperature         String?              /// 温度感
-  nextAction          String?   @db.Text   /// 次回アクション
-  nextActionDate      DateTime?            /// 次回予定日
+  temperature    String? /// 温度感
+  nextAction     String?   @db.Text /// 次回アクション
+  nextActionDate DateTime? /// 次回予定日
 
   // --- G. ヒアリング管理 ---
-  hearingRound        Int?                 /// ヒアリング何回目か（1=初回, 2=2回目...）
-  freeNotes           String?   @db.Text   /// 自由記載欄
+  hearingRound Int? /// ヒアリング何回目か（1=初回, 2=2回目...）
+  freeNotes    String? @db.Text /// 自由記載欄
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1619,24 +1631,24 @@ model DecisionSheet {
   deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   // --- 受注内容の確定 ---
-  projectName       String?   @db.Text   /// 正式プロジェクト名
-  confirmedAmount   Decimal?  @db.Decimal(15, 0) /// 確定金額（円）
-  contractType      String?              /// 契約形態（spot / monthly / yearly）
-  paymentTerms      String?   @db.Text   /// 支払条件（例: 納品後30日, 着手金50%）
-  deliverables      String?   @db.Text   /// 成果物・納品物（改行区切り）
+  projectName     String?  @db.Text /// 正式プロジェクト名
+  confirmedAmount Decimal? @db.Decimal(15, 0) /// 確定金額（円）
+  contractType    String? /// 契約形態（spot / monthly / yearly）
+  paymentTerms    String?  @db.Text /// 支払条件（例: 納品後30日, 着手金50%）
+  deliverables    String?  @db.Text /// 成果物・納品物（改行区切り）
 
   // --- スケジュール ---
-  kickoffDate       DateTime?            /// キックオフ日
-  deliveryDate      DateTime?            /// 納品予定日
+  kickoffDate  DateTime? /// キックオフ日
+  deliveryDate DateTime? /// 納品予定日
 
   // --- 体制 ---
-  projectLead       String?              /// プロジェクトリーダー
-  teamMembers       String?   @db.Text   /// チームメンバー（改行区切り）
+  projectLead String? /// プロジェクトリーダー
+  teamMembers String? @db.Text /// チームメンバー（改行区切り）
 
   // --- 確認事項 ---
-  clientApproval    Boolean   @default(false) /// クライアント承認済み
-  internalApproval  Boolean   @default(false) /// 社内承認済み
-  specialNotes      String?   @db.Text       /// 特記事項・注意点
+  clientApproval   Boolean @default(false) /// クライアント承認済み
+  internalApproval Boolean @default(false) /// 社内承認済み
+  specialNotes     String? @db.Text /// 特記事項・注意点
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1653,17 +1665,17 @@ model DecisionSheet {
 /// GAS定期トリガー → API経由でupsertされる。
 model PortfolioItem {
   id          String   @id @default(cuid())
-  driveFileId String   @unique           // Google Drive のファイル/フォルダ ID
-  itemType    String                     // "folder" | "file"
-  name        String                     // ファイル/フォルダ名
-  path        String   @db.Text          // フルパス（例: "クライアントA / CM制作 / 素材.mp4"）
-  mimeType    String                     // MIMEタイプ
-  depth       Int                        // 階層（0=ルート直下）
-  sizeMb      Float    @default(0)       // サイズ(MB)
-  driveUrl    String                     // Drive上のURL
-  parentName  String?                    // 親フォルダ名
-  lastUpdated DateTime                   // Drive上の最終更新日
-  syncedAt    DateTime @default(now())   // 同期日時
+  driveFileId String   @unique // Google Drive のファイル/フォルダ ID
+  itemType    String // "folder" | "file"
+  name        String // ファイル/フォルダ名
+  path        String   @db.Text // フルパス（例: "クライアントA / CM制作 / 素材.mp4"）
+  mimeType    String // MIMEタイプ
+  depth       Int // 階層（0=ルート直下）
+  sizeMb      Float    @default(0) // サイズ(MB)
+  driveUrl    String // Drive上のURL
+  parentName  String? // 親フォルダ名
+  lastUpdated DateTime // Drive上の最終更新日
+  syncedAt    DateTime @default(now()) // 同期日時
 
   @@index([itemType])
   @@index([depth])
@@ -1681,7 +1693,7 @@ model SalesActivity {
   id          String       @id @default(cuid())
   userId      String
   user        User         @relation("SalesActivities", fields: [userId], references: [id], onDelete: Cascade)
-  companyName String       // 対象企業名
+  companyName String // 対象企業名
   type        ActivityType @default(OTHER)
   note        String?      @db.Text
   date        DateTime     @default(now())
@@ -1697,17 +1709,17 @@ model Proposal {
   id          String   @id @default(cuid())
   userId      String
   user        User     @relation("Proposals", fields: [userId], references: [id], onDelete: Cascade)
-  companyName String   // 提案先企業名
-  industry    String   // 業種
+  companyName String // 提案先企業名
+  industry    String // 業種
   challenge   String   @db.Text // 課題・ニーズ
-  content     Json     // 生成されたページコンテンツ
+  content     Json // 生成されたページコンテンツ
   createdAt   DateTime @default(now())
 
   // Web提案書フィールド
-  slug        String?  @unique // 公開URL用スラッグ（/p/[slug]）
-  isPublished Boolean  @default(false) // 公開状態
+  slug        String?        @unique // 公開URL用スラッグ（/p/[slug]）
+  isPublished Boolean        @default(false) // 公開状態
   publishedAt DateTime? // 公開日時
-  title       String?  // 公開時の提案書タイトル
+  title       String? // 公開時の提案書タイトル
   views       ProposalView[] @relation("ProposalViews")
 
   @@index([userId])
@@ -1721,15 +1733,15 @@ model Proposal {
 // ==============================================================
 
 model ProposalView {
-  id           String   @id @default(cuid())
-  proposalId   String
-  proposal     Proposal @relation("ProposalViews", fields: [proposalId], references: [id], onDelete: Cascade)
-  viewerIp     String?  // 閲覧者IP（ハッシュ化推奨）
-  userAgent    String?  // ブラウザ情報
-  referrer     String?  // 流入元
-  duration     Int      @default(0) // 滞在時間（秒）
-  scrollDepth  Int      @default(0) // スクロール深度（%）
-  viewedAt     DateTime @default(now())
+  id          String   @id @default(cuid())
+  proposalId  String
+  proposal    Proposal @relation("ProposalViews", fields: [proposalId], references: [id], onDelete: Cascade)
+  viewerIp    String? // 閲覧者IP（ハッシュ化推奨）
+  userAgent   String? // ブラウザ情報
+  referrer    String? // 流入元
+  duration    Int      @default(0) // 滞在時間（秒）
+  scrollDepth Int      @default(0) // スクロール深度（%）
+  viewedAt    DateTime @default(now())
 
   @@index([proposalId])
   @@index([viewedAt(sort: Desc)])
@@ -1743,26 +1755,26 @@ model ProposalView {
 /// 各メンバーがClaudeで分析した営業結果をアップロードする倉庫。
 /// グループ全体で「どの業界に何を送って、どんな反応だったか」を共有する。
 model SalesInsight {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // ---- 投稿者 ----
   groupCompanyId String
   groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
-  authorName     String       // 投稿者名
+  authorName     String // 投稿者名
 
   // ---- 対象期間 ----
-  period    String             // "2026-03" のような月表記
+  period String // "2026-03" のような月表記
 
   // ---- 集計サマリー ----
-  totalSent     Int   @default(0)  // 送信数
-  totalReplied  Int   @default(0)  // 返信数
+  totalSent    Int @default(0) // 送信数
+  totalReplied Int @default(0) // 返信数
 
   // ---- Claude分析結果（JSON） ----
-  insights      Json  @default("[]")  // 業種別の分析 [{industry, sent, replied, temperature, summary}]
-  topResponses  Json  @default("[]")  // 反応が良かった事例 [{industry, responseSnippet, note}]
+  insights     Json @default("[]") // 業種別の分析 [{industry, sent, replied, temperature, summary}]
+  topResponses Json @default("[]") // 反応が良かった事例 [{industry, responseSnippet, note}]
 
   // ---- メモ ----
-  memo      String?  @db.Text
+  memo String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1778,46 +1790,46 @@ model SalesInsight {
 // ==============================================================
 
 enum SalesApproachResult {
-  DEAL        // 商談化
-  REPLIED_NG  // 返信あり（不成立）
-  NO_REPLY    // 未返信
-  REJECTED    // 拒否
+  DEAL // 商談化
+  REPLIED_NG // 返信あり（不成立）
+  NO_REPLY // 未返信
+  REJECTED // 拒否
 }
 
 enum SalesApproachMethod {
-  EMAIL       // メール
-  FORM        // 問い合わせフォーム
-  DM          // DM（SNS等）
-  PHONE       // 電話
-  VISIT       // 訪問
-  OTHER       // その他
+  EMAIL // メール
+  FORM // 問い合わせフォーム
+  DM // DM（SNS等）
+  PHONE // 電話
+  VISIT // 訪問
+  OTHER // その他
 }
 
 /// グループ内で営業アプローチ（成功・失敗）を共有。
 model SalesApproach {
-  id             String              @id @default(cuid())
+  id String @id @default(cuid())
 
   // ── 投稿者
   groupCompanyId String
-  groupCompany   GroupCompany         @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
+  groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
   authorId       String
-  author         User                 @relation("SalesApproachAuthor", fields: [authorId], references: [id])
+  author         User         @relation("SalesApproachAuthor", fields: [authorId], references: [id])
 
   // ── 送り先
-  industry       String               // 業種
-  targetDesc     String?  @db.Text    // 送り先の特徴（自由記入）
-  customerId     String?              // 顧客管理との紐づけ（任意）
-  customer       Customer? @relation("SalesApproachCustomer", fields: [customerId], references: [id])
+  industry   String // 業種
+  targetDesc String?   @db.Text // 送り先の特徴（自由記入）
+  customerId String? // 顧客管理との紐づけ（任意）
+  customer   Customer? @relation("SalesApproachCustomer", fields: [customerId], references: [id])
 
   // ── アプローチ内容
-  method         SalesApproachMethod  // 送信方法
-  messageBody    String   @db.Text    // 送信文面
+  method      SalesApproachMethod // 送信方法
+  messageBody String              @db.Text // 送信文面
 
   // ── 結果
-  result         SalesApproachResult  // 結果
-  learnings      String?  @db.Text    // 学び・振り返り
+  result    SalesApproachResult // 結果
+  learnings String?             @db.Text // 学び・振り返り
 
-  createdAt      DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([groupCompanyId])
   @@index([result])
@@ -1831,12 +1843,12 @@ model SalesApproach {
 // ==============================================================
 
 model ChatbotConversation {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
-  user      User     @relation("ChatbotConversations", fields: [userId], references: [id], onDelete: Cascade)
+  user      User             @relation("ChatbotConversations", fields: [userId], references: [id], onDelete: Cascade)
   messages  ChatbotMessage[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 
   @@index([userId])
   @@index([createdAt(sort: Desc)])
@@ -1844,12 +1856,12 @@ model ChatbotConversation {
 }
 
 model ChatbotMessage {
-  id             String   @id @default(cuid())
+  id             String              @id @default(cuid())
   conversationId String
   conversation   ChatbotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  role           String   // "user" | "assistant"
-  content        String   @db.Text
-  createdAt      DateTime @default(now())
+  role           String // "user" | "assistant"
+  content        String              @db.Text
+  createdAt      DateTime            @default(now())
 
   @@index([conversationId])
   @@map("chatbot_messages")
@@ -1874,69 +1886,69 @@ model AppSetting {
 // ==============================================================
 
 enum StudioClientStatus {
-  ACTIVE    // 運用中
-  PAUSED    // 一時停止
-  CHURNED   // 解約
+  ACTIVE // 運用中
+  PAUSED // 一時停止
+  CHURNED // 解約
 }
 
 enum ProductionType {
-  SNS_PLAN         // SNS運用プラン（カレンダー+カット表+撮影指示+キャプション+KPI）
-  CUTSHEET         // カット表単体
-  CAPTION          // キャプション+ハッシュタグ
-  REPORT           // 月次レポート
-  SHOOTING_GUIDE   // 撮影依頼書
-  SHORT_VIDEO      // ショート動画
-  THUMBNAIL        // サムネイル/バナー
+  SNS_PLAN // SNS運用プラン（カレンダー+カット表+撮影指示+キャプション+KPI）
+  CUTSHEET // カット表単体
+  CAPTION // キャプション+ハッシュタグ
+  REPORT // 月次レポート
+  SHOOTING_GUIDE // 撮影依頼書
+  SHORT_VIDEO // ショート動画
+  THUMBNAIL // サムネイル/バナー
   SNS_FORMAT_VIDEO // SNSフォーマット自動編集動画
 }
 
 enum SnsFormatOrderStatus {
-  PENDING     // 依頼受付
-  UPLOADING   // 素材アップロード中
-  PROCESSING  // 自動編集中（Premiere実行中）
-  COMPLETED   // 完了
-  FAILED      // 失敗
+  PENDING // 依頼受付
+  UPLOADING // 素材アップロード中
+  PROCESSING // 自動編集中（Premiere実行中）
+  COMPLETED // 完了
+  FAILED // 失敗
 }
 
 /// Studio用クライアント。Customerと紐づけ可能（営業→制作の連携）。
 /// パートナー（Branch）ごとにクライアントを管理。ヒアリングデータが蓄積され、毎月の生成に再利用される。
 model StudioClient {
-  id             String              @id @default(cuid())
-  name           String              // 店舗名・企業名
-  businessType   String              // 業種
-  area           String              // エリア
-  target         String              // ターゲット
-  sellingPoints  String?             @db.Text // 強み・売り
-  snsAccounts    String?             // SNSアカウント
-  brandColors    String?             // ブランドカラー（HEX等）
-  logoUrl        String?             // ロゴURL
-  monthlyBudget  Int?                // 月額予算
-  contractStart  DateTime?           // 契約開始日
-  postsPerMonth  Int                 @default(12) // 月間投稿数
-  status         StudioClientStatus  @default(ACTIVE)
-  notes          String?             @db.Text
+  id            String             @id @default(cuid())
+  name          String // 店舗名・企業名
+  businessType  String // 業種
+  area          String // エリア
+  target        String // ターゲット
+  sellingPoints String?            @db.Text // 強み・売り
+  snsAccounts   String? // SNSアカウント
+  brandColors   String? // ブランドカラー（HEX等）
+  logoUrl       String? // ロゴURL
+  monthlyBudget Int? // 月額予算
+  contractStart DateTime? // 契約開始日
+  postsPerMonth Int                @default(12) // 月間投稿数
+  status        StudioClientStatus @default(ACTIVE)
+  notes         String?            @db.Text
 
   // ヒアリング蓄積（フリーフォーム。生成時に毎回参照）
-  hearingData    Json?               // 追加ヒアリング情報（JSON）
+  hearingData Json? // 追加ヒアリング情報（JSON）
 
   // 営業連携
-  customerId     String?             // 既存Customer（経営OS）と紐づけ
-  customer       Customer?           @relation("StudioCustomer", fields: [customerId], references: [id])
-  leadId         String?             // リード獲得AIと紐づけ
-  lead           Lead?               @relation("StudioLead", fields: [leadId], references: [id])
+  customerId String? // 既存Customer（経営OS）と紐づけ
+  customer   Customer? @relation("StudioCustomer", fields: [customerId], references: [id])
+  leadId     String? // リード獲得AIと紐づけ
+  lead       Lead?     @relation("StudioLead", fields: [leadId], references: [id])
 
   // マルチテナント（パートナー別）
-  branchId       String
-  branch         Branch              @relation("StudioClients", fields: [branchId], references: [id])
-  createdById    String?
-  createdBy      User?               @relation("StudioClientCreator", fields: [createdById], references: [id])
+  branchId    String
+  branch      Branch  @relation("StudioClients", fields: [branchId], references: [id])
+  createdById String?
+  createdBy   User?   @relation("StudioClientCreator", fields: [createdById], references: [id])
 
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  productions    Production[]
-  results        MonthlyResult[]
+  productions     Production[]
+  results         MonthlyResult[]
   snsFormatOrders SnsFormatOrder[] @relation("SnsFormatOrders")
 
   @@index([branchId])
@@ -1946,24 +1958,24 @@ model StudioClient {
 
 /// 制作物。SNSプラン・カット表・キャプション・レポート等。AIが生成した内容を保存。
 model Production {
-  id             String          @id @default(cuid())
-  type           ProductionType  // 種別
-  title          String          // タイトル（例: "2026年4月 SNS運用プラン"）
-  content        String          @db.Text // 生成された内容（Markdown）
-  month          String?         // 対象月（例: "2026-04"）
-  inputData      Json?           // 生成時の入力パラメータ（再生成用）
-  metadata       Json?           // トークン数・モデル・生成時間等
+  id        String         @id @default(cuid())
+  type      ProductionType // 種別
+  title     String // タイトル（例: "2026年4月 SNS運用プラン"）
+  content   String         @db.Text // 生成された内容（Markdown）
+  month     String? // 対象月（例: "2026-04"）
+  inputData Json? // 生成時の入力パラメータ（再生成用）
+  metadata  Json? // トークン数・モデル・生成時間等
 
   // 紐づけ
   studioClientId String
-  studioClient   StudioClient    @relation(fields: [studioClientId], references: [id], onDelete: Cascade)
+  studioClient   StudioClient @relation(fields: [studioClientId], references: [id], onDelete: Cascade)
   branchId       String
-  branch         Branch          @relation("StudioProductions", fields: [branchId], references: [id])
+  branch         Branch       @relation("StudioProductions", fields: [branchId], references: [id])
   createdById    String?
-  createdBy      User?           @relation("ProductionCreator", fields: [createdById], references: [id])
+  createdBy      User?        @relation("ProductionCreator", fields: [createdById], references: [id])
 
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([studioClientId])
   @@index([branchId])
@@ -1975,34 +1987,34 @@ model Production {
 /// 月次成果データ。Instagram Insights等の数値を保存。
 /// Production（制作物）と同じ月で紐づけることで「何を投稿したら何が起きたか」を分析可能。
 model MonthlyResult {
-  id             String       @id @default(cuid())
-  month          String       // 対象月（例: "2026-04"）
+  id    String @id @default(cuid())
+  month String // 対象月（例: "2026-04"）
 
   // Instagram Insights
-  followers      Int?         // フォロワー数（月末時点）
-  followersGain  Int?         // フォロワー増減
-  reach          Int?         // リーチ数
-  impressions    Int?         // インプレッション数
-  engagementRate Float?       // エンゲージメント率
-  saves          Int?         // 保存数
-  shares         Int?         // シェア数
-  profileVisits  Int?         // プロフィールアクセス数
-  websiteClicks  Int?         // ウェブサイトクリック数
+  followers      Int? // フォロワー数（月末時点）
+  followersGain  Int? // フォロワー増減
+  reach          Int? // リーチ数
+  impressions    Int? // インプレッション数
+  engagementRate Float? // エンゲージメント率
+  saves          Int? // 保存数
+  shares         Int? // シェア数
+  profileVisits  Int? // プロフィールアクセス数
+  websiteClicks  Int? // ウェブサイトクリック数
 
   // 投稿別データ（JSON配列）
-  postMetrics    Json?        // [{postId, type, reach, likes, comments, saves, shares}]
+  postMetrics Json? // [{postId, type, reach, likes, comments, saves, shares}]
 
   // Google Analytics等
-  webSessions    Int?         // Webサイトセッション数
-  webPageviews   Int?         // ページビュー数
-  webBounceRate  Float?       // 直帰率
+  webSessions   Int? // Webサイトセッション数
+  webPageviews  Int? // ページビュー数
+  webBounceRate Float? // 直帰率
 
   // AI分析
-  aiSummary      String?      @db.Text // AIによる月次サマリー
-  aiSuggestions  String?      @db.Text // AIによる改善提案
+  aiSummary     String? @db.Text // AIによる月次サマリー
+  aiSuggestions String? @db.Text // AIによる改善提案
 
   // 生データ保存（再分析用）
-  rawData        Json?        // Instagram Insights/GA等のJSON原本
+  rawData Json? // Instagram Insights/GA等のJSON原本
 
   // 紐づけ
   studioClientId String
@@ -2010,8 +2022,8 @@ model MonthlyResult {
   branchId       String
   branch         Branch       @relation("StudioResults", fields: [branchId], references: [id])
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([studioClientId, month])
   @@index([branchId])
@@ -2021,40 +2033,40 @@ model MonthlyResult {
 
 /// SNSフォーマット自動編集の依頼。カタログから選択→素材アップ→Premiere自動編集→納品。
 model SnsFormatOrder {
-  id             String                @id @default(cuid())
-  status         SnsFormatOrderStatus  @default(PENDING)
+  id     String               @id @default(cuid())
+  status SnsFormatOrderStatus @default(PENDING)
 
   // フォーマット選択
-  formatId       String                // カタログのフォーマットID（例: beauty_ba_tru）
-  formatName     String                // フォーマット名（例: ビフォーアフター）
-  telopId        String?               // テロップスタイルID（例: beauty_after）
-  industry       String                // 業種
-  taste          String                // テイスト
-  duration       String                // 尺（例: 15秒）
-  platforms      String                // 配信先（例: reel,tiktok,shorts）
-  structure      Json                  // 構成タイムライン（JSONで保存）
+  formatId   String // カタログのフォーマットID（例: beauty_ba_tru）
+  formatName String // フォーマット名（例: ビフォーアフター）
+  telopId    String? // テロップスタイルID（例: beauty_after）
+  industry   String // 業種
+  taste      String // テイスト
+  duration   String // 尺（例: 15秒）
+  platforms  String // 配信先（例: reel,tiktok,shorts）
+  structure  Json // 構成タイムライン（JSONで保存）
 
   // 素材
-  mediaPaths     Json?                 // アップロードされた素材パスの配列
-  bgmPath        String?               // BGMファイルパス
+  mediaPaths Json? // アップロードされた素材パスの配列
+  bgmPath    String? // BGMファイルパス
 
   // 出力
-  outputPath     String?               // 書き出し先パス
-  thumbnailPath  String?               // サムネイルパス
-  premiereProject String?              // Premiereプロジェクトファイルパス
-  errorMessage   String?               @db.Text // エラー時のメッセージ
+  outputPath      String? // 書き出し先パス
+  thumbnailPath   String? // サムネイルパス
+  premiereProject String? // Premiereプロジェクトファイルパス
+  errorMessage    String? @db.Text // エラー時のメッセージ
 
   // 紐づけ
   studioClientId String?
-  studioClient   StudioClient?         @relation("SnsFormatOrders", fields: [studioClientId], references: [id])
-  productionId   String?               // 完了後にProductionレコードと紐づけ
+  studioClient   StudioClient? @relation("SnsFormatOrders", fields: [studioClientId], references: [id])
+  productionId   String? // 完了後にProductionレコードと紐づけ
   branchId       String
-  branch         Branch                @relation("SnsFormatOrders", fields: [branchId], references: [id])
+  branch         Branch        @relation("SnsFormatOrders", fields: [branchId], references: [id])
   createdById    String
-  createdBy      User                  @relation("SnsFormatOrderCreator", fields: [createdById], references: [id])
+  createdBy      User          @relation("SnsFormatOrderCreator", fields: [createdById], references: [id])
 
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([branchId])
   @@index([studioClientId])
@@ -2065,41 +2077,41 @@ model SnsFormatOrder {
 
 /// 参考動画から解析・生成されたフォーマット。バズ動画の構成を抽出してテンプレート化。
 model SnsReferenceFormat {
-  id             String    @id @default(cuid())
+  id String @id @default(cuid())
 
   // 元動画情報
-  sourceUrl      String    // 元動画のURL（Instagram/TikTok等）
-  sourceViews    Int?      // 元動画の再生数（手動入力）
-  sourceDuration Float?    // 元動画の尺（秒）
+  sourceUrl        String // 元動画のURL（Instagram/TikTok等）
+  sourceViews      Int? // 元動画の再生数（手動入力）
+  sourceDuration   Float? // 元動画の尺（秒）
   sourceResolution String? // 解像度（例: 1080x1920）
 
   // サムネイル（解析時のフレームキャプチャ）
-  thumbnailBase64 String?  @db.Text // 代表フレームのbase64 JPEG
+  thumbnailBase64 String? @db.Text // 代表フレームのbase64 JPEG
 
   // 解析結果
-  title          String    // フォーマット名（例: 美容室ビフォーアフター）
-  description    String?   // 説明
-  industry       String    // 業種
-  taste          String    // テイスト
-  duration       String    // 丸めた尺（例: 15秒）
-  platforms      String    // 配信先（例: reel,tiktok）
-  structure      Json      // 構成タイムライン
-  cutPoints      Json?     // カット変化点の秒数配列
+  title       String // フォーマット名（例: 美容室ビフォーアフター）
+  description String? // 説明
+  industry    String // 業種
+  taste       String // テイスト
+  duration    String // 丸めた尺（例: 15秒）
+  platforms   String // 配信先（例: reel,tiktok）
+  structure   Json // 構成タイムライン
+  cutPoints   Json? // カット変化点の秒数配列
 
   // テロップ分析
-  telopAnalysis  Json?     // テロップスタイル・配置・色等
+  telopAnalysis     Json? // テロップスタイル・配置・色等
   recommendedTelops String? // 推奨テロップID（カンマ区切り）
-  hookTechnique  String?   // フック技法の説明
-  shootingTips   String?   // 撮影のコツ
+  hookTechnique     String? // フック技法の説明
+  shootingTips      String? // 撮影のコツ
 
   // メタデータ
-  branchId       String
-  branch         Branch    @relation("SnsReferenceFormats", fields: [branchId], references: [id])
-  createdById    String
-  createdBy      User      @relation("SnsReferenceFormatCreator", fields: [createdById], references: [id])
+  branchId    String
+  branch      Branch @relation("SnsReferenceFormats", fields: [branchId], references: [id])
+  createdById String
+  createdBy   User   @relation("SnsReferenceFormatCreator", fields: [createdById], references: [id])
 
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([branchId])
   @@index([createdById])
@@ -2115,7 +2127,7 @@ model PushToken {
   id        String   @id @default(cuid())
   token     String   @unique // ExponentPushToken[xxx]
   email     String
-  platform  String?  // ios / android
+  platform  String? // ios / android
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2129,37 +2141,37 @@ model PushToken {
 
 /// 学習コース。オンボード・媒体別テストなどをまとめる単位。
 model LearningCourse {
-  id          String           @id @default(cuid())
+  id          String               @id @default(cuid())
   title       String
-  description String?          @db.Text
-  category    String           @default("onboard") // onboard, media, advanced
-  sortOrder   Int              @default(0)
-  published   Boolean          @default(false)
+  description String?              @db.Text
+  category    String               @default("onboard") // onboard, media, advanced
+  sortOrder   Int                  @default(0)
+  published   Boolean              @default(false)
   lessons     LearningLesson[]
   tests       LearningTest[]
   enrollments LearningEnrollment[]
 
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("learning_courses")
 }
 
 /// 教材（動画・PDF等）。コース内の学習コンテンツ。
 model LearningLesson {
-  id          String         @id @default(cuid())
+  id          String             @id @default(cuid())
   courseId    String
-  course      LearningCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course      LearningCourse     @relation(fields: [courseId], references: [id], onDelete: Cascade)
   title       String
-  type        String         @default("video") // video, pdf, text
-  contentUrl  String?        // HeyGen動画URL or PDFリンク
-  body        String?        @db.Text // テキスト教材の場合
-  durationMin Int?           // 動画の場合の目安時間（分）
-  sortOrder   Int            @default(0)
+  type        String             @default("video") // video, pdf, text
+  contentUrl  String? // HeyGen動画URL or PDFリンク
+  body        String?            @db.Text // テキスト教材の場合
+  durationMin Int? // 動画の場合の目安時間（分）
+  sortOrder   Int                @default(0)
   progress    LearningProgress[]
 
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([courseId])
   @@map("learning_lessons")
@@ -2167,17 +2179,17 @@ model LearningLesson {
 
 /// テスト定義。コースに紐づく選択式テスト。
 model LearningTest {
-  id            String           @id @default(cuid())
-  courseId       String
-  course        LearningCourse   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  title         String
-  passingScore  Int              @default(80) // 合格ライン（%）
-  maxAttempts   Int              @default(3)  // 最大受験回数
-  questions     LearningQuestion[]
-  attempts      LearningAttempt[]
+  id           String             @id @default(cuid())
+  courseId     String
+  course       LearningCourse     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title        String
+  passingScore Int                @default(80) // 合格ライン（%）
+  maxAttempts  Int                @default(3) // 最大受験回数
+  questions    LearningQuestion[]
+  attempts     LearningAttempt[]
 
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([courseId])
   @@map("learning_tests")
@@ -2185,16 +2197,16 @@ model LearningTest {
 
 /// テスト問題。選択式。
 model LearningQuestion {
-  id          String       @id @default(cuid())
-  testId      String
-  test        LearningTest @relation(fields: [testId], references: [id], onDelete: Cascade)
-  question    String       @db.Text
-  choices     String       @db.Text // JSON: ["選択肢A","選択肢B","選択肢C","選択肢D"]
-  correctIndex Int         // 正解のインデックス（0始まり）
-  explanation String?      @db.Text // 解説
-  sortOrder   Int          @default(0)
+  id           String       @id @default(cuid())
+  testId       String
+  test         LearningTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  question     String       @db.Text
+  choices      String       @db.Text // JSON: ["選択肢A","選択肢B","選択肢C","選択肢D"]
+  correctIndex Int // 正解のインデックス（0始まり）
+  explanation  String?      @db.Text // 解説
+  sortOrder    Int          @default(0)
 
-  createdAt   DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@index([testId])
   @@map("learning_questions")
@@ -2202,15 +2214,15 @@ model LearningQuestion {
 
 /// 受講登録。ユーザーとコースの紐づけ。
 model LearningEnrollment {
-  id        String         @id @default(cuid())
-  userId    String
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  courseId   String
-  course    LearningCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  status    String         @default("in_progress") // in_progress, completed, frozen
+  id       String         @id @default(cuid())
+  userId   String
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId String
+  course   LearningCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status   String         @default("in_progress") // in_progress, completed, frozen
 
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, courseId])
   @@map("learning_enrollments")
@@ -2225,8 +2237,8 @@ model LearningProgress {
   lesson    LearningLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   completed Boolean        @default(false)
 
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, lessonId])
   @@map("learning_progress")
@@ -2234,17 +2246,65 @@ model LearningProgress {
 
 /// テスト受験記録。スコアと合否を記録。
 model LearningAttempt {
-  id        String       @id @default(cuid())
-  userId    String
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  testId    String
-  test      LearningTest @relation(fields: [testId], references: [id], onDelete: Cascade)
-  score     Int          // 得点（%）
-  passed    Boolean
-  answers   String       @db.Text // JSON: [選択したインデックスの配列]
+  id      String       @id @default(cuid())
+  userId  String
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testId  String
+  test    LearningTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  score   Int // 得点（%）
+  passed  Boolean
+  answers String       @db.Text // JSON: [選択したインデックスの配列]
 
-  createdAt DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId, testId])
   @@map("learning_attempts")
+}
+
+// ==============================================================
+// Notification（アプリ内通知）
+// ==============================================================
+
+enum NotificationType {
+  DEAL_WON
+  DEAL_UPDATED
+  PROJECT_CREATED
+  PROPOSAL_VIEWED
+  REPORT_SUBMITTED
+  SYSTEM
+}
+
+model Notification {
+  id      String           @id @default(cuid())
+  type    NotificationType
+  title   String
+  message String?          @db.Text
+  linkUrl String?
+  isRead  Boolean          @default(false)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+// ==============================================================
+// お気に入り（ピン留め）
+// ==============================================================
+model UserFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  path      String // e.g. "/dashboard/customers"
+  label     String // e.g. "顧客管理"
+  icon      String? // icon name for display
+  createdAt DateTime @default(now())
+
+  @@unique([userId, path])
+  @@index([userId])
+  @@map("user_favorites")
 }

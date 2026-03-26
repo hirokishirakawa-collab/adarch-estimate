@@ -412,6 +412,102 @@ export async function deleteSelectedLeads(
 }
 
 // ---------------------------------------------------------------
+// リードのステータスを一括変更する
+// ---------------------------------------------------------------
+export async function bulkUpdateLeadStatus(
+  ids: string[],
+  newStatus: string
+): Promise<{ error?: string; updated?: number }> {
+  const session = await auth();
+  if (!session?.user) return { error: "ログインが必要です" };
+
+  if (!ids.length) return { updated: 0 };
+
+  const validStatuses = ["UNTOUCHED", "CALLED", "APPOINTMENT", "DEAL_CONVERTED", "SKIPPED"];
+  if (!validStatuses.includes(newStatus)) {
+    return { error: "無効なステータスです" };
+  }
+
+  const staffName = session.user.name ?? session.user.email ?? "不明";
+  const newOption = getLeadStatusOption(newStatus);
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.lead.updateMany({
+        where: { id: { in: ids } },
+        data: { status: newStatus as LeadStatus },
+      });
+
+      await tx.leadLog.createMany({
+        data: ids.map((id) => ({
+          leadId: id,
+          action: "STATUS_CHANGED",
+          detail: `一括操作: ステータスを「${newOption.label}」に変更`,
+          staffName,
+        })),
+      });
+    });
+
+    revalidatePath("/dashboard/leads/list");
+    return { updated: ids.length };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[bulkUpdateLeadStatus] DB error:", msg);
+    return { error: "ステータス変更に失敗しました" };
+  }
+}
+
+// ---------------------------------------------------------------
+// リードの担当者を一括変更する
+// ---------------------------------------------------------------
+export async function bulkAssignLeads(
+  ids: string[],
+  assigneeId: string | null
+): Promise<{ error?: string; updated?: number }> {
+  const session = await auth();
+  if (!session?.user) return { error: "ログインが必要です" };
+
+  if (!ids.length) return { updated: 0 };
+
+  const staffName = session.user.name ?? session.user.email ?? "不明";
+
+  try {
+    let assigneeName = "未アサイン";
+    if (assigneeId) {
+      const assignee = await db.user.findUnique({
+        where: { id: assigneeId },
+        select: { name: true, email: true },
+      });
+      if (!assignee) return { error: "ユーザーが見つかりません" };
+      assigneeName = assignee.name ?? assignee.email;
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.lead.updateMany({
+        where: { id: { in: ids } },
+        data: { assigneeId },
+      });
+
+      await tx.leadLog.createMany({
+        data: ids.map((id) => ({
+          leadId: id,
+          action: "ASSIGNED",
+          detail: `一括操作: 担当者を「${assigneeName}」に設定`,
+          staffName,
+        })),
+      });
+    });
+
+    revalidatePath("/dashboard/leads/list");
+    return { updated: ids.length };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[bulkAssignLeads] DB error:", msg);
+    return { error: "担当者変更に失敗しました" };
+  }
+}
+
+// ---------------------------------------------------------------
 // BtoB検索結果をリードとして一括保存する
 // ---------------------------------------------------------------
 export async function saveBtoBLeadsFromSearch(

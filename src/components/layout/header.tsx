@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/roles";
 import { Menu, Search } from "lucide-react";
+import { NotificationBell } from "./notification-bell";
 
 // ----------------------------------------------------------------
 // ロールごとの上部バナー（ADMIN のみ表示）
@@ -70,6 +71,9 @@ export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProp
             <span className="hidden sm:block">検索...</span>
             <kbd className="hidden sm:block text-[10px] bg-zinc-200 px-1.5 py-0.5 rounded">⌘K</kbd>
           </button>
+
+          {/* 通知ベル */}
+          <NotificationBell />
 
           {/* 日付 */}
           <p className="hidden md:block text-xs text-zinc-400">{dateStr}</p>

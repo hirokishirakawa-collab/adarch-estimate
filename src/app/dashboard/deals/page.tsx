@@ -8,6 +8,7 @@ import { ArchiveToggle } from "@/components/deals/archive-toggle";
 import { DealViewTabs } from "@/components/deals/deal-view-tabs";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 import { TrendingUp, Plus } from "lucide-react";
+import { FavoriteButton } from "@/components/layout/favorite-button";
 import type { Prisma, DealStatus } from "@/generated/prisma/client";
 
 interface PageProps {
@@ -88,7 +89,10 @@ export default async function DealsPage({ searchParams }: PageProps) {
             <TrendingUp className="text-blue-600 w-4.5 h-4.5" style={{ width: "1.125rem", height: "1.125rem" }} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-zinc-900">商談管理 (SFA)</h2>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-lg font-bold text-zinc-900">商談管理 (SFA)</h2>
+              <FavoriteButton path="/dashboard/deals" label="商談管理" />
+            </div>
             <p className="text-xs text-zinc-500 mt-0.5">パイプラインをカンバンで管理</p>
             <WikiHelpLink query="商談管理" />
           </div>

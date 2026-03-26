@@ -5,10 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel } from "@/lib/constants/leads";
-import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads } from "@/lib/actions/lead";
+import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads, bulkUpdateLeadStatus, bulkAssignLeads } from "@/lib/actions/lead";
 import { getHearingSheet } from "@/lib/actions/hearing";
 import { HearingSheetForm } from "./hearing-sheet-form";
-import { Trash2 } from "lucide-react";
+import { Trash2, RefreshCw, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface LeadRow {
@@ -113,6 +113,30 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
     });
   };
 
+  const handleBulkStatusChange = (newStatus: string) => {
+    const ids = Array.from(selectedIds);
+    startDeleting(async () => {
+      const result = await bulkUpdateLeadStatus(ids, newStatus);
+      if (result.error) {
+        alert(result.error);
+      } else {
+        setSelectedIds(new Set());
+      }
+    });
+  };
+
+  const handleBulkAssign = (assigneeId: string) => {
+    const ids = Array.from(selectedIds);
+    startDeleting(async () => {
+      const result = await bulkAssignLeads(ids, assigneeId || null);
+      if (result.error) {
+        alert(result.error);
+      } else {
+        setSelectedIds(new Set());
+      }
+    });
+  };
+
   if (leads.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-zinc-200 px-5 py-12 text-center">
@@ -159,20 +183,73 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
         </div>
       </div>
 
-      {/* 選択削除バー */}
+      {/* 選択操作バー */}
       {canSelect && selectedIds.size > 0 && (
-        <div className="flex items-center justify-between px-4 py-2 bg-zinc-50 border-b border-zinc-200">
-          <p className="text-sm text-zinc-700">
-            <strong>{selectedIds.size}件</strong> 選択中
+        <div className="flex items-center justify-between px-4 py-2 bg-blue-50 border-b border-blue-100">
+          <p className="text-sm font-medium text-blue-700">
+            {selectedIds.size}件選択中
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="ml-2 text-xs text-blue-500 hover:text-blue-700 underline"
+            >
+              選択解除
+            </button>
           </p>
           <div className="flex items-center gap-2">
+            {/* ステータス一括変更 */}
+            <div className="flex items-center gap-1">
+              <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
+              <select
+                disabled={isDeleting}
+                defaultValue=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleBulkStatusChange(e.target.value);
+                    e.target.value = "";
+                  }
+                }}
+                className="text-xs border border-blue-200 rounded-lg px-2 py-1.5 bg-white text-zinc-700 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 cursor-pointer"
+              >
+                <option value="">ステータス変更...</option>
+                {LEAD_STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.icon} {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 担当者一括変更 */}
+            <div className="flex items-center gap-1">
+              <UserPlus className="w-3.5 h-3.5 text-blue-600" />
+              <select
+                disabled={isDeleting}
+                defaultValue=""
+                onChange={(e) => {
+                  if (e.target.value !== "") {
+                    handleBulkAssign(e.target.value);
+                    e.target.value = "";
+                  }
+                }}
+                className="text-xs border border-blue-200 rounded-lg px-2 py-1.5 bg-white text-zinc-700 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 cursor-pointer"
+              >
+                <option value="">担当者変更...</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name ?? u.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* エクスポート */}
             <button
               onClick={() => handleExport("csv")}
               disabled={exporting !== null}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 transition-colors"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              {exporting === "csv" ? "出力中..." : "選択分CSV"}
+              {exporting === "csv" ? "出力中..." : "CSV"}
             </button>
             <button
               onClick={() => handleExport("pdf")}
@@ -180,8 +257,10 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-50 transition-colors"
             >
               <FileText className="w-3.5 h-3.5" />
-              {exporting === "pdf" ? "出力中..." : "選択分PDF"}
+              {exporting === "pdf" ? "出力中..." : "PDF"}
             </button>
+
+            {/* 一括削除（ADMIN のみ） */}
             {isAdmin && (
               <Button
                 size="sm"

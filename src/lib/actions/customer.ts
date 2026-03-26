@@ -495,6 +495,63 @@ export async function updateCustomerBranch(
 }
 
 // ---------------------------------------------------------------
+// 顧客のステータスを一括変更する
+// ---------------------------------------------------------------
+export async function bulkUpdateCustomerStatus(
+  ids: string[],
+  newStatus: string
+): Promise<{ error?: string; success?: boolean; updated?: number }> {
+  const session = await auth();
+  if (!session?.user) return { error: "ログインが必要です" };
+
+  if (!ids.length) return { updated: 0, success: true };
+
+  const validStatuses = ["PROSPECT", "ACTIVE", "INACTIVE", "BLOCKED"];
+  if (!validStatuses.includes(newStatus)) {
+    return { error: "無効なステータスです" };
+  }
+
+  const staffName = session.user.name ?? session.user.email ?? "不明";
+
+  try {
+    const result = await db.$transaction(async (tx) => {
+      const updated = await tx.customer.updateMany({
+        where: { id: { in: ids } },
+        data: { status: newStatus as CustomerStatus },
+      });
+
+      // 変更ログを記録
+      const statusLabel = STATUS_LABELS[newStatus] ?? newStatus;
+      await tx.activityLog.createMany({
+        data: ids.map((id) => ({
+          customerId: id,
+          type: "SYSTEM" as ActivityType,
+          content: `一括操作: ステータスを「${statusLabel}」に変更しました`,
+          staffName,
+        })),
+      });
+
+      return updated;
+    });
+
+    logAudit({
+      action: "customer_bulk_status",
+      email: session.user.email ?? "",
+      name: staffName,
+      entity: "customer",
+      detail: `${result.count}件のステータスを${STATUS_LABELS[newStatus] ?? newStatus}に変更`,
+    });
+
+    revalidatePath("/dashboard/customers");
+    return { success: true, updated: result.count };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[bulkUpdateCustomerStatus] DB error:", msg);
+    return { error: "ステータス変更に失敗しました。再度お試しください" };
+  }
+}
+
+// ---------------------------------------------------------------
 // 顧客を一括削除する（ADMIN 専用）
 // ---------------------------------------------------------------
 export async function deleteCustomers(

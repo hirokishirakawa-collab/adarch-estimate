@@ -12,6 +12,53 @@ import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
+// 受注時にプロジェクトを自動作成する（内部ヘルパー）
+// ---------------------------------------------------------------
+async function createProjectFromDeal(dealId: string, staffName: string) {
+  try {
+    // 既にプロジェクトが紐づいていれば何もしない
+    const existing = await db.project.findFirst({ where: { dealId } });
+    if (existing) return;
+
+    const deal = await db.deal.findUnique({
+      where: { id: dealId },
+      include: {
+        customer: { select: { id: true, name: true } },
+        assignedTo: { select: { name: true } },
+      },
+    });
+    if (!deal) return;
+
+    const project = await db.project.create({
+      data: {
+        title: deal.title,
+        status: "ORDERED",
+        budget: deal.amount,
+        customerId: deal.customerId,
+        branchId: deal.branchId,
+        staffName: deal.assignedTo?.name ?? staffName,
+        dealId: deal.id,
+        description: `商談「${deal.title}」から自動作成`,
+      },
+    });
+
+    // ログ
+    await db.projectLog.create({
+      data: {
+        projectId: project.id,
+        type: "SYSTEM",
+        content: `商談「${deal.title}」の受注により自動作成`,
+        staffName: "SYSTEM",
+      },
+    });
+
+    console.log(`[createProjectFromDeal] Created project ${project.id} from deal ${dealId}`);
+  } catch (e) {
+    console.error("[createProjectFromDeal]", e);
+  }
+}
+
+// ---------------------------------------------------------------
 // 商談を新規作成する
 // ---------------------------------------------------------------
 export async function createDeal(
@@ -206,6 +253,15 @@ export async function updateDealStatus(
     return { error: "ステータス更新に失敗しました" };
   }
 
+  // 受注時にプロジェクトを自動作成
+  if (status === "CLOSED_WON") {
+    const capturedDealId = dealId;
+    const capturedStaff = info.staffName;
+    after(async () => {
+      await createProjectFromDeal(capturedDealId, capturedStaff);
+    });
+  }
+
   // 通知（after: レスポンス送信後に確実に実行される）
   if (deal) {
     const statusLabel =
@@ -279,6 +335,15 @@ export async function updateDeal(
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[updateDeal] DB error:", msg);
     return { error: process.env.NODE_ENV !== "production" ? `保存失敗: ${msg}` : "保存に失敗しました" };
+  }
+
+  // 受注時にプロジェクトを自動作成
+  if (status === "CLOSED_WON") {
+    const capturedDealIdForProject = dealId;
+    const capturedStaffForProject = info.staffName;
+    after(async () => {
+      await createProjectFromDeal(capturedDealIdForProject, capturedStaffForProject);
+    });
   }
 
   // 通知（after: レスポンス送信後に非同期実行）

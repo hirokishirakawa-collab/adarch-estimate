@@ -7,6 +7,7 @@ import type { UserRole } from "@/types/roles";
 import { EstimateTable } from "@/components/estimates/estimate-table";
 import { ESTIMATION_STATUS_OPTIONS } from "@/lib/constants/estimates";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
+import { FavoriteButton } from "@/components/layout/favorite-button";
 
 export default async function EstimatesPage() {
   const session = await auth();
@@ -46,7 +47,10 @@ export default async function EstimatesPage() {
             <FileText className="text-blue-600 w-4.5 h-4.5" style={{ width: "1.125rem", height: "1.125rem" }} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-zinc-900">公式見積もり</h2>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-lg font-bold text-zinc-900">公式見積もり</h2>
+              <FavoriteButton path="/dashboard/estimates" label="公式見積もり" />
+            </div>
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-zinc-500">標準単価マスタを使って素早く見積書を作成</p>
               <WikiHelpLink query="見積作成ツール" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -54,7 +54,18 @@ import {
   Play,
   Send,
   AlertTriangle,
+  Star,
 } from "lucide-react";
+
+// ----------------------------------------------------------------
+// お気に入り型定義
+// ----------------------------------------------------------------
+interface FavoriteItem {
+  id: string;
+  path: string;
+  label: string;
+  icon: string | null;
+}
 
 // ----------------------------------------------------------------
 // ナビゲーション定義
@@ -446,6 +457,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "ADMIN",
       },
       {
+        href: "/dashboard/admin/audit-logs",
+        label: "操作ログ（詳細）",
+        icon: Shield,
+        minRole: "ADMIN",
+      },
+      {
         href: "/dashboard/admin/chatbot-logs",
         label: "チャットボット履歴",
         icon: MessageCircle,
@@ -497,6 +514,16 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
   const roleStyle = ROLE_STYLES[user.role];
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+
+  useEffect(() => {
+    fetch("/api/favorites")
+      .then((res) => res.json())
+      .then((data: FavoriteItem[]) => {
+        if (Array.isArray(data)) setFavorites(data.slice(0, 5));
+      })
+      .catch(() => {});
+  }, []);
 
   const toggleGroup = (href: string) => {
     setExpandedGroups((prev) => {
@@ -702,6 +729,50 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
             nav[data-tour="sidebar"]::-webkit-scrollbar-track { background: transparent; }
             nav[data-tour="sidebar"]::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
           `}</style>
+
+          {/* ピン留めセクション */}
+          {favorites.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 px-2.5 py-2 text-[10px] font-semibold tracking-[1.5px] uppercase text-white/30">
+                <Star className="w-3 h-3 text-amber-500/60" />
+                <span className="flex-shrink-0">ピン留め</span>
+                <span className="flex-1 h-px bg-gradient-to-r from-amber-800/15 to-transparent" />
+              </div>
+              <ul className="space-y-0.5">
+                {favorites.map((fav) => {
+                  const isActive = pathname === fav.path || pathname.startsWith(fav.path + "/");
+                  return (
+                    <li key={fav.id}>
+                      <Link
+                        href={fav.path}
+                        className={cn(
+                          "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
+                          isActive
+                            ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
+                            : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                        )}
+                      >
+                        {isActive && (
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                        )}
+                        <Star
+                          className={cn(
+                            "w-4 h-4 flex-shrink-0 transition-colors",
+                            isActive
+                              ? "text-amber-500"
+                              : "text-amber-600/40 group-hover:text-amber-600/70"
+                          )}
+                          fill="currentColor"
+                        />
+                        <span className="truncate flex-1">{fav.label}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
           {NAV_SECTIONS.map((section) => {
             const visibleItems = section.items.filter((item) => {
               if (!hasMinRole(user.role, item.minRole)) return false;

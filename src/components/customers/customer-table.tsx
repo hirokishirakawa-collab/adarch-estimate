@@ -11,8 +11,8 @@ import {
   DEAL_STATUS_OPTIONS,
 } from "@/lib/constants/crm";
 import type { UserRole } from "@/types/roles";
-import { Lock, ChevronRight, Phone, Mail, Trash2 } from "lucide-react";
-import { deleteCustomers } from "@/lib/actions/customer";
+import { Lock, ChevronRight, Phone, Mail, Trash2, RefreshCw } from "lucide-react";
+import { deleteCustomers, bulkUpdateCustomerStatus } from "@/lib/actions/customer";
 import {
   AlertDialogRoot,
   AlertDialogTrigger,
@@ -173,6 +173,19 @@ export function CustomerTable({ customers, userRole, userBranchId }: Props) {
     });
   };
 
+  const handleBulkStatusChange = (newStatus: string) => {
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      const result = await bulkUpdateCustomerStatus(ids, newStatus);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(`${result.updated}件のステータスを変更しました`);
+        setSelectedIds(new Set());
+      }
+    });
+  };
+
   if (customers.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-zinc-200 py-16 text-center">
@@ -184,54 +197,88 @@ export function CustomerTable({ customers, userRole, userBranchId }: Props) {
 
   return (
     <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-      {/* ADMIN 用 一括削除ツールバー */}
-      {isAdmin && selectedIds.size > 0 && (
-        <div className="flex items-center justify-between px-4 py-2.5 bg-red-50 border-b border-red-100">
-          <p className="text-sm font-medium text-red-700">
-            {selectedIds.size}件を選択中
+      {/* 一括操作ツールバー */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between px-4 py-2.5 bg-blue-50 border-b border-blue-100">
+          <p className="text-sm font-medium text-blue-700">
+            {selectedIds.size}件選択中
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="ml-2 text-xs text-blue-500 hover:text-blue-700 underline"
+            >
+              選択解除
+            </button>
           </p>
-          <AlertDialogRoot>
-            <AlertDialogTrigger asChild>
-              <button
+          <div className="flex items-center gap-2">
+            {/* ステータス一括変更 */}
+            <div className="flex items-center gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
+              <select
                 disabled={isPending}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+                defaultValue=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleBulkStatusChange(e.target.value);
+                    e.target.value = "";
+                  }
+                }}
+                className="text-xs border border-blue-200 rounded-lg px-2 py-1.5 bg-white text-zinc-700 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 cursor-pointer"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                {selectedIds.size}件を削除
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle className="text-base font-bold text-zinc-900">
-                  顧客データを削除しますか？
-                </AlertDialogTitle>
-                <AlertDialogDescription className="text-sm text-zinc-500">
-                  選択した{" "}
-                  <span className="font-semibold text-red-600">
-                    {selectedIds.size}件
-                  </span>{" "}
-                  の顧客データ（商談・活動履歴を含む）を完全に削除します。
-                  <br />
-                  この操作は取り消せません。
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel asChild>
-                  <button className="px-4 py-2 text-sm text-zinc-600 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors">
-                    キャンセル
-                  </button>
-                </AlertDialogCancel>
-                <AlertDialogAction asChild>
+                <option value="">ステータス変更...</option>
+                {CUSTOMER_STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 一括削除（ADMIN のみ） */}
+            {isAdmin && (
+              <AlertDialogRoot>
+                <AlertDialogTrigger asChild>
                   <button
-                    onClick={handleDelete}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                    disabled={isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
                   >
-                    削除する
+                    <Trash2 className="w-3.5 h-3.5" />
+                    削除
                   </button>
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialogRoot>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-base font-bold text-zinc-900">
+                      顧客データを削除しますか？
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-sm text-zinc-500">
+                      選択した{" "}
+                      <span className="font-semibold text-red-600">
+                        {selectedIds.size}件
+                      </span>{" "}
+                      の顧客データ（商談・活動履歴を含む）を完全に削除します。
+                      <br />
+                      この操作は取り消せません。
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel asChild>
+                      <button className="px-4 py-2 text-sm text-zinc-600 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors">
+                        キャンセル
+                      </button>
+                    </AlertDialogCancel>
+                    <AlertDialogAction asChild>
+                      <button
+                        onClick={handleDelete}
+                        className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                      >
+                        削除する
+                      </button>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialogRoot>
+            )}
+          </div>
         </div>
       )}
 
@@ -239,21 +286,19 @@ export function CustomerTable({ customers, userRole, userBranchId }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-100 bg-zinc-50">
-              {/* チェックボックス列（ADMIN のみ） */}
-              {isAdmin && (
-                <th className="px-4 py-3 w-10">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    ref={(el) => {
-                      if (el) el.indeterminate = someSelected;
-                    }}
-                    onChange={toggleAll}
-                    className="w-4 h-4 rounded border-zinc-300 text-blue-600 cursor-pointer"
-                    aria-label="全選択"
-                  />
-                </th>
-              )}
+              {/* チェックボックス列 */}
+              <th className="px-4 py-3 w-10">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected;
+                  }}
+                  onChange={toggleAll}
+                  className="w-4 h-4 rounded border-zinc-300 text-blue-600 cursor-pointer"
+                  aria-label="全選択"
+                />
+              </th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-52">
                 顧客名
               </th>
@@ -303,21 +348,19 @@ export function CustomerTable({ customers, userRole, userBranchId }: Props) {
                   key={customer.id}
                   className={cn(
                     "hover:bg-zinc-50 transition-colors",
-                    isSelected && "bg-red-50 hover:bg-red-50"
+                    isSelected && "bg-blue-50 hover:bg-blue-50"
                   )}
                 >
-                  {/* チェックボックス（ADMIN のみ） */}
-                  {isAdmin && (
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleOne(customer.id)}
-                        className="w-4 h-4 rounded border-zinc-300 text-blue-600 cursor-pointer"
-                        aria-label={`${customer.name}を選択`}
-                      />
-                    </td>
-                  )}
+                  {/* チェックボックス */}
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleOne(customer.id)}
+                      className="w-4 h-4 rounded border-zinc-300 text-blue-600 cursor-pointer"
+                      aria-label={`${customer.name}を選択`}
+                    />
+                  </td>
 
                   {/* 顧客名 */}
                   <td className="px-4 py-3">

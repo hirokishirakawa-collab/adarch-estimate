@@ -55,6 +55,11 @@ export default async function DealDetailPage({ params }: PageProps) {
 
   if (!deal) notFound();
 
+  // 受注済みの場合、紐づくプロジェクトを取得
+  const linkedProject = deal.status === "CLOSED_WON"
+    ? await db.project.findFirst({ where: { dealId: deal.id }, select: { id: true, title: true } })
+    : null;
+
   const statusOpt = DEAL_STATUS_OPTIONS.find((o) => o.value === deal.status);
   const branchInfo = BRANCH_MAP[deal.branchId as keyof typeof BRANCH_MAP] ?? null;
 
@@ -173,6 +178,24 @@ export default async function DealDetailPage({ params }: PageProps) {
           )}
         </div>
       </div>
+
+      {/* ─── 紐づくプロジェクト ─── */}
+      {linkedProject && (
+        <Link
+          href={`/dashboard/projects/${linkedProject.id}`}
+          className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl border border-violet-200 bg-violet-50
+                     hover:bg-violet-100 hover:border-violet-300 transition-colors"
+        >
+          <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-violet-100 text-violet-600">
+            <Building2 className="w-4 h-4" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-violet-500 uppercase tracking-wider">プロジェクト</p>
+            <p className="text-sm font-medium text-violet-900 truncate">{linkedProject.title}</p>
+          </div>
+          <ChevronLeft className="w-4 h-4 text-violet-400 rotate-180" />
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         {/* ─── 左カラム: メモ + ヒアリング ─── */}

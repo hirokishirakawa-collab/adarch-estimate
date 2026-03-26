@@ -13,6 +13,7 @@ import { LeadDeleteAllButton } from "@/components/leads/lead-delete-all-button";
 import { LeadExportButtons } from "@/components/leads/lead-export-buttons";
 import { LeadCsvImport } from "@/components/leads/lead-csv-import";
 import type { UserRole } from "@/types/roles";
+import { FavoriteButton } from "@/components/layout/favorite-button";
 
 const PER_PAGE = 20;
 
@@ -159,7 +160,10 @@ export default async function LeadListPage({ searchParams }: PageProps) {
             />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-zinc-900">リード管理</h2>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-lg font-bold text-zinc-900">リード管理</h2>
+              <FavoriteButton path="/dashboard/leads/list" label="リード管理" />
+            </div>
             <p className="text-xs text-zinc-500 mt-0.5">
               リード獲得AIで取得した営業候補のステータス管理
             </p>

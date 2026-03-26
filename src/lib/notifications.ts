@@ -1718,3 +1718,56 @@ export async function sendGroupWeeklyReportEmail(
     `🔗 ${dashboardUrl}`,
   ].join("\n")).catch(() => {});
 }
+
+// ---------------------------------------------------------------
+// アプリ内通知
+// ---------------------------------------------------------------
+
+/** アプリ内通知を作成 */
+export async function createInAppNotification(params: {
+  userId: string;
+  type: string;
+  title: string;
+  message?: string;
+  linkUrl?: string;
+}) {
+  try {
+    await db.notification.create({
+      data: {
+        userId: params.userId,
+        type: params.type as any,
+        title: params.title,
+        message: params.message,
+        linkUrl: params.linkUrl,
+      },
+    });
+  } catch (e) {
+    console.error("[createInAppNotification]", e);
+  }
+}
+
+/** 全ADMINにアプリ内通知 */
+export async function notifyAdmins(params: {
+  type: string;
+  title: string;
+  message?: string;
+  linkUrl?: string;
+}) {
+  try {
+    const admins = await db.user.findMany({
+      where: { role: "ADMIN" },
+      select: { id: true },
+    });
+    await db.notification.createMany({
+      data: admins.map((a) => ({
+        userId: a.id,
+        type: params.type as any,
+        title: params.title,
+        message: params.message,
+        linkUrl: params.linkUrl,
+      })),
+    });
+  } catch (e) {
+    console.error("[notifyAdmins]", e);
+  }
+}

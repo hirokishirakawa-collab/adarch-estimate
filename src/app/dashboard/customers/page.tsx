@@ -11,6 +11,7 @@ import type { CustomerRank, CustomerStatus } from "@/generated/prisma/client";
 import { CustomerSearch } from "@/components/customers/customer-search";
 import { CustomerTable } from "@/components/customers/customer-table";
 import { CustomerPagination } from "@/components/customers/customer-pagination";
+import { FavoriteButton } from "@/components/layout/favorite-button";
 
 const PER_PAGE = 20;
 
@@ -108,7 +109,10 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-zinc-900">顧客管理 (CRM)</h2>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-lg font-bold text-zinc-900">顧客管理 (CRM)</h2>
+              <FavoriteButton path="/dashboard/customers" label="顧客管理" />
+            </div>
             <p className="text-xs text-zinc-500 mt-0.5">
               全拠点の顧客データを一元表示
               {role !== "ADMIN" && " — 他拠点の商談金額は非表示"}

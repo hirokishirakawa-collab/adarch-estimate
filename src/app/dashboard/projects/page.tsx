@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import Link from "next/link";
 import { Plus, FolderKanban } from "lucide-react";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
+import { FavoriteButton } from "@/components/layout/favorite-button";
 import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import type { UserRole } from "@/types/roles";
@@ -75,7 +76,10 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
             />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-zinc-900">プロジェクト管理</h2>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-lg font-bold text-zinc-900">プロジェクト管理</h2>
+              <FavoriteButton path="/dashboard/projects" label="プロジェクト管理" />
+            </div>
             <p className="text-xs text-zinc-500 mt-0.5">受注案件の進行状況を一元管理</p>
             <WikiHelpLink query="案件管理" />
           </div>
