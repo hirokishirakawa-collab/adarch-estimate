@@ -97,20 +97,23 @@ export default async function DashboardPage() {
 
   // ── 月次報告チェック（ADMIN以外） ──
   let reportWarning: string | null = null;
+  let reportUrgent = false;
   if (role !== "ADMIN") {
     const user = await db.user.findUnique({
       where: { email: session?.user?.email ?? "" },
       select: { id: true },
     });
     if (user) {
-      // 当月の報告があるかチェック
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const report = await db.revenueReport.findFirst({
         where: { createdById: user.id, targetMonth: currentMonth },
       });
       if (!report) {
-        // 月の後半（16日以降）で未提出なら警告
-        if (now.getDate() >= 16) {
+        const day = now.getDate();
+        if (day >= 25) {
+          reportWarning = `${now.getMonth() + 1}月の月次報告が未提出です。月末までに提出しないとアカウントが停止されます。`;
+          reportUrgent = true;
+        } else if (day >= 16) {
           reportWarning = `${now.getMonth() + 1}月の月次報告が未提出です。月末までに提出してください。`;
         }
       }
@@ -150,18 +153,24 @@ export default async function DashboardPage() {
       {reportWarning && (
         <Link
           href="/dashboard/sales-report/new"
-          className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 hover:bg-amber-100 transition group"
+          className={`flex items-center gap-3 rounded-xl border px-5 py-3 transition group ${
+            reportUrgent
+              ? "border-red-300 bg-red-50 hover:bg-red-100"
+              : "border-amber-300 bg-amber-50 hover:bg-amber-100"
+          }`}
         >
-          <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
-            <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${reportUrgent ? "bg-red-100" : "bg-amber-100"}`}>
+            <svg className={`w-4 h-4 ${reportUrgent ? "text-red-600" : "text-amber-600"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-amber-800">{reportWarning}</p>
-            <p className="text-xs text-amber-600 mt-0.5">未提出が続くとアカウントが一時停止される場合があります</p>
+            <p className={`text-sm font-bold ${reportUrgent ? "text-red-800" : "text-amber-800"}`}>{reportWarning}</p>
+            <p className={`text-xs mt-0.5 ${reportUrgent ? "text-red-600" : "text-amber-600"}`}>
+              {reportUrgent ? "翌月1日に自動でアカウントが停止されます" : "未提出が続くとアカウントが一時停止されます"}
+            </p>
           </div>
-          <span className="text-xs text-amber-600 font-semibold group-hover:translate-x-0.5 transition-transform flex-shrink-0">提出する →</span>
+          <span className={`text-xs font-semibold group-hover:translate-x-0.5 transition-transform flex-shrink-0 ${reportUrgent ? "text-red-600" : "text-amber-600"}`}>提出する →</span>
         </Link>
       )}
 
