@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
+
+  const limited = checkRateLimit(session.user.email!, "business-cards/ocr", AI_RATE_LIMIT);
+  if (limited) return limited;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {

@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { db as prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 const anthropic = new Anthropic();
 
@@ -10,6 +11,9 @@ export async function POST(req: Request) {
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = checkRateLimit(session.user.email!, "studio/sns-formats/analyze", AI_RATE_LIMIT);
+  if (limited) return limited;
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
   if (!user?.branchId) {

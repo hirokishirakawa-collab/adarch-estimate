@@ -7,6 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -18,6 +19,9 @@ export async function POST(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = checkRateLimit(session.user?.email ?? "unknown", "portfolio/ai-search", AI_RATE_LIMIT);
+  if (limited) return limited;
 
   const { query } = (await req.json()) as { query: string };
   if (!query?.trim()) {

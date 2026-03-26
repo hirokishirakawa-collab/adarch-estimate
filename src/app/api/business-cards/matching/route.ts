@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 const TTL_DAYS = 7;
 
@@ -10,6 +11,9 @@ export async function GET(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
+
+  const limited = checkRateLimit(session.user.email!, "business-cards/matching", AI_RATE_LIMIT);
+  if (limited) return limited;
 
   const { searchParams } = new URL(request.url);
   const companyName = searchParams.get("company");
