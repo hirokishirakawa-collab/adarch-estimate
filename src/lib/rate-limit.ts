@@ -67,8 +67,8 @@ export const SCRAPE_RATE_LIMIT: RateLimitConfig = {
 /** ユーザーあたり全AI API合計の日次上限（デフォルト: 30回/日） */
 const USER_DAILY_TOTAL_LIMIT = getEnvNumber("RATE_LIMIT_USER_DAILY_TOTAL", 30);
 
-/** システム全体の日次上限（デフォルト: 500回/日） */
-const GLOBAL_DAILY_LIMIT = getEnvNumber("RATE_LIMIT_GLOBAL_DAILY", 500);
+/** システム全体の日次上限（デフォルト: 200回/日） */
+const GLOBAL_DAILY_LIMIT = getEnvNumber("RATE_LIMIT_GLOBAL_DAILY", 200);
 
 // === チェック関数 ===
 

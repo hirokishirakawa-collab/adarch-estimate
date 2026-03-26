@@ -5,11 +5,12 @@ import { SignJWT } from "jose";
 export const runtime = "nodejs";
 
 const googleClient = new OAuth2Client();
+// モバイル OAuth Client ID は環境変数で設定推奨（GOOGLE_IOS_CLIENT_ID, GOOGLE_ANDROID_CLIENT_ID）
 const ALLOWED_AUDIENCES = [
   process.env.GOOGLE_CLIENT_ID!,
-  process.env.GOOGLE_IOS_CLIENT_ID ?? "819989589315-p09ne6mkli1fkmokh24ail0m68bh02kb.apps.googleusercontent.com",
-  process.env.GOOGLE_ANDROID_CLIENT_ID ?? "819989589315-7tkei76qbgdjla04a2u38ivqfa6ls2u7.apps.googleusercontent.com",
-].filter(Boolean);
+  process.env.GOOGLE_IOS_CLIENT_ID,
+  process.env.GOOGLE_ANDROID_CLIENT_ID,
+].filter((v): v is string => !!v);
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN ?? "adarch.co.jp";
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .split(",")

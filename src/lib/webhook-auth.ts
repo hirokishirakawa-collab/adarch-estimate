@@ -3,8 +3,15 @@
 // ==============================================================
 
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 
 const API_KEY = process.env.GROUP_SUPPORT_API_KEY;
+
+/** タイミングセーフな文字列比較 */
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 /**
  * x-api-key ヘッダーを検証する。
@@ -22,7 +29,7 @@ export function verifyWebhookApiKey(
   }
 
   const provided = req.headers.get("x-api-key");
-  if (!provided || provided !== API_KEY) {
+  if (!provided || !safeCompare(provided, API_KEY)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

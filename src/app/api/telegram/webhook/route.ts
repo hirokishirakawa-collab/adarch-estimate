@@ -19,9 +19,18 @@ Markdownフォーマット（太字、コードブロック等）はTelegramで�
 // 会話履歴（メモリ内、プロセス再起動でリセット）
 const conversations = new Map<
   number,
-  { role: "user" | "assistant"; content: string }[]
+  { messages: { role: "user" | "assistant"; content: string }[]; lastAccess: number }
 >();
 const MAX_HISTORY = 20;
+const CONVERSATION_TTL = 24 * 60 * 60 * 1000; // 24時間
+
+/** 古い会話を削除 */
+function cleanupConversations() {
+  const now = Date.now();
+  for (const [userId, conv] of conversations) {
+    if (now - conv.lastAccess > CONVERSATION_TTL) conversations.delete(userId);
+  }
+}
 
 /** 許可ユーザーチェック */
 function isAllowedUser(userId: number): boolean {
@@ -98,8 +107,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    // 古い会話を定期クリーンアップ
+    cleanupConversations();
+
     // 会話履歴を取得
-    const history = conversations.get(chatId) ?? [];
+    const conv = conversations.get(chatId);
+    const history = conv?.messages ?? [];
     history.push({ role: "user", content: text });
 
     // 履歴が長すぎたら古いものを削除
@@ -123,7 +136,7 @@ export async function POST(req: NextRequest) {
 
     // 履歴に追加して保存
     history.push({ role: "assistant", content: reply });
-    conversations.set(chatId, history);
+    conversations.set(chatId, { messages: history, lastAccess: Date.now() });
 
     // Telegramに返信
     await sendTelegramMessage(chatId, reply);
