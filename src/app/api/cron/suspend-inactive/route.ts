@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     if (!report) {
       await db.user.update({
         where: { id: user.id },
-        data: { isActive: false },
+        data: { isActive: false, suspendCount: { increment: 1 } },
       });
       suspended.push(user.email);
       logAudit({

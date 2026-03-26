@@ -14,6 +14,7 @@ type UserRow = {
   email: string;
   role: string;
   isActive: boolean;
+  suspendCount: number;
   branchId:  string | null;
   branchId2: string | null;
   groupCompanyId: string | null;
@@ -416,7 +417,14 @@ export function UserTable({ users, callerEmail, groupCompanies }: Props) {
 
                   {/* 状態 */}
                   <td className="px-4 py-3 text-center">
-                    <ActiveToggle userId={user.id} isActive={user.isActive} disabled={isSelf} />
+                    <div className="flex items-center justify-center gap-1.5">
+                      <ActiveToggle userId={user.id} isActive={user.isActive} disabled={isSelf} />
+                      {user.suspendCount > 0 && (
+                        <span className="text-[10px] text-red-400 font-medium" title="累計停止回数">
+                          {user.suspendCount}回
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* 機能許可 */}

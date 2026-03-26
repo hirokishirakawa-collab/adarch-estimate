@@ -224,7 +224,10 @@ export async function toggleUserActive(
   try {
     await db.user.update({
       where: { id: userId },
-      data: { isActive: newState },
+      data: {
+        isActive: newState,
+        ...(newState === false ? { suspendCount: { increment: 1 } } : {}),
+      },
     });
     logAudit({
       action: "user_active_toggled",
