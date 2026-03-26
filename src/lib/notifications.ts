@@ -23,7 +23,7 @@ import { db } from "./db";
 const FROM_ADDRESS = `Ad-Arch Group <${process.env.GMAIL_USER ?? "hiroki.shirakawa@adarch.co.jp"}>`;
 
 /** 案件進捗スペース（顧客管理・商談通知の送信先） */
-const DEAL_CHAT_SPACE_ID = "AAQAp6XvXqE";
+const DEAL_CHAT_SPACE_ID = process.env.DEAL_CHAT_SPACE_ID ?? "AAQAp6XvXqE";
 
 /** ユーザーの個人 Chat スペース ID を DB から取得（未設定なら null） */
 async function getUserChatSpaceId(email: string): Promise<string | null> {
@@ -766,7 +766,7 @@ export async function sendEstimateNotification(
     `🔗 ${appUrl(`/dashboard/estimates/${payload.estimationId}`)}`,
   ].join("\n");
   notifyCeo(chatText).catch(() => {});
-  sendChatMessage("AAQAxSqou_g", chatText).catch(() => {});
+  sendChatMessage(process.env.SECURITY_CHAT_SPACE_ID ?? "AAQAxSqou_g", chatText).catch(() => {});
 }
 
 function buildEstimateEmail(payload: EstimateNotificationPayload): {

@@ -65,7 +65,7 @@ const ALERT_ACTIONS = new Set([
 ]);
 
 /** セキュリティ通知先スペース */
-const SECURITY_CHAT_SPACE_ID = "AAQAxSqou_g";
+const SECURITY_CHAT_SPACE_ID = process.env.SECURITY_CHAT_SPACE_ID ?? "AAQAxSqou_g";
 
 /**
  * 監査ログを記録 + 重要度の高いイベントは Google Chat に即時通知
@@ -165,7 +165,13 @@ export default auth((req: NextAuthRequest) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 3. ロールベースのアクセス制御
+  // 3. アカウント停止チェック（API呼び出しもブロック）
+  const isActive = session.user?.isActive ?? true;
+  if (!isActive && pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
+    return NextResponse.json({ error: "Account suspended" }, { status: 403 });
+  }
+
+  // 4. ロールベースのアクセス制御
   const userRole = session.user?.role as UserRole | undefined;
   const userEmail = session.user?.email ?? "unknown";
 

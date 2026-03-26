@@ -71,7 +71,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           const { sendChatMessage } = await import("@/lib/google-chat");
           const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-          await sendChatMessage("AAQAxSqou_g", [
+          await sendChatMessage(process.env.SECURITY_CHAT_SPACE_ID ?? "AAQAxSqou_g", [
             `🚨 不正ログイン試行検知`,
             `時刻: ${now}`,
             `メール: ${profile.email}`,

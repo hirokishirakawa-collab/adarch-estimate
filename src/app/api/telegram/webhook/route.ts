@@ -66,6 +66,19 @@ async function sendTelegramMessage(
   }
 }
 
+/** ユーザー別レートリミット（10 msg/min） */
+const msgCounts = new Map<number, { count: number; resetAt: number }>();
+function checkTelegramRateLimit(userId: number): boolean {
+  const now = Date.now();
+  const entry = msgCounts.get(userId);
+  if (!entry || entry.resetAt < now) {
+    msgCounts.set(userId, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= 10;
+}
+
 export async function POST(req: NextRequest) {
   if (!TELEGRAM_BOT_TOKEN || !ANTHROPIC_API_KEY) {
     console.error("[telegram] Missing TELEGRAM_BOT_TOKEN or ANTHROPIC_API_KEY");
@@ -78,6 +91,11 @@ export async function POST(req: NextRequest) {
     // テキストメッセージのみ処理
     const message = update.message;
     if (!message?.text) {
+      return NextResponse.json({ ok: true });
+    }
+
+    // レートリミット
+    if (!checkTelegramRateLimit(message.from?.id ?? 0)) {
       return NextResponse.json({ ok: true });
     }
 

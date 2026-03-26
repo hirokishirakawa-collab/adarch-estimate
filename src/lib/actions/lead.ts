@@ -12,7 +12,7 @@ import type { LeadStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 
 // Chat通知先スペースID
-const LEAD_CHAT_SPACE_ID = "AAQAp6XvXqE";
+const LEAD_CHAT_SPACE_ID = process.env.DEAL_CHAT_SPACE_ID ?? "AAQAp6XvXqE";
 
 // ---------------------------------------------------------------
 // 検索結果をリードとして一括保存する
