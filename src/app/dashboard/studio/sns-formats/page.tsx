@@ -51,7 +51,7 @@ export default async function SnsFormatsPage() {
       <VideoAnalyzer />
 
       {/* Format Gallery */}
-      <FormatGallery initialFormats={JSON.parse(JSON.stringify(formats))} />
+      <FormatGallery initialFormats={JSON.parse(JSON.stringify(formats))} isAdmin={user.role === "ADMIN"} />
     </div>
   );
 }

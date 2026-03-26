@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, Calendar, ExternalLink, Copy, Check, ArrowUpDown, Terminal, ChevronDown, X, Play, FileText, Printer } from "lucide-react";
+import { Eye, Calendar, ExternalLink, Copy, Check, ArrowUpDown, Terminal, ChevronDown, X, Play, FileText, Printer, Trash2 } from "lucide-react";
 
 type ReferenceFormat = {
   id: string;
@@ -41,13 +41,15 @@ const INDUSTRY_COLORS: Record<string, string> = {
   general: "bg-zinc-100 text-zinc-700",
 };
 
-export function FormatGallery({ initialFormats }: { initialFormats: ReferenceFormat[] }) {
-  const [formats] = useState(initialFormats);
+export function FormatGallery({ initialFormats, isAdmin = false }: { initialFormats: ReferenceFormat[]; isAdmin?: boolean }) {
+  const [formats, setFormats] = useState(initialFormats);
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortAsc, setSortAsc] = useState(false);
   const [filterIndustry, setFilterIndustry] = useState<string | null>(null);
   const [selectedFormat, setSelectedFormat] = useState<ReferenceFormat | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   if (formats.length === 0) return null;
 
@@ -104,6 +106,43 @@ ${st.map((s: any, i: number) => `   ${i + 1}. ${s.label} — ${s.duration}`).joi
     navigator.clipboard.writeText(genCommand(f));
     setCopiedId(f.id);
     setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  function toggleSelect(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === sorted.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sorted.map((f) => f.id)));
+    }
+  }
+
+  async function deleteSelected() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`${selectedIds.size}件のフォーマットを削除しますか？`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/studio/sns-formats", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selectedIds] }),
+      });
+      if (!res.ok) throw new Error("削除に失敗しました");
+      setFormats((prev) => prev.filter((f) => !selectedIds.has(f.id)));
+      setSelectedIds(new Set());
+    } catch {
+      alert("削除に失敗しました");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function genShootGuide(f: ReferenceFormat) {
@@ -246,6 +285,24 @@ ${f.shootingTips ? '<div class="section"><h2>撮影のコツ</h2><div class="rul
         </div>
       </div>
 
+      {/* Selection bar */}
+      {isAdmin && selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+          <span className="text-sm text-red-700 font-medium">{selectedIds.size}件選択中</span>
+          <button onClick={toggleSelectAll} className="text-xs text-red-500 hover:text-red-700 underline">
+            {selectedIds.size === sorted.length ? "選択解除" : "全選択"}
+          </button>
+          <button
+            onClick={deleteSelected}
+            disabled={deleting}
+            className="ml-auto flex items-center gap-1.5 text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 disabled:opacity-50 transition font-medium"
+          >
+            <Trash2 className="w-3 h-3" />
+            {deleting ? "削除中..." : "削除"}
+          </button>
+        </div>
+      )}
+
       {/* Card Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {sorted.map((f) => {
@@ -254,10 +311,23 @@ ${f.shootingTips ? '<div class="section"><h2>撮影のコツ</h2><div class="rul
             <div
               key={f.id}
               onClick={() => setSelectedFormat(f)}
-              className="bg-white rounded-xl border border-zinc-200 overflow-hidden cursor-pointer transition hover:border-fuchsia-300 hover:shadow-lg hover:-translate-y-0.5 group"
+              className={`bg-white rounded-xl border overflow-hidden cursor-pointer transition hover:border-fuchsia-300 hover:shadow-lg hover:-translate-y-0.5 group ${
+                selectedIds.has(f.id) ? "border-red-400 ring-2 ring-red-200" : "border-zinc-200"
+              }`}
             >
               {/* Thumbnail */}
               <div className="h-44 relative overflow-hidden bg-zinc-100">
+                {isAdmin && (
+                  <div className="absolute top-2 left-2 z-20" onClick={(e) => toggleSelect(f.id, e)}>
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition cursor-pointer ${
+                      selectedIds.has(f.id)
+                        ? "bg-red-500 border-red-500 text-white"
+                        : "border-white/70 bg-black/20 backdrop-blur-sm hover:border-white"
+                    }`}>
+                      {selectedIds.has(f.id) && <Check className="w-3 h-3" />}
+                    </div>
+                  </div>
+                )}
                 {f.thumbnailBase64 ? (
                   <img src={f.thumbnailBase64} alt={f.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                 ) : (
