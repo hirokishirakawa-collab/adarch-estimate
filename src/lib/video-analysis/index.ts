@@ -143,6 +143,7 @@ export async function runAnalysisPipeline(
     console.log(`[analysis] Found ${candidates.length} candidate frames, sending to AI for judgment...`);
 
     // Step 5b: AI判定 — Claude Vision で意図的な修正かどうかを精査
+    const hasDurationChange = durationDiff > 0.5;
     if (candidates.length > 0) {
       const aiChanges = await judgeChangesWithAI(
         candidates.map((c) => ({
@@ -150,7 +151,11 @@ export async function runAnalysisPipeline(
           beforeFramePath: c.beforeFrame,
           afterFramePath: c.afterFrame,
           diffRatio: c.diffRatio,
-        }))
+        })),
+        {
+          hasDurationChange,
+          durationDiff: afterMeta.duration - beforeMeta.duration,
+        }
       );
 
       console.log(`[analysis] AI confirmed ${aiChanges.length} intentional changes`);

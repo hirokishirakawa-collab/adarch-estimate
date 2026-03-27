@@ -24,21 +24,35 @@ interface AiJudgment {
  */
 export async function judgeChangesWithAI(
   framePairs: FramePair[],
+  context?: { hasDurationChange: boolean; durationDiff?: number },
   maxBatchSize: number = 5
 ): Promise<DetectedChange[]> {
   const changes: DetectedChange[] = [];
 
-  // バッチ処理（1リクエストに最大5ペア）
   for (let i = 0; i < framePairs.length; i += maxBatchSize) {
     const batch = framePairs.slice(i, i + maxBatchSize);
-    const batchResults = await judgeBatch(batch);
+    const batchResults = await judgeBatch(batch, context);
     changes.push(...batchResults);
   }
 
   return changes;
 }
 
-async function judgeBatch(pairs: FramePair[]): Promise<DetectedChange[]> {
+async function judgeBatch(
+  pairs: FramePair[],
+  context?: { hasDurationChange: boolean; durationDiff?: number }
+): Promise<DetectedChange[]> {
+  const durationNote = context?.hasDurationChange
+    ? `\n\n重要な前提条件：
+この動画は尺変更（${context.durationDiff && context.durationDiff > 0 ? "+" : ""}${context.durationDiff?.toFixed(1)}秒）が検出されています。
+尺変更により、以下のような「見かけ上の差分」が発生します。これらは意図的な修正ではないため、NONEとして扱ってください：
+- テロップやオブジェクトのタイミングのズレ（内容は同一だが表示タイミングが前後にシフト）
+- フレーム位置のズレによる映像の微妙な違い
+- 同じテロップが少し早く/遅く表示されているだけのケース
+
+報告すべきは、テロップの「内容自体」が変わっている場合や、映像素材が別のものに差し替えられている場合など、尺変更では説明できない変更のみです。`
+    : "";
+
   const content: Anthropic.Messages.ContentBlockParam[] = [
     {
       type: "text",
@@ -48,15 +62,15 @@ async function judgeBatch(pairs: FramePair[]): Promise<DetectedChange[]> {
 以下のルールに従ってください：
 - エンコード差やノイズ（圧縮アーティファクト）は無視してください
 - 意図的な修正のみを報告してください
-- 各ペアについてJSON形式で回答してください
+- 各ペアについてJSON形式で回答してください${durationNote}
 
 修正の種類：
-- TELOP: テロップ・字幕・テキストの追加・変更・削除
+- TELOP: テロップ・字幕・テキストの内容変更（文字の追加・削除・書き換え）
 - CUT_REPLACE: カット（映像素材）の差し替え
 - COLOR: カラーグレーディング・色味の変更
 - ANIMATION: アニメーション・動きの変更
 - OTHER: その他の意図的な変更
-- NONE: 意図的な変更なし（ノイズ・圧縮差のみ）
+- NONE: 意図的な変更なし（ノイズ・圧縮差・タイミングズレのみ）
 
 ${pairs.length}組のフレームペアを比較してください。回答は以下のJSON配列のみ（説明不要）：
 [{"index": 0, "type": "TELOP", "description": "画面下部にテロップ「○○」が追加", "confidence": 0.95}, ...]`,
