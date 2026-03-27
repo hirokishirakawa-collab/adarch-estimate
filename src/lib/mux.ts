@@ -41,7 +41,7 @@ export async function createDirectUpload(): Promise<{
   const upload = await mux.video.uploads.create({
     new_asset_settings: {
       playback_policy: ["public"],
-      encoding_tier: "baseline",
+      encoding_tier: "smart",
       mp4_support: "standard",
     },
     cors_origin: "*",
