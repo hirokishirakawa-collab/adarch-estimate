@@ -26,6 +26,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src/generated ./src/generated
 COPY --from=builder /app/src/lib/video-analysis/scripts ./src/lib/video-analysis/scripts
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
 
 EXPOSE 8080
 ENV HOSTNAME="0.0.0.0"
