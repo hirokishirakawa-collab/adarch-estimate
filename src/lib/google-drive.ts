@@ -4,7 +4,7 @@
  * サービスアカウント + ドメイン全体委任でDrive APIにアクセス。
  * 環境変数:
  *   GOOGLE_SERVICE_ACCOUNT_JSON  サービスアカウントのJSONキー
- *   GOOGLE_DRIVE_FOLDER_ID       保存先フォルダID（共有ドライブ or マイドライブ）
+ *   VIDEO_REVIEW_DRIVE_FOLDER_ID       保存先フォルダID（共有ドライブ or マイドライブ）
  *   ADMIN_EMAILS                 委任ユーザーのメール（カンマ区切り、最初の1つを使用）
  */
 
@@ -31,8 +31,8 @@ function getDriveClient() {
 }
 
 function getFolderId(): string {
-  const id = process.env.GOOGLE_DRIVE_FOLDER_ID;
-  if (!id) throw new Error("GOOGLE_DRIVE_FOLDER_ID が未設定");
+  const id = process.env.VIDEO_REVIEW_DRIVE_FOLDER_ID;
+  if (!id) throw new Error("VIDEO_REVIEW_DRIVE_FOLDER_ID が未設定");
   return id;
 }
 
