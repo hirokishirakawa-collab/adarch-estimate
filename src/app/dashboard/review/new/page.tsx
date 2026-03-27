@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { getSessionInfo, getBranchFilter } from "@/lib/session";
+import { getSessionInfo } from "@/lib/session";
 import { ArrowLeft } from "lucide-react";
 import { UploadForm } from "@/components/review/upload-form";
 
@@ -9,11 +9,8 @@ export default async function NewReviewPage() {
   const info = await getSessionInfo();
   if (!info) redirect("/login");
 
-  const branchFilter = getBranchFilter(info);
-
   const projects = await db.project.findMany({
     where: {
-      ...branchFilter,
       status: { in: ["IN_PROGRESS", "ORDERED", "COMPLETED"] },
     },
     orderBy: { createdAt: "desc" },
