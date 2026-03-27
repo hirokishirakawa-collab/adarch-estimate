@@ -14,7 +14,7 @@ export default async function NewReviewPage() {
   const projects = await db.project.findMany({
     where: {
       ...branchFilter,
-      status: { in: ["IN_PROGRESS", "ORDERED"] },
+      status: { in: ["IN_PROGRESS", "ORDERED", "COMPLETED"] },
     },
     orderBy: { createdAt: "desc" },
     select: {
