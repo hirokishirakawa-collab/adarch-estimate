@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { redirect } from "next/navigation";
+import { getThumbnailUrl } from "@/lib/mux";
 import {
   Plus,
   Film,
@@ -37,7 +38,7 @@ export default async function ReviewListPage() {
       reviews: {
         orderBy: { version: "desc" },
         take: 1,
-        select: { version: true, status: true, totalChanges: true },
+        select: { version: true, status: true, totalChanges: true, afterVideoPath: true },
       },
     },
   });
@@ -95,15 +96,31 @@ export default async function ReviewListPage() {
               ? STATUS_CONFIG[latest.status] ?? STATUS_CONFIG.COMPLETED
               : STATUS_CONFIG.COMPLETED;
             const Icon = config.icon;
+            const playbackId = latest?.afterVideoPath;
+            const thumbnail = playbackId && !playbackId.includes("/")
+              ? getThumbnailUrl(playbackId, { time: 2, width: 160 })
+              : null;
 
             return (
               <Link
                 key={project.id}
                 href={`/review/${project.id}`}
-                className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900 transition-all group"
+                className="flex items-center gap-4 px-4 py-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900 transition-all group"
               >
-                <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center flex-shrink-0 group-hover:bg-zinc-700 transition-colors">
-                  <Film className="w-5 h-5 text-zinc-500" />
+                {/* Thumbnail */}
+                <div className="w-24 h-14 rounded-lg bg-zinc-800 flex-shrink-0 overflow-hidden">
+                  {thumbnail ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={thumbnail}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Film className="w-5 h-5 text-zinc-700" />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">
