@@ -235,7 +235,6 @@ const NAV_SECTIONS: NavSection[] = [
         label: "動画カット表AI",
         icon: Film,
         minRole: "USER",
-        requiredFeature: "cutsheet",
       },
       {
         href: "/dashboard/group-profiles",

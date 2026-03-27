@@ -503,6 +503,16 @@ async function createCutSheet(
     requestBody: { requests },
   });
 
+  // スプレッドシートを「リンクを知っている全員」に閲覧権限付与
+  const drive = google.drive({ version: "v3", auth: authClient });
+  await drive.permissions.create({
+    fileId: spreadsheetId,
+    requestBody: {
+      role: "reader",
+      type: "anyone",
+    },
+  });
+
   return `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;
 }
 
@@ -514,21 +524,6 @@ export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.email) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
-
-  // --- 機能許可チェック（ADMINは常にアクセス可） ---
-  const role = (session.user as { role?: string }).role ?? "USER";
-  if (role !== "ADMIN") {
-    const user = await db.user.findUnique({
-      where: { email: session.user.email },
-      select: { enabledFeatures: true },
-    });
-    if (!user?.enabledFeatures.includes("cutsheet")) {
-      return NextResponse.json(
-        { error: "この機能はADMINによる許可が必要です" },
-        { status: 403 }
-      );
-    }
   }
 
   // --- Rate limit ---
