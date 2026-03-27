@@ -104,9 +104,10 @@ export default async function DashboardPage() {
       select: { id: true },
     });
     if (user) {
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       const report = await db.revenueReport.findFirst({
-        where: { createdById: user.id, targetMonth: currentMonth },
+        where: { createdById: user.id, targetMonth: { gte: monthStart, lt: monthEnd } },
       });
       if (!report) {
         const day = now.getDate();

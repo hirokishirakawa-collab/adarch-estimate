@@ -35,9 +35,10 @@ export default async function DashboardLayout({
         select: { id: true },
       });
       if (dbUser) {
-        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         const report = await db.revenueReport.findFirst({
-          where: { createdById: dbUser.id, targetMonth: currentMonth },
+          where: { createdById: dbUser.id, targetMonth: { gte: monthStart, lt: monthEnd } },
         });
         if (!report) {
           const day = now.getDate();

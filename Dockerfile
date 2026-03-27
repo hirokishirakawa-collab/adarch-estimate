@@ -37,6 +37,7 @@ RUN chmod +x /start.sh
 RUN mkdir -p /data/storage && chmod 777 /data/storage
 ENV STORAGE_PATH=/data/storage
 
+RUN mkdir -p /app/.next/cache && chmod 777 /app/.next/cache
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
