@@ -175,6 +175,57 @@ export async function deleteNote(noteId: string, reviewId: string): Promise<{ er
 }
 
 // ---------------------------------------------------------------
+// 変更検出の編集
+// ---------------------------------------------------------------
+export async function updateChange(
+  changeId: string,
+  description: string,
+  type?: string
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+
+  const change = await db.videoReviewChange.findUnique({
+    where: { id: changeId },
+    select: { reviewId: true, review: { select: { projectId: true } } },
+  });
+  if (!change) return { error: "見つかりません" };
+
+  const data: { description: string; type?: "TELOP" | "CUT_REPLACE" | "COLOR" | "DURATION" | "ANIMATION" | "OTHER" } = { description };
+  if (type) data.type = type as typeof data.type;
+
+  await db.videoReviewChange.update({ where: { id: changeId }, data });
+
+  revalidatePath(`/review/${change.review.projectId ?? change.reviewId}`);
+  revalidatePath(`/dashboard/review/${change.review.projectId ?? change.reviewId}`);
+  return {};
+}
+
+// ---------------------------------------------------------------
+// 変更検出の削除
+// ---------------------------------------------------------------
+export async function deleteChange(changeId: string): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+
+  const change = await db.videoReviewChange.findUnique({
+    where: { id: changeId },
+    select: { reviewId: true, review: { select: { projectId: true } } },
+  });
+  if (!change) return { error: "見つかりません" };
+
+  await db.videoReviewChange.delete({ where: { id: changeId } });
+
+  // totalChanges を更新
+  const count = await db.videoReviewChange.count({ where: { reviewId: change.reviewId } });
+  await db.videoReview.update({ where: { id: change.reviewId }, data: { totalChanges: count } });
+
+  revalidatePath(`/review/${change.review.projectId ?? change.reviewId}`);
+  revalidatePath(`/dashboard/review/${change.review.projectId ?? change.reviewId}`);
+  return {};
+}
+
+// ---------------------------------------------------------------
 // 承認
 // ---------------------------------------------------------------
 export async function approveReview(reviewId: string): Promise<{ error?: string }> {
