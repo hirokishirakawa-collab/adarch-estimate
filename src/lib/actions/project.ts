@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
-import type { ProjectStatus, ExpenseCategory, BillingStatus } from "@/generated/prisma/client";
+import type { ProjectStatus, ExpenseCategory, BillingStatus, ProjectLogType } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 import { logAudit } from "@/lib/audit";
 import { sendProjectNotification } from "@/lib/notifications";
@@ -334,6 +334,43 @@ export async function deleteExpense(
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[deleteExpense] DB error:", msg);
     return { error: process.env.NODE_ENV !== "production" ? `削除失敗: ${msg}` : "削除に失敗しました" };
+  }
+
+  revalidatePath(`/dashboard/projects/${projectId}`);
+  return {};
+}
+
+// ---------------------------------------------------------------
+// プロジェクトログ（メモ・商談ログ）を追加する
+// ---------------------------------------------------------------
+export async function addProjectLog(
+  _prev: { error?: string } | null,
+  formData: FormData
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  const { staffName } = info;
+
+  const projectId = (formData.get("projectId") as string)?.trim();
+  const content = (formData.get("content") as string)?.trim();
+  const type = (formData.get("type") as string)?.trim() || "NOTE";
+
+  if (!projectId) return { error: "プロジェクトIDが必要です" };
+  if (!content) return { error: "内容を入力してください" };
+
+  try {
+    await db.projectLog.create({
+      data: {
+        projectId,
+        type: type as ProjectLogType,
+        content,
+        staffName,
+      },
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[addProjectLog] DB error:", msg);
+    return { error: "保存に失敗しました" };
   }
 
   revalidatePath(`/dashboard/projects/${projectId}`);

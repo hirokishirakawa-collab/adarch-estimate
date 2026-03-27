@@ -6,6 +6,7 @@ import { getMockBranchId } from "@/lib/data/customers";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
 import { EXPENSE_CATEGORY_OPTIONS } from "@/lib/constants/expenses";
 import { ProjectLogTimeline } from "@/components/projects/project-log-timeline";
+import { ProjectLogForm } from "@/components/projects/project-log-form";
 import { ExpenseForm } from "@/components/projects/expense-form";
 import { ExpenseList } from "@/components/projects/expense-list";
 import { BillingStatusButton } from "@/components/projects/billing-status-button";
@@ -194,6 +195,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             <h3 className="text-sm font-bold text-zinc-800">ログ</h3>
             <span className="text-xs text-zinc-400">{project.logs.length}件</span>
           </div>
+          <ProjectLogForm projectId={project.id} />
           <ProjectLogTimeline logs={project.logs} />
         </div>
       </div>

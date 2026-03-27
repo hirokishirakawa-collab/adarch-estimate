@@ -82,6 +82,7 @@ enum ExpenseCategory {
 enum ProjectLogType {
   SYSTEM // システム自動ログ（フィールド変更）
   NOTE // 手動メモ
+  MEETING // 商談・会議ログ
   EXPENSE_ADDED // 経費追加
   EXPENSE_DELETED // 経費削除
 }
