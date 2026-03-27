@@ -152,7 +152,6 @@ export async function getCardImageSignedUrl(
 import {
   uploadToDrive,
   downloadFromDrive,
-  getDriveStreamUrl,
   uploadFrameToDrive,
   getFrameUrl,
 } from "@/lib/google-drive";
@@ -197,6 +196,7 @@ export async function downloadReviewVideo(
 
 /**
  * 動画の再生用 URL を取得。
+ * ストリーミングプロキシAPI経由で配信（Range request対応）。
  */
 export async function getReviewVideoSignedUrl(
   fileId: string
@@ -206,12 +206,7 @@ export async function getReviewVideoSignedUrl(
   if (!fileId.startsWith("http") && fileId.includes("/")) {
     return `/api/storage/${VIDEO_REVIEW_BUCKET}/${fileId}`;
   }
-  try {
-    return await getDriveStreamUrl(fileId);
-  } catch (e) {
-    console.error("[storage] Drive stream URL error:", e);
-    return null;
-  }
+  return `/api/review/stream?id=${encodeURIComponent(fileId)}`;
 }
 
 /**
