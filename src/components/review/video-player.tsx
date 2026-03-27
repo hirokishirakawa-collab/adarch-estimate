@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Play, Pause, SkipBack, Volume2, VolumeX } from "lucide-react";
+import MuxPlayer from "@mux/mux-player-react";
+import { Play, Pause, SkipBack } from "lucide-react";
 
 interface Props {
   beforeVideoUrl: string;
@@ -13,6 +14,13 @@ interface Props {
   seekTo?: number | null;
 }
 
+// playbackId を URL から抽出
+function extractPlaybackId(url: string): string | null {
+  // https://stream.mux.com/XXXXX.m3u8
+  const match = url.match(/stream\.mux\.com\/([^/.]+)/);
+  return match?.[1] ?? null;
+}
+
 export function VideoPlayer({
   beforeVideoUrl,
   afterVideoUrl,
@@ -22,12 +30,15 @@ export function VideoPlayer({
   onTimeUpdate,
   seekTo,
 }: Props) {
-  const beforeRef = useRef<HTMLVideoElement>(null);
-  const afterRef = useRef<HTMLVideoElement>(null);
+  const beforeRef = useRef<HTMLMediaElement | null>(null);
+  const afterRef = useRef<HTMLMediaElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [isMuted, setIsMuted] = useState(true);
   const syncing = useRef(false);
+
+  const beforePlaybackId = extractPlaybackId(beforeVideoUrl);
+  const afterPlaybackId = extractPlaybackId(afterVideoUrl);
+  const isMux = !!beforePlaybackId && !!afterPlaybackId;
 
   // Sync playback
   const syncVideos = useCallback(() => {
@@ -48,20 +59,11 @@ export function VideoPlayer({
     syncing.current = false;
   }, [onTimeUpdate]);
 
-  useEffect(() => {
-    const after = afterRef.current;
-    if (!after) return;
-    after.addEventListener("timeupdate", syncVideos);
-    return () => after.removeEventListener("timeupdate", syncVideos);
-  }, [syncVideos]);
-
   // Seek from parent
   useEffect(() => {
     if (seekTo === null || seekTo === undefined) return;
-    const before = beforeRef.current;
-    const after = afterRef.current;
-    if (before) before.currentTime = seekTo;
-    if (after) after.currentTime = seekTo;
+    if (beforeRef.current) beforeRef.current.currentTime = seekTo;
+    if (afterRef.current) afterRef.current.currentTime = seekTo;
     setCurrentTime(seekTo);
   }, [seekTo]);
 
@@ -81,10 +83,8 @@ export function VideoPlayer({
   };
 
   const seekToStart = () => {
-    const before = beforeRef.current;
-    const after = afterRef.current;
-    if (before) before.currentTime = 0;
-    if (after) after.currentTime = 0;
+    if (beforeRef.current) beforeRef.current.currentTime = 0;
+    if (afterRef.current) afterRef.current.currentTime = 0;
     setCurrentTime(0);
   };
 
@@ -93,17 +93,9 @@ export function VideoPlayer({
     const ratio = (e.clientX - rect.left) / rect.width;
     const time = ratio * duration;
 
-    const before = beforeRef.current;
-    const after = afterRef.current;
-    if (before) before.currentTime = time;
-    if (after) after.currentTime = time;
+    if (beforeRef.current) beforeRef.current.currentTime = time;
+    if (afterRef.current) afterRef.current.currentTime = time;
     setCurrentTime(time);
-  };
-
-  const toggleMute = () => {
-    const after = afterRef.current;
-    if (after) after.muted = !isMuted;
-    setIsMuted(!isMuted);
   };
 
   const formatTime = (s: number) => {
@@ -117,54 +109,57 @@ export function VideoPlayer({
       {/* Video pair */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <p className="text-xs text-white/40 mb-1 font-medium uppercase tracking-wider">
-            修正前
-          </p>
+          <p className="text-xs text-zinc-500 mb-1 font-medium uppercase tracking-wider">修正前</p>
           <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
-            <video
-              ref={beforeRef}
-              src={beforeVideoUrl}
-              muted
-              playsInline
-              preload="metadata"
-              className="w-full h-full object-contain"
-            />
+            {isMux ? (
+              <MuxPlayer
+                playbackId={beforePlaybackId!}
+                muted
+                style={{ width: "100%", height: "100%", ["--controls" as string]: "none" }}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ref={(el: any) => {
+                  if (el?.media?.nativeEl) beforeRef.current = el.media.nativeEl;
+                  else if (el instanceof HTMLMediaElement) beforeRef.current = el;
+                }}
+              />
+            ) : (
+              <video ref={beforeRef as React.RefObject<HTMLVideoElement>} src={beforeVideoUrl} muted playsInline preload="metadata" className="w-full h-full object-contain" />
+            )}
           </div>
         </div>
         <div>
-          <p className="text-xs text-white/40 mb-1 font-medium uppercase tracking-wider">
-            修正後
-          </p>
+          <p className="text-xs text-zinc-500 mb-1 font-medium uppercase tracking-wider">修正後</p>
           <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
-            <video
-              ref={afterRef}
-              src={afterVideoUrl}
-              muted={isMuted}
-              playsInline
-              preload="metadata"
-              className="w-full h-full object-contain"
-            />
+            {isMux ? (
+              <MuxPlayer
+                playbackId={afterPlaybackId!}
+                muted
+                style={{ width: "100%", height: "100%", ["--controls" as string]: "none" }}
+                onTimeUpdate={syncVideos}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ref={(el: any) => {
+                  if (el?.media?.nativeEl) afterRef.current = el.media.nativeEl;
+                  else if (el instanceof HTMLMediaElement) afterRef.current = el;
+                }}
+              />
+            ) : (
+              <video ref={afterRef as React.RefObject<HTMLVideoElement>} src={afterVideoUrl} muted playsInline preload="metadata" className="w-full h-full object-contain" onTimeUpdate={syncVideos} />
+            )}
           </div>
         </div>
       </div>
 
       {/* Timeline */}
       <div className="space-y-1">
-        <div
-          className="relative h-8 bg-white/[0.04] rounded-lg cursor-pointer group"
-          onClick={handleTimelineClick}
-        >
-          {/* Progress bar */}
+        <div className="relative h-8 bg-zinc-900 rounded-lg cursor-pointer group" onClick={handleTimelineClick}>
           <div
-            className="absolute top-0 left-0 h-full bg-amber-500/15 rounded-lg transition-all"
+            className="absolute top-0 left-0 h-full bg-white/5 rounded-lg transition-all"
             style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
           />
-          {/* Playhead */}
           <div
-            className="absolute top-0 w-0.5 h-full bg-amber-500 z-10"
+            className="absolute top-0 w-0.5 h-full bg-white z-10"
             style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
           />
-          {/* Change dots */}
           {changeTimecodes.map((tc, i) => (
             <div
               key={i}
@@ -178,35 +173,14 @@ export function VideoPlayer({
           ))}
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-3 text-white/60">
-          <button
-            onClick={seekToStart}
-            className="p-1.5 rounded-md hover:bg-white/[0.06] transition-colors"
-          >
+        <div className="flex items-center gap-3 text-zinc-500">
+          <button onClick={seekToStart} className="p-1.5 rounded-md hover:bg-zinc-900 hover:text-white transition-colors">
             <SkipBack className="w-4 h-4" />
           </button>
-          <button
-            onClick={togglePlay}
-            className="p-1.5 rounded-md hover:bg-white/[0.06] transition-colors"
-          >
-            {isPlaying ? (
-              <Pause className="w-4 h-4" />
-            ) : (
-              <Play className="w-4 h-4" />
-            )}
+          <button onClick={togglePlay} className="p-1.5 rounded-md hover:bg-zinc-900 hover:text-white transition-colors">
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </button>
-          <button
-            onClick={toggleMute}
-            className="p-1.5 rounded-md hover:bg-white/[0.06] transition-colors"
-          >
-            {isMuted ? (
-              <VolumeX className="w-4 h-4" />
-            ) : (
-              <Volume2 className="w-4 h-4" />
-            )}
-          </button>
-          <span className="text-xs font-mono text-white/50 ml-auto">
+          <span className="text-xs font-mono text-zinc-600 ml-auto">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
         </div>

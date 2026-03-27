@@ -146,72 +146,64 @@ export async function getCardImageSignedUrl(
 }
 
 // ==============================================================
-// 映像チェッカー（Video Review）— Google Drive ストレージ
+// 映像チェッカー（Video Review）— Mux ストレージ
 // ==============================================================
 
-import {
-  uploadToDrive,
-  downloadFromDrive,
-  uploadFrameToDrive,
-  getFrameUrl,
-} from "@/lib/google-drive";
+import { getStreamUrl, getThumbnailUrl } from "@/lib/mux";
 
 /**
- * 動画ファイルを Google Drive にアップロードする。
- * 戻り値: DriveファイルID
- */
-export async function uploadReviewVideo(
-  buffer: Buffer,
-  fileName: string,
-  subfolder: string = ""
-): Promise<string | null> {
-  try {
-    const fileId = await uploadToDrive(
-      buffer,
-      fileName,
-      "video/mp4",
-      subfolder || "videos"
-    );
-    return fileId;
-  } catch (e) {
-    console.error("[storage] Drive video upload error:", e);
-    return null;
-  }
-}
-
-/**
- * Google Drive から動画をダウンロード（サーバーサイド解析用）。
- */
-export async function downloadReviewVideo(
-  fileId: string
-): Promise<Buffer | null> {
-  if (!fileId) return null;
-  try {
-    return await downloadFromDrive(fileId);
-  } catch (e) {
-    console.error("[storage] Drive download error:", e);
-    return null;
-  }
-}
-
-/**
- * 動画の再生用 URL を取得。
- * ストリーミングプロキシAPI経由で配信（Range request対応）。
+ * Mux Playback ID からストリーミング URL を取得。
+ * DB には playbackId を保存する。
  */
 export async function getReviewVideoSignedUrl(
-  fileId: string
+  playbackId: string
 ): Promise<string | null> {
-  if (!fileId) return null;
-  // 旧ローカルパス（Railway Volume）が残っている場合のフォールバック
-  if (!fileId.startsWith("http") && fileId.includes("/")) {
-    return `/api/storage/${VIDEO_REVIEW_BUCKET}/${fileId}`;
+  if (!playbackId) return null;
+  // 旧パスのフォールバック
+  if (playbackId.includes("/")) {
+    return `/api/storage/${VIDEO_REVIEW_BUCKET}/${playbackId}`;
   }
-  return `/api/review/stream?id=${encodeURIComponent(fileId)}`;
+  return getStreamUrl(playbackId);
 }
 
 /**
- * フレーム画像を Google Drive にアップロード（解析結果保存用）。
- * 戻り値: DriveファイルID
+ * サムネイル URL を取得。
+ */
+export function getReviewThumbnailUrl(
+  playbackId: string,
+  time?: number
+): string | null {
+  if (!playbackId) return null;
+  return getThumbnailUrl(playbackId, { time, width: 640 });
+}
+
+/**
+ * 動画をMux経由でダウンロード（サーバーサイド解析用）。
+ * Mux の mp4 static rendition を使用。
+ */
+export async function downloadReviewVideo(
+  playbackId: string
+): Promise<Buffer | null> {
+  if (!playbackId) return null;
+  try {
+    // Mux の低画質 MP4 レンディションをダウンロード（解析に十分）
+    const url = `https://stream.mux.com/${playbackId}/low.mp4`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      // medium にフォールバック
+      const res2 = await fetch(`https://stream.mux.com/${playbackId}/medium.mp4`);
+      if (!res2.ok) return null;
+      return Buffer.from(await res2.arrayBuffer());
+    }
+    return Buffer.from(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * フレーム画像をローカルストレージに保存（解析結果用）。
+ * フレームは小さいのでRailway Volume で十分。
  */
 export async function uploadReviewFrame(
   buffer: Buffer,
@@ -219,7 +211,12 @@ export async function uploadReviewFrame(
   reviewId?: string
 ): Promise<string | null> {
   try {
-    return await uploadFrameToDrive(buffer, fileName, reviewId ?? "misc");
+    const dir = path.join(STORAGE_ROOT, VIDEO_REVIEW_BUCKET, "frames");
+    ensureDir(dir);
+    const subDir = path.dirname(fileName);
+    if (subDir !== ".") ensureDir(path.join(dir, subDir));
+    writeFileSync(path.join(dir, fileName), buffer);
+    return `frames/${fileName}`;
   } catch {
     return null;
   }
@@ -229,16 +226,8 @@ export async function uploadReviewFrame(
  * フレーム画像の URL を取得。
  */
 export async function getReviewFrameUrl(
-  fileId: string
+  filePath: string
 ): Promise<string | null> {
-  if (!fileId) return null;
-  // 旧ローカルパスのフォールバック
-  if (fileId.startsWith("frames/")) {
-    return `/api/storage/${VIDEO_REVIEW_BUCKET}/${fileId}`;
-  }
-  try {
-    return await getFrameUrl(fileId);
-  } catch {
-    return null;
-  }
+  if (!filePath) return null;
+  return `/api/storage/${VIDEO_REVIEW_BUCKET}/${filePath}`;
 }

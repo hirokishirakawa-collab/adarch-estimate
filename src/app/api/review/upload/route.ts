@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { uploadToDrive } from "@/lib/google-drive";
+import { createDirectUpload, getUploadAsset } from "@/lib/mux";
 
+/**
+ * POST: Mux Direct Upload URLを発行
+ */
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) {
@@ -9,26 +12,39 @@ export async function POST(req: Request) {
   }
 
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    const prefix = (formData.get("prefix") as string) || "videos";
-
-    if (!file || file.size === 0) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    const buf = Buffer.from(await file.arrayBuffer());
-    const fileId = await uploadToDrive(buf, file.name, file.type || "video/mp4", prefix);
-
-    return NextResponse.json({
-      path: fileId,
-      originalName: file.name,
-      size: file.size,
-    });
+    const { uploadId, uploadUrl } = await createDirectUpload();
+    return NextResponse.json({ uploadId, uploadUrl });
   } catch (e) {
-    console.error("[upload] Error:", e);
+    console.error("[upload] Mux upload create error:", e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Upload failed" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * GET: アップロードステータス確認（assetId, playbackId取得）
+ */
+export async function GET(req: Request) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const uploadId = searchParams.get("uploadId");
+  if (!uploadId) {
+    return NextResponse.json({ error: "uploadId is required" }, { status: 400 });
+  }
+
+  try {
+    const result = await getUploadAsset(uploadId);
+    return NextResponse.json(result);
+  } catch (e) {
+    console.error("[upload] Mux status error:", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Status check failed" },
       { status: 500 }
     );
   }
