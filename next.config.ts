@@ -45,11 +45,11 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
               // Google OAuth リダイレクト・アバター画像
-              "img-src 'self' data: https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://images.unsplash.com https://drive.google.com https://*.googleusercontent.com",
-              // Google Drive 動画ストリーミング
-              "media-src 'self' https://drive.google.com https://*.googleusercontent.com",
+              "img-src 'self' data: https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://images.unsplash.com https://image.mux.com",
+              // Mux 動画ストリーミング
+              "media-src 'self' https://stream.mux.com https://*.mux.com",
               // Sentry への送信を許可
-              "connect-src 'self' https://*.ingest.sentry.io https://drive.google.com https://*.googleusercontent.com",
+              "connect-src 'self' https://*.ingest.sentry.io https://*.mux.com https://*.production.mux.com",
               "font-src 'self'",
               // iframe 禁止（X-Frame-Options と二重防御）
               "frame-ancestors 'none'",
