@@ -6,6 +6,7 @@ import { compareFrames, compareHistograms } from "./frame-diff";
 import { buildSceneSegments, matchScenes } from "./scene-match";
 import { detectTelopChange } from "./telop-detect";
 import { detectAnimationChanges, filterSignificantAnimationChanges } from "./animation-detect";
+import { judgeChangesWithAI } from "./ai-judge";
 import { downloadReviewVideo, uploadReviewFrame } from "@/lib/storage";
 
 const TMP_BASE = "/tmp/video-review";
@@ -97,20 +98,20 @@ export async function runAnalysisPipeline(
       }
     }
 
-    // Step 5: Frame-by-frame comparison for matched scenes
-    console.log("[analysis] Comparing frames...");
+    // Step 5: Frame-by-frame comparison — ピクセル差分で候補を収集
+    console.log("[analysis] Comparing frames (collecting candidates)...");
     const maxFrames = Math.min(beforeFrames.length, afterFrames.length);
-
-    // Build frame-to-frame mapping based on scene matches
     const frameMapping = buildFrameMapping(sceneMatches, beforeFrames.length, afterFrames.length);
+
+    // 差分がある候補フレームを収集
+    const candidates: { timecode: number; beforeFrame: string; afterFrame: string; diffRatio: number; diffImagePath?: string }[] = [];
 
     for (let ai = 0; ai < afterFrames.length && ai < maxFrames; ai++) {
       const bi = frameMapping[ai];
       if (bi === undefined || bi < 0 || bi >= beforeFrames.length) continue;
 
-      const timecode = ai; // 1fps = frame index = seconds
+      const timecode = ai;
 
-      // Skip frames already covered by cut replacement
       const isCutReplaced = changes.some(
         (c) =>
           c.type === "CUT_REPLACE" &&
@@ -119,7 +120,6 @@ export async function runAnalysisPipeline(
       );
       if (isCutReplaced) continue;
 
-      // Frame diff
       const diff = await compareFrames(
         beforeFrames[bi],
         afterFrames[ai],
@@ -128,51 +128,48 @@ export async function runAnalysisPipeline(
         25
       );
 
-      if (diff.diffRatio < 0.02) continue; // Less than 2% change - skip
-
-      // Color histogram comparison
-      const colorSim = await compareHistograms(beforeFrames[bi], afterFrames[ai]);
-
-      // Telop detection
-      const telopResult = await detectTelopChange(beforeFrames[bi], afterFrames[ai]);
-
-      // Determine change type
-      if (telopResult.changed && telopResult.diffRatio > 0.05) {
-        const framePaths = await saveFramePair(reviewId, beforeFrames[bi], afterFrames[ai], diff.diffImagePath, ai);
-        changes.push({
-          type: "TELOP",
-          timecodeIn: timecode,
-          description: `テロップ変更 (${formatTime(timecode)})`,
-          confidence: Math.min(telopResult.diffRatio * 10, 1),
-          ...framePaths,
-          regionX: telopResult.region?.x,
-          regionY: telopResult.region?.y,
-          regionWidth: telopResult.region?.w,
-          regionHeight: telopResult.region?.h,
+      // 2%以上の差分がある候補のみ
+      if (diff.diffRatio >= 0.02) {
+        candidates.push({
+          timecode,
+          beforeFrame: beforeFrames[bi],
+          afterFrame: afterFrames[ai],
+          diffRatio: diff.diffRatio,
+          diffImagePath: diff.diffImagePath,
         });
-      } else if (colorSim < 0.85 && diff.diffRatio > 0.3) {
-        const framePaths = await saveFramePair(reviewId, beforeFrames[bi], afterFrames[ai], diff.diffImagePath, ai);
-        changes.push({
-          type: "COLOR",
-          timecodeIn: timecode,
-          description: `色味変更 (${formatTime(timecode)}, 類似度: ${(colorSim * 100).toFixed(0)}%)`,
-          confidence: 1 - colorSim,
-          ...framePaths,
-        });
-      } else if (diff.diffRatio > 0.05) {
-        const framePaths = await saveFramePair(reviewId, beforeFrames[bi], afterFrames[ai], diff.diffImagePath, ai);
-        const mainRegion = diff.regions[0];
-        changes.push({
-          type: "OTHER",
-          timecodeIn: timecode,
-          description: `映像変更 (${formatTime(timecode)}, 変化率: ${(diff.diffRatio * 100).toFixed(1)}%)`,
-          confidence: Math.min(diff.diffRatio * 2, 1),
-          ...framePaths,
-          regionX: mainRegion?.x,
-          regionY: mainRegion?.y,
-          regionWidth: mainRegion?.w,
-          regionHeight: mainRegion?.h,
-        });
+      }
+    }
+
+    console.log(`[analysis] Found ${candidates.length} candidate frames, sending to AI for judgment...`);
+
+    // Step 5b: AI判定 — Claude Vision で意図的な修正かどうかを精査
+    if (candidates.length > 0) {
+      const aiChanges = await judgeChangesWithAI(
+        candidates.map((c) => ({
+          timecode: c.timecode,
+          beforeFramePath: c.beforeFrame,
+          afterFramePath: c.afterFrame,
+          diffRatio: c.diffRatio,
+        }))
+      );
+
+      console.log(`[analysis] AI confirmed ${aiChanges.length} intentional changes`);
+
+      // AI が確認した変更のフレーム画像を保存
+      for (const change of aiChanges) {
+        const candidate = candidates.find((c) => c.timecode === change.timecodeIn);
+        if (candidate) {
+          const framePaths = await saveFramePair(
+            reviewId,
+            candidate.beforeFrame,
+            candidate.afterFrame,
+            candidate.diffImagePath,
+            candidate.timecode
+          );
+          changes.push({ ...change, ...framePaths });
+        } else {
+          changes.push(change);
+        }
       }
     }
 
