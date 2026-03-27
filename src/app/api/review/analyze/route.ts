@@ -33,6 +33,23 @@ export async function POST(req: Request) {
   // Run analysis in background using after()
   after(async () => {
     try {
+      // MP4 static renditionが準備できるまで待機（最大3分）
+      const { downloadReviewVideo } = await import("@/lib/storage");
+      let downloadReady = false;
+      for (let i = 0; i < 18; i++) {
+        const testBefore = await downloadReviewVideo(review.beforeVideoPath);
+        const testAfter = await downloadReviewVideo(review.afterVideoPath);
+        if (testBefore && testAfter) {
+          downloadReady = true;
+          break;
+        }
+        console.log(`[analysis] Waiting for MP4 renditions... (${i + 1}/18)`);
+        await new Promise((r) => setTimeout(r, 10000));
+      }
+      if (!downloadReady) {
+        throw new Error("MP4レンディションの準備がタイムアウトしました。しばらく待ってから再度お試しください。");
+      }
+
       const result = await runAnalysisPipeline(
         reviewId,
         review.beforeVideoPath,

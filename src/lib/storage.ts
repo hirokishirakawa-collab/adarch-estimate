@@ -186,17 +186,29 @@ export async function downloadReviewVideo(
 ): Promise<Buffer | null> {
   if (!playbackId) return null;
   try {
-    // Mux の低画質 MP4 レンディションをダウンロード（解析に十分）
-    const url = `https://stream.mux.com/${playbackId}/low.mp4`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      // medium にフォールバック
-      const res2 = await fetch(`https://stream.mux.com/${playbackId}/medium.mp4`);
-      if (!res2.ok) return null;
-      return Buffer.from(await res2.arrayBuffer());
+    // 複数の画質を試行（low → medium → high）
+    const qualities = ["low", "medium", "high"];
+    for (const q of qualities) {
+      const url = `https://stream.mux.com/${playbackId}/${q}.mp4`;
+      const res = await fetch(url, { redirect: "follow" });
+      if (res.ok) {
+        return Buffer.from(await res.arrayBuffer());
+      }
     }
-    return Buffer.from(await res.arrayBuffer());
-  } catch {
+
+    // capped-1080p.mp4 も試行
+    const fallback = await fetch(
+      `https://stream.mux.com/${playbackId}/capped-1080p.mp4`,
+      { redirect: "follow" }
+    );
+    if (fallback.ok) {
+      return Buffer.from(await fallback.arrayBuffer());
+    }
+
+    console.error("[storage] All Mux MP4 download attempts failed for:", playbackId);
+    return null;
+  } catch (e) {
+    console.error("[storage] Mux download error:", e);
     return null;
   }
 }

@@ -42,6 +42,7 @@ export async function createDirectUpload(): Promise<{
     new_asset_settings: {
       playback_policy: ["public"],
       encoding_tier: "baseline",
+      mp4_support: "standard",
     },
     cors_origin: "*",
   });
