@@ -2331,11 +2331,34 @@ enum ChangeType {
   OTHER
 }
 
+model ReviewProject {
+  id          String  @id @default(cuid())
+  title       String
+  description String? @db.Text
+
+  branchId  String?
+  createdBy String
+  staffName String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reviews VideoReview[]
+
+  @@index([branchId])
+  @@index([createdBy])
+  @@map("review_projects")
+}
+
 model VideoReview {
   id          String            @id @default(cuid())
   title       String
   description String?           @db.Text
   status      VideoReviewStatus @default(UPLOADING)
+  version     Int               @default(1)
+
+  projectId String?
+  project   ReviewProject? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   beforeVideoPath String
   beforeFileName  String
@@ -2368,6 +2391,7 @@ model VideoReview {
   changes VideoReviewChange[]
   notes   VideoReviewNote[]
 
+  @@index([projectId, version])
   @@index([branchId])
   @@index([status])
   @@index([createdBy])

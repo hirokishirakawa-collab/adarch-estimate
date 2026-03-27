@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 
 // ---------------------------------------------------------------
-// レビュー新規作成（動画は事前にAPI Routeでアップロード済み）
+// プロジェクト作成 + 初回バージョン（v1）
 // ---------------------------------------------------------------
 export async function createReview(
   _prev: { error?: string; reviewId?: string } | null,
@@ -25,13 +25,77 @@ export async function createReview(
   if (!title) return { error: "タイトルは必須です" };
   if (!beforePath || !afterPath) return { error: "動画をアップロードしてください" };
 
-  const review = await db.videoReview.create({
+  // プロジェクトとv1レビューを同時作成
+  const project = await db.reviewProject.create({
     data: {
       title,
       description,
+      branchId:  info.branchId,
+      createdBy: info.email,
+      staffName: info.staffName,
+      reviews: {
+        create: {
+          title: `${title} v1`,
+          description,
+          version: 1,
+          status: "UPLOADING",
+          beforeVideoPath: beforePath,
+          beforeFileName:  beforeFileName || "before.mp4",
+          afterVideoPath:  afterPath,
+          afterFileName:   afterFileName || "after.mp4",
+          branchId:  info.branchId,
+          createdBy: info.email,
+          staffName: info.staffName,
+        },
+      },
+    },
+    include: { reviews: true },
+  });
+
+  revalidatePath("/dashboard/review");
+  redirect(`/dashboard/review/${project.id}`);
+}
+
+// ---------------------------------------------------------------
+// 新しいバージョンを追加
+// ---------------------------------------------------------------
+export async function addVersion(
+  _prev: { error?: string } | null,
+  formData: FormData
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+
+  const projectId    = (formData.get("projectId") as string)?.trim();
+  const description  = (formData.get("description") as string)?.trim() || null;
+  const afterPath    = (formData.get("afterPath") as string)?.trim();
+  const afterFileName = (formData.get("afterFileName") as string)?.trim();
+
+  if (!projectId || !afterPath) return { error: "動画をアップロードしてください" };
+
+  // 前バージョンの情報を取得
+  const prevReview = await db.videoReview.findFirst({
+    where: { projectId },
+    orderBy: { version: "desc" },
+  });
+
+  if (!prevReview) return { error: "プロジェクトが見つかりません" };
+
+  const project = await db.reviewProject.findUnique({ where: { id: projectId } });
+  if (!project) return { error: "プロジェクトが見つかりません" };
+
+  const newVersion = prevReview.version + 1;
+
+  // 前バージョンの修正後動画 = 新バージョンの修正前動画
+  await db.videoReview.create({
+    data: {
+      title: `${project.title} v${newVersion}`,
+      description,
+      version: newVersion,
+      projectId,
       status: "UPLOADING",
-      beforeVideoPath: beforePath,
-      beforeFileName:  beforeFileName || "before.mp4",
+      beforeVideoPath: prevReview.afterVideoPath,
+      beforeFileName:  prevReview.afterFileName,
       afterVideoPath:  afterPath,
       afterFileName:   afterFileName || "after.mp4",
       branchId:  info.branchId,
@@ -40,24 +104,24 @@ export async function createReview(
     },
   });
 
-  revalidatePath("/dashboard/review");
-  redirect(`/dashboard/review/${review.id}`);
+  revalidatePath(`/dashboard/review/${projectId}`);
+  return {};
 }
 
 // ---------------------------------------------------------------
-// レビュー削除
+// プロジェクト削除
 // ---------------------------------------------------------------
-export async function deleteReview(reviewId: string): Promise<{ error?: string }> {
+export async function deleteProject(projectId: string): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
 
-  const review = await db.videoReview.findUnique({ where: { id: reviewId } });
-  if (!review) return { error: "レビューが見つかりません" };
-  if (info.role !== "ADMIN" && review.createdBy !== info.email) {
+  const project = await db.reviewProject.findUnique({ where: { id: projectId } });
+  if (!project) return { error: "プロジェクトが見つかりません" };
+  if (info.role !== "ADMIN" && project.createdBy !== info.email) {
     return { error: "削除権限がありません" };
   }
 
-  await db.videoReview.delete({ where: { id: reviewId } });
+  await db.reviewProject.delete({ where: { id: projectId } });
   revalidatePath("/dashboard/review");
   redirect("/dashboard/review");
 }
@@ -80,15 +144,11 @@ export async function addNote(
   const timecode = parseFloat(timecodeStr) || 0;
 
   await db.videoReviewNote.create({
-    data: {
-      reviewId,
-      timecode,
-      text,
-      author: info.staffName,
-    },
+    data: { reviewId, timecode, text, author: info.staffName },
   });
 
-  revalidatePath(`/dashboard/review/${reviewId}`);
+  const review = await db.videoReview.findUnique({ where: { id: reviewId }, select: { projectId: true } });
+  revalidatePath(`/dashboard/review/${review?.projectId ?? reviewId}`);
   return {};
 }
 
@@ -100,7 +160,8 @@ export async function deleteNote(noteId: string, reviewId: string): Promise<{ er
   if (!info) return { error: "ログインが必要です" };
 
   await db.videoReviewNote.delete({ where: { id: noteId } });
-  revalidatePath(`/dashboard/review/${reviewId}`);
+  const review = await db.videoReview.findUnique({ where: { id: reviewId }, select: { projectId: true } });
+  revalidatePath(`/dashboard/review/${review?.projectId ?? reviewId}`);
   return {};
 }
 
@@ -117,13 +178,12 @@ export async function approveReview(reviewId: string): Promise<{ error?: string 
       status: "APPROVED",
       approvedAt: new Date(),
       approvedBy: info.staffName,
-      rejectedAt: null,
-      rejectedBy: null,
-      rejectionNote: null,
+      rejectedAt: null, rejectedBy: null, rejectionNote: null,
     },
   });
 
-  revalidatePath(`/dashboard/review/${reviewId}`);
+  const review = await db.videoReview.findUnique({ where: { id: reviewId }, select: { projectId: true } });
+  revalidatePath(`/dashboard/review/${review?.projectId ?? reviewId}`);
   revalidatePath("/dashboard/review");
   return {};
 }
@@ -145,15 +205,13 @@ export async function rejectReview(
     where: { id: reviewId },
     data: {
       status: "REJECTED",
-      rejectedAt: new Date(),
-      rejectedBy: info.staffName,
-      rejectionNote: note,
-      approvedAt: null,
-      approvedBy: null,
+      rejectedAt: new Date(), rejectedBy: info.staffName, rejectionNote: note,
+      approvedAt: null, approvedBy: null,
     },
   });
 
-  revalidatePath(`/dashboard/review/${reviewId}`);
+  const review = await db.videoReview.findUnique({ where: { id: reviewId }, select: { projectId: true } });
+  revalidatePath(`/dashboard/review/${review?.projectId ?? reviewId}`);
   revalidatePath("/dashboard/review");
   return {};
 }
