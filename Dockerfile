@@ -33,11 +33,10 @@ ENV PORT=8080
 COPY scripts/start.sh /start.sh
 RUN chmod +x /start.sh
 
-# ストレージボリューム用ディレクトリ
-RUN mkdir -p /data/storage && chmod 777 /data/storage
 ENV STORAGE_PATH=/data/storage
 
 RUN mkdir -p /app/.next/cache && chmod 777 /app/.next/cache
+RUN mkdir -p /data && chmod 777 /data
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
