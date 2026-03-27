@@ -12,7 +12,17 @@ interface UploadResult {
   assetId: string | null;
 }
 
-export function UploadForm() {
+interface ProjectOption {
+  id: string;
+  title: string;
+  customerName: string | null;
+}
+
+interface UploadFormProps {
+  projects: ProjectOption[];
+}
+
+export function UploadForm({ projects }: UploadFormProps) {
   const [state, action, isPending] = useActionState(createReview, null);
   const [beforeFile, setBeforeFile] = useState<File | null>(null);
   const [afterFile, setAfterFile] = useState<File | null>(null);
@@ -102,21 +112,40 @@ export function UploadForm() {
     if (file) uploadToMux(file, setAfterProgress, setAfterUpload, setAfterResult);
   };
 
-  const canSubmit = beforeUpload === "done" && afterUpload === "done" && !isPending;
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const canSubmit = beforeUpload === "done" && afterUpload === "done" && !!selectedProjectId && !isPending;
 
   return (
     <form action={action} className="space-y-6">
-      {/* Hidden fields — playbackId を保存 */}
+      {/* Hidden fields */}
       <input type="hidden" name="beforePath" value={beforeResult?.playbackId || ""} />
       <input type="hidden" name="afterPath" value={afterResult?.playbackId || ""} />
       <input type="hidden" name="beforeFileName" value={beforeFile?.name || ""} />
       <input type="hidden" name="afterFileName" value={afterFile?.name || ""} />
+      <input type="hidden" name="linkedProjectId" value={selectedProjectId} />
 
       {(state?.error || uploadError) && (
         <div className="p-3 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm">
           {state?.error || uploadError}
         </div>
       )}
+
+      <div>
+        <label className="block text-sm font-medium text-zinc-300 mb-1.5">プロジェクト</label>
+        <select
+          value={selectedProjectId}
+          onChange={(e) => setSelectedProjectId(e.target.value)}
+          required
+          className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-colors appearance-none"
+        >
+          <option value="" className="text-zinc-600">プロジェクトを選択...</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id} className="text-white">
+              {p.title}{p.customerName ? ` (${p.customerName})` : ""}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div>
         <label className="block text-sm font-medium text-zinc-300 mb-1.5">タイトル</label>

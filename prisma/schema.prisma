@@ -554,6 +554,7 @@ model Project {
   invoiceRequests       InvoiceRequest[]
   estimations           Estimation[]
   collaborationRequests GroupCollaborationRequest[]
+  reviewProjects        ReviewProject[]
 
   @@index([branchId])
   @@index([customerId])
@@ -2335,6 +2336,10 @@ model ReviewProject {
   id          String  @id @default(cuid())
   title       String
   description String? @db.Text
+
+  // 案件プロジェクトとの紐付け
+  linkedProjectId String?
+  linkedProject   Project? @relation(fields: [linkedProjectId], references: [id])
 
   branchId  String?
   createdBy String

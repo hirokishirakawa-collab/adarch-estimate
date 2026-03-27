@@ -15,21 +15,28 @@ export async function createReview(
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
 
-  const title       = (formData.get("title") as string)?.trim();
-  const description = (formData.get("description") as string)?.trim() || null;
-  const beforePath  = (formData.get("beforePath") as string)?.trim();
-  const afterPath   = (formData.get("afterPath") as string)?.trim();
-  const beforeFileName = (formData.get("beforeFileName") as string)?.trim();
-  const afterFileName  = (formData.get("afterFileName") as string)?.trim();
+  const title            = (formData.get("title") as string)?.trim();
+  const description      = (formData.get("description") as string)?.trim() || null;
+  const beforePath       = (formData.get("beforePath") as string)?.trim();
+  const afterPath        = (formData.get("afterPath") as string)?.trim();
+  const beforeFileName   = (formData.get("beforeFileName") as string)?.trim();
+  const afterFileName    = (formData.get("afterFileName") as string)?.trim();
+  const linkedProjectId  = (formData.get("linkedProjectId") as string)?.trim() || null;
 
   if (!title) return { error: "タイトルは必須です" };
+  if (!linkedProjectId) return { error: "プロジェクトを選択してください" };
   if (!beforePath || !afterPath) return { error: "動画をアップロードしてください" };
 
-  // プロジェクトとv1レビューを同時作成
+  // プロジェクトが存在するか確認
+  const linkedProject = await db.project.findUnique({ where: { id: linkedProjectId } });
+  if (!linkedProject) return { error: "選択されたプロジェクトが見つかりません" };
+
+  // レビュープロジェクトとv1レビューを同時作成
   const project = await db.reviewProject.create({
     data: {
       title,
       description,
+      linkedProjectId,
       branchId:  info.branchId,
       createdBy: info.email,
       staffName: info.staffName,
