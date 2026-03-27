@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { writeFileSync, mkdirSync, existsSync } from "fs";
-import path from "path";
-
-const STORAGE_ROOT = process.env.STORAGE_PATH || "/data/storage";
-const BUCKET = "video-reviews";
+import { uploadToDrive } from "@/lib/google-drive";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -15,27 +11,17 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const prefix = (formData.get("prefix") as string) || "";
+    const prefix = (formData.get("prefix") as string) || "videos";
 
     if (!file || file.size === 0) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    const ext = file.name.split(".").pop() ?? "mp4";
-    const fileName = `${prefix}${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const dir = path.join(STORAGE_ROOT, BUCKET);
-
-    if (prefix) {
-      const subDir = path.join(dir, path.dirname(prefix));
-      if (!existsSync(subDir)) mkdirSync(subDir, { recursive: true });
-    }
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-
     const buf = Buffer.from(await file.arrayBuffer());
-    writeFileSync(path.join(dir, fileName), buf);
+    const fileId = await uploadToDrive(buf, file.name, file.type || "video/mp4", prefix);
 
     return NextResponse.json({
-      path: fileName,
+      path: fileId,
       originalName: file.name,
       size: file.size,
     });
@@ -47,10 +33,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
-// Disable body parser limit for this route
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};

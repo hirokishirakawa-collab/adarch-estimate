@@ -287,8 +287,8 @@ async function saveFramePair(
   try {
     const prefix = `${reviewId}/${frameIndex}`;
     const [before, after] = await Promise.all([
-      uploadReviewFrame(readFileSync(beforeFramePath), `${prefix}_before.png`),
-      uploadReviewFrame(readFileSync(afterFramePath), `${prefix}_after.png`),
+      uploadReviewFrame(readFileSync(beforeFramePath), `${prefix}_before.png`, reviewId),
+      uploadReviewFrame(readFileSync(afterFramePath), `${prefix}_after.png`, reviewId),
     ]);
     result.beforeFramePath = before ?? undefined;
     result.afterFramePath = after ?? undefined;
@@ -296,7 +296,8 @@ async function saveFramePair(
     if (diffFramePath) {
       const diff = await uploadReviewFrame(
         readFileSync(diffFramePath),
-        `${prefix}_diff.png`
+        `${prefix}_diff.png`,
+        reviewId
       );
       result.diffFramePath = diff ?? undefined;
     }

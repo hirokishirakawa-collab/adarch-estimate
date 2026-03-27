@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getReviewVideoSignedUrl } from "@/lib/storage";
+import { getReviewFrameUrl } from "@/lib/storage";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -14,8 +14,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "path is required" }, { status: 400 });
   }
 
-  // Frame images are stored in the same bucket under frames/ prefix
-  const url = await getReviewVideoSignedUrl(path);
+  const url = await getReviewFrameUrl(path);
   if (!url) {
     return NextResponse.json({ error: "Failed to generate URL" }, { status: 500 });
   }

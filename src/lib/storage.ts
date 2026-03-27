@@ -146,82 +146,103 @@ export async function getCardImageSignedUrl(
 }
 
 // ==============================================================
-// 映像チェッカー（Video Review）
+// 映像チェッカー（Video Review）— Google Drive ストレージ
 // ==============================================================
 
+import {
+  uploadToDrive,
+  downloadFromDrive,
+  getDriveStreamUrl,
+  uploadFrameToDrive,
+  getFrameUrl,
+} from "@/lib/google-drive";
+
 /**
- * 動画ファイルをアップロードする。戻り値はストレージ内パス。
+ * 動画ファイルを Google Drive にアップロードする。
+ * 戻り値: DriveファイルID
  */
 export async function uploadReviewVideo(
-  file: File,
-  prefix: string = ""
+  buffer: Buffer,
+  fileName: string,
+  subfolder: string = ""
 ): Promise<string | null> {
   try {
-    const ext = file.name.split(".").pop() ?? "mp4";
-    const fileName = `${prefix}${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const dir = path.join(STORAGE_ROOT, VIDEO_REVIEW_BUCKET);
-    ensureDir(dir);
-
-    // prefix にサブディレクトリが含まれる場合
-    if (prefix) {
-      const subDir = path.join(dir, path.dirname(prefix));
-      ensureDir(subDir);
-    }
-
-    const buf = Buffer.from(await file.arrayBuffer());
-    writeFileSync(path.join(dir, fileName), buf);
-    return fileName;
+    const fileId = await uploadToDrive(
+      buffer,
+      fileName,
+      "video/mp4",
+      subfolder || "videos"
+    );
+    return fileId;
   } catch (e) {
-    console.error("[storage] Video upload error:", e);
+    console.error("[storage] Drive video upload error:", e);
     return null;
   }
 }
 
 /**
- * 動画ファイルをバッファとして読み取る（サーバーサイド解析用）。
+ * Google Drive から動画をダウンロード（サーバーサイド解析用）。
  */
 export async function downloadReviewVideo(
-  filePath: string
+  fileId: string
 ): Promise<Buffer | null> {
-  if (!filePath) return null;
-  const fullPath = path.join(STORAGE_ROOT, VIDEO_REVIEW_BUCKET, filePath);
-  if (!existsSync(fullPath)) return null;
+  if (!fileId) return null;
   try {
-    return readFileSync(fullPath);
+    return await downloadFromDrive(fileId);
+  } catch (e) {
+    console.error("[storage] Drive download error:", e);
+    return null;
+  }
+}
+
+/**
+ * 動画の再生用 URL を取得。
+ */
+export async function getReviewVideoSignedUrl(
+  fileId: string
+): Promise<string | null> {
+  if (!fileId) return null;
+  // 旧ローカルパス（Railway Volume）が残っている場合のフォールバック
+  if (!fileId.startsWith("http") && fileId.includes("/")) {
+    return `/api/storage/${VIDEO_REVIEW_BUCKET}/${fileId}`;
+  }
+  try {
+    return await getDriveStreamUrl(fileId);
+  } catch (e) {
+    console.error("[storage] Drive stream URL error:", e);
+    return null;
+  }
+}
+
+/**
+ * フレーム画像を Google Drive にアップロード（解析結果保存用）。
+ * 戻り値: DriveファイルID
+ */
+export async function uploadReviewFrame(
+  buffer: Buffer,
+  fileName: string,
+  reviewId?: string
+): Promise<string | null> {
+  try {
+    return await uploadFrameToDrive(buffer, fileName, reviewId ?? "misc");
   } catch {
     return null;
   }
 }
 
 /**
- * 動画ファイルの配信用 URL を返す。
+ * フレーム画像の URL を取得。
  */
-export async function getReviewVideoSignedUrl(
-  filePath: string
+export async function getReviewFrameUrl(
+  fileId: string
 ): Promise<string | null> {
-  if (!filePath) return null;
-  return `/api/storage/${VIDEO_REVIEW_BUCKET}/${filePath}`;
-}
-
-/**
- * フレーム画像をアップロード（解析結果保存用）。
- */
-export async function uploadReviewFrame(
-  buffer: Buffer,
-  fileName: string
-): Promise<string | null> {
+  if (!fileId) return null;
+  // 旧ローカルパスのフォールバック
+  if (fileId.startsWith("frames/")) {
+    return `/api/storage/${VIDEO_REVIEW_BUCKET}/${fileId}`;
+  }
   try {
-    const dir = path.join(STORAGE_ROOT, VIDEO_REVIEW_BUCKET, "frames");
-    ensureDir(dir);
-
-    // fileName にサブディレクトリが含まれる場合
-    const subDir = path.dirname(fileName);
-    if (subDir !== ".") {
-      ensureDir(path.join(dir, subDir));
-    }
-
-    writeFileSync(path.join(dir, fileName), buffer);
-    return `frames/${fileName}`;
+    return await getFrameUrl(fileId);
   } catch {
     return null;
   }
