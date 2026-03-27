@@ -46,10 +46,12 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               // Google OAuth リダイレクト・アバター画像
               "img-src 'self' data: https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://images.unsplash.com https://image.mux.com",
-              // Mux 動画ストリーミング
-              "media-src 'self' https://stream.mux.com https://*.mux.com",
-              // Sentry への送信を許可
-              "connect-src 'self' https://*.ingest.sentry.io https://*.mux.com https://*.production.mux.com",
+              // Mux 動画ストリーミング（blob: はHLS再生に必要）
+              "media-src 'self' blob: https://stream.mux.com https://*.mux.com",
+              // worker（MuxPlayer の HLS ワーカー）
+              "worker-src 'self' blob:",
+              // Sentry + Mux + Mux Data (litix.io) への送信を許可
+              "connect-src 'self' blob: https://*.ingest.sentry.io https://*.mux.com https://*.production.mux.com https://inferred.litix.io https://*.litix.io",
               "font-src 'self'",
               // iframe 禁止（X-Frame-Options と二重防御）
               "frame-ancestors 'none'",
