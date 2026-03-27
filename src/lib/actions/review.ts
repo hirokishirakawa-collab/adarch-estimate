@@ -52,8 +52,9 @@ export async function createReview(
     include: { reviews: true },
   });
 
+  revalidatePath("/review");
   revalidatePath("/dashboard/review");
-  redirect(`/dashboard/review/${project.id}`);
+  redirect(`/review/${project.id}`);
 }
 
 // ---------------------------------------------------------------
@@ -122,8 +123,9 @@ export async function deleteProject(projectId: string): Promise<{ error?: string
   }
 
   await db.reviewProject.delete({ where: { id: projectId } });
+  revalidatePath("/review");
   revalidatePath("/dashboard/review");
-  redirect("/dashboard/review");
+  redirect("/review");
 }
 
 // ---------------------------------------------------------------

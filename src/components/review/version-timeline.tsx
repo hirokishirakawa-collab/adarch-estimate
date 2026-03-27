@@ -16,6 +16,7 @@ interface Props {
   projectId: string;
   reviews: VersionInfo[];
   selectedVersion: number;
+  basePath?: string;
 }
 
 const STATUS_ICON: Record<string, { icon: React.ElementType; color: string }> = {
@@ -27,7 +28,7 @@ const STATUS_ICON: Record<string, { icon: React.ElementType; color: string }> = 
   REJECTED:   { icon: XCircle,       color: "text-red-400" },
 };
 
-export function VersionTimeline({ projectId, reviews, selectedVersion }: Props) {
+export function VersionTimeline({ projectId, reviews, selectedVersion, basePath = "/dashboard/review" }: Props) {
   return (
     <div className="flex items-center gap-2 overflow-x-auto pb-2">
       {reviews.map((r, i) => {
@@ -39,7 +40,7 @@ export function VersionTimeline({ projectId, reviews, selectedVersion }: Props) 
           <div key={r.id} className="flex items-center gap-2 flex-shrink-0">
             {i > 0 && <div className="w-6 h-px bg-zinc-700" />}
             <Link
-              href={`/dashboard/review/${projectId}?v=${r.version}`}
+              href={`${basePath}/${projectId}?v=${r.version}`}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
                 isSelected
                   ? "bg-amber-500/10 border-amber-500/30 text-white"
