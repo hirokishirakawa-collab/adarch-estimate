@@ -118,10 +118,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.role = dbUser?.role ?? resolveRole(email);
           token.enabledFeatures = dbUser?.enabledFeatures ?? [];
           token.isActive = dbUser?.isActive ?? true;
-        } catch {
-          // DB エラー時は env ベースのフォールバック（安全側: isActive=false）
+        } catch (e) {
+          // DB エラー時は env ベースのフォールバック（アクセスは許可、ロールのみフォールバック）
+          console.error("[auth] DB lookup failed, using fallback:", e instanceof Error ? e.message : e);
           token.role = resolveRole(email);
-          token.isActive = false;
+          token.isActive = true;
         }
       }
       return token;
