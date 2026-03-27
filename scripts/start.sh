@@ -8,15 +8,8 @@ else
   echo "WARNING: DATABASE_URL is NOT set — skipping migration"
 fi
 
-# 本番 DB にマイグレーションを適用（DATABASE_URL が無い場合はスキップ）
-if [ -n "$DATABASE_URL" ]; then
-  echo "Running prisma migrate deploy..."
-  if ! node ./node_modules/prisma/build/index.js migrate deploy; then
-    echo "ERROR: Migration failed. Check database connectivity and schema."
-    echo "Starting app anyway, but some features may not work correctly."
-  else
-    echo "Migration done."
-  fi
-fi
+# マイグレーションはローカルの prisma db push で適用済み
+# standalone モードでは prisma CLI の依存が不足するためスキップ
+echo "Skipping migration (applied via prisma db push)"
 
 exec node server.js
