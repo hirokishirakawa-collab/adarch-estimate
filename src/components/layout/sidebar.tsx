@@ -227,7 +227,7 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/review",
         label: "映像チェッカー",
         icon: Eye,
-        minRole: "ADMIN",
+        minRole: "USER",
         external: true,
       },
       {
