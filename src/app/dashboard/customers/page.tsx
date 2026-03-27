@@ -21,6 +21,7 @@ interface PageProps {
     rank?: string;
     prefecture?: string;
     status?: string;
+    locked?: string;
     page?: string;
   }>;
 }
@@ -36,6 +37,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const rankParam  = params.rank ?? "";
   const prefecture = params.prefecture ?? "";
   const status     = params.status ?? "";
+  const locked     = params.locked ?? "";
   const page       = Math.max(1, parseInt(params.page ?? "1") || 1);
 
   // ---------------------------------------------------------------
@@ -63,6 +65,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   if (rankParam)  where.rank       = rankParam  as CustomerRank;
   if (prefecture) where.prefecture = prefecture;
   if (status)     where.status     = status     as CustomerStatus;
+  if (locked === "1") (where as Record<string, unknown>).lockExpiresAt = { gt: new Date() };
 
   // ---------------------------------------------------------------
   // データ取得（フィルタ済みリスト + サマリー統計）
@@ -95,7 +98,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     ]);
 
   const totalPages = Math.ceil(total / PER_PAGE);
-  const hasFilter  = !!(q || rankParam || prefecture || status);
+  const hasFilter  = !!(q || rankParam || prefecture || status || locked);
 
   return (
     <div className="px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
@@ -128,26 +131,26 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
-      {/* ===== サマリーカード ===== */}
+      {/* ===== サマリーカード（クリックでフィルタ） ===== */}
       <div data-tour="customer-summary" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+        <Link href="/dashboard/customers" className={`bg-white rounded-lg border px-4 py-3 transition-all hover:shadow-md hover:-translate-y-0.5 ${!hasFilter ? "border-blue-300 ring-1 ring-blue-100" : "border-zinc-200"}`}>
           <p className="text-[11px] text-zinc-500">総顧客数</p>
           <p className="text-xl font-bold text-zinc-900 mt-0.5">
             {totalAll.toLocaleString()}
           </p>
-        </div>
-        <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+        </Link>
+        <Link href="/dashboard/customers?status=ACTIVE" className={`bg-white rounded-lg border px-4 py-3 transition-all hover:shadow-md hover:-translate-y-0.5 ${status === "ACTIVE" ? "border-emerald-300 ring-1 ring-emerald-100" : "border-zinc-200"}`}>
           <p className="text-[11px] text-zinc-500">取引中</p>
           <p className="text-xl font-bold text-emerald-600 mt-0.5">
             {activeCount}
           </p>
-        </div>
-        <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+        </Link>
+        <Link href="/dashboard/customers?locked=1" className={`bg-white rounded-lg border px-4 py-3 transition-all hover:shadow-md hover:-translate-y-0.5 ${locked === "1" ? "border-amber-300 ring-1 ring-amber-100" : "border-zinc-200"}`}>
           <p className="text-[11px] text-zinc-500">先着ロック中</p>
           <p className="text-xl font-bold text-amber-600 mt-0.5">
             {lockedCount}
           </p>
-        </div>
+        </Link>
         <div className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
           <p className="text-[11px] text-zinc-500">
             {hasFilter ? "絞り込み結果" : "全件"}
