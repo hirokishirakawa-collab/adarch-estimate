@@ -1723,7 +1723,7 @@ export async function sendGroupWeeklyReportEmail(
 // アプリ内通知
 // ---------------------------------------------------------------
 
-/** アプリ内通知を作成 */
+/** アプリ内通知を作成 + ユーザー設定に応じてChat/メールにも転送 */
 export async function createInAppNotification(params: {
   userId: string;
   type: string;
@@ -1732,6 +1732,7 @@ export async function createInAppNotification(params: {
   linkUrl?: string;
 }) {
   try {
+    // 1. アプリ内通知を作成
     await db.notification.create({
       data: {
         userId: params.userId,
@@ -1741,9 +1742,58 @@ export async function createInAppNotification(params: {
         linkUrl: params.linkUrl,
       },
     });
+
+    // 2. ユーザーの通知設定を取得
+    const user = await db.user.findUnique({
+      where: { id: params.userId },
+      select: {
+        notifyViaChat: true,
+        notifyViaEmail: true,
+        chatSpaceId: true,
+        email: true,
+      },
+    });
+    if (!user) return;
+
+    const fullUrl = params.linkUrl ? appUrl(params.linkUrl) : "";
+    const textBody = [params.title, params.message, fullUrl]
+      .filter(Boolean)
+      .join("\n");
+
+    // 3. Google Chat 転送
+    if (user.notifyViaChat && user.chatSpaceId) {
+      sendChatMessage(user.chatSpaceId, textBody).catch((e) =>
+        console.error("[createInAppNotification:chat]", e)
+      );
+    }
+
+    // 4. メール転送
+    if (user.notifyViaEmail && user.email) {
+      const html = `
+        <div style="font-family: sans-serif; max-width: 480px;">
+          <h3 style="margin: 0 0 8px; color: #333;">${escapeHtml(params.title)}</h3>
+          ${params.message ? `<p style="margin: 0 0 12px; color: #555;">${escapeHtml(params.message)}</p>` : ""}
+          ${fullUrl ? `<a href="${fullUrl}" style="display: inline-block; padding: 8px 16px; background: #1a1a1a; color: #fff; border-radius: 6px; text-decoration: none; font-size: 14px;">確認する</a>` : ""}
+          <hr style="margin: 16px 0; border: none; border-top: 1px solid #eee;" />
+          <p style="font-size: 11px; color: #999;">Ad-Arch Group OS からの通知です</p>
+        </div>
+      `;
+      sendEmail("in-app-forward", [user.email], `[Ad-Arch] ${params.title}`, html).catch((e) =>
+        console.error("[createInAppNotification:email]", e)
+      );
+    }
   } catch (e) {
     console.error("[createInAppNotification]", e);
   }
+}
+
+/** HTML エスケープ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 /** 全ADMINにアプリ内通知 */

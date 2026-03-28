@@ -7,6 +7,7 @@ import { NotePanel } from "./note-panel";
 import { ApprovalBar } from "./approval-bar";
 import { DiffOverlay } from "./diff-overlay";
 import { AnalysisProgress } from "./analysis-progress";
+import { CheckList, type CheckItem } from "./check-list";
 
 interface Change {
   id: string;
@@ -46,9 +47,10 @@ interface Props {
   };
   changes: Change[];
   notes: Note[];
+  checkItems?: CheckItem[];
 }
 
-export function ReviewViewer({ review, changes, notes }: Props) {
+export function ReviewViewer({ review, changes, notes, checkItems = [] }: Props) {
   const [currentTime, setCurrentTime] = useState(0);
   const [seekTo, setSeekTo] = useState<number | null>(null);
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
@@ -122,17 +124,30 @@ export function ReviewViewer({ review, changes, notes }: Props) {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Change List - 2 columns */}
-        <div className="lg:col-span-2 space-y-3">
-          <h3 className="text-sm font-semibold text-white/70">
-            変更検出一覧
-          </h3>
-          <div className="rounded-xl bg-white/[0.02] border border-white/5 p-2 max-h-80 overflow-y-auto">
-            <ChangeList
-              changes={changes}
+        {/* Change List + Check List - 2 columns */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* AI検出変更一覧 */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-white/70">
+              変更検出一覧
+            </h3>
+            <div className="rounded-xl bg-white/[0.02] border border-white/5 p-2 max-h-80 overflow-y-auto">
+              <ChangeList
+                changes={changes}
+                onSeek={handleSeek}
+                onViewDiff={handleViewDiff}
+                selectedChangeId={selectedChangeId}
+              />
+            </div>
+          </div>
+
+          {/* 修正チェックリスト（検収用） */}
+          <div className="rounded-xl bg-white/[0.02] border border-white/5 p-4">
+            <CheckList
+              reviewId={review.id}
+              items={checkItems}
+              currentTime={currentTime}
               onSeek={handleSeek}
-              onViewDiff={handleViewDiff}
-              selectedChangeId={selectedChangeId}
             />
           </div>
         </div>
@@ -152,6 +167,8 @@ export function ReviewViewer({ review, changes, notes }: Props) {
             approvedBy={review.approvedBy}
             rejectedBy={review.rejectedBy}
             rejectionNote={review.rejectionNote}
+            checkItemsTotal={checkItems.length}
+            checkItemsConfirmed={checkItems.filter((ci) => ci.confirmedAt).length}
           />
         </div>
       </div>

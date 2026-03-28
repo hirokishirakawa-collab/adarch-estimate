@@ -29,7 +29,17 @@ export default async function ReviewListPage() {
   const info = await getSessionInfo();
   if (!info) redirect("/login");
 
+  const where = info.role === "ADMIN"
+    ? {}
+    : {
+        OR: [
+          { createdBy: info.email },
+          { members: { some: { userId: info.userId } } },
+        ],
+      };
+
   const projects = await db.reviewProject.findMany({
+    where,
     orderBy: { updatedAt: "desc" },
     take: 50,
     include: {
@@ -37,6 +47,10 @@ export default async function ReviewListPage() {
         orderBy: { version: "desc" },
         take: 1,
         select: { version: true, status: true, totalChanges: true },
+      },
+      members: {
+        select: { user: { select: { name: true } } },
+        take: 5,
       },
     },
   });

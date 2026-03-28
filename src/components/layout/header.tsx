@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/roles";
-import { Menu, Search } from "lucide-react";
+import { Menu, Search, Settings } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
 
 // ----------------------------------------------------------------
@@ -74,6 +75,15 @@ export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProp
 
           {/* 通知ベル */}
           <NotificationBell />
+
+          {/* 設定 */}
+          <Link
+            href="/dashboard/settings"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+            title="設定"
+          >
+            <Settings className="w-4 h-4" />
+          </Link>
 
           {/* 日付 */}
           <p className="hidden md:block text-xs text-zinc-400">{dateStr}</p>

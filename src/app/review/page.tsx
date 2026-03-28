@@ -31,7 +31,18 @@ export default async function ReviewListPage() {
   const info = await getSessionInfo();
   if (!info) redirect("/login");
 
+  // ADMINは全件、それ以外はメンバー登録済み or 自分が作成者のみ
+  const where = info.role === "ADMIN"
+    ? {}
+    : {
+        OR: [
+          { createdBy: info.email },
+          { members: { some: { userId: info.userId } } },
+        ],
+      };
+
   const projects = await db.reviewProject.findMany({
+    where,
     orderBy: { updatedAt: "desc" },
     take: 50,
     include: {
@@ -39,6 +50,10 @@ export default async function ReviewListPage() {
         orderBy: { version: "desc" },
         take: 1,
         select: { version: true, status: true, totalChanges: true, afterVideoPath: true },
+      },
+      members: {
+        select: { user: { select: { name: true } } },
+        take: 5,
       },
     },
   });
@@ -131,6 +146,21 @@ export default async function ReviewListPage() {
                     {project.staffName} ・ {new Date(project.createdAt).toLocaleDateString("ja-JP")}
                   </p>
                 </div>
+
+                {/* メンバー */}
+                {project.members.length > 0 && (
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
+                    {project.members.map((m, i) => (
+                      <span
+                        key={i}
+                        className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-[10px] text-zinc-300 font-medium border border-zinc-600"
+                        title={m.user.name ?? ""}
+                      >
+                        {(m.user.name ?? "?")[0]}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {latest && (
                   <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-400 font-mono flex-shrink-0">

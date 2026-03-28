@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
+import { createInAppNotification } from "@/lib/notifications";
 
 // ---------------------------------------------------------------
 // プロジェクト作成 + 初回バージョン（v1）
@@ -22,6 +23,7 @@ export async function createReview(
   const beforeFileName   = (formData.get("beforeFileName") as string)?.trim();
   const afterFileName    = (formData.get("afterFileName") as string)?.trim();
   const linkedProjectId  = (formData.get("linkedProjectId") as string)?.trim() || null;
+  const memberIds        = (formData.get("memberIds") as string)?.trim() || "";
 
   if (!title) return { error: "タイトルは必須です" };
   if (!linkedProjectId) return { error: "プロジェクトを選択してください" };
@@ -30,6 +32,9 @@ export async function createReview(
   // プロジェクトが存在するか確認
   const linkedProject = await db.project.findUnique({ where: { id: linkedProjectId } });
   if (!linkedProject) return { error: "選択されたプロジェクトが見つかりません" };
+
+  // メンバーIDをパース
+  const parsedMemberIds = memberIds ? memberIds.split(",").filter(Boolean) : [];
 
   // レビュープロジェクトとv1レビューを同時作成
   const project = await db.reviewProject.create({
@@ -55,9 +60,29 @@ export async function createReview(
           staffName: info.staffName,
         },
       },
+      // 作成者をOWNERとして登録 + 選択されたメンバーをCHECKERとして登録
+      members: {
+        create: [
+          { userId: info.userId, role: "OWNER" },
+          ...parsedMemberIds
+            .filter((id) => id !== info.userId)
+            .map((userId) => ({ userId, role: "CHECKER" as const })),
+        ],
+      },
     },
     include: { reviews: true },
   });
+
+  // メンバーに通知（自分以外）
+  for (const memberId of parsedMemberIds.filter((id) => id !== info.userId)) {
+    await createInAppNotification({
+      userId: memberId,
+      type: "REVIEW_MEMBER_ADDED",
+      title: "映像チェッカーに追加されました",
+      message: `「${title}」のチェックメンバーに追加されました。`,
+      linkUrl: `/review/${project.id}`,
+    });
+  }
 
   revalidatePath("/review");
   revalidatePath("/dashboard/review");
@@ -242,7 +267,29 @@ export async function approveReview(reviewId: string): Promise<{ error?: string 
     },
   });
 
-  const review = await db.videoReview.findUnique({ where: { id: reviewId }, select: { projectId: true } });
+  const review = await db.videoReview.findUnique({
+    where: { id: reviewId },
+    select: { projectId: true, project: { select: { title: true } } },
+  });
+
+  // 全メンバーに承認通知
+  if (review?.projectId) {
+    const members = await db.reviewProjectMember.findMany({
+      where: { projectId: review.projectId, userId: { not: info.userId } },
+      select: { userId: true },
+    });
+    const projectTitle = review.project?.title ?? "映像チェック";
+    for (const m of members) {
+      await createInAppNotification({
+        userId: m.userId,
+        type: "REVIEW_APPROVED",
+        title: `${projectTitle}: 承認されました`,
+        message: `${info.staffName}が承認しました。`,
+        linkUrl: `/review/${review.projectId}`,
+      });
+    }
+  }
+
   revalidatePath(`/dashboard/review/${review?.projectId ?? reviewId}`);
   revalidatePath("/dashboard/review");
   return {};
@@ -270,7 +317,29 @@ export async function rejectReview(
     },
   });
 
-  const review = await db.videoReview.findUnique({ where: { id: reviewId }, select: { projectId: true } });
+  const review = await db.videoReview.findUnique({
+    where: { id: reviewId },
+    select: { projectId: true, project: { select: { title: true } } },
+  });
+
+  // 全メンバーに差し戻し通知
+  if (review?.projectId) {
+    const members = await db.reviewProjectMember.findMany({
+      where: { projectId: review.projectId, userId: { not: info.userId } },
+      select: { userId: true },
+    });
+    const projectTitle = review.project?.title ?? "映像チェック";
+    for (const m of members) {
+      await createInAppNotification({
+        userId: m.userId,
+        type: "REVIEW_REJECTED",
+        title: `${projectTitle}: 差し戻し`,
+        message: `${info.staffName}が差し戻しました。${note ? `理由: ${note}` : ""}`,
+        linkUrl: `/review/${review.projectId}`,
+      });
+    }
+  }
+
   revalidatePath(`/dashboard/review/${review?.projectId ?? reviewId}`);
   revalidatePath("/dashboard/review");
   return {};

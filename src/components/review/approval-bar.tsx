@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import { approveReview, rejectReview } from "@/lib/actions/review";
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
   approvedBy?: string | null;
   rejectedBy?: string | null;
   rejectionNote?: string | null;
+  checkItemsTotal?: number;
+  checkItemsConfirmed?: number;
 }
 
 export function ApprovalBar({
@@ -18,10 +20,17 @@ export function ApprovalBar({
   approvedBy,
   rejectedBy,
   rejectionNote,
+  checkItemsTotal = 0,
+  checkItemsConfirmed = 0,
 }: Props) {
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [approving, setApproving] = useState(false);
   const [rejectState, rejectAction, isRejecting] = useActionState(rejectReview, null);
+
+  // チェックリストがある場合、全項目ダブルチェック完了まで承認不可
+  const hasCheckItems = checkItemsTotal > 0;
+  const allChecked = checkItemsConfirmed === checkItemsTotal;
+  const canApprove = !hasCheckItems || allChecked;
 
   if (currentStatus === "APPROVED") {
     return (
@@ -62,11 +71,22 @@ export function ApprovalBar({
 
   return (
     <div className="space-y-3">
+      {/* チェック未完了の警告 */}
+      {hasCheckItems && !allChecked && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/8 border border-amber-500/15">
+          <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+          <p className="text-xs text-amber-400">
+            チェックリスト未完了（{checkItemsConfirmed}/{checkItemsTotal}）
+          </p>
+        </div>
+      )}
+
       <div className="flex gap-3">
         <button
           onClick={handleApprove}
-          disabled={approving}
-          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600/15 text-emerald-400 border border-emerald-500/20 font-semibold text-sm hover:bg-emerald-600/25 disabled:opacity-40 transition-all"
+          disabled={approving || !canApprove}
+          title={!canApprove ? "全チェック項目の確認完了が必要です" : undefined}
+          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600/15 text-emerald-400 border border-emerald-500/20 font-semibold text-sm hover:bg-emerald-600/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           {approving ? (
             <Loader2 className="w-4 h-4 animate-spin" />

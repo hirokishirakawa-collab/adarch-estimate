@@ -9,6 +9,7 @@ import { VersionTimeline } from "@/components/review/version-timeline";
 import { AddVersionForm } from "@/components/review/add-version-form";
 import { ChangeSummary } from "@/components/review/change-summary";
 import { deleteProject } from "@/lib/actions/review";
+import { checkProjectAccess } from "@/lib/actions/review-checklist";
 
 export default async function ProjectDetailPage(props: {
   params: Promise<{ id: string }>;
@@ -28,12 +29,20 @@ export default async function ProjectDetailPage(props: {
         include: {
           changes: { orderBy: { sortOrder: "asc" } },
           notes: { orderBy: { timecode: "asc" } },
+          checkItems: { orderBy: { sortOrder: "asc" } },
         },
+      },
+      members: {
+        include: { user: { select: { id: true, name: true, email: true } } },
       },
     },
   });
 
   if (!project) notFound();
+
+  // アクセス権チェック
+  const hasAccess = await checkProjectAccess(id, info.userId, info.role);
+  if (!hasAccess) notFound();
 
   const selectedVersion = versionParam
     ? parseInt(versionParam)
@@ -141,6 +150,19 @@ export default async function ProjectDetailPage(props: {
           notes={selectedReview.notes.map((n) => ({
             id: n.id, timecode: n.timecode, text: n.text,
             author: n.author, createdAt: n.createdAt.toISOString(),
+          }))}
+          checkItems={selectedReview.checkItems.map((ci) => ({
+            id: ci.id,
+            description: ci.description,
+            timecode: ci.timecode,
+            sortOrder: ci.sortOrder,
+            appliedAt: ci.appliedAt?.toISOString() ?? null,
+            appliedBy: ci.appliedBy,
+            appliedById: ci.appliedById,
+            confirmedAt: ci.confirmedAt?.toISOString() ?? null,
+            confirmedBy: ci.confirmedBy,
+            confirmedById: ci.confirmedById,
+            createdBy: ci.createdBy,
           }))}
         />
       ) : (

@@ -285,6 +285,10 @@ model User {
 
   chatSpaceId String? // Google Chat 個人スペースID
 
+  // ---- 通知設定 ----
+  notifyViaChat  Boolean @default(false) // アプリ内通知をGoogle Chatにも転送
+  notifyViaEmail Boolean @default(false) // アプリ内通知をメールにも転送
+
   // ---- グループ企業紐付け（メンバープロフィール用）----
   groupCompanyId String?
   groupCompany   GroupCompany? @relation("UserGroupCompany", fields: [groupCompanyId], references: [id], onDelete: SetNull)
@@ -344,6 +348,9 @@ model User {
 
   // ---- お気に入り（ピン留め）----
   favorites UserFavorite[]
+
+  // ---- 映像チェッカー（検収メンバー）----
+  reviewMemberships ReviewProjectMember[]
 
   @@index([branchId])
   @@index([branchId2])
@@ -2273,6 +2280,12 @@ enum NotificationType {
   PROJECT_CREATED
   PROPOSAL_VIEWED
   REPORT_SUBMITTED
+  REVIEW_MEMBER_ADDED   // 映像チェッカーのメンバーに追加された
+  REVIEW_CHECK_APPLIED  // チェック項目が反映された
+  REVIEW_CHECK_CONFIRMED // チェック項目が確認された
+  REVIEW_ALL_CHECKED    // 全チェック項目完了
+  REVIEW_APPROVED       // レビューが承認された
+  REVIEW_REJECTED       // レビューが差し戻された
   SYSTEM
 }
 
@@ -2350,10 +2363,35 @@ model ReviewProject {
   updatedAt DateTime @updatedAt
 
   reviews VideoReview[]
+  members ReviewProjectMember[]
 
   @@index([branchId])
   @@index([createdBy])
   @@map("review_projects")
+}
+
+// アクセス制御: プロジェクトごとのメンバー
+model ReviewProjectMember {
+  id        String @id @default(cuid())
+  projectId String
+  project   ReviewProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  userId    String // User.id
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role      ReviewMemberRole @default(CHECKER)
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("review_project_members")
+}
+
+enum ReviewMemberRole {
+  OWNER    // プロジェクト作成者・最終承認者
+  EDITOR   // 編集者（反映チェック担当）
+  CHECKER  // 確認者（ダブルチェック担当）
 }
 
 model VideoReview {
@@ -2394,8 +2432,9 @@ model VideoReview {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  changes VideoReviewChange[]
-  notes   VideoReviewNote[]
+  changes    VideoReviewChange[]
+  notes      VideoReviewNote[]
+  checkItems ReviewCheckItem[]
 
   @@index([projectId, version])
   @@index([branchId])
@@ -2446,4 +2485,36 @@ model VideoReviewNote {
 
   @@index([reviewId])
   @@map("video_review_notes")
+}
+
+// ==============================================================
+// 検収チェックリスト
+// ==============================================================
+
+// 修正依頼の個別項目
+model ReviewCheckItem {
+  id       String      @id @default(cuid())
+  reviewId String
+  review   VideoReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  description String   @db.Text   // 修正内容（例: 「お届け」→「お届けします」）
+  timecode    Float?              // 該当タイムコード（秒）
+  sortOrder   Int      @default(0)
+
+  // 反映チェック（編集者が確認）
+  appliedAt    DateTime?
+  appliedBy    String?            // staffName
+  appliedById  String?            // User.id
+
+  // 確認チェック（別の人がダブルチェック）
+  confirmedAt    DateTime?
+  confirmedBy    String?          // staffName
+  confirmedById  String?          // User.id
+
+  createdBy String               // 登録者 staffName
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reviewId])
+  @@map("review_check_items")
 }

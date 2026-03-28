@@ -10,18 +10,25 @@ export default async function NewReviewPage() {
   if (!info) redirect("/login");
 
   // 全拠点のプロジェクトを表示（複数人で案件を扱うため）
-  const projects = await db.project.findMany({
-    where: {
-      status: { in: ["IN_PROGRESS", "ORDERED", "COMPLETED"] },
-    },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      title: true,
-      customer: { select: { name: true } },
-    },
-    take: 100,
-  });
+  const [projects, users] = await Promise.all([
+    db.project.findMany({
+      where: {
+        status: { in: ["IN_PROGRESS", "ORDERED", "COMPLETED"] },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        customer: { select: { name: true } },
+      },
+      take: 100,
+    }),
+    db.user.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true },
+    }),
+  ]);
 
   if (projects.length === 0) {
     return (
@@ -74,6 +81,13 @@ export default async function NewReviewPage() {
             title: p.title,
             customerName: p.customer?.name ?? null,
           }))}
+          users={users
+            .filter((u) => u.id !== info.userId)
+            .map((u) => ({
+              id: u.id,
+              name: u.name ?? u.email,
+              email: u.email,
+            }))}
         />
       </div>
     </div>
