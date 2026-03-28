@@ -79,10 +79,11 @@ export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProp
           {/* 設定 */}
           <Link
             href="/dashboard/settings"
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
-            title="設定"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors text-xs"
+            title="通知設定"
           >
             <Settings className="w-4 h-4" />
+            <span className="hidden sm:block">通知設定</span>
           </Link>
 
           {/* 日付 */}
