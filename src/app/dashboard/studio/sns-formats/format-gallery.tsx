@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Eye, Calendar, ExternalLink, Copy, Check, ArrowUpDown, Terminal, ChevronDown, X, Play, FileText, Printer, Trash2 } from "lucide-react";
 
 type ReferenceFormat = {
@@ -50,6 +50,8 @@ export function FormatGallery({ initialFormats, isAdmin = false }: { initialForm
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   if (formats.length === 0) return null;
 
@@ -177,73 +179,58 @@ ${st.map((s: any, i: number) => `   ${i + 1}. ${s.label} — ${s.duration}`).joi
     return t;
   }
 
-  function printShootGuide(f: ReferenceFormat) {
-    const st = f.structure as any[];
-    const totalSec = st.reduce((sum: number, s: any) => sum + parseFloat(s.duration), 0);
-    const colors = ["#8B5CF6","#3B82F6","#6BA0F4","#EC4899","#10B981","#F59E0B","#EF4444"];
-    const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>撮影依頼書 - ${f.title}</title>
-<sty` + `le>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Helvetica Neue','Noto Sans JP',sans-serif;padding:40px;max-width:800px;margin:0 auto;color:#1a1a1a;font-size:14px;line-height:1.8}
-@media print{body{padding:20px}}
-.header{border-bottom:3px solid #1a1a1a;padding-bottom:16px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end}
-.header h1{font-size:24px;font-weight:800}
-.header .meta{font-size:11px;color:#666;text-align:right}
-.badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 12px;border-radius:100px;background:#f0f0f0;color:#333;margin-right:4px}
-.section{margin-bottom:24px}
-.section h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e0e0e0}
-.rule{background:#f8f8f8;border-left:3px solid #8B5CF6;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:16px}
-.rule div{margin-bottom:2px}
-.cut{display:flex;gap:14px;padding:12px 16px;border:1px solid #e8e8e8;border-radius:10px;margin-bottom:8px;align-items:center}
-.cut-num{width:28px;height:28px;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
-.cut-title{font-weight:700}
-.cut-dur{font-size:12px;color:#888;margin-left:auto;flex-shrink:0}
-.footer{margin-top:32px;padding-top:16px;border-top:2px solid #1a1a1a;font-size:11px;color:#888;display:flex;justify-content:space-between}
-.tl-wrap{margin-bottom:20px}
-.tl-bar{display:flex;gap:2px;border-radius:8px;overflow:hidden;height:44px}
-.tl-b{display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,.95)}
-.tl-b-label{font-size:10px;font-weight:700}
-.tl-b-dur{font-size:9px;opacity:.7}
-.tl-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.tl-legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:#555}
-.tl-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.tl-total{text-align:right;font-size:11px;color:#888;margin-top:4px}
-</sty` + `le></he` + `ad><bo` + `dy>
-<div class="header">
-  <div><h1>撮影依頼書</h1><div style="margin-top:6px"><span class="badge">${f.title}</span><span class="badge">${f.duration}</span>${f.platforms.split(",").map(p => '<span class="badge">' + p.toUpperCase() + '</span>').join("")}</div></div>
-  <div class="meta">Ad Arch Group<br>SNS Format Studio<br>${new Date().toLocaleDateString("ja-JP")}</div>
-</div>
-<div class="section"><h2>参考動画</h2><div class="rule"><div>${f.sourceUrl}</div>${f.sourceViews ? '<div>再生数: ' + f.sourceViews.toLocaleString() + '</div>' : ''}</div></div>
-<div class="section"><h2>構成タイムライン</h2>
-<div class="tl-wrap">
-<div class="tl-bar">${st.map((s: any, i: number) => '<div class="tl-b" style="flex:' + parseFloat(s.duration) + ';background:' + colors[i % colors.length] + '"><span class="tl-b-label">' + s.label + '</span><span class="tl-b-dur">' + s.duration + '</span></div>').join("")}</div>
-<div class="tl-legend">${st.map((s: any, i: number) => '<div class="tl-legend-item"><div class="tl-legend-dot" style="background:' + colors[i % colors.length] + '"></div>' + (i + 1) + '. ' + s.label + '（' + s.duration + '）</div>').join("")}</div>
-<div class="tl-total">合計: ${totalSec.toFixed(1)}秒</div>
-</div></div>
-<div class="section"><h2>基本ルール（必ずお読みください）</h2>
-<div class="rule">
-<div>縦撮影（9:16）。スマホを縦に固定してください</div>
-<div>自然光を活用。窓に向かって撮影するのがベストです</div>
-<div>各カットは指定秒数の2〜3倍の長さで撮影してください</div>
-<div>最低1080p（フルHD）以上で撮影してください</div>
-<div>テロップが入るので、画面下部20%には重要な要素を入れないでください</div>
-<div>BGMを入れるので環境音は気にしなくてOKです</div>
-</div></div>
-<div class="section"><h2>撮影カット</h2>
-${st.map((s: any, i: number) => '<div class="cut"><div class="cut-num" style="background:' + colors[i % colors.length] + '">' + (i + 1) + '</div><div><div class="cut-title">' + s.label + '</div></div><div class="cut-dur">' + s.duration + '</div></div>').join("")}
-</div>
-${f.shootingTips ? '<div class="section"><h2>撮影のコツ</h2><div class="rule"><div>' + f.shootingTips + '</div></div></div>' : ''}
-<div class="section"><h2>素材の送付方法</h2>
-<div class="rule">
-<div>撮影した動画をGoogleドライブ or ギガファイル便でお送りください</div>
-<div>ファイル名に番号をつけてください（例: 01_フック.mp4, 02_施術.mp4）</div>
-<div>BGMの希望があればお知らせください（なければこちらで選定します）</div>
-</div></div>
-<div class="footer"><div>Ad Arch Group — SNS Format Studio</div><div>${new Date().toLocaleDateString("ja-JP")}</div></div>
-<scr` + `ipt>window.print()</scr` + `ipt>
-</bo` + `dy></ht` + `ml>`;
-    const blob = new Blob([html], { type: "text/html" });
-    window.open(URL.createObjectURL(blob), "_blank");
+  async function printShootGuide() {
+    const el = modalRef.current;
+    if (!el) return;
+    setExporting(true);
+    try {
+      const html2canvas = (await import("html2canvas-pro")).default;
+      const { jsPDF } = await import("jspdf");
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const imgW = canvas.width;
+      const imgH = canvas.height;
+      // A4 portrait in mm
+      const pdfW = 210;
+      const pdfH = 297;
+      const margin = 10;
+      const contentW = pdfW - margin * 2;
+      const contentH = (imgH * contentW) / imgW;
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      if (contentH <= pdfH - margin * 2) {
+        pdf.addImage(imgData, "PNG", margin, margin, contentW, contentH);
+      } else {
+        // Multi-page: slice the canvas
+        const pageContentH = pdfH - margin * 2;
+        const sliceH = (pageContentH / contentW) * imgW; // px per page
+        let yPx = 0;
+        let page = 0;
+        while (yPx < imgH) {
+          if (page > 0) pdf.addPage();
+          const h = Math.min(sliceH, imgH - yPx);
+          const sliceCanvas = document.createElement("canvas");
+          sliceCanvas.width = imgW;
+          sliceCanvas.height = h;
+          const ctx = sliceCanvas.getContext("2d")!;
+          ctx.drawImage(canvas, 0, yPx, imgW, h, 0, 0, imgW, h);
+          const sliceImg = sliceCanvas.toDataURL("image/png");
+          const drawH = (h * contentW) / imgW;
+          pdf.addImage(sliceImg, "PNG", margin, margin, contentW, drawH);
+          yPx += h;
+          page++;
+        }
+      }
+      pdf.save(`撮影依頼書_${selectedFormat?.title || "format"}.pdf`);
+    } catch (e) {
+      console.error("PDF export failed:", e);
+      alert("PDF書き出しに失敗しました");
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -391,6 +378,7 @@ ${f.shootingTips ? '<div class="section"><h2>撮影のコツ</h2><div class="rul
       {selectedFormat && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && setSelectedFormat(null)}>
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div ref={modalRef} className="bg-white rounded-2xl">
             {/* Thumbnail header */}
             <div className="h-48 relative overflow-hidden rounded-t-2xl">
               {selectedFormat.thumbnailBase64 ? (
@@ -399,7 +387,7 @@ ${f.shootingTips ? '<div class="section"><h2>撮影のコツ</h2><div class="rul
                 <div className="w-full h-full bg-gradient-to-br from-indigo-200 to-fuchsia-200" />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <button onClick={() => setSelectedFormat(null)} className="absolute top-4 right-4 z-20 w-8 h-8 bg-black/30 backdrop-blur rounded-lg flex items-center justify-center text-white/70 hover:text-white transition">
+              <button onClick={() => setSelectedFormat(null)} className={`absolute top-4 right-4 z-20 w-8 h-8 bg-black/30 backdrop-blur rounded-lg flex items-center justify-center text-white/70 hover:text-white transition ${exporting ? "hidden" : ""}`}>
                 <X className="w-4 h-4" />
               </button>
               <div className="absolute bottom-4 left-5 right-5 z-10">
@@ -485,7 +473,11 @@ ${f.shootingTips ? '<div class="section"><h2>撮影のコツ</h2><div class="rul
                     <div className="text-xs text-zinc-500 mt-2 pt-2 border-t">💡 {selectedFormat.shootingTips}</div>
                   )}
                 </div>
-                <div className="flex gap-2 mt-2">
+              </div>
+            </div>{/* end p-5 */}
+            </div>{/* end modalRef */}
+            <div className="px-5 pb-5 space-y-5">
+                <div className="flex gap-2">
                   <button
                     onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(genShootGuide(selectedFormat)); setCopiedId("shoot_" + selectedFormat.id); setTimeout(() => setCopiedId(null), 2000); }}
                     className="flex items-center gap-1.5 text-xs text-fuchsia-600 hover:text-fuchsia-700 font-medium transition"
@@ -493,13 +485,13 @@ ${f.shootingTips ? '<div class="section"><h2>撮影のコツ</h2><div class="rul
                     {copiedId === "shoot_" + selectedFormat.id ? <><Check className="w-3 h-3" /> コピーしました</> : <><Copy className="w-3 h-3" /> テキストコピー</>}
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); printShootGuide(selectedFormat); }}
-                    className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-700 font-medium transition"
+                    onClick={(e) => { e.stopPropagation(); printShootGuide(); }}
+                    disabled={exporting}
+                    className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-700 font-medium transition disabled:opacity-50"
                   >
-                    <Printer className="w-3 h-3" /> PDF書き出し
+                    <Printer className="w-3 h-3" /> {exporting ? "書き出し中..." : "PDF書き出し"}
                   </button>
                 </div>
-              </div>
 
               {/* Production command */}
               <div className="bg-zinc-900 rounded-xl p-4">
