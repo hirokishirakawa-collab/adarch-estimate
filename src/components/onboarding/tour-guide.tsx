@@ -1100,6 +1100,102 @@ const TOURS: Record<string, TourStep[]> = {
       },
     },
   ],
+
+  // ================================================================
+  // 映像チェッカー（検収）
+  // ================================================================
+  "/review": [
+    {
+      popover: {
+        title: "映像チェッカー",
+        description: "修正前後の動画をAIが自動比較。検収チェックリストで修正漏れを防止します。",
+      },
+    },
+    {
+      element: "[data-tour='review-list']",
+      popover: {
+        title: "プロジェクト一覧",
+        description: "自分がメンバーに追加されたプロジェクトのみ表示されます。メンバーアイコンで参加者を確認。",
+        side: "bottom",
+      },
+    },
+  ],
+  "/review/new": [
+    {
+      popover: {
+        title: "新規チェック作成",
+        description: "修正前後の動画をアップロードし、チェックメンバーを指定します。",
+      },
+    },
+    {
+      element: "[data-tour='member-select']",
+      popover: {
+        title: "アクセスメンバー選択",
+        description: "この検収にアクセスできるメンバーを選択します。選択されたメンバーにはアプリ内通知が届きます。",
+        side: "bottom",
+      },
+    },
+  ],
+  "/review/[id]": [
+    {
+      popover: {
+        title: "検収ワークフロー",
+        description: "修正前後の動画を横並びで比較しながら、修正依頼の反映漏れを防ぎます。",
+      },
+    },
+    {
+      element: "[data-tour='video-player']",
+      popover: {
+        title: "比較プレーヤー",
+        description: "修正前（左）と修正後（右）を同期再生。タイムラインのマーカーで変更点にジャンプ。",
+        side: "bottom",
+      },
+    },
+    {
+      element: "[data-tour='check-list']",
+      popover: {
+        title: "修正チェックリスト",
+        description: "修正依頼を1件ずつ登録。「反映」→「確認」の2段階チェックで、反映漏れとニュアンスのズレを防止します。反映者と確認者は別の人が担当。",
+        side: "top",
+      },
+    },
+    {
+      element: "[data-tour='approval-bar']",
+      popover: {
+        title: "承認・差し戻し",
+        description: "全チェック項目が確認完了するまで承認ボタンは押せません。差し戻し時は理由を記入できます。",
+        side: "top",
+      },
+    },
+  ],
+
+  // ================================================================
+  // 設定
+  // ================================================================
+  "/dashboard/settings": [
+    {
+      popover: {
+        title: "通知設定",
+        description: "アプリ内通知に加えて、Google Chat やメールでもリアルタイム通知を受け取る設定ができます。",
+      },
+    },
+    {
+      element: "[data-tour='notify-chat']",
+      popover: {
+        title: "Google Chat 転送",
+        description: "ONにすると、通知が Google Chat の個人スペースにも送信されます。Chat スペースIDの設定が必要です。",
+        side: "bottom",
+      },
+    },
+    {
+      element: "[data-tour='notify-email']",
+      popover: {
+        title: "メール転送",
+        description: "ONにすると、通知がログインメールアドレスに送信されます。外出先でも見逃しません。",
+        side: "bottom",
+      },
+    },
+  ],
 };
 
 // ----------------------------------------------------------------

@@ -44,7 +44,7 @@ export default async function SettingsPage() {
           <NotificationSettingsForm
             notifyViaChat={user.notifyViaChat}
             notifyViaEmail={user.notifyViaEmail}
-            hasChatSpaceId={!!user.chatSpaceId}
+            chatSpaceId={user.chatSpaceId}
           />
         </div>
       </div>

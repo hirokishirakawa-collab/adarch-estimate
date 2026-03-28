@@ -13,10 +13,11 @@ export async function updateNotificationSettings(
 
   const notifyViaChat = formData.get("notifyViaChat") === "on";
   const notifyViaEmail = formData.get("notifyViaEmail") === "on";
+  const chatSpaceId = (formData.get("chatSpaceId") as string)?.trim() || null;
 
   await db.user.update({
     where: { id: info.userId },
-    data: { notifyViaChat, notifyViaEmail },
+    data: { notifyViaChat, notifyViaEmail, chatSpaceId },
   });
 
   revalidatePath("/dashboard/settings");

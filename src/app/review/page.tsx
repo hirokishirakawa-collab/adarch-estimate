@@ -104,7 +104,7 @@ export default async function ReviewListPage() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="review-list">
           {projects.map((project) => {
             const latest = project.reviews[0];
             const config = latest

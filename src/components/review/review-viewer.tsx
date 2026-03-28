@@ -113,6 +113,7 @@ export function ReviewViewer({ review, changes, notes, checkItems = [] }: Props)
       </div>
 
       {/* Video Player */}
+      <div data-tour="video-player">
       <VideoPlayer
         beforeVideoUrl={review.beforeVideoUrl}
         afterVideoUrl={review.afterVideoUrl}
@@ -122,6 +123,7 @@ export function ReviewViewer({ review, changes, notes, checkItems = [] }: Props)
         onTimeUpdate={setCurrentTime}
         seekTo={seekTo}
       />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Change List + Check List - 2 columns */}
@@ -142,7 +144,7 @@ export function ReviewViewer({ review, changes, notes, checkItems = [] }: Props)
           </div>
 
           {/* 修正チェックリスト（検収用） */}
-          <div className="rounded-xl bg-white/[0.02] border border-white/5 p-4">
+          <div className="rounded-xl bg-white/[0.02] border border-white/5 p-4" data-tour="check-list">
             <CheckList
               reviewId={review.id}
               items={checkItems}
@@ -161,6 +163,7 @@ export function ReviewViewer({ review, changes, notes, checkItems = [] }: Props)
             onSeek={handleSeek}
           />
 
+          <div data-tour="approval-bar">
           <ApprovalBar
             reviewId={review.id}
             currentStatus={review.status}
@@ -170,6 +173,7 @@ export function ReviewViewer({ review, changes, notes, checkItems = [] }: Props)
             checkItemsTotal={checkItems.length}
             checkItemsConfirmed={checkItems.filter((ci) => ci.confirmedAt).length}
           />
+          </div>
         </div>
       </div>
 

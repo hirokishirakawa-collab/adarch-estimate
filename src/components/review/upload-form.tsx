@@ -186,7 +186,7 @@ export function UploadForm({ projects, users }: UploadFormProps) {
       </div>
 
       {/* メンバー選択 */}
-      <div>
+      <div data-tour="member-select">
         <label className="block text-sm font-medium text-zinc-300 mb-1.5">
           <UserPlus className="w-4 h-4 inline mr-1.5" />
           アクセスメンバー
