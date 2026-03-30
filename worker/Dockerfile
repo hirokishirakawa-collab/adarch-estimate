@@ -9,7 +9,7 @@ RUN cd worker && npm ci
 # Prisma スキーマ（本体と共有）→ ローカルと同じ相対パスを維持
 COPY prisma/ ./prisma/
 COPY prisma.config.ts ./
-RUN npx prisma generate
+RUN npm install --no-save dotenv && npx prisma generate
 
 # Worker ソース
 COPY worker/src/ ./worker/src/
