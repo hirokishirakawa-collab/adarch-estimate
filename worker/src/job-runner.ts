@@ -12,10 +12,18 @@ let browser: Browser | null = null;
 
 async function getBrowser(): Promise<Browser> {
   if (!browser || !browser.isConnected()) {
-    browser = await chromium.launch({
+    const proxyUrl = process.env.RESIDENTIAL_PROXY_URL;
+    const launchOptions: Record<string, unknown> = {
       headless: true,
       args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"],
-    });
+    };
+
+    if (proxyUrl) {
+      console.log("[job-runner] レジデンシャルプロキシ使用");
+      launchOptions.proxy = { server: proxyUrl };
+    }
+
+    browser = await chromium.launch(launchOptions as Parameters<typeof chromium.launch>[0]);
   }
   return browser;
 }
@@ -120,39 +128,28 @@ export async function processNextJob(): Promise<boolean> {
       await dialog.accept();
     });
 
-    // CF7のrecaptchaモジュールをインターセプトし、2Captchaトークンを使うよう書き換え
-    await page.route("**/contact-form-7/modules/recaptcha/index.js**", async (route) => {
-      console.log(`[job-runner] CF7 recaptchaモジュールを書き換え`);
-      route.fulfill({
-        status: 200,
-        contentType: "application/javascript",
-        body: `
-          document.addEventListener("DOMContentLoaded", function() {
-            // CF7がrecaptchaトークンを求めた時、window.__cf7RecaptchaTokenを返す
-            window.wpcf7_recaptcha = window.wpcf7_recaptcha || {};
-            var origSubmit = window.wpcf7?.submit;
-
-            // CF7のフォーム送信時にトークンを注入するためのグローバル変数
-            window.__cf7RecaptchaToken = "PENDING";
-
-            // grecaptcha互換モック（CF7のsubmitハンドラーが呼ぶ）
-            if (typeof window.grecaptcha === "undefined") {
-              window.grecaptcha = {
-                ready: function(cb) { cb(); },
-                execute: function() {
-                  return Promise.resolve(window.__cf7RecaptchaToken || "PENDING");
-                }
-              };
-            } else {
-              var orig = window.grecaptcha.execute;
-              window.grecaptcha.execute = function() {
-                return Promise.resolve(window.__cf7RecaptchaToken || "PENDING");
-              };
-            }
-          });
-        `,
+    // レジデンシャルプロキシ未設定時のみ、reCAPTCHAモジュールを書き換え（フォールバック）
+    if (!process.env.RESIDENTIAL_PROXY_URL) {
+      await page.route("**/contact-form-7/modules/recaptcha/index.js**", async (route) => {
+        console.log(`[job-runner] CF7 recaptchaモジュールを書き換え（プロキシなし）`);
+        route.fulfill({
+          status: 200,
+          contentType: "application/javascript",
+          body: `
+            document.addEventListener("DOMContentLoaded", function() {
+              window.wpcf7_recaptcha = window.wpcf7_recaptcha || {};
+              window.__cf7RecaptchaToken = "PENDING";
+              if (typeof window.grecaptcha === "undefined") {
+                window.grecaptcha = {
+                  ready: function(cb) { cb(); },
+                  execute: function() { return Promise.resolve(window.__cf7RecaptchaToken || "PENDING"); }
+                };
+              }
+            });
+          `,
+        });
       });
-    });
+    }
 
     await page.goto(job.target.url, {
       waitUntil: "domcontentloaded",
