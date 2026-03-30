@@ -44,39 +44,30 @@ export async function solveCaptcha(
       const token = await solveRecaptchaV3(siteKey, page.url());
       if (token) {
         // grecaptcha.execute をハイジャックし、常に2Captchaトークンを返す
-        await page.evaluate((t) => {
-          // g-recaptcha-response に注入
-          const textareas = document.querySelectorAll<HTMLTextAreaElement>(
-            'textarea[name="g-recaptcha-response"]'
-          );
-          textareas.forEach((el) => { el.value = t; });
+        // NOTE: page.evaluateに文字列で渡す（tsxの__nameヘルパー問題を回避）
+        await page.evaluate(`(function() {
+          var t = ${JSON.stringify(token)};
+          var textareas = document.querySelectorAll('textarea[name="g-recaptcha-response"]');
+          for (var i = 0; i < textareas.length; i++) { textareas[i].value = t; }
 
-          // grecaptcha.execute を乗っ取り、常にこのトークンを返す
-          if (typeof (window as any).grecaptcha !== "undefined") {
-            const original = (window as any).grecaptcha;
-            (window as any).grecaptcha = {
-              ...original,
-              execute: () => Promise.resolve(t),
-              ready: (cb: () => void) => cb(),
-            };
-            // enterprise版も対応
+          if (typeof window.grecaptcha !== "undefined") {
+            var original = window.grecaptcha;
+            window.grecaptcha = Object.assign({}, original, {
+              execute: function() { return Promise.resolve(t); },
+              ready: function(cb) { cb(); }
+            });
             if (original.enterprise) {
-              (window as any).grecaptcha.enterprise = {
-                ...original.enterprise,
-                execute: () => Promise.resolve(t),
-                ready: (cb: () => void) => cb(),
-              };
+              window.grecaptcha.enterprise = Object.assign({}, original.enterprise, {
+                execute: function() { return Promise.resolve(t); },
+                ready: function(cb) { cb(); }
+              });
             }
           }
 
-          // wpcf7（Contact Form 7）のrecaptchaハンドラーも上書き
-          if (typeof (window as any).wpcf7 !== "undefined") {
-            const wpcf7 = (window as any).wpcf7;
-            if (wpcf7.recaptcha) {
-              wpcf7.recaptcha.execute = () => Promise.resolve(t);
-            }
+          if (typeof window.wpcf7 !== "undefined" && window.wpcf7.recaptcha) {
+            window.wpcf7.recaptcha.execute = function() { return Promise.resolve(t); };
           }
-        }, token);
+        })()`);
         console.log("[captcha-solver] v3: grecaptchaハイジャック完了");
         return { solved: true, method: "2captcha-v3" };
       }
@@ -108,12 +99,10 @@ export async function solveCaptcha(
       console.log("[captcha-solver] hCaptcha: 2Captchaでトークン取得中...");
       const token = await solveHCaptcha(siteKey, page.url());
       if (token) {
-        await page.evaluate((t) => {
-          const el = document.querySelector<HTMLTextAreaElement>(
-            '[name="h-captcha-response"], [name="g-recaptcha-response"]'
-          );
-          if (el) el.value = t;
-        }, token);
+        await page.evaluate(`(function() {
+          var el = document.querySelector('[name="h-captcha-response"], [name="g-recaptcha-response"]');
+          if (el) el.value = ${JSON.stringify(token)};
+        })()`);
         return { solved: true, method: "2captcha-hcaptcha" };
       }
     } catch (err) {
@@ -128,10 +117,10 @@ export async function solveCaptcha(
       console.log("[captcha-solver] Turnstile: 2Captchaでトークン取得中...");
       const token = await solveTurnstile(siteKey, page.url());
       if (token) {
-        await page.evaluate((t) => {
-          const el = document.querySelector<HTMLInputElement>('[name="cf-turnstile-response"]');
-          if (el) el.value = t;
-        }, token);
+        await page.evaluate(`(function() {
+          var el = document.querySelector('[name="cf-turnstile-response"]');
+          if (el) el.value = ${JSON.stringify(token)};
+        })()`);
         return { solved: true, method: "2captcha-turnstile" };
       }
     } catch (err) {
@@ -232,36 +221,34 @@ async function solve2Captcha(params: Record<string, string>): Promise<string | n
 // ─── トークン注入（v2用） ─────────────────────────
 
 async function injectRecaptchaToken(page: Page, token: string): Promise<void> {
-  await page.evaluate((t) => {
-    const textareas = document.querySelectorAll<HTMLTextAreaElement>(
-      '[name="g-recaptcha-response"], #g-recaptcha-response'
-    );
-    textareas.forEach((el) => { el.value = t; });
+  await page.evaluate(`(function() {
+    var t = ${JSON.stringify(token)};
+    var textareas = document.querySelectorAll('[name="g-recaptcha-response"], #g-recaptcha-response');
+    for (var i = 0; i < textareas.length; i++) { textareas[i].value = t; }
 
-    // コールバック実行
     try {
-      if (typeof (window as any).___grecaptcha_cfg !== "undefined") {
-        const clients = (window as any).___grecaptcha_cfg.clients;
+      if (typeof window.___grecaptcha_cfg !== "undefined") {
+        var clients = window.___grecaptcha_cfg.clients;
         if (clients) {
-          for (const key in clients) {
-            const client = clients[key];
-            const findCallback = (obj: any, depth: number): any => {
+          for (var key in clients) {
+            var client = clients[key];
+            var findCb = function(obj, depth) {
               if (depth > 5 || !obj) return null;
               if (typeof obj === "function") return obj;
               if (typeof obj === "object") {
-                for (const k in obj) {
+                for (var k in obj) {
                   if (k === "callback" && typeof obj[k] === "function") return obj[k];
-                  const found = findCallback(obj[k], depth + 1);
+                  var found = findCb(obj[k], depth + 1);
                   if (found) return found;
                 }
               }
               return null;
             };
-            const cb = findCallback(client, 0);
+            var cb = findCb(client, 0);
             if (cb) cb(t);
           }
         }
       }
-    } catch {}
-  }, token);
+    } catch(e) {}
+  })()`);
 }

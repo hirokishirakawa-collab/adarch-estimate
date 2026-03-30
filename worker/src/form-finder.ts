@@ -6,15 +6,8 @@ import { type Page } from "playwright";
  */
 export async function findContactFormUrl(page: Page): Promise<string | null> {
   // Step 1: 現在のページにフォームがあるかチェック
-  const hasForm = await page.evaluate(() => {
-    const forms = document.querySelectorAll('form');
-    const inputs = document.querySelectorAll('input[type="text"], input[type="email"], textarea');
-    // フォームタグまたは入力フィールドが2つ以上あればフォームページと判断
-    return forms.length > 0 && inputs.length >= 2;
-  });
-
-  if (hasForm) {
-    return page.url(); // 既にフォームページ
+  if (await hasContactForm(page)) {
+    return page.url();
   }
 
   // Step 2: お問い合わせリンクを探す
@@ -40,7 +33,6 @@ export async function findContactFormUrl(page: Page): Promise<string | null> {
           href.toLowerCase().includes('inquiry') ||
           href.toLowerCase().includes('toiawase')
         ) {
-          // 相対URLを絶対URLに変換
           try {
             return new URL(href, window.location.origin).href;
           } catch {
@@ -54,7 +46,7 @@ export async function findContactFormUrl(page: Page): Promise<string | null> {
   });
 
   if (!contactUrl) {
-    return null; // お問い合わせリンクが見つからない
+    return null;
   }
 
   // Step 3: お問い合わせページに遷移
@@ -62,18 +54,11 @@ export async function findContactFormUrl(page: Page): Promise<string | null> {
     await page.goto(contactUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(2000);
 
-    // 遷移先にフォームがあるか確認
-    const hasFormAfterNav = await page.evaluate(() => {
-      const forms = document.querySelectorAll('form');
-      const inputs = document.querySelectorAll('input[type="text"], input[type="email"], textarea');
-      return forms.length > 0 || inputs.length >= 2;
-    });
-
-    if (hasFormAfterNav) {
+    if (await hasContactForm(page)) {
       return page.url();
     }
 
-    // Step 4: さらにフォームページへのリンクを探す（「フォームはこちら」等）
+    // Step 4: さらにフォームページへのリンクを探す
     const deeperUrl = await page.evaluate(() => {
       const keywords = ['フォーム', 'form', 'メールで', 'こちらから', '入力'];
       const links = Array.from(document.querySelectorAll('a[href]'));
@@ -99,8 +84,22 @@ export async function findContactFormUrl(page: Page): Promise<string | null> {
       return page.url();
     }
 
-    return contactUrl; // フォームは見つからなかったが、お問い合わせページを返す
+    return contactUrl;
   } catch {
     return null;
   }
+}
+
+/**
+ * ページにフォームがあるか判定（緩い条件）
+ * - formタグがあればOK
+ * - formタグがなくてもinput/textareaが1つ以上あればOK
+ */
+async function hasContactForm(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const forms = document.querySelectorAll('form');
+    if (forms.length > 0) return true;
+    const inputs = document.querySelectorAll('input, textarea, select');
+    return inputs.length >= 1;
+  });
 }
