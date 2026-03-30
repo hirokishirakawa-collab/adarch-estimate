@@ -11,33 +11,35 @@ const PAGE_TIMEOUT = 60_000;
 let browser: Browser | null = null;
 
 async function getBrowser(): Promise<Browser> {
-  if (!browser || !browser.isConnected()) {
-    const proxyUrl = process.env.RESIDENTIAL_PROXY_URL;
-    const args = ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"];
-    if (proxyUrl) args.push("--ignore-certificate-errors");
-
-    const launchOptions: Record<string, unknown> = {
-      headless: true,
-      args,
-    };
-
-    if (proxyUrl) {
-      console.log("[job-runner] レジデンシャルプロキシ使用");
-      try {
-        const url = new URL(proxyUrl);
-        launchOptions.proxy = {
-          server: `${url.protocol}//${url.hostname}:${url.port}`,
-          username: decodeURIComponent(url.username),
-          password: decodeURIComponent(url.password),
-        };
-        launchOptions.ignoreHTTPSErrors = true;
-      } catch {
-        console.error("[job-runner] プロキシURL解析失敗:", proxyUrl);
-      }
-    }
-
-    browser = await chromium.launch(launchOptions as Parameters<typeof chromium.launch>[0]);
+  // プロキシ設定変更に対応するため、毎回新規起動
+  if (browser && browser.isConnected()) {
+    await browser.close().catch(() => {});
   }
+
+  const proxyUrl = process.env.RESIDENTIAL_PROXY_URL;
+  const args = ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"];
+  if (proxyUrl) args.push("--ignore-certificate-errors");
+
+  const launchOptions: Record<string, unknown> = {
+    headless: true,
+    args,
+  };
+
+  if (proxyUrl) {
+    console.log("[job-runner] レジデンシャルプロキシ使用");
+    try {
+      const url = new URL(proxyUrl);
+      launchOptions.proxy = {
+        server: `${url.protocol}//${url.hostname}:${url.port}`,
+        username: decodeURIComponent(url.username),
+        password: decodeURIComponent(url.password),
+      };
+    } catch {
+      console.error("[job-runner] プロキシURL解析失敗:", proxyUrl);
+    }
+  }
+
+  browser = await chromium.launch(launchOptions as Parameters<typeof chromium.launch>[0]);
   return browser;
 }
 
