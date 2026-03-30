@@ -13,5 +13,5 @@
     "declaration": false
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "scripts", "src/generated"]
+  "exclude": ["node_modules", "dist", "scripts"]
 }
