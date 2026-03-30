@@ -3,15 +3,13 @@ import type { CaptchaType } from "./form-analyzer.js";
 
 const TWOCAPTCHA_API_KEY = process.env.TWOCAPTCHA_API_KEY ?? "";
 const TWOCAPTCHA_API = "https://2captcha.com";
-const POLL_INTERVAL = 5000; // 5秒
-const MAX_WAIT = 120000; // 最大2分
+const POLL_INTERVAL = 5000;
+const MAX_WAIT = 120000;
 
 /**
  * CAPTCHAを解決する
- * v3: まずそのまま送信を試み、失敗時に2Captchaフォールバック
+ * v3: 2Captchaでトークンをとってgrecaptchaをハイジャック
  * v2/hcaptcha/turnstile: 2Captchaで解決
- *
- * @returns true=解決済み（またはCAPTCHAなし）, false=解決失敗
  */
 export async function solveCaptcha(
   page: Page,
@@ -22,27 +20,77 @@ export async function solveCaptcha(
     return { solved: true, method: "none" };
   }
 
-  // v3はスコアベースなので、まず2Captchaなしで送信を試みる
-  if (captchaType === "v3") {
-    // siteKeyがあり、2CaptchaのAPIキーもあれば、トークンを取得して注入
-    if (siteKey && TWOCAPTCHA_API_KEY) {
-      try {
-        const token = await solveRecaptchaV3(siteKey, page.url());
-        if (token) {
-          await injectRecaptchaToken(page, token);
-          return { solved: true, method: "2captcha-v3" };
-        }
-      } catch (err) {
-        console.warn("[captcha-solver] v3解決失敗、そのまま送信を試みます:", err);
-      }
+  if (!TWOCAPTCHA_API_KEY) {
+    // APIキーなし → v3はパススルーで試す、それ以外はスキ��プ
+    if (captchaType === "v3") {
+      return { solved: true, method: "v3-passthrough" };
     }
-    // 2Captchaなしでもv3はそのまま通ることがある
+    console.warn("[captcha-solver] TWOCAPTCHA_API_KEY が未設定");
+    return { solved: false, method: "no-api-key" };
+  }
+
+  if (!siteKey) {
+    console.warn("[captcha-solver] siteKeyが不明");
+    if (captchaType === "v3") {
+      return { solved: true, method: "v3-passthrough" };
+    }
+    return { solved: false, method: "no-sitekey" };
+  }
+
+  // ──── reCAPTCHA v3 ────
+  if (captchaType === "v3") {
+    try {
+      console.log("[captcha-solver] v3: 2Captchaでトークン取得中...");
+      const token = await solveRecaptchaV3(siteKey, page.url());
+      if (token) {
+        // grecaptcha.execute をハイジャックし、常に2Captchaトークンを返す
+        await page.evaluate((t) => {
+          // g-recaptcha-response に注入
+          const textareas = document.querySelectorAll<HTMLTextAreaElement>(
+            'textarea[name="g-recaptcha-response"]'
+          );
+          textareas.forEach((el) => { el.value = t; });
+
+          // grecaptcha.execute を乗っ取り、常にこのトークンを返す
+          if (typeof (window as any).grecaptcha !== "undefined") {
+            const original = (window as any).grecaptcha;
+            (window as any).grecaptcha = {
+              ...original,
+              execute: () => Promise.resolve(t),
+              ready: (cb: () => void) => cb(),
+            };
+            // enterprise版も対応
+            if (original.enterprise) {
+              (window as any).grecaptcha.enterprise = {
+                ...original.enterprise,
+                execute: () => Promise.resolve(t),
+                ready: (cb: () => void) => cb(),
+              };
+            }
+          }
+
+          // wpcf7（Contact Form 7）のrecaptchaハンドラーも上書き
+          if (typeof (window as any).wpcf7 !== "undefined") {
+            const wpcf7 = (window as any).wpcf7;
+            if (wpcf7.recaptcha) {
+              wpcf7.recaptcha.execute = () => Promise.resolve(t);
+            }
+          }
+        }, token);
+        console.log("[captcha-solver] v3: grecaptchaハイジャック完了");
+        return { solved: true, method: "2captcha-v3" };
+      }
+    } catch (err) {
+      console.warn("[captcha-solver] v3解決エラー:", err);
+    }
+    // フォールバック: そのまま送信を試みる
     return { solved: true, method: "v3-passthrough" };
   }
 
-  // v2: 2Captchaで解決
-  if (captchaType === "v2" && siteKey && TWOCAPTCHA_API_KEY) {
+  // ──── reCAPTCHA v2 ────
+  if (captchaType === "v2") {
     try {
+      console.log("[captcha-solver] v2: 2Captchaでトークン取得中...");
       const token = await solveRecaptchaV2(siteKey, page.url());
       if (token) {
         await injectRecaptchaToken(page, token);
@@ -54,14 +102,17 @@ export async function solveCaptcha(
     return { solved: false, method: "2captcha-v2-failed" };
   }
 
-  // hCaptcha
-  if (captchaType === "hcaptcha" && siteKey && TWOCAPTCHA_API_KEY) {
+  // ──── hCaptcha ────
+  if (captchaType === "hcaptcha") {
     try {
+      console.log("[captcha-solver] hCaptcha: 2Captchaでトークン取得中...");
       const token = await solveHCaptcha(siteKey, page.url());
       if (token) {
         await page.evaluate((t) => {
-          const textarea = document.querySelector('[name="h-captcha-response"], [name="g-recaptcha-response"]') as HTMLTextAreaElement;
-          if (textarea) textarea.value = t;
+          const el = document.querySelector<HTMLTextAreaElement>(
+            '[name="h-captcha-response"], [name="g-recaptcha-response"]'
+          );
+          if (el) el.value = t;
         }, token);
         return { solved: true, method: "2captcha-hcaptcha" };
       }
@@ -71,14 +122,15 @@ export async function solveCaptcha(
     return { solved: false, method: "2captcha-hcaptcha-failed" };
   }
 
-  // Turnstile
-  if (captchaType === "turnstile" && siteKey && TWOCAPTCHA_API_KEY) {
+  // ──── Turnstile ────
+  if (captchaType === "turnstile") {
     try {
+      console.log("[captcha-solver] Turnstile: 2Captchaでトークン取得中...");
       const token = await solveTurnstile(siteKey, page.url());
       if (token) {
         await page.evaluate((t) => {
-          const input = document.querySelector('[name="cf-turnstile-response"]') as HTMLInputElement;
-          if (input) input.value = t;
+          const el = document.querySelector<HTMLInputElement>('[name="cf-turnstile-response"]');
+          if (el) el.value = t;
         }, token);
         return { solved: true, method: "2captcha-turnstile" };
       }
@@ -88,16 +140,10 @@ export async function solveCaptcha(
     return { solved: false, method: "2captcha-turnstile-failed" };
   }
 
-  // APIキーなし or siteKey不明 → v3以外はスキップ
-  if (!TWOCAPTCHA_API_KEY) {
-    console.warn("[captcha-solver] TWOCAPTCHA_API_KEY が未設定。CAPTCHAをスキップします");
-    return { solved: false, method: "no-api-key" };
-  }
-
   return { solved: false, method: "unsupported" };
 }
 
-// ─── 2Captcha API 呼び出し ─────────────────────
+// ─── 2Captcha API ─────────────────────────────
 
 async function solveRecaptchaV2(siteKey: string, pageUrl: string): Promise<string | null> {
   return solve2Captcha({
@@ -135,7 +181,6 @@ async function solveTurnstile(siteKey: string, pageUrl: string): Promise<string 
 }
 
 async function solve2Captcha(params: Record<string, string>): Promise<string | null> {
-  // Step 1: タスク送信
   const submitParams = new URLSearchParams({
     key: TWOCAPTCHA_API_KEY,
     json: "1",
@@ -153,7 +198,6 @@ async function solve2Captcha(params: Record<string, string>): Promise<string | n
   const taskId = submitData.request;
   console.log(`[2captcha] タスク送信完了: ${taskId}`);
 
-  // Step 2: 結果ポーリング
   const startTime = Date.now();
   while (Date.now() - startTime < MAX_WAIT) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL));
@@ -169,7 +213,7 @@ async function solve2Captcha(params: Record<string, string>): Promise<string | n
     const resultData = await resultRes.json() as { status: number; request: string };
 
     if (resultData.status === 1) {
-      console.log(`[2captcha] 解決完了: ${taskId}`);
+      console.log(`[2captcha] 解決完了: ${taskId} (${Math.round((Date.now() - startTime) / 1000)}秒)`);
       return resultData.request;
     }
 
@@ -177,31 +221,30 @@ async function solve2Captcha(params: Record<string, string>): Promise<string | n
       console.error("[2captcha] エラー:", resultData.request);
       return null;
     }
+
+    console.log(`[2captcha] 待機中... (${Math.round((Date.now() - startTime) / 1000)}秒経過)`);
   }
 
   console.error("[2captcha] タイムアウト:", taskId);
   return null;
 }
 
-// ─── トークン注入 ─────────────────────────────
+// ─── トークン注入（v2用） ─────────────────────────
 
 async function injectRecaptchaToken(page: Page, token: string): Promise<void> {
   await page.evaluate((t) => {
-    // g-recaptcha-response textarea にトークンをセット
-    const textareas = document.querySelectorAll('[name="g-recaptcha-response"], #g-recaptcha-response');
-    textareas.forEach((el) => {
-      (el as HTMLTextAreaElement).value = t;
-      (el as HTMLTextAreaElement).style.display = "block";
-    });
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>(
+      '[name="g-recaptcha-response"], #g-recaptcha-response'
+    );
+    textareas.forEach((el) => { el.value = t; });
 
-    // コールバック実行（あれば）
+    // コールバック実行
     try {
       if (typeof (window as any).___grecaptcha_cfg !== "undefined") {
         const clients = (window as any).___grecaptcha_cfg.clients;
         if (clients) {
           for (const key in clients) {
             const client = clients[key];
-            // v2/v3のコールバックを探して実行
             const findCallback = (obj: any, depth: number): any => {
               if (depth > 5 || !obj) return null;
               if (typeof obj === "function") return obj;

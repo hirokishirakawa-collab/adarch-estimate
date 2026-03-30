@@ -138,25 +138,6 @@ export async function processNextJob(): Promise<boolean> {
       body: job.template.body,
     }, job.target.industry);
 
-    // CAPTCHA解決
-    if (analysis.captchaType !== "none") {
-      console.log(`[job-runner] CAPTCHA検出 (${analysis.captchaType}): ${job.target.companyName}`);
-      const { solved, method } = await solveCaptcha(page, analysis.captchaType, analysis.siteKey);
-      if (!solved) {
-        await db.autoSalesJob.update({
-          where: { id: job.id },
-          data: {
-            status: "SKIPPED",
-            completedAt: new Date(),
-            errorMessage: `CAPTCHA解決失敗 (${analysis.captchaType}, ${method})`,
-          },
-        });
-        console.log(`[job-runner] スキップ（CAPTCHA未解決）: ${job.target.companyName}`);
-        return true;
-      }
-      console.log(`[job-runner] CAPTCHA解決: ${method}`);
-    }
-
     // フォーム入力
     console.log(`[job-runner] フォーム解析完了: ${analysis.fields.length}フィールド, CAPTCHA: ${analysis.captchaType}`);
     console.log(`[job-runner] フォーム入力中...`);
@@ -188,7 +169,29 @@ export async function processNextJob(): Promise<boolean> {
       return true;
     }
 
+    // CAPTCHA解決（送信直前に実行 — v3はsubmit時にトークン生成されるため）
+    if (analysis.captchaType !== "none") {
+      console.log(`[job-runner] CAPTCHA解決中 (${analysis.captchaType})...`);
+      const { solved, method } = await solveCaptcha(page, analysis.captchaType, analysis.siteKey);
+      if (!solved) {
+        await db.autoSalesJob.update({
+          where: { id: job.id },
+          data: {
+            status: "SKIPPED",
+            completedAt: new Date(),
+            filledData: filled,
+            screenshotUrl,
+            errorMessage: `CAPTCHA解決失敗 (${analysis.captchaType}, ${method})`,
+          },
+        });
+        console.log(`[job-runner] スキップ（CAPTCHA未解決）: ${job.target.companyName}`);
+        return true;
+      }
+      console.log(`[job-runner] CAPTCHA解決完了: ${method}`);
+    }
+
     // 送信（確認画面がある2段階フォームにも対応）
+    console.log(`[job-runner] 送信ボタンクリック中...`);
     const submitted = await clickSubmit(page, analysis.submitSelector);
 
     if (!submitted) {
