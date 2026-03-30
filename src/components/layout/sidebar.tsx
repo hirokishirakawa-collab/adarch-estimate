@@ -56,6 +56,7 @@ import {
   AlertTriangle,
   Star,
   Bot,
+  Rocket,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -159,8 +160,15 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/auto-sales/request",
+        label: "自動営業 依頼",
+        icon: Rocket,
+        minRole: "MANAGER",
+        requiredFeature: "auto-sales",
+      },
+      {
         href: "/dashboard/auto-sales",
-        label: "自動営業",
+        label: "自動営業 モニター",
         icon: Bot,
         minRole: "MANAGER",
         requiredFeature: "auto-sales",
