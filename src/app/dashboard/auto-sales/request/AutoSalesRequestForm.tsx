@@ -22,6 +22,7 @@ import {
   X,
   AlertCircle,
   Play,
+  Trash2,
 } from "lucide-react";
 
 const TARGET_TYPE_LABELS: Record<string, string> = {
@@ -855,8 +856,8 @@ function TemplateSection({
             </div>
           ) : (
             <div className="space-y-4">
-              {templates.map((t) => (
-                <TemplateCard key={t.id} template={t} />
+              {templates.map((t, i) => (
+                <TemplateCard key={t.id} template={t} index={i} total={templates.length} />
               ))}
             </div>
           )}
@@ -867,42 +868,65 @@ function TemplateSection({
 }
 
 // ─── テンプレートカード ─────────────────────────
-function TemplateCard({ template: t }: { template: Template }) {
+function TemplateCard({ template: t, index, total }: { template: Template; index: number; total: number }) {
   const [expanded, setExpanded] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/auto-sales/templates/${t.id}`, { method: "DELETE" });
+      if (res.ok) {
+        window.location.reload();
+      }
+    } catch {} finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="border border-zinc-200 rounded-xl overflow-hidden hover:border-zinc-300 transition-colors">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 text-left flex items-center gap-4"
-      >
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-          t.isApproved
-            ? "bg-emerald-50 border border-emerald-200"
-            : "bg-amber-50 border border-amber-200"
-        }`}>
-          <FileText className={`w-5 h-5 ${t.isApproved ? "text-emerald-600" : "text-amber-600"}`} />
+      <div className="flex items-center">
+        {/* 優先順位バッジ */}
+        <div className="pl-4 pr-1 py-4">
+          <span className="w-7 h-7 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center text-xs font-bold text-purple-600">
+            {index + 1}
+          </span>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-bold text-sm text-zinc-900">{t.name}</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-              t.isApproved
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                : "bg-amber-50 text-amber-700 border border-amber-200"
-            }`}>
-              {t.isApproved ? "承認済み" : "承認待ち"}
-            </span>
+
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex-1 p-4 text-left flex items-center gap-4"
+        >
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+            t.isApproved
+              ? "bg-emerald-50 border border-emerald-200"
+              : "bg-amber-50 border border-amber-200"
+          }`}>
+            <FileText className={`w-5 h-5 ${t.isApproved ? "text-emerald-600" : "text-amber-600"}`} />
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-zinc-400">{t.companyName} / {t.senderName}</span>
-            <span className="text-xs bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded">
-              {TARGET_TYPE_LABELS[t.targetType] ?? t.targetType}
-            </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-bold text-sm text-zinc-900">{t.name}</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                t.isApproved
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-amber-50 text-amber-700 border border-amber-200"
+              }`}>
+                {t.isApproved ? "承認済み" : "承認待ち"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-zinc-400">{t.companyName} / {t.senderName}</span>
+              <span className="text-xs bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded">
+                {TARGET_TYPE_LABELS[t.targetType] ?? t.targetType}
+              </span>
+            </div>
           </div>
-        </div>
-        <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
-      </button>
+          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
+        </button>
+      </div>
 
       {expanded && (
         <div className="px-4 pb-4 pt-0 border-t border-zinc-100">
@@ -914,9 +938,39 @@ function TemplateCard({ template: t }: { template: Template }) {
               </span>
             ))}
           </div>
-          <div className="bg-zinc-50 rounded-xl p-4">
+          <div className="bg-zinc-50 rounded-xl p-4 mb-3">
             <p className="text-xs font-medium text-zinc-500 mb-2">訴求文</p>
             <p className="text-sm text-zinc-700 whitespace-pre-wrap leading-relaxed">{t.pitchText}</p>
+          </div>
+
+          {/* 削除ボタン */}
+          <div className="flex justify-end">
+            {confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-red-600">本当に削除しますか？</span>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deleting ? "削除中..." : "削除する"}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="text-xs text-zinc-500 px-3 py-1.5 rounded-lg hover:bg-zinc-100"
+                >
+                  キャンセル
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="text-xs text-red-400 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5 inline mr-1" />
+                削除
+              </button>
+            )}
           </div>
         </div>
       )}
