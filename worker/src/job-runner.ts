@@ -112,6 +112,23 @@ export async function processNextJob(): Promise<boolean> {
       await dialog.accept();
     });
 
+    // reCAPTCHA v3のスクリプト読み込みをブロック（後で2Captchaトークンに差し替えるため）
+    await page.route("**/recaptcha/api.js**", (route) => {
+      console.log(`[job-runner] reCAPTCHAスクリプトをブロック: ${route.request().url().substring(0, 80)}`);
+      // 空のスクリプトを返してgrecaptchaをモックする
+      route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: `
+          window.grecaptcha = {
+            ready: function(cb) { cb(); },
+            execute: function() { return Promise.resolve("PLACEHOLDER"); }
+          };
+          window.grecaptcha.enterprise = window.grecaptcha;
+        `,
+      });
+    });
+
     await page.goto(job.target.url, {
       waitUntil: "domcontentloaded",
       timeout: PAGE_TIMEOUT,
