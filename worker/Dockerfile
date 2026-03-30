@@ -11,12 +11,12 @@ COPY prisma/ ./prisma/
 COPY prisma.config.ts ./
 RUN ln -s /app/worker/node_modules /app/node_modules && npx prisma generate
 
-# 生成済みクライアントを worker/src 配下にコピー（ローカルインポート用）
-RUN cp -r /app/src/generated /app/worker/src/generated
-
 # Worker ソース
 COPY worker/src/ ./worker/src/
 COPY worker/tsconfig.json ./worker/
+
+# 生成済みクライアントを worker/src 配下にコピー（tscの型解決用）
+RUN cp -r /app/src/generated /app/worker/src/generated
 
 # ビルド → 生成ファイルは tsc を通さず dist に直接コピー
 RUN cd worker && npx tsc && cp -r src/generated dist/generated
