@@ -94,14 +94,22 @@ export async function processNextJob(): Promise<boolean> {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     });
 
-    // CF7等のAjaxレスポンスをログに出力
+    // CF7等のAjaxレスポンスをログに出力 + spam検出用に保存
+    let lastAjaxStatus = "";
     page.on("response", async (response) => {
       const url = response.url();
-      if (url.includes("wpcf7") || url.includes("contact-form") || url.includes("admin-ajax")) {
+      if (url.includes("wpcf7") || url.includes("contact-form") || url.includes("admin-ajax") || url.includes("feedback")) {
         try {
           const body = await response.text();
           console.log(`[job-runner] Ajax応答 (${response.status()}): ${url.substring(0, 100)}`);
           console.log(`[job-runner] Ajax本文: ${body.substring(0, 300)}`);
+          // feedbackレスポンスのstatusを保存
+          if (url.includes("feedback") && body.includes('"status"')) {
+            try {
+              const json = JSON.parse(body);
+              lastAjaxStatus = json.status ?? "";
+            } catch {}
+          }
         } catch {}
       }
     });
@@ -270,27 +278,58 @@ export async function processNextJob(): Promise<boolean> {
     const afterUrl = page.url();
     console.log(`[job-runner] 送信後URL: ${afterUrl}`);
 
-    // CF7のエラーメッセージやレスポンスをチェック
+    // CF7等のエラーメッセージをチェック（spam, validation_failed等）
     const pageResponse = await page.evaluate(`(function() {
-      var msgs = document.querySelectorAll('.wpcf7-response-output, .wpcf7-mail-sent-ok, .wpcf7-validation-errors, .wpcf7-spam-blocked');
+      var msgs = document.querySelectorAll('.wpcf7-response-output, .wpcf7-mail-sent-ok, .wpcf7-validation-errors, .wpcf7-spam-blocked, .wpcf7-mail-sent-ng, [role="alert"]');
       var texts = [];
       for (var i = 0; i < msgs.length; i++) {
         var text = msgs[i].textContent.trim();
         if (text) texts.push(text);
       }
       return texts.join(' | ');
-    })()`);
+    })()`) as string;
     if (pageResponse) {
       console.log(`[job-runner] フォームレスポンス: ${pageResponse}`);
     }
 
-    // 確認画面→最終送信の2段階フォーム対応
+    // 送信失敗を検出（spam判定、エラーメッセージ、Ajaxレスポンス）
+    const failKeywords = ["spam", "failed", "失敗", "エラー", "error", "送信できません"];
+    const isFailed =
+      failKeywords.some((kw) => pageResponse?.toLowerCase().includes(kw)) ||
+      lastAjaxStatus === "spam" ||
+      lastAjaxStatus === "validation_failed" ||
+      lastAjaxStatus === "mail_failed";
 
-    // 確認画面の送信ボタンを探す（「送信」「送信する」「Submit」等）
-    const confirmSubmitted = await clickConfirmButton(page);
-    if (confirmSubmitted) {
-      console.log(`[job-runner] 確認画面の送信ボタンをクリック: ${job.target.companyName}`);
-      await page.waitForTimeout(3000);
+    if (isFailed) {
+      await db.autoSalesJob.update({
+        where: { id: job.id },
+        data: {
+          status: "FAILED",
+          completedAt: new Date(),
+          filledData: filled,
+          screenshotUrl,
+          errorMessage: `フォーム送信拒否: ${pageResponse?.substring(0, 200) ?? "不明"}`,
+        },
+      });
+      console.log(`[job-runner] 送信拒否: ${job.target.companyName} - ${pageResponse}`);
+      return true;
+    }
+
+    // thanksページ遷移 or 成功メッセージの確認
+    const isSuccess =
+      afterUrl !== job.target.url || // URLが変わった（thanksページに遷移）
+      pageResponse?.includes("ありがとう") ||
+      pageResponse?.includes("thank") ||
+      pageResponse?.includes("sent") ||
+      pageResponse?.includes("完了");
+
+    // 確認画面→最終送信の2段階フォーム対応
+    if (!isSuccess) {
+      const confirmSubmitted = await clickConfirmButton(page);
+      if (confirmSubmitted) {
+        console.log(`[job-runner] 確認画面の送信ボタンをクリック: ${job.target.companyName}`);
+        await page.waitForTimeout(3000);
+      }
     }
 
     // 成功
