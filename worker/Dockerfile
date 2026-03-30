@@ -18,8 +18,8 @@ COPY worker/tsconfig.json ./worker/
 # 生成済みクライアントを worker/src 配下にコピー（tscの型解決用）
 RUN cp -r /app/src/generated /app/worker/src/generated
 
-# ビルド → 生成ファイルは tsc を通さず dist に直接コピー
-RUN cd worker && npx tsc && cp -r src/generated dist/generated
+# ビルド → tscが生成ファイルをCJSに壊すので、元のESMファイルで上書き
+RUN cd worker && npx tsc && rm -rf dist/generated && cp -r src/generated dist/generated
 
 # ヘルスチェック用
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s \
