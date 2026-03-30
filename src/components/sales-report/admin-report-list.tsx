@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Fragment, useState } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 type Report = {
   id: string;
@@ -89,6 +89,7 @@ function exportCsv(reports: Report[]) {
 export function AdminReportList({ reports }: Props) {
   const [page, setPage] = useState(1);
   const [filterMonth, setFilterMonth] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const filtered = filterMonth
     ? reports.filter((r) => {
@@ -153,42 +154,99 @@ export function AdminReportList({ reports }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
-              {slice.map((r) => (
-                <tr key={r.id} className="hover:bg-zinc-50/50 transition-colors">
-                  <td className="px-3 py-2.5 whitespace-nowrap">
-                    <span className="text-xs font-semibold text-zinc-800">
-                      {r.createdBy.name ?? r.createdBy.email.split("@")[0]}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap text-xs text-zinc-700">
-                    {fmtMonth(r.targetMonth)}
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">
-                    {statusBadge(r.staffName)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                    <span className="text-sm font-bold text-zinc-900">{fmtAmount(r.amount)}</span>
-                  </td>
-                  <td className="px-3 py-2.5 text-center text-xs text-zinc-600">
-                    {r.currentProjects ?? "—"}
-                  </td>
-                  <td className="px-3 py-2.5 text-center text-xs text-zinc-600">
-                    {r.nextMonthProjects ?? "—"}
-                  </td>
-                  <td className="px-3 py-2.5 max-w-[160px]">
-                    <span className="text-xs text-zinc-600 truncate block">{r.projectName ?? "—"}</span>
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">
-                    {supportBadge(r.supportRequest)}
-                  </td>
-                  <td className="px-3 py-2.5 max-w-[200px]">
-                    <p className="text-xs text-zinc-500 line-clamp-2 leading-snug">{r.memo ?? "—"}</p>
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap text-[11px] text-zinc-400">
-                    {fmtDate(r.createdAt)}
-                  </td>
-                </tr>
-              ))}
+              {slice.map((r) => {
+                const isExpanded = expandedId === r.id;
+                return (
+                  <Fragment key={r.id}>
+                    <tr
+                      className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                      onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                    >
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span className="text-xs font-semibold text-zinc-800 inline-flex items-center gap-1">
+                          <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                          {r.createdBy.name ?? r.createdBy.email.split("@")[0]}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap text-xs text-zinc-700">
+                        {fmtMonth(r.targetMonth)}
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        {statusBadge(r.staffName)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                        <span className="text-sm font-bold text-zinc-900">{fmtAmount(r.amount)}</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-center text-xs text-zinc-600">
+                        {r.currentProjects ?? "—"}
+                      </td>
+                      <td className="px-3 py-2.5 text-center text-xs text-zinc-600">
+                        {r.nextMonthProjects ?? "—"}
+                      </td>
+                      <td className="px-3 py-2.5 max-w-[160px]">
+                        <span className="text-xs text-zinc-600 truncate block">{r.projectName ?? "—"}</span>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        {supportBadge(r.supportRequest)}
+                      </td>
+                      <td className="px-3 py-2.5 max-w-[200px]">
+                        <p className="text-xs text-zinc-500 line-clamp-2 leading-snug">{r.memo ?? "—"}</p>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap text-[11px] text-zinc-400">
+                        {fmtDate(r.createdAt)}
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={10} className="bg-zinc-50/80 px-6 py-4 border-b border-zinc-100">
+                          <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-xs">
+                            <div>
+                              <span className="font-semibold text-zinc-500">報告者</span>
+                              <p className="mt-0.5 text-zinc-800">{r.createdBy.name ?? "—"} ({r.createdBy.email})</p>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-zinc-500">計上月</span>
+                              <p className="mt-0.5 text-zinc-800">{fmtMonth(r.targetMonth)}</p>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-zinc-500">状況</span>
+                              <p className="mt-0.5">{statusBadge(r.staffName) ?? "—"}</p>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-zinc-500">金額（税抜）</span>
+                              <p className="mt-0.5 text-zinc-800 font-bold">{fmtAmount(r.amount)}</p>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-zinc-500">今月案件数</span>
+                              <p className="mt-0.5 text-zinc-800">{r.currentProjects ?? "—"}</p>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-zinc-500">来月見込み</span>
+                              <p className="mt-0.5 text-zinc-800">{r.nextMonthProjects ?? "—"}</p>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="font-semibold text-zinc-500">関連プロジェクト</span>
+                              <p className="mt-0.5 text-zinc-800 whitespace-pre-wrap">{r.projectName ?? "—"}</p>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="font-semibold text-zinc-500">本部相談</span>
+                              <p className="mt-0.5">{supportBadge(r.supportRequest) ?? <span className="text-zinc-800">特になし</span>}</p>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="font-semibold text-zinc-500">補足</span>
+                              <p className="mt-0.5 text-zinc-800 whitespace-pre-wrap leading-relaxed">{r.memo ?? "—"}</p>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-zinc-500">報告日</span>
+                              <p className="mt-0.5 text-zinc-800">{fmtDate(r.createdAt)}</p>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={10} className="px-4 py-12 text-center text-sm text-zinc-400">
