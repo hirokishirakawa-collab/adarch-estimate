@@ -179,6 +179,13 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "MANAGER",
         requiredFeature: "auto-sales",
       },
+      {
+        href: "/dashboard/auto-sales/analytics",
+        label: "分析",
+        icon: BarChart2,
+        minRole: "MANAGER",
+        requiredFeature: "auto-sales",
+      },
     ],
   },
   {
