@@ -55,6 +55,16 @@ export async function processNextJob(): Promise<boolean> {
   console.log(`[job-runner] 処理開始: ${job.target.companyName} (${job.target.url})`);
   console.log(`[job-runner] ブラウザ起動中...`);
 
+  // ジョブ全体のタイムアウト（3分）
+  const JOB_TIMEOUT = 180_000;
+  const jobTimer = setTimeout(async () => {
+    console.error(`[job-runner] ジョブタイムアウト（3分）: ${job.target.companyName}`);
+    await db.autoSalesJob.update({
+      where: { id: job.id },
+      data: { status: "FAILED", completedAt: new Date(), errorMessage: "ジョブ全体がタイムアウト（3分）" },
+    }).catch(() => {});
+  }, JOB_TIMEOUT);
+
   let page: Page | null = null;
 
   try {
@@ -245,6 +255,7 @@ export async function processNextJob(): Promise<boolean> {
     console.error(`[job-runner] エラー: ${job.target.companyName} - ${msg}`);
     return true;
   } finally {
+    clearTimeout(jobTimer);
     if (page) {
       try {
         await page.close();
