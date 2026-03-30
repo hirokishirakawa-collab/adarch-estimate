@@ -5,3 +5,5 @@ node_modules
 .env.*.local
 *.dump
 *.log
+worker/src/generated
+worker/dist
