@@ -935,6 +935,48 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
     { id: string; branchName: string; targetType: string; serviceTypes: string[]; pitchText: string; responseCount: number }[]
   >([]);
   const [showExamples, setShowExamples] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  async function generatePitch(e: React.MouseEvent) {
+    e.preventDefault();
+    const form = (e.target as HTMLElement).closest("form");
+    if (!form) return;
+    const fd = new FormData(form);
+    const companyName = (fd.get("companyName") as string)?.trim();
+    const senderName = (fd.get("senderName") as string)?.trim();
+    if (!companyName || !senderName) {
+      setError("AIで生成するには、送信元会社名と送信者名を先に入力してください");
+      return;
+    }
+    if (selectedServices.length === 0) {
+      setError("訴求カテゴリを1つ以上選択してください");
+      return;
+    }
+    setGenerating(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auto-sales/generate-pitch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName,
+          senderName,
+          targetType: selectedTargetType,
+          serviceTypes: selectedServices,
+        }),
+      });
+      if (!res.ok) {
+        setError("生成に失敗しました");
+        return;
+      }
+      const data = await res.json();
+      setPitchTextValue(data.pitchText);
+    } catch {
+      setError("通信エラーが発生しました");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   function toggleService(id: string) {
     setSelectedServices((prev) =>
@@ -1039,7 +1081,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
           <input
             name="senderName"
             required
-            placeholder="例: 宮本 貴史"
+            placeholder="例: アド太郎"
             className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all placeholder:text-zinc-300"
           />
         </div>
@@ -1125,13 +1167,24 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
             <MessageSquare className="w-4 h-4 text-zinc-400" />
             訴求文 <span className="text-red-500">*</span>
           </label>
-          <button
-            type="button"
-            onClick={loadSuccessExamples}
-            className="text-xs text-purple-600 hover:text-purple-800 font-bold"
-          >
-            {showExamples ? "閉じる" : "成功実績を参考にする"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={generatePitch}
+              disabled={generating}
+              className="inline-flex items-center gap-1 text-xs bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1 rounded-lg hover:from-purple-700 hover:to-blue-700 font-bold disabled:opacity-50 shadow-sm"
+            >
+              <Sparkles className="w-3 h-3" />
+              {generating ? "生成中..." : "AIで自動生成"}
+            </button>
+            <button
+              type="button"
+              onClick={loadSuccessExamples}
+              className="text-xs text-purple-600 hover:text-purple-800 font-bold"
+            >
+              {showExamples ? "閉じる" : "成功実績を参考にする"}
+            </button>
+          </div>
         </div>
 
         {showExamples && (
