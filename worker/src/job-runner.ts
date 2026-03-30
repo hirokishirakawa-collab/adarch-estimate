@@ -20,7 +20,16 @@ async function getBrowser(): Promise<Browser> {
 
     if (proxyUrl) {
       console.log("[job-runner] レジデンシャルプロキシ使用");
-      launchOptions.proxy = { server: proxyUrl };
+      try {
+        const url = new URL(proxyUrl);
+        launchOptions.proxy = {
+          server: `${url.protocol}//${url.hostname}:${url.port}`,
+          username: decodeURIComponent(url.username),
+          password: decodeURIComponent(url.password),
+        };
+      } catch {
+        console.error("[job-runner] プロキシURL解析失敗:", proxyUrl);
+      }
     }
 
     browser = await chromium.launch(launchOptions as Parameters<typeof chromium.launch>[0]);
