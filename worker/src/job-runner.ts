@@ -254,7 +254,74 @@ export async function processNextJob(): Promise<boolean> {
       console.log(`[job-runner] CAPTCHA解決完了: ${method}`);
     }
 
-    // 送信（確認画面がある2段階フォームにも対応）
+    // CF7サイトの場合、REST APIに直接POSTして送信（ブラウザ送信よりreCAPTCHA回避率が高い）
+    const cf7FormId = await page.evaluate(`(function() {
+      var form = document.querySelector('.wpcf7 form, form.wpcf7-form');
+      if (!form) return null;
+      var input = form.querySelector('input[name="_wpcf7"]');
+      return input ? input.value : null;
+    })()`);
+
+    if (cf7FormId && analysis.captchaType === "v3") {
+      console.log(`[job-runner] CF7 REST API直接送信 (form_id: ${cf7FormId})...`);
+
+      // フォームデータを構築
+      const cf7Result = await page.evaluate(`(function() {
+        var form = document.querySelector('.wpcf7 form, form.wpcf7-form');
+        if (!form) return { error: "form not found" };
+
+        var formData = new FormData(form);
+        var token = window.__cf7RecaptchaToken || "";
+        formData.set("_wpcf7_recaptcha_response", token);
+
+        // ページURLからエンドポイントを構築
+        var formId = formData.get("_wpcf7");
+        var endpoint = location.origin + "/wp-json/contact-form-7/v1/contact-forms/" + formId + "/feedback";
+
+        return fetch(endpoint, {
+          method: "POST",
+          body: formData,
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(json) { return { status: json.status, message: json.message }; })
+        .catch(function(err) { return { error: err.message }; });
+      })()`);
+
+      console.log(`[job-runner] CF7 REST応答: ${JSON.stringify(cf7Result)}`);
+
+      const cf7Status = (cf7Result as { status?: string; message?: string; error?: string })?.status;
+      const cf7Message = (cf7Result as { status?: string; message?: string; error?: string })?.message ?? "";
+      const cf7Error = (cf7Result as { status?: string; message?: string; error?: string })?.error;
+
+      if (cf7Status === "mail_sent") {
+        await db.autoSalesJob.update({
+          where: { id: job.id },
+          data: {
+            status: "COMPLETED",
+            completedAt: new Date(),
+            filledData: filled,
+            screenshotUrl,
+          },
+        });
+        console.log(`[job-runner] 送信完了（CF7 API）: ${job.target.companyName}`);
+        return true;
+      } else {
+        await db.autoSalesJob.update({
+          where: { id: job.id },
+          data: {
+            status: "FAILED",
+            completedAt: new Date(),
+            filledData: filled,
+            screenshotUrl,
+            errorMessage: `CF7送信拒否: ${cf7Status ?? cf7Error ?? "unknown"} - ${cf7Message}`,
+          },
+        });
+        console.log(`[job-runner] CF7送信拒否: ${job.target.companyName} - ${cf7Status}`);
+        return true;
+      }
+    }
+
+    // 通常のフォーム送信（CF7以外）
     console.log(`[job-runner] 送信ボタンクリック中...`);
     const submitted = await clickSubmit(page, analysis.submitSelector);
 
