@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npx prisma generate && tsc",
-    "start": "node dist/index.js",
+    "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
     "test-single": "tsx scripts/test-single.ts"
   },
@@ -17,12 +16,12 @@
     "dotenv": "^17.3.1",
     "pg": "^8.18.0",
     "playwright": "^1.52.0",
-    "prisma": "^7.4.1"
+    "prisma": "^7.4.1",
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/node": "^22",
     "@types/pg": "^8.16.0",
-    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
