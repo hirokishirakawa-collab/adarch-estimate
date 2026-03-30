@@ -13,9 +13,12 @@ let browser: Browser | null = null;
 async function getBrowser(): Promise<Browser> {
   if (!browser || !browser.isConnected()) {
     const proxyUrl = process.env.RESIDENTIAL_PROXY_URL;
+    const args = ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"];
+    if (proxyUrl) args.push("--ignore-certificate-errors");
+
     const launchOptions: Record<string, unknown> = {
       headless: true,
-      args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"],
+      args,
     };
 
     if (proxyUrl) {
