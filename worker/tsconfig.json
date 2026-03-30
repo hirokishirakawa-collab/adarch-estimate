@@ -4,17 +4,14 @@
     "module": "commonjs",
     "lib": ["ES2022"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "..",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": false,
-    "paths": {
-      "@/generated/*": ["../src/generated/*"]
-    }
+    "declaration": false
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../src/generated/prisma/**/*"],
   "exclude": ["node_modules", "dist", "scripts"]
 }
