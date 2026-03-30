@@ -93,6 +93,18 @@ export async function processNextJob(): Promise<boolean> {
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     });
+
+    // CF7等のAjaxレスポンスをログに出力
+    page.on("response", async (response) => {
+      const url = response.url();
+      if (url.includes("wpcf7") || url.includes("contact-form") || url.includes("admin-ajax")) {
+        try {
+          const body = await response.text();
+          console.log(`[job-runner] Ajax応答 (${response.status()}): ${url.substring(0, 100)}`);
+          console.log(`[job-runner] Ajax本文: ${body.substring(0, 300)}`);
+        } catch {}
+      }
+    });
     console.log(`[job-runner] ページ作成完了、ナビゲーション開始: ${job.target.url}`);
 
     // ダイアログ自動処理
@@ -219,8 +231,26 @@ export async function processNextJob(): Promise<boolean> {
       return true;
     }
 
+    // 送信後のレスポンスを確認
+    await page.waitForTimeout(5000);
+    const afterUrl = page.url();
+    console.log(`[job-runner] 送信後URL: ${afterUrl}`);
+
+    // CF7のエラーメッセージやレスポンスをチェック
+    const pageResponse = await page.evaluate(`(function() {
+      var msgs = document.querySelectorAll('.wpcf7-response-output, .wpcf7-mail-sent-ok, .wpcf7-validation-errors, .wpcf7-spam-blocked');
+      var texts = [];
+      for (var i = 0; i < msgs.length; i++) {
+        var text = msgs[i].textContent.trim();
+        if (text) texts.push(text);
+      }
+      return texts.join(' | ');
+    })()`);
+    if (pageResponse) {
+      console.log(`[job-runner] フォームレスポンス: ${pageResponse}`);
+    }
+
     // 確認画面→最終送信の2段階フォーム対応
-    await page.waitForTimeout(3000);
 
     // 確認画面の送信ボタンを探す（「送信」「送信する」「Submit」等）
     const confirmSubmitted = await clickConfirmButton(page);
