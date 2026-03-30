@@ -13,7 +13,7 @@ async function getBrowser(): Promise<Browser> {
   if (!browser || !browser.isConnected()) {
     browser = await chromium.launch({
       headless: true,
-      args: ["--single-process", "--no-sandbox", "--disable-gpu"],
+      args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"],
     });
   }
   return browser;
