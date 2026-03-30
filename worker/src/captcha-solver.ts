@@ -48,6 +48,9 @@ export async function solveCaptcha(
         await page.evaluate(`(function() {
           var t = ${JSON.stringify(token)};
 
+          // 0. CF7用グローバルトークン変数を更新
+          window.__cf7RecaptchaToken = t;
+
           // 1. g-recaptcha-response テキストエリアに注入
           var textareas = document.querySelectorAll('textarea[name="g-recaptcha-response"]');
           for (var i = 0; i < textareas.length; i++) { textareas[i].value = t; }

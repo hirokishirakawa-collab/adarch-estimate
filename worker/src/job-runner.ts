@@ -112,19 +112,36 @@ export async function processNextJob(): Promise<boolean> {
       await dialog.accept();
     });
 
-    // reCAPTCHA v3のスクリプト読み込みをブロック（後で2Captchaトークンに差し替えるため）
-    await page.route("**/recaptcha/api.js**", (route) => {
-      console.log(`[job-runner] reCAPTCHAスクリプトをブロック: ${route.request().url().substring(0, 80)}`);
-      // 空のスクリプトを返してgrecaptchaをモックする
+    // CF7のrecaptchaモジュールをインターセプトし、2Captchaトークンを使うよう書き換え
+    await page.route("**/contact-form-7/modules/recaptcha/index.js**", async (route) => {
+      console.log(`[job-runner] CF7 recaptchaモジュールを書き換え`);
       route.fulfill({
         status: 200,
         contentType: "application/javascript",
         body: `
-          window.grecaptcha = {
-            ready: function(cb) { cb(); },
-            execute: function() { return Promise.resolve("PLACEHOLDER"); }
-          };
-          window.grecaptcha.enterprise = window.grecaptcha;
+          document.addEventListener("DOMContentLoaded", function() {
+            // CF7がrecaptchaトークンを求めた時、window.__cf7RecaptchaTokenを返す
+            window.wpcf7_recaptcha = window.wpcf7_recaptcha || {};
+            var origSubmit = window.wpcf7?.submit;
+
+            // CF7のフォーム送信時にトークンを注入するためのグローバル変数
+            window.__cf7RecaptchaToken = "PENDING";
+
+            // grecaptcha互換モック（CF7のsubmitハンドラーが呼ぶ）
+            if (typeof window.grecaptcha === "undefined") {
+              window.grecaptcha = {
+                ready: function(cb) { cb(); },
+                execute: function() {
+                  return Promise.resolve(window.__cf7RecaptchaToken || "PENDING");
+                }
+              };
+            } else {
+              var orig = window.grecaptcha.execute;
+              window.grecaptcha.execute = function() {
+                return Promise.resolve(window.__cf7RecaptchaToken || "PENDING");
+              };
+            }
+          });
         `,
       });
     });
