@@ -71,6 +71,38 @@ export async function fillForm(
 }
 
 /**
+ * 確認画面の最終送信ボタンをクリックする（2段階フォーム対応）
+ */
+export async function clickConfirmButton(page: Page): Promise<boolean> {
+  try {
+    const confirmSelectors = [
+      'button:has-text("送信する")',
+      'button:has-text("送信")',
+      'input[type="submit"][value*="送信"]',
+      'button:has-text("Submit")',
+      'button:has-text("この内容で送信")',
+      'button:has-text("上記の内容で送信")',
+      'button:has-text("完了")',
+      'input[type="submit"][value*="完了"]',
+      'button:has-text("OK")',
+      'a:has-text("送信する")',
+      'a:has-text("送信")',
+    ];
+
+    for (const sel of confirmSelectors) {
+      const btn = page.locator(sel).first();
+      if ((await btn.count()) > 0 && (await btn.isVisible())) {
+        await btn.click();
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 送信ボタンをクリックする
  */
 export async function clickSubmit(

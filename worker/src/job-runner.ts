@@ -1,7 +1,7 @@
 import { chromium, type Browser, type Page } from "playwright";
 import { db } from "./db.js";
 import { analyzeForm } from "./form-analyzer.js";
-import { fillForm, clickSubmit } from "./form-filler.js";
+import { fillForm, clickSubmit, clickConfirmButton } from "./form-filler.js";
 import { findContactFormUrl } from "./form-finder.js";
 
 const DRY_RUN = process.env.DRY_RUN === "true";
@@ -172,7 +172,7 @@ export async function processNextJob(): Promise<boolean> {
       return true;
     }
 
-    // 送信
+    // 送信（確認画面がある2段階フォームにも対応）
     const submitted = await clickSubmit(page, analysis.submitSelector);
 
     if (!submitted) {
@@ -190,8 +190,15 @@ export async function processNextJob(): Promise<boolean> {
       return true;
     }
 
-    // 送信後の画面遷移を待つ
+    // 確認画面→最終送信の2段階フォーム対応
     await page.waitForTimeout(3000);
+
+    // 確認画面の送信ボタンを探す（「送信」「送信する」「Submit」等）
+    const confirmSubmitted = await clickConfirmButton(page);
+    if (confirmSubmitted) {
+      console.log(`[job-runner] 確認画面の送信ボタンをクリック: ${job.target.companyName}`);
+      await page.waitForTimeout(3000);
+    }
 
     // 成功
     await db.autoSalesJob.update({
