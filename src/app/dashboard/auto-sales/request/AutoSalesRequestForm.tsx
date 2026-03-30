@@ -1102,14 +1102,15 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
         <div>
           <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
             <Mail className="w-4 h-4 text-zinc-400" />
-            メールアドレス
+            メールアドレス（固定）
           </label>
           <input
-            name="email"
             type="email"
-            placeholder="例: info@example.com"
-            className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all placeholder:text-zinc-300"
+            value="media@adarch.co.jp"
+            readOnly
+            className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm bg-zinc-50 text-zinc-500 cursor-not-allowed"
           />
+          <p className="text-xs text-zinc-400 mt-1.5">反響データ取得のため、全営業で統一アドレスから送付されます</p>
         </div>
       </div>
 
