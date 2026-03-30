@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   CheckCircle2,
   Plus,
@@ -21,6 +21,7 @@ import {
   Upload,
   X,
   AlertCircle,
+  AlertTriangle,
   Play,
   Trash2,
 } from "lucide-react";
@@ -301,11 +302,33 @@ function parseCsvLine(line: string): string[] {
   return result;
 }
 
+// ─── 既存顧客マッチ型 ─────────────────────────
+interface CustomerMatch {
+  id: string;
+  name: string;
+  phone: string | null;
+  website: string | null;
+  status: string;
+  rank: string;
+  branchName: string | null;
+  matchReasons: string[];
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  PROSPECT: "見込み",
+  ACTIVE: "取引中",
+  DORMANT: "休眠",
+  AVOID: "回避",
+};
+
 // ─── 営業先追加セクション ─────────────────────
 function AddTargetSection() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [customerMatches, setCustomerMatches] = useState<CustomerMatch[]>([]);
+  const [checking, setChecking] = useState(false);
+  const checkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // CSV import state
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
@@ -319,6 +342,58 @@ function AddTargetSection() {
   } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 既存顧客の重複チェック（デバウンス付き）
+  const checkCustomerDuplicate = useCallback(
+    (companyName: string, phone: string, url: string) => {
+      if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
+      if (!companyName && !phone && !url) {
+        setCustomerMatches([]);
+        return;
+      }
+      checkTimerRef.current = setTimeout(async () => {
+        const params = new URLSearchParams();
+        if (companyName) params.set("companyName", companyName);
+        if (phone) params.set("phone", phone);
+        if (url) params.set("url", url);
+        setChecking(true);
+        try {
+          const res = await fetch(`/api/auto-sales/check-customer?${params}`);
+          if (res.ok) {
+            const data = await res.json();
+            setCustomerMatches(data.matches ?? []);
+          }
+        } catch {
+          // silent
+        } finally {
+          setChecking(false);
+        }
+      }, 500);
+    },
+    []
+  );
+
+  // フォーム入力変更時に重複チェック発火
+  const handleFieldChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const form = e.target.form;
+      if (!form) return;
+      const fd = new FormData(form);
+      checkCustomerDuplicate(
+        (fd.get("companyName") as string)?.trim() ?? "",
+        (fd.get("phone") as string)?.trim() ?? "",
+        (fd.get("url") as string)?.trim() ?? ""
+      );
+    },
+    [checkCustomerDuplicate]
+  );
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
+    };
+  }, []);
 
   const handleCsvFile = useCallback((file: File) => {
     setCsvFile(file);
@@ -707,6 +782,7 @@ function AddTargetSection() {
             <input
               name="companyName"
               required
+              onChange={handleFieldChange}
               placeholder="例: 徳島美容室 hair salon Kaze"
               className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
             />
@@ -722,6 +798,7 @@ function AddTargetSection() {
               name="url"
               type="url"
               required
+              onChange={handleFieldChange}
               placeholder="https://example.com/contact"
               className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
             />
@@ -761,6 +838,7 @@ function AddTargetSection() {
             </label>
             <input
               name="phone"
+              onChange={handleFieldChange}
               placeholder="例: 088-XXX-XXXX"
               className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
             />
@@ -779,6 +857,67 @@ function AddTargetSection() {
               className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none placeholder:text-zinc-300"
             />
           </div>
+
+          {/* 既存顧客アラート */}
+          {customerMatches.length > 0 && (
+            <div className={`rounded-xl px-4 py-4 border ${
+              customerMatches.some((m) => m.status === "AVOID")
+                ? "bg-red-50 border-red-200"
+                : "bg-amber-50 border-amber-200"
+            }`}>
+              <div className="flex items-start gap-3">
+                <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${
+                  customerMatches.some((m) => m.status === "AVOID")
+                    ? "text-red-500"
+                    : "text-amber-500"
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold ${
+                    customerMatches.some((m) => m.status === "AVOID")
+                      ? "text-red-700"
+                      : "text-amber-700"
+                  }`}>
+                    既存の顧客管理に登録済みの企業が見つかりました
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {customerMatches.map((m) => (
+                      <div key={m.id} className="flex items-center gap-3 text-sm">
+                        <span className="font-medium text-zinc-700">{m.name}</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${
+                          m.status === "ACTIVE"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : m.status === "AVOID"
+                            ? "bg-red-100 text-red-700"
+                            : m.status === "DORMANT"
+                            ? "bg-zinc-100 text-zinc-600"
+                            : "bg-blue-100 text-blue-700"
+                        }`}>
+                          {STATUS_LABELS[m.status] ?? m.status}
+                        </span>
+                        {m.branchName && (
+                          <span className="text-xs text-zinc-400">{m.branchName}</span>
+                        )}
+                        <span className="text-xs text-zinc-400">
+                          一致: {m.matchReasons.join("・")}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {customerMatches.some((m) => m.status === "AVOID") && (
+                    <p className="mt-2 text-xs text-red-600 font-medium">
+                      「回避」ステータスの企業が含まれています。登録は推奨されません。
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          {checking && (
+            <p className="text-xs text-zinc-400 flex items-center gap-1.5">
+              <span className="w-3 h-3 border-2 border-zinc-300 border-t-blue-500 rounded-full animate-spin" />
+              既存顧客を照合中...
+            </p>
+          )}
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl border border-red-100">
