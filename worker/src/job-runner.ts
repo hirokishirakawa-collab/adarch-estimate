@@ -27,6 +27,7 @@ async function getBrowser(): Promise<Browser> {
           username: decodeURIComponent(url.username),
           password: decodeURIComponent(url.password),
         };
+        launchOptions.ignoreHTTPSErrors = true;
       } catch {
         console.error("[job-runner] プロキシURL解析失敗:", proxyUrl);
       }
@@ -109,6 +110,7 @@ export async function processNextJob(): Promise<boolean> {
     page = await b.newPage({
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+      ignoreHTTPSErrors: true,
     });
 
     // CF7等のAjaxレスポンスをログに出力 + spam検出用に保存
