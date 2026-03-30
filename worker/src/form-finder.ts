@@ -5,33 +5,85 @@ import { type Page } from "playwright";
  * 最終的にフォームがあるページのURLを返す。見つからなければnullを返す。
  */
 export async function findContactFormUrl(page: Page): Promise<string | null> {
-  // Step 1: 現在のページにフォームがあるかチェック
+  // Step 1: まずお問い合わせリンクがあるか探す（トップページの検索フォーム誤検出を防ぐ）
+  const contactLink = await findContactLink(page);
+
+  // お問い合わせリンクがあれば、そちらに遷移
+  if (contactLink) {
+    // 現在のURLがすでにcontact系なら遷移不要
+    const currentUrl = page.url().toLowerCase();
+    const isAlreadyContact =
+      currentUrl.includes("contact") ||
+      currentUrl.includes("inquiry") ||
+      currentUrl.includes("toiawase") ||
+      currentUrl.includes("page_id=");
+
+    if (!isAlreadyContact) {
+      try {
+        await page.goto(contactLink, { waitUntil: "domcontentloaded", timeout: 60000 });
+        await page.waitForTimeout(2000);
+      } catch {
+        return null;
+      }
+    }
+
+    if (await hasContactForm(page)) {
+      return page.url();
+    }
+
+    // さらにフォームページへのリンクを探す（「フォームはこちら」等）
+    const deeperUrl = await findDeeperFormLink(page);
+    if (deeperUrl) {
+      try {
+        await page.goto(deeperUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+        await page.waitForTimeout(2000);
+        return page.url();
+      } catch {
+        return null;
+      }
+    }
+
+    // お問い合わせページ自体を返す（フォームが動的に読み込まれる場合もある）
+    return page.url();
+  }
+
+  // お問い合わせリンクがなければ、現在のページにフォームがあるかチェック
   if (await hasContactForm(page)) {
     return page.url();
   }
 
-  // Step 2: お問い合わせリンクを探す
-  const contactUrl = await page.evaluate(() => {
-    const keywords = [
-      'お問い合わせ', '問い合わせ', 'お問合せ', '問合せ',
-      'contact', 'inquiry', 'お問合わせ',
-      'ご相談', '資料請求', 'メールでのお問い合わせ',
+  return null;
+}
+
+/**
+ * お問い合わせリンクを探す
+ */
+async function findContactLink(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    var keywords = [
+      "お問い合わせ", "問い合わせ", "お問合せ", "問合せ",
+      "contact", "inquiry", "お問合わせ",
+      "ご相談", "資料請求", "メールでのお問い合わせ",
     ];
 
-    const links = Array.from(document.querySelectorAll('a[href]'));
+    var links = Array.from(document.querySelectorAll("a[href]"));
 
-    for (const keyword of keywords) {
-      for (const link of links) {
-        const text = (link.textContent || '').trim().toLowerCase();
-        const href = link.getAttribute('href') || '';
-        const ariaLabel = (link.getAttribute('aria-label') || '').toLowerCase();
+    for (var k = 0; k < keywords.length; k++) {
+      var keyword = keywords[k].toLowerCase();
+      for (var i = 0; i < links.length; i++) {
+        var link = links[i] as HTMLAnchorElement;
+        var text = (link.textContent || "").trim().toLowerCase();
+        var href = link.getAttribute("href") || "";
+        var ariaLabel = (link.getAttribute("aria-label") || "").toLowerCase();
 
         if (
-          text.includes(keyword.toLowerCase()) ||
-          ariaLabel.includes(keyword.toLowerCase()) ||
-          href.toLowerCase().includes('contact') ||
-          href.toLowerCase().includes('inquiry') ||
-          href.toLowerCase().includes('toiawase')
+          text.includes(keyword) ||
+          ariaLabel.includes(keyword) ||
+          href.toLowerCase().includes("contact") ||
+          href.toLowerCase().includes("inquiry") ||
+          href.toLowerCase().includes("toiawase") ||
+          href.includes("forms.gle/") ||
+          href.includes("docs.google.com/forms")
         ) {
           try {
             return new URL(href, window.location.origin).href;
@@ -44,62 +96,42 @@ export async function findContactFormUrl(page: Page): Promise<string | null> {
 
     return null;
   });
-
-  if (!contactUrl) {
-    return null;
-  }
-
-  // Step 3: お問い合わせページに遷移
-  try {
-    await page.goto(contactUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForTimeout(2000);
-
-    if (await hasContactForm(page)) {
-      return page.url();
-    }
-
-    // Step 4: さらにフォームページへのリンクを探す
-    const deeperUrl = await page.evaluate(() => {
-      const keywords = ['フォーム', 'form', 'メールで', 'こちらから', '入力'];
-      const links = Array.from(document.querySelectorAll('a[href]'));
-
-      for (const keyword of keywords) {
-        for (const link of links) {
-          const text = (link.textContent || '').trim().toLowerCase();
-          if (text.includes(keyword.toLowerCase())) {
-            try {
-              return new URL(link.getAttribute('href')!, window.location.origin).href;
-            } catch {
-              continue;
-            }
-          }
-        }
-      }
-      return null;
-    });
-
-    if (deeperUrl) {
-      await page.goto(deeperUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await page.waitForTimeout(2000);
-      return page.url();
-    }
-
-    return contactUrl;
-  } catch {
-    return null;
-  }
 }
 
 /**
- * ページにフォームがあるか判定（緩い条件）
- * - formタグがあればOK
- * - formタグがなくてもinput/textareaが1つ以上あればOK
+ * フォームページへの深いリンクを探す
+ */
+async function findDeeperFormLink(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    var keywords = ["フォーム", "form", "メールで", "こちらから", "入力"];
+    var links = Array.from(document.querySelectorAll("a[href]"));
+
+    for (var k = 0; k < keywords.length; k++) {
+      var keyword = keywords[k].toLowerCase();
+      for (var i = 0; i < links.length; i++) {
+        var link = links[i] as HTMLAnchorElement;
+        var text = (link.textContent || "").trim().toLowerCase();
+        if (text.includes(keyword)) {
+          try {
+            return new URL(link.getAttribute("href")!, window.location.origin).href;
+          } catch {
+            continue;
+          }
+        }
+      }
+    }
+    return null;
+  });
+}
+
+/**
+ * ページにお問い合わせフォームがあるか判定
  */
 async function hasContactForm(page: Page): Promise<boolean> {
   return page.evaluate(() => {
-    const forms = document.querySelectorAll('form');
+    var forms = document.querySelectorAll("form");
     if (forms.length > 0) return true;
-    const inputs = document.querySelectorAll('input, textarea, select');
+    var inputs = document.querySelectorAll("input, textarea, select");
     return inputs.length >= 1;
   });
 }

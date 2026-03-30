@@ -47,9 +47,16 @@ export async function solveCaptcha(
         // NOTE: page.evaluateに文字列で渡す（tsxの__nameヘルパー問題を回避）
         await page.evaluate(`(function() {
           var t = ${JSON.stringify(token)};
+
+          // 1. g-recaptcha-response テキストエリアに注入
           var textareas = document.querySelectorAll('textarea[name="g-recaptcha-response"]');
           for (var i = 0; i < textareas.length; i++) { textareas[i].value = t; }
 
+          // 2. hidden input にも注入（一部フォームはhiddenで送る）
+          var hiddens = document.querySelectorAll('input[name="g-recaptcha-response"]');
+          for (var i = 0; i < hiddens.length; i++) { hiddens[i].value = t; }
+
+          // 3. grecaptcha.execute を乗っ取り
           if (typeof window.grecaptcha !== "undefined") {
             var original = window.grecaptcha;
             window.grecaptcha = Object.assign({}, original, {
@@ -64,9 +71,46 @@ export async function solveCaptcha(
             }
           }
 
+          // 4. Contact Form 7 の recaptcha ハンドラー上書き
           if (typeof window.wpcf7 !== "undefined" && window.wpcf7.recaptcha) {
             window.wpcf7.recaptcha.execute = function() { return Promise.resolve(t); };
           }
+
+          // 5. XMLHttpRequest をインターセプトしてreCAPTCHAトークンを差し替え
+          var origXHRSend = XMLHttpRequest.prototype.send;
+          XMLHttpRequest.prototype.send = function(body) {
+            if (body && typeof body === 'string' && body.indexOf('g-recaptcha-response') !== -1) {
+              body = body.replace(/g-recaptcha-response=[^&]*/g, 'g-recaptcha-response=' + encodeURIComponent(t));
+            }
+            if (body instanceof FormData) {
+              if (body.has('_wpcf7_recaptcha_response')) {
+                body.set('_wpcf7_recaptcha_response', t);
+              }
+              if (body.has('g-recaptcha-response')) {
+                body.set('g-recaptcha-response', t);
+              }
+            }
+            return origXHRSend.call(this, body);
+          };
+
+          // 6. fetch もインターセプト
+          var origFetch = window.fetch;
+          window.fetch = function(url, opts) {
+            if (opts && opts.body) {
+              if (opts.body instanceof FormData) {
+                if (opts.body.has('_wpcf7_recaptcha_response')) {
+                  opts.body.set('_wpcf7_recaptcha_response', t);
+                }
+                if (opts.body.has('g-recaptcha-response')) {
+                  opts.body.set('g-recaptcha-response', t);
+                }
+              } else if (typeof opts.body === 'string' && opts.body.indexOf('recaptcha') !== -1) {
+                opts.body = opts.body.replace(/g-recaptcha-response=[^&]*/g, 'g-recaptcha-response=' + encodeURIComponent(t));
+                opts.body = opts.body.replace(/_wpcf7_recaptcha_response=[^&]*/g, '_wpcf7_recaptcha_response=' + encodeURIComponent(t));
+              }
+            }
+            return origFetch.call(this, url, opts);
+          };
         })()`);
         console.log("[captcha-solver] v3: grecaptchaハイジャック完了");
         return { solved: true, method: "2captcha-v3" };
