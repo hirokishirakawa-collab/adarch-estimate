@@ -159,16 +159,22 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Eye,
         minRole: "USER",
       },
+    ],
+  },
+  {
+    section: "自動営業",
+    color: "text-emerald-500/80",
+    items: [
       {
         href: "/dashboard/auto-sales/request",
-        label: "自動営業 依頼",
+        label: "営業依頼",
         icon: Rocket,
         minRole: "MANAGER",
         requiredFeature: "auto-sales",
       },
       {
         href: "/dashboard/auto-sales",
-        label: "自動営業 モニター",
+        label: "モニター",
         icon: Bot,
         minRole: "MANAGER",
         requiredFeature: "auto-sales",
