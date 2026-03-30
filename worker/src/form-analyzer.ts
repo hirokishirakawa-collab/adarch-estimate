@@ -9,23 +9,65 @@ export interface FormField {
   type: "text" | "textarea" | "select" | "radio" | "checkbox" | "email" | "tel";
 }
 
+export type CaptchaType = "none" | "v2" | "v3" | "hcaptcha" | "turnstile" | "unknown";
+
 export interface AnalysisResult {
   fields: FormField[];
-  captcha: boolean;
+  captchaType: CaptchaType;
+  siteKey: string | null;
   submitSelector: string | null;
 }
 
 /**
  * HTMLからフォーム部分を抽出・前処理する
  */
-function extractFormHtml(html: string): { formHtml: string; hasCaptcha: boolean } {
+function extractFormHtml(html: string): { formHtml: string; captchaType: CaptchaType; siteKey: string | null } {
   const $ = cheerio.load(html);
 
-  // CAPTCHA検出（フォーム内のCAPTCHA要素のみ対象。広告のrecaptchaは除外）
-  const formArea = $("form").length > 0 ? $("form") : $("body");
-  const hasCaptcha =
-    formArea.find('[class*="g-recaptcha"], [class*="h-captcha"], [class*="cf-turnstile"], [data-sitekey]').length > 0 ||
-    formArea.find('iframe[src*="recaptcha"], iframe[src*="hcaptcha"]').length > 0;
+  // CAPTCHA種類を詳細検出
+  let captchaType: CaptchaType = "none";
+  let siteKey: string | null = null;
+
+  // reCAPTCHA v2（チェックボックス型）
+  const v2El = $('[class*="g-recaptcha"][data-sitekey]');
+  if (v2El.length > 0) {
+    captchaType = "v2";
+    siteKey = v2El.attr("data-sitekey") ?? null;
+  }
+
+  // reCAPTCHA v3（スコアベース・非表示型）
+  if (captchaType === "none") {
+    const hasV3Script = html.includes("recaptcha/api.js?render=") || html.includes("grecaptcha.execute");
+    const v3Badge = $(".grecaptcha-badge");
+    const v3Iframe = $('iframe[src*="recaptcha"]');
+    if (hasV3Script || v3Badge.length > 0 || v3Iframe.length > 0) {
+      captchaType = "v3";
+      const scriptMatch = html.match(/recaptcha\/api\.js\?render=([^&"']+)/);
+      if (scriptMatch) siteKey = scriptMatch[1];
+      if (!siteKey) {
+        const dsEl = $('[data-sitekey]');
+        if (dsEl.length > 0) siteKey = dsEl.attr("data-sitekey") ?? null;
+      }
+    }
+  }
+
+  // hCaptcha
+  if (captchaType === "none") {
+    const hcEl = $('[class*="h-captcha"][data-sitekey]');
+    if (hcEl.length > 0 || $('iframe[src*="hcaptcha"]').length > 0) {
+      captchaType = "hcaptcha";
+      siteKey = hcEl.attr("data-sitekey") ?? null;
+    }
+  }
+
+  // Cloudflare Turnstile
+  if (captchaType === "none") {
+    const cfEl = $('[class*="cf-turnstile"][data-sitekey]');
+    if (cfEl.length > 0) {
+      captchaType = "turnstile";
+      siteKey = cfEl.attr("data-sitekey") ?? null;
+    }
+  }
 
   // script, style, コメント, hidden要素を除去
   $("script, style, noscript, svg, img, video, audio, iframe, link, meta").remove();
@@ -39,7 +81,7 @@ function extractFormHtml(html: string): { formHtml: string; hasCaptcha: boolean 
     // formタグがない場合、input/textareaを含むコンテナを探す
     const inputs = $("input, textarea, select");
     if (inputs.length === 0) {
-      return { formHtml: "", hasCaptcha };
+      return { formHtml: "", captchaType, siteKey };
     }
     // 最も近い共通親を使う
     formEl = inputs.first().closest("div, section, main");
@@ -79,7 +121,8 @@ function extractFormHtml(html: string): { formHtml: string; hasCaptcha: boolean 
   // 8000文字に収める（Claude Haikuのコスト削減）
   return {
     formHtml: formHtml.substring(0, 8000),
-    hasCaptcha,
+    captchaType,
+    siteKey,
   };
 }
 
@@ -97,14 +140,10 @@ export async function analyzeForm(
   },
   targetIndustry: string | null
 ): Promise<AnalysisResult> {
-  const { formHtml, hasCaptcha } = extractFormHtml(pageHtml);
-
-  if (hasCaptcha) {
-    return { fields: [], captcha: true, submitSelector: null };
-  }
+  const { formHtml, captchaType, siteKey } = extractFormHtml(pageHtml);
 
   if (!formHtml) {
-    return { fields: [], captcha: false, submitSelector: null };
+    return { fields: [], captchaType: "none", siteKey: null, submitSelector: null };
   }
 
   // テンプレート本文の{industry}を置換
@@ -155,17 +194,18 @@ ${formHtml}
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error("[form-analyzer] Claude応答からJSONを抽出できませんでした:", text);
-      return { fields: [], captcha: false, submitSelector: null };
+      return { fields: [], captchaType, siteKey, submitSelector: null };
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
     return {
       fields: parsed.fields ?? [],
-      captcha: false,
+      captchaType,
+      siteKey,
       submitSelector: parsed.submitSelector ?? null,
     };
   } catch (err) {
     console.error("[form-analyzer] JSONパースエラー:", err);
-    return { fields: [], captcha: false, submitSelector: null };
+    return { fields: [], captchaType, siteKey, submitSelector: null };
   }
 }

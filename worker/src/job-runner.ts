@@ -3,6 +3,7 @@ import { db } from "./db.js";
 import { analyzeForm } from "./form-analyzer.js";
 import { fillForm, clickSubmit, clickConfirmButton } from "./form-filler.js";
 import { findContactFormUrl } from "./form-finder.js";
+import { solveCaptcha } from "./captcha-solver.js";
 
 const DRY_RUN = process.env.DRY_RUN === "true";
 const PAGE_TIMEOUT = 30_000;
@@ -130,18 +131,23 @@ export async function processNextJob(): Promise<boolean> {
       body: job.template.body,
     }, job.target.industry);
 
-    // CAPTCHA検出
-    if (analysis.captcha) {
-      await db.autoSalesJob.update({
-        where: { id: job.id },
-        data: {
-          status: "SKIPPED",
-          completedAt: new Date(),
-          errorMessage: "CAPTCHA検出のためスキップ",
-        },
-      });
-      console.log(`[job-runner] スキップ（CAPTCHA）: ${job.target.companyName}`);
-      return true;
+    // CAPTCHA解決
+    if (analysis.captchaType !== "none") {
+      console.log(`[job-runner] CAPTCHA検出 (${analysis.captchaType}): ${job.target.companyName}`);
+      const { solved, method } = await solveCaptcha(page, analysis.captchaType, analysis.siteKey);
+      if (!solved) {
+        await db.autoSalesJob.update({
+          where: { id: job.id },
+          data: {
+            status: "SKIPPED",
+            completedAt: new Date(),
+            errorMessage: `CAPTCHA解決失敗 (${analysis.captchaType}, ${method})`,
+          },
+        });
+        console.log(`[job-runner] スキップ（CAPTCHA未解決）: ${job.target.companyName}`);
+        return true;
+      }
+      console.log(`[job-runner] CAPTCHA解決: ${method}`);
     }
 
     // フォーム入力
