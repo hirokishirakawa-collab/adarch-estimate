@@ -1,0 +1,132 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import type { AutoSalesTargetType, AutoSalesServiceType } from "@/generated/prisma/client";
+
+const VALID_TARGET_TYPES: AutoSalesTargetType[] = ["BTOB", "BTOC"];
+const VALID_SERVICE_TYPES: AutoSalesServiceType[] = [
+  "VIDEO_PRODUCTION",
+  "SNS_MANAGEMENT",
+  "AD_MEDIA",
+  "FIRST_MEETING",
+];
+
+// テンプレート一覧
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+  });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const isAdmin = user.role === "ADMIN";
+  if (!isAdmin && !user.enabledFeatures.includes("auto-sales")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const branchFilter = isAdmin ? {} : { branchId: user.branchId! };
+
+  const templates = await db.autoSalesTemplate.findMany({
+    where: { ...branchFilter, isActive: true },
+    include: { branch: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json(templates);
+}
+
+// テンプレート作成（パートナーが営業設定を登録）
+export async function POST(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+  });
+  if (!user || !user.branchId) {
+    return NextResponse.json({ error: "Branch not assigned" }, { status: 400 });
+  }
+  if (user.role !== "ADMIN" && !user.enabledFeatures.includes("auto-sales")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const {
+    name,
+    companyName,
+    senderName,
+    phone,
+    email,
+    targetType,
+    serviceTypes,
+    pitchText,
+    scheduledStartDate,
+  } = body as {
+    name: string;
+    companyName: string;
+    senderName: string;
+    phone?: string;
+    email?: string;
+    targetType: AutoSalesTargetType;
+    serviceTypes: AutoSalesServiceType[];
+    pitchText: string;
+    scheduledStartDate?: string;
+  };
+
+  // バリデーション
+  if (!name || !companyName || !senderName || !pitchText || !targetType || !serviceTypes?.length) {
+    return NextResponse.json(
+      { error: "必須項目を入力してください（名前、会社名、送信者名、訴求文、ターゲット種別、訴求カテゴリ）" },
+      { status: 400 }
+    );
+  }
+
+  if (!VALID_TARGET_TYPES.includes(targetType)) {
+    return NextResponse.json({ error: "無効なターゲット種別です" }, { status: 400 });
+  }
+
+  if (!serviceTypes.every((s: AutoSalesServiceType) => VALID_SERVICE_TYPES.includes(s))) {
+    return NextResponse.json({ error: "無効な訴求カテゴリです" }, { status: 400 });
+  }
+
+  // 訴求カテゴリのラベル
+  const serviceLabels: Record<AutoSalesServiceType, string> = {
+    VIDEO_PRODUCTION: "動画制作",
+    SNS_MANAGEMENT: "SNS運用",
+    AD_MEDIA: "広告媒体提案",
+    FIRST_MEETING: "初回商談",
+  };
+
+  // pitchTextをベースにフォーム送信用本文を生成
+  const serviceText = serviceTypes.map((s: AutoSalesServiceType) => serviceLabels[s]).join("・");
+  const generatedBody = `${pitchText}\n\n【ご提案可能なサービス】\n${serviceText}\n\nご興味がございましたら、お気軽にご返信ください。\n\n${companyName}\n${senderName}${phone ? `\nTEL: ${phone}` : ""}${email ? `\nMail: ${email}` : ""}`;
+
+  const template = await db.autoSalesTemplate.create({
+    data: {
+      branchId: user.branchId,
+      name,
+      companyName,
+      senderName,
+      phone: phone || null,
+      email: email || null,
+      targetType,
+      serviceTypes,
+      pitchText,
+      body: generatedBody,
+      scheduledStartDate: scheduledStartDate ? new Date(scheduledStartDate) : null,
+      // ADMIN が作成した場合は自動承認
+      isApproved: user.role === "ADMIN",
+      approvedAt: user.role === "ADMIN" ? new Date() : null,
+      approvedBy: user.role === "ADMIN" ? user.id : null,
+    },
+  });
+
+  return NextResponse.json(template, { status: 201 });
+}

@@ -209,6 +209,27 @@ enum LeadSource {
   SIGNBOARD_SCAN
 }
 
+enum AutoSalesTargetType {
+  BTOB // 法人向け
+  BTOC // 個人・店舗向け
+}
+
+enum AutoSalesServiceType {
+  VIDEO_PRODUCTION // 動画制作
+  SNS_MANAGEMENT // SNS運用
+  AD_MEDIA // 広告媒体提案
+  FIRST_MEETING // 初回商談（とりあえず会いたい）
+}
+
+enum AutoSalesJobStatus {
+  QUEUED // キュー待ち
+  PROCESSING // 実行中
+  COMPLETED // 送信完了
+  FAILED // 失敗（エラー）
+  SKIPPED // スキップ（CAPTCHA等）
+  DRY_RUN // ドライラン（送信せず確認用）
+}
+
 // ==============================================================
 // Branch（拠点）
 // ==============================================================
@@ -249,6 +270,10 @@ model Branch {
   studioResults       MonthlyResult[]      @relation("StudioResults")
   snsFormatOrders     SnsFormatOrder[]     @relation("SnsFormatOrders")
   snsReferenceFormats SnsReferenceFormat[] @relation("SnsReferenceFormats")
+
+  // AutoSales
+  autoSalesTemplates AutoSalesTemplate[]
+  autoSalesTargets   AutoSalesTarget[]
 
   @@map("branches")
 }
@@ -2517,4 +2542,124 @@ model ReviewCheckItem {
 
   @@index([reviewId])
   @@map("review_check_items")
+}
+
+// ==============================================================
+// 自動営業システム（AutoSales）
+// ==============================================================
+
+/// パートナーごとの営業設定。
+/// パートナー代表が訴求内容を設定し、本部（ADMIN）承認後に自動送信で使用される。
+model AutoSalesTemplate {
+  id       String @id @default(cuid())
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  name        String // テンプレート名（例: 美容室向け、工務店向け）
+  companyName String // 送信元会社名
+  senderName  String // 送信者名
+  phone       String? // 電話番号
+  email       String? // メールアドレス
+
+  // 営業設定（パートナーが入力）
+  targetType   AutoSalesTargetType // BtoB / BtoC
+  serviceTypes AutoSalesServiceType[] // 訴求カテゴリ（複数選択可）
+  pitchText    String @db.Text // パートナーが書いた訴求文（自由記述）
+  body         String @db.Text // 最終的なフォーム送信用本文（pitchTextをベースに生成）
+
+  // スケジュール
+  scheduledStartDate DateTime? // 営業開始日（nullなら承認後すぐ開始）
+
+  isApproved Boolean   @default(false) // 本部承認済み
+  approvedAt DateTime?
+  approvedBy String? // ADMIN User.id
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs AutoSalesJob[]
+
+  @@index([branchId])
+  @@map("auto_sales_templates")
+}
+
+/// 営業先企業。パートナーがOS上から投入する。
+/// 同一拠点から同一URLへの重複投入を防止。
+model AutoSalesTarget {
+  id       String @id @default(cuid())
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  companyName String // 営業先企業名
+  url         String // 問い合わせフォームURL
+  industry    String? // 業種
+  area        String? // エリア
+  phone       String? // 電話番号（公開情報）
+  note        String? @db.Text // メモ
+
+  createdById String // 投入した User.id
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs AutoSalesJob[]
+
+  @@unique([branchId, url]) // 同一拠点から同一URLへの重複防止
+  @@index([branchId])
+  @@index([createdById])
+  @@map("auto_sales_targets")
+}
+
+/// 自動営業の実行ジョブ。1件 = 1フォーム送信。
+/// Worker がキューから取り出して順次実行する。
+model AutoSalesJob {
+  id         String              @id @default(cuid())
+  targetId   String
+  target     AutoSalesTarget     @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  templateId String
+  template   AutoSalesTemplate   @relation(fields: [templateId], references: [id])
+  status     AutoSalesJobStatus  @default(QUEUED)
+
+  // 実行結果
+  screenshotUrl String? // 送信前スクリーンショットURL
+  filledData    Json? // 実際に入力したフィールド名→値のマップ
+  errorMessage  String? @db.Text // エラー時のメッセージ
+
+  // 反響トラッキング
+  hasResponse       Boolean   @default(false) // 反響があったか
+  responseNote      String?   @db.Text // 反響内容メモ
+  responseEmailId   String?   // Gmail メッセージID（重複検知用）
+  responseFrom      String?   // 返信元メールアドレス
+  responseSubject   String?   // 返信件名
+  responseSnippet   String?   @db.Text // 返信本文抜粋
+  respondedAt       DateTime? // 反響日時
+  chatNotifiedAt    DateTime? // Google Chat通知済み日時
+
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([targetId])
+  @@index([templateId])
+  @@index([createdAt])
+  @@index([hasResponse])
+  @@map("auto_sales_jobs")
+}
+
+/// 苦情受付・送信拒否リスト。
+/// ドメイン単位で管理し、全拠点共通で適用。
+model AutoSalesBlacklist {
+  id          String  @id @default(cuid())
+  domain      String  @unique // 企業ドメイン or URL
+  companyName String? // 企業名
+  reason      String? @db.Text // 登録理由
+
+  createdAt DateTime @default(now())
+
+  @@map("auto_sales_blacklist")
 }

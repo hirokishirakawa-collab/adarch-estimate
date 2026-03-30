@@ -27,6 +27,7 @@ type UserRow = {
 
 const OPTIONAL_FEATURES = [
   { id: "cutsheet", label: "カット表AI" },
+  { id: "auto-sales", label: "自動営業" },
 ] as const;
 
 type GroupCompanyOption = {

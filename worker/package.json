@@ -1,0 +1,26 @@
+{
+  "name": "auto-sales-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npx prisma generate && tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test-single": "tsx scripts/test-single.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@prisma/client": "^7.4.1",
+    "@prisma/adapter-pg": "^7.4.1",
+    "pg": "^8.18.0",
+    "prisma": "^7.4.1",
+    "playwright": "^1.52.0",
+    "cheerio": "^1.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "tsx": "^4.21.0",
+    "@types/node": "^22",
+    "@types/pg": "^8.16.0"
+  }
+}

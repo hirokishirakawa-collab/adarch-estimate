@@ -55,6 +55,7 @@ import {
   Send,
   AlertTriangle,
   Star,
+  Bot,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -156,6 +157,13 @@ const NAV_SECTIONS: NavSection[] = [
         label: "提案書 閲覧分析",
         icon: Eye,
         minRole: "USER",
+      },
+      {
+        href: "/dashboard/auto-sales",
+        label: "自動営業",
+        icon: Bot,
+        minRole: "MANAGER",
+        requiredFeature: "auto-sales",
       },
     ],
   },
