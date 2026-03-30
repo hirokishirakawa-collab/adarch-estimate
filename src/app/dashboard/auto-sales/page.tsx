@@ -28,14 +28,11 @@ export default async function AutoSalesPage() {
   const todayEnd = new Date();
   todayEnd.setHours(23, 59, 59, 999);
 
-  const [totalTargets, templates, todayJobsByStatus, recentJobs] =
+  const [totalTargets, , todayJobsByStatus, recentJobs] =
     await Promise.all([
       db.autoSalesTarget.count({ where: branchFilter }),
-      db.autoSalesTemplate.findMany({
-        where: { ...branchFilter, isActive: true },
-        include: { branch: { select: { name: true } } },
-        orderBy: { createdAt: "desc" },
-      }),
+      // templates query kept for Promise.all alignment; used on request page
+      Promise.resolve(null),
       db.autoSalesJob.groupBy({
         by: ["status"],
         where: {
@@ -115,8 +112,6 @@ export default async function AutoSalesPage() {
       {/* メインモニター */}
       <AutoSalesMonitor
         initialJobs={JSON.parse(JSON.stringify(recentJobs))}
-        templates={JSON.parse(JSON.stringify(templates))}
-        isAdmin={isAdmin}
         branchName={user.branch?.name ?? "本部"}
       />
     </div>

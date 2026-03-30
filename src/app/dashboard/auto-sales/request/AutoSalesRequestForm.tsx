@@ -21,6 +21,7 @@ import {
   Upload,
   X,
   AlertCircle,
+  Play,
 } from "lucide-react";
 
 const TARGET_TYPE_LABELS: Record<string, string> = {
@@ -47,18 +48,30 @@ interface Template {
   branch: { name: string } | null;
 }
 
+interface TargetWithStatus {
+  id: string;
+  companyName: string;
+  url: string;
+  industry: string | null;
+  area: string | null;
+  phone: string | null;
+  jobs: Array<{ status: string; completedAt: string | null }>;
+}
+
 export function AutoSalesRequestForm({
   templates,
   targetCount,
+  targets,
   isAdmin,
   branchName,
 }: {
   templates: Template[];
   targetCount: number;
+  targets: TargetWithStatus[];
   isAdmin: boolean;
   branchName: string;
 }) {
-  const [activeTab, setActiveTab] = useState<"target" | "template">("target");
+  const [activeTab, setActiveTab] = useState<"target" | "template" | "launch">("target");
 
   return (
     <div className="min-h-[80vh]">
@@ -168,13 +181,40 @@ export function AutoSalesRequestForm({
             </p>
           </div>
         </button>
+
+        <button
+          onClick={() => setActiveTab("launch")}
+          className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-xl border-2 transition-all duration-200 ${
+            activeTab === "launch"
+              ? "border-emerald-500 bg-emerald-50 shadow-sm shadow-emerald-500/10"
+              : "border-zinc-200 bg-white hover:border-zinc-300"
+          }`}
+        >
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+            activeTab === "launch"
+              ? "bg-emerald-500 shadow-md shadow-emerald-500/30"
+              : "bg-zinc-100"
+          }`}>
+            <Play className={`w-5 h-5 ${activeTab === "launch" ? "text-white" : "text-zinc-400"}`} />
+          </div>
+          <div className="text-left">
+            <p className={`text-sm font-bold ${activeTab === "launch" ? "text-emerald-700" : "text-zinc-700"}`}>
+              営業開始
+            </p>
+            <p className={`text-xs ${activeTab === "launch" ? "text-emerald-500" : "text-zinc-400"}`}>
+              テンプレートを選んで送信開始
+            </p>
+          </div>
+        </button>
       </div>
 
       {/* Content */}
       {activeTab === "target" ? (
         <AddTargetSection />
-      ) : (
+      ) : activeTab === "template" ? (
         <TemplateSection templates={templates} isAdmin={isAdmin} />
+      ) : (
+        <LaunchSection templates={templates} targets={targets} />
       )}
     </div>
   );
@@ -1170,5 +1210,283 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
         )}
       </button>
     </form>
+  );
+}
+
+// ─── 営業開始セクション ─────────────────────────
+function LaunchSection({
+  templates,
+  targets,
+}: {
+  templates: Template[];
+  targets: TargetWithStatus[];
+}) {
+  const approvedTemplates = templates.filter((t) => t.isApproved);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
+    approvedTemplates[0]?.id ?? ""
+  );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [launching, setLaunching] = useState(false);
+  const [result, setResult] = useState<{ created: number; skipped: number } | null>(null);
+  const [error, setError] = useState("");
+
+  // A target is "already sent" if it has an active job (COMPLETED, QUEUED, PROCESSING)
+  function isSent(t: TargetWithStatus) {
+    if (t.jobs.length === 0) return false;
+    const latest = t.jobs[0].status;
+    return ["COMPLETED", "QUEUED", "PROCESSING"].includes(latest);
+  }
+
+  const eligibleTargets = targets.filter((t) => !isSent(t));
+  const allEligibleSelected =
+    eligibleTargets.length > 0 &&
+    eligibleTargets.every((t) => selectedIds.has(t.id));
+
+  function toggleSelectAll() {
+    if (allEligibleSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(eligibleTargets.map((t) => t.id)));
+    }
+  }
+
+  function toggleTarget(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleLaunch() {
+    if (selectedIds.size === 0 || !selectedTemplateId) return;
+    setLaunching(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/auto-sales/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetIds: Array.from(selectedIds),
+          templateId: selectedTemplateId,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json();
+        setError(body.error ?? "送信に失敗しました");
+        return;
+      }
+      const data = await res.json();
+      setResult(data);
+      setSelectedIds(new Set());
+    } catch {
+      setError("通信エラーが発生しました");
+    } finally {
+      setLaunching(false);
+    }
+  }
+
+  const JOB_STATUS_BADGE: Record<string, { label: string; className: string }> = {
+    COMPLETED: { label: "送信済み", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    QUEUED: { label: "待機中", className: "bg-zinc-50 text-zinc-500 border-zinc-200" },
+    PROCESSING: { label: "実行中", className: "bg-blue-50 text-blue-700 border-blue-200" },
+    FAILED: { label: "失敗", className: "bg-red-50 text-red-700 border-red-200" },
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Template Selector */}
+      <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
+        <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-emerald-50/50 to-white">
+          <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+            <Play className="w-5 h-5 text-emerald-500" />
+            営業テンプレートを選択
+          </h2>
+          <p className="text-sm text-zinc-500 mt-1">
+            承認済みテンプレートを選んで営業先に一斉送信
+          </p>
+        </div>
+
+        <div className="p-6">
+          {approvedTemplates.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-3">
+                <AlertCircle className="w-7 h-7 text-amber-400" />
+              </div>
+              <p className="text-sm font-medium text-zinc-700">
+                承認済みテンプレートがありません
+              </p>
+              <p className="text-xs text-zinc-400 mt-1">
+                テンプレートを作成し、本部承認を受けてください。
+              </p>
+            </div>
+          ) : (
+            <select
+              value={selectedTemplateId}
+              onChange={(e) => setSelectedTemplateId(e.target.value)}
+              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all bg-white"
+            >
+              {approvedTemplates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.companyName} / {t.senderName})
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
+
+      {/* Target List */}
+      <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
+        <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-emerald-50/50 to-white">
+          <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+            <Target className="w-5 h-5 text-emerald-500" />
+            営業先を選択
+          </h2>
+          <p className="text-sm text-zinc-500 mt-1">
+            送信する営業先にチェックを入れてください
+          </p>
+        </div>
+
+        {targets.length === 0 ? (
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-zinc-50 flex items-center justify-center mx-auto mb-4">
+              <Target className="w-8 h-8 text-zinc-300" />
+            </div>
+            <p className="text-sm font-medium text-zinc-700">
+              営業先がまだ登録されていません。
+            </p>
+            <p className="text-xs text-zinc-400 mt-1">
+              「営業先を追加」タブから追加してください。
+            </p>
+          </div>
+        ) : (
+          <div>
+            {/* Select All */}
+            <div className="px-6 py-3 border-b border-zinc-100 bg-zinc-50/50 flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={allEligibleSelected}
+                onChange={toggleSelectAll}
+                disabled={eligibleTargets.length === 0}
+                className="w-4 h-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span className="text-sm font-medium text-zinc-600">
+                すべて選択
+                <span className="text-xs text-zinc-400 ml-2">
+                  ({eligibleTargets.length} 件送信可能 / 全 {targets.length} 件)
+                </span>
+              </span>
+            </div>
+
+            {/* Target Rows */}
+            <div className="divide-y divide-zinc-100 max-h-[400px] overflow-y-auto">
+              {targets.map((t) => {
+                const sent = isSent(t);
+                const latestStatus = t.jobs[0]?.status;
+                const badge = latestStatus ? JOB_STATUS_BADGE[latestStatus] : null;
+
+                return (
+                  <label
+                    key={t.id}
+                    className={`flex items-center gap-4 px-6 py-3.5 transition-colors ${
+                      sent
+                        ? "bg-zinc-50/50 cursor-not-allowed"
+                        : selectedIds.has(t.id)
+                        ? "bg-emerald-50/30"
+                        : "hover:bg-zinc-50 cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(t.id)}
+                      onChange={() => toggleTarget(t.id)}
+                      disabled={sent}
+                      className="w-4 h-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-40"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm text-zinc-900 truncate">
+                          {t.companyName}
+                        </span>
+                        {t.industry && (
+                          <span className="text-[10px] bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded font-medium">
+                            {t.industry}
+                          </span>
+                        )}
+                        {t.area && (
+                          <span className="text-[10px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-medium">
+                            {t.area}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-400 truncate mt-0.5 font-mono max-w-[300px]">
+                        {t.url}
+                      </p>
+                    </div>
+                    {badge && (
+                      <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium border shrink-0 ${badge.className}`}>
+                        {badge.label}
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Result Message */}
+      {result && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-emerald-800">
+                {result.created} 件の営業ジョブを作成しました
+              </p>
+              {result.skipped > 0 && (
+                <p className="text-xs text-emerald-600 mt-0.5">
+                  {result.skipped} 件は既にキューに入っていたためスキップ
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl border border-red-100">
+          {error}
+        </p>
+      )}
+
+      {/* Launch Button */}
+      {approvedTemplates.length > 0 && targets.length > 0 && (
+        <button
+          onClick={handleLaunch}
+          disabled={launching || selectedIds.size === 0}
+          className="w-full py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl text-sm font-bold hover:from-emerald-700 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2"
+        >
+          {launching ? (
+            "送信処理中..."
+          ) : selectedIds.size === 0 ? (
+            <>
+              <Play className="w-4 h-4" />
+              営業先を選択してください
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4" />
+              {selectedIds.size}件の営業先に送信開始
+            </>
+          )}
+        </button>
+      )}
+    </div>
   );
 }

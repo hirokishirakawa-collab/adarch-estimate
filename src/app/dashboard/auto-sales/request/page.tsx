@@ -20,19 +20,32 @@ export default async function AutoSalesRequestPage() {
 
   const branchFilter = isAdmin ? {} : { branchId: user.branchId! };
 
-  const [templates, targetCount] = await Promise.all([
+  const [templates, targetCount, targets] = await Promise.all([
     db.autoSalesTemplate.findMany({
       where: { ...branchFilter, isActive: true },
       include: { branch: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
     }),
     db.autoSalesTarget.count({ where: branchFilter }),
+    db.autoSalesTarget.findMany({
+      where: branchFilter,
+      include: {
+        jobs: {
+          select: { status: true, completedAt: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
   ]);
 
   return (
     <AutoSalesRequestForm
       templates={JSON.parse(JSON.stringify(templates))}
       targetCount={targetCount}
+      targets={JSON.parse(JSON.stringify(targets))}
       isAdmin={isAdmin}
       branchName={user.branch?.name ?? "本部"}
     />
