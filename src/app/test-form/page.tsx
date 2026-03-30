@@ -1,5 +1,3 @@
-import { db } from "@/lib/db";
-
 export default function TestFormPage({
   searchParams,
 }: {
@@ -16,25 +14,10 @@ async function TestForm({
   const searchParams = await searchParamsPromise;
   const submitted = searchParams.submitted === "true";
 
-  // 送信済みの場合、DBに記録して完了画面
   if (submitted) {
     const name = searchParams.name ?? "";
     const email = searchParams.email ?? "";
     const message = searchParams.message ?? "";
-
-    if (name || email || message) {
-      // テスト送信ログをDBに記録（AppSettingを利用）
-      await db.appSetting.upsert({
-        where: { key: "test-form-last-submission" },
-        create: {
-          key: "test-form-last-submission",
-          value: JSON.stringify({ name, email, message, at: new Date().toISOString() }),
-        },
-        update: {
-          value: JSON.stringify({ name, email, message, at: new Date().toISOString() }),
-        },
-      });
-    }
 
     return (
       <div style={{ maxWidth: 600, margin: "80px auto", fontFamily: "sans-serif", textAlign: "center" }}>
@@ -52,13 +35,12 @@ async function TestForm({
 
   return (
     <div style={{ maxWidth: 600, margin: "80px auto", fontFamily: "sans-serif" }}>
-      <h1>お問い合わせ（テスト用）</h1>
-      <p style={{ color: "#666" }}>このフォームは自動営業workerのテスト用です。reCAPTCHAなし。</p>
-      <form action="/test-form" method="GET" style={{ marginTop: 20 }}>
-        <input type="hidden" name="submitted" value="true" />
+      <h1>お問い合わせ</h1>
+      <p style={{ color: "#666" }}>動画制作・広告に関するご相談はこちらからお気軽にどうぞ。</p>
+      <form action="/test-form/submit" method="POST" style={{ marginTop: 20 }}>
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>お名前 *</label>
-          <input name="name" required style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6, fontSize: 14 }} />
+          <input name="name" type="text" required style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6, fontSize: 14 }} />
         </div>
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>メールアドレス *</label>
