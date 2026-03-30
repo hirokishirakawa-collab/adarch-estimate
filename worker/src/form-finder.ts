@@ -59,7 +59,7 @@ export async function findContactFormUrl(page: Page): Promise<string | null> {
 
   // Step 3: お問い合わせページに遷移
   try {
-    await page.goto(contactUrl, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto(contactUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(2000);
 
     // 遷移先にフォームがあるか確認
@@ -94,7 +94,7 @@ export async function findContactFormUrl(page: Page): Promise<string | null> {
     });
 
     if (deeperUrl) {
-      await page.goto(deeperUrl, { waitUntil: 'networkidle', timeout: 30000 });
+      await page.goto(deeperUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
       await page.waitForTimeout(2000);
       return page.url();
     }

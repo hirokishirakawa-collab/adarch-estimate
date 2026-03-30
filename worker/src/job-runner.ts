@@ -6,7 +6,7 @@ import { findContactFormUrl } from "./form-finder.js";
 import { solveCaptcha } from "./captcha-solver.js";
 
 const DRY_RUN = process.env.DRY_RUN === "true";
-const PAGE_TIMEOUT = 30_000;
+const PAGE_TIMEOUT = 60_000;
 
 let browser: Browser | null = null;
 
@@ -88,7 +88,7 @@ export async function processNextJob(): Promise<boolean> {
     });
 
     await page.goto(job.target.url, {
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
       timeout: PAGE_TIMEOUT,
     });
 
