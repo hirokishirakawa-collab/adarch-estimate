@@ -187,13 +187,14 @@ async function solveRecaptchaV2(siteKey: string, pageUrl: string): Promise<strin
 }
 
 async function solveRecaptchaV3(siteKey: string, pageUrl: string): Promise<string | null> {
+  // CF7は "contactform" アクションでトークンを検証する
   return solve2Captcha({
     method: "userrecaptcha",
     googlekey: siteKey,
     pageurl: pageUrl,
     version: "v3",
-    action: "submit",
-    min_score: "0.3",
+    action: "contactform",
+    min_score: "0.9",
   });
 }
 
