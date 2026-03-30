@@ -5,7 +5,8 @@ import { sendChatMessage, notifyCeo } from "@/lib/google-chat";
 /**
  * POST /api/auto-sales/check-responses
  * GAS cronから呼び出される反響記録API
- * Body: { jobId, from, subject, snippet }
+ * Body: { from, subject, snippet, messageId }
+ * fromのドメインから送信済みジョブを自動マッチング
  * Auth: x-api-key ヘッダー (GROUP_SUPPORT_API_KEY)
  */
 export async function POST(req: NextRequest) {
@@ -16,23 +17,46 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { jobId, from, subject, snippet } = body as {
-      jobId: string;
+    const { from, subject, snippet, messageId } = body as {
       from: string;
       subject?: string;
       snippet?: string;
+      messageId?: string;
     };
 
-    if (!jobId || !from) {
-      return NextResponse.json(
-        { error: "jobId and from are required" },
-        { status: 400 }
-      );
+    if (!from) {
+      return NextResponse.json({ error: "from is required" }, { status: 400 });
     }
 
-    // ジョブを取得
-    const job = await db.autoSalesJob.findUnique({
-      where: { id: jobId },
+    // 既に処理済みのメールIDはスキップ
+    if (messageId) {
+      const existing = await db.autoSalesJob.findFirst({
+        where: { responseEmailId: messageId },
+      });
+      if (existing) {
+        return NextResponse.json({ matched: false, reason: "already processed" });
+      }
+    }
+
+    // fromからドメインを抽出（"Name <email@domain.com>" 形式に対応）
+    const emailMatch = from.match(/<([^>]+)>/) || from.match(/([^\s]+@[^\s]+)/);
+    const email = emailMatch ? emailMatch[1] : from;
+    const domain = email.split("@")[1]?.toLowerCase();
+
+    if (!domain) {
+      return NextResponse.json({ matched: false, reason: "invalid from" });
+    }
+
+    // ドメインが一致する送信済みジョブを検索（最新のCOMPLETEDジョブ）
+    const job = await db.autoSalesJob.findFirst({
+      where: {
+        status: "COMPLETED",
+        hasResponse: false,
+        target: {
+          url: { contains: domain },
+        },
+      },
+      orderBy: { completedAt: "desc" },
       include: {
         target: {
           select: {
@@ -50,17 +74,18 @@ export async function POST(req: NextRequest) {
     });
 
     if (!job) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+      return NextResponse.json({ matched: false, reason: "no matching job" });
     }
 
     // 反響を記録
-    const updated = await db.autoSalesJob.update({
-      where: { id: jobId },
+    await db.autoSalesJob.update({
+      where: { id: job.id },
       data: {
         hasResponse: true,
         responseFrom: from,
         responseSubject: subject ?? null,
         responseSnippet: snippet ? snippet.substring(0, 500) : null,
+        responseEmailId: messageId ?? null,
         respondedAt: new Date(),
       },
     });
@@ -68,19 +93,16 @@ export async function POST(req: NextRequest) {
     // Google Chat で該当パートナーに通知
     const branchId = job.target.branchId ?? job.template.branchId;
     const notificationText = [
-      "\uD83D\uDD14 *自動営業 — 反響あり！*",
+      "🔔 *自動営業 — 反響あり！*",
       "",
-      `\uD83D\uDCCD *${job.target.companyName}*（${job.target.area ?? ""}${job.target.industry ? ` / ${job.target.industry}` : ""}）`,
-      `\uD83D\uDCE7 返信元: ${from}`,
-      `\uD83D\uDCCB 件名: ${subject ?? "(なし)"}`,
-      snippet ? `\uD83D\uDCAC ${snippet.substring(0, 200)}` : "",
+      `📍 *${job.target.companyName}*（${job.target.area ?? ""}${job.target.industry ? ` / ${job.target.industry}` : ""}）`,
+      `📧 返信元: ${from}`,
+      `📋 件名: ${subject ?? "(なし)"}`,
+      snippet ? `💬 ${snippet.substring(0, 200)}` : "",
       "",
       "ダッシュボードで詳細を確認してください。",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    ].filter(Boolean).join("\n");
 
-    // パートナーのChatスペースに通知
     const branchUsers = await db.user.findMany({
       where: { branchId, chatSpaceId: { not: null } },
       select: { chatSpaceId: true },
@@ -92,22 +114,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // CEO通知
     await notifyCeo(
-      `\uD83D\uDD14 自動営業 反響\n${job.target.companyName}（${job.target.area ?? ""}）\n${job.target.branch?.name ?? "不明"}の案件\n返信元: ${from}\n${snippet ? snippet.substring(0, 100) : ""}`
+      `🔔 自動営業 反響\n${job.target.companyName}（${job.target.area ?? ""}）\n${job.target.branch?.name ?? "不明"}の案件\n返信元: ${from}\n${snippet ? snippet.substring(0, 100) : ""}`
     );
 
-    // Chat通知済みを記録
     await db.autoSalesJob.update({
-      where: { id: jobId },
+      where: { id: job.id },
       data: { chatNotifiedAt: new Date() },
     });
 
     return NextResponse.json({
-      success: true,
-      jobId: updated.id,
+      matched: true,
+      jobId: job.id,
       companyName: job.target.companyName,
-      hasResponse: true,
     });
   } catch (err) {
     console.error("[check-responses] エラー:", err);
