@@ -15,8 +15,8 @@ RUN ln -s /app/worker/node_modules /app/node_modules && npx prisma generate
 COPY worker/src/ ./worker/src/
 COPY worker/tsconfig.json ./worker/
 
-# ビルド
-RUN cd worker && npx tsc
+# ビルド（tscがprisma生成ファイルをCommonJSに変換して壊すのでシンボリックリンクで上書き）
+RUN cd worker && npx tsc && rm -rf dist/src/generated && ln -s /app/src/generated dist/src/generated
 
 # ヘルスチェック用
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s \
