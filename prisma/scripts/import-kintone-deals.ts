@@ -29,7 +29,7 @@ const EMAIL_TO_BRANCH: Record<string, string> = {
   "kagawa_okayama@adarch.co.jp":  "branch_kgo",
   "mtakahashi@adarch.co.jp":      "branch_kyt",
   "katagiri@adarch.co.jp":        "branch_tky",
-  "yamaguchi@adarch.co.jp":       "branch_ymc",
+  "shoma.utamaru@adarch.co.jp":   "branch_ymc",
   "s.keita@adarch.co.jp":         "branch_hkd",
   "toru.shiraishi@adarch.co.jp":  "branch_tk2",
   "takashi.miyamoto@adarch.co.jp":"branch_kns",
