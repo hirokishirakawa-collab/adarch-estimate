@@ -80,3 +80,4 @@ main().catch((err) => {
   console.error("[worker] 致命的エラー:", err);
   process.exit(1);
 });
+
