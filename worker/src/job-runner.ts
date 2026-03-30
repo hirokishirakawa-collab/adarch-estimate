@@ -53,6 +53,7 @@ export async function processNextJob(): Promise<boolean> {
   });
 
   console.log(`[job-runner] 処理開始: ${job.target.companyName} (${job.target.url})`);
+  console.log(`[job-runner] ブラウザ起動中...`);
 
   let page: Page | null = null;
 
@@ -77,10 +78,12 @@ export async function processNextJob(): Promise<boolean> {
 
     // ブラウザでページを開く
     const b = await getBrowser();
+    console.log(`[job-runner] ブラウザ取得完了、ページ作成中...`);
     page = await b.newPage({
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     });
+    console.log(`[job-runner] ページ作成完了、ナビゲーション開始: ${job.target.url}`);
 
     // ダイアログ自動処理
     page.on("dialog", async (dialog) => {
@@ -91,11 +94,13 @@ export async function processNextJob(): Promise<boolean> {
       waitUntil: "domcontentloaded",
       timeout: PAGE_TIMEOUT,
     });
+    console.log(`[job-runner] ページ読み込み完了`);
 
     // SPAの追加レンダリングを待つ
     await page.waitForTimeout(3000);
 
     // フォームURL自動検出: トップページ等の場合、お問い合わせフォームを探す
+    console.log(`[job-runner] フォーム検出開始...`);
     const formPageUrl = await findContactFormUrl(page);
     if (!formPageUrl) {
       await db.autoSalesJob.update({
@@ -120,7 +125,9 @@ export async function processNextJob(): Promise<boolean> {
     }
 
     // DOM取得
+    console.log(`[job-runner] DOM取得中...`);
     const html = await page.content();
+    console.log(`[job-runner] フォーム解析中（Claude Haiku）...`);
 
     // Claude Haikuでフォーム解析
     const analysis = await analyzeForm(html, {
@@ -151,7 +158,10 @@ export async function processNextJob(): Promise<boolean> {
     }
 
     // フォーム入力
+    console.log(`[job-runner] フォーム解析完了: ${analysis.fields.length}フィールド, CAPTCHA: ${analysis.captchaType}`);
+    console.log(`[job-runner] フォーム入力中...`);
     const { filled, errors } = await fillForm(page, analysis.fields);
+    console.log(`[job-runner] 入力完了: ${Object.keys(filled).length}フィールド, エラー: ${errors.length}件`);
 
     // スクリーンショット撮影
     let screenshotUrl: string | null = null;
