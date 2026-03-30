@@ -2,6 +2,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { db } from "./db.js";
 import { analyzeForm } from "./form-analyzer.js";
 import { fillForm, clickSubmit } from "./form-filler.js";
+import { findContactFormUrl } from "./form-finder.js";
 
 const DRY_RUN = process.env.DRY_RUN === "true";
 const PAGE_TIMEOUT = 30_000;
@@ -93,6 +94,30 @@ export async function processNextJob(): Promise<boolean> {
     // SPAの追加レンダリングを待つ
     await page.waitForTimeout(3000);
 
+    // フォームURL自動検出: トップページ等の場合、お問い合わせフォームを探す
+    const formPageUrl = await findContactFormUrl(page);
+    if (!formPageUrl) {
+      await db.autoSalesJob.update({
+        where: { id: job.id },
+        data: {
+          status: "FAILED",
+          completedAt: new Date(),
+          errorMessage: "問い合わせフォームが見つかりませんでした",
+        },
+      });
+      console.log(`[job-runner] 失敗（フォームなし）: ${job.target.companyName}`);
+      return true;
+    }
+
+    // フォームページに遷移した場合、ターゲットURLを更新
+    if (formPageUrl !== job.target.url) {
+      console.log(`[job-runner] フォーム検出: ${job.target.url} → ${formPageUrl}`);
+      await db.autoSalesTarget.update({
+        where: { id: job.targetId },
+        data: { url: formPageUrl },
+      });
+    }
+
     // DOM取得
     const html = await page.content();
 
@@ -116,20 +141,6 @@ export async function processNextJob(): Promise<boolean> {
         },
       });
       console.log(`[job-runner] スキップ（CAPTCHA）: ${job.target.companyName}`);
-      return true;
-    }
-
-    // フォームフィールドが見つからない
-    if (analysis.fields.length === 0) {
-      await db.autoSalesJob.update({
-        where: { id: job.id },
-        data: {
-          status: "FAILED",
-          completedAt: new Date(),
-          errorMessage: "フォームフィールドのマッピングに失敗しました",
-        },
-      });
-      console.log(`[job-runner] 失敗（フィールドなし）: ${job.target.companyName}`);
       return true;
     }
 

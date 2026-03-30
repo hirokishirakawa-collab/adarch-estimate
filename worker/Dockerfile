@@ -6,17 +6,20 @@ WORKDIR /app
 COPY worker/package.json worker/package-lock.json* ./worker/
 RUN cd worker && npm ci
 
-# Prisma スキーマ（本体と共有）→ ローカルと同じ相対パスを維持
+# Prisma スキーマ → 生成
 COPY prisma/ ./prisma/
 COPY prisma.config.ts ./
 RUN ln -s /app/worker/node_modules /app/node_modules && npx prisma generate
+
+# 生成済みクライアントを worker/src 配下にコピー（ローカルインポート用）
+RUN cp -r /app/src/generated /app/worker/src/generated
 
 # Worker ソース
 COPY worker/src/ ./worker/src/
 COPY worker/tsconfig.json ./worker/
 
-# ビルド（tscがprisma生成ESMファイルをCJSに変換して壊すので、元のファイルで上書き）
-RUN cd worker && npx tsc && rm -rf dist/src/generated && cp -r /app/src/generated dist/src/generated
+# ビルド → 生成ファイルは tsc を通さず dist に直接コピー
+RUN cd worker && npx tsc && cp -r src/generated dist/generated
 
 # ヘルスチェック用
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s \

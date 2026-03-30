@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   CheckCircle2,
   Plus,
@@ -18,6 +18,9 @@ import {
   Mail,
   Calendar,
   ChevronDown,
+  Upload,
+  X,
+  AlertCircle,
 } from "lucide-react";
 
 const TARGET_TYPE_LABELS: Record<string, string> = {
@@ -177,11 +180,200 @@ export function AutoSalesRequestForm({
   );
 }
 
+// ─── CSV パーサー ─────────────────────────────
+interface CsvRow {
+  companyName: string;
+  url: string;
+  phone: string;
+  industry: string;
+  area: string;
+}
+
+function parseCsv(text: string): CsvRow[] {
+  // Remove BOM
+  const cleaned = text.replace(/^\uFEFF/, "");
+  const lines = cleaned.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+
+  // Parse header
+  const headers = parseCsvLine(lines[0]);
+  const colMap: Record<string, number> = {};
+  const mapping: Record<string, string> = {
+    "企業名": "companyName",
+    "Webサイト": "url",
+    "電話番号": "phone",
+    "業種": "industry",
+    "エリア": "area",
+  };
+
+  headers.forEach((h, i) => {
+    const key = mapping[h.trim()];
+    if (key) colMap[key] = i;
+  });
+
+  if (colMap.companyName === undefined) return [];
+
+  const rows: CsvRow[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    const companyName = cols[colMap.companyName]?.trim() ?? "";
+    const url = cols[colMap.url]?.trim() ?? "";
+    if (!companyName) continue;
+    rows.push({
+      companyName,
+      url,
+      phone: cols[colMap.phone]?.trim() ?? "",
+      industry: cols[colMap.industry]?.trim() ?? "",
+      area: cols[colMap.area]?.trim() ?? "",
+    });
+  }
+  return rows;
+}
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        result.push(current);
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+  }
+  result.push(current);
+  return result;
+}
+
 // ─── 営業先追加セクション ─────────────────────
 function AddTargetSection() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  // CSV import state
+  const [csvData, setCsvData] = useState<CsvRow[]>([]);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    created: number;
+    skipped: number;
+    total: number;
+    errors: string[];
+  } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCsvFile = useCallback((file: File) => {
+    setCsvFile(file);
+    setImportResult(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const rows = parseCsv(text);
+      setCsvData(rows);
+    };
+    reader.readAsText(file, "utf-8");
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file && (file.name.endsWith(".csv") || file.type === "text/csv")) {
+        handleCsvFile(file);
+      }
+    },
+    [handleCsvFile]
+  );
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) handleCsvFile(file);
+    },
+    [handleCsvFile]
+  );
+
+  const clearCsv = useCallback(() => {
+    setCsvData([]);
+    setCsvFile(null);
+    setImportResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  async function handleImport() {
+    if (csvData.length === 0) return;
+    setImporting(true);
+    setImportResult(null);
+
+    // Filter rows that have at least companyName and url
+    const targets = csvData
+      .filter((r) => r.companyName && r.url)
+      .map((r) => ({
+        companyName: r.companyName,
+        url: r.url,
+        phone: r.phone || undefined,
+        industry: r.industry || undefined,
+        area: r.area || undefined,
+      }));
+
+    if (targets.length === 0) {
+      setImportResult({
+        created: 0,
+        skipped: csvData.length,
+        total: csvData.length,
+        errors: ["企業名とWebサイトの両方が必要です"],
+      });
+      setImporting(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/auto-sales/targets/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targets }),
+      });
+      if (!res.ok) {
+        const body = await res.json();
+        setImportResult({
+          created: 0,
+          skipped: targets.length,
+          total: targets.length,
+          errors: [body.error ?? "インポートに失敗しました"],
+        });
+      } else {
+        const result = await res.json();
+        setImportResult(result);
+      }
+    } catch {
+      setImportResult({
+        created: 0,
+        skipped: targets.length,
+        total: targets.length,
+        errors: ["通信エラーが発生しました"],
+      });
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -236,122 +428,339 @@ function AddTargetSection() {
     );
   }
 
+  const validCsvCount = csvData.filter((r) => r.companyName && r.url).length;
+  const noUrlCount = csvData.filter((r) => r.companyName && !r.url).length;
+
   return (
-    <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
-      <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-zinc-50 to-white">
-        <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
-          <Target className="w-5 h-5 text-blue-500" />
-          営業先を登録
-        </h2>
-        <p className="text-sm text-zinc-500 mt-1">
-          営業対象企業の問い合わせフォームURLと基本情報を入力してください
-        </p>
+    <div className="space-y-6">
+      {/* CSV Import Card */}
+      <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
+        <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-zinc-50 to-white">
+          <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+            <Upload className="w-5 h-5 text-blue-500" />
+            リード管理のCSVをインポート
+          </h2>
+          <p className="text-sm text-zinc-500 mt-1">
+            リード獲得AIで取得したCSVファイルをドロップまたは選択
+          </p>
+        </div>
+
+        <div className="p-6">
+          {/* Drop Zone */}
+          {!csvFile && (
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`relative border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
+                dragOver
+                  ? "border-blue-500 bg-blue-50/50"
+                  : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50/50"
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3 ${
+                dragOver ? "bg-blue-100" : "bg-zinc-100"
+              }`}>
+                <Upload className={`w-6 h-6 ${dragOver ? "text-blue-500" : "text-zinc-400"}`} />
+              </div>
+              <p className="text-sm font-medium text-zinc-700">
+                CSVファイルをドラッグ＆ドロップ
+              </p>
+              <p className="text-xs text-zinc-400 mt-1">
+                またはクリックしてファイルを選択
+              </p>
+            </div>
+          )}
+
+          {/* File loaded - Preview */}
+          {csvFile && (
+            <div className="space-y-4">
+              {/* File info bar */}
+              <div className="flex items-center justify-between bg-zinc-50 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-zinc-700">{csvFile.name}</p>
+                    <p className="text-xs text-zinc-400">
+                      {csvData.length} 件読み込み
+                      {noUrlCount > 0 && (
+                        <span className="text-amber-500 ml-2">
+                          ({noUrlCount} 件はWebサイト未設定)
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={clearCsv}
+                  className="w-8 h-8 rounded-lg hover:bg-zinc-200 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4 text-zinc-400" />
+                </button>
+              </div>
+
+              {/* Preview Table */}
+              {csvData.length > 0 && (
+                <div className="border border-zinc-200 rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-zinc-50 sticky top-0">
+                        <tr>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-zinc-500 whitespace-nowrap">#</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-zinc-500 whitespace-nowrap">企業名</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-zinc-500 whitespace-nowrap">Webサイト</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-zinc-500 whitespace-nowrap">業種</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-zinc-500 whitespace-nowrap">エリア</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-zinc-500 whitespace-nowrap">電話番号</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100">
+                        {csvData.map((row, i) => (
+                          <tr
+                            key={i}
+                            className={`${
+                              !row.companyName || !row.url
+                                ? "bg-amber-50/50"
+                                : "hover:bg-zinc-50"
+                            }`}
+                          >
+                            <td className="px-4 py-2 text-zinc-400 text-xs">{i + 1}</td>
+                            <td className="px-4 py-2 text-zinc-700 font-medium whitespace-nowrap max-w-[200px] truncate">
+                              {row.companyName || <span className="text-zinc-300">-</span>}
+                            </td>
+                            <td className="px-4 py-2 text-zinc-500 font-mono text-xs whitespace-nowrap max-w-[200px] truncate">
+                              {row.url || <span className="text-amber-400 text-xs font-sans">未設定</span>}
+                            </td>
+                            <td className="px-4 py-2 text-zinc-500 whitespace-nowrap">
+                              {row.industry || <span className="text-zinc-300">-</span>}
+                            </td>
+                            <td className="px-4 py-2 text-zinc-500 whitespace-nowrap">
+                              {row.area || <span className="text-zinc-300">-</span>}
+                            </td>
+                            <td className="px-4 py-2 text-zinc-500 whitespace-nowrap">
+                              {row.phone || <span className="text-zinc-300">-</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Import Result */}
+              {importResult && (
+                <div className={`rounded-xl px-4 py-4 border ${
+                  importResult.created > 0
+                    ? "bg-emerald-50 border-emerald-200"
+                    : "bg-amber-50 border-amber-200"
+                }`}>
+                  <div className="flex items-start gap-3">
+                    {importResult.created > 0 ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <p className="text-sm font-bold text-zinc-700">
+                        {importResult.created} 件登録 / {importResult.skipped} 件スキップ（全 {importResult.total} 件）
+                      </p>
+                      {importResult.errors.length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                          {importResult.errors.map((err, i) => (
+                            <li key={i} className="text-xs text-zinc-500">
+                              {err}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Import Button */}
+              {!importResult && (
+                <button
+                  onClick={handleImport}
+                  disabled={importing || validCsvCount === 0}
+                  className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl text-sm font-bold hover:from-blue-700 hover:to-blue-600 disabled:opacity-50 transition-all shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
+                >
+                  {importing ? (
+                    "インポート中..."
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      {validCsvCount} 件をインポート
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* After import, allow importing more or clearing */}
+              {importResult && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={clearCsv}
+                    className="flex-1 py-3 bg-zinc-100 text-zinc-700 rounded-xl text-sm font-medium hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    クリア
+                  </button>
+                  <button
+                    onClick={() => {
+                      clearCsv();
+                      window.location.reload();
+                    }}
+                    className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl text-sm font-medium hover:from-blue-700 hover:to-blue-600 transition-all shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    完了
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6 space-y-6">
-        {/* 企業名 */}
-        <div>
-          <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-            <Building2 className="w-4 h-4 text-zinc-400" />
-            企業名 <span className="text-red-500">*</span>
-          </label>
-          <input
-            name="companyName"
-            required
-            placeholder="例: 徳島美容室 hair salon Kaze"
-            className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
-          />
-        </div>
+      {/* Divider */}
+      <div className="flex items-center gap-4">
+        <div className="flex-1 h-px bg-zinc-200" />
+        <span className="text-xs font-medium text-zinc-400">または個別に追加</span>
+        <div className="flex-1 h-px bg-zinc-200" />
+      </div>
 
-        {/* フォームURL */}
-        <div>
-          <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-            <Globe className="w-4 h-4 text-zinc-400" />
-            問い合わせフォームURL <span className="text-red-500">*</span>
-          </label>
-          <input
-            name="url"
-            type="url"
-            required
-            placeholder="https://example.com/contact"
-            className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
-          />
-        </div>
-
-        {/* 業種 + エリア */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-              <Sparkles className="w-4 h-4 text-zinc-400" />
-              業種
-            </label>
-            <input
-              name="industry"
-              placeholder="例: 美容室"
-              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
-            />
-          </div>
-          <div>
-            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-              <MapPin className="w-4 h-4 text-zinc-400" />
-              エリア
-            </label>
-            <input
-              name="area"
-              placeholder="例: 徳島"
-              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
-            />
-          </div>
-        </div>
-
-        {/* 電話番号 */}
-        <div>
-          <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-            <Phone className="w-4 h-4 text-zinc-400" />
-            電話番号
-          </label>
-          <input
-            name="phone"
-            placeholder="例: 088-XXX-XXXX"
-            className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
-          />
-        </div>
-
-        {/* メモ */}
-        <div>
-          <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-            <MessageSquare className="w-4 h-4 text-zinc-400" />
-            メモ
-          </label>
-          <textarea
-            name="note"
-            rows={3}
-            placeholder="営業時の参考情報があれば記入してください"
-            className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none placeholder:text-zinc-300"
-          />
-        </div>
-
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl border border-red-100">
-            {error}
+      {/* Manual Form */}
+      <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
+        <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-zinc-50 to-white">
+          <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+            <Target className="w-5 h-5 text-blue-500" />
+            営業先を登録
+          </h2>
+          <p className="text-sm text-zinc-500 mt-1">
+            営業対象企業の問い合わせフォームURLと基本情報を入力してください
           </p>
-        )}
+        </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl text-sm font-bold hover:from-blue-700 hover:to-blue-600 disabled:opacity-50 transition-all shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
-        >
-          {loading ? (
-            "登録中..."
-          ) : (
-            <>
-              営業先を登録
-              <ArrowRight className="w-4 h-4" />
-            </>
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* 企業名 */}
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+              <Building2 className="w-4 h-4 text-zinc-400" />
+              企業名 <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="companyName"
+              required
+              placeholder="例: 徳島美容室 hair salon Kaze"
+              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
+            />
+          </div>
+
+          {/* フォームURL */}
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+              <Globe className="w-4 h-4 text-zinc-400" />
+              問い合わせフォームURL <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="url"
+              type="url"
+              required
+              placeholder="https://example.com/contact"
+              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
+            />
+          </div>
+
+          {/* 業種 + エリア */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+                <Sparkles className="w-4 h-4 text-zinc-400" />
+                業種
+              </label>
+              <input
+                name="industry"
+                placeholder="例: 美容室"
+                className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
+              />
+            </div>
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+                <MapPin className="w-4 h-4 text-zinc-400" />
+                エリア
+              </label>
+              <input
+                name="area"
+                placeholder="例: 徳島"
+                className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
+              />
+            </div>
+          </div>
+
+          {/* 電話番号 */}
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+              <Phone className="w-4 h-4 text-zinc-400" />
+              電話番号
+            </label>
+            <input
+              name="phone"
+              placeholder="例: 088-XXX-XXXX"
+              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
+            />
+          </div>
+
+          {/* メモ */}
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+              <MessageSquare className="w-4 h-4 text-zinc-400" />
+              メモ
+            </label>
+            <textarea
+              name="note"
+              rows={3}
+              placeholder="営業時の参考情報があれば記入してください"
+              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none placeholder:text-zinc-300"
+            />
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl border border-red-100">
+              {error}
+            </p>
           )}
-        </button>
-      </form>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl text-sm font-bold hover:from-blue-700 hover:to-blue-600 disabled:opacity-50 transition-all shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              "登録中..."
+            ) : (
+              <>
+                営業先を登録
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
