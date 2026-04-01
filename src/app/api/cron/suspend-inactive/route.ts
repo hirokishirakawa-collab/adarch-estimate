@@ -19,9 +19,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const now = new Date();
-    // 前月を算出
-    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const targetMonth = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, "0")}`;
+    // 前月の月初日をDateTimeで算出（スキーマがDateTime型のため）
+    const targetMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1));
 
     // ADMIN以外の全アクティブユーザーを取得
     const users = await db.user.findMany({
@@ -48,13 +47,13 @@ export async function GET(req: NextRequest) {
           email: "system",
           entity: "user",
           entityId: user.id,
-          detail: `${user.email}: ${targetMonth}月次報告未提出により自動停止`,
+          detail: `${user.email}: ${targetMonth.toISOString().slice(0, 7)}月次報告未提出により自動停止`,
         });
       }
     }
 
     return NextResponse.json({
-      targetMonth,
+      targetMonth: targetMonth.toISOString().slice(0, 7),
       checked: users.length,
       suspended: suspended.length,
       suspendedUsers: suspended,
