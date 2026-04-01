@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { getSalesApproaches, getSalesApproachStats } from "@/lib/actions/sales-approach";
 import { getResultOption, getMethodLabel, RESULT_OPTIONS, INDUSTRY_OPTIONS } from "@/lib/constants/sales-approach";
 import { DeleteButton } from "./delete-button";
+import { ExpandableText } from "./expandable-text";
 
 interface Props {
   searchParams: Promise<{ result?: string; industry?: string }>;
@@ -153,9 +154,7 @@ export default async function SalesApproachesPage({ searchParams }: Props) {
                     <MessageSquare className="w-3 h-3 text-zinc-400" />
                     <span className="text-[10px] font-semibold text-zinc-400">送信文面</span>
                   </div>
-                  <p className="text-xs text-zinc-700 whitespace-pre-wrap leading-relaxed line-clamp-6">
-                    {a.messageBody}
-                  </p>
+                  <ExpandableText text={a.messageBody} />
                 </div>
 
                 {/* 学び */}

@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
+import { sendChatMessage } from "@/lib/google-chat";
+import { getResultOption, getMethodLabel } from "@/lib/constants/sales-approach";
 
 // ---------------------------------------------------------------
 // 投稿
@@ -37,7 +39,7 @@ export async function createSalesApproach(
   if (!result)      return { error: "結果を選択してください" };
 
   try {
-    await db.salesApproach.create({
+    const approach = await db.salesApproach.create({
       data: {
         groupCompanyId: user.groupCompanyId,
         authorId: info.userId,
@@ -49,8 +51,28 @@ export async function createSalesApproach(
         result: result as Prisma.SalesApproachCreateInput["result"],
         learnings,
       },
+      include: { groupCompany: { select: { name: true } } },
     });
     logAudit({ action: "sales_approach_created", email: info.email, name: info.staffName, entity: "sales_approach", detail: `${industry} / ${method} / ${result}` });
+
+    // Google Chat 案件進捗スペースに通知
+    const resLabel = getResultOption(result).label;
+    const methodLabel = getMethodLabel(method);
+    const preview = messageBody.length > 100 ? messageBody.slice(0, 100) + "…" : messageBody;
+    const chatText = [
+      `📋 *アプローチ事例が投稿されました*`,
+      ``,
+      `👤 ${approach.groupCompany.name}（${info.staffName}）`,
+      `🏷 業種: ${industry} ／ 方法: ${methodLabel}`,
+      `📊 結果: ${resLabel}`,
+      targetDesc ? `🎯 ターゲット: ${targetDesc}` : null,
+      ``,
+      `💬 文面:`,
+      preview,
+      learnings ? `\n📝 学び: ${learnings.length > 80 ? learnings.slice(0, 80) + "…" : learnings}` : null,
+    ].filter(Boolean).join("\n");
+
+    sendChatMessage("AAQAp6XvXqE", chatText).catch(() => {});
   } catch (e) {
     console.error("[createSalesApproach] error:", e instanceof Error ? e.message : e);
     return { error: "保存に失敗しました" };
