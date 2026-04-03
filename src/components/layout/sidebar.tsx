@@ -539,12 +539,13 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   reportWarning?: "yellow" | "red" | null;
+  isSuspended?: boolean;
 }
 
 // ----------------------------------------------------------------
 // Sidebar コンポーネント
 // ----------------------------------------------------------------
-export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) {
+export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: SidebarProps) {
   const pathname = usePathname();
   const roleStyle = ROLE_STYLES[user.role];
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -810,6 +811,10 @@ export function Sidebar({ user, isOpen, onClose, reportWarning }: SidebarProps) 
 
           {NAV_SECTIONS.map((section) => {
             const visibleItems = section.items.filter((item) => {
+              // 停止中は月次報告のみ表示
+              if (isSuspended) {
+                return item.href === "/dashboard/sales-report";
+              }
               if (!hasMinRole(user.role, item.minRole)) return false;
               // requiredFeature がある場合: ADMINは常に表示、それ以外は許可されている場合のみ
               if (item.requiredFeature && user.role !== "ADMIN") {

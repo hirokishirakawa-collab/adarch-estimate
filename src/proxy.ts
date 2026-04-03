@@ -165,10 +165,17 @@ export default auth((req: NextAuthRequest) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 3. アカウント停止チェック（API呼び出しもブロック）
+  // 3. アカウント停止チェック（月次報告関連のAPIは許可）
   const isActive = session.user?.isActive ?? true;
   if (!isActive && pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
-    return NextResponse.json({ error: "Account suspended" }, { status: 403 });
+    // 停止中でも月次報告の提出に必要なAPIは通す
+    const suspendedAllowedPrefixes = [
+      "/api/favorites",       // サイドバー描画用
+    ];
+    const isSuspendedAllowed = suspendedAllowedPrefixes.some((p) => pathname.startsWith(p));
+    if (!isSuspendedAllowed) {
+      return NextResponse.json({ error: "Account suspended" }, { status: 403 });
+    }
   }
 
   // 4. ロールベースのアクセス制御
