@@ -21,55 +21,74 @@ export async function GET() {
   }
   const branchFilter = isAdmin ? {} : { branchId: user.branchId! };
 
-  // 今日の日付範囲
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  // 全ジョブ取得（集計用）
+  const allJobs = await db.autoSalesJob.findMany({
+    where: { target: branchFilter },
+    select: {
+      status: true,
+      hasResponse: true,
+      createdAt: true,
+      target: { select: { industry: true } },
+      template: { select: { name: true } },
+    },
+  });
 
-  const [totalTargets, todayJobs, jobsByStatus, recentJobs] = await Promise.all([
-    // 営業先の総数
-    db.autoSalesTarget.count({ where: branchFilter }),
+  // 全体集計
+  const totalSent = allJobs.filter((j) => j.status === "COMPLETED").length;
+  const totalResponses = allJobs.filter((j) => j.hasResponse).length;
+  const totalQueued = allJobs.filter((j) => j.status === "QUEUED").length;
+  const totalFailed = allJobs.filter((j) => j.status === "FAILED").length;
+  const totalSkipped = allJobs.filter((j) => j.status === "SKIPPED").length;
+  const responseRate = totalSent > 0 ? Math.round((totalResponses / totalSent) * 1000) / 10 : 0;
 
-    // 今日のジョブ数
-    db.autoSalesJob.count({
-      where: {
-        target: branchFilter,
-        createdAt: { gte: todayStart, lte: todayEnd },
-      },
-    }),
-
-    // ステータス別ジョブ数（今日）
-    db.autoSalesJob.groupBy({
-      by: ["status"],
-      where: {
-        target: branchFilter,
-        createdAt: { gte: todayStart, lte: todayEnd },
-      },
-      _count: true,
-    }),
-
-    // 直近のジョブ（モニター用）
-    db.autoSalesJob.findMany({
-      where: { target: branchFilter },
-      include: {
-        target: { select: { companyName: true, url: true, area: true, industry: true } },
-        template: { select: { name: true, companyName: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-  ]);
-
-  const statusCounts: Record<string, number> = {};
-  for (const g of jobsByStatus) {
-    statusCounts[g.status] = g._count;
+  // 業種別集計
+  const industryMap = new Map<string, { sent: number; responses: number }>();
+  for (const j of allJobs) {
+    const ind = j.target.industry ?? "不明";
+    if (!industryMap.has(ind)) industryMap.set(ind, { sent: 0, responses: 0 });
+    const entry = industryMap.get(ind)!;
+    if (j.status === "COMPLETED") entry.sent++;
+    if (j.hasResponse) entry.responses++;
   }
+  const byIndustry = Array.from(industryMap.entries())
+    .map(([industry, data]) => ({
+      industry,
+      sent: data.sent,
+      responses: data.responses,
+      rate: data.sent > 0 ? Math.round((data.responses / data.sent) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.sent - a.sent);
+
+  // テンプレート別集計
+  const templateMap = new Map<string, { sent: number; responses: number }>();
+  for (const j of allJobs) {
+    const name = j.template.name ?? "不明";
+    if (!templateMap.has(name)) templateMap.set(name, { sent: 0, responses: 0 });
+    const entry = templateMap.get(name)!;
+    if (j.status === "COMPLETED") entry.sent++;
+    if (j.hasResponse) entry.responses++;
+  }
+  const byTemplate = Array.from(templateMap.entries())
+    .map(([template, data]) => ({
+      template,
+      sent: data.sent,
+      responses: data.responses,
+      rate: data.sent > 0 ? Math.round((data.responses / data.sent) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.sent - a.sent);
+
+  // 営業先総数
+  const totalTargets = await db.autoSalesTarget.count({ where: branchFilter });
 
   return NextResponse.json({
     totalTargets,
-    todayJobs,
-    statusCounts,
-    recentJobs,
+    totalSent,
+    totalResponses,
+    totalQueued,
+    totalFailed,
+    totalSkipped,
+    responseRate,
+    byIndustry,
+    byTemplate,
   });
 }

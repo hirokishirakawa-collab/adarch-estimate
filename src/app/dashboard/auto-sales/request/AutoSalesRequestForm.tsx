@@ -1300,6 +1300,16 @@ function LaunchSection({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
     approvedTemplates[0]?.id ?? ""
   );
+  const [stats, setStats] = useState<{
+    totalTargets: number; totalSent: number; totalResponses: number;
+    totalQueued: number; totalFailed: number; totalSkipped: number; responseRate: number;
+    byIndustry: { industry: string; sent: number; responses: number; rate: number }[];
+    byTemplate: { template: string; sent: number; responses: number; rate: number }[];
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auto-sales/stats").then((r) => r.json()).then(setStats).catch(() => {});
+  }, []);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [launching, setLaunching] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -1412,6 +1422,84 @@ function LaunchSection({
 
   return (
     <div className="space-y-6">
+      {/* Stats Dashboard */}
+      {stats && (
+        <div className="space-y-4">
+          {/* 全体サマリー */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {[
+              { label: "営業先", value: stats.totalTargets, cls: "text-zinc-800" },
+              { label: "送信完了", value: stats.totalSent, cls: "text-emerald-700" },
+              { label: "反響", value: stats.totalResponses, cls: "text-blue-700" },
+              { label: "反響率", value: `${stats.responseRate}%`, cls: stats.responseRate >= 3 ? "text-emerald-700" : "text-zinc-700" },
+              { label: "待機中", value: stats.totalQueued, cls: "text-amber-600" },
+            ].map((s) => (
+              <div key={s.label} className="bg-white rounded-xl border border-zinc-200 px-4 py-3">
+                <p className="text-[10px] text-zinc-400 font-medium">{s.label}</p>
+                <p className={`text-xl font-bold ${s.cls}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* 業種別 + テンプレート別 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 業種別 */}
+            {stats.byIndustry.length > 0 && (
+              <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
+                  <p className="text-sm font-bold text-zinc-700">業種別</p>
+                </div>
+                <div className="divide-y divide-zinc-100 max-h-48 overflow-y-auto">
+                  {stats.byIndustry.map((row) => (
+                    <div key={row.industry} className="flex items-center justify-between px-4 py-2.5">
+                      <span className="text-sm text-zinc-700 font-medium">{row.industry}</span>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="text-zinc-400">{row.sent}件</span>
+                        <span className="text-blue-600 font-medium">{row.responses}反響</span>
+                        <span className={`font-bold px-2 py-0.5 rounded-full ${
+                          row.rate >= 5 ? "bg-emerald-50 text-emerald-700" :
+                          row.rate >= 2 ? "bg-amber-50 text-amber-700" :
+                          "bg-zinc-50 text-zinc-500"
+                        }`}>
+                          {row.rate}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* テンプレート別 */}
+            {stats.byTemplate.length > 0 && (
+              <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
+                  <p className="text-sm font-bold text-zinc-700">テンプレート別</p>
+                </div>
+                <div className="divide-y divide-zinc-100 max-h-48 overflow-y-auto">
+                  {stats.byTemplate.map((row) => (
+                    <div key={row.template} className="flex items-center justify-between px-4 py-2.5">
+                      <span className="text-sm text-zinc-700 font-medium truncate max-w-[160px]">{row.template}</span>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="text-zinc-400">{row.sent}件</span>
+                        <span className="text-blue-600 font-medium">{row.responses}反響</span>
+                        <span className={`font-bold px-2 py-0.5 rounded-full ${
+                          row.rate >= 5 ? "bg-emerald-50 text-emerald-700" :
+                          row.rate >= 2 ? "bg-amber-50 text-amber-700" :
+                          "bg-zinc-50 text-zinc-500"
+                        }`}>
+                          {row.rate}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Template Selector */}
       <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
         <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-emerald-50/50 to-white flex items-center justify-between">
