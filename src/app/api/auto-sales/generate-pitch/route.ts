@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic();
@@ -33,6 +34,28 @@ export async function POST(req: NextRequest) {
   const services = serviceTypes.map((s) => serviceLabels[s] ?? s).join("・");
   const targetLabel = targetType === "BTOB" ? "法人（BtoB）" : "個人・店舗（BtoC）";
 
+  // アプローチ事例集から成功事例（商談化・返信あり）を取得
+  const successApproaches = await db.salesApproach.findMany({
+    where: {
+      result: { in: ["DEAL", "REPLIED_NG"] },
+      method: "FORM",
+    },
+    select: {
+      industry: true,
+      messageBody: true,
+      result: true,
+      learnings: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+  });
+
+  const successExamples = successApproaches.length > 0
+    ? successApproaches.map((a, i) =>
+        `事例${i + 1}（${a.result === "DEAL" ? "商談化" : "返信あり"} / ${a.industry}）:\n${a.messageBody.substring(0, 300)}${a.learnings ? `\n学び: ${a.learnings.substring(0, 100)}` : ""}`
+      ).join("\n\n")
+    : "";
+
   const response = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 512,
@@ -56,7 +79,7 @@ ${area ? `エリア: ${area}` : ""}
 
 地元水戸にお力添えできればと考えているのですが、一度お打ち合わせいかがでしょうか
 ---
-
+${successExamples ? `\n【実際に反応があった営業文（参考にすること）】\n${successExamples}\n` : ""}
 ルール:
 - 150〜250文字程度（短く簡潔に）
 - 参考文のように自然体で、堅すぎないトーン
@@ -64,6 +87,7 @@ ${area ? `エリア: ${area}` : ""}
 - {industry}という変数を1箇所使う（送信時に営業先の業種名に自動置換される）
 - {area}という変数を1箇所使う（送信時に営業先のエリア名に自動置換される。例: 「{area}で」「{area}を拠点に」）
 - 地域密着・近くにいることが強みであるトーンを入れる
+${successExamples ? "- 実際に反応があった営業文のトーンや構成を特に参考にすること" : ""}
 - 営業文のみ出力（説明文や補足は不要）`,
       },
     ],
