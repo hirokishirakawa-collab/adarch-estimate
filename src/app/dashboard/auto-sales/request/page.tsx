@@ -20,9 +20,16 @@ export default async function AutoSalesRequestPage() {
 
   const branchFilter = isAdmin ? {} : { branchId: user.branchId! };
 
-  const [templates, targetCount, targets] = await Promise.all([
+  const [templates, otherTemplates, targetCount, targets] = await Promise.all([
+    // 自分の拠点のテンプレート
     db.autoSalesTemplate.findMany({
       where: { ...branchFilter, isActive: true },
+      include: { branch: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    // 他拠点のテンプレート（閲覧用）
+    isAdmin ? Promise.resolve([]) : db.autoSalesTemplate.findMany({
+      where: { isActive: true, NOT: { branchId: user.branchId! } },
       include: { branch: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
     }),
@@ -44,6 +51,7 @@ export default async function AutoSalesRequestPage() {
   return (
     <AutoSalesRequestForm
       templates={JSON.parse(JSON.stringify(templates))}
+      otherTemplates={JSON.parse(JSON.stringify(otherTemplates))}
       targetCount={targetCount}
       targets={JSON.parse(JSON.stringify(targets))}
       isAdmin={isAdmin}

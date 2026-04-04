@@ -62,12 +62,14 @@ interface TargetWithStatus {
 
 export function AutoSalesRequestForm({
   templates,
+  otherTemplates = [],
   targetCount,
   targets,
   isAdmin,
   branchName,
 }: {
   templates: Template[];
+  otherTemplates?: Template[];
   targetCount: number;
   targets: TargetWithStatus[];
   isAdmin: boolean;
@@ -214,7 +216,7 @@ export function AutoSalesRequestForm({
       {activeTab === "target" ? (
         <AddTargetSection onImportComplete={() => setActiveTab("template")} />
       ) : activeTab === "template" ? (
-        <TemplateSection templates={templates} isAdmin={isAdmin} />
+        <TemplateSection templates={templates} otherTemplates={otherTemplates} isAdmin={isAdmin} />
       ) : (
         <LaunchSection templates={templates} targets={targets} />
       )}
@@ -763,9 +765,11 @@ function AddTargetSection({ onImportComplete }: { onImportComplete: () => void }
 // ─── テンプレートセクション ─────────────────────
 function TemplateSection({
   templates,
+  otherTemplates = [],
   isAdmin,
 }: {
   templates: Template[];
+  otherTemplates?: Template[];
   isAdmin: boolean;
 }) {
   const [showCreate, setShowCreate] = useState(false);
@@ -817,12 +821,32 @@ function TemplateSection({
           )}
         </div>
       </div>
+
+      {/* 他拠点のテンプレート */}
+      {otherTemplates.length > 0 && (
+        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
+          <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-zinc-50 to-white">
+            <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-zinc-400" />
+              他の代表のテンプレート
+            </h2>
+            <p className="text-sm text-zinc-500 mt-1">
+              参考にして自分のテンプレートを作成できます
+            </p>
+          </div>
+          <div className="p-6 space-y-4">
+            {otherTemplates.map((t, i) => (
+              <TemplateCard key={t.id} template={t} index={i} total={otherTemplates.length} readOnly />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── テンプレートカード ─────────────────────────
-function TemplateCard({ template: t, index, total }: { template: Template; index: number; total: number }) {
+function TemplateCard({ template: t, index, total, readOnly }: { template: Template; index: number; total: number; readOnly?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -872,6 +896,11 @@ function TemplateCard({ template: t, index, total }: { template: Template; index
               </span>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              {t.branch && (
+                <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">
+                  {t.branch.name}
+                </span>
+              )}
               <span className="text-xs text-zinc-400">{t.companyName} / {t.senderName}</span>
               <span className="text-xs bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded">
                 {TARGET_TYPE_LABELS[t.targetType] ?? t.targetType}
@@ -897,8 +926,8 @@ function TemplateCard({ template: t, index, total }: { template: Template; index
             <p className="text-sm text-zinc-700 whitespace-pre-wrap leading-relaxed">{t.pitchText}</p>
           </div>
 
-          {/* 削除ボタン */}
-          <div className="flex justify-end">
+          {/* 削除ボタン（自分のテンプレートのみ） */}
+          {!readOnly && <div className="flex justify-end">
             {confirmDelete ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-red-600">本当に削除しますか？</span>
@@ -925,7 +954,7 @@ function TemplateCard({ template: t, index, total }: { template: Template; index
                 削除
               </button>
             )}
-          </div>
+          </div>}
         </div>
       )}
     </div>
