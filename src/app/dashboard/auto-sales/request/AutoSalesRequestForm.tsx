@@ -994,6 +994,28 @@ function TemplateCard({ template: t, index, total, readOnly }: { template: Templ
           </div>
           <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
         </button>
+
+        {/* お気に入り・アーカイブ（常に表示） */}
+        {!readOnly && (
+          <div className="flex items-center gap-1 pr-4">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleTemplatePatch({ isFavorite: !t.isFavorite }); }}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                t.isFavorite ? "text-amber-400 bg-amber-50 hover:bg-amber-100" : "text-zinc-300 hover:text-amber-400 hover:bg-amber-50"
+              }`}
+              title={t.isFavorite ? "お気に入り解除" : "お気に入りに追加"}
+            >
+              <Star className={`w-4.5 h-4.5 ${t.isFavorite ? "fill-amber-400" : ""}`} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleTemplatePatch({ isActive: false }); }}
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 transition-colors"
+              title="アーカイブ"
+            >
+              <Archive className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {expanded && (
@@ -1011,29 +1033,8 @@ function TemplateCard({ template: t, index, total, readOnly }: { template: Templ
             <p className="text-sm text-zinc-700 whitespace-pre-wrap leading-relaxed">{t.pitchText}</p>
           </div>
 
-          {/* アクションボタン（自分のテンプレートのみ） */}
-          {!readOnly && <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleTemplatePatch({ isFavorite: !t.isFavorite })}
-                className={`inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-colors font-medium ${
-                  t.isFavorite
-                    ? "text-amber-600 bg-amber-50 hover:bg-amber-100"
-                    : "text-zinc-400 hover:text-amber-500 hover:bg-amber-50"
-                }`}
-              >
-                <Star className={`w-3.5 h-3.5 ${t.isFavorite ? "fill-amber-400" : ""}`} />
-                {t.isFavorite ? "お気に入り" : "お気に入りに追加"}
-              </button>
-              <button
-                onClick={() => handleTemplatePatch({ isActive: false })}
-                className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 px-2.5 py-1.5 rounded-lg transition-colors font-medium"
-              >
-                <Archive className="w-3.5 h-3.5" />
-                アーカイブ
-              </button>
-            </div>
-            <div>
+          {/* 削除ボタン（自分のテンプレートのみ） */}
+          {!readOnly && <div className="flex justify-end">
             {confirmDelete ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-red-600">本当に削除しますか？</span>
@@ -1060,7 +1061,7 @@ function TemplateCard({ template: t, index, total, readOnly }: { template: Templ
                 削除
               </button>
             )}
-          </div></div>}
+          </div>}
         </div>
       )}
     </div>
