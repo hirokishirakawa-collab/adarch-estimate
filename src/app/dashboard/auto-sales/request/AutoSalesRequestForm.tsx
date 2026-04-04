@@ -212,7 +212,7 @@ export function AutoSalesRequestForm({
 
       {/* Content */}
       {activeTab === "target" ? (
-        <AddTargetSection />
+        <AddTargetSection onImportComplete={() => setActiveTab("template")} />
       ) : activeTab === "template" ? (
         <TemplateSection templates={templates} isAdmin={isAdmin} />
       ) : (
@@ -322,7 +322,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 // ─── 営業先追加セクション ─────────────────────
-function AddTargetSection() {
+function AddTargetSection({ onImportComplete }: { onImportComplete: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -478,6 +478,9 @@ function AddTargetSection() {
       } else {
         const result = await res.json();
         setImportResult(result);
+        if (result.created > 0) {
+          setTimeout(() => onImportComplete(), 1500);
+        }
       }
     } catch {
       setImportResult({
@@ -753,194 +756,6 @@ function AddTargetSection() {
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="flex items-center gap-4">
-        <div className="flex-1 h-px bg-zinc-200" />
-        <span className="text-xs font-medium text-zinc-400">または個別に追加</span>
-        <div className="flex-1 h-px bg-zinc-200" />
-      </div>
-
-      {/* Manual Form */}
-      <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
-        <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-zinc-50 to-white">
-          <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
-            <Target className="w-5 h-5 text-blue-500" />
-            営業先を登録
-          </h2>
-          <p className="text-sm text-zinc-500 mt-1">
-            営業対象企業の問い合わせフォームURLと基本情報を入力してください
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* 企業名 */}
-          <div>
-            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-              <Building2 className="w-4 h-4 text-zinc-400" />
-              企業名 <span className="text-red-500">*</span>
-            </label>
-            <input
-              name="companyName"
-              required
-              onChange={handleFieldChange}
-              placeholder="例: 徳島美容室 hair salon Kaze"
-              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
-            />
-          </div>
-
-          {/* フォームURL */}
-          <div>
-            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-              <Globe className="w-4 h-4 text-zinc-400" />
-              問い合わせフォームURL <span className="text-red-500">*</span>
-            </label>
-            <input
-              name="url"
-              type="url"
-              required
-              onChange={handleFieldChange}
-              placeholder="https://example.com/contact"
-              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
-            />
-          </div>
-
-          {/* 業種 + エリア */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-                <Sparkles className="w-4 h-4 text-zinc-400" />
-                業種
-              </label>
-              <input
-                name="industry"
-                placeholder="例: 美容室"
-                className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
-              />
-            </div>
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-                <MapPin className="w-4 h-4 text-zinc-400" />
-                エリア
-              </label>
-              <input
-                name="area"
-                placeholder="例: 徳島"
-                className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
-              />
-            </div>
-          </div>
-
-          {/* 電話番号 */}
-          <div>
-            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-              <Phone className="w-4 h-4 text-zinc-400" />
-              電話番号
-            </label>
-            <input
-              name="phone"
-              onChange={handleFieldChange}
-              placeholder="例: 088-XXX-XXXX"
-              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-zinc-300"
-            />
-          </div>
-
-          {/* メモ */}
-          <div>
-            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
-              <MessageSquare className="w-4 h-4 text-zinc-400" />
-              メモ
-            </label>
-            <textarea
-              name="note"
-              rows={3}
-              placeholder="営業時の参考情報があれば記入してください"
-              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none placeholder:text-zinc-300"
-            />
-          </div>
-
-          {/* 既存顧客アラート */}
-          {customerMatches.length > 0 && (
-            <div className={`rounded-xl px-4 py-4 border ${
-              customerMatches.some((m) => m.status === "AVOID")
-                ? "bg-red-50 border-red-200"
-                : "bg-amber-50 border-amber-200"
-            }`}>
-              <div className="flex items-start gap-3">
-                <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${
-                  customerMatches.some((m) => m.status === "AVOID")
-                    ? "text-red-500"
-                    : "text-amber-500"
-                }`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-bold ${
-                    customerMatches.some((m) => m.status === "AVOID")
-                      ? "text-red-700"
-                      : "text-amber-700"
-                  }`}>
-                    既存の顧客管理に登録済みの企業が見つかりました
-                  </p>
-                  <div className="mt-2 space-y-2">
-                    {customerMatches.map((m) => (
-                      <div key={m.id} className="flex items-center gap-3 text-sm">
-                        <span className="font-medium text-zinc-700">{m.name}</span>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${
-                          m.status === "ACTIVE"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : m.status === "AVOID"
-                            ? "bg-red-100 text-red-700"
-                            : m.status === "DORMANT"
-                            ? "bg-zinc-100 text-zinc-600"
-                            : "bg-blue-100 text-blue-700"
-                        }`}>
-                          {STATUS_LABELS[m.status] ?? m.status}
-                        </span>
-                        {m.branchName && (
-                          <span className="text-xs text-zinc-400">{m.branchName}</span>
-                        )}
-                        <span className="text-xs text-zinc-400">
-                          一致: {m.matchReasons.join("・")}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  {customerMatches.some((m) => m.status === "AVOID") && (
-                    <p className="mt-2 text-xs text-red-600 font-medium">
-                      「回避」ステータスの企業が含まれています。登録は推奨されません。
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          {checking && (
-            <p className="text-xs text-zinc-400 flex items-center gap-1.5">
-              <span className="w-3 h-3 border-2 border-zinc-300 border-t-blue-500 rounded-full animate-spin" />
-              既存顧客を照合中...
-            </p>
-          )}
-
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl border border-red-100">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl text-sm font-bold hover:from-blue-700 hover:to-blue-600 disabled:opacity-50 transition-all shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              "登録中..."
-            ) : (
-              <>
-                営業先を登録
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
-        </form>
-      </div>
     </div>
   );
 }
