@@ -21,7 +21,7 @@ async function getBrowser(): Promise<Browser> {
   if (proxyUrl) args.push("--ignore-certificate-errors");
 
   const launchOptions: Record<string, unknown> = {
-    headless: true,
+    headless: process.env.HEADLESS !== "false",
     args,
   };
 
