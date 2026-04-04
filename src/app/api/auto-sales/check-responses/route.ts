@@ -152,6 +152,9 @@ export async function POST(req: NextRequest) {
       matched: true,
       jobId: job.id,
       companyName: job.target.companyName,
+      branchName: job.target.branch?.name ?? "不明",
+      area: job.target.area ?? "",
+      industry: job.target.industry ?? "",
     });
   } catch (err) {
     console.error("[check-responses] エラー:", err);
