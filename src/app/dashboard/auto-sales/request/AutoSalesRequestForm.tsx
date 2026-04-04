@@ -1334,6 +1334,7 @@ function LaunchSection({
     totalQueued: number; totalFailed: number; totalSkipped: number; responseRate: number;
     byIndustry: { industry: string; sent: number; responses: number; rate: number }[];
     byTemplate: { template: string; sent: number; responses: number; rate: number }[];
+    byBranch: { branch: string; sent: number; responses: number; queued: number; failed: number; skipped: number; rate: number }[];
   } | null>(null);
 
   useEffect(() => {
@@ -1533,6 +1534,51 @@ function LaunchSection({
               </div>
             )}
           </div>
+
+          {/* 拠点別（ADMINのみ） */}
+          {stats.byBranch?.length > 0 && (
+            <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
+                <p className="text-sm font-bold text-zinc-700">拠点別</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-zinc-50">
+                    <tr>
+                      <th className="text-left px-4 py-2 text-xs font-semibold text-zinc-500">拠点</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-zinc-500">送信</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-zinc-500">反響</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-zinc-500">反響率</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-zinc-500">待機</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-zinc-500">失敗</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-zinc-500">スキップ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {stats.byBranch.map((row) => (
+                      <tr key={row.branch}>
+                        <td className="px-4 py-2.5 font-medium text-zinc-700">{row.branch}</td>
+                        <td className="text-right px-3 py-2.5 text-zinc-600">{row.sent}</td>
+                        <td className="text-right px-3 py-2.5 text-blue-600 font-medium">{row.responses}</td>
+                        <td className="text-right px-3 py-2.5">
+                          <span className={`font-bold px-2 py-0.5 rounded-full text-xs ${
+                            row.rate >= 5 ? "bg-emerald-50 text-emerald-700" :
+                            row.rate >= 2 ? "bg-amber-50 text-amber-700" :
+                            "bg-zinc-50 text-zinc-500"
+                          }`}>
+                            {row.rate}%
+                          </span>
+                        </td>
+                        <td className="text-right px-3 py-2.5 text-amber-600">{row.queued}</td>
+                        <td className="text-right px-3 py-2.5 text-red-500">{row.failed}</td>
+                        <td className="text-right px-3 py-2.5 text-zinc-400">{row.skipped}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

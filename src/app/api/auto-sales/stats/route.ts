@@ -28,7 +28,7 @@ export async function GET() {
       status: true,
       hasResponse: true,
       createdAt: true,
-      target: { select: { industry: true } },
+      target: { select: { industry: true, branch: { select: { name: true } } } },
       template: { select: { name: true } },
     },
   });
@@ -77,6 +77,32 @@ export async function GET() {
     }))
     .sort((a, b) => b.sent - a.sent);
 
+  // 拠点別集計（ADMINのみ）
+  const branchMap = new Map<string, { sent: number; responses: number; queued: number; failed: number; skipped: number }>();
+  if (isAdmin) {
+    for (const j of allJobs) {
+      const name = j.target.branch?.name ?? "不明";
+      if (!branchMap.has(name)) branchMap.set(name, { sent: 0, responses: 0, queued: 0, failed: 0, skipped: 0 });
+      const entry = branchMap.get(name)!;
+      if (j.status === "COMPLETED") entry.sent++;
+      if (j.status === "QUEUED") entry.queued++;
+      if (j.status === "FAILED") entry.failed++;
+      if (j.status === "SKIPPED") entry.skipped++;
+      if (j.hasResponse) entry.responses++;
+    }
+  }
+  const byBranch = Array.from(branchMap.entries())
+    .map(([branch, data]) => ({
+      branch,
+      sent: data.sent,
+      responses: data.responses,
+      queued: data.queued,
+      failed: data.failed,
+      skipped: data.skipped,
+      rate: data.sent > 0 ? Math.round((data.responses / data.sent) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.sent - a.sent);
+
   // 営業先総数
   const totalTargets = await db.autoSalesTarget.count({ where: branchFilter });
 
@@ -90,5 +116,6 @@ export async function GET() {
     responseRate,
     byIndustry,
     byTemplate,
+    byBranch,
   });
 }
