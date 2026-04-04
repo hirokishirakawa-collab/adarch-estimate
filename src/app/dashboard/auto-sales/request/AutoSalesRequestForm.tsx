@@ -84,7 +84,8 @@ export function AutoSalesRequestForm({
   branchName: string;
   showArchived?: boolean;
 }) {
-  const [activeTab, setActiveTab] = useState<"target" | "template" | "launch">("target");
+  const defaultTab = targets.length === 0 ? "target" : templates.length === 0 ? "template" : "launch";
+  const [activeTab, setActiveTab] = useState<"target" | "template" | "launch">(defaultTab);
 
   return (
     <div className="min-h-[80vh]">
