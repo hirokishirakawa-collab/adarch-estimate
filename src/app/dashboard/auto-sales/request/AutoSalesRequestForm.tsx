@@ -1418,7 +1418,14 @@ function LaunchSection({
     QUEUED: { label: "待機中", className: "bg-zinc-50 text-zinc-500 border-zinc-200" },
     PROCESSING: { label: "実行中", className: "bg-blue-50 text-blue-700 border-blue-200" },
     FAILED: { label: "失敗", className: "bg-red-50 text-red-700 border-red-200" },
+    SKIPPED: { label: "スキップ", className: "bg-amber-50 text-amber-700 border-amber-200" },
   };
+
+  // CAPTCHAスキップされた営業先の数
+  const captchaSkippedCount = targets.filter((t) => {
+    const latest = t.jobs[0];
+    return latest?.status === "SKIPPED";
+  }).length;
 
   return (
     <div className="space-y-6">
@@ -1713,6 +1720,32 @@ function LaunchSection({
         <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl border border-red-100">
           {error}
         </p>
+      )}
+
+      {/* CAPTCHA手動対応通知 */}
+      {captchaSkippedCount > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-amber-800">
+                  {captchaSkippedCount}件がCAPTCHAサイトのためスキップされました
+                </p>
+                <p className="text-xs text-amber-600 mt-0.5">
+                  最終送付を手動で行う必要があります。ご対応をお願いします。
+                </p>
+              </div>
+            </div>
+            <a
+              href="/api/auto-sales/jobs/captcha-csv"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition-colors shrink-0"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+              CSVダウンロード
+            </a>
+          </div>
+        </div>
       )}
 
       {/* Launch Button */}

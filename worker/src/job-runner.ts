@@ -314,25 +314,20 @@ export async function processNextJob(): Promise<boolean> {
       return true;
     }
 
-    // CAPTCHA解決（送信直前に実行 — v3はsubmit時にトークン生成されるため）
+    // CAPTCHAサイトはスキップ → 手動対応に回す
     if (analysis.captchaType !== "none") {
-      console.log(`[job-runner] CAPTCHA解決中 (${analysis.captchaType})...`);
-      const { solved, method } = await solveCaptcha(page, analysis.captchaType, analysis.siteKey);
-      if (!solved) {
-        await db.autoSalesJob.update({
-          where: { id: job.id },
-          data: {
-            status: "SKIPPED",
-            completedAt: new Date(),
-            filledData: filled,
-            screenshotUrl,
-            errorMessage: `CAPTCHA解決失敗 (${analysis.captchaType}, ${method})`,
-          },
-        });
-        console.log(`[job-runner] スキップ（CAPTCHA未解決）: ${job.target.companyName}`);
-        return true;
-      }
-      console.log(`[job-runner] CAPTCHA解決完了: ${method}`);
+      await db.autoSalesJob.update({
+        where: { id: job.id },
+        data: {
+          status: "SKIPPED",
+          completedAt: new Date(),
+          filledData: filled,
+          screenshotUrl,
+          errorMessage: `CAPTCHAサイトのため手動対応が必要（${analysis.captchaType}）`,
+        },
+      });
+      console.log(`[job-runner] スキップ（CAPTCHA: ${analysis.captchaType}）→ 手動対応: ${job.target.companyName}`);
+      return true;
     }
 
     // CF7サイトの場合、REST APIに直接POSTして送信（ブラウザ送信よりreCAPTCHA回避率が高い）
