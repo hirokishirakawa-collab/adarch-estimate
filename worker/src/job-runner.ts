@@ -4,6 +4,7 @@ import { analyzeForm } from "./form-analyzer.js";
 import { fillForm, clickSubmit, clickConfirmButton } from "./form-filler.js";
 import { findContactFormUrl } from "./form-finder.js";
 import { solveCaptcha } from "./captcha-solver.js";
+import { generateCompanyInsight } from "./site-analyzer.js";
 
 const DRY_RUN = process.env.DRY_RUN === "true";
 const PAGE_TIMEOUT = 60_000;
@@ -219,6 +220,13 @@ export async function processNextJob(): Promise<boolean> {
       return true;
     }
 
+    // 相手企業サイトを解析して営業文をカスタマイズ
+    console.log(`[job-runner] サイト解析中（Claude Haiku）...`);
+    const companyInsight = await generateCompanyInsight(
+      pageText, job.target.companyName, job.target.industry
+    );
+    console.log(`[job-runner] サイト解析完了: ${companyInsight}`);
+
     // フォームURL自動検出: トップページ等の場合、お問い合わせフォームを探す
     console.log(`[job-runner] フォーム検出開始...`);
     const formPageUrl = await findContactFormUrl(page);
@@ -281,7 +289,7 @@ export async function processNextJob(): Promise<boolean> {
       phone: job.template.phone,
       email: job.template.email,
       body: job.template.body,
-    }, job.target.industry, job.target.area);
+    }, job.target.industry, job.target.area, companyInsight);
 
     // フォーム入力
     console.log(`[job-runner] フォーム解析完了: ${analysis.fields.length}フィールド, CAPTCHA: ${analysis.captchaType}`);

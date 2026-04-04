@@ -1264,7 +1264,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
           placeholder={`突然のご連絡失礼いたします。\n○○エリアで映像制作・広告プロモーションを手がけております○○と申します。\n\n貴社の○○に大変興味を持ち、ご連絡させていただきました。`}
         />
         <p className="text-xs text-zinc-400 mt-1.5">
-          {"{industry}"} と書くと営業先の業種名に自動置換されます
+          {"{industry}"}=業種名、{"{area}"}=エリア名、{"{companyInsight}"}=相手サイト分析結果 に自動置換
         </p>
       </div>
 

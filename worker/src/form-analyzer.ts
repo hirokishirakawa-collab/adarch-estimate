@@ -139,7 +139,8 @@ export async function analyzeForm(
     body: string;
   },
   targetIndustry: string | null,
-  targetArea: string | null = null
+  targetArea: string | null = null,
+  companyInsight: string | null = null
 ): Promise<AnalysisResult> {
   const { formHtml, captchaType, siteKey } = extractFormHtml(pageHtml);
 
@@ -151,7 +152,8 @@ export async function analyzeForm(
   const bodyText = template.body
     .replace(/\{industry\}/g, targetIndustry ?? "御社の事業")
     .replace(/\{area\}/g, targetArea ?? "地域")
-    .replace(/\{companyName\}/g, template.companyName ?? "御社");
+    .replace(/\{companyName\}/g, template.companyName ?? "御社")
+    .replace(/\{companyInsight\}/g, companyInsight ?? `${targetIndustry ?? "御社の事業"}について拝見し`);
 
   const response = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
