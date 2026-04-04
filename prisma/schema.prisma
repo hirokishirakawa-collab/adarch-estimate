@@ -2574,7 +2574,8 @@ model AutoSalesTemplate {
   approvedAt DateTime?
   approvedBy String? // ADMIN User.id
 
-  isActive Boolean @default(true)
+  isFavorite Boolean @default(false) // お気に入り
+  isActive   Boolean @default(true) // false=アーカイブ
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

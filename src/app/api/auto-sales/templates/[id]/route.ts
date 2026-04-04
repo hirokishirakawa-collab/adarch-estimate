@@ -68,12 +68,23 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 承認（ADMINのみ）
   const updateData: Record<string, unknown> = {};
+
+  // 承認（ADMINのみ）
   if (body.isApproved !== undefined && user.role === "ADMIN") {
     updateData.isApproved = body.isApproved;
     updateData.approvedAt = body.isApproved ? new Date() : null;
     updateData.approvedBy = body.isApproved ? user.id : null;
+  }
+
+  // お気に入り
+  if (body.isFavorite !== undefined) {
+    updateData.isFavorite = body.isFavorite;
+  }
+
+  // アーカイブ / 復活
+  if (body.isActive !== undefined) {
+    updateData.isActive = body.isActive;
   }
 
   const updated = await db.autoSalesTemplate.update({

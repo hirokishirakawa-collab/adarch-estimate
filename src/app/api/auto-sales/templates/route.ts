@@ -12,7 +12,7 @@ const VALID_SERVICE_TYPES: AutoSalesServiceType[] = [
 ];
 
 // テンプレート一覧
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,9 +30,10 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const branchFilter = isAdmin ? {} : { branchId: user.branchId! };
+  const showArchived = req.nextUrl.searchParams.get("archived") === "true";
 
   const templates = await db.autoSalesTemplate.findMany({
-    where: { ...branchFilter, isActive: true },
+    where: { ...branchFilter, isActive: !showArchived },
     include: { branch: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });

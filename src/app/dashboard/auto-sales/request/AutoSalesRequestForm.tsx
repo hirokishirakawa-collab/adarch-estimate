@@ -50,6 +50,8 @@ interface Template {
   serviceTypes: string[];
   pitchText: string;
   isApproved: boolean;
+  isFavorite: boolean;
+  isActive: boolean;
   branch: { name: string } | null;
 }
 
@@ -780,6 +782,17 @@ function TemplateSection({
   isAdmin: boolean;
 }) {
   const [showCreate, setShowCreate] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedTemplates, setArchivedTemplates] = useState<Template[]>([]);
+
+  async function loadArchived() {
+    if (showArchived) { setShowArchived(false); return; }
+    try {
+      const res = await fetch("/api/auto-sales/templates?archived=true");
+      if (res.ok) { setArchivedTemplates(await res.json()); }
+    } catch {}
+    setShowArchived(true);
+  }
 
   return (
     <div className="space-y-6">
@@ -795,13 +808,25 @@ function TemplateSection({
               送信者情報と訴求内容を設定
             </p>
           </div>
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white text-sm font-medium hover:from-purple-700 hover:to-purple-600 transition-all shadow-md shadow-purple-500/20"
-          >
-            <Plus className="w-4 h-4" />
-            新規作成
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={loadArchived}
+              className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors"
+            >
+              {showArchived ? (
+                <><FileText className="w-3.5 h-3.5" />通常に戻る</>
+              ) : (
+                <><ArchiveRestore className="w-3.5 h-3.5" />アーカイブ</>
+              )}
+            </button>
+            <button
+              onClick={() => setShowCreate(!showCreate)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white text-sm font-medium hover:from-purple-700 hover:to-purple-600 transition-all shadow-md shadow-purple-500/20"
+            >
+              <Plus className="w-4 h-4" />
+              新規作成
+            </button>
+          </div>
         </div>
 
         {showCreate && <CreateTemplateForm onClose={() => { setShowCreate(false); window.location.reload(); }} />}
@@ -824,6 +849,47 @@ function TemplateSection({
               {templates.map((t, i) => (
                 <TemplateCard key={t.id} template={t} index={i} total={templates.length} />
               ))}
+            </div>
+          )}
+
+          {/* アーカイブ済みテンプレート */}
+          {showArchived && (
+            <div className="mt-4 pt-4 border-t border-zinc-200">
+              <p className="text-sm font-bold text-zinc-500 mb-3 flex items-center gap-2">
+                <Archive className="w-4 h-4" />
+                アーカイブ済み（{archivedTemplates.length}件）
+              </p>
+              {archivedTemplates.length === 0 ? (
+                <p className="text-xs text-zinc-400">アーカイブされたテンプレートはありません</p>
+              ) : (
+                <div className="space-y-3">
+                  {archivedTemplates.map((t, i) => (
+                    <div key={t.id} className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-medium text-sm text-zinc-600">{t.name}</span>
+                          {t.branch && <span className="text-xs text-zinc-400 ml-2">{t.branch.name}</span>}
+                        </div>
+                        <button
+                          onClick={async () => {
+                            await fetch(`/api/auto-sales/templates/${t.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ isActive: true }),
+                            });
+                            window.location.reload();
+                          }}
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-lg hover:bg-blue-50 font-medium"
+                        >
+                          <ArchiveRestore className="w-3.5 h-3.5" />
+                          復活
+                        </button>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{t.pitchText}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -857,6 +923,15 @@ function TemplateCard({ template: t, index, total, readOnly }: { template: Templ
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  async function handleTemplatePatch(data: Record<string, unknown>) {
+    await fetch(`/api/auto-sales/templates/${t.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    window.location.reload();
+  }
 
   async function handleDelete() {
     setDeleting(true);
@@ -893,6 +968,9 @@ function TemplateCard({ template: t, index, total, readOnly }: { template: Templ
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
+              {t.isFavorite && (
+                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+              )}
               <span className="font-bold text-sm text-zinc-900">{t.name}</span>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                 t.isApproved
@@ -933,8 +1011,29 @@ function TemplateCard({ template: t, index, total, readOnly }: { template: Templ
             <p className="text-sm text-zinc-700 whitespace-pre-wrap leading-relaxed">{t.pitchText}</p>
           </div>
 
-          {/* 削除ボタン（自分のテンプレートのみ） */}
-          {!readOnly && <div className="flex justify-end">
+          {/* アクションボタン（自分のテンプレートのみ） */}
+          {!readOnly && <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleTemplatePatch({ isFavorite: !t.isFavorite })}
+                className={`inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-colors font-medium ${
+                  t.isFavorite
+                    ? "text-amber-600 bg-amber-50 hover:bg-amber-100"
+                    : "text-zinc-400 hover:text-amber-500 hover:bg-amber-50"
+                }`}
+              >
+                <Star className={`w-3.5 h-3.5 ${t.isFavorite ? "fill-amber-400" : ""}`} />
+                {t.isFavorite ? "お気に入り" : "お気に入りに追加"}
+              </button>
+              <button
+                onClick={() => handleTemplatePatch({ isActive: false })}
+                className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 px-2.5 py-1.5 rounded-lg transition-colors font-medium"
+              >
+                <Archive className="w-3.5 h-3.5" />
+                アーカイブ
+              </button>
+            </div>
+            <div>
             {confirmDelete ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-red-600">本当に削除しますか？</span>
@@ -961,7 +1060,7 @@ function TemplateCard({ template: t, index, total, readOnly }: { template: Templ
                 削除
               </button>
             )}
-          </div>}
+          </div></div>}
         </div>
       )}
     </div>
