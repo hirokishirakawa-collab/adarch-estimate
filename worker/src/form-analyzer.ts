@@ -138,7 +138,8 @@ export async function analyzeForm(
     email: string | null;
     body: string;
   },
-  targetIndustry: string | null
+  targetIndustry: string | null,
+  targetArea: string | null = null
 ): Promise<AnalysisResult> {
   const { formHtml, captchaType, siteKey } = extractFormHtml(pageHtml);
 
@@ -146,8 +147,11 @@ export async function analyzeForm(
     return { fields: [], captchaType: "none", siteKey: null, submitSelector: null };
   }
 
-  // テンプレート本文の{industry}を置換
-  const bodyText = template.body.replace(/\{industry\}/g, targetIndustry ?? "御社の事業");
+  // テンプレート本文の変数を置換
+  const bodyText = template.body
+    .replace(/\{industry\}/g, targetIndustry ?? "御社の事業")
+    .replace(/\{area\}/g, targetArea ?? "地域")
+    .replace(/\{companyName\}/g, template.companyName ?? "御社");
 
   const response = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",

@@ -213,7 +213,7 @@ export async function processNextJob(): Promise<boolean> {
       phone: job.template.phone,
       email: job.template.email,
       body: job.template.body,
-    }, job.target.industry);
+    }, job.target.industry, job.target.area);
 
     // フォーム入力
     console.log(`[job-runner] フォーム解析完了: ${analysis.fields.length}フィールド, CAPTCHA: ${analysis.captchaType}`);
