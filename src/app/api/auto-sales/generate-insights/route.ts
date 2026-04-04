@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (jobs.length === 0) {
-      return NextResponse.json({ created: 0, message: "No jobs in period" });
+      return NextResponse.json({ created: 0, period, message: "No jobs in period" });
     }
 
     // branchId → jobs をグループ化
