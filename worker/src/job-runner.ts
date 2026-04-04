@@ -176,6 +176,49 @@ export async function processNextJob(): Promise<boolean> {
     // SPAの追加レンダリングを待つ
     await page.waitForTimeout(3000);
 
+    // 営業お断りチェック
+    const pageText = await page.evaluate(() => document.body?.innerText ?? "");
+    const rejectKeywords = [
+      "営業お断り",
+      "営業はお断り",
+      "営業の方はお断り",
+      "営業目的のお問い合わせはご遠慮",
+      "営業目的でのご連絡はご遠慮",
+      "営業メールお断り",
+      "セールスお断り",
+      "売り込みお断り",
+      "売込みお断り",
+      "営業についてはお断り",
+      "営業のご連絡はご遠慮",
+      "勧誘・営業はご遠慮",
+      "営業・勧誘はご遠慮",
+      "営業等のお問い合わせはご遠慮",
+      "このフォームからの営業",
+      "フォームからの営業はご遠慮",
+      "営業についてはお控え",
+    ];
+    const lowerText = pageText.toLowerCase();
+    const matchedReject = rejectKeywords.find((kw) => lowerText.includes(kw.toLowerCase()));
+    if (matchedReject) {
+      await db.autoSalesJob.update({
+        where: { id: job.id },
+        data: {
+          status: "SKIPPED",
+          completedAt: new Date(),
+          errorMessage: `営業お断り検出: 「${matchedReject}」`,
+        },
+      });
+      // ブラックリストに自動追加
+      const skipDomain = new URL(job.target.url).hostname;
+      await db.autoSalesBlacklist.upsert({
+        where: { domain: skipDomain },
+        create: { domain: skipDomain, companyName: job.target.companyName, reason: `営業お断り検出: 「${matchedReject}」` },
+        update: {},
+      });
+      console.log(`[job-runner] スキップ（営業お断り）: ${job.target.companyName} — 「${matchedReject}」`);
+      return true;
+    }
+
     // フォームURL自動検出: トップページ等の場合、お問い合わせフォームを探す
     console.log(`[job-runner] フォーム検出開始...`);
     const formPageUrl = await findContactFormUrl(page);
@@ -199,6 +242,31 @@ export async function processNextJob(): Promise<boolean> {
         where: { id: job.targetId },
         data: { url: formPageUrl },
       });
+    }
+
+    // フォームページでも営業お断りチェック
+    if (formPageUrl !== job.target.url) {
+      const formPageText = await page.evaluate(() => document.body?.innerText ?? "");
+      const lowerFormText = formPageText.toLowerCase();
+      const matchedRejectForm = rejectKeywords.find((kw) => lowerFormText.includes(kw.toLowerCase()));
+      if (matchedRejectForm) {
+        await db.autoSalesJob.update({
+          where: { id: job.id },
+          data: {
+            status: "SKIPPED",
+            completedAt: new Date(),
+            errorMessage: `営業お断り検出（フォームページ）: 「${matchedRejectForm}」`,
+          },
+        });
+        const skipDomain2 = new URL(job.target.url).hostname;
+        await db.autoSalesBlacklist.upsert({
+          where: { domain: skipDomain2 },
+          create: { domain: skipDomain2, companyName: job.target.companyName, reason: `営業お断り検出: 「${matchedRejectForm}」` },
+          update: {},
+        });
+        console.log(`[job-runner] スキップ（営業お断り・フォームページ）: ${job.target.companyName} — 「${matchedRejectForm}」`);
+        return true;
+      }
     }
 
     // DOM取得
