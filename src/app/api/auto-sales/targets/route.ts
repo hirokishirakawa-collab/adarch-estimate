@@ -46,6 +46,48 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ targets, total, page, limit });
 }
 
+// 営業先の更新（お気に入り/アーカイブ切り替え）
+export async function PATCH(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+  });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (user.role !== "ADMIN" && !user.enabledFeatures.includes("auto-sales")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const { targetIds, action } = body as {
+    targetIds: string[];
+    action: "favorite" | "unfavorite" | "archive" | "unarchive";
+  };
+
+  if (!targetIds?.length || !action) {
+    return NextResponse.json({ error: "targetIds and action are required" }, { status: 400 });
+  }
+
+  const branchFilter = user.role === "ADMIN" ? {} : { branchId: user.branchId! };
+
+  const data = action === "favorite" ? { isFavorite: true }
+    : action === "unfavorite" ? { isFavorite: false }
+    : action === "archive" ? { isArchived: true }
+    : { isArchived: false };
+
+  const result = await db.autoSalesTarget.updateMany({
+    where: { id: { in: targetIds }, ...branchFilter },
+    data,
+  });
+
+  return NextResponse.json({ updated: result.count });
+}
+
 // 営業先削除（個別/一括）
 export async function DELETE(req: NextRequest) {
   const session = await auth();

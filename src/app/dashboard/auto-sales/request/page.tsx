@@ -3,7 +3,13 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { AutoSalesRequestForm } from "./AutoSalesRequestForm";
 
-export default async function AutoSalesRequestPage() {
+export default async function AutoSalesRequestPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ showArchived?: string }>;
+}) {
+  const params = await searchParams;
+  const showArchived = params.showArchived === "true";
   const session = await auth();
   if (!session?.user?.email) redirect("/");
 
@@ -35,7 +41,7 @@ export default async function AutoSalesRequestPage() {
     }),
     db.autoSalesTarget.count({ where: branchFilter }),
     db.autoSalesTarget.findMany({
-      where: branchFilter,
+      where: { ...branchFilter, isArchived: showArchived },
       include: {
         jobs: {
           select: { status: true, completedAt: true },
@@ -56,6 +62,7 @@ export default async function AutoSalesRequestPage() {
       targets={JSON.parse(JSON.stringify(targets))}
       isAdmin={isAdmin}
       branchName={user.branch?.name ?? "本部"}
+      showArchived={showArchived}
     />
   );
 }

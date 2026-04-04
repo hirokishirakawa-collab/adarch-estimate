@@ -24,6 +24,9 @@ import {
   AlertTriangle,
   Play,
   Trash2,
+  Star,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 
 const TARGET_TYPE_LABELS: Record<string, string> = {
@@ -57,6 +60,8 @@ interface TargetWithStatus {
   industry: string | null;
   area: string | null;
   phone: string | null;
+  isFavorite: boolean;
+  isArchived: boolean;
   jobs: Array<{ status: string; completedAt: string | null }>;
 }
 
@@ -67,6 +72,7 @@ export function AutoSalesRequestForm({
   targets,
   isAdmin,
   branchName,
+  showArchived = false,
 }: {
   templates: Template[];
   otherTemplates?: Template[];
@@ -74,6 +80,7 @@ export function AutoSalesRequestForm({
   targets: TargetWithStatus[];
   isAdmin: boolean;
   branchName: string;
+  showArchived?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<"target" | "template" | "launch">("target");
 
@@ -218,7 +225,7 @@ export function AutoSalesRequestForm({
       ) : activeTab === "template" ? (
         <TemplateSection templates={templates} otherTemplates={otherTemplates} isAdmin={isAdmin} />
       ) : (
-        <LaunchSection templates={templates} targets={targets} />
+        <LaunchSection templates={templates} targets={targets} showArchived={showArchived} />
       )}
     </div>
   );
@@ -1321,9 +1328,11 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 function LaunchSection({
   templates,
   targets,
+  showArchived = false,
 }: {
   templates: Template[];
   targets: TargetWithStatus[];
+  showArchived?: boolean;
 }) {
   const approvedTemplates = templates.filter((t) => t.isApproved);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
@@ -1394,6 +1403,17 @@ function LaunchSection({
     } finally {
       setStopping(false);
     }
+  }
+
+  async function handleTargetAction(action: "favorite" | "unfavorite" | "archive" | "unarchive") {
+    try {
+      await fetch("/api/auto-sales/targets", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetIds: Array.from(selectedIds), action }),
+      });
+      window.location.reload();
+    } catch {}
   }
 
   async function handleDeleteSelected() {
@@ -1661,14 +1681,26 @@ function LaunchSection({
 
       {/* Target List */}
       <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
-        <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-emerald-50/50 to-white">
-          <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
-            <Target className="w-5 h-5 text-emerald-500" />
-            営業先を選択
-          </h2>
-          <p className="text-sm text-zinc-500 mt-1">
-            送信する営業先にチェックを入れてください
-          </p>
+        <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-emerald-50/50 to-white flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+              <Target className="w-5 h-5 text-emerald-500" />
+              営業先を選択
+            </h2>
+            <p className="text-sm text-zinc-500 mt-1">
+              送信する営業先にチェックを入れてください
+            </p>
+          </div>
+          <a
+            href={showArchived ? "/dashboard/auto-sales/request" : "/dashboard/auto-sales/request?showArchived=true"}
+            className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors"
+          >
+            {showArchived ? (
+              <><Target className="w-3.5 h-3.5" />通常リストに戻る</>
+            ) : (
+              <><ArchiveRestore className="w-3.5 h-3.5" />アーカイブを見る</>
+            )}
+          </a>
         </div>
 
         {targets.length === 0 ? (
@@ -1703,14 +1735,33 @@ function LaunchSection({
                 </span>
               </div>
               {selectedIds.size > 0 && (
-                <button
-                  onClick={handleDeleteSelected}
-                  disabled={deleting}
-                  className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors font-medium"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  {deleting ? "削除中..." : `${selectedIds.size}件を削除`}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleTargetAction("favorite")}
+                    className="inline-flex items-center gap-1 text-xs text-amber-500 hover:text-amber-700 hover:bg-amber-50 px-2.5 py-1.5 rounded-lg transition-colors font-medium"
+                  >
+                    <Star className="w-3.5 h-3.5" />
+                    お気に入り
+                  </button>
+                  <button
+                    onClick={() => handleTargetAction(showArchived ? "unarchive" : "archive")}
+                    className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 px-2.5 py-1.5 rounded-lg transition-colors font-medium"
+                  >
+                    {showArchived ? (
+                      <><ArchiveRestore className="w-3.5 h-3.5" />復活</>
+                    ) : (
+                      <><Archive className="w-3.5 h-3.5" />アーカイブ</>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleDeleteSelected}
+                    disabled={deleting}
+                    className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-colors font-medium"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {deleting ? "削除中..." : "削除"}
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1741,6 +1792,9 @@ function LaunchSection({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
+                        {t.isFavorite && (
+                          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                        )}
                         <span className="font-medium text-sm text-zinc-900 truncate">
                           {t.companyName}
                         </span>

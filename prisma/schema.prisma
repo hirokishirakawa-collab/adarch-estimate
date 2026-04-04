@@ -2599,6 +2599,9 @@ model AutoSalesTarget {
   phone       String? // 電話番号（公開情報）
   note        String? @db.Text // メモ
 
+  isFavorite  Boolean @default(false) // お気に入り
+  isArchived  Boolean @default(false) // アーカイブ
+
   createdById String // 投入した User.id
 
   createdAt DateTime @default(now())
