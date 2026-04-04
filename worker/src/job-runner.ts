@@ -12,9 +12,9 @@ const PAGE_TIMEOUT = 60_000;
 let browser: Browser | null = null;
 
 async function getBrowser(): Promise<Browser> {
-  // プロキシ設定変更に対応するため、毎回新規起動
+  // 既にブラウザが起動中ならそのまま再利用
   if (browser && browser.isConnected()) {
-    await browser.close().catch(() => {});
+    return browser;
   }
 
   const proxyUrl = process.env.RESIDENTIAL_PROXY_URL;
