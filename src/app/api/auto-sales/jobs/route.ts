@@ -42,6 +42,40 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(jobs);
 }
 
+// 緊急停止（QUEUED/PROCESSINGのジョブを一括キャンセル）
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+  });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (user.role !== "ADMIN" && !user.enabledFeatures.includes("auto-sales")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const branchFilter = user.role === "ADMIN" ? {} : { branchId: user.branchId! };
+
+  const result = await db.autoSalesJob.updateMany({
+    where: {
+      status: { in: ["QUEUED", "PROCESSING"] },
+      target: branchFilter,
+    },
+    data: {
+      status: "FAILED",
+      completedAt: new Date(),
+      errorMessage: "緊急停止（手動キャンセル）",
+    },
+  });
+
+  return NextResponse.json({ cancelled: result.count });
+}
+
 // ジョブ作成（営業先をキューに投入）
 export async function POST(req: NextRequest) {
   const session = await auth();

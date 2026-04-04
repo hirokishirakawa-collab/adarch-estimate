@@ -46,6 +46,44 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ targets, total, page, limit });
 }
 
+// 営業先削除（個別/一括）
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+  });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (user.role !== "ADMIN" && !user.enabledFeatures.includes("auto-sales")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const { targetIds } = body as { targetIds: string[] };
+
+  if (!targetIds?.length) {
+    return NextResponse.json({ error: "targetIds is required" }, { status: 400 });
+  }
+
+  const branchFilter = user.role === "ADMIN" ? {} : { branchId: user.branchId! };
+
+  // 関連ジョブも削除（cascadeが設定されているが念のため）
+  await db.autoSalesJob.deleteMany({
+    where: { targetId: { in: targetIds }, target: branchFilter },
+  });
+
+  const result = await db.autoSalesTarget.deleteMany({
+    where: { id: { in: targetIds }, ...branchFilter },
+  });
+
+  return NextResponse.json({ deleted: result.count });
+}
+
 // 営業先登録
 export async function POST(req: NextRequest) {
   const session = await auth();

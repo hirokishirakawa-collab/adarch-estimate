@@ -1302,7 +1302,11 @@ function LaunchSection({
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [launching, setLaunching] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [confirmStop, setConfirmStop] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [result, setResult] = useState<{ created: number; skipped: number } | null>(null);
+  const [stopResult, setStopResult] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   // A target is "already sent" if it has an active job (COMPLETED, QUEUED, PROCESSING)
@@ -1332,6 +1336,41 @@ function LaunchSection({
       else next.add(id);
       return next;
     });
+  }
+
+  async function handleEmergencyStop() {
+    setStopping(true);
+    setStopResult(null);
+    try {
+      const res = await fetch("/api/auto-sales/jobs", { method: "DELETE" });
+      if (res.ok) {
+        const data = await res.json();
+        setStopResult(`${data.cancelled}件のジョブを停止しました`);
+        setConfirmStop(false);
+        setTimeout(() => window.location.reload(), 1500);
+      }
+    } catch {
+      setStopResult("停止に失敗しました");
+    } finally {
+      setStopping(false);
+    }
+  }
+
+  async function handleDeleteSelected() {
+    if (selectedIds.size === 0) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/auto-sales/targets", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetIds: Array.from(selectedIds) }),
+      });
+      if (res.ok) {
+        window.location.reload();
+      }
+    } catch {} finally {
+      setDeleting(false);
+    }
   }
 
   async function handleLaunch() {
@@ -1375,15 +1414,51 @@ function LaunchSection({
     <div className="space-y-6">
       {/* Template Selector */}
       <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
-        <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-emerald-50/50 to-white">
-          <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
-            <Play className="w-5 h-5 text-emerald-500" />
-            営業テンプレートを選択
-          </h2>
-          <p className="text-sm text-zinc-500 mt-1">
-            承認済みテンプレートを選んで営業先に一斉送信
-          </p>
+        <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-emerald-50/50 to-white flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+              <Play className="w-5 h-5 text-emerald-500" />
+              営業テンプレートを選択
+            </h2>
+            <p className="text-sm text-zinc-500 mt-1">
+              承認済みテンプレートを選んで営業先に一斉送信
+            </p>
+          </div>
+
+          {/* 緊急停止 */}
+          {!confirmStop ? (
+            <button
+              onClick={() => setConfirmStop(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-50 border-2 border-red-200 text-red-700 text-sm font-bold hover:bg-red-100 transition-colors"
+            >
+              <AlertCircle className="w-4 h-4" />
+              緊急停止
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-red-600 font-medium">待機中・実行中のジョブを全て停止します</span>
+              <button
+                onClick={handleEmergencyStop}
+                disabled={stopping}
+                className="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {stopping ? "停止中..." : "停止する"}
+              </button>
+              <button
+                onClick={() => setConfirmStop(false)}
+                className="px-3 py-2 text-xs text-zinc-500 hover:bg-zinc-100 rounded-lg"
+              >
+                キャンセル
+              </button>
+            </div>
+          )}
         </div>
+
+        {stopResult && (
+          <div className="mx-6 mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium">
+            {stopResult}
+          </div>
+        )}
 
         <div className="p-6">
           {approvedTemplates.length === 0 ? (
@@ -1440,21 +1515,33 @@ function LaunchSection({
           </div>
         ) : (
           <div>
-            {/* Select All */}
-            <div className="px-6 py-3 border-b border-zinc-100 bg-zinc-50/50 flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={allEligibleSelected}
-                onChange={toggleSelectAll}
-                disabled={eligibleTargets.length === 0}
-                className="w-4 h-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
-              />
-              <span className="text-sm font-medium text-zinc-600">
-                すべて選択
-                <span className="text-xs text-zinc-400 ml-2">
-                  ({eligibleTargets.length} 件送信可能 / 全 {targets.length} 件)
+            {/* Select All + Actions */}
+            <div className="px-6 py-3 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={allEligibleSelected}
+                  onChange={toggleSelectAll}
+                  disabled={eligibleTargets.length === 0}
+                  className="w-4 h-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span className="text-sm font-medium text-zinc-600">
+                  すべて選択
+                  <span className="text-xs text-zinc-400 ml-2">
+                    ({eligibleTargets.length} 件送信可能 / 全 {targets.length} 件)
+                  </span>
                 </span>
-              </span>
+              </div>
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={handleDeleteSelected}
+                  disabled={deleting}
+                  className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors font-medium"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {deleting ? "削除中..." : `${selectedIds.size}件を削除`}
+                </button>
+              )}
             </div>
 
             {/* Target Rows */}
