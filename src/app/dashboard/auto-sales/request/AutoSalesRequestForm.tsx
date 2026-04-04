@@ -1257,20 +1257,33 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
         <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl border border-red-100">{error}</p>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-xl text-sm font-bold hover:from-purple-700 hover:to-purple-600 disabled:opacity-50 transition-all shadow-md shadow-purple-500/20 flex items-center justify-center gap-2"
-      >
-        {loading ? (
-          "作成中..."
-        ) : (
-          <>
-            テンプレートを登録
-            <ArrowRight className="w-4 h-4" />
-          </>
-        )}
-      </button>
+      {/* 下部に余白（固定ボタン分） */}
+      <div className="h-4" />
+
+      {/* 固定フッター */}
+      <div className="sticky bottom-0 -mx-6 px-6 py-4 bg-white/95 backdrop-blur border-t border-zinc-200 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-sm text-zinc-500 hover:text-zinc-700 px-4 py-2.5 rounded-xl hover:bg-zinc-100 transition-colors"
+        >
+          キャンセル
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-8 py-3 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-xl text-sm font-bold hover:from-purple-700 hover:to-purple-600 disabled:opacity-50 transition-all shadow-md shadow-purple-500/20 flex items-center gap-2"
+        >
+          {loading ? (
+            "作成中..."
+          ) : (
+            <>
+              テンプレートを登録
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      </div>
     </form>
   );
 }
