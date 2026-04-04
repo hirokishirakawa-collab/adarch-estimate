@@ -2636,6 +2636,8 @@ model AutoSalesJob {
   responseSnippet   String?   @db.Text // 返信本文抜粋
   respondedAt       DateTime? // 反響日時
   chatNotifiedAt    DateTime? // Google Chat通知済み日時
+  noReplyConfirmedAt DateTime? // 未返信確定日時（送信3日後に自動設定）
+  approachPostedAt   DateTime? // SalesApproachに自動投稿済み日時
 
   startedAt   DateTime?
   completedAt DateTime?

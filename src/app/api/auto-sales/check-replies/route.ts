@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
             },
           },
           template: {
-            select: { branchId: true },
+            select: { branchId: true, body: true },
           },
         },
         orderBy: { completedAt: "desc" },
@@ -155,6 +155,31 @@ export async function POST(req: NextRequest) {
         where: { id: job.id },
         data: { chatNotifiedAt: new Date() },
       });
+
+      // SalesApproach に「返信あり」として自動投稿
+      const author = await db.user.findFirst({
+        where: { branchId, groupCompanyId: { not: null } },
+        select: { id: true, groupCompanyId: true },
+        orderBy: { createdAt: "asc" },
+      });
+      if (author?.groupCompanyId) {
+        await db.salesApproach.create({
+          data: {
+            groupCompanyId: author.groupCompanyId,
+            authorId: author.id,
+            industry: job.target.industry ?? "その他",
+            targetDesc: `${job.target.companyName}（${job.target.area ?? ""}）— 自動営業`,
+            method: "FORM",
+            messageBody: job.template.body.substring(0, 5000),
+            result: "REPLIED_NG",
+            learnings: `自動営業フォーム送信 → 返信あり（自動記録）\n件名: ${subject}\n抜粋: ${snippet.substring(0, 200)}`,
+          },
+        });
+        await db.autoSalesJob.update({
+          where: { id: job.id },
+          data: { approachPostedAt: new Date() },
+        });
+      }
 
       console.log(`[check-replies] 反響検出: ${job.target.companyName} ← ${from}`);
     }
