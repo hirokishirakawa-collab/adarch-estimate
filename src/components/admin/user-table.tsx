@@ -8,6 +8,8 @@ import { BRANCH_MAP } from "@/lib/data/customers";
 // ---------------------------------------------------------------
 // 型
 // ---------------------------------------------------------------
+type SuspendReasonValue = "MONTHLY_REPORT" | "ROYALTY_UNPAID" | "OTHER" | null;
+
 type UserRow = {
   id: string;
   name: string | null;
@@ -15,6 +17,7 @@ type UserRow = {
   role: string;
   isActive: boolean;
   suspendCount: number;
+  suspendReason: SuspendReasonValue;
   branchId:  string | null;
   branchId2: string | null;
   groupCompanyId: string | null;
@@ -23,6 +26,18 @@ type UserRow = {
   branch:  { name: string } | null;
   branch2: { name: string } | null;
   groupCompany: { id: string; name: string } | null;
+};
+
+const SUSPEND_REASON_LABEL: Record<Exclude<SuspendReasonValue, null>, string> = {
+  MONTHLY_REPORT: "月次報告未提出",
+  ROYALTY_UNPAID: "ロイヤリティ未払い",
+  OTHER: "その他",
+};
+
+const SUSPEND_REASON_COLOR: Record<Exclude<SuspendReasonValue, null>, string> = {
+  MONTHLY_REPORT: "bg-amber-50 text-amber-700 border-amber-200",
+  ROYALTY_UNPAID: "bg-red-50 text-red-700 border-red-200",
+  OTHER: "bg-zinc-50 text-zinc-600 border-zinc-200",
 };
 
 const OPTIONAL_FEATURES = [
@@ -290,18 +305,45 @@ function FeatureToggle({
 }
 
 // ---------------------------------------------------------------
-// アカウント停止/復活トグル
+// アカウント停止/復活トグル（停止時は理由選択モーダル表示）
 // ---------------------------------------------------------------
-function ActiveToggle({ userId, isActive, disabled }: { userId: string; isActive: boolean; disabled: boolean }) {
+function ActiveToggle({
+  userId,
+  isActive,
+  suspendReason,
+  disabled,
+}: {
+  userId: string;
+  isActive: boolean;
+  suspendReason: SuspendReasonValue;
+  disabled: boolean;
+}) {
   const [isPending, setIsPending] = useState(false);
   const [active, setActive] = useState(isActive);
+  const [currentReason, setCurrentReason] = useState<SuspendReasonValue>(suspendReason);
+  const [showReasonPicker, setShowReasonPicker] = useState(false);
 
-  const handleToggle = async () => {
-    if (!active && !window.confirm("このユーザーのアカウントを停止しますか？")) return;
+  const performToggle = async (reason?: "MONTHLY_REPORT" | "ROYALTY_UNPAID" | "OTHER") => {
     setIsPending(true);
-    const result = await toggleUserActive(userId);
-    if (result.success) setActive(!active);
+    const result = await toggleUserActive(userId, reason);
+    if (result.success) {
+      setActive(!active);
+      setCurrentReason(active ? (reason ?? "OTHER") : null);
+    }
     setIsPending(false);
+    setShowReasonPicker(false);
+  };
+
+  const handleClick = () => {
+    if (active) {
+      // 稼働中 → 停止：理由選択モーダルを開く
+      setShowReasonPicker(true);
+    } else {
+      // 停止中 → 復活
+      if (window.confirm("このユーザーを復活させますか？")) {
+        performToggle();
+      }
+    }
   };
 
   if (disabled) {
@@ -309,18 +351,74 @@ function ActiveToggle({ userId, isActive, disabled }: { userId: string; isActive
   }
 
   return (
-    <button
-      onClick={handleToggle}
-      disabled={isPending}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border transition-colors ${
-        active
-          ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-          : "bg-red-50 text-red-600 border-red-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
-      } ${isPending ? "opacity-50" : ""}`}
-      title={active ? "クリックで停止" : "クリックで復活"}
-    >
-      {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : active ? "稼働中" : "停止中"}
-    </button>
+    <div className="relative inline-block">
+      <button
+        onClick={handleClick}
+        disabled={isPending}
+        className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border transition-colors ${
+          active
+            ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+            : "bg-red-50 text-red-600 border-red-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+        } ${isPending ? "opacity-50" : ""}`}
+        title={active ? "クリックで停止" : "クリックで復活"}
+      >
+        {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : active ? "稼働中" : "停止中"}
+      </button>
+
+      {/* 停止理由の表示（停止中のみ） */}
+      {!active && currentReason && (
+        <span
+          className={`ml-1 inline-flex items-center px-1.5 py-0.5 text-[9px] font-medium rounded border ${SUSPEND_REASON_COLOR[currentReason]}`}
+        >
+          {SUSPEND_REASON_LABEL[currentReason]}
+        </span>
+      )}
+
+      {/* 理由選択モーダル */}
+      {showReasonPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowReasonPicker(false)}>
+          <div
+            className="bg-white rounded-xl shadow-xl border border-zinc-200 p-5 w-80"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-bold text-zinc-900 mb-1">停止理由を選択</p>
+            <p className="text-xs text-zinc-500 mb-4">このユーザーを停止する理由を選んでください</p>
+            <div className="space-y-2">
+              <button
+                onClick={() => performToggle("ROYALTY_UNPAID")}
+                disabled={isPending}
+                className="w-full text-left px-3 py-2 text-sm rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-800 transition-colors"
+              >
+                <span className="font-semibold">ロイヤリティ未払い</span>
+                <span className="block text-xs text-red-600 mt-0.5">入金確認後、本部が手動で復帰</span>
+              </button>
+              <button
+                onClick={() => performToggle("MONTHLY_REPORT")}
+                disabled={isPending}
+                className="w-full text-left px-3 py-2 text-sm rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 transition-colors"
+              >
+                <span className="font-semibold">月次報告未提出</span>
+                <span className="block text-xs text-amber-600 mt-0.5">パートナーが報告提出で自動復帰</span>
+              </button>
+              <button
+                onClick={() => performToggle("OTHER")}
+                disabled={isPending}
+                className="w-full text-left px-3 py-2 text-sm rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 transition-colors"
+              >
+                <span className="font-semibold">その他</span>
+                <span className="block text-xs text-zinc-500 mt-0.5">本部の個別判断で停止</span>
+              </button>
+            </div>
+            <button
+              onClick={() => setShowReasonPicker(false)}
+              className="mt-4 w-full text-xs text-zinc-500 hover:text-zinc-700"
+            >
+              キャンセル
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -419,7 +517,7 @@ export function UserTable({ users, callerEmail, groupCompanies }: Props) {
                   {/* 状態 */}
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      <ActiveToggle userId={user.id} isActive={user.isActive} disabled={isSelf} />
+                      <ActiveToggle userId={user.id} isActive={user.isActive} suspendReason={user.suspendReason} disabled={isSelf} />
                       {user.suspendCount > 0 && (
                         <span className="text-[10px] text-red-400 font-medium" title="累計停止回数">
                           {user.suspendCount}回
