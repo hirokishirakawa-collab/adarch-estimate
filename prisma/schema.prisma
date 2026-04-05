@@ -101,6 +101,12 @@ enum BillingStatus {
   PAID // 入金済み
 }
 
+enum SuspendReason {
+  MONTHLY_REPORT // 月次報告未提出
+  ROYALTY_UNPAID // ロイヤリティ未払い
+  OTHER          // その他（手動）
+}
+
 enum InvoiceRequestStatus {
   DRAFT // 未提出
   SUBMITTED // 提出済
@@ -304,6 +310,7 @@ model User {
 
   isActive     Boolean @default(true) // 本部がアカウントを有効/無効管理
   suspendCount Int     @default(0) // 累計停止回数
+  suspendReason SuspendReason? // 停止理由（MONTHLY_REPORT / ROYALTY_UNPAID / OTHER）
 
   // ADMINが個別に許可するオプション機能（例: "cutsheet", "proposals"）
   enabledFeatures String[] @default([])

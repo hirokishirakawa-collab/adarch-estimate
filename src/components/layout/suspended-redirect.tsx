@@ -3,19 +3,30 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-/** 停止中のユーザーが月次報告以外のページにいる場合、月次報告ページへリダイレクト */
-const ALLOWED_PREFIXES = ["/dashboard/sales-report"];
+/** 停止中のユーザーを理由別にリダイレクト */
+const REPORT_ALLOWED = ["/dashboard/sales-report"];
+const ROYALTY_ALLOWED = ["/dashboard/suspended"];
 
-export function SuspendedRedirect() {
+export function SuspendedRedirect({ suspendReason }: { suspendReason: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    const isAllowed = ALLOWED_PREFIXES.some((p) => pathname.startsWith(p));
+    // ロイヤリティ未払い / その他は専用停止ページへ
+    if (suspendReason === "ROYALTY_UNPAID" || suspendReason === "OTHER") {
+      const isAllowed = ROYALTY_ALLOWED.some((p) => pathname.startsWith(p));
+      if (!isAllowed) {
+        router.replace("/dashboard/suspended");
+      }
+      return;
+    }
+
+    // 月次報告未提出（デフォルト）は報告フォームへ
+    const isAllowed = REPORT_ALLOWED.some((p) => pathname.startsWith(p));
     if (!isAllowed) {
       router.replace("/dashboard/sales-report/new?suspended=1");
     }
-  }, [pathname, router]);
+  }, [pathname, router, suspendReason]);
 
   return null;
 }

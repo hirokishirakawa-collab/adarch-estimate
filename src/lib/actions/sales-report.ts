@@ -63,10 +63,10 @@ export async function createRevenueReport(
           createdById: info.userId,
         },
       }),
-      // 月次報告提出でアカウント自動復帰
-      db.user.update({
-        where: { id: info.userId },
-        data: { isActive: true },
+      // 月次報告提出でアカウント自動復帰（ロイヤリティ未払い停止中は復帰しない）
+      db.user.updateMany({
+        where: { id: info.userId, suspendReason: { not: "ROYALTY_UNPAID" } },
+        data: { isActive: true, suspendReason: null },
       }),
     ]);
     logAudit({ action: "revenue_report_created", email: info.email, name: info.staffName, entity: "revenue_report", entityId: created.id, detail: `${targetMonthRaw} ${amount.toLocaleString()}円` });

@@ -18,6 +18,16 @@ export default async function DashboardLayout({
   const isActive = session.user?.isActive ?? true;
   const role = (session.user?.role ?? "USER") as UserRole;
 
+  // 停止理由を取得（非ADMIN・非アクティブのみ）
+  let suspendReason: string | null = null;
+  if (!isActive && role !== "ADMIN" && session.user?.email) {
+    const dbUser = await db.user.findUnique({
+      where: { email: session.user.email },
+      select: { suspendReason: true },
+    });
+    suspendReason = dbUser?.suspendReason ?? null;
+  }
+
   const user = {
     name: session.user?.name ?? null,
     email: session.user?.email ?? null,
@@ -58,7 +68,7 @@ export default async function DashboardLayout({
   return (
     <>
       <DashboardShell user={user} reportWarning={reportWarning} isActive={isActive}>
-        {!isActive && <SuspendedRedirect />}
+        {!isActive && <SuspendedRedirect suspendReason={suspendReason} />}
         {children}
       </DashboardShell>
       <ChatbotWidget />

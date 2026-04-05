@@ -206,9 +206,11 @@ export async function toggleFeature(
 
 // ---------------------------------------------------------------
 // アカウント停止/復活トグル（ADMIN 専用）
+// reason省略時は「OTHER」扱いで停止／復活時は reason クリア
 // ---------------------------------------------------------------
 export async function toggleUserActive(
   userId: string,
+  reason?: "MONTHLY_REPORT" | "ROYALTY_UNPAID" | "OTHER",
 ): Promise<{ error?: string; success?: boolean }> {
   const { callerEmail } = await requireAdmin();
 
@@ -226,7 +228,9 @@ export async function toggleUserActive(
       where: { id: userId },
       data: {
         isActive: newState,
-        ...(newState === false ? { suspendCount: { increment: 1 } } : {}),
+        ...(newState === false
+          ? { suspendCount: { increment: 1 }, suspendReason: reason ?? "OTHER" }
+          : { suspendReason: null }),
       },
     });
     logAudit({
@@ -234,7 +238,7 @@ export async function toggleUserActive(
       email: callerEmail,
       entity: "user",
       entityId: userId,
-      detail: `${user.email}: ${user.isActive ? "停止" : "復活"}`,
+      detail: `${user.email}: ${user.isActive ? "停止" : "復活"}${newState === false ? ` (理由: ${reason ?? "OTHER"})` : ""}`,
     });
   } catch (e) {
     console.error("[toggleUserActive] DB error:", e instanceof Error ? e.message : e);
