@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { TVerSimulator } from "@/components/tver/TVerSimulator";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
+import { MediaEligibilityBanner } from "@/components/learning/media-eligibility-banner";
 
 export const metadata = { title: "TVer広告シミュレーター" };
 
@@ -30,6 +31,7 @@ export default async function TVerSimulatorPage({
           <WikiHelpLink query="TVerシミュレーター" />
         </div>
       </div>
+      <MediaEligibilityBanner mediaType="TVER" />
       <TVerSimulator initialBudget={initialBudget} />
     </div>
   );

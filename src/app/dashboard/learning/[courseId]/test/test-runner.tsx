@@ -3,12 +3,14 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { submitTest } from "@/lib/actions/learning";
-import { ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight, CheckCircle, XCircle, Award, Trophy } from "lucide-react";
 
 interface Question {
   id: string;
   question: string;
   choices: string[];
+  explanation?: string | null;
 }
 
 interface Props {
@@ -76,7 +78,23 @@ export function TestRunner({ testId, courseId, questions, passingScore }: Props)
             </div>
           </div>
           <p className="text-xs text-white/60 mt-3">合格ライン: {passingScore}%</p>
+          {result.passed && (
+            <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur rounded-full">
+              <Award className="w-4 h-4 text-white" />
+              <span className="text-xs font-bold text-white">資格バッジを獲得しました</span>
+            </div>
+          )}
         </div>
+
+        {result.passed && (
+          <Link
+            href="/dashboard/learning/credentials"
+            className="flex items-center justify-center gap-2 w-full py-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm font-bold rounded-xl hover:bg-amber-100 transition-colors"
+          >
+            <Trophy className="w-4 h-4" />
+            取得資格を確認する
+          </Link>
+        )}
 
         {/* Review */}
         <div className="space-y-3">
@@ -110,6 +128,12 @@ export function TestRunner({ testId, courseId, questions, passingScore }: Props)
                     );
                   })}
                 </div>
+                {q.explanation && (
+                  <div className="mt-3 ml-6 p-2.5 bg-white/60 border border-zinc-200 rounded-lg">
+                    <p className="text-[11px] font-bold text-zinc-500 mb-0.5">💡 解説</p>
+                    <p className="text-xs text-zinc-700 leading-relaxed">{q.explanation}</p>
+                  </div>
+                )}
               </div>
             );
           })}

@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { SkylarkSimulator } from "@/components/skylark/SkylarkSimulator";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
+import { MediaEligibilityBanner } from "@/components/learning/media-eligibility-banner";
 
 export const metadata = { title: "すかいらーくインストア広告シミュレーター" };
 
@@ -23,6 +24,7 @@ export default async function SkylarkSimulatorPage() {
           <WikiHelpLink query="すかいらーく" />
         </div>
       </div>
+      <MediaEligibilityBanner mediaType="SKYLARK" />
       <SkylarkSimulator />
     </div>
   );

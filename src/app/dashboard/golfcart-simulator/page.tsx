@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Flag } from "lucide-react";
 import { GolfcartSimulator } from "@/components/golfcart/GolfcartSimulator";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
+import { MediaEligibilityBanner } from "@/components/learning/media-eligibility-banner";
 
 export const metadata = { title: "ゴルフカート広告シミュレーター（Golfcart Vision）" };
 
@@ -24,6 +25,7 @@ export default async function GolfcartSimulatorPage() {
           <WikiHelpLink query="ゴルフカート" />
         </div>
       </div>
+      <MediaEligibilityBanner mediaType="GOLF_CART" />
       <GolfcartSimulator />
     </div>
   );

@@ -28,6 +28,7 @@ export default async function TestPage({ params, searchParams }: PageProps) {
           id: true,
           question: true,
           choices: true,
+          explanation: true,
           sortOrder: true,
         },
       },
@@ -39,6 +40,7 @@ export default async function TestPage({ params, searchParams }: PageProps) {
     id: q.id,
     question: q.question,
     choices: JSON.parse(q.choices) as string[],
+    explanation: q.explanation,
   }));
 
   return (

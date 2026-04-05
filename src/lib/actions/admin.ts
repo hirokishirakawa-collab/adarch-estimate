@@ -205,6 +205,42 @@ export async function toggleFeature(
 }
 
 // ---------------------------------------------------------------
+// ラーニング資格免除トグル（ADMIN 専用）
+// 既存加盟者は免除、新規加盟者はテスト合格が必要
+// ---------------------------------------------------------------
+export async function toggleLearningExempt(
+  userId: string,
+): Promise<{ error?: string; success?: boolean }> {
+  const { callerEmail } = await requireAdmin();
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { learningExempt: true, email: true },
+  });
+  if (!user) return { error: "ユーザーが見つかりません" };
+
+  try {
+    await db.user.update({
+      where: { id: userId },
+      data: { learningExempt: !user.learningExempt },
+    });
+    logAudit({
+      action: "learning_exempt_toggled",
+      email: callerEmail,
+      entity: "user",
+      entityId: userId,
+      detail: `learningExempt: ${user.learningExempt ? "OFF" : "ON"} (${user.email})`,
+    });
+  } catch (e) {
+    console.error("[toggleLearningExempt] DB error:", e instanceof Error ? e.message : e);
+    return { error: "更新に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/admin/users");
+  return { success: true };
+}
+
+// ---------------------------------------------------------------
 // アカウント停止/復活トグル（ADMIN 専用）
 // reason省略時は「OTHER」扱いで停止／復活時は reason クリア
 // ---------------------------------------------------------------

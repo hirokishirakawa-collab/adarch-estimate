@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { UnivCoopSimulator } from "@/components/univ-coop/UnivCoopSimulator";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
+import { MediaEligibilityBanner } from "@/components/learning/media-eligibility-banner";
 
 export const metadata = { title: "大学生協広告シミュレーター" };
 
@@ -23,6 +24,7 @@ export default async function UnivCoopSimulatorPage() {
           <WikiHelpLink query="大学生協" />
         </div>
       </div>
+      <MediaEligibilityBanner mediaType="UNIVERSITY" />
       <UnivCoopSimulator />
     </div>
   );

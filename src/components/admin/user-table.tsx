@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Loader2, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
-import { updateUserRole, updateUserInfo, deleteUser, toggleFeature, toggleUserActive } from "@/lib/actions/admin";
+import { updateUserRole, updateUserInfo, deleteUser, toggleFeature, toggleUserActive, toggleLearningExempt } from "@/lib/actions/admin";
 import { BRANCH_MAP } from "@/lib/data/customers";
 
 // ---------------------------------------------------------------
@@ -22,6 +22,7 @@ type UserRow = {
   branchId2: string | null;
   groupCompanyId: string | null;
   enabledFeatures: string[];
+  learningExempt: boolean;
   createdAt: Date;
   branch:  { name: string } | null;
   branch2: { name: string } | null;
@@ -305,6 +306,37 @@ function FeatureToggle({
 }
 
 // ---------------------------------------------------------------
+// ラーニング資格免除トグル
+// ---------------------------------------------------------------
+function LearningExemptToggle({ userId, enabled }: { userId: string; enabled: boolean }) {
+  const [isPending, setIsPending] = useState(false);
+  const [isOn, setIsOn] = useState(enabled);
+
+  const handleToggle = async () => {
+    setIsPending(true);
+    const result = await toggleLearningExempt(userId);
+    if (result.success) setIsOn(!isOn);
+    setIsPending(false);
+  };
+
+  return (
+    <button
+      onClick={handleToggle}
+      disabled={isPending}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border transition-colors ${
+        isOn
+          ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+          : "bg-zinc-50 text-zinc-400 border-zinc-200 hover:bg-zinc-100"
+      } ${isPending ? "opacity-50" : ""}`}
+      title={`資格免除: ${isOn ? "ON（既存加盟者）" : "OFF（テスト合格必須）"}`}
+    >
+      {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : isOn ? "✓" : "−"}
+      資格免除
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------
 // アカウント停止/復活トグル（停止時は理由選択モーダル表示）
 // ---------------------------------------------------------------
 function ActiveToggle({
@@ -538,6 +570,7 @@ export function UserTable({ users, callerEmail, groupCompanies }: Props) {
                           enabled={user.enabledFeatures.includes(feat.id)}
                         />
                       ))}
+                      <LearningExemptToggle userId={user.id} enabled={user.learningExempt} />
                     </div>
                   </td>
 

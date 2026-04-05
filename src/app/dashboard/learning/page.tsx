@@ -67,6 +67,13 @@ export default async function LearningPage() {
             <p className="text-xs text-zinc-500">教材を学習してテストに合格すると、媒体の販売権限が付与されます</p>
           </div>
         </div>
+        <Link
+          href="/dashboard/learning/credentials"
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-lg transition-colors"
+        >
+          <Trophy className="w-3.5 h-3.5" />
+          取得資格
+        </Link>
       </div>
 
       {/* Stats */}

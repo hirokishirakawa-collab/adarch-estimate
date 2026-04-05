@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AeonCinemaSimulator } from "@/components/aeon-cinema/AeonCinemaSimulator";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
+import { MediaEligibilityBanner } from "@/components/learning/media-eligibility-banner";
 
 export const metadata = { title: "イオンシネマ広告シミュレーター" };
 
@@ -23,6 +24,7 @@ export default async function AeonCinemaSimulatorPage() {
           <WikiHelpLink query="イオンシネマ" />
         </div>
       </div>
+      <MediaEligibilityBanner mediaType="CINE_AD" />
       <AeonCinemaSimulator />
     </div>
   );

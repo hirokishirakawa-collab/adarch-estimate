@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Car } from "lucide-react";
 import { TaxiAdsSimulator } from "@/components/taxi/TaxiAdsSimulator";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
+import { MediaEligibilityBanner } from "@/components/learning/media-eligibility-banner";
 
 export const metadata = { title: "タクシー広告シミュレーター（TOKYO PRIME）" };
 
@@ -24,6 +25,7 @@ export default async function TaxiAdsSimulatorPage() {
           <WikiHelpLink query="タクシー広告シミュレーター" />
         </div>
       </div>
+      <MediaEligibilityBanner mediaType="TAXI" />
       <TaxiAdsSimulator />
     </div>
   );

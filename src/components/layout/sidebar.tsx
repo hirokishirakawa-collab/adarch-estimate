@@ -486,6 +486,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "ADMIN",
       },
       {
+        href: "/dashboard/admin/learning",
+        label: "ラーニング管理",
+        icon: GraduationCap,
+        minRole: "ADMIN",
+      },
+      {
         href: "/dashboard/login-logs",
         label: "操作ログ",
         icon: ClipboardList,
