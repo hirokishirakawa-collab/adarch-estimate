@@ -316,6 +316,39 @@ export async function updateDealStatus(
 }
 
 // ---------------------------------------------------------------
+// 受注の決め手を記録する（アーチくんのナレッジ学習用）
+// ---------------------------------------------------------------
+export async function updateDealClosingFactor(
+  dealId: string,
+  closingFactor: string
+): Promise<{ error?: string; success?: boolean }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role === "USER") return { error: "権限がありません" };
+
+  try {
+    await db.deal.update({
+      where: { id: dealId },
+      data: { closingFactor: closingFactor.trim() || null },
+    });
+    logAudit({
+      action: "deal_closing_factor_updated",
+      email: info.email,
+      name: info.staffName,
+      entity: "deal",
+      entityId: dealId,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[updateDealClosingFactor] DB error:", msg);
+    return { error: "保存に失敗しました" };
+  }
+
+  revalidatePath(`/dashboard/deals/${dealId}`);
+  return { success: true };
+}
+
+// ---------------------------------------------------------------
 // 商談を更新する
 // ---------------------------------------------------------------
 export async function updateDeal(

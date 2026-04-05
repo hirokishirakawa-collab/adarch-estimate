@@ -504,6 +504,8 @@ model Deal {
   expectedCloseDate DateTime? // 受注予定日
   closedAt          DateTime? // 実際の受注/失注日
   notes             String?    @db.Text // 商談メモ・経緯
+  // 受注時の決め手（AIアシスタントの成功事例学習に使用）
+  closingFactor     String?    @db.Text // 受注の決め手（文面・提案内容・関係性など）
 
   // ---- 担当者 --------------------------------------------------
   assignedToId String? // 主担当営業

@@ -9,6 +9,7 @@ import { DealLogTimeline } from "@/components/deals/deal-log-timeline";
 import { DealDeleteButton } from "@/components/deals/deal-delete-button";
 import { DealHearingSection } from "@/components/deals/deal-hearing-section";
 import { DealDecisionSection } from "@/components/deals/deal-decision-section";
+import { DealClosingFactorCard } from "@/components/deals/deal-closing-factor-card";
 import { WikiArticleContent } from "@/components/wiki/wiki-article-content";
 import {
   ChevronLeft,
@@ -178,6 +179,11 @@ export default async function DealDetailPage({ params }: PageProps) {
           )}
         </div>
       </div>
+
+      {/* ─── 受注の決め手（CLOSED_WONのみ） ─── */}
+      {deal.status === "CLOSED_WON" && (
+        <DealClosingFactorCard dealId={deal.id} initialValue={deal.closingFactor} />
+      )}
 
       {/* ─── 紐づくプロジェクト ─── */}
       {linkedProject && (

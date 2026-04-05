@@ -4,32 +4,45 @@ import { db } from "@/lib/db";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { searchWikiArticles, formatArticlesForPrompt } from "@/lib/wiki-search";
+import {
+  detectQueryIntent,
+  searchInternalKnowledge,
+  formatInternalSourcesForPrompt,
+} from "@/lib/internal-knowledge-search";
 
 export const runtime = "nodejs";
 
-const BASE_SYSTEM_PROMPT = `あなたは「Ad-Arch Group OS」のヘルプアシスタントです。
-ユーザーがシステムの使い方について質問したとき、以下に提供される**Wiki記事の内容を正解として**具体的な操作手順をわかりやすく回答してください。
+const BASE_SYSTEM_PROMPT = `あなたは「Ad-Arch Group OS」のヘルプ＆ナレッジアシスタント「アーチくん」です。
+ユーザーの質問に対して、以下の2種類の情報源を使い分けて回答します。
+
+## 情報源の使い分け
+
+1. **使い方・操作手順の質問** → Wiki記事を参照して回答
+2. **営業・事例・業務相談の質問** → グループ内のナレッジ（営業アプローチ事例・連携事例・受注実績）を参照して回答
 
 ## システム概要
 Ad-Arch Group OS は広告映像制作グループ「アドアーチ」の業務統合システムです。
 Google Workspace SSO でログインし、ロール（ADMIN/MANAGER/USER）に応じた機能を利用できます。
-左サイドバーから各機能にアクセスします。
-
-## 共通操作
-- グローバル検索: ⌘K（Mac）/ Ctrl+K（Windows）で全機能を横断検索
-- ログアウト: 左サイドバー下部のログアウトボタン
-- 各ページ右上の「〇〇の使い方」ボタンからWiki記事にすぐアクセス可能
 
 ## 回答のルール
-- **以下のWiki記事に書かれている内容を最優先の情報源として使用する**
-- Wiki記事に具体的な手順がある場合は、その手順を忠実に伝える
+
+### 全体
+- 以下に提供される情報を**最優先の正解データ**として使用する
+- 提供情報にない内容は推測で答えず、「社内ナレッジには未登録です」と正直に伝える
 - 箇条書きや番号付きリストを積極的に使う
 - ユーザーが今いるページ（currentPage）がある場合、そのページ文脈に沿って回答
-- 3〜8文程度で回答。長すぎず短すぎず
-- Wiki記事に該当する情報がない場合は、**「この機能の詳細はWikiに未登録です。/dashboard/wiki で検索してみてください」と正直に伝える**
-- 技術的な内部仕様（DB構造・API等）には答えない
-- 日本語で回答する。フレンドリーだが丁寧なトーンで
-- **回答の最後に関連するWiki記事へのリンクを必ず1つ以上含める**（例: 「詳細は [見積作成ツールの使い方](/dashboard/wiki?q=見積作成) を参照してください」）`;
+- 回答は簡潔に（3〜10文程度）
+- 日本語、フレンドリーだが丁寧なトーンで
+
+### 使い方系の質問の場合
+- Wiki記事の手順を忠実に伝える
+- 回答末尾に \`[記事タイトル](/dashboard/wiki?q=キーワード)\` 形式でリンクを含める
+
+### 営業・事例系の質問の場合
+- グループ内の実際の事例を**根拠として引用**する（「〇〇県の〇〇業種で〇〇という方法で成功しています」）
+- 投稿者名・所属・業種・結果など、**メタ情報も添えて具体性を出す**
+- 該当事例が少ない場合はその旨を正直に伝え、アプローチ事例集への投稿を促す
+- 回答末尾に関連機能へのリンクを含める（\`[アプローチ事例集](/dashboard/sales-approaches)\` など）`;
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -81,16 +94,39 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // --- Wiki記事を動的検索してsystem promptに注入 ---
+  // --- 質問タイプ判定 → 検索先を切り替え ---
+  const intent = detectQueryIntent(message.trim());
   const searchQuery = [message.trim(), pageLabel || ""].filter(Boolean).join(" ");
-  const wikiArticles = await searchWikiArticles(searchQuery, 5);
+
+  // Wiki記事は全タイプで検索（使い方系は必須、他は補助）
+  const wikiLimit = intent === "howto" || intent === "general" ? 5 : 2;
+  const wikiArticles = await searchWikiArticles(searchQuery, wikiLimit);
   const wikiContext = formatArticlesForPrompt(wikiArticles);
 
+  // 営業・事例系のときは社内ナレッジも検索
+  let internalSources: Awaited<ReturnType<typeof searchInternalKnowledge>> = [];
+  let internalContext = "";
+  if (intent === "business" || intent === "case_study" || intent === "general") {
+    internalSources = await searchInternalKnowledge(message.trim(), 8);
+    internalContext = formatInternalSourcesForPrompt(internalSources);
+  }
+
+  // system promptに動的注入
   let contextualPrompt = BASE_SYSTEM_PROMPT;
+  contextualPrompt += `\n\n---\n\n# 検出された質問タイプ: ${intent}\n`;
+
   if (wikiContext) {
-    contextualPrompt += `\n\n---\n\n# 関連Wiki記事（正解データ）\n\n${wikiContext}`;
-  } else {
-    contextualPrompt += `\n\n---\n\n# 関連Wiki記事\n\n該当する記事が見つかりませんでした。Wiki未登録の可能性があることをユーザーに伝えてください。`;
+    contextualPrompt += `\n\n# 関連Wiki記事\n\n${wikiContext}`;
+  }
+
+  if (internalContext) {
+    contextualPrompt += `\n\n---\n\n# 社内ナレッジ（グループ内の実例データ）\n\n**これらを根拠として引用し、具体的な成功パターンや事例を示してください。**\n\n${internalContext}`;
+  } else if (intent === "business" || intent === "case_study") {
+    contextualPrompt += `\n\n---\n\n# 社内ナレッジ\n\n該当する事例がまだ登録されていません。アプローチ事例集への投稿を促してください。\n投稿先: /dashboard/sales-approaches`;
+  }
+
+  if (!wikiContext && !internalContext) {
+    contextualPrompt += `\n\n参照可能な情報が見つかりませんでした。Wikiまたはアプローチ事例集への登録を促してください。`;
   }
 
   // ページコンテキストを追加
@@ -133,6 +169,10 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     reply: assistantContent,
     conversationId: conversation.id,
-    sources: wikiArticles.map((a) => ({ id: a.id, title: a.title })),
+    intent,
+    sources: {
+      wiki: wikiArticles.map((a) => ({ id: a.id, title: a.title })),
+      internal: internalSources.map((s) => ({ type: s.type, title: s.title })),
+    },
   });
 }
