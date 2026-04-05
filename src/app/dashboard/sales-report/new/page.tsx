@@ -52,8 +52,9 @@ export default async function NewSalesReportPage({
                 <>
                   <p className="text-sm font-bold text-red-800">月次未報告が2回目となりました</p>
                   <p className="text-xs text-red-700 mt-1.5 leading-relaxed">
-                    次回同様の状況が続いた際は、契約書第14条(5)「その他、パートナーとして事業継続が困難と判断される」
-                    に該当し、<strong>契約解除</strong>とさせていただきます。
+                    月次報告は契約書上の義務（毎月末日までに所定フォームにて提出）です。
+                    次回同様の状況が続いた際は、<strong>契約書第14条(1)「本契約への違反」</strong>
+                    に該当し、契約解除とさせていただきます。
                   </p>
                   <p className="text-xs text-red-600 mt-2">月次報告を提出すると、アクセスが回復します。</p>
                 </>
@@ -61,9 +62,9 @@ export default async function NewSalesReportPage({
                 <>
                   <p className="text-sm font-bold text-red-800">月次未報告が3回目となりました</p>
                   <p className="text-xs text-red-700 mt-1.5 leading-relaxed">
-                    契約書第14条(5)「その他、パートナーとして事業継続が困難と判断される」
-                    に該当するため、<strong>契約解除の対象</strong>となります。
-                    本部より別途ご連絡いたします。
+                    月次報告義務の継続的な不履行は、<strong>契約書第14条(1)「本契約への違反」</strong>
+                    に該当し、契約解除の事由となります。本件について本部より別途ご連絡いたします。
+                    状況のご事情がございましたら、速やかに本部までご共有ください。
                   </p>
                 </>
               )}
