@@ -466,35 +466,76 @@ export async function processNextJob(): Promise<boolean> {
       return true;
     }
 
-    // thanksページ遷移 or 成功メッセージの確認
-    const isSuccess =
-      afterUrl !== job.target.url || // URLが変わった（thanksページに遷移）
-      pageResponse?.includes("ありがとう") ||
-      pageResponse?.includes("thank") ||
-      pageResponse?.includes("sent") ||
-      pageResponse?.includes("完了");
+    // thanks/完了ページの判定（厳格）
+    const checkThanksPage = async (): Promise<{ isThanks: boolean; detail: string }> => {
+      const url = page.url();
+      const bodyText = await page.evaluate("document.body ? document.body.innerText : ''") as string;
+      const lowerText = bodyText.toLowerCase();
+      const lowerUrl = url.toLowerCase();
 
-    // 確認画面→最終送信の2段階フォーム対応
-    if (!isSuccess) {
+      // URLに thanks/complete/done 等が含まれる
+      const urlMatch =
+        lowerUrl.includes("thanks") ||
+        lowerUrl.includes("complete") ||
+        lowerUrl.includes("done") ||
+        lowerUrl.includes("finish") ||
+        lowerUrl.includes("success");
+
+      // ページ本文に完了メッセージ
+      const textMatch =
+        bodyText.includes("送信が完了") ||
+        bodyText.includes("送信完了") ||
+        bodyText.includes("受け付けました") ||
+        bodyText.includes("受付けました") ||
+        bodyText.includes("お問い合わせありがとう") ||
+        bodyText.includes("お問合せありがとう") ||
+        bodyText.includes("ありがとうございました") ||
+        bodyText.includes("自動返信") ||
+        lowerText.includes("thank you for") ||
+        lowerText.includes("has been sent") ||
+        lowerText.includes("successfully");
+
+      return { isThanks: urlMatch || textMatch, detail: urlMatch ? `URL: ${url}` : textMatch ? "完了メッセージ検出" : "未確認" };
+    };
+
+    let thanksCheck = await checkThanksPage();
+
+    // 初回クリック後にthanksページでなければ、確認画面の可能性あり → confirm ボタン試行
+    if (!thanksCheck.isThanks) {
       const confirmSubmitted = await clickConfirmButton(page);
       if (confirmSubmitted) {
         console.log(`[job-runner] 確認画面の送信ボタンをクリック: ${job.target.companyName}`);
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(5000);
+        thanksCheck = await checkThanksPage();
       }
     }
 
-    // 成功
-    await db.autoSalesJob.update({
-      where: { id: job.id },
-      data: {
-        status: "COMPLETED",
-        completedAt: new Date(),
-        filledData: filled,
-        screenshotUrl,
-        errorMessage: errors.length > 0 ? `入力警告: ${errors.join("; ")}` : null,
-      },
-    });
-    console.log(`[job-runner] 送信完了: ${job.target.companyName}`);
+    // thanks判定がtrueなら成功、falseなら送信不確実として記録
+    if (thanksCheck.isThanks) {
+      await db.autoSalesJob.update({
+        where: { id: job.id },
+        data: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+          filledData: filled,
+          screenshotUrl,
+          errorMessage: errors.length > 0 ? `入力警告: ${errors.join("; ")}` : null,
+        },
+      });
+      console.log(`[job-runner] 送信完了: ${job.target.companyName} (${thanksCheck.detail})`);
+    } else {
+      await db.autoSalesJob.update({
+        where: { id: job.id },
+        data: {
+          status: "FAILED",
+          completedAt: new Date(),
+          filledData: filled,
+          screenshotUrl,
+          errorMessage: "送信完了ページが確認できませんでした（未送信の可能性あり）",
+        },
+      });
+      console.log(`[job-runner] 送信不確実（FAILED扱い）: ${job.target.companyName}`);
+    }
     return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
