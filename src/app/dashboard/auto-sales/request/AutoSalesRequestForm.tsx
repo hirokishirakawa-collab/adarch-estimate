@@ -27,6 +27,7 @@ import {
   Star,
   Archive,
   ArchiveRestore,
+  Download,
 } from "lucide-react";
 
 const TARGET_TYPE_LABELS: Record<string, string> = {
@@ -566,14 +567,24 @@ function AddTargetSection({ onImportComplete }: { onImportComplete: () => void }
     <div className="space-y-6">
       {/* CSV Import Card */}
       <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
-        <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-zinc-50 to-white">
-          <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
-            <Upload className="w-5 h-5 text-blue-500" />
-            リード管理のCSVをインポート
-          </h2>
-          <p className="text-sm text-zinc-500 mt-1">
-            リード獲得AIで取得したCSVファイルをドロップまたは選択
-          </p>
+        <div className="p-6 border-b border-zinc-100 bg-gradient-to-r from-zinc-50 to-white flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+              <Upload className="w-5 h-5 text-blue-500" />
+              リード管理のCSVをインポート
+            </h2>
+            <p className="text-sm text-zinc-500 mt-1">
+              リード獲得AIで取得したCSVファイルをドロップまたは選択
+            </p>
+          </div>
+          <a
+            href="/api/leads/import/template"
+            download="lead_import_template.csv"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors whitespace-nowrap"
+          >
+            <Download className="w-3.5 h-3.5" />
+            CSVテンプレート
+          </a>
         </div>
 
         <div className="p-6">
