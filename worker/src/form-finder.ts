@@ -5,8 +5,11 @@ import { type Page } from "playwright";
  * 最終的にフォームがあるページのURLを返す。見つからなければnullを返す。
  */
 export async function findContactFormUrl(page: Page): Promise<string | null> {
+  console.log(`[form-finder] 開始 - 現在URL: ${page.url()}`);
+
   // Step 1: まずお問い合わせリンクがあるか探す（トップページの検索フォーム誤検出を防ぐ）
   const contactLink = await findContactLink(page);
+  console.log(`[form-finder] contactLink: ${contactLink ?? "見つからず"}`);
 
   // お問い合わせリンクがあれば、そちらに遷移
   if (contactLink) {
@@ -25,19 +28,25 @@ export async function findContactFormUrl(page: Page): Promise<string | null> {
 
     if (!isAlreadyContact && !isSameUrl) {
       try {
+        console.log(`[form-finder] ${contactLink} に遷移中...`);
         await page.goto(contactLink, { waitUntil: "domcontentloaded", timeout: 60000 });
         await page.waitForTimeout(2000);
-      } catch {
+        console.log(`[form-finder] 遷移完了: ${page.url()}`);
+      } catch (e) {
+        console.log(`[form-finder] 遷移失敗: ${e instanceof Error ? e.message : String(e)}`);
         return null;
       }
     }
 
-    if (await hasContactForm(page)) {
+    const hasForm = await hasContactForm(page);
+    console.log(`[form-finder] hasContactForm: ${hasForm}`);
+    if (hasForm) {
       return page.url();
     }
 
     // さらにフォームページへのリンクを探す（「フォームはこちら」等）
     const deeperUrl = await findDeeperFormLink(page);
+    console.log(`[form-finder] deeperUrl: ${deeperUrl ?? "なし"}`);
     if (deeperUrl) {
       try {
         await page.goto(deeperUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -53,7 +62,9 @@ export async function findContactFormUrl(page: Page): Promise<string | null> {
   }
 
   // お問い合わせリンクがなければ、現在のページにフォームがあるかチェック
-  if (await hasContactForm(page)) {
+  const hasForm = await hasContactForm(page);
+  console.log(`[form-finder] リンクなし、現在ページのフォーム: ${hasForm}`);
+  if (hasForm) {
     return page.url();
   }
 
