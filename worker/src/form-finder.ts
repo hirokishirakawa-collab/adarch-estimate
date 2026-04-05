@@ -18,7 +18,12 @@ export async function findContactFormUrl(page: Page): Promise<string | null> {
       currentUrl.includes("toiawase") ||
       currentUrl.includes("page_id=");
 
-    if (!isAlreadyContact) {
+    // リンク先が現在URLと同じなら遷移スキップ（同URL再遷移のエラー回避）
+    const isSameUrl =
+      contactLink.replace(/\/$/, "").toLowerCase() ===
+      page.url().replace(/\/$/, "").toLowerCase();
+
+    if (!isAlreadyContact && !isSameUrl) {
       try {
         await page.goto(contactLink, { waitUntil: "domcontentloaded", timeout: 60000 });
         await page.waitForTimeout(2000);
