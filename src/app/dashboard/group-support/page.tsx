@@ -9,6 +9,7 @@ import {
 } from "@/lib/constants/group-support";
 import type { WeeklyStatus } from "@/generated/prisma/client";
 import { GenerateReportButton } from "./GenerateReportButton";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 const STATUS_LIGHT: Record<
   WeeklyStatus,
@@ -65,6 +66,7 @@ export default async function GroupSupportPage() {
         <div>
           <h1 className="text-lg font-bold text-zinc-900">グループサポート</h1>
           <p className="text-xs text-zinc-500 mt-0.5">{weekId}</p>
+          <WikiHelpLink query="グループサポート" />
         </div>
         <div data-tour="support-report">
           <GenerateReportButton weekId={weekId} />

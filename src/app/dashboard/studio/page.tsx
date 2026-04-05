@@ -3,6 +3,7 @@ import { db as prisma } from "@/lib/db";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Palette, Users, Wand2, BarChart2, Plus, Play, BookOpen } from "lucide-react";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function StudioHome() {
   const session = await auth();
@@ -38,6 +39,7 @@ export default async function StudioHome() {
             Ad Arch Studio
           </h1>
           <p className="text-zinc-500 mt-1">SNS運用・制作ツール</p>
+          <WikiHelpLink query="Studio" />
         </div>
         <Link
           href="/dashboard/studio/clients/new"

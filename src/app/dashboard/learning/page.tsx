@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { GraduationCap, BookOpen, CheckCircle, Trophy, ChevronRight, Play, FileText, ClipboardCheck } from "lucide-react";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function LearningPage() {
   const session = await auth();
@@ -65,6 +66,7 @@ export default async function LearningPage() {
           <div>
             <h1 className="text-xl font-bold text-zinc-900">ラーニング</h1>
             <p className="text-xs text-zinc-500">教材を学習してテストに合格すると、媒体の販売権限が付与されます</p>
+            <WikiHelpLink query="ラーニング" />
           </div>
         </div>
         <Link

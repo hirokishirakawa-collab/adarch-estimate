@@ -5,6 +5,7 @@ import { getSalesApproaches, getSalesApproachStats } from "@/lib/actions/sales-a
 import { getResultOption, getMethodLabel, RESULT_OPTIONS, INDUSTRY_OPTIONS } from "@/lib/constants/sales-approach";
 import { DeleteButton } from "./delete-button";
 import { ExpandableText } from "./expandable-text";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 interface Props {
   searchParams: Promise<{ result?: string; industry?: string }>;
@@ -38,6 +39,7 @@ export default async function SalesApproachesPage({ searchParams }: Props) {
             <p className="text-xs text-zinc-500 mt-0.5">
               成功も失敗もグループの資産に — どんな文面でどう送ったか
             </p>
+            <WikiHelpLink query="アプローチ事例集" />
           </div>
         </div>
         <Link

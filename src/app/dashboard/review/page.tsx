@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import {
   Plus,
   Film,
@@ -63,6 +64,7 @@ export default async function ReviewListPage() {
           <p className="text-sm text-zinc-500 mt-0.5">
             修正前後の動画を自動解析し、変更点をバージョン管理します
           </p>
+          <WikiHelpLink query="映像チェッカー" />
         </div>
         <Link
           href="/dashboard/review/new"

@@ -7,6 +7,7 @@ import { ProfileCard } from "@/components/group-profiles/profile-card";
 import { GenreFilter } from "@/components/group-profiles/genre-filter";
 import { CollaborationBanner } from "@/components/group-profiles/collaboration-banner";
 import Link from "next/link";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 interface Props {
   searchParams: Promise<{ genre?: string }>;
@@ -42,6 +43,7 @@ export default async function GroupProfilesPage({ searchParams }: Props) {
             <p className="text-xs text-zinc-500 mt-0.5">
               グループ各社の代表者プロフィール
             </p>
+            <WikiHelpLink query="メンバー紹介" />
           </div>
         </div>
         {myCompany && (

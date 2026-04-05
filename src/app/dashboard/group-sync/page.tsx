@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Network, Plus } from "lucide-react";
 import { getCollaborationRequestList } from "@/lib/actions/group-sync";
 import { CollaborationTable } from "@/components/group-sync/collaboration-table";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function GroupSyncPage() {
   const { requests, role } = await getCollaborationRequestList();
@@ -20,6 +21,7 @@ export default async function GroupSyncPage() {
                 ? "全拠点のグループ連携依頼を管理します"
                 : "拠点間の連携依頼を申請・管理します"}
             </p>
+            <WikiHelpLink query="グループ連携依頼" />
           </div>
         </div>
 

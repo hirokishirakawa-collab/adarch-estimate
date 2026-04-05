@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { AutoSalesMonitor } from "./AutoSalesMonitor";
+import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function AutoSalesPage() {
   const session = await auth();
@@ -76,6 +77,7 @@ export default async function AutoSalesPage() {
           <p className="text-sm text-zinc-500 mt-1">
             フォーム営業の自動実行状況をリアルタイムで確認
           </p>
+          <WikiHelpLink query="自動営業モニター" />
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
