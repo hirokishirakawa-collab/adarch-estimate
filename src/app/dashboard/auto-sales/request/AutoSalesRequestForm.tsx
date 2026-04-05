@@ -1174,6 +1174,11 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
       senderName: fd.get("senderName"),
       phone: fd.get("phone"),
       email: fd.get("email"),
+      websiteUrl: fd.get("websiteUrl"),
+      position: fd.get("position"),
+      department: fd.get("department"),
+      address: fd.get("address"),
+      additionalInfo: fd.get("additionalInfo"),
       targetType: selectedTargetType,
       serviceTypes: selectedServices,
       pitchText: pitchTextValue || fd.get("pitchText"),
@@ -1267,6 +1272,79 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
             className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm bg-zinc-50 text-zinc-500 cursor-not-allowed"
           />
           <p className="text-xs text-zinc-400 mt-1.5">反響データ取得のため、全営業で統一アドレスから送付されます</p>
+        </div>
+      </div>
+
+      {/* 追加情報（任意） */}
+      <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">追加情報（任意）</span>
+          <span className="text-xs text-zinc-400">— フォームに書き込む署名・補足情報</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+              <Globe className="w-4 h-4 text-zinc-400" />
+              Webサイト
+            </label>
+            <input
+              name="websiteUrl"
+              type="url"
+              placeholder="例: https://www.adarch.co.jp"
+              className="w-full border border-zinc-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all placeholder:text-zinc-300 bg-white"
+            />
+          </div>
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+              <MapPin className="w-4 h-4 text-zinc-400" />
+              住所
+            </label>
+            <input
+              name="address"
+              placeholder="例: 東京都渋谷区..."
+              className="w-full border border-zinc-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all placeholder:text-zinc-300 bg-white"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+              <Building2 className="w-4 h-4 text-zinc-400" />
+              部署
+            </label>
+            <input
+              name="department"
+              placeholder="例: 営業部"
+              className="w-full border border-zinc-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all placeholder:text-zinc-300 bg-white"
+            />
+          </div>
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+              <User className="w-4 h-4 text-zinc-400" />
+              役職
+            </label>
+            <input
+              name="position"
+              placeholder="例: 代表取締役"
+              className="w-full border border-zinc-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all placeholder:text-zinc-300 bg-white"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+            <MessageSquare className="w-4 h-4 text-zinc-400" />
+            その他の情報
+          </label>
+          <textarea
+            name="additionalInfo"
+            rows={3}
+            placeholder="例: 返信時は以下のメールアドレスへお願いします。URL: ～"
+            className="w-full border border-zinc-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all placeholder:text-zinc-300 bg-white resize-none"
+          />
+          <p className="text-xs text-zinc-400 mt-1.5">フォームの備考欄や署名に含めたい情報を自由記述</p>
         </div>
       </div>
 

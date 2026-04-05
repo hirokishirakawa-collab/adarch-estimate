@@ -65,6 +65,11 @@ export async function POST(req: NextRequest) {
     senderName,
     phone,
     email,
+    websiteUrl,
+    position,
+    department,
+    address,
+    additionalInfo,
     targetType,
     serviceTypes,
     pitchText,
@@ -75,6 +80,11 @@ export async function POST(req: NextRequest) {
     senderName: string;
     phone?: string;
     email?: string;
+    websiteUrl?: string;
+    position?: string;
+    department?: string;
+    address?: string;
+    additionalInfo?: string;
     targetType: AutoSalesTargetType;
     serviceTypes: AutoSalesServiceType[];
     pitchText: string;
@@ -107,7 +117,21 @@ export async function POST(req: NextRequest) {
 
   // pitchTextをベースにフォーム送信用本文を生成
   const serviceText = serviceTypes.map((s: AutoSalesServiceType) => serviceLabels[s]).join("・");
-  const generatedBody = `${pitchText}\n\n【ご提案可能なサービス】\n${serviceText}\n\nご興味がございましたら、お気軽にご返信ください。\n\n${companyName}\n${senderName}${phone ? `\nTEL: ${phone}` : ""}${email ? `\nMail: ${email}` : ""}`;
+
+  // 署名ブロックを組み立て
+  const signatureLines: string[] = [];
+  signatureLines.push(companyName);
+  if (department) signatureLines.push(department);
+  if (position) signatureLines.push(`${position} ${senderName}`.trim());
+  else signatureLines.push(senderName);
+  if (address) signatureLines.push(address);
+  if (phone) signatureLines.push(`TEL: ${phone}`);
+  if (email) signatureLines.push(`Mail: ${email}`);
+  if (websiteUrl) signatureLines.push(`Web: ${websiteUrl}`);
+
+  const additionalBlock = additionalInfo ? `\n\n${additionalInfo}` : "";
+
+  const generatedBody = `${pitchText}\n\n【ご提案可能なサービス】\n${serviceText}\n\nご興味がございましたら、お気軽にご返信ください。${additionalBlock}\n\n---\n${signatureLines.join("\n")}`;
 
   const template = await db.autoSalesTemplate.create({
     data: {
@@ -117,6 +141,11 @@ export async function POST(req: NextRequest) {
       senderName,
       phone: phone || null,
       email: email || null,
+      websiteUrl: websiteUrl || null,
+      position: position || null,
+      department: department || null,
+      address: address || null,
+      additionalInfo: additionalInfo || null,
       targetType,
       serviceTypes,
       pitchText,

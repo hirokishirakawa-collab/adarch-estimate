@@ -2560,6 +2560,11 @@ model AutoSalesTemplate {
   senderName  String // 送信者名
   phone       String? // 電話番号
   email       String? // メールアドレス
+  websiteUrl  String? // Webサイト（署名用、例: https://www.adarch.co.jp）
+  position    String? // 役職
+  department  String? // 部署
+  address     String? // 住所
+  additionalInfo String? @db.Text // その他フォームに書き込む補足情報（自由記述）
 
   // 営業設定（パートナーが入力）
   targetType   AutoSalesTargetType // BtoB / BtoC
