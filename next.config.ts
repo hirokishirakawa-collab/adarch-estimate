@@ -55,8 +55,8 @@ const nextConfig: NextConfig = {
               // Sentry + Mux + Mux Data (litix.io) への送信を許可
               "connect-src 'self' blob: https://*.ingest.sentry.io https://*.mux.com https://*.production.mux.com https://inferred.litix.io https://*.litix.io",
               "font-src 'self'",
-              // 埋め込み動画（YouTube / Vimeo / Mux Player）を許可
-              "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://stream.mux.com",
+              // 埋め込み動画（YouTube / Vimeo / Mux Player / Google Drive）を許可
+              "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://stream.mux.com https://drive.google.com",
               // iframe で本サイトを埋め込まれない（X-Frame-Options と二重防御）
               "frame-ancestors 'none'",
               "object-src 'none'",
