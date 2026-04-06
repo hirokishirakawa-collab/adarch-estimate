@@ -940,11 +940,23 @@ export default function CreatorRegisterPage() {
                 <p className="text-red-200/80">
                   乙は、甲を通じて参加したプロジェクトの制作物・実績を、乙自身のポートフォリオ・営業資料・SNS等で使用することはできません。グループ実績の二次利用は固く禁止いたします。使用を希望する場合は、甲の書面による事前承諾を得る必要があります。
                 </p>
-                <p className="font-bold text-white/90">第4条（契約期間）</p>
+                <p className="font-bold text-red-300">第4条（虚偽申告・不正行為の禁止）</p>
+                <p className="text-red-200/80">
+                  乙は、登録情報・スキル・経歴・実績等について虚偽の申告を行ってはなりません。
+                  虚偽の情報に基づき案件に応募・参加し、クライアントまたは甲に損害が発生した場合、
+                  乙は以下のペナルティを負うものとします。
+                </p>
+                <ul className="text-red-200/80 ml-4 mt-1 space-y-1 text-sm list-disc">
+                  <li>当該案件の報酬の全額返還</li>
+                  <li>クライアントおよび甲に生じた損害の全額賠償</li>
+                  <li>アカウントの即時停止および永久追放</li>
+                  <li>悪質な場合は法的措置の対象</li>
+                </ul>
+                <p className="font-bold text-white/90 mt-3">第5条（契約期間）</p>
                 <p>
                   本契約は、乙の登録日から有効とし、乙が退会した後も5年間効力を有します。
                 </p>
-                <p className="font-bold text-white/90">第5条（損害賠償）</p>
+                <p className="font-bold text-white/90">第6条（損害賠償）</p>
                 <p>
                   乙が本契約に違反した場合、甲は乙に対して損害賠償を請求できるものとします。
                 </p>
@@ -966,12 +978,12 @@ export default function CreatorRegisterPage() {
               {/* グループ加盟の興味 */}
               <div className="mt-6 pt-5 border-t border-white/10">
                 <p className="text-sm text-white/70 mb-3">
-                  Ad Arch Group のパートナー（加盟店）としての活動にも興味はありますか？
+                  クリエイターとしてだけでなく、ご自身の拠点を持ち映像制作事業を経営することにも興味はありますか？
                 </p>
                 <div className="flex gap-3">
                   {[
-                    { value: true, label: "興味がある" },
-                    { value: false, label: "今はクリエイターとして登録のみ" },
+                    { value: true, label: "経営者としてグループ参画に興味がある" },
+                    { value: false, label: "まずはクリエイターとして登録" },
                   ].map((opt) => (
                     <button
                       key={String(opt.value)}
@@ -988,7 +1000,7 @@ export default function CreatorRegisterPage() {
                   ))}
                 </div>
                 <p className="text-white/30 text-xs mt-1.5">
-                  「興味がある」を選択された方には、後日パートナー制度のご案内をお送りする場合があります
+                  ご興味のある方には、後日グループ加盟制度のご案内をお送りする場合があります
                 </p>
               </div>
             </div>
