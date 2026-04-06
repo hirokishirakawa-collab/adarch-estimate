@@ -56,7 +56,7 @@ export default function RegisterCompletePage() {
             <li className="flex items-start gap-2">
               <span className="text-emerald-400 mt-0.5">2.</span>
               <span>
-                WebサイトURLをご登録いただいた場合、制作実績を自動解析中です
+                ご登録内容をスタッフが確認しています
               </span>
             </li>
             <li className="flex items-start gap-2">
