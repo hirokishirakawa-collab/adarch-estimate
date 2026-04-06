@@ -3,6 +3,10 @@
 import { db as prisma } from "@/lib/db";
 import { createHash } from "crypto";
 import { headers } from "next/headers";
+import {
+  sendCreatorWelcomeEmail,
+  sendCreatorRegistrationNotifyEmail,
+} from "@/lib/resend";
 
 type RegisterResult = {
   success: boolean;
@@ -167,6 +171,36 @@ export async function registerCreator(
 
       return c;
     });
+
+    // スキル名を取得（メール用）
+    const skillNames = skillsRaw
+      ? await Promise.all(
+          skillsRaw.split(",").filter(Boolean).map(async (s) => {
+            const catId = s.split(":")[0];
+            const cat = await prisma.skillCategory.findUnique({ where: { id: catId } });
+            return cat?.name || catId;
+          })
+        )
+      : [];
+
+    // メール送信（非同期、エラーでも登録は成功させる）
+    sendCreatorWelcomeEmail({
+      to: email,
+      name,
+      skills: skillNames,
+      prefecture,
+    }).catch((e) => console.error("Welcome email error:", e));
+
+    sendCreatorRegistrationNotifyEmail({
+      name,
+      email,
+      prefecture,
+      entityType,
+      skills: skillNames,
+      dayRate: dayRate ? parseInt(String(dayRate)) : null,
+      website: website || null,
+      creatorId: creator.id,
+    }).catch((e) => console.error("Notify email error:", e));
 
     return { success: true, creatorId: creator.id };
   } catch (e) {

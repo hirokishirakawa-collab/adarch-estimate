@@ -435,3 +435,185 @@ export async function sendProjectClosedEmail(payload: ProjectClosedPayload) {
     console.error("[resend:project-closed] 例外:", e instanceof Error ? e.message : e);
   }
 }
+
+// ---------------------------------------------------------------
+// クリエイター登録完了メール（クリエイター宛）
+// ---------------------------------------------------------------
+export async function sendCreatorWelcomeEmail(payload: {
+  to: string;
+  name: string;
+  skills: string[];
+  prefecture: string;
+}): Promise<void> {
+  const { to, name, skills, prefecture } = payload;
+  const subject = "【Ad Arch】クリエイター登録が完了しました";
+
+  const skillTags = skills
+    .map((s) => `<span style="display:inline-block;padding:3px 10px;background:#eef2ff;color:#4338ca;border-radius:20px;font-size:12px;margin:2px;">${escHtml(s)}</span>`)
+    .join(" ");
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:#0a0a14;padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.3px;">Ad Arch</span>
+            <span style="color:#a5b4fc;font-size:13px;margin-left:8px;">Creator Network</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 16px;font-size:14px;color:#3f3f46;">
+              ${escHtml(name)} さん
+            </p>
+            <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;line-height:1.7;">
+              クリエイターネットワークへのご登録ありがとうございます。<br>
+              ご登録内容を確認の上、プロジェクトのご相談をお送りいたします。
+            </p>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:20px;">
+              <tr>
+                <th style="${thStyle}">活動拠点</th>
+                <td style="${tdStyle}">${escHtml(prefecture)}</td>
+              </tr>
+              <tr>
+                <th style="${thStyle}">登録スキル</th>
+                <td style="padding:8px 12px;font-size:14px;border-bottom:1px solid #e4e4e7;">${skillTags}</td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 12px;font-size:13px;color:#71717a;line-height:1.6;">
+              ご不明点がございましたら、本メールへの返信にてお問い合わせください。
+            </p>
+
+            <hr style="border:none;border-top:1px solid #e4e4e7;margin:20px 0;" />
+            <p style="margin:0;font-size:11px;color:#a1a1aa;">
+              Ad Arch株式会社 Creator Network<br>
+              ※ 本メールはクリエイター登録時に自動送信されています。
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [to],
+      subject,
+      html,
+    });
+    if (error) {
+      console.error("[resend:creator-welcome] error:", error);
+    } else {
+      console.log(`[resend:creator-welcome] ✅ ${to} へ送信完了`);
+    }
+  } catch (e) {
+    console.error("[resend:creator-welcome] 例外:", e instanceof Error ? e.message : e);
+  }
+}
+
+// ---------------------------------------------------------------
+// クリエイター新規登録通知（ADMIN宛）
+// ---------------------------------------------------------------
+export async function sendCreatorRegistrationNotifyEmail(payload: {
+  name: string;
+  email: string;
+  prefecture: string;
+  entityType: string;
+  skills: string[];
+  dayRate: number | null;
+  website: string | null;
+  creatorId: string;
+}): Promise<void> {
+  const { name, email, prefecture, entityType, skills, dayRate, website, creatorId } = payload;
+  const adminTo = process.env.NOTIFICATION_EMAIL_TO || ADMIN_EMAIL;
+  const subject = `【クリエイター登録】${name}さんが新規登録しました`;
+  const detailUrl = appUrl(`/dashboard/creators/${creatorId}`);
+
+  const skillTags = skills
+    .map((s) => `<span style="display:inline-block;padding:3px 10px;background:#eef2ff;color:#4338ca;border-radius:20px;font-size:12px;margin:2px;">${escHtml(s)}</span>`)
+    .join(" ");
+
+  const rows = [
+    ["氏名", name],
+    ["メール", email],
+    ["区分", entityType === "corporation" ? "法人" : "個人"],
+    ["活動拠点", prefecture],
+    ["日額単価", dayRate ? `¥${dayRate.toLocaleString()}` : "未入力"],
+    ["Webサイト", website || "未入力"],
+  ]
+    .map(
+      ([label, value]) => `
+      <tr>
+        <th style="${thStyle}">${escHtml(label)}</th>
+        <td style="${tdStyle}">${escHtml(value)}</td>
+      </tr>`
+    )
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:#1d4ed8;padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;">Ad-Arch OS</span>
+            <span style="color:#bfdbfe;font-size:13px;margin-left:8px;">クリエイター新規登録</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;">
+              新しいクリエイターが登録しました。内容を確認してください。
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0"
+                   style="border-collapse:collapse;font-size:14px;">
+              ${rows}
+              <tr>
+                <th style="${thStyle}">スキル</th>
+                <td style="padding:8px 12px;font-size:14px;border-bottom:1px solid #e4e4e7;">${skillTags}</td>
+              </tr>
+            </table>
+            <div style="margin-top:24px;text-align:center;">
+              <a href="${detailUrl}"
+                 style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">
+                詳細を確認する
+              </a>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [adminTo],
+      subject,
+      html,
+    });
+    if (error) {
+      console.error("[resend:creator-notify] error:", error);
+    } else {
+      console.log(`[resend:creator-notify] ✅ ${adminTo} へ送信完了`);
+    }
+  } catch (e) {
+    console.error("[resend:creator-notify] 例外:", e instanceof Error ? e.message : e);
+  }
+}
