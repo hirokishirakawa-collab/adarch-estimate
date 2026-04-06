@@ -2759,6 +2759,7 @@ model Creator {
   ratings                CreatorRating[]
   analysis               CreatorAnalysis?
   consultationRecipients ConsultationRecipient[]
+  favorites              CreatorFavorite[]
 
   @@index([status])
   @@index([prefecture])
@@ -2832,6 +2833,7 @@ model CreatorRating {
   deadlineCompliance Int              // 納期遵守 1-5
   repeatIntention    RepeatIntention  // リピート意向 ◎○△×
   videoInterviewed   Boolean          @default(false) // TV会議面接実施済み
+  interviewedBy      String?          // 面接担当者名
   notes              String?          @db.Text
   ratedById          String           // 評価者のUser ID
 
@@ -2910,4 +2912,17 @@ model ConsultationRecipient {
   @@unique([consultationId, creatorId])
   @@index([creatorId])
   @@map("consultation_recipients")
+}
+
+/// お気に入りクリエイター（ユーザーごと）
+model CreatorFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, creatorId])
+  @@index([userId])
+  @@map("creator_favorites")
 }

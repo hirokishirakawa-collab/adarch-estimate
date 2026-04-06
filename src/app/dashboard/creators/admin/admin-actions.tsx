@@ -15,6 +15,7 @@ interface Props {
     deadlineCompliance: number;
     repeatIntention: string;
     videoInterviewed: boolean;
+    interviewedBy: string;
     notes: string;
   } | null;
 }
@@ -47,6 +48,9 @@ export function CreatorAdminActions({
   );
   const [videoInterviewed, setVideoInterviewed] = useState(
     latestRating?.videoInterviewed || false
+  );
+  const [interviewedBy, setInterviewedBy] = useState(
+    latestRating?.interviewedBy || ""
   );
   const [notes, setNotes] = useState(latestRating?.notes || "");
 
@@ -81,6 +85,7 @@ export function CreatorAdminActions({
         deadlineCompliance,
         repeatIntention,
         videoInterviewed,
+        interviewedBy,
         notes,
       });
       if (result.success) {
@@ -216,7 +221,7 @@ export function CreatorAdminActions({
 
         {/* TV会議面接 */}
         <div className="mb-4">
-          <label className="flex items-center gap-2 cursor-pointer">
+          <label className="flex items-center gap-2 cursor-pointer mb-2">
             <input
               type="checkbox"
               checked={videoInterviewed}
@@ -225,6 +230,15 @@ export function CreatorAdminActions({
             />
             <span className="text-sm text-zinc-700">TV会議面接 実施済み</span>
           </label>
+          {videoInterviewed && (
+            <input
+              type="text"
+              value={interviewedBy}
+              onChange={(e) => setInterviewedBy(e.target.value)}
+              placeholder="面接担当者名"
+              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          )}
         </div>
 
         {/* メモ */}

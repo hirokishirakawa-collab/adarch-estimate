@@ -10,12 +10,184 @@ import {
   Calendar,
   Wrench,
   ExternalLink,
+  Youtube,
+  Instagram,
+  Twitter,
+  Camera,
+  Tag,
+  DollarSign,
+  Building2,
+  Activity,
+  RefreshCw,
+  Image,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
+
+/* ---------- helper types for JSON fields ---------- */
+interface WorkItem {
+  title?: string;
+  category?: string;
+  clientScale?: string;
+  thumbnailUrl?: string;
+  url?: string;
+}
+
+interface SnsFollowers {
+  youtube?: number;
+  instagram?: number;
+  twitter?: number;
+  tiktok?: number;
+  facebook?: number;
+  [key: string]: number | undefined;
+}
+
+/* ---------- small presentational helpers ---------- */
+
+function ActivityScoreRing({ score }: { score: number }) {
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+  const color =
+    score >= 70
+      ? "text-emerald-500"
+      : score >= 40
+        ? "text-amber-500"
+        : "text-red-400";
+  const bgColor =
+    score >= 70
+      ? "stroke-emerald-100"
+      : score >= 40
+        ? "stroke-amber-100"
+        : "stroke-red-100";
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative w-28 h-28">
+        <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="none"
+            strokeWidth="8"
+            className={bgColor}
+          />
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="none"
+            strokeWidth="8"
+            strokeLinecap="round"
+            className={color}
+            style={{
+              stroke: "currentColor",
+              strokeDasharray: circumference,
+              strokeDashoffset: offset,
+              transition: "stroke-dashoffset 0.6s ease",
+            }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={`text-2xl font-bold ${color}`}>{score}</span>
+          <span className="text-[10px] text-zinc-400">/ 100</span>
+        </div>
+      </div>
+      <span className="mt-1 text-xs text-zinc-500 font-medium">
+        アクティビティ
+      </span>
+    </div>
+  );
+}
+
+function FreshnessIndicator({ date }: { date: Date }) {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  let color: string;
+  let label: string;
+  if (diffDays < 90) {
+    color = "bg-emerald-500";
+    label = "最近の活動";
+  } else if (diffDays < 365) {
+    color = "bg-amber-400";
+    label = `${Math.floor(diffDays / 30)}ヶ月前`;
+  } else {
+    color = "bg-red-400";
+    label = `${Math.floor(diffDays / 365)}年以上前`;
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`w-2 h-2 rounded-full ${color} shrink-0`} />
+      <span className="text-sm text-zinc-700">
+        {date.toLocaleDateString("ja-JP")}
+      </span>
+      <span className="text-xs text-zinc-400">({label})</span>
+    </div>
+  );
+}
+
+function formatFollowerCount(n: number): string {
+  if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
+const SNS_CONFIG: Record<
+  string,
+  { label: string; icon: typeof Youtube; color: string; bgColor: string }
+> = {
+  youtube: {
+    label: "YouTube",
+    icon: Youtube,
+    color: "text-red-600",
+    bgColor: "bg-red-50",
+  },
+  instagram: {
+    label: "Instagram",
+    icon: Instagram,
+    color: "text-pink-600",
+    bgColor: "bg-pink-50",
+  },
+  twitter: {
+    label: "X (Twitter)",
+    icon: Twitter,
+    color: "text-zinc-800",
+    bgColor: "bg-zinc-100",
+  },
+  tiktok: {
+    label: "TikTok",
+    icon: Activity,
+    color: "text-zinc-800",
+    bgColor: "bg-zinc-100",
+  },
+  facebook: {
+    label: "Facebook",
+    icon: Globe,
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+  },
+};
+
+const GENRE_COLORS = [
+  "bg-indigo-50 text-indigo-700 border-indigo-200",
+  "bg-violet-50 text-violet-700 border-violet-200",
+  "bg-sky-50 text-sky-700 border-sky-200",
+  "bg-teal-50 text-teal-700 border-teal-200",
+  "bg-rose-50 text-rose-700 border-rose-200",
+  "bg-amber-50 text-amber-700 border-amber-200",
+  "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200",
+];
+
+/* ================================================== */
 
 export default async function CreatorDetailPage({ params }: PageProps) {
   const { id } = await params;
@@ -55,11 +227,26 @@ export default async function CreatorDetailPage({ params }: PageProps) {
           creator.ratings.reduce(
             (sum, r) =>
               sum +
-              (r.personality + r.actualSkill + r.responseSpeed + r.deadlineCompliance) / 4,
+              (r.personality +
+                r.actualSkill +
+                r.responseSpeed +
+                r.deadlineCompliance) /
+                4,
             0
           ) / creator.ratings.length
         ).toFixed(1)
       : null;
+
+  /* --- analysis data --- */
+  const analysis = creator.analysis;
+  const hasAnalysis = analysis && analysis.scrapeStatus === "success";
+  const works = (hasAnalysis ? (analysis.works as WorkItem[]) : null) ?? [];
+  const snsFollowers = (
+    hasAnalysis ? (analysis.snsFollowers as SnsFollowers) : null
+  ) ?? {};
+  const snsEntries = Object.entries(snsFollowers).filter(
+    ([, v]) => v != null && v > 0
+  ) as [string, number][];
 
   return (
     <div className="px-6 py-6 max-w-screen-lg mx-auto w-full">
@@ -68,7 +255,7 @@ export default async function CreatorDetailPage({ params }: PageProps) {
         href="/dashboard/creators"
         className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors mb-4 inline-block"
       >
-        ← クリエイター一覧に戻る
+        &larr; クリエイター一覧に戻る
       </Link>
 
       {/* ヘッダー */}
@@ -132,7 +319,9 @@ export default async function CreatorDetailPage({ params }: PageProps) {
             >
               <Globe style={{ width: "0.875rem", height: "0.875rem" }} />
               <span>Webサイト</span>
-              <ExternalLink style={{ width: "0.625rem", height: "0.625rem" }} />
+              <ExternalLink
+                style={{ width: "0.625rem", height: "0.625rem" }}
+              />
             </a>
           )}
         </div>
@@ -213,60 +402,269 @@ export default async function CreatorDetailPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* AI分析結果 */}
-          {creator.analysis &&
-            creator.analysis.scrapeStatus === "success" && (
-              <div className="bg-white border border-zinc-200 rounded-xl p-5">
-                <h2 className="font-bold text-sm text-zinc-900 mb-3">
-                  AI分析結果
+          {/* ===== Webサイト分析（大幅強化） ===== */}
+          {hasAnalysis && (
+            <div className="bg-white border border-zinc-200 rounded-xl p-5 space-y-6">
+              {/* Section Header */}
+              <div className="flex items-center justify-between">
+                <h2 className="font-bold text-sm text-zinc-900 flex items-center gap-2">
+                  <Globe
+                    style={{ width: "0.875rem", height: "0.875rem" }}
+                    className="text-indigo-500"
+                  />
+                  Webサイト分析
                 </h2>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  {creator.analysis.genres.length > 0 && (
-                    <div>
-                      <p className="text-xs text-zinc-500 mb-1">制作ジャンル</p>
-                      <div className="flex flex-wrap gap-1">
-                        {creator.analysis.genres.map((g) => (
-                          <span
-                            key={g}
-                            className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs"
-                          >
-                            {g}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {creator.analysis.estimatedRate && (
-                    <div>
-                      <p className="text-xs text-zinc-500 mb-1">
-                        AI推定日額単価
-                      </p>
-                      <p className="font-bold text-zinc-900">
-                        ¥{creator.analysis.estimatedRate.toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                  {creator.analysis.clientScale && (
-                    <div>
-                      <p className="text-xs text-zinc-500 mb-1">
-                        クライアント規模感
-                      </p>
-                      <p className="text-zinc-700">
-                        {creator.analysis.clientScale}
-                      </p>
-                    </div>
-                  )}
-                  {creator.analysis.equipmentList.length > 0 && (
-                    <div>
-                      <p className="text-xs text-zinc-500 mb-1">検出機材</p>
-                      <p className="text-zinc-700">
-                        {creator.analysis.equipmentList.join(", ")}
-                      </p>
-                    </div>
-                  )}
-                </div>
+                {role === "ADMIN" && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 transition-colors"
+                  >
+                    <RefreshCw
+                      style={{ width: "0.75rem", height: "0.75rem" }}
+                    />
+                    Webサイトを再分析
+                  </button>
+                )}
               </div>
-            )}
+
+              {/* Row 1: Activity Score + Estimated Rate + Client Scale */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Activity Score */}
+                {analysis.activityScore != null && (
+                  <div className="flex justify-center py-2">
+                    <ActivityScoreRing score={analysis.activityScore} />
+                  </div>
+                )}
+
+                {/* Estimated Rate */}
+                {analysis.estimatedRate != null && (
+                  <div className="flex flex-col items-center justify-center rounded-xl bg-gradient-to-br from-zinc-50 to-zinc-100 p-4">
+                    <div className="flex items-center gap-1 mb-1">
+                      <DollarSign
+                        style={{ width: "0.875rem", height: "0.875rem" }}
+                        className="text-emerald-500"
+                      />
+                      <span className="text-xs text-zinc-500 font-medium">
+                        AI推定日額単価
+                      </span>
+                    </div>
+                    <p className="text-2xl font-bold text-zinc-900">
+                      &yen;{analysis.estimatedRate.toLocaleString()}
+                    </p>
+                    {analysis.priceRange && (
+                      <span className="mt-1.5 text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+                        {analysis.priceRange}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Client Scale */}
+                {analysis.clientScale && (
+                  <div className="flex flex-col items-center justify-center rounded-xl bg-gradient-to-br from-zinc-50 to-zinc-100 p-4">
+                    <div className="flex items-center gap-1 mb-1">
+                      <Building2
+                        style={{ width: "0.875rem", height: "0.875rem" }}
+                        className="text-blue-500"
+                      />
+                      <span className="text-xs text-zinc-500 font-medium">
+                        クライアント規模
+                      </span>
+                    </div>
+                    <span className="mt-1 text-sm px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-bold">
+                      {analysis.clientScale}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Row 2: Genres */}
+              {analysis.genres.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Tag
+                      style={{ width: "0.75rem", height: "0.75rem" }}
+                      className="text-violet-500"
+                    />
+                    <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wide">
+                      制作ジャンル
+                    </h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.genres.map((g, i) => (
+                      <span
+                        key={g}
+                        className={`px-3 py-1 rounded-full text-xs font-medium border ${GENRE_COLORS[i % GENRE_COLORS.length]}`}
+                      >
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Row 3: Equipment */}
+              {analysis.equipmentList.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Camera
+                      style={{ width: "0.75rem", height: "0.75rem" }}
+                      className="text-zinc-500"
+                    />
+                    <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wide">
+                      検出機材
+                    </h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.equipmentList.map((eq) => (
+                      <div
+                        key={eq}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-50 border border-zinc-200 text-xs text-zinc-700"
+                      >
+                        <Wrench
+                          style={{ width: "0.625rem", height: "0.625rem" }}
+                          className="text-zinc-400"
+                        />
+                        {eq}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Row 4: SNS Followers */}
+              {snsEntries.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wide mb-2">
+                    SNSフォロワー
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {snsEntries.map(([platform, count]) => {
+                      const cfg = SNS_CONFIG[platform] ?? {
+                        label: platform,
+                        icon: Globe,
+                        color: "text-zinc-600",
+                        bgColor: "bg-zinc-50",
+                      };
+                      const Icon = cfg.icon;
+                      return (
+                        <div
+                          key={platform}
+                          className={`flex items-center gap-3 p-3 rounded-xl ${cfg.bgColor} border border-zinc-100`}
+                        >
+                          <Icon
+                            className={`${cfg.color} shrink-0`}
+                            style={{ width: "1.25rem", height: "1.25rem" }}
+                          />
+                          <div>
+                            <p className="text-[10px] text-zinc-400 leading-none">
+                              {cfg.label}
+                            </p>
+                            <p className="text-sm font-bold text-zinc-900">
+                              {formatFollowerCount(count)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Row 5: Last Work Date */}
+              {analysis.lastWorkDate && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Clock
+                      style={{ width: "0.75rem", height: "0.75rem" }}
+                      className="text-zinc-500"
+                    />
+                    <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wide">
+                      最終更新日
+                    </h3>
+                  </div>
+                  <FreshnessIndicator
+                    date={new Date(analysis.lastWorkDate)}
+                  />
+                </div>
+              )}
+
+              {/* Row 6: Works Grid */}
+              {works.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <Image
+                      style={{ width: "0.75rem", height: "0.75rem" }}
+                      className="text-zinc-500"
+                    />
+                    <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wide">
+                      制作実績（{works.length}件）
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {works.map((w, i) => (
+                      <div
+                        key={`${w.title ?? ""}-${i}`}
+                        className="group rounded-xl border border-zinc-200 overflow-hidden hover:border-zinc-300 hover:shadow-sm transition-all"
+                      >
+                        {/* Thumbnail or placeholder */}
+                        {w.thumbnailUrl ? (
+                          <div className="relative h-32 bg-zinc-100 overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={w.thumbnailUrl}
+                              alt={w.title ?? ""}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-24 bg-gradient-to-br from-zinc-50 to-zinc-100 flex items-center justify-center">
+                            <Image
+                              style={{ width: "1.5rem", height: "1.5rem" }}
+                              className="text-zinc-300"
+                            />
+                          </div>
+                        )}
+                        <div className="p-3">
+                          <p className="text-sm font-medium text-zinc-800 truncate">
+                            {w.title ?? "無題"}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {w.category && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-medium">
+                                {w.category}
+                              </span>
+                            )}
+                            {w.clientScale && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
+                                {w.clientScale}
+                              </span>
+                            )}
+                          </div>
+                          {w.url && (
+                            <a
+                              href={w.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 mt-2 text-xs text-indigo-500 hover:text-indigo-700"
+                            >
+                              <ExternalLink
+                                style={{
+                                  width: "0.625rem",
+                                  height: "0.625rem",
+                                }}
+                              />
+                              詳細を見る
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 右カラム: サマリー */}
@@ -281,7 +679,7 @@ export default async function CreatorDetailPage({ params }: PageProps) {
                 <div className="flex justify-between">
                   <span className="text-zinc-500">日額単価</span>
                   <span className="font-bold text-zinc-900">
-                    ¥{creator.dayRate.toLocaleString()}
+                    &yen;{creator.dayRate.toLocaleString()}
                   </span>
                 </div>
               )}
@@ -289,7 +687,7 @@ export default async function CreatorDetailPage({ params }: PageProps) {
                 <div className="flex justify-between">
                   <span className="text-zinc-500">半日単価</span>
                   <span className="font-bold text-zinc-900">
-                    ¥{creator.halfDayRate.toLocaleString()}
+                    &yen;{creator.halfDayRate.toLocaleString()}
                   </span>
                 </div>
               )}
@@ -370,7 +768,7 @@ export default async function CreatorDetailPage({ params }: PageProps) {
                 href={`/dashboard/creators/admin?id=${creator.id}`}
                 className="block mt-3 text-center text-xs text-amber-700 hover:text-amber-900 font-medium"
               >
-                詳細を見る →
+                詳細を見る &rarr;
               </Link>
             </div>
           )}

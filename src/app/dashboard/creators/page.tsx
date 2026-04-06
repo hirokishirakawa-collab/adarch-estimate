@@ -1,7 +1,9 @@
 import { db } from "@/lib/db";
-import { Paintbrush, MapPin, Star } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { Paintbrush, MapPin, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { CreatorFilters } from "./creator-filters";
+import { FavoriteButton } from "./favorite-button";
 
 interface PageProps {
   searchParams: Promise<{
@@ -10,6 +12,8 @@ interface PageProps {
     skill?: string;
     sort?: string;
     page?: string;
+    fee?: string;
+    fav?: string;
   }>;
 }
 
@@ -21,8 +25,21 @@ export default async function CreatorsPage({ searchParams }: PageProps) {
   const prefectureFilter = params.prefecture || "";
   const skillFilter = params.skill || "";
   const sortParam = params.sort || "newest";
+  const feeFilter = params.fee || "";
+  const favOnly = params.fav === "1";
   const currentPage = parseInt(params.page || "1");
   const skip = (currentPage - 1) * PER_PAGE;
+
+  // お気に入り取得
+  const session = await auth();
+  const userId = session?.user?.id;
+  const favorites = userId
+    ? await db.creatorFavorite.findMany({
+        where: { userId },
+        select: { creatorId: true },
+      })
+    : [];
+  const favoriteIds = new Set(favorites.map((f) => f.creatorId));
 
   // WHERE句構築
   const where: Record<string, unknown> = {
@@ -49,6 +66,24 @@ export default async function CreatorsPage({ searchParams }: PageProps) {
 
   if (skillFilter) {
     where.skills = { some: { categoryId: skillFilter } };
+  }
+
+  // 単価帯フィルタ
+  if (feeFilter === "~20000") {
+    where.dayRate = { lte: 20000 };
+  } else if (feeFilter === "20000~40000") {
+    where.dayRate = { gte: 20000, lte: 40000 };
+  } else if (feeFilter === "40000~60000") {
+    where.dayRate = { gte: 40000, lte: 60000 };
+  } else if (feeFilter === "60000~") {
+    where.dayRate = { gte: 60000 };
+  }
+
+  // お気に入りのみフィルタ
+  if (favOnly && favoriteIds.size > 0) {
+    where.id = { in: Array.from(favoriteIds) };
+  } else if (favOnly && favoriteIds.size === 0) {
+    where.id = { in: [] };
   }
 
   // ソート
@@ -83,8 +118,36 @@ export default async function CreatorsPage({ searchParams }: PageProps) {
   const totalAll = await db.creator.count({ where: { status: "ACTIVE" } });
   const totalPages = Math.ceil(total / PER_PAGE);
 
+  // ページネーション用のパラメータ構築
+  const paginationParams = {
+    ...(q && { q }),
+    ...(prefectureFilter && { prefecture: prefectureFilter }),
+    ...(skillFilter && { skill: skillFilter }),
+    ...(feeFilter && { fee: feeFilter }),
+    ...(sortParam !== "newest" && { sort: sortParam }),
+    ...(favOnly && { fav: "1" }),
+  };
+
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
+      {/* クリエイター登録LP バナー */}
+      <a
+        href="https://creators.adarch.co.jp"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-between bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl px-5 py-3 mb-6 hover:from-indigo-700 hover:to-violet-700 transition-all shadow-sm"
+      >
+        <div>
+          <p className="text-sm font-bold">
+            クリエイター募集中
+          </p>
+          <p className="text-xs text-indigo-200 mt-0.5">
+            creators.adarch.co.jp からクリエイター登録ができます
+          </p>
+        </div>
+        <ExternalLink style={{ width: "1rem", height: "1rem" }} className="text-indigo-200 flex-shrink-0" />
+      </a>
+
       {/* ヘッダー */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center">
@@ -137,81 +200,93 @@ export default async function CreatorsPage({ searchParams }: PageProps) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
           {creators.map((c) => (
-            <Link
+            <div
               key={c.id}
-              href={`/dashboard/creators/${c.id}`}
-              className="block bg-white border border-zinc-200 rounded-xl p-5 hover:border-zinc-300 hover:shadow-sm transition-all"
+              className="relative bg-white border border-zinc-200 rounded-xl p-5 hover:border-zinc-300 hover:shadow-sm transition-all"
             >
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-bold text-sm text-zinc-900">{c.name}</h3>
-                  {c.companyName && (
-                    <p className="text-xs text-zinc-400">{c.companyName}</p>
+              {/* お気に入りボタン（右上） */}
+              <div className="absolute top-3 right-3 z-10">
+                <FavoriteButton
+                  creatorId={c.id}
+                  isFavorite={favoriteIds.has(c.id)}
+                />
+              </div>
+
+              <Link
+                href={`/dashboard/creators/${c.id}`}
+                className="block"
+              >
+                <div className="flex items-start justify-between mb-3 pr-8">
+                  <div>
+                    <h3 className="font-bold text-sm text-zinc-900">{c.name}</h3>
+                    {c.companyName && (
+                      <p className="text-xs text-zinc-400">{c.companyName}</p>
+                    )}
+                  </div>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
+                    {c.entityType === "corporation" ? "法人" : "個人"}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs text-zinc-500 mb-3">
+                  <MapPin style={{ width: "0.75rem", height: "0.75rem" }} />
+                  <span>
+                    {c.prefecture}
+                    {c.city ? ` ${c.city}` : ""}
+                  </span>
+                  {c.yearsOfExp && (
+                    <>
+                      <span className="text-zinc-300 mx-1">|</span>
+                      <span>経験{c.yearsOfExp}年</span>
+                    </>
                   )}
                 </div>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
-                  {c.entityType === "corporation" ? "法人" : "個人"}
-                </span>
-              </div>
 
-              <div className="flex items-center gap-1.5 text-xs text-zinc-500 mb-3">
-                <MapPin style={{ width: "0.75rem", height: "0.75rem" }} />
-                <span>
-                  {c.prefecture}
-                  {c.city ? ` ${c.city}` : ""}
-                </span>
-                {c.yearsOfExp && (
-                  <>
-                    <span className="text-zinc-300 mx-1">|</span>
-                    <span>経験{c.yearsOfExp}年</span>
-                  </>
-                )}
-              </div>
-
-              {/* スキルタグ */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {c.skills.slice(0, 4).map((s) => (
-                  <span
-                    key={s.id}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-medium"
-                  >
-                    {s.category.name}
-                    <span className="text-indigo-400">
-                      {s.level === "EXPERT"
-                        ? "★"
-                        : s.level === "ADVANCED"
-                          ? "◆"
-                          : s.level === "INTERMEDIATE"
-                            ? "●"
-                            : "○"}
+                {/* スキルタグ */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {c.skills.slice(0, 4).map((s) => (
+                    <span
+                      key={s.id}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-medium"
+                    >
+                      {s.category.name}
+                      <span className="text-indigo-400">
+                        {s.level === "EXPERT"
+                          ? "★"
+                          : s.level === "ADVANCED"
+                            ? "◆"
+                            : s.level === "INTERMEDIATE"
+                              ? "●"
+                              : "○"}
+                      </span>
                     </span>
-                  </span>
-                ))}
-                {c.skills.length > 4 && (
-                  <span className="text-[10px] text-zinc-400">
-                    +{c.skills.length - 4}
-                  </span>
-                )}
-              </div>
-
-              {/* 単価・稼働 */}
-              <div className="flex items-center gap-3 text-xs text-zinc-500">
-                {c.dayRate && (
-                  <span>
-                    日額{" "}
-                    <span className="font-bold text-zinc-700">
-                      ¥{c.dayRate.toLocaleString()}
+                  ))}
+                  {c.skills.length > 4 && (
+                    <span className="text-[10px] text-zinc-400">
+                      +{c.skills.length - 4}
                     </span>
-                  </span>
-                )}
-                {c.availability && <span>月{c.availability}日稼働可</span>}
-                {c._count.portfolios > 0 && (
-                  <span className="text-zinc-400">
-                    実績{c._count.portfolios}件
-                  </span>
-                )}
-              </div>
-            </Link>
+                  )}
+                </div>
+
+                {/* 単価・稼働 */}
+                <div className="flex items-center gap-3 text-xs text-zinc-500">
+                  {c.dayRate && (
+                    <span>
+                      日額{" "}
+                      <span className="font-bold text-zinc-700">
+                        ¥{c.dayRate.toLocaleString()}
+                      </span>
+                    </span>
+                  )}
+                  {c.availability && <span>月{c.availability}日稼働可</span>}
+                  {c._count.portfolios > 0 && (
+                    <span className="text-zinc-400">
+                      実績{c._count.portfolios}件
+                    </span>
+                  )}
+                </div>
+              </Link>
+            </div>
           ))}
         </div>
       )}
@@ -223,10 +298,7 @@ export default async function CreatorsPage({ searchParams }: PageProps) {
             <Link
               key={p}
               href={`/dashboard/creators?${new URLSearchParams({
-                ...(q && { q }),
-                ...(prefectureFilter && { prefecture: prefectureFilter }),
-                ...(skillFilter && { skill: skillFilter }),
-                ...(sortParam !== "newest" && { sort: sortParam }),
+                ...paginationParams,
                 page: String(p),
               }).toString()}`}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${

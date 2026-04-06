@@ -36,6 +36,7 @@ export async function upsertCreatorRating(data: {
   deadlineCompliance: number;
   repeatIntention: string;
   videoInterviewed: boolean;
+  interviewedBy: string;
   notes: string;
 }): Promise<{ success: boolean; error?: string }> {
   const session = await auth();
@@ -53,6 +54,7 @@ export async function upsertCreatorRating(data: {
         deadlineCompliance: data.deadlineCompliance,
         repeatIntention: data.repeatIntention as "EXCELLENT" | "GOOD" | "FAIR" | "POOR",
         videoInterviewed: data.videoInterviewed,
+        interviewedBy: data.interviewedBy || null,
         notes: data.notes || null,
       },
     });

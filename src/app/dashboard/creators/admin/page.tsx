@@ -184,6 +184,7 @@ export default async function CreatorAdminPage({ searchParams }: PageProps) {
                         deadlineCompliance: selected.ratings[0].deadlineCompliance,
                         repeatIntention: selected.ratings[0].repeatIntention,
                         videoInterviewed: selected.ratings[0].videoInterviewed,
+                        interviewedBy: selected.ratings[0].interviewedBy || "",
                         notes: selected.ratings[0].notes || "",
                       }
                     : null
@@ -242,7 +243,7 @@ export default async function CreatorAdminPage({ searchParams }: PageProps) {
                         </div>
                         <div className="flex items-center gap-3 text-xs text-zinc-400">
                           <span>
-                            面接: {r.videoInterviewed ? "実施済み" : "未実施"}
+                            面接: {r.videoInterviewed ? `実施済み${r.interviewedBy ? `（${r.interviewedBy}）` : ""}` : "未実施"}
                           </span>
                           <span>
                             {new Date(r.createdAt).toLocaleDateString("ja-JP")}

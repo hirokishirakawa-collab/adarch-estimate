@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { Star } from "lucide-react";
 
 interface Props {
   skillCategories: { id: string; name: string }[];
@@ -18,6 +19,19 @@ export function CreatorFilters({ skillCategories, prefectures }: Props) {
       params.set(key, value);
     } else {
       params.delete(key);
+    }
+    params.delete("page");
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const isFavOnly = searchParams.get("fav") === "1";
+
+  const toggleFav = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (isFavOnly) {
+      params.delete("fav");
+    } else {
+      params.set("fav", "1");
     }
     params.delete("page");
     router.push(`${pathname}?${params.toString()}`);
@@ -71,6 +85,19 @@ export function CreatorFilters({ skillCategories, prefectures }: Props) {
         ))}
       </select>
 
+      {/* 単価帯 */}
+      <select
+        value={searchParams.get("fee") || ""}
+        onChange={(e) => updateParam("fee", e.target.value)}
+        className={selectClass}
+      >
+        <option value="">全単価帯</option>
+        <option value="~20000">~¥20,000</option>
+        <option value="20000~40000">¥20,000~¥40,000</option>
+        <option value="40000~60000">¥40,000~¥60,000</option>
+        <option value="60000~">¥60,000~</option>
+      </select>
+
       {/* ソート */}
       <select
         value={searchParams.get("sort") || "newest"}
@@ -83,6 +110,22 @@ export function CreatorFilters({ skillCategories, prefectures }: Props) {
         <option value="rate_desc">単価 高い順</option>
         <option value="exp_desc">経験年数 多い順</option>
       </select>
+
+      {/* お気に入りのみ */}
+      <button
+        onClick={toggleFav}
+        className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-colors ${
+          isFavOnly
+            ? "bg-amber-50 border-amber-300 text-amber-700"
+            : "bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300"
+        }`}
+      >
+        <Star
+          style={{ width: "0.875rem", height: "0.875rem" }}
+          className={isFavOnly ? "fill-amber-400 text-amber-400" : ""}
+        />
+        お気に入りのみ
+      </button>
     </div>
   );
 }
