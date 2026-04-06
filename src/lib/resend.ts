@@ -31,7 +31,7 @@ function getGmailTransport(): nodemailer.Transporter | null {
   return _gmailTransport;
 }
 
-const FROM_ADDRESS = `Ad-Arch OS <${process.env.GMAIL_USER || "noreply@adarch.co.jp"}>`;
+const FROM_ADDRESS = "Ad-Arch OS <info@adarch.co.jp>";
 const ADMIN_EMAIL  = "system@adarch.co.jp";
 
 /** Gmail SMTP優先、失敗時Resendフォールバック */
