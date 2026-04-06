@@ -62,7 +62,7 @@ export function CreatorAdminActions({
     startTransition(async () => {
       const result = await updateCreatorStatus(creatorId, newStatus);
       if (result.success) {
-        setMessage("ステータスを更��しました");
+        setMessage("ステータスを更新しました");
         router.refresh();
       } else {
         setMessage(result.error || "エラーが発生しました");
@@ -84,7 +84,7 @@ export function CreatorAdminActions({
         notes,
       });
       if (result.success) {
-        setMessage("評価を保存��ました");
+        setMessage("評価を保存しました");
         router.refresh();
       } else {
         setMessage(result.error || "エラーが発生しました");
@@ -124,7 +124,7 @@ export function CreatorAdminActions({
 
       {/* ステータス管理 */}
       <div className="bg-white border border-zinc-200 rounded-xl p-5">
-        <h3 className="font-bold text-sm text-zinc-900 mb-3">ステ���タス管理</h3>
+        <h3 className="font-bold text-sm text-zinc-900 mb-3">ステータス管理</h3>
         <div className="flex flex-wrap gap-2">
           {STATUS_OPTIONS.map((opt) => (
             <button
@@ -159,7 +159,7 @@ export function CreatorAdminActions({
         </div>
       </div>
 
-      {/* 裏評価フォ���ム */}
+      {/* 裏評価フォーム */}
       <div className="bg-white border border-zinc-200 rounded-xl p-5">
         <h3 className="font-bold text-sm text-zinc-900 mb-4">裏評価</h3>
 
