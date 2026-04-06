@@ -348,7 +348,7 @@ export default async function CreatorDetailPage({ params }: PageProps) {
                 <div className="flex justify-between">
                   <span className="text-amber-700">総合評価</span>
                   <span className="font-bold text-amber-900">
-                    {avgRating} / 5.0
+                    {avgRating} / 10.0
                   </span>
                 </div>
                 <div className="flex justify-between">

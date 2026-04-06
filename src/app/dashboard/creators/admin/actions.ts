@@ -63,3 +63,21 @@ export async function upsertCreatorRating(data: {
     return { success: false, error: "評価の保存に失敗しました" };
   }
 }
+
+export async function deleteCreator(
+  creatorId: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await auth();
+  const role = (session?.user?.role ?? "USER") as UserRole;
+  if (role !== "ADMIN") return { success: false, error: "権限がありません" };
+
+  try {
+    // Cascade削除（skills, portfolios, nda, ratings, analysis, consultationRecipients）
+    await db.creator.delete({ where: { id: creatorId } });
+    revalidatePath("/dashboard/creators");
+    return { success: true };
+  } catch (e) {
+    console.error("Delete creator error:", e);
+    return { success: false, error: "削除に失敗しました" };
+  }
+}
