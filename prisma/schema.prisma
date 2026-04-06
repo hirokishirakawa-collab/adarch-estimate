@@ -2741,6 +2741,8 @@ model Creator {
   halfDayRate  Int?          // 半日単価（円）
   availability Int?          // 月間稼働可能日数
   equipment    String?       @db.Text // 所有機材（自由記述）
+  interestedInPartnership Boolean @default(false) // グループ加盟への興味
+  emailVerified Boolean     @default(false) // メール認証済みか
   status       CreatorStatus @default(ACTIVE)
 
   // OTP認証用

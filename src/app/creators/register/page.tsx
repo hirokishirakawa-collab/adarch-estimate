@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { registerCreator } from "./actions";
+import { registerCreator, sendVerificationCode, verifyCode } from "./actions";
 
 // 都道府県リスト
 const PREFECTURES = [
@@ -43,6 +43,9 @@ export default function CreatorRegisterPage() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [agreed, setAgreed] = useState(false); // 事前同意
+  const [emailVerified, setEmailVerified] = useState(false); // メール認証済み
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");
 
@@ -63,6 +66,7 @@ export default function CreatorRegisterPage() {
   const [equipment, setEquipment] = useState("");
   const [entityType, setEntityType] = useState<"individual" | "corporation">("individual");
   const [hasBusinessRegistration, setHasBusinessRegistration] = useState<"yes" | "no" | "">("");
+  const [interestedInPartnership, setInterestedInPartnership] = useState(false);
 
   // Step 2: スキル
   const [skills, setSkills] = useState<SkillEntry[]>([]);
@@ -118,6 +122,7 @@ export default function CreatorRegisterPage() {
     if (s === 1) {
       if (!name) { setError("氏名を入力してください"); return false; }
       if (!email) { setError("メールアドレスを入力してください"); return false; }
+      if (!emailVerified) { setError("メール認証を完了してください"); return false; }
       if (!prefecture) { setError("活動拠点を選択してください"); return false; }
     }
     if (s === 2 && skills.length === 0) {
@@ -159,6 +164,7 @@ export default function CreatorRegisterPage() {
     formData.set("equipment", equipment);
     formData.set("entityType", entityType);
     formData.set("hasBusinessRegistration", hasBusinessRegistration);
+    formData.set("interestedInPartnership", interestedInPartnership ? "true" : "false");
     formData.set("ndaAgreed", "true");
 
     const skillsStr = skills
@@ -652,6 +658,78 @@ export default function CreatorRegisterPage() {
 
               <Field label="メールアドレス" required>
                 <Input value={email} onChange={setEmail} type="email" placeholder="you@example.com" />
+                {!emailVerified ? (
+                  <div className="mt-2 space-y-2">
+                    {!verificationSent ? (
+                      <button
+                        type="button"
+                        disabled={isPending || !email || !name}
+                        onClick={() => {
+                          setError("");
+                          startTransition(async () => {
+                            const result = await sendVerificationCode(email, name);
+                            if (result.success) {
+                              setVerificationSent(true);
+                            } else {
+                              setError(result.error || "送信に失敗しました");
+                            }
+                          });
+                        }}
+                        className="px-4 py-2 rounded-lg bg-indigo-500/20 border border-indigo-400/50 text-indigo-300 text-xs font-medium hover:bg-indigo-500/30 transition-all disabled:opacity-30"
+                      >
+                        {isPending ? "送信中..." : "認証コードを送信"}
+                      </button>
+                    ) : (
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={verificationCode}
+                          onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="6桁のコード"
+                          maxLength={6}
+                          className="w-32 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-center text-lg tracking-widest placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        />
+                        <button
+                          type="button"
+                          disabled={isPending || verificationCode.length !== 6}
+                          onClick={() => {
+                            setError("");
+                            startTransition(async () => {
+                              const result = await verifyCode(email, verificationCode);
+                              if (result.success) {
+                                setEmailVerified(true);
+                              } else {
+                                setError(result.error || "認証に失敗しました");
+                              }
+                            });
+                          }}
+                          className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-xs font-medium hover:bg-indigo-400 transition-all disabled:opacity-30"
+                        >
+                          {isPending ? "確認中..." : "確認"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVerificationSent(false);
+                            setVerificationCode("");
+                          }}
+                          className="text-xs text-white/30 hover:text-white/50"
+                        >
+                          再送信
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-white/30 text-xs">
+                      {verificationSent
+                        ? "入力されたメールアドレスに認証コードを送信しました"
+                        : "氏名とメールアドレスを入力後、認証コードを送信してください"}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-emerald-400 text-xs flex items-center gap-1">
+                    <span>✓</span> メール認証済み
+                  </p>
+                )}
               </Field>
 
               <Field label="電話番号">
@@ -893,6 +971,35 @@ export default function CreatorRegisterPage() {
                   グループ実績を自身のポートフォリオ等で使用しないことに同意します。
                 </span>
               </label>
+
+              {/* グループ加盟の興味 */}
+              <div className="mt-6 pt-5 border-t border-white/10">
+                <p className="text-sm text-white/70 mb-3">
+                  Ad Arch Group のパートナー（加盟店）としての活動にも興味はありますか？
+                </p>
+                <div className="flex gap-3">
+                  {[
+                    { value: true, label: "興味がある" },
+                    { value: false, label: "今はクリエイターとして登録のみ" },
+                  ].map((opt) => (
+                    <button
+                      key={String(opt.value)}
+                      type="button"
+                      onClick={() => setInterestedInPartnership(opt.value)}
+                      className={`flex-1 px-4 py-2.5 rounded-lg border text-sm font-medium transition-all ${
+                        interestedInPartnership === opt.value
+                          ? "bg-indigo-500/20 border-indigo-400/50 text-white"
+                          : "bg-white/[0.02] border-white/10 text-white/50 hover:border-white/20"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-white/30 text-xs mt-1.5">
+                  「興味がある」を選択された方には、後日パートナー制度のご案内をお送りする場合があります
+                </p>
+              </div>
             </div>
           )}
 

@@ -1,11 +1,12 @@
 "use server";
 
 import { db as prisma } from "@/lib/db";
-import { createHash } from "crypto";
+import { createHash, randomInt } from "crypto";
 import { headers } from "next/headers";
 import {
   sendCreatorWelcomeEmail,
   sendCreatorRegistrationNotifyEmail,
+  sendCreatorVerificationEmail,
 } from "@/lib/resend";
 
 type RegisterResult = {
@@ -14,6 +15,99 @@ type RegisterResult = {
   creatorId?: string;
 };
 
+type VerifyResult = {
+  success: boolean;
+  error?: string;
+};
+
+// ----------------------------------------------------------------
+// Step 1: メール認証コード送信
+// ----------------------------------------------------------------
+export async function sendVerificationCode(
+  email: string,
+  name: string
+): Promise<VerifyResult> {
+  try {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { success: false, error: "メールアドレスの形式が正しくありません" };
+    }
+
+    // 既存登録チェック
+    const existing = await prisma.creator.findUnique({ where: { email } });
+    if (existing && existing.emailVerified) {
+      return { success: false, error: "このメールアドレスは既に登録されています" };
+    }
+
+    // 6桁コード生成
+    const code = String(randomInt(100000, 999999));
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10分
+
+    // 未認証の仮レコードがあれば更新、なければ作成
+    if (existing) {
+      await prisma.creator.update({
+        where: { email },
+        data: { otpCode: code, otpExpiresAt: expiresAt, name },
+      });
+    } else {
+      await prisma.creator.create({
+        data: {
+          email,
+          name,
+          prefecture: "未設定",
+          otpCode: code,
+          otpExpiresAt: expiresAt,
+          emailVerified: false,
+        },
+      });
+    }
+
+    // メール送信
+    await sendCreatorVerificationEmail({ to: email, name, code });
+
+    return { success: true };
+  } catch (e) {
+    console.error("Send verification code error:", e);
+    return { success: false, error: "認証コードの送信に失敗しました" };
+  }
+}
+
+// ----------------------------------------------------------------
+// Step 2: メール認証コード検証
+// ----------------------------------------------------------------
+export async function verifyCode(
+  email: string,
+  code: string
+): Promise<VerifyResult> {
+  try {
+    const creator = await prisma.creator.findUnique({ where: { email } });
+    if (!creator) {
+      return { success: false, error: "登録情報が見つかりません" };
+    }
+    if (!creator.otpCode || !creator.otpExpiresAt) {
+      return { success: false, error: "認証コードが発行されていません" };
+    }
+    if (new Date() > creator.otpExpiresAt) {
+      return { success: false, error: "認証コードの有効期限が切れています。再送信してください" };
+    }
+    if (creator.otpCode !== code) {
+      return { success: false, error: "認証コードが正しくありません" };
+    }
+
+    await prisma.creator.update({
+      where: { email },
+      data: { emailVerified: true, otpCode: null, otpExpiresAt: null },
+    });
+
+    return { success: true };
+  } catch (e) {
+    console.error("Verify code error:", e);
+    return { success: false, error: "認証に失敗しました" };
+  }
+}
+
+// ----------------------------------------------------------------
+// Step 3: 本登録（メール認証済みの状態で呼ばれる）
+// ----------------------------------------------------------------
 export async function registerCreator(
   formData: FormData
 ): Promise<RegisterResult> {
@@ -35,13 +129,11 @@ export async function registerCreator(
     const equipment = formData.get("equipment") as string;
     const entityType = (formData.get("entityType") as string) || "individual";
     const hasBusinessRegistration = formData.get("hasBusinessRegistration") === "yes";
+    const interestedInPartnership = formData.get("interestedInPartnership") === "true";
     const ndaAgreed = formData.get("ndaAgreed") === "true";
 
-    // スキル: "cat_shooting:ADVANCED,cat_editing:EXPERT" 形式
     const skillsRaw = formData.get("skills") as string;
-    // スキル補足: "cat_shooting:RED KOMODO使用,cat_editing:Premiere Pro" 形式
     const skillNotesRaw = formData.get("skillNotes") as string;
-    // ポートフォリオ: JSON配列 [{"url":"...","title":"..."}]
     const portfoliosRaw = formData.get("portfolios") as string;
 
     // バリデーション
@@ -49,22 +141,13 @@ export async function registerCreator(
       return { success: false, error: "必須項目が入力されていません" };
     }
     if (!ndaAgreed) {
-      return {
-        success: false,
-        error: "守秘義務契約への同意が必要です",
-      };
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return { success: false, error: "メールアドレスの形式が正しくありません" };
+      return { success: false, error: "守秘義務契約への同意が必要です" };
     }
 
-    // 重複チェック
+    // メール認証済みか確認
     const existing = await prisma.creator.findUnique({ where: { email } });
-    if (existing) {
-      return {
-        success: false,
-        error: "このメールアドレスは既に登録されています",
-      };
+    if (!existing || !existing.emailVerified) {
+      return { success: false, error: "メール認証が完了していません" };
     }
 
     // NDAデジタル署名
@@ -77,15 +160,16 @@ export async function registerCreator(
       .update(`${name}|${email}|${now}`)
       .digest("hex");
 
-    // トランザクションで一括作成
+    // 既存の仮レコードを本登録に更新 + 関連データ作成
     const creator = await prisma.$transaction(async (tx) => {
-      const c = await tx.creator.create({
+      const c = await tx.creator.update({
+        where: { email },
         data: {
           name,
           nameKana: nameKana || null,
-          email,
           entityType,
           hasBusinessRegistration,
+          interestedInPartnership,
           phone: phone || null,
           prefecture,
           city: city || null,
@@ -159,7 +243,7 @@ export async function registerCreator(
         },
       });
 
-      // 自動分析用レコード（pending状態で作成、バックグラウンドで処理）
+      // 自動分析用レコード
       if (website) {
         await tx.creatorAnalysis.create({
           data: {
@@ -183,7 +267,7 @@ export async function registerCreator(
         )
       : [];
 
-    // メール送信（非同期、エラーでも登録は成功させる）
+    // メール送信（非同期）
     sendCreatorWelcomeEmail({
       to: email,
       name,

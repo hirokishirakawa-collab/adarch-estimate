@@ -437,6 +437,72 @@ export async function sendProjectClosedEmail(payload: ProjectClosedPayload) {
 }
 
 // ---------------------------------------------------------------
+// クリエイター メール認証コード送信
+// ---------------------------------------------------------------
+export async function sendCreatorVerificationEmail(payload: {
+  to: string;
+  name: string;
+  code: string;
+}): Promise<void> {
+  const { to, name, code } = payload;
+  const subject = `【Ad Arch】メール認証コード: ${code}`;
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:#0a0a14;padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;">Ad Arch</span>
+            <span style="color:#a5b4fc;font-size:13px;margin-left:8px;">Creator Network</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;text-align:center;">
+            <p style="margin:0 0 16px;font-size:14px;color:#3f3f46;">
+              ${escHtml(name)} さん
+            </p>
+            <p style="margin:0 0 24px;font-size:14px;color:#3f3f46;line-height:1.7;">
+              クリエイター登録のメール認証コードです。<br>
+              以下のコードを画面に入力してください。
+            </p>
+            <div style="background:#f4f4f5;border-radius:12px;padding:20px;margin:0 auto 24px;max-width:200px;">
+              <span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#18181b;">${code}</span>
+            </div>
+            <p style="margin:0;font-size:12px;color:#a1a1aa;">
+              このコードは10分間有効です。<br>
+              心当たりがない場合はこのメールを無視してください。
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [to],
+      subject,
+      html,
+    });
+    if (error) {
+      console.error("[resend:creator-verify] error:", error);
+    } else {
+      console.log(`[resend:creator-verify] ✅ ${to} へ送信完了`);
+    }
+  } catch (e) {
+    console.error("[resend:creator-verify] 例外:", e instanceof Error ? e.message : e);
+  }
+}
+
+// ---------------------------------------------------------------
 // クリエイター登録完了メール（クリエイター宛）
 // ---------------------------------------------------------------
 export async function sendCreatorWelcomeEmail(payload: {

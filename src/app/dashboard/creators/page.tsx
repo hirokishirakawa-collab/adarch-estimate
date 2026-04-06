@@ -32,9 +32,14 @@ export default async function CreatorsPage({ searchParams }: PageProps) {
   if (q) {
     where.OR = [
       { name: { contains: q, mode: "insensitive" } },
+      { nameKana: { contains: q, mode: "insensitive" } },
       { companyName: { contains: q, mode: "insensitive" } },
       { bio: { contains: q, mode: "insensitive" } },
       { equipment: { contains: q, mode: "insensitive" } },
+      { prefecture: { contains: q, mode: "insensitive" } },
+      { city: { contains: q, mode: "insensitive" } },
+      { skills: { some: { category: { name: { contains: q, mode: "insensitive" } } } } },
+      { skills: { some: { note: { contains: q, mode: "insensitive" } } } },
     ];
   }
 
