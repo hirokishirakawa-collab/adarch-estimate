@@ -14,7 +14,9 @@ const resend = new Proxy({} as Resend, {
   },
 });
 
-const FROM_ADDRESS = "Ad-Arch OS <noreply@adarch.co.jp>";
+// TODO: adarch.co.jpドメインがResendで認証完了したら戻す
+// const FROM_ADDRESS = "Ad-Arch OS <noreply@adarch.co.jp>";
+const FROM_ADDRESS = "Ad Arch <onboarding@resend.dev>";
 const ADMIN_EMAIL  = "system@adarch.co.jp";
 
 function appUrl(path: string): string {
