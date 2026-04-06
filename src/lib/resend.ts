@@ -1,8 +1,9 @@
 // ---------------------------------------------------------------
-// Resend メール送信ユーティリティ
+// メール送信ユーティリティ（Gmail SMTP / Resend フォールバック）
 // ---------------------------------------------------------------
 
 import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import { notifyCeo } from "./google-chat";
 
 // ビルド時クラッシュ防止のため Proxy で遅延初期化
@@ -14,8 +15,64 @@ const resend = new Proxy({} as Resend, {
   },
 });
 
-const FROM_ADDRESS = "Ad-Arch OS <noreply@adarch.co.jp>";
+// Gmail SMTP トランスポート（遅延初期化）
+let _gmailTransport: nodemailer.Transporter | null = null;
+function getGmailTransport(): nodemailer.Transporter | null {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return null;
+  if (!_gmailTransport) {
+    _gmailTransport = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
+  }
+  return _gmailTransport;
+}
+
+const FROM_ADDRESS = `Ad-Arch OS <${process.env.GMAIL_USER || "noreply@adarch.co.jp"}>`;
 const ADMIN_EMAIL  = "system@adarch.co.jp";
+
+/** Gmail SMTP優先、失敗時Resendフォールバック */
+async function sendMail(params: {
+  to: string | string[];
+  subject: string;
+  html: string;
+}): Promise<void> {
+  const { to, subject, html } = params;
+  const recipients = Array.isArray(to) ? to : [to];
+
+  // Gmail SMTP を優先
+  const gmail = getGmailTransport();
+  if (gmail) {
+    try {
+      await gmail.sendMail({
+        from: FROM_ADDRESS,
+        to: recipients.join(","),
+        subject,
+        html,
+      });
+      console.log(`[gmail] ✅ ${recipients.join(",")} へ送信完了`);
+      return;
+    } catch (e) {
+      console.error("[gmail] 送信失敗、Resendにフォールバック:", e instanceof Error ? e.message : e);
+    }
+  }
+
+  // Resend フォールバック
+  const { error } = await resend.emails.send({
+    from: FROM_ADDRESS,
+    to: recipients,
+    subject,
+    html,
+  });
+  if (error) {
+    console.error("[resend] error:", error);
+    throw new Error(error.message);
+  }
+  console.log(`[resend] ✅ ${recipients.join(",")} へ送信完了`);
+}
 
 function appUrl(path: string): string {
   const base =
@@ -124,19 +181,9 @@ export async function sendTverCampaignCreatedEmail(
 </html>`;
 
   try {
-    const { error } = await resend.emails.send({
-      from:    FROM_ADDRESS,
-      to:      [ADMIN_EMAIL],
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[resend:tver-campaign-created] error:", error);
-    } else {
-      console.log("[resend:tver-campaign-created] ✅ 送信完了 to:", ADMIN_EMAIL);
-    }
+    await sendMail({ to: [ADMIN_EMAIL], subject, html });
   } catch (e) {
-    console.error("[resend:tver-campaign-created] 例外:", e instanceof Error ? e.message : e);
+    console.error("[resend:tver-campaign-created] error:", e instanceof Error ? e.message : e);
   }
 
   notifyCeo([
@@ -261,19 +308,9 @@ export async function sendGroupSupportAlertEmail(
 </html>`;
 
   try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: ["hiroki.shirakawa@adarch.co.jp"],
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[resend:group-support-alert] error:", error);
-    } else {
-      console.log("[resend:group-support-alert] ✅ 送信完了:", companyName);
-    }
+    await sendMail({ to: ["hiroki.shirakawa@adarch.co.jp"], subject, html });
   } catch (e) {
-    console.error("[resend:group-support-alert] 例外:", e instanceof Error ? e.message : e);
+    console.error("[resend:group-support-alert] error:", e instanceof Error ? e.message : e);
   }
 }
 
@@ -354,19 +391,9 @@ export async function sendGroupWeeklyReportEmail(
 </html>`;
 
   try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: ["hiroki.shirakawa@adarch.co.jp"],
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[resend:group-weekly-report] error:", error);
-    } else {
-      console.log("[resend:group-weekly-report] ✅ 送信完了");
-    }
+    await sendMail({ to: ["hiroki.shirakawa@adarch.co.jp"], subject, html });
   } catch (e) {
-    console.error("[resend:group-weekly-report] 例外:", e instanceof Error ? e.message : e);
+    console.error("[resend:group-weekly-report] error:", e instanceof Error ? e.message : e);
   }
 
   const summarySnippet = aiSummary.length > 300 ? aiSummary.slice(0, 300) + "…" : aiSummary;
@@ -420,19 +447,9 @@ export async function sendProjectClosedEmail(payload: ProjectClosedPayload) {
 </html>`;
 
   try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [to],
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[resend:project-closed] error:", error);
-    } else {
-      console.log(`[resend:project-closed] ✅ ${to} へ送信完了`);
-    }
+    await sendMail({ to: [to], subject, html });
   } catch (e) {
-    console.error("[resend:project-closed] 例外:", e instanceof Error ? e.message : e);
+    console.error("[resend:project-closed] error:", e instanceof Error ? e.message : e);
   }
 }
 
@@ -486,19 +503,9 @@ export async function sendCreatorVerificationEmail(payload: {
 </html>`;
 
   try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [to],
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[resend:creator-verify] error:", error);
-    } else {
-      console.log(`[resend:creator-verify] ✅ ${to} へ送信完了`);
-    }
+    await sendMail({ to: [to], subject, html });
   } catch (e) {
-    console.error("[resend:creator-verify] 例外:", e instanceof Error ? e.message : e);
+    console.error("[resend:creator-verify] error:", e instanceof Error ? e.message : e);
   }
 }
 
@@ -571,19 +578,9 @@ export async function sendCreatorWelcomeEmail(payload: {
 </html>`;
 
   try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [to],
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[resend:creator-welcome] error:", error);
-    } else {
-      console.log(`[resend:creator-welcome] ✅ ${to} へ送信完了`);
-    }
+    await sendMail({ to: [to], subject, html });
   } catch (e) {
-    console.error("[resend:creator-welcome] 例外:", e instanceof Error ? e.message : e);
+    console.error("[resend:creator-welcome] error:", e instanceof Error ? e.message : e);
   }
 }
 
@@ -668,18 +665,8 @@ export async function sendCreatorRegistrationNotifyEmail(payload: {
 </html>`;
 
   try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [adminTo],
-      subject,
-      html,
-    });
-    if (error) {
-      console.error("[resend:creator-notify] error:", error);
-    } else {
-      console.log(`[resend:creator-notify] ✅ ${adminTo} へ送信完了`);
-    }
+    await sendMail({ to: [adminTo], subject, html });
   } catch (e) {
-    console.error("[resend:creator-notify] 例外:", e instanceof Error ? e.message : e);
+    console.error("[resend:creator-notify] error:", e instanceof Error ? e.message : e);
   }
 }
