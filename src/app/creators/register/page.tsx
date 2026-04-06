@@ -874,32 +874,28 @@ export default function CreatorRegisterPage() {
             <div className="space-y-5">
               <h2 className="text-lg font-bold mb-1">実績・ポートフォリオ</h2>
               <p className="text-white/40 text-sm mb-4">
-                代表的な制作実績のURLを登録してください（YouTube / Vimeo等）
+                制作実績やポートフォリオのURLを登録してください。
+                独自のポートフォリオサイトを優先してご入力ください。
               </p>
 
               {portfolios.map((p, i) => (
                 <div
                   key={i}
-                  className="flex gap-3 items-start bg-white/[0.02] border border-white/10 rounded-xl p-4"
+                  className="flex gap-3 items-center bg-white/[0.02] border border-white/10 rounded-xl p-4"
                 >
-                  <div className="flex-1 space-y-2">
+                  <div className="flex-1">
                     <Input
                       value={p.url}
                       onChange={(v) => updatePortfolio(i, "url", v)}
-                      placeholder="https://youtube.com/watch?v=..."
+                      placeholder="https://yourportfolio.com"
                       type="url"
-                    />
-                    <Input
-                      value={p.title}
-                      onChange={(v) => updatePortfolio(i, "title", v)}
-                      placeholder="作品タイトル（任意）"
                     />
                   </div>
                   {portfolios.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removePortfolio(i)}
-                      className="mt-2 text-white/30 hover:text-red-400 transition-colors"
+                      className="text-white/30 hover:text-red-400 transition-colors"
                     >
                       ✕
                     </button>
@@ -912,13 +908,8 @@ export default function CreatorRegisterPage() {
                 onClick={addPortfolio}
                 className="w-full py-3 rounded-xl border border-dashed border-white/20 text-white/40 hover:text-white/60 hover:border-white/30 transition-all text-sm"
               >
-                + 作品を追加
+                + URLを追加
               </button>
-
-              <p className="text-white/30 text-xs">
-                WebサイトURLを基本情報で入力済みの場合、実績は自動で解析されます。
-                ここでは追加で見せたい作品があればご登録ください。
-              </p>
             </div>
           )}
 
