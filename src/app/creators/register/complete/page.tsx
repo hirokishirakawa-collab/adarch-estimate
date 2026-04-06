@@ -1,6 +1,13 @@
 import Link from "next/link";
 
-export default function RegisterCompletePage() {
+interface PageProps {
+  searchParams: Promise<{ partnership?: string }>;
+}
+
+export default async function RegisterCompletePage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const interestedInPartnership = params.partnership === "1";
+
   return (
     <div className="min-h-screen bg-[#0a0a14] text-white relative overflow-hidden flex items-center justify-center">
       {/* 背景エフェクト */}
@@ -67,6 +74,41 @@ export default function RegisterCompletePage() {
             </li>
           </ul>
         </div>
+
+        {/* グループ加盟に興味ありの場合 */}
+        {interestedInPartnership && (
+          <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-400/20 rounded-xl p-6 mb-8 text-left">
+            <h2 className="text-sm font-bold text-white/90 mb-2">
+              グループ加盟にご興味をお持ちいただきありがとうございます
+            </h2>
+            <p className="text-sm text-white/50 mb-4 leading-relaxed">
+              Ad Arch Group では、映像制作事業を経営するパートナーを募集しています。
+              ご自身の拠点を持ち、グループのネットワークとツールを活用しながら
+              映像制作ビジネスを展開できます。
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <a
+                href="https://adarch.co.jp/franchise"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-sm font-medium hover:from-indigo-400 hover:to-purple-400 transition-all"
+              >
+                加盟制度について詳しく見る
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </a>
+              <a
+                href="https://calendar.google.com/calendar/appointments/schedules/AcZssZ0-yourlink"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-medium hover:bg-white/20 transition-all"
+              >
+                オンライン面談を予約する
+              </a>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col gap-3">
           <Link

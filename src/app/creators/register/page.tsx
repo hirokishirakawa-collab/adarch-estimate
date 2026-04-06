@@ -184,7 +184,10 @@ export default function CreatorRegisterPage() {
     startTransition(async () => {
       const result = await registerCreator(formData);
       if (result.success) {
-        router.push("/creators/register/complete");
+        const completeUrl = interestedInPartnership
+          ? "/creators/register/complete?partnership=1"
+          : "/creators/register/complete";
+        router.push(completeUrl);
       } else {
         setError(result.error || "登録に失敗しました");
       }
