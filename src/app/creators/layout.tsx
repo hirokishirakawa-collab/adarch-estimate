@@ -1,0 +1,36 @@
+import "@/app/globals.css";
+
+export const metadata = {
+  title: "クリエイター登録 | Ad Arch Group",
+  description:
+    "全国の映像クリエイターのためのプロジェクトマッチングプラットフォーム",
+};
+
+export default function CreatorsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="ja">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body
+        className="min-h-screen"
+        style={{ fontFamily: "'Noto Sans JP', sans-serif" }}
+      >
+        {children}
+      </body>
+    </html>
+  );
+}

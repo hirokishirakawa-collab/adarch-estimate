@@ -2688,3 +2688,224 @@ model AutoSalesBlacklist {
 
   @@map("auto_sales_blacklist")
 }
+
+// ==============================================================
+// クリエイター登録プラットフォーム
+// 外部クリエイター（カメラマン・エディター・制作）の登録・検索・相談
+// ==============================================================
+
+enum CreatorStatus {
+  ACTIVE        // 通常稼働
+  BANNED        // BAN（本人に通知）
+  SHADOW_BANNED // シャドウBAN（本人に見えない、相談メールが届かない）
+  INACTIVE      // 退会・非稼働
+}
+
+enum SkillLevel {
+  BEGINNER      // 初級
+  INTERMEDIATE  // 中級
+  ADVANCED      // 上級
+  EXPERT        // エキスパート
+}
+
+enum RepeatIntention {
+  EXCELLENT // ◎
+  GOOD      // ○
+  FAIR      // △
+  POOR      // ×
+}
+
+enum ConsultationStatus {
+  DRAFT  // 下書き
+  SENT   // 送信済み
+  CLOSED // 終了
+}
+
+/// クリエイター本体
+model Creator {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String
+  entityType   String        @default("individual") // "individual" or "corporation"
+  hasBusinessRegistration Boolean @default(false) // 開業届・事業届出の有無
+  nameKana     String?
+  phone        String?
+  prefecture   String        // 活動拠点（都道府県）
+  city         String?       // 市区町村
+  companyName  String?       // 屋号・法人名
+  website      String?       // ポートフォリオサイトURL
+  bio          String?       @db.Text // 自己PR
+  profileImage String?       // プロフィール画像URL
+  yearsOfExp   Int?          // 経験年数
+  dayRate      Int?          // 日額単価（円）参考価格
+  halfDayRate  Int?          // 半日単価（円）
+  availability Int?          // 月間稼働可能日数
+  equipment    String?       @db.Text // 所有機材（自由記述）
+  status       CreatorStatus @default(ACTIVE)
+
+  // OTP認証用
+  otpCode      String?
+  otpExpiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  skills                 CreatorSkill[]
+  portfolios             CreatorPortfolio[]
+  ndaAgreement           CreatorNda?
+  ratings                CreatorRating[]
+  analysis               CreatorAnalysis?
+  consultationRecipients ConsultationRecipient[]
+
+  @@index([status])
+  @@index([prefecture])
+  @@map("creators")
+}
+
+/// スキルカテゴリマスタ
+model SkillCategory {
+  id    String @id @default(cuid())
+  name  String @unique // 撮影, 編集, モーショングラフィックス, etc.
+  order Int    @default(0)
+
+  skills CreatorSkill[]
+
+  @@map("skill_categories")
+}
+
+/// クリエイター × スキル（多対多 + レベル）
+model CreatorSkill {
+  id         String       @id @default(cuid())
+  creatorId  String
+  creator    Creator      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   SkillCategory @relation(fields: [categoryId], references: [id])
+  level      SkillLevel
+  note       String?      // 補足（得意ジャンル、使用ソフト等）
+
+  @@unique([creatorId, categoryId])
+  @@index([categoryId])
+  @@map("creator_skills")
+}
+
+/// ポートフォリオ（動画リンク）
+model CreatorPortfolio {
+  id          String  @id @default(cuid())
+  creatorId   String
+  creator     Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  url         String  // YouTube / Vimeo URL
+  title       String?
+  description String? @db.Text
+  order       Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([creatorId])
+  @@map("creator_portfolios")
+}
+
+/// NDA（守秘義務契約）デジタル署名
+model CreatorNda {
+  id            String   @id @default(cuid())
+  creatorId     String   @unique
+  creator       Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  agreedAt      DateTime @default(now())
+  ipAddress     String
+  userAgent     String?  @db.Text
+  ndaVersion    String   @default("1.0")
+  signatureHash String   // SHA-256 hash of "name|email|timestamp"
+
+  @@map("creator_ndas")
+}
+
+/// 裏評価（ADMIN限定、クリエイターには非公開）
+model CreatorRating {
+  id                 String           @id @default(cuid())
+  creatorId          String
+  creator            Creator          @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  personality        Int              // 人柄 1-5
+  actualSkill        Int              // スキル実力 1-5
+  responseSpeed      Int              // レスポンス速度 1-5
+  deadlineCompliance Int              // 納期遵守 1-5
+  repeatIntention    RepeatIntention  // リピート意向 ◎○△×
+  videoInterviewed   Boolean          @default(false) // TV会議面接実施済み
+  notes              String?          @db.Text
+  ratedById          String           // 評価者のUser ID
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([creatorId])
+  @@map("creator_ratings")
+}
+
+/// Web自動分析結果（登録時にスクレイピング→AI解析）
+model CreatorAnalysis {
+  id        String @id @default(cuid())
+  creatorId String @unique
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  // 制作実績リスト（構造化JSON）
+  // [{title, category, clientScale, thumbnailUrl, url}]
+  works          Json?   @db.JsonB
+
+  // AI推定データ
+  genres         String[] // 制作ジャンル: ["企業VP", "CM", "MV", "SNS広告"]
+  clientScale    String?  // 主要クライアント規模感: "大手" / "中堅" / "地方中小"
+  estimatedRate  Int?     // AI推定日額単価（円）
+  priceRange     String?  // 価格帯: "低(〜2万)" / "中(2-5万)" / "高(5万〜)"
+  equipmentList  String[] // 検出機材: ["RED KOMODO", "DJI Mavic 3"]
+  snsFollowers   Json?    @db.JsonB // {"youtube": 1200, "instagram": 5000}
+  lastWorkDate   DateTime? // 最新実績の日付（活動アクティブ度）
+  activityScore  Int?     // 活動スコア 1-100
+
+  // スクレイピングメタ
+  scrapedAt      DateTime?
+  scrapeStatus   String?  // "success" / "failed" / "pending"
+  rawHtml        String?  @db.Text // デバッグ用（必要なら）
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("creator_analyses")
+}
+
+/// プロジェクト相談
+model ProjectConsultation {
+  id          String             @id @default(cuid())
+  title       String
+  description String?            @db.Text
+  area        String?            // 対象エリア
+  skillFilter String?            // スキルカテゴリ（カンマ区切り）
+  budgetRange String?            // 予算感
+  shootDate   String?            // 撮影予定日
+  status      ConsultationStatus @default(DRAFT)
+  sendMode    String?            // "bulk" / "individual"
+  sentAt      DateTime?
+  sentById    String?            // 送信者のUser ID
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipients ConsultationRecipient[]
+
+  @@map("project_consultations")
+}
+
+/// 相談 × クリエイター（送信先+ステータス管理）
+model ConsultationRecipient {
+  id             String              @id @default(cuid())
+  consultationId String
+  consultation   ProjectConsultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  creatorId      String
+  creator        Creator             @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  emailSentAt    DateTime?
+  opened         Boolean             @default(false) // メール開封
+  responded      Boolean             @default(false) // 応諾/辞退
+  responseNote   String?             @db.Text
+
+  @@unique([consultationId, creatorId])
+  @@index([creatorId])
+  @@map("consultation_recipients")
+}

@@ -57,6 +57,7 @@ import {
   Star,
   Bot,
   Rocket,
+  Paintbrush,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -464,6 +465,18 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    section: "クリエイター",
+    color: "text-indigo-600",
+    items: [
+      {
+        href: "/dashboard/creators",
+        label: "クリエイター検索",
+        icon: Paintbrush,
+        minRole: "USER",
+      },
+    ],
+  },
+  {
     section: "管理者",
     color: "text-zinc-600",
     items: [
@@ -507,6 +520,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/admin/chatbot-logs",
         label: "チャットボット履歴",
         icon: MessageCircle,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/creators/admin",
+        label: "クリエイター管理",
+        icon: Paintbrush,
         minRole: "ADMIN",
       },
     ],
