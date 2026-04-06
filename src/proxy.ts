@@ -123,6 +123,23 @@ export default auth((req: NextAuthRequest) => {
   const pathname = nextUrl.pathname;
   const isAuthenticated = !!session;
   const { ipAddress, userAgent } = getClientInfo(req);
+  const hostname = req.headers.get("host") || "";
+
+  // 0. creators.adarch.co.jp → /creators 配下にリライト/リダイレクト
+  if (hostname.startsWith("creators.adarch.co.jp")) {
+    // /creators 配下でなければリダイレクト
+    if (!pathname.startsWith("/creators")) {
+      // ルートや他パスは /creators にリダイレクト
+      if (pathname === "/" || pathname === "") {
+        return NextResponse.rewrite(new URL("/creators", req.url));
+      }
+      // /register → /creators/register にリライト
+      if (pathname === "/register" || pathname.startsWith("/register")) {
+        return NextResponse.rewrite(new URL(`/creators${pathname}`, req.url));
+      }
+    }
+    return NextResponse.next();
+  }
 
   // 1. 公開パスはそのまま通す
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
