@@ -125,20 +125,17 @@ export default auth((req: NextAuthRequest) => {
   const { ipAddress, userAgent } = getClientInfo(req);
   const hostname = req.headers.get("host") || "";
 
-  // 0. creators.adarch.co.jp → /creators 配下にリライト/リダイレクト
+  // 0. creators.adarch.co.jp → /creators 配下にリライト
   if (hostname.startsWith("creators.adarch.co.jp")) {
-    // /creators 配下でなければリダイレクト
-    if (!pathname.startsWith("/creators")) {
-      // ルートや他パスは /creators にリダイレクト
-      if (pathname === "/" || pathname === "") {
-        return NextResponse.rewrite(new URL("/creators", req.url));
-      }
-      // /register → /creators/register にリライト
-      if (pathname === "/register" || pathname.startsWith("/register")) {
-        return NextResponse.rewrite(new URL(`/creators${pathname}`, req.url));
-      }
+    if (pathname.startsWith("/creators")) {
+      // 既に /creators パスならそのまま通す
+      return NextResponse.next();
     }
-    return NextResponse.next();
+    // ルート → /creators、それ以外 → /creators + pathname にリライト
+    const target = pathname === "/" || pathname === ""
+      ? "/creators"
+      : `/creators${pathname}`;
+    return NextResponse.rewrite(new URL(target, req.url));
   }
 
   // 1. 公開パスはそのまま通す
