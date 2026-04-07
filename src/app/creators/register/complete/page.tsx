@@ -88,7 +88,7 @@ export default async function RegisterCompletePage({ searchParams }: PageProps) 
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <a
-                href="https://adarch.co.jp/group"
+                href="/creators/group"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-sm font-medium hover:from-indigo-400 hover:to-purple-400 transition-all"
