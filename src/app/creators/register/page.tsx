@@ -200,7 +200,7 @@ export default function CreatorRegisterPage() {
     startTransition(async () => {
       const result = await registerCreator(formData);
       if (result.success) {
-        router.push("/creators/register/complete");
+        router.push(`/creators/register/complete?cid=${result.creatorId}`);
       } else {
         setError(result.error || "登録に失敗しました");
       }

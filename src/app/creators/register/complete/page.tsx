@@ -1,6 +1,22 @@
-import Link from "next/link";
+"use client";
 
-export default function RegisterCompletePage() {
+import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
+import { markPartnershipInterest } from "./actions";
+import { Suspense } from "react";
+
+function CompleteContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const creatorId = searchParams.get("cid");
+
+  const handlePartnershipClick = async () => {
+    if (creatorId) {
+      await markPartnershipInterest(creatorId);
+    }
+    router.push("/creators/group");
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a14] text-white relative overflow-hidden flex items-center justify-center">
       {/* 背景エフェクト */}
@@ -68,7 +84,7 @@ export default function RegisterCompletePage() {
           </ul>
         </div>
 
-        {/* パートナー加盟の案内（全員に表示） */}
+        {/* パートナー加盟の案内 */}
         <div className="bg-gradient-to-br from-amber-500/8 to-yellow-500/8 border border-amber-400/15 rounded-xl p-6 mb-8 text-left">
           <div className="flex items-center gap-2 mb-3">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
@@ -82,15 +98,15 @@ export default function RegisterCompletePage() {
             営業支援ツール・制作OS・経営ダッシュボードを活用して、
             クリエイターから経営者へステップアップできます。
           </p>
-          <Link
-            href="/creators/group"
+          <button
+            onClick={handlePartnershipClick}
             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-400/10 border border-amber-400/25 text-amber-300 text-sm font-medium hover:bg-amber-400/20 transition-all"
           >
             パートナー加盟について詳しく見る
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
-          </Link>
+          </button>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -109,5 +125,13 @@ export default function RegisterCompletePage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegisterCompletePage() {
+  return (
+    <Suspense>
+      <CompleteContent />
+    </Suspense>
   );
 }
