@@ -109,12 +109,17 @@ export default async function CreatorAdminPage({ searchParams }: PageProps) {
                       {status.label}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-zinc-400">
+                  <div className="flex items-center gap-2 text-xs text-zinc-400 flex-wrap">
                     <span>{c.prefecture}</span>
                     <span>スキル{c.skills.length}</span>
                     {latestRating && (
                       <span>
                         面接{latestRating.videoInterviewed ? "済" : "未"}
+                      </span>
+                    )}
+                    {c.interestedInPartnership && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
+                        加盟興味
                       </span>
                     )}
                   </div>
@@ -139,11 +144,16 @@ export default async function CreatorAdminPage({ searchParams }: PageProps) {
                     <h3 className="text-lg font-bold text-zinc-900">
                       {selected.name}
                     </h3>
-                    <p className="text-sm text-zinc-500">
-                      {selected.prefecture}{selected.city ? ` ${selected.city}` : ""} |{" "}
-                      {selected.email} |{" "}
-                      {selected.entityType === "corporation" ? "法人" : "個人"}
-                    </p>
+                    <div className="flex items-center gap-2 text-sm text-zinc-500 flex-wrap">
+                      <span>
+                        {selected.prefecture}{selected.city ? ` ${selected.city}` : ""} | {selected.email} | {selected.entityType === "corporation" ? "法人" : "個人"}
+                      </span>
+                      {selected.interestedInPartnership && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+                          グループ参画に興味あり
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <Link
                     href={`/dashboard/creators/${selected.id}`}
