@@ -36,7 +36,7 @@ RUN chmod +x /start.sh
 ENV STORAGE_PATH=/data/storage
 
 RUN mkdir -p /app/.next/cache && chmod 777 /app/.next/cache
-RUN mkdir -p /data && chmod 777 /data
+RUN mkdir -p /data/storage/billing-pdfs /data/storage/group-sync-files /data/storage/media-files /data/storage/card-images /data/storage/video-reviews /data/storage/video-reviews/frames /data/storage/creator-avatars && chmod -R 777 /data
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
