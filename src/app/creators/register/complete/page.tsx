@@ -99,7 +99,7 @@ export default async function RegisterCompletePage({ searchParams }: PageProps) 
                 </svg>
               </a>
               <a
-                href="https://calendar.google.com/calendar/appointments/schedules/AcZssZ0-yourlink"
+                href="https://calendar.app.google/SCpPs7pNYafyBmTs6"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-medium hover:bg-white/20 transition-all"

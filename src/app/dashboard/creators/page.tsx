@@ -216,16 +216,27 @@ export default async function CreatorsPage({ searchParams }: PageProps) {
                 href={`/dashboard/creators/${c.id}`}
                 className="block"
               >
-                <div className="flex items-start justify-between mb-3 pr-8">
-                  <div>
-                    <h3 className="font-bold text-sm text-zinc-900">{c.name}</h3>
-                    {c.companyName && (
-                      <p className="text-xs text-zinc-400">{c.companyName}</p>
+                <div className="flex items-start gap-3 mb-3 pr-8">
+                  {/* アバター */}
+                  <div className="w-11 h-11 rounded-full bg-zinc-100 flex items-center justify-center shrink-0 overflow-hidden">
+                    {c.profileImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.profileImage} alt={c.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-zinc-400 text-sm font-bold">{c.name.charAt(0)}</span>
                     )}
                   </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
-                    {c.entityType === "corporation" ? "法人" : "個人"}
-                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-sm text-zinc-900 truncate">{c.name}</h3>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 shrink-0">
+                        {c.entityType === "corporation" ? "法人" : "個人"}
+                      </span>
+                    </div>
+                    {c.companyName && (
+                      <p className="text-xs text-zinc-400 truncate">{c.companyName}</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 text-xs text-zinc-500 mb-3">
@@ -268,8 +279,15 @@ export default async function CreatorsPage({ searchParams }: PageProps) {
                   )}
                 </div>
 
+                {/* 自己PR（先頭80文字） */}
+                {c.bio && (
+                  <p className="text-xs text-zinc-400 mb-3 line-clamp-2 leading-relaxed">
+                    {c.bio}
+                  </p>
+                )}
+
                 {/* 単価・稼働 */}
-                <div className="flex items-center gap-3 text-xs text-zinc-500">
+                <div className="flex items-center gap-3 text-xs text-zinc-500 flex-wrap">
                   {c.dayRate && (
                     <span>
                       日額{" "}

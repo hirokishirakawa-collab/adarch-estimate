@@ -27,6 +27,10 @@ const SKILL_CATEGORIES = [
   { id: "cat_direction", name: "ディレクション", icon: "📋" },
   { id: "cat_planning", name: "企画・脚本", icon: "📝" },
   { id: "cat_3dcg", name: "3DCG・VFX", icon: "🌐" },
+  { id: "cat_makeup_model", name: "メイク・モデル", icon: "💄" },
+  { id: "cat_influencer", name: "インフルエンサー", icon: "📱" },
+  { id: "cat_music", name: "楽曲制作", icon: "🎵" },
+  { id: "cat_other", name: "その他", icon: "✏️" },
 ];
 
 const SKILL_LEVELS = [
@@ -132,6 +136,13 @@ export default function CreatorRegisterPage() {
     if (s === 2 && skills.length === 0) {
       setError("スキルを1つ以上選択してください");
       return false;
+    }
+    if (s === 2) {
+      const otherSkill = skills.find((sk) => sk.categoryId === "cat_other");
+      if (otherSkill && !otherSkill.note.trim()) {
+        setError("「その他」を選択した場合は、具体的な内容を入力してください");
+        return false;
+      }
     }
     return true;
   };
@@ -905,7 +916,7 @@ export default function CreatorRegisterPage() {
                           <Input
                             value={selected.note}
                             onChange={(v) => updateSkillNote(cat.id, v)}
-                            placeholder="補足（使用ソフト、得意ジャンル等）"
+                            placeholder={cat.id === "cat_other" ? "具体的な内容を入力してください（必須）" : "補足（使用ソフト、得意ジャンル等）"}
                             className="text-xs"
                           />
                         </div>

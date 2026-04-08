@@ -226,7 +226,7 @@ export default function GroupPartnershipPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
-              href="https://calendar.google.com/calendar/appointments/schedules/AcZssZ0-yourlink"
+              href="https://calendar.app.google/SCpPs7pNYafyBmTs6"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 text-black font-medium text-base hover:from-amber-300 hover:to-yellow-300 transition-all shadow-lg shadow-amber-500/25"
