@@ -261,34 +261,23 @@ export default async function CreatorDetailPage({ params }: PageProps) {
       {/* ヘッダー */}
       <div className="bg-white border border-zinc-200 rounded-xl p-6 mb-4">
         <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start gap-4">
-            {/* アバター */}
-            <div className="w-16 h-16 rounded-full bg-zinc-100 flex items-center justify-center shrink-0 overflow-hidden">
-              {creator.profileImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={creator.profileImage} alt={creator.name} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-zinc-400 text-xl font-bold">{creator.name.charAt(0)}</span>
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-xl font-bold text-zinc-900">
-                  {creator.name}
-                </h1>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
-                  {creator.entityType === "corporation" ? "法人" : "個人"}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-xl font-bold text-zinc-900">
+                {creator.name}
+              </h1>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
+                {creator.entityType === "corporation" ? "法人" : "個人"}
+              </span>
+              {creator.hasBusinessRegistration && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                  届出済み
                 </span>
-                {creator.hasBusinessRegistration && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
-                    届出済み
-                  </span>
-                )}
-              </div>
-              {creator.companyName && (
-                <p className="text-sm text-zinc-500">{creator.companyName}</p>
               )}
             </div>
+            {creator.companyName && (
+              <p className="text-sm text-zinc-500">{creator.companyName}</p>
+            )}
           </div>
           {role === "ADMIN" && (
             <Link
