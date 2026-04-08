@@ -2,14 +2,16 @@
 // Code.gs — エントリポイント（Webhook版）
 // ==============================================================
 
-// ==============================================================
-// トリガー関数（時間主導型トリガーで設定）
-// ==============================================================
-
-/**
- * 月曜 9:00 — 週次カード配信（全社）
- */
 function triggerMondayCard() {
+  // 重複実行防止（同日2回目はスキップ）
+  var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('LAST_MONDAY_CARD') === today) {
+    Logger.log('本日は既に配信済み。スキップします。');
+    return;
+  }
+  props.setProperty('LAST_MONDAY_CARD', today);
+
   var webhooks = getWebhookUrls_();
   var baseUrl = getConfig().API_BASE_URL + '/group-support/submit';
 
@@ -32,45 +34,60 @@ function triggerMondayCard() {
   });
 
   Logger.log('月曜カード配信完了: ' + webhooks.length + '社');
+  markAllSpacesAsRead();
 }
 
-/**
- * 火曜 9:00 — 1回目声かけ（未回答社のみ）
- */
 function triggerTuesdayFollowUp() {
+  // 重複実行防止
+  var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('LAST_TUESDAY_FOLLOWUP') === today) {
+    Logger.log('本日は既にフォローアップ済み。スキップします。');
+    return;
+  }
+  props.setProperty('LAST_TUESDAY_FOLLOWUP', today);
+
   followUpUnsubmitted(1);
+  markAllSpacesAsRead();
 }
 
-/**
- * 水曜 9:00 — 2回目声かけ（未回答社のみ）
- */
 function triggerWednesdayFollowUp() {
+  // 重複実行防止
+  var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('LAST_WEDNESDAY_FOLLOWUP') === today) {
+    Logger.log('本日は既にフォローアップ済み。スキップします。');
+    return;
+  }
+  props.setProperty('LAST_WEDNESDAY_FOLLOWUP', today);
+
   followUpUnsubmitted(2);
+  markAllSpacesAsRead();
 }
 
-/**
- * 木曜 9:00 — CEOダイジェスト（Gmailで送信）
- */
 function triggerThursdayCeoDigest() {
+  // 重複実行防止
+  var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('LAST_THURSDAY_DIGEST') === today) {
+    Logger.log('本日は既にダイジェスト送信済み。スキップします。');
+    return;
+  }
+  props.setProperty('LAST_THURSDAY_DIGEST', today);
+
   sendCeoDigest();
+  markAllSpacesAsRead();
 }
 
 // ==============================================================
 // 内部ヘルパー
 // ==============================================================
 
-/**
- * WEBHOOK_URLS からURL一覧を取得
- */
 function getWebhookUrls_() {
   var raw = PropertiesService.getScriptProperties().getProperty('WEBHOOK_URLS') || '';
   return raw.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
 }
 
-/**
- * Webhook URL から spaceId を抽出
- * 例: "https://...spaces/AAQA1ONKAvc/messages..." → "spaces/AAQA1ONKAvc"
- */
 function extractSpaceId_(webhookUrl) {
   var match = webhookUrl.match(/spaces\/([^/]+)/);
   return match ? 'spaces/' + match[1] : '';
@@ -90,12 +107,58 @@ function testCeoDigest() {
 }
 
 function testSendCard() {
+  // テスト用：重複防止をリセットしてから実行
+  PropertiesService.getScriptProperties().deleteProperty('LAST_MONDAY_CARD');
   triggerMondayCard();
+}
+
+/** 全スペースを既読にする */
+function markAllSpacesAsRead() {
+  var webhooks = getWebhookUrls_();
+  Logger.log('Webhook数: ' + webhooks.length);
+
+  webhooks.forEach(function(webhookUrl) {
+    var spaceId = extractSpaceId_(webhookUrl);
+    Logger.log('処理中: ' + spaceId);
+    if (spaceId) {
+      try {
+        var url = 'https://chat.googleapis.com/v1/users/me/' + spaceId + '/spaceReadState?updateMask=lastReadTime';
+        var payload = {
+          lastReadTime: new Date().toISOString()
+        };
+        var response = UrlFetchApp.fetch(url, {
+          method: 'patch',
+          contentType: 'application/json',
+          headers: {
+            'Authorization': 'Bearer ' + ScriptApp.getOAuthToken()
+          },
+          payload: JSON.stringify(payload),
+          muteHttpExceptions: true
+        });
+        Logger.log('結果: ' + response.getResponseCode() + ' ' + response.getContentText());
+      } catch(e) {
+        Logger.log('既読失敗: ' + spaceId + ' - ' + e.message);
+      }
+    }
+  });
+  Logger.log('既読処理完了');
+}
+
+function suspendInactiveUsers() {
+  const url = "https://adarch-estimate-production.up.railway.app/api/cron/suspend-inactive";
+  const options = {
+    method: "get",
+    headers: {
+      "Authorization": "Bearer 2c147fd0237bc50249028be716db558bf5f41934eb82c46976f9072e0c91181c"
+    }
+  };
+  const res = UrlFetchApp.fetch(url, options);
+  Logger.log(res.getContentText());
 }
 
 /**
  * Script Properties を再設定（setupWebhookProperties）
- * 一度実行済みのため通常は不要
+ * 新規加盟時にURLを追加して実行する
  */
 function setupWebhookProperties() {
   var urls = [
@@ -124,7 +187,10 @@ function setupWebhookProperties() {
     "https://chat.googleapis.com/v1/spaces/AAQAQiXsCUw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=FXCVkmbKf383WQ1nna3qC-_LCf6Q6xmFarGdiJXs5ks",
     "https://chat.googleapis.com/v1/spaces/AAQAoR3gb1M/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=7HcUwZisCB73b3B0uOPip88y8QSxEQRxQZ80OzhXxBs",
     "https://chat.googleapis.com/v1/spaces/AAQAmDz98iM/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=w482FGLLydLrWRDA0-EFwwyeKtUuj5z372RZMXXkjGs",
-    "https://chat.googleapis.com/v1/spaces/AAQACGzXMPM/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=71-Juuzn6nN0-t9eKeYmhpCvcsfK4-9eSWcF_KUk21Y"
+    "https://chat.googleapis.com/v1/spaces/AAQACGzXMPM/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=71-Juuzn6nN0-t9eKeYmhpCvcsfK4-9eSWcF_KUk21Y",
+    "https://chat.googleapis.com/v1/spaces/AAQAp6XvXqE/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=TVi8nYpewG_pYZcm1yRcp7XNx7qekF_S4jFkhRaWGvc",
+    // Rawfeel（台湾/東京）
+    "https://chat.googleapis.com/v1/spaces/AAQAm1b7U3U/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MqF6No4g_p67qJKKX-FsGgKqIsmecp40YkS5qgYwsvM"
   ];
 
   var map = {};

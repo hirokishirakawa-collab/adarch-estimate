@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>アドアーチグループ｜フォーム営業自動化ツール</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Sans','Meiryo',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+
+/* Loading overlay */
+#loadingOverlay{position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .4s}
+#loadingOverlay.hidden{opacity:0;pointer-events:none}
+.loader-ring{width:48px;height:48px;border:4px solid #1e293b;border-top-color:#6366f1;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-text{margin-top:16px;color:#94a3b8;font-size:14px}
+
+/* Header */
+.header{background:linear-gradient(135deg,#1e1b4b,#312e81);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.header-title{font-size:18px;font-weight:700;color:#e0e7ff}
+.header-title span{color:#a5b4fc;font-size:12px;font-weight:400;margin-left:8px}
+.header-right{display:flex;align-items:center;gap:12px}
+.user-badge{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);padding:6px 12px;border-radius:20px;cursor:pointer;transition:background .2s}
+.user-badge:hover{background:rgba(255,255,255,.14)}
+.user-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.user-name{font-size:13px;color:#c7d2fe}
+
+/* Stats bar */
+.stats-bar{background:#1e293b;padding:8px 24px;display:flex;gap:24px;border-bottom:1px solid #334155;overflow-x:auto}
+.stat-item{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.stat-num{font-size:20px;font-weight:700;color:#6366f1}
+.stat-label{font-size:11px;color:#64748b}
+
+/* Nav */
+.nav{background:#1e293b;display:flex;overflow-x:auto;border-bottom:2px solid #334155}
+.nav-btn{padding:12px 18px;background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.nav-btn:hover{color:#e2e8f0;background:rgba(255,255,255,.04)}
+.nav-btn.active{color:#818cf8;border-bottom-color:#818cf8;font-weight:600}
+
+/* Main */
+.main{max-width:1200px;margin:0 auto;padding:20px 16px}
+.panel{display:none}.panel.active{display:block}
+
+/* Cards */
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:600;color:#94a3b8;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+
+/* Dashboard grid */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px}
+
+/* Stats cards */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:16px;text-align:center}
+.stat-card .big{font-size:28px;font-weight:700;color:#818cf8}
+.stat-card .lbl{font-size:11px;color:#64748b;margin-top:4px}
+
+/* Big stats row */
+.big-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:20px}
+.big-stat{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px;text-align:center}
+.big-stat .n{font-size:22px;font-weight:700}
+.big-stat .l{font-size:10px;color:#64748b;margin-top:2px}
+.c-gray{color:#94a3b8}.c-blue{color:#3b82f6}.c-green{color:#22c55e}.c-yellow{color:#eab308}.c-purple{color:#a855f7}.c-red{color:#ef4444}
+
+/* Quick actions */
+.qa-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.qa-btn{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;text-align:left;cursor:pointer;color:#e2e8f0;font-size:13px;transition:all .2s;width:100%}
+.qa-btn:hover{border-color:#6366f1;background:#1e1b4b}
+
+/* Buttons */
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s}
+.btn-primary{background:#6366f1;color:#fff}.btn-primary:hover{background:#4f46e5}
+.btn-secondary{background:#334155;color:#e2e8f0}.btn-secondary:hover{background:#475569}
+.btn-success{background:#16a34a;color:#fff}.btn-success:hover{background:#15803d}
+.btn-danger{background:#dc2626;color:#fff}.btn-danger:hover{background:#b91c1c}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-full{width:100%;padding:12px}
+
+/* Send rate bar */
+.rate-bar-bg{background:#0f172a;border-radius:6px;height:10px;overflow:hidden;margin:8px 0}
+.rate-bar-fill{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:6px;transition:width .5s}
+
+/* Media tabs */
+.media-tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.media-tab{padding:6px 14px;border-radius:20px;border:1px solid #475569;background:none;color:#94a3b8;cursor:pointer;font-size:12px;transition:all .2s}
+.media-tab.active{background:#6366f1;border-color:#6366f1;color:#fff}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;border-radius:8px;border:1px solid #334155}
+table{width:100%;border-collapse:collapse}
+thead{background:#0f172a}
+th{padding:10px 12px;text-align:left;font-size:11px;color:#64748b;font-weight:600;white-space:nowrap;border-bottom:1px solid #334155}
+td{padding:10px 12px;font-size:13px;border-bottom:1px solid #1e293b;vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,.03)}
+tr:last-child td{border-bottom:none}
+
+/* Status badges */
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500}
+.s-unsent{background:#1e293b;color:#94a3b8}
+.s-sent{background:#1d4ed8;color:#bfdbfe}
+.s-replied{background:#15803d;color:#bbf7d0}
+.s-negotiating{background:#7c3aed;color:#ede9fe}
+.s-ordered{background:#b45309;color:#fde68a}
+.s-lost{background:#991b1b;color:#fecaca}
+
+/* Forms */
+.form-group{margin-bottom:12px}
+.form-group label{display:block;font-size:12px;color:#94a3b8;margin-bottom:4px}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:#0f172a;border:1px solid #475569;border-radius:6px;padding:8px 10px;color:#e2e8f0;font-size:13px}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#6366f1}
+.form-group textarea{resize:vertical;min-height:80px;font-family:inherit}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:500;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:#1e293b;border:1px solid #475569;border-radius:16px;padding:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:16px;color:#e0e7ff}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:16px;border-top:1px solid #334155}
+
+/* Search */
+.search-bar{display:flex;gap:8px;margin-bottom:16px}
+.search-bar input{flex:1;background:#0f172a;border:1px solid #475569;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:13px}
+.search-bar input:focus{outline:none;border-color:#6366f1}
+.search-bar select{background:#0f172a;border:1px solid #475569;border-radius:8px;padding:8px 10px;color:#e2e8f0;font-size:13px}
+
+/* Template */
+.tpl-card{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:16px;margin-bottom:10px}
+.tpl-name{font-weight:600;font-size:14px;margin-bottom:4px}
+.tpl-meta{font-size:11px;color:#64748b;margin-bottom:8px}
+.tpl-preview{font-size:12px;color:#94a3b8;white-space:pre-wrap;max-height:80px;overflow:hidden;line-height:1.5}
+.tpl-actions{display:flex;gap:6px;margin-top:10px}
+
+/* Activity */
+.activity-list{max-height:260px;overflow-y:auto}
+.act-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #334155}
+.act-item:last-child{border-bottom:none}
+.act-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:1px}
+.act-body{flex:1;min-width:0}
+.act-text{font-size:12px;color:#e2e8f0;line-height:1.4}
+.act-time{font-size:10px;color:#475569;margin-top:2px}
+
+/* Team stats */
+.team-list{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto}
+.team-row{display:flex;align-items:center;gap:10px}
+.team-bar-bg{flex:1;background:#0f172a;border-radius:4px;height:6px;overflow:hidden}
+.team-bar{height:100%;border-radius:4px}
+.team-count{font-size:12px;color:#64748b;min-width:30px;text-align:right}
+
+/* Guide */
+.guide-step{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:16px;margin-bottom:10px}
+.guide-step h4{font-size:13px;font-weight:600;color:#818cf8;margin-bottom:8px}
+.guide-step p,.guide-step li{font-size:12px;color:#94a3b8;line-height:1.7}
+.guide-step ol,.guide-step ul{padding-left:16px}
+
+/* Alert */
+.alert{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:12px}
+.alert-info{background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd}
+.alert-success{background:#14532d;border:1px solid #16a34a;color:#86efac}
+.alert-warn{background:#451a03;border:1px solid #b45309;color:#fcd34d}
+
+/* Media badge */
+.media-badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;margin-right:3px}
+.mb-tver{background:#1d4ed8;color:#bfdbfe}
+.mb-aeon{background:#14532d;color:#bbf7d0}
+.mb-taxi{background:#7c3aed;color:#ede9fe}
+.mb-dsign{background:#0e7490;color:#a5f3fc}
+.mb-video{background:#b45309;color:#fde68a}
+
+/* Responsive */
+@media(max-width:640px){
+  .big-stats{grid-template-columns:repeat(3,1fr)}
+  .form-row{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+}
+
+/* Display name modal */
+#nameModal .modal{max-width:380px}
+.name-hint{font-size:12px;color:#64748b;margin-top:4px}
+</style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay">
+  <div class="loader-ring"></div>
+  <div class="loader-text">データを読み込んでいます...</div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-title">
+    アドアーチグループ｜フォーム営業自動化ツール
+    <span>Sales Automation System v2.0 ― 媒体別営業対応</span>
+  </div>
+  <div class="header-right">
+    <div class="user-badge" onclick="openDisplayNameModal()" id="userBadge" style="display:none">
+      <div class="user-avatar" id="headerAvatar">?</div>
+      <span class="user-name" id="headerName">読込中...</span>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Bar -->
+<div class="stats-bar">
+  <div class="stat-item"><span class="stat-num" id="sbTotal">0</span><span class="stat-label">登録企業数</span></div>
+  <div class="stat-item"><span class="stat-num" id="sbSent">0</span><span class="stat-label">送信済み</span></div>
+  <div class="stat-item"><span class="stat-num" id="sbReplied">0</span><span class="stat-label">返信あり</span></div>
+  <div class="stat-item"><span class="stat-num" id="sbOrdered">0</span><span class="stat-label">受注</span></div>
+</div>
+
+<!-- Nav -->
+<div class="nav">
+  <button class="nav-btn active" onclick="showPanel('dashboard',this)">📊 ダッシュボード</button>
+  <button class="nav-btn" onclick="showPanel('media',this)">📺 媒体別営業</button>
+  <button class="nav-btn" onclick="showPanel('companies',this)">🏢 企業リスト</button>
+  <button class="nav-btn" onclick="showPanel('templates',this)">📝 テンプレート</button>
+  <button class="nav-btn" onclick="showPanel('sendmgr',this)">🚀 送信管理</button>
+  <button class="nav-btn" onclick="showPanel('guide',this)">⚙️ 自動化ガイド</button>
+</div>
+
+<div class="main">
+
+  <!-- ==================== DASHBOARD ==================== -->
+  <div id="panel-dashboard" class="panel active">
+
+    <!-- Big stats -->
+    <div class="big-stats">
+      <div class="big-stat"><div class="n c-gray" id="ds-unsent">0</div><div class="l">未送信</div></div>
+      <div class="big-stat"><div class="n c-blue" id="ds-sent">0</div><div class="l">送信済み</div></div>
+      <div class="big-stat"><div class="n c-green" id="ds-replied">0</div><div class="l">返信あり</div></div>
+      <div class="big-stat"><div class="n c-yellow" id="ds-negotiating">0</div><div class="l">商談中</div></div>
+      <div class="big-stat"><div class="n c-purple" id="ds-ordered">0</div><div class="l">受注</div></div>
+      <div class="big-stat"><div class="n c-red" id="ds-lost">0</div><div class="l">失注</div></div>
+    </div>
+
+    <div class="dash-grid">
+
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-title">⚡ クイックアクション</div>
+        <div class="qa-grid">
+          <button class="qa-btn" onclick="startSending()">🚀 フォーム営業を開始（<span id="qa-unsent">0</span>件未送信）</button>
+          <button class="qa-btn" onclick="showPanel('companies',document.querySelectorAll('.nav-btn')[2])">🏢 企業を追加する</button>
+          <button class="qa-btn" onclick="showPanel('media',document.querySelectorAll('.nav-btn')[1])">📺 媒体別ターゲットを確認</button>
+          <button class="qa-btn" onclick="openImportModal()">📋 CSVで一括インポート</button>
+        </div>
+
+        <!-- Send rate -->
+        <div style="margin-top:16px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;margin-bottom:4px">
+            <span>送信率</span>
+            <span>送信済 <span id="rate-sent">0</span>件 / 全 <span id="rate-total">0</span>件</span>
+          </div>
+          <div class="rate-bar-bg"><div class="rate-bar-fill" id="rateBar" style="width:0%"></div></div>
+          <div style="text-align:right;font-size:12px;color:#818cf8;margin-top:2px" id="ratePct">0%</div>
+        </div>
+
+        <div style="margin-top:12px">
+          <button class="btn btn-secondary btn-sm" onclick="showPanel('media',document.querySelectorAll('.nav-btn')[1])" style="width:100%">🎯 推奨ターゲット業種リストへ →</button>
+        </div>
+      </div>
+
+      <!-- Activity -->
+      <div class="card">
+        <div class="card-title">🕐 チーム活動ログ</div>
+        <div class="activity-list" id="activityList">
+          <div style="text-align:center;padding:24px;color:#475569;font-size:13px">📭 まだ活動がありません。</div>
+        </div>
+      </div>
+
+      <!-- Team Stats -->
+      <div class="card">
+        <div class="card-title">👥 メンバー別実績</div>
+        <div class="team-list" id="teamStats">
+          <div style="text-align:center;padding:16px;color:#475569;font-size:12px">ログインして活動を記録すると<br>ここに表示されます</div>
+        </div>
+      </div>
+
+      <!-- Media breakdown -->
+      <div class="card">
+        <div class="card-title">📺 媒体別 送信状況詳細 →</div>
+        <div id="mediaSummary" style="font-size:12px;color:#64748b">データを読み込んでいます...</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== MEDIA ==================== -->
+  <div id="panel-media" class="panel">
+    <div class="media-tabs">
+      <button class="media-tab active" onclick="switchMedia('tver',this)">📺 TVer</button>
+      <button class="media-tab" onclick="switchMedia('aeon',this)">🎬 イオンシネマ</button>
+      <button class="media-tab" onclick="switchMedia('taxi',this)">🚕 タクシーサイネージ</button>
+      <button class="media-tab" onclick="switchMedia('dsign',this)">📱 デジタルサイネージ</button>
+      <button class="media-tab" onclick="switchMedia('video',this)">🎥 動画制作</button>
+    </div>
+    <div id="mediaContent"></div>
+  </div>
+
+  <!-- ==================== COMPANIES ==================== -->
+  <div id="panel-companies" class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="font-size:16px;font-weight:700">🏢 企業リスト</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="openImportModal()">📋 CSV取込</button>
+        <button class="btn btn-primary btn-sm" onclick="openCompanyModal()">＋ 企業を追加</button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="companySearch" placeholder="企業名・業種で検索..." oninput="renderCompanies()">
+      <select id="companyFilter" onchange="renderCompanies()">
+        <option value="">全ステータス</option>
+        <option value="unsent">未送信</option>
+        <option value="sent">送信済み</option>
+        <option value="replied">返信あり</option>
+        <option value="negotiating">商談中</option>
+        <option value="ordered">受注</option>
+        <option value="lost">失注</option>
+      </select>
+      <select id="mediaFilter" onchange="renderCompanies()">
+        <option value="">全媒体</option>
+        <option value="tver">TVer</option>
+        <option value="aeon">イオンシネマ</option>
+        <option value="taxi">タクシーサイネージ</option>
+        <option value="dsign">デジタルサイネージ</option>
+        <option value="video">動画制作</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>企業名</th><th>業種</th><th>媒体</th><th>ステータス</th><th>担当者</th><th>備考</th><th>操作</th>
+        </tr></thead>
+        <tbody id="companyTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==================== TEMPLATES ==================== -->
+  <div id="panel-templates" class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="font-size:16px;font-weight:700">📝 テンプレート管理</h2>
+      <button class="btn btn-primary btn-sm" onclick="openTemplateModal()">＋ テンプレートを追加</button>
+    </div>
+    <div class="media-tabs" id="tplMediaTabs">
+      <button class="media-tab active" onclick="filterTemplates('',this)">すべて</button>
+      <button class="media-tab" onclick="filterTemplates('tver',this)">TVer</button>
+      <button class="media-tab" onclick="filterTemplates('aeon',this)">イオンシネマ</button>
+      <button class="media-tab" onclick="filterTemplates('taxi',this)">タクシーサイネージ</button>
+      <button class="media-tab" onclick="filterTemplates('dsign',this)">デジタルサイネージ</button>
+      <button class="media-tab" onclick="filterTemplates('video',this)">動画制作</button>
+    </div>
+    <div id="templateList"></div>
+  </div>
+
+  <!-- ==================== SEND MANAGER ==================== -->
+  <div id="panel-sendmgr" class="panel">
+    <h2 style="font-size:16px;font-weight:700;margin-bottom:16px">🚀 送信管理</h2>
+    <div class="alert alert-info">💡 「送信する」を押すと、メッセージをクリップボードにコピーし、フォームURLを新しいタブで開きます。フォームに貼り付けて送信してください。</div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">フィルター</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="sendMediaFilter" onchange="renderSendQueue()" style="background:#0f172a;border:1px solid #475569;border-radius:6px;padding:6px 10px;color:#e2e8f0;font-size:12px">
+          <option value="">全媒体</option>
+          <option value="tver">TVer</option>
+          <option value="aeon">イオンシネマ</option>
+          <option value="taxi">タクシーサイネージ</option>
+          <option value="dsign">デジタルサイネージ</option>
+          <option value="video">動画制作</option>
+        </select>
+        <select id="sendStatusFilter" onchange="renderSendQueue()" style="background:#0f172a;border:1px solid #475569;border-radius:6px;padding:6px 10px;color:#e2e8f0;font-size:12px">
+          <option value="unsent">未送信のみ</option>
+          <option value="">全ステータス</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>企業名</th><th>媒体</th><th>ステータス</th><th>テンプレート選択</th><th>操作</th>
+        </tr></thead>
+        <tbody id="sendQueueTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==================== GUIDE ==================== -->
+  <div id="panel-guide" class="panel">
+    <h2 style="font-size:16px;font-weight:700;margin-bottom:16px">⚙️ 自動化ガイド</h2>
+    <div class="guide-step">
+      <h4>STEP 1 ― 企業リストを準備する</h4>
+      <p>「企業リスト」タブから企業を追加するか、CSVで一括インポートしてください。<br>
+      CSVフォーマット: <code style="background:#0f172a;padding:1px 4px;border-radius:3px">企業名,業種,URL,媒体,担当者,備考</code></p>
+    </div>
+    <div class="guide-step">
+      <h4>STEP 2 ― テンプレートを作成する</h4>
+      <p>「テンプレート」タブで媒体ごとの営業文章を作成します。<br>
+      <code style="background:#0f172a;padding:1px 4px;border-radius:3px">{{company}}</code> と書くと企業名に自動置換されます。</p>
+    </div>
+    <div class="guide-step">
+      <h4>STEP 3 ― 送信管理から一括送信</h4>
+      <p>「送信管理」タブの未送信リストから企業を選び、テンプレートを選択して「送信する」をクリック。<br>
+      フォームURLが開き、メッセージがクリップボードにコピーされます。フォームに貼り付けて送信してください。</p>
+    </div>
+    <div class="guide-step">
+      <h4>STEP 4 ― ステータスを更新する</h4>
+      <p>送信後は自動で「送信済み」に変わります。返信が来たら「企業リスト」から「返信あり」「商談中」「受注」に更新してください。</p>
+    </div>
+    <div class="guide-step">
+      <h4>STEP 5 ― チームで共有する</h4>
+      <p>このツールはGoogle Apps Script上で動作しており、同じURLにアクセスした全メンバーでデータが共有されます。<br>
+      アクティビティログで誰がいつ送信したかを確認できます。</p>
+    </div>
+    <div class="guide-step">
+      <h4>媒体別 推奨ターゲット業種</h4>
+      <ul>
+        <li><strong>TVer</strong>: 消費財メーカー、食品・飲料、化粧品、通販、保険、自動車</li>
+        <li><strong>イオンシネマ</strong>: 地域密着型小売、飲食チェーン、不動産、金融</li>
+        <li><strong>タクシーサイネージ</strong>: BtoB企業、採用、金融、IT・SaaS</li>
+        <li><strong>デジタルサイネージ</strong>: 商業施設出店企業、地域サービス、イベント告知</li>
+        <li><strong>動画制作</strong>: 中小企業全般、採用動画、商品PR動画</li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ===== MODALS ===== -->
+
+<!-- Company Modal -->
+<div class="modal-bg" id="companyModal">
+  <div class="modal">
+    <h3 id="companyModalTitle">企業を追加</h3>
+    <input type="hidden" id="editCompanyId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>企業名 *</label>
+        <input type="text" id="cName" placeholder="例: 株式会社〇〇">
+      </div>
+      <div class="form-group">
+        <label>業種</label>
+        <input type="text" id="cIndustry" placeholder="例: 食品メーカー">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>問合せフォームURL</label>
+      <input type="url" id="cUrl" placeholder="https://...">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>対象媒体</label>
+        <select id="cMedia">
+          <option value="">選択してください</option>
+          <option value="tver">TVer</option>
+          <option value="aeon">イオンシネマ</option>
+          <option value="taxi">タクシーサイネージ</option>
+          <option value="dsign">デジタルサイネージ</option>
+          <option value="video">動画制作</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>担当者</label>
+        <input type="text" id="cOwner" placeholder="担当者名">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>備考</label>
+      <textarea id="cNote" rows="2" placeholder="メモを入力..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('companyModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveCompany()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Template Modal -->
+<div class="modal-bg" id="templateModal">
+  <div class="modal">
+    <h3 id="templateModalTitle">テンプレートを追加</h3>
+    <input type="hidden" id="editTemplateId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>テンプレート名 *</label>
+        <input type="text" id="tName" placeholder="例: TVer向け基本文">
+      </div>
+      <div class="form-group">
+        <label>対象媒体</label>
+        <select id="tMedia">
+          <option value="">汎用</option>
+          <option value="tver">TVer</option>
+          <option value="aeon">イオンシネマ</option>
+          <option value="taxi">タクシーサイネージ</option>
+          <option value="dsign">デジタルサイネージ</option>
+          <option value="video">動画制作</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>件名（メール用）</label>
+      <input type="text" id="tSubject" placeholder="例: 【広告提案】TVer広告のご提案">
+    </div>
+    <div class="form-group">
+      <label>本文 * （{{company}} → 企業名に自動置換）</label>
+      <textarea id="tBody" rows="8" placeholder="{{company}} 御中&#10;&#10;はじめまして..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('templateModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveTemplate()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-bg" id="importModal">
+  <div class="modal">
+    <h3>📋 CSV一括インポート</h3>
+    <div class="alert alert-info">CSVフォーマット（1行目はヘッダー）:<br>企業名, 業種, URL, 媒体, 担当者, 備考</div>
+    <div class="form-group">
+      <label>CSVテキストを貼り付け</label>
+      <textarea id="csvText" rows="8" placeholder="企業名,業種,URL,媒体,担当者,備考&#10;株式会社ABC,食品メーカー,https://...,tver,山田,"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('importModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="importCSV()">インポート</button>
+    </div>
+  </div>
+</div>
+
+<!-- Note Modal -->
+<div class="modal-bg" id="noteModal">
+  <div class="modal" style="max-width:420px">
+    <h3>📝 備考を編集</h3>
+    <input type="hidden" id="noteCompanyId">
+    <div class="form-group">
+      <textarea id="noteText" rows="5" placeholder="メモ・備考を入力..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('noteModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveNote()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Display Name Modal -->
+<div class="modal-bg" id="nameModal">
+  <div class="modal" style="max-width:380px">
+    <h3>✏️ 表示名を設定</h3>
+    <div class="form-group">
+      <label>表示名</label>
+      <input type="text" id="displayNameInput" placeholder="例: 山田 太郎">
+      <div class="name-hint">チームの活動ログに表示される名前です</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('nameModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveDisplayName()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================
+// Constants
+// ============================
+const USER_COLORS = [
+  '#6366f1','#8b5cf6','#ec4899','#f43f5e','#f97316',
+  '#eab308','#22c55e','#10b981','#06b6d4','#3b82f6'
+];
+
+const ACTION_LABELS = {
+  sent:        '📤 フォーム送信',
+  replied:     '💬 返信あり に更新',
+  negotiating: '🤝 商談中 に更新',
+  ordered:     '🎉 受注 に更新',
+  lost:        '❌ 失注 に更新',
+  added:       '➕ 企業を追加',
+  imported:    '📋 CSV一括インポート',
+};
+
+const MEDIA_LABELS = {
+  tver:  'TVer',
+  aeon:  'イオンシネマ',
+  taxi:  'タクシーサイネージ',
+  dsign: 'デジタルサイネージ',
+  video: '動画制作',
+};
+
+const MEDIA_INFO = {
+  tver: {
+    label: '📺 TVer広告',
+    class: 'mb-tver',
+    url: 'https://tver.jp',
+    description: 'TVer（ティーバー）は民放各局が提供する無料動画サービス。月間アクティブユーザー数2,000万人以上。',
+    targets: ['消費財メーカー','食品・飲料','化粧品','通販','保険','自動車','住宅'],
+  },
+  aeon: {
+    label: '🎬 イオンシネマ',
+    class: 'mb-aeon',
+    url: 'https://www.aeon-cinema.co.jp',
+    description: 'イオンシネマの映画上映前に流れるスクリーン広告。来場者は購買意欲の高い層が多い。',
+    targets: ['飲食チェーン','地域密着型小売','不動産','金融','エンタメ'],
+  },
+  taxi: {
+    label: '🚕 タクシーサイネージ',
+    class: 'mb-taxi',
+    url: 'https://www.taxi-sign.jp',
+    description: 'タクシー後部座席に設置されたタブレットで流れる動画広告。BtoB・高所得者層へのリーチに効果的。',
+    targets: ['BtoB企業','採用','金融','IT・SaaS','不動産'],
+  },
+  dsign: {
+    label: '📱 デジタルサイネージ',
+    class: 'mb-dsign',
+    url: '',
+    description: '商業施設・駅・ビルに設置されたデジタルサイネージへの広告掲出。',
+    targets: ['商業施設出店企業','地域サービス','イベント告知','飲食'],
+  },
+  video: {
+    label: '🎥 動画制作',
+    class: 'mb-video',
+    url: '',
+    description: '企業向けの動画制作サービス。採用動画・商品PR・会社紹介動画など。',
+    targets: ['中小企業全般','採用動画ニーズのある企業','商品PR','サービス紹介'],
+  },
+};
+
+// ============================
+// State
+// ============================
+let companies  = [];
+let templates  = [];
+let activities = [];
+let currentUser = null;
+let currentMedia = 'tver';
+let tplMediaFilter = '';
+let _gasAvailable = typeof google !== 'undefined' && google.script;
+
+// ============================
+// Init
+// ============================
+function init() {
+  if (_gasAvailable) {
+    google.script.run
+      .withSuccessHandler(onDataLoaded)
+      .withFailureHandler(err => {
+        console.error('getInitData error:', err);
+        hideLoading();
+        showToast('データの読み込みに失敗しました: ' + (err.message || err), 'error');
+        renderAll();
+      })
+      .getInitData();
+  } else {
+    // Local preview mode (without GAS)
+    currentUser = { email: 'preview@example.com', displayName: 'プレビューユーザー', colorIdx: 0 };
+    hideLoading();
+    updateHeaderUser();
+    renderAll();
+  }
+}
+
+function onDataLoaded(data) {
+  currentUser = data.user   || null;
+  companies   = data.companies  || [];
+  templates   = data.templates  || [];
+  activities  = data.activities || [];
+  hideLoading();
+  updateHeaderUser();
+  renderAll();
+}
+
+function hideLoading() {
+  const el = document.getElementById('loadingOverlay');
+  el.classList.add('hidden');
+  setTimeout(() => el.style.display = 'none', 500);
+}
+
+function renderAll() {
+  updateStatsBar();
+  renderDashboard();
+  renderMediaContent();
+  renderCompanies();
+  renderTemplates();
+  renderSendQueue();
+}
+
+// ============================
+// User
+// ============================
+function updateHeaderUser() {
+  if (!currentUser) return;
+  const badge  = document.getElementById('userBadge');
+  const avatar = document.getElementById('headerAvatar');
+  const name   = document.getElementById('headerName');
+  badge.style.display = 'flex';
+  const color = USER_COLORS[currentUser.colorIdx % USER_COLORS.length] || '#6366f1';
+  avatar.style.background = color;
+  avatar.textContent = (currentUser.displayName || currentUser.email || '?').charAt(0).toUpperCase();
+  name.textContent   = currentUser.displayName || currentUser.email || '';
+}
+
+function openDisplayNameModal() {
+  if (!currentUser) return;
+  document.getElementById('displayNameInput').value = currentUser.displayName || '';
+  openModal('nameModal');
+}
+
+function saveDisplayName() {
+  const name = document.getElementById('displayNameInput').value.trim();
+  if (!name) { showToast('名前を入力してください', 'warn'); return; }
+  currentUser.displayName = name;
+  updateHeaderUser();
+  closeModal('nameModal');
+  if (_gasAvailable) {
+    google.script.run.setDisplayName(name);
+  }
+  showToast('表示名を保存しました');
+}
+
+// ============================
+// Stats
+// ============================
+function getStats(list) {
+  const s = { total:0, unsent:0, sent:0, replied:0, negotiating:0, ordered:0, lost:0 };
+  (list || companies).forEach(c => {
+    s.total++;
+    s[c.status || 'unsent'] = (s[c.status || 'unsent'] || 0) + 1;
+  });
+  return s;
+}
+
+function updateStatsBar() {
+  const s = getStats();
+  document.getElementById('sbTotal').textContent   = s.total;
+  document.getElementById('sbSent').textContent    = s.sent + s.replied + s.negotiating + s.ordered;
+  document.getElementById('sbReplied').textContent = s.replied + s.negotiating + s.ordered;
+  document.getElementById('sbOrdered').textContent = s.ordered;
+}
+
+// ============================
+// Dashboard
+// ============================
+function renderDashboard() {
+  const s = getStats();
+  document.getElementById('ds-unsent').textContent     = s.unsent;
+  document.getElementById('ds-sent').textContent       = s.sent;
+  document.getElementById('ds-replied').textContent    = s.replied;
+  document.getElementById('ds-negotiating').textContent= s.negotiating;
+  document.getElementById('ds-ordered').textContent    = s.ordered;
+  document.getElementById('ds-lost').textContent       = s.lost;
+  document.getElementById('qa-unsent').textContent     = s.unsent;
+
+  const totalSent = s.sent + s.replied + s.negotiating + s.ordered + s.lost;
+  const pct = s.total > 0 ? Math.round(totalSent / s.total * 100) : 0;
+  document.getElementById('rateBar').style.width    = pct + '%';
+  document.getElementById('ratePct').textContent    = pct + '%';
+  document.getElementById('rate-sent').textContent  = totalSent;
+  document.getElementById('rate-total').textContent = s.total;
+
+  renderActivity();
+  renderTeamStats();
+  renderMediaSummary();
+}
+
+function renderActivity() {
+  const el = document.getElementById('activityList');
+  if (!activities.length) {
+    el.innerHTML = '<div style="text-align:center;padding:24px;color:#475569;font-size:13px">📭 まだ活動がありません。</div>';
+    return;
+  }
+  el.innerHTML = activities.slice(0, 40).map(a => {
+    const color = USER_COLORS[(a.userColor || 0) % USER_COLORS.length];
+    const initials = (a.userName || a.userId || '?').charAt(0).toUpperCase();
+    const label = ACTION_LABELS[a.action] || a.action;
+    const media = a.media ? ` [${MEDIA_LABELS[a.media] || a.media}]` : '';
+    return `<div class="act-item">
+      <div class="act-avatar" style="background:${color}">${initials}</div>
+      <div class="act-body">
+        <div class="act-text"><strong>${escHtml(a.userName||a.userId||'')}</strong> ${escHtml(label)}${media ? ' <span style="color:#64748b">'+escHtml(media)+'</span>' : ''}${a.companyName ? ' — '+escHtml(a.companyName) : ''}</div>
+        <div class="act-time">${fmtDatetime(a.timestamp)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTeamStats() {
+  const el = document.getElementById('teamStats');
+  const map = {};
+  activities.forEach(a => {
+    if (!a.userId) return;
+    if (!map[a.userId]) map[a.userId] = { name: a.userName || a.userId, color: USER_COLORS[(a.userColor||0)%USER_COLORS.length], count: 0 };
+    if (a.action === 'sent') map[a.userId].count++;
+  });
+  const rows = Object.values(map).sort((a,b) => b.count - a.count);
+  if (!rows.length) {
+    el.innerHTML = '<div style="text-align:center;padding:16px;color:#475569;font-size:12px">ログインして活動を記録すると<br>ここに表示されます</div>';
+    return;
+  }
+  const max = rows[0].count || 1;
+  el.innerHTML = rows.map(r => `
+    <div class="team-row">
+      <div class="act-avatar" style="background:${r.color};width:24px;height:24px;font-size:10px">${r.name.charAt(0).toUpperCase()}</div>
+      <div style="font-size:12px;color:#e2e8f0;min-width:80px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(r.name)}</div>
+      <div class="team-bar-bg"><div class="team-bar" style="width:${Math.round(r.count/max*100)}%;background:${r.color}"></div></div>
+      <div class="team-count">${r.count}件</div>
+    </div>`).join('');
+}
+
+function renderMediaSummary() {
+  const el = document.getElementById('mediaSummary');
+  if (!companies.length) { el.innerHTML = '<span style="color:#475569">企業が登録されていません</span>'; return; }
+  const html = Object.keys(MEDIA_INFO).map(key => {
+    const list = companies.filter(c => c.media === key);
+    if (!list.length) return '';
+    const sent = list.filter(c => c.status && c.status !== 'unsent').length;
+    const pct = Math.round(sent / list.length * 100);
+    return `<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span>${MEDIA_INFO[key].label}</span>
+        <span style="color:#818cf8">${sent}/${list.length} (${pct}%)</span>
+      </div>
+      <div class="rate-bar-bg" style="height:6px"><div class="rate-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+  el.innerHTML = html || '<span style="color:#475569">媒体別データがありません</span>';
+}
+
+// ============================
+// Navigation
+// ============================
+function showPanel(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'sendmgr')   renderSendQueue();
+  if (name === 'companies') renderCompanies();
+}
+
+// ============================
+// Media Panel
+// ============================
+function switchMedia(key, btn) {
+  currentMedia = key;
+  document.querySelectorAll('.media-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderMediaContent();
+}
+
+function renderMediaContent() {
+  const info = MEDIA_INFO[currentMedia];
+  if (!info) return;
+  const list = companies.filter(c => c.media === currentMedia);
+  const s = getStats(list);
+  const unsent = list.filter(c => !c.status || c.status === 'unsent');
+
+  document.getElementById('mediaContent').innerHTML = `
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <h3 style="font-size:16px;font-weight:700;margin-bottom:6px">${info.label}</h3>
+          <p style="font-size:13px;color:#94a3b8;margin-bottom:10px">${info.description}</p>
+          <div style="font-size:12px;color:#64748b">
+            <strong style="color:#94a3b8">推奨ターゲット業種:</strong>
+            ${info.targets.map(t=>`<span style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:2px 8px;margin:2px;display:inline-block">${t}</span>`).join('')}
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div class="stat-card"><div class="big">${s.total}</div><div class="lbl">登録企業</div></div>
+          <div class="stat-card"><div class="big" style="color:#3b82f6">${s.sent}</div><div class="lbl">送信済</div></div>
+          <div class="stat-card"><div class="big" style="color:#22c55e">${s.replied+s.negotiating+s.ordered}</div><div class="lbl">返信以上</div></div>
+        </div>
+      </div>
+    </div>
+    ${unsent.length ? `<div class="alert alert-warn">⚡ 未送信企業が <strong>${unsent.length}件</strong> あります。<button class="btn btn-primary btn-sm" style="margin-left:10px" onclick="startSendingMedia('${currentMedia}')">今すぐ送信する</button></div>` : '<div class="alert alert-success">✅ この媒体の未送信企業はありません</div>'}
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>企業名</th><th>業種</th><th>ステータス</th><th>担当者</th><th>備考</th><th>操作</th></tr></thead>
+        <tbody>${list.length ? list.map(c => companyRow(c)).join('') : '<tr><td colspan="6" style="text-align:center;color:#475569;padding:24px">この媒体の企業がありません。<button class="btn btn-primary btn-sm" style="margin-left:8px" onclick="openCompanyModalWith(\''+currentMedia+'\')">追加する</button></td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+
+function openCompanyModalWith(media) {
+  openCompanyModal();
+  document.getElementById('cMedia').value = media;
+}
+
+// ============================
+// Companies
+// ============================
+function renderCompanies() {
+  const q  = (document.getElementById('companySearch').value || '').toLowerCase();
+  const sf = document.getElementById('companyFilter').value;
+  const mf = document.getElementById('mediaFilter').value;
+  const list = companies.filter(c =>
+    (!q  || (c.name||'').toLowerCase().includes(q) || (c.industry||'').toLowerCase().includes(q)) &&
+    (!sf || (c.status||'unsent') === sf) &&
+    (!mf || c.media === mf)
+  );
+  document.getElementById('companyTbody').innerHTML = list.length
+    ? list.map(c => companyRow(c)).join('')
+    : '<tr><td colspan="7" style="text-align:center;color:#475569;padding:24px">条件に一致する企業がありません</td></tr>';
+}
+
+function companyRow(c) {
+  const st = c.status || 'unsent';
+  const stLabel = {unsent:'未送信',sent:'送信済み',replied:'返信あり',negotiating:'商談中',ordered:'受注',lost:'失注'}[st]||st;
+  const mediaLabel = MEDIA_LABELS[c.media] || c.media || '―';
+  const mediaCls   = c.media ? 'mb-'+c.media : '';
+  return `<tr>
+    <td><strong>${escHtml(c.name||'')}</strong>${c.url?`<br><a href="${escHtml(c.url)}" target="_blank" style="font-size:11px;color:#818cf8">🔗 フォームを開く</a>`:''}</td>
+    <td style="color:#94a3b8;font-size:12px">${escHtml(c.industry||'')}</td>
+    <td>${mediaCls?`<span class="media-badge ${mediaCls}">${escHtml(mediaLabel)}</span>`:escHtml(mediaLabel)}</td>
+    <td><span class="badge s-${st}">${stLabel}</span></td>
+    <td style="font-size:12px;color:#94a3b8">${escHtml(c.owner||'')}</td>
+    <td style="font-size:11px;color:#64748b;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.note||'')}</td>
+    <td>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <select onchange="quickStatus('${c.id}',this.value)" style="background:#0f172a;border:1px solid #475569;border-radius:4px;padding:3px 6px;color:#e2e8f0;font-size:11px">
+          <option value="">ステータス変更</option>
+          <option value="unsent">未送信</option>
+          <option value="sent">送信済み</option>
+          <option value="replied">返信あり</option>
+          <option value="negotiating">商談中</option>
+          <option value="ordered">受注</option>
+          <option value="lost">失注</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="openNoteModal('${c.id}')">📝</button>
+        <button class="btn btn-secondary btn-sm" onclick="openCompanyModalEdit('${c.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCompany('${c.id}')">🗑</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+function openCompanyModal() {
+  document.getElementById('companyModalTitle').textContent = '企業を追加';
+  document.getElementById('editCompanyId').value = '';
+  ['cName','cIndustry','cUrl','cOwner','cNote'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cMedia').value = '';
+  openModal('companyModal');
+}
+
+function openCompanyModalEdit(id) {
+  const c = companies.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('companyModalTitle').textContent = '企業を編集';
+  document.getElementById('editCompanyId').value = id;
+  document.getElementById('cName').value     = c.name     || '';
+  document.getElementById('cIndustry').value = c.industry || '';
+  document.getElementById('cUrl').value      = c.url      || '';
+  document.getElementById('cMedia').value    = c.media    || '';
+  document.getElementById('cOwner').value    = c.owner    || '';
+  document.getElementById('cNote').value     = c.note     || '';
+  openModal('companyModal');
+}
+
+function saveCompany() {
+  const name = document.getElementById('cName').value.trim();
+  if (!name) { showToast('企業名を入力してください', 'warn'); return; }
+  const editId = document.getElementById('editCompanyId').value;
+  const data = {
+    id:       editId || 'c_' + Date.now(),
+    name,
+    industry: document.getElementById('cIndustry').value.trim(),
+    url:      document.getElementById('cUrl').value.trim(),
+    media:    document.getElementById('cMedia').value,
+    owner:    document.getElementById('cOwner').value.trim(),
+    note:     document.getElementById('cNote').value.trim(),
+    status:   editId ? (companies.find(c=>c.id===editId)||{}).status||'unsent' : 'unsent',
+    createdAt: editId ? (companies.find(c=>c.id===editId)||{}).createdAt||new Date().toISOString() : new Date().toISOString(),
+  };
+  if (editId) {
+    const idx = companies.findIndex(c => c.id === editId);
+    if (idx >= 0) companies[idx] = data;
+  } else {
+    companies.push(data);
+    logActivity('added', data);
+  }
+  closeModal('companyModal');
+  persistCompanies();
+  renderAll();
+  showToast(editId ? '企業情報を更新しました' : '企業を追加しました');
+}
+
+function deleteCompany(id) {
+  if (!confirm('この企業を削除しますか？')) return;
+  companies = companies.filter(c => c.id !== id);
+  persistCompanies();
+  renderAll();
+  showToast('企業を削除しました');
+}
+
+function quickStatus(id, status) {
+  if (!status) return;
+  const c = companies.find(x => x.id === id);
+  if (!c) return;
+  c.status = status;
+  logActivity(status, c);
+  persistCompanies();
+  renderAll();
+}
+
+function openNoteModal(id) {
+  const c = companies.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('noteCompanyId').value = id;
+  document.getElementById('noteText').value = c.note || '';
+  openModal('noteModal');
+}
+
+function saveNote() {
+  const id   = document.getElementById('noteCompanyId').value;
+  const note = document.getElementById('noteText').value;
+  const c = companies.find(x => x.id === id);
+  if (!c) return;
+  c.note = note;
+  closeModal('noteModal');
+  persistCompanies();
+  renderAll();
+  showToast('備考を保存しました');
+}
+
+// ============================
+// Templates
+// ============================
+function filterTemplates(media, btn) {
+  tplMediaFilter = media;
+  document.querySelectorAll('#tplMediaTabs .media-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderTemplates();
+}
+
+function renderTemplates() {
+  const list = tplMediaFilter ? templates.filter(t => t.media === tplMediaFilter) : templates;
+  const el   = document.getElementById('templateList');
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;padding:32px;color:#475569">テンプレートがありません。<br><button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="openTemplateModal()">テンプレートを追加する</button></div>';
+    return;
+  }
+  el.innerHTML = list.map(t => {
+    const mediaLabel = MEDIA_LABELS[t.media] || t.media || '汎用';
+    const mediaCls   = t.media ? 'mb-'+t.media : '';
+    return `<div class="tpl-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="tpl-name">${escHtml(t.name)}</div>
+          <div class="tpl-meta">${mediaCls?`<span class="media-badge ${mediaCls}">${escHtml(mediaLabel)}</span>`:escHtml(mediaLabel)} ${t.subject?'<span style="color:#94a3b8;margin-left:4px">件名: '+escHtml(t.subject)+'</span>':''}</div>
+        </div>
+        <div class="tpl-actions">
+          <button class="btn btn-secondary btn-sm" onclick="openTemplateModalEdit('${t.id}')">✏️ 編集</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteTemplate('${t.id}')">🗑</button>
+        </div>
+      </div>
+      <div class="tpl-preview">${escHtml(t.body||'')}</div>
+    </div>`;
+  }).join('');
+}
+
+function openTemplateModal() {
+  document.getElementById('templateModalTitle').textContent = 'テンプレートを追加';
+  document.getElementById('editTemplateId').value = '';
+  ['tName','tSubject','tBody'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('tMedia').value = '';
+  openModal('templateModal');
+}
+
+function openTemplateModalEdit(id) {
+  const t = templates.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('templateModalTitle').textContent = 'テンプレートを編集';
+  document.getElementById('editTemplateId').value = id;
+  document.getElementById('tName').value    = t.name    || '';
+  document.getElementById('tMedia').value   = t.media   || '';
+  document.getElementById('tSubject').value = t.subject || '';
+  document.getElementById('tBody').value    = t.body    || '';
+  openModal('templateModal');
+}
+
+function saveTemplate() {
+  const name = document.getElementById('tName').value.trim();
+  if (!name) { showToast('テンプレート名を入力してください', 'warn'); return; }
+  const editId = document.getElementById('editTemplateId').value;
+  const data = {
+    id:      editId || 't_' + Date.now(),
+    name,
+    media:   document.getElementById('tMedia').value,
+    subject: document.getElementById('tSubject').value.trim(),
+    body:    document.getElementById('tBody').value,
+  };
+  if (editId) {
+    const idx = templates.findIndex(t => t.id === editId);
+    if (idx >= 0) templates[idx] = data;
+  } else {
+    templates.push(data);
+  }
+  closeModal('templateModal');
+  persistTemplates();
+  renderTemplates();
+  showToast(editId ? 'テンプレートを更新しました' : 'テンプレートを追加しました');
+}
+
+function deleteTemplate(id) {
+  if (!confirm('このテンプレートを削除しますか？')) return;
+  templates = templates.filter(t => t.id !== id);
+  persistTemplates();
+  renderTemplates();
+  showToast('テンプレートを削除しました');
+}
+
+// ============================
+// Send Queue
+// ============================
+function renderSendQueue() {
+  const mf = document.getElementById('sendMediaFilter').value;
+  const sf = document.getElementById('sendStatusFilter').value;
+  let list = companies.filter(c =>
+    (!mf || c.media === mf) &&
+    (!sf || (c.status||'unsent') === sf)
+  );
+  const tbody = document.getElementById('sendQueueTbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#475569;padding:24px">該当する企業がありません</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(c => {
+    const mediaTpls = templates.filter(t => !t.media || t.media === c.media);
+    const tplOptions = mediaTpls.map(t => `<option value="${t.id}">${escHtml(t.name)}</option>`).join('');
+    const mediaLabel = MEDIA_LABELS[c.media] || c.media || '―';
+    const mediaCls   = c.media ? 'mb-'+c.media : '';
+    const st = c.status || 'unsent';
+    const stLabel = {unsent:'未送信',sent:'送信済み',replied:'返信あり',negotiating:'商談中',ordered:'受注',lost:'失注'}[st]||st;
+    return `<tr>
+      <td><strong>${escHtml(c.name||'')}</strong>${c.url?`<br><a href="${escHtml(c.url)}" target="_blank" style="font-size:11px;color:#818cf8">🔗 ${escHtml(c.url.substring(0,40))}${c.url.length>40?'...':''}</a>`:''}</td>
+      <td>${mediaCls?`<span class="media-badge ${mediaCls}">${escHtml(mediaLabel)}</span>`:escHtml(mediaLabel)}</td>
+      <td><span class="badge s-${st}">${stLabel}</span></td>
+      <td>
+        <select id="tpl_${c.id}" style="background:#0f172a;border:1px solid #475569;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px;min-width:160px">
+          <option value="">テンプレートを選択</option>
+          ${tplOptions}
+        </select>
+      </td>
+      <td>
+        <button class="btn btn-primary btn-sm" onclick="sendOne('${c.id}')">📤 送信する</button>
+        <button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="asNext('${c.id}')">⏭ 次回に</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function sendOne(id) {
+  const c   = companies.find(x => x.id === id);
+  if (!c) return;
+  const tplId  = document.getElementById('tpl_' + id)?.value;
+  const tpl    = templates.find(t => t.id === tplId);
+  const msg    = tpl ? tpl.body.replace(/\{\{company\}\}/g, c.name||'') : '';
+
+  if (msg) {
+    navigator.clipboard.writeText(msg).catch(() => {});
+    showToast('メッセージをクリップボードにコピーしました！', 'success');
+  } else {
+    showToast('テンプレートが選択されていません（URLのみ開きます）', 'warn');
+  }
+
+  if (c.url) {
+    window.open(c.url, '_blank');
+  }
+
+  c.status = 'sent';
+  c.sentAt = new Date().toISOString();
+  logActivity('sent', c);
+  persistCompanies();
+  renderAll();
+}
+
+function startSending() {
+  showPanel('sendmgr', document.querySelectorAll('.nav-btn')[4]);
+  document.getElementById('sendStatusFilter').value = 'unsent';
+  renderSendQueue();
+}
+
+function startSendingMedia(media) {
+  showPanel('sendmgr', document.querySelectorAll('.nav-btn')[4]);
+  document.getElementById('sendMediaFilter').value  = media;
+  document.getElementById('sendStatusFilter').value = 'unsent';
+  renderSendQueue();
+}
+
+function asNext(id) {
+  // Just skip — mark as still unsent and move to bottom (do nothing to status)
+  showToast('次回リストに移動しました');
+}
+
+// ============================
+// Import CSV
+// ============================
+function openImportModal() {
+  document.getElementById('csvText').value = '';
+  openModal('importModal');
+}
+
+function importCSV() {
+  const raw  = document.getElementById('csvText').value.trim();
+  if (!raw) { showToast('CSVを入力してください', 'warn'); return; }
+  const lines = raw.split('\n');
+  let count = 0;
+  lines.forEach((line, i) => {
+    if (i === 0 && line.toLowerCase().includes('企業名')) return; // skip header
+    const cols = line.split(',').map(c => c.trim().replace(/^["']|["']$/g,''));
+    if (!cols[0]) return;
+    companies.push({
+      id:       'c_' + Date.now() + '_' + i,
+      name:     cols[0] || '',
+      industry: cols[1] || '',
+      url:      cols[2] || '',
+      media:    cols[3] || '',
+      owner:    cols[4] || '',
+      note:     cols[5] || '',
+      status:   'unsent',
+      createdAt: new Date().toISOString(),
+    });
+    count++;
+  });
+  if (count > 0) {
+    logActivity('imported', { name: count + '社', id: 'csv_'+Date.now() });
+    persistCompanies();
+    renderAll();
+    closeModal('importModal');
+    showToast(count + '社をインポートしました', 'success');
+  } else {
+    showToast('インポートできる企業がありませんでした', 'warn');
+  }
+}
+
+// ============================
+// Activity Logging
+// ============================
+function logActivity(action, company) {
+  if (!currentUser) return;
+  const act = {
+    id:          'a_' + Date.now(),
+    userId:      currentUser.email,
+    userName:    currentUser.displayName || currentUser.email || '',
+    userColor:   currentUser.colorIdx || 0,
+    action,
+    companyId:   company ? company.id   : '',
+    companyName: company ? company.name : '',
+    media:       company ? company.media : '',
+    timestamp:   new Date().toISOString(),
+  };
+  activities.unshift(act);
+  if (activities.length > 200) activities = activities.slice(0, 200);
+  if (_gasAvailable) {
+    google.script.run.addActivity(act);
+  }
+}
+
+// ============================
+// Persistence
+// ============================
+function persistCompanies() {
+  if (_gasAvailable) {
+    google.script.run
+      .withFailureHandler(err => console.error('saveCompanies:', err))
+      .saveCompanies(companies);
+  }
+}
+
+function persistTemplates() {
+  if (_gasAvailable) {
+    google.script.run
+      .withFailureHandler(err => console.error('saveTemplates:', err))
+      .saveTemplates(templates);
+  }
+}
+
+// ============================
+// Modal helpers
+// ============================
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Close on backdrop click
+document.querySelectorAll('.modal-bg').forEach(bg => {
+  bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); });
+});
+
+// ============================
+// Toast
+// ============================
+function showToast(msg, type) {
+  const el = document.createElement('div');
+  const colors = { success:'#14532d', error:'#7f1d1d', warn:'#78350f' };
+  el.style.cssText = `position:fixed;bottom:20px;right:20px;z-index:9999;background:${colors[type]||'#1e3a5f'};border:1px solid #475569;color:#e2e8f0;padding:10px 18px;border-radius:8px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.4);max-width:300px`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ============================
+// Utilities
+// ============================
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDatetime(ts) {
+  if (!ts) return '';
+  try {
+    const d = new Date(ts);
+    if (isNaN(d)) return String(ts);
+    const now = new Date();
+    const diff = (now - d) / 1000;
+    if (diff < 60) return 'たった今';
+    if (diff < 3600) return Math.floor(diff/60) + '分前';
+    if (diff < 86400) return Math.floor(diff/3600) + '時間前';
+    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  } catch(e) { return String(ts); }
+}
+
+// ============================
+// Start
+// ============================
+window.addEventListener('load', init);
+</script>
+</body>
+</html>

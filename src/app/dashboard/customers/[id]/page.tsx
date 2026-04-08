@@ -36,8 +36,11 @@ import {
   FileCheck,
   Percent,
   Calendar,
+  FileText,
 } from "lucide-react";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
+import { ESTIMATION_STATUS_OPTIONS } from "@/lib/constants/estimates";
+import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
 import { DealStatusEditor } from "@/components/customers/deal-status-editor";
 import { ActivityForm } from "@/components/customers/activity-form";
 import { ActivityTimeline } from "@/components/customers/activity-timeline";
@@ -66,7 +69,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const staffName = session?.user?.name ?? session?.user?.email ?? "不明";
 
   // DB からすべて取得（顧客・商談・活動履歴・セッションユーザー）
-  const [dbCustomer, dbDeals, activities, sessionUser, hearingSheets, allBranches] = await Promise.all([
+  const [dbCustomer, dbDeals, activities, sessionUser, hearingSheets, allBranches, dbProjects, orphanEstimations] = await Promise.all([
     db.customer.findUnique({
       where: { id },
       include: { lockedBy: { select: { id: true, name: true } } },
@@ -93,6 +96,25 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     role === "ADMIN"
       ? db.branch.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
+    db.project.findMany({
+      where: { customerId: id, ...(role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId }) },
+      include: {
+        estimations: {
+          include: { items: { select: { amount: true } } },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.estimation.findMany({
+      where: {
+        customerId: id,
+        projectId: null,
+        ...(role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId }),
+      },
+      include: { items: { select: { amount: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   if (!dbCustomer) notFound();
@@ -421,6 +443,132 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </div>
         </div>
       )}
+
+      {/* ===== プロジェクト・見積 俯瞰 ===== */}
+      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/60">
+          <div className="flex items-center gap-2">
+            <span className="text-zinc-400"><FolderKanban className="w-3.5 h-3.5" /></span>
+            <h3 className="text-xs font-semibold text-zinc-600">
+              プロジェクト・見積 俯瞰
+            </h3>
+            <span className="text-[10px] text-zinc-400">
+              {dbProjects.length}件のプロジェクト · {orphanEstimations.length}件の未紐付け見積
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/dashboard/estimates/new?customerId=${id}`}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-blue-600 border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
+            >
+              <FileText className="w-3 h-3" />
+              新規見積
+            </Link>
+          </div>
+        </div>
+
+        {dbProjects.length === 0 && orphanEstimations.length === 0 ? (
+          <div className="px-6 py-8 text-center">
+            <p className="text-sm text-zinc-400">プロジェクト・見積データがありません</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-zinc-100">
+            {/* プロジェクトごと */}
+            {dbProjects.map((proj: any) => {
+              const projStatusOpt = PROJECT_STATUS_OPTIONS.find((o: any) => o.value === proj.status);
+              const estTotal = proj.estimations.reduce(
+                (sum: number, e: any) => sum + e.items.reduce((s: number, it: any) => s + Number(it.amount), 0),
+                0
+              );
+              return (
+                <div key={proj.id} className="px-5 py-4">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {projStatusOpt && (
+                        <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full border ${projStatusOpt.className}`}>
+                          {projStatusOpt.icon} {projStatusOpt.label}
+                        </span>
+                      )}
+                      <Link
+                        href={`/dashboard/projects/${proj.id}`}
+                        className="text-sm font-semibold text-zinc-900 hover:text-blue-600 transition-colors truncate"
+                      >
+                        {proj.title}
+                      </Link>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-xs text-zinc-400">見積 {proj.estimations.length}件</span>
+                      {estTotal > 0 && (
+                        <span className="text-sm font-bold text-zinc-800 tabular-nums">¥{estTotal.toLocaleString()}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {proj.estimations.length > 0 && (
+                    <div className="ml-4 space-y-1">
+                      {proj.estimations.map((est: any) => {
+                        const sub = est.items.reduce((s: number, it: any) => s + Number(it.amount), 0);
+                        const estStatusOpt = ESTIMATION_STATUS_OPTIONS.find((o: any) => o.value === est.status);
+                        return (
+                          <div key={est.id} className="flex items-center gap-2 py-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 flex-shrink-0" />
+                            <Link
+                              href={`/dashboard/estimates/${est.id}`}
+                              className="text-xs text-zinc-700 hover:text-blue-600 transition-colors truncate"
+                            >
+                              {est.title}
+                            </Link>
+                            {estStatusOpt && (
+                              <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded-full border ${estStatusOpt.className}`}>
+                                {estStatusOpt.icon} {estStatusOpt.label}
+                              </span>
+                            )}
+                            <span className="text-xs font-medium text-zinc-500 tabular-nums ml-auto">
+                              ¥{sub.toLocaleString()}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* プロジェクト未紐付けの見積 */}
+            {orphanEstimations.length > 0 && (
+              <div className="px-5 py-4">
+                <p className="text-xs font-semibold text-zinc-500 mb-2">プロジェクト未紐付け</p>
+                <div className="ml-4 space-y-1">
+                  {orphanEstimations.map((est: any) => {
+                    const sub = est.items.reduce((s: number, it: any) => s + Number(it.amount), 0);
+                    const estStatusOpt = ESTIMATION_STATUS_OPTIONS.find((o: any) => o.value === est.status);
+                    return (
+                      <div key={est.id} className="flex items-center gap-2 py-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 flex-shrink-0" />
+                        <Link
+                          href={`/dashboard/estimates/${est.id}`}
+                          className="text-xs text-zinc-700 hover:text-blue-600 transition-colors truncate"
+                        >
+                          {est.title}
+                        </Link>
+                        {estStatusOpt && (
+                          <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded-full border ${estStatusOpt.className}`}>
+                            {estStatusOpt.icon} {estStatusOpt.label}
+                          </span>
+                        )}
+                        <span className="text-xs font-medium text-zinc-500 tabular-nums ml-auto">
+                          ¥{sub.toLocaleString()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ===== 商談（プロジェクト統括）===== */}
       <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">

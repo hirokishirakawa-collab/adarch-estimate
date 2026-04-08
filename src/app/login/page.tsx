@@ -1,5 +1,6 @@
 import { signIn } from "@/lib/auth";
 import Image from "next/image";
+import { DemoLoginForm } from "./demo-login-form";
 
 export default function LoginPage() {
   return (
@@ -64,6 +65,16 @@ export default function LoginPage() {
               Google でログイン
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-7">
+            <span className="flex-1 h-px bg-zinc-200" />
+            <span className="text-[10px] text-zinc-300 tracking-widest">OR</span>
+            <span className="flex-1 h-px bg-zinc-200" />
+          </div>
+
+          {/* Demo login (App Store Review) */}
+          <DemoLoginForm />
 
           {/* Divider */}
           <div className="flex items-center gap-3 my-7">

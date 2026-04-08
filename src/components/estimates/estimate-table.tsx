@@ -11,6 +11,7 @@ export type EstimationRow = {
   estimateDate: Date;
   staffName: string | null;
   branchId: string;
+  projectId: string | null;
   customer: { id: string; name: string } | null;
   items: { amount: { toNumber(): number } }[];
 };

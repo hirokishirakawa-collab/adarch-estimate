@@ -8,6 +8,8 @@
 //
 // トリガー設定:
 //   checkAutoSalesResponses → 15分おき
+//   finalizeNoReply → 毎日 9:00
+//   generateWeeklyInsights → 毎週月曜 9:30
 //   sendAutoSalesWeeklyReport → 毎週金曜 10:00
 // ==============================================================
 
@@ -163,6 +165,66 @@ function sendAutoSalesWeeklyReport() {
 }
 
 /**
+ * 未返信確定バッチ — 送信3日経過+返信なしのジョブを確定し、
+ * アプローチ事例集に自動投稿する
+ * トリガー: 毎日 9:00
+ */
+function finalizeNoReply() {
+  var props = PropertiesService.getScriptProperties();
+  var apiBaseUrl = props.getProperty('API_BASE_URL');
+  var apiKey = props.getProperty('API_KEY');
+
+  try {
+    var response = UrlFetchApp.fetch(apiBaseUrl + '/api/auto-sales/finalize-no-reply', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'x-api-key': apiKey },
+      payload: '{}',
+      muteHttpExceptions: true,
+    });
+
+    if (response.getResponseCode() === 200) {
+      var body = JSON.parse(response.getContentText());
+      Logger.log('未返信確定: ' + body.confirmed + '件確定, ' + body.approachesCreated + '件アプローチ投稿');
+    } else {
+      Logger.log('未返信確定API エラー: ' + response.getResponseCode() + ' ' + response.getContentText());
+    }
+  } catch (e) {
+    Logger.log('未返信確定エラー: ' + e.message);
+  }
+}
+
+/**
+ * 週次インサイト自動生成 — 過去7日間の送信結果を
+ * 業種別に集計してsales-insightsに自動投稿する
+ * トリガー: 毎週月曜 9:30
+ */
+function generateWeeklyInsights() {
+  var props = PropertiesService.getScriptProperties();
+  var apiBaseUrl = props.getProperty('API_BASE_URL');
+  var apiKey = props.getProperty('API_KEY');
+
+  try {
+    var response = UrlFetchApp.fetch(apiBaseUrl + '/api/auto-sales/generate-insights', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'x-api-key': apiKey },
+      payload: '{}',
+      muteHttpExceptions: true,
+    });
+
+    if (response.getResponseCode() === 200) {
+      var body = JSON.parse(response.getContentText());
+      Logger.log('週次インサイト生成: ' + body.created + '件作成 (' + body.period + ')');
+    } else {
+      Logger.log('週次インサイトAPI エラー: ' + response.getResponseCode() + ' ' + response.getContentText());
+    }
+  } catch (e) {
+    Logger.log('週次インサイトエラー: ' + e.message);
+  }
+}
+
+/**
  * テスト用: 反響チェックを手動実行
  */
 function testCheckResponses() {
@@ -174,4 +236,18 @@ function testCheckResponses() {
  */
 function testWeeklyReport() {
   sendAutoSalesWeeklyReport();
+}
+
+/**
+ * テスト用: 未返信確定を手動実行
+ */
+function testFinalizeNoReply() {
+  finalizeNoReply();
+}
+
+/**
+ * テスト用: 週次インサイト生成を手動実行
+ */
+function testGenerateInsights() {
+  generateWeeklyInsights();
 }

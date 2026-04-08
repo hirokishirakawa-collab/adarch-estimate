@@ -4,7 +4,7 @@ import { Plus, FileText } from "lucide-react";
 import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import type { UserRole } from "@/types/roles";
-import { EstimateTable } from "@/components/estimates/estimate-table";
+import { EstimateListWithFilters } from "@/components/estimates/estimate-list-with-filters";
 import { ESTIMATION_STATUS_OPTIONS } from "@/lib/constants/estimates";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { FavoriteButton } from "@/components/layout/favorite-button";
@@ -17,11 +17,12 @@ export default async function EstimatesPage() {
 
   const branchWhere = role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId };
 
-  const [estimations, totalByStatus] = await Promise.all([
+  const [estimations, totalByStatus, projects] = await Promise.all([
     db.estimation.findMany({
       where: branchWhere,
       include: {
         customer: { select: { id: true, name: true } },
+        project: { select: { id: true, title: true } },
         items: { select: { amount: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -31,6 +32,11 @@ export default async function EstimatesPage() {
       by: ["status"],
       where: branchWhere,
       _count: { status: true },
+    }),
+    db.project.findMany({
+      where: branchWhere,
+      select: { id: true, title: true },
+      orderBy: { title: "asc" },
     }),
   ]);
 
@@ -79,9 +85,12 @@ export default async function EstimatesPage() {
         ))}
       </div>
 
-      {/* テーブル */}
-      <div data-tour="estimate-table" className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-        <EstimateTable estimations={estimations} />
+      {/* フィルター＋テーブル */}
+      <div data-tour="estimate-table">
+        <EstimateListWithFilters
+          estimations={estimations.map((e) => ({ ...e, projectId: e.project?.id ?? null }))}
+          projects={projects}
+        />
       </div>
     </div>
   );

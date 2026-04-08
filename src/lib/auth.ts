@@ -1,7 +1,15 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
 import { headers } from "next/headers";
 import type { UserRole } from "@/types/roles";
+
+// ----------------------------------------------------------------
+// デモアカウント（App Store 審査用）
+// ----------------------------------------------------------------
+const DEMO_EMAIL = "demo@adarch.co.jp";
+const DEMO_PASSWORD = "AdArch2016!";
+const DEMO_USER_NAME = "Demo User";
 
 // ----------------------------------------------------------------
 // 設定値（環境変数から取得）
@@ -31,6 +39,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
+    Credentials({
+      id: "demo",
+      name: "Demo",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email as string | undefined;
+        const password = credentials?.password as string | undefined;
+        if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
+          return {
+            id: "demo-user",
+            name: DEMO_USER_NAME,
+            email: DEMO_EMAIL,
+          };
+        }
+        return null;
+      },
+    }),
   ],
 
   callbacks: {
@@ -38,7 +66,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      * ログイン可否の判定
      * @ad-arch.co.jp 以外のドメインは拒否
      */
-    async signIn({ profile }) {
+    async signIn({ profile, credentials, account }) {
+      // デモアカウント（Credentials プロバイダー）はドメインチェック不要
+      if (account?.provider === "demo") return true;
+
       // ログ記録用にリクエスト情報を取得
       let ipAddress: string | null = null;
       let userAgent: string | null = null;
@@ -107,7 +138,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account && profile?.email) {
         token.email = profile.email;
       }
+      // Credentials（デモ）ログイン時は account.provider で email をセット
+      if (account?.provider === "demo") {
+        token.email = DEMO_EMAIL;
+        token.name = DEMO_USER_NAME;
+      }
       const email = (token.email ?? "") as string;
+
+      // デモアカウントは DB ルックアップ不要（MANAGER ロールで閲覧）
+      if (email === DEMO_EMAIL) {
+        token.role = "MANAGER";
+        token.enabledFeatures = [];
+        token.isActive = true;
+        token.isDemo = true;
+        return token;
+      }
+
       if (email) {
         try {
           const { db } = await import("@/lib/db");
