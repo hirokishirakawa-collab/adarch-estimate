@@ -174,52 +174,6 @@ export default function CreatorsTopPage() {
         </div>
       </section>
 
-      {/* パートナー加盟セクション（自然に組み込み） */}
-      <section className="relative z-10 max-w-4xl mx-auto px-6 py-16">
-        <div className="bg-gradient-to-br from-amber-500/5 to-yellow-500/5 border border-amber-400/15 rounded-3xl p-8 sm:p-12">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-xs text-amber-300/80 font-medium tracking-wide">PARTNERSHIP</span>
-          </div>
-
-          <h2 className="text-xl sm:text-2xl font-bold mb-3">
-            案件を受けるだけでなく、
-            <span className="text-amber-300">事業として経営</span>
-            する道も。
-          </h2>
-          <p className="text-white/40 text-sm leading-relaxed mb-6 max-w-2xl">
-            Ad Arch Group では、映像制作事業を自分の拠点で経営するグループパートナーを募集しています。
-            営業支援ツール・制作OS・経営ダッシュボードなど、
-            クリエイターが経営者にステップアップするための基盤が揃っています。
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            {[
-              { icon: "💼", text: "営業支援・リード獲得AI" },
-              { icon: "🔗", text: "グループネットワーク活用" },
-              { icon: "📈", text: "経営ダッシュボード" },
-            ].map((item) => (
-              <div key={item.text} className="flex items-center gap-2.5 text-sm text-white/50">
-                <span>{item.icon}</span>
-                <span>{item.text}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Link
-              href="/creators/group"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-amber-400/10 border border-amber-400/25 text-amber-300 text-sm font-medium hover:bg-amber-400/20 transition-all"
-            >
-              パートナー加盟について詳しく見る
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* CTA */}
       <section className="relative z-10 max-w-3xl mx-auto px-6 py-20 text-center">
         <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-400/20 rounded-3xl p-10 sm:p-14">

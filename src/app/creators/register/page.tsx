@@ -70,8 +70,6 @@ export default function CreatorRegisterPage() {
   const [equipment, setEquipment] = useState("");
   const [entityType, setEntityType] = useState<"individual" | "corporation">("individual");
   const [hasBusinessRegistration, setHasBusinessRegistration] = useState<"yes" | "no" | "">("");
-  const [interestedInPartnership, setInterestedInPartnership] = useState(false);
-
   // Step 2: スキル
   const [skills, setSkills] = useState<SkillEntry[]>([]);
 
@@ -179,7 +177,7 @@ export default function CreatorRegisterPage() {
     formData.set("equipment", equipment);
     formData.set("entityType", entityType);
     formData.set("hasBusinessRegistration", hasBusinessRegistration);
-    formData.set("interestedInPartnership", interestedInPartnership ? "true" : "false");
+    formData.set("interestedInPartnership", "false");
     formData.set("ndaAgreed", "true");
     if (avatarFile) {
       formData.set("avatar", avatarFile);
@@ -202,10 +200,7 @@ export default function CreatorRegisterPage() {
     startTransition(async () => {
       const result = await registerCreator(formData);
       if (result.success) {
-        const completeUrl = interestedInPartnership
-          ? "/creators/register/complete?partnership=1"
-          : "/creators/register/complete";
-        router.push(completeUrl);
+        router.push("/creators/register/complete");
       } else {
         setError(result.error || "登録に失敗しました");
       }
@@ -1042,34 +1037,6 @@ export default function CreatorRegisterPage() {
                 </span>
               </label>
 
-              {/* グループ加盟の興味 */}
-              <div className="mt-6 pt-5 border-t border-white/10">
-                <p className="text-sm text-white/70 mb-3">
-                  クリエイターとしてだけでなく、ご自身の拠点を持ち映像制作事業を経営することにも興味はありますか？
-                </p>
-                <div className="flex gap-3">
-                  {[
-                    { value: true, label: "経営者としてグループ参画に興味がある" },
-                    { value: false, label: "まずはクリエイターとして登録" },
-                  ].map((opt) => (
-                    <button
-                      key={String(opt.value)}
-                      type="button"
-                      onClick={() => setInterestedInPartnership(opt.value)}
-                      className={`flex-1 px-4 py-2.5 rounded-lg border text-sm font-medium transition-all ${
-                        interestedInPartnership === opt.value
-                          ? "bg-indigo-500/20 border-indigo-400/50 text-white"
-                          : "bg-white/[0.02] border-white/10 text-white/50 hover:border-white/20"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-white/30 text-xs mt-1.5">
-                  ご興味のある方には、後日グループ加盟制度のご案内をお送りする場合があります
-                </p>
-              </div>
             </div>
           )}
 
