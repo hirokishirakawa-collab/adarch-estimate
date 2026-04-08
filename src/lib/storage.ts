@@ -9,22 +9,18 @@
  *   STORAGE_PATH  ストレージルート（デフォルト: /data/storage）
  */
 
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
+import { writeFileSync, readFileSync, existsSync, mkdirSync, accessSync, constants as fsConstants } from "fs";
 import path from "path";
 
 const STORAGE_ROOT = (() => {
   const preferred = process.env.STORAGE_PATH || "/data/storage";
   try {
-    const { mkdirSync, existsSync, accessSync, constants } = require("fs");
     if (!existsSync(preferred)) mkdirSync(preferred, { recursive: true });
-    accessSync(preferred, constants.W_OK);
+    accessSync(preferred, fsConstants.W_OK);
     return preferred;
   } catch {
     const fallback = "/tmp/storage";
-    try {
-      const { mkdirSync } = require("fs");
-      mkdirSync(fallback, { recursive: true });
-    } catch {}
+    try { mkdirSync(fallback, { recursive: true }); } catch {}
     console.warn(`[storage] ${preferred} is not writable, falling back to ${fallback}`);
     return fallback;
   }
