@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   // 動画アップロード対応: プロキシボディサイズ上限
   experimental: {
     proxyClientMaxBodySize: "5gb",
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
   },
   // nodemailer など Node.js 専用モジュールをクライアントバンドルから除外
   serverExternalPackages: ["nodemailer", "googleapis", "fluent-ffmpeg", "sharp"],
