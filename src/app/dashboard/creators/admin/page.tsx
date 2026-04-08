@@ -5,6 +5,7 @@ import type { UserRole } from "@/types/roles";
 import { Paintbrush } from "lucide-react";
 import Link from "next/link";
 import { CreatorAdminActions } from "./admin-actions";
+import { ProfileImageUpload } from "./profile-image-upload";
 
 interface PageProps {
   searchParams: Promise<{ id?: string }>;
@@ -135,15 +136,22 @@ export default async function CreatorAdminPage({ searchParams }: PageProps) {
               {/* 基本情報ヘッダー */}
               <div className="bg-white border border-zinc-200 rounded-xl p-5">
                 <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-lg font-bold text-zinc-900">
-                      {selected.name}
-                    </h3>
-                    <p className="text-sm text-zinc-500">
-                      {selected.prefecture}{selected.city ? ` ${selected.city}` : ""} |{" "}
-                      {selected.email} |{" "}
-                      {selected.entityType === "corporation" ? "法人" : "個人"}
-                    </p>
+                  <div className="flex items-start gap-4">
+                    <ProfileImageUpload
+                      creatorId={selected.id}
+                      currentImage={selected.profileImage}
+                      name={selected.name}
+                    />
+                    <div>
+                      <h3 className="text-lg font-bold text-zinc-900">
+                        {selected.name}
+                      </h3>
+                      <p className="text-sm text-zinc-500">
+                        {selected.prefecture}{selected.city ? ` ${selected.city}` : ""} |{" "}
+                        {selected.email} |{" "}
+                        {selected.entityType === "corporation" ? "法人" : "個人"}
+                      </p>
+                    </div>
                   </div>
                   <Link
                     href={`/dashboard/creators/${selected.id}`}

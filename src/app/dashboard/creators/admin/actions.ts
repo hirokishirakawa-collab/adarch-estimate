@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import type { UserRole } from "@/types/roles";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { uploadCreatorAvatar } from "@/lib/storage";
 
 export async function updateCreatorStatus(
   creatorId: string,
@@ -63,6 +64,36 @@ export async function upsertCreatorRating(data: {
   } catch (e) {
     console.error("Upsert creator rating error:", e);
     return { success: false, error: "評価の保存に失敗しました" };
+  }
+}
+
+export async function updateCreatorProfileImage(
+  formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+  const session = await auth();
+  const role = (session?.user?.role ?? "USER") as UserRole;
+  if (role !== "ADMIN") return { success: false, error: "権限がありません" };
+
+  const creatorId = formData.get("creatorId") as string;
+  const fileRaw = formData.get("profileImage");
+  const file = fileRaw instanceof File ? fileRaw : null;
+
+  if (!creatorId) return { success: false, error: "クリエイターIDが必要です" };
+  if (!file || file.size === 0) return { success: false, error: "画像ファイルを選択してください" };
+
+  try {
+    const url = await uploadCreatorAvatar(file);
+    if (!url) return { success: false, error: "画像のアップロードに失敗しました" };
+
+    await db.creator.update({
+      where: { id: creatorId },
+      data: { profileImage: url },
+    });
+    revalidatePath("/dashboard/creators");
+    return { success: true };
+  } catch (e) {
+    console.error("Update profile image error:", e);
+    return { success: false, error: "画像の更新に失敗しました" };
   }
 }
 
