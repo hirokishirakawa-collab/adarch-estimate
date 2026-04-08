@@ -12,7 +12,23 @@
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
 import path from "path";
 
-const STORAGE_ROOT = process.env.STORAGE_PATH || "/data/storage";
+const STORAGE_ROOT = (() => {
+  const preferred = process.env.STORAGE_PATH || "/data/storage";
+  try {
+    const { mkdirSync, existsSync, accessSync, constants } = require("fs");
+    if (!existsSync(preferred)) mkdirSync(preferred, { recursive: true });
+    accessSync(preferred, constants.W_OK);
+    return preferred;
+  } catch {
+    const fallback = "/tmp/storage";
+    try {
+      const { mkdirSync } = require("fs");
+      mkdirSync(fallback, { recursive: true });
+    } catch {}
+    console.warn(`[storage] ${preferred} is not writable, falling back to ${fallback}`);
+    return fallback;
+  }
+})();
 
 // バケット名
 const BUCKET = "billing-pdfs";
