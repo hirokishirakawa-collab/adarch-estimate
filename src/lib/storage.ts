@@ -20,6 +20,7 @@ const GROUP_SYNC_BUCKET = "group-sync-files";
 const MEDIA_BUCKET = "media-files";
 const CARD_IMAGE_BUCKET = "card-images";
 const VIDEO_REVIEW_BUCKET = "video-reviews";
+const CREATOR_AVATAR_BUCKET = "creator-avatars";
 
 // ---------------------------------------------------------------
 // 共通ユーティリティ
@@ -143,6 +144,27 @@ export async function getCardImageSignedUrl(
   // 旧 Supabase URL が DB に残っている場合はそのまま返す
   if (filePath.startsWith("http")) return filePath;
   return `/api/storage/${CARD_IMAGE_BUCKET}/${filePath}`;
+}
+
+// ---------------------------------------------------------------
+// クリエイターアバター（Public — 自動リサイズ）
+// ---------------------------------------------------------------
+export async function uploadCreatorAvatar(
+  file: File
+): Promise<string | null> {
+  try {
+    const sharp = (await import("sharp")).default;
+    const buf = Buffer.from(await file.arrayBuffer());
+    const resized = await sharp(buf)
+      .resize(400, 400, { fit: "cover", position: "centre" })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+    return await saveFile(CREATOR_AVATAR_BUCKET, fileName, resized);
+  } catch (e) {
+    console.error("[storage] Creator avatar upload error:", e);
+    return null;
+  }
 }
 
 // ==============================================================

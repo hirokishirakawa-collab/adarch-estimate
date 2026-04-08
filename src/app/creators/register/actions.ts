@@ -8,6 +8,7 @@ import {
   sendCreatorRegistrationNotifyEmail,
   sendCreatorVerificationEmail,
 } from "@/lib/resend";
+import { uploadCreatorAvatar } from "@/lib/storage";
 
 type RegisterResult = {
   success: boolean;
@@ -132,6 +133,7 @@ export async function registerCreator(
     const interestedInPartnership = formData.get("interestedInPartnership") === "true";
     const ndaAgreed = formData.get("ndaAgreed") === "true";
 
+    const avatarFile = formData.get("avatar") as File | null;
     const skillsRaw = formData.get("skills") as string;
     const skillNotesRaw = formData.get("skillNotes") as string;
     const portfoliosRaw = formData.get("portfolios") as string;
@@ -148,6 +150,12 @@ export async function registerCreator(
     const existing = await prisma.creator.findUnique({ where: { email } });
     if (!existing || !existing.emailVerified) {
       return { success: false, error: "メール認証が完了していません" };
+    }
+
+    // アバター画像アップロード（任意）
+    let profileImageUrl: string | null = null;
+    if (avatarFile && avatarFile.size > 0) {
+      profileImageUrl = await uploadCreatorAvatar(avatarFile);
     }
 
     // NDAデジタル署名
@@ -181,6 +189,7 @@ export async function registerCreator(
           halfDayRate,
           availability,
           equipment: equipment || null,
+          ...(profileImageUrl ? { profileImage: profileImageUrl } : {}),
         },
       });
 
