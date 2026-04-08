@@ -133,7 +133,8 @@ export async function registerCreator(
     const interestedInPartnership = formData.get("interestedInPartnership") === "true";
     const ndaAgreed = formData.get("ndaAgreed") === "true";
 
-    const avatarFile = formData.get("avatar") as File | null;
+    const avatarRaw = formData.get("avatar");
+    const avatarFile = avatarRaw instanceof File ? avatarRaw : null;
     const skillsRaw = formData.get("skills") as string;
     const skillNotesRaw = formData.get("skillNotes") as string;
     const portfoliosRaw = formData.get("portfolios") as string;
@@ -155,7 +156,11 @@ export async function registerCreator(
     // アバター画像アップロード（任意）
     let profileImageUrl: string | null = null;
     if (avatarFile && avatarFile.size > 0) {
+      console.log(`[register] Avatar upload: name=${avatarFile.name}, size=${avatarFile.size}, type=${avatarFile.type}`);
       profileImageUrl = await uploadCreatorAvatar(avatarFile);
+      console.log(`[register] Avatar result: ${profileImageUrl}`);
+    } else {
+      console.log(`[register] No avatar file: avatarFile=${avatarFile}, size=${avatarFile?.size}`);
     }
 
     // NDAデジタル署名

@@ -153,14 +153,23 @@ export async function uploadCreatorAvatar(
   file: File
 ): Promise<string | null> {
   try {
-    const sharp = (await import("sharp")).default;
     const buf = Buffer.from(await file.arrayBuffer());
-    const resized = await sharp(buf)
-      .resize(400, 400, { fit: "cover", position: "centre" })
-      .jpeg({ quality: 85 })
-      .toBuffer();
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-    return await saveFile(CREATOR_AVATAR_BUCKET, fileName, resized);
+    let outputBuf: Buffer | Uint8Array = buf;
+    let ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+
+    try {
+      const sharp = (await import("sharp")).default;
+      outputBuf = await sharp(buf)
+        .resize(400, 400, { fit: "cover", position: "centre" })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      ext = "jpg";
+    } catch (sharpErr) {
+      console.warn("[storage] sharp unavailable, saving original:", sharpErr);
+    }
+
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    return await saveFile(CREATOR_AVATAR_BUCKET, fileName, outputBuf);
   } catch (e) {
     console.error("[storage] Creator avatar upload error:", e);
     return null;
