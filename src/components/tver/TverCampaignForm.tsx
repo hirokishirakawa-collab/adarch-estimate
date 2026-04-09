@@ -352,22 +352,12 @@ export function TverCampaignForm({ action, advertisers }: Props) {
             </div>
           </div>
 
-          {/* オークション価格 */}
-          <div>
-            <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-              オークション入札価格
-              <span className="ml-1 text-zinc-400 font-normal text-[11px]">最低入札価格 ¥2,200</span>
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400">¥</span>
-              <input
-                type="number"
-                name="auctionPrice"
-                placeholder="2200"
-                min={2200}
-                className={`${inputCls} pl-7`}
-              />
-            </div>
+          {/* オークション入札価格 */}
+          <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
+            <p className="text-xs font-semibold text-zinc-700">オークション入札価格</p>
+            <p className="text-[11px] text-zinc-500 mt-1">
+              入札価格の設定は本部にて調整いたします。ご希望がある場合は備考欄にご記入ください。
+            </p>
           </div>
 
           {/* 広告予算 */}
