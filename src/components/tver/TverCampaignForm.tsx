@@ -16,7 +16,10 @@ import {
   GENRE_OPTIONS,
   GENRE_EXCLUDE_OPTIONS,
   SUB_GENRE_EXCLUDE_OPTIONS,
-  AUDIENCE_TARGETING_CATEGORIES,
+  INTEREST_OPTIONS,
+  INCOME_OPTIONS,
+  TV_VIEWING_OPTIONS,
+  DEMOGRAPHIC_OPTIONS,
 } from "@/lib/constants/tver-campaign";
 
 type Advertiser = { id: string; name: string; productUrl: string };
@@ -53,7 +56,16 @@ export function TverCampaignForm({ action, advertisers }: Props) {
   const [selectedGenreExcludes, setSelectedGenreExcludes] = useState<Set<string>>(new Set());
   const [useSubGenreExclude, setUseSubGenreExclude] = useState(false);
   const [selectedSubGenreExcludes, setSelectedSubGenreExcludes] = useState<Set<string>>(new Set());
-  const [audienceToggles, setAudienceToggles] = useState<Record<string, boolean>>({});
+  const [selectedAdDurations, setSelectedAdDurations] = useState<Set<string>>(new Set(["15"]));
+  // オーディエンス詳細
+  const [useInterest, setUseInterest] = useState(false);
+  const [selectedInterests, setSelectedInterests] = useState<Set<string>>(new Set());
+  const [useIncome, setUseIncome] = useState(false);
+  const [selectedIncomes, setSelectedIncomes] = useState<Set<string>>(new Set());
+  const [useTvViewing, setUseTvViewing] = useState(false);
+  const [selectedTvViewings, setSelectedTvViewings] = useState<Set<string>>(new Set());
+  const [useDemographic, setUseDemographic] = useState(false);
+  const [selectedDemographics, setSelectedDemographics] = useState<Set<string>>(new Set());
   const [useHourlyBudget, setUseHourlyBudget] = useState(false);
   const [hourlyRatios, setHourlyRatios] = useState<Record<number, number>>(
     Object.fromEntries(Array.from({ length: 24 }, (_, i) => [i, i >= 0 && i <= 1 ? 6 : i >= 2 && i <= 4 ? 5 : i >= 22 ? 5 : i >= 12 && i <= 13 ? 6 : 4]))
@@ -274,28 +286,41 @@ export function TverCampaignForm({ action, advertisers }: Props) {
             />
           </div>
 
-          {/* 広告再生時間 */}
+          {/* 広告再生時間（複数選択可） */}
           <div>
             <label className="block text-xs font-semibold text-zinc-700 mb-2">
               広告再生時間<span className="text-red-500 ml-0.5">*</span>
+              <span className="ml-1.5 text-zinc-400 font-normal text-[11px]">複数選択可</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {AD_DURATION_OPTIONS.map((opt) => (
                 <label
                   key={opt.value}
-                  className="flex items-center gap-2 px-3 py-2 border border-zinc-200 rounded-lg
-                             cursor-pointer hover:border-blue-300 hover:bg-blue-50/50
-                             has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50
-                             transition-colors"
+                  className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-colors
+                    ${selectedAdDurations.has(opt.value)
+                      ? "border-blue-400 bg-blue-50 text-blue-700 font-semibold"
+                      : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
                 >
                   <input
-                    type="radio"
+                    type="checkbox"
                     name="adDuration"
                     value={opt.value}
-                    defaultChecked={opt.value === "15"}
-                    className="text-blue-600"
+                    checked={selectedAdDurations.has(opt.value)}
+                    onChange={() => {
+                      setSelectedAdDurations((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(opt.value)) {
+                          if (next.size <= 1) return prev;
+                          next.delete(opt.value);
+                        } else {
+                          next.add(opt.value);
+                        }
+                        return next;
+                      });
+                    }}
+                    className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
                   />
-                  <span className="text-sm text-zinc-700">{opt.label}</span>
+                  <span className="text-sm">{opt.label}</span>
                   <span className="text-[10px] text-zinc-400">({opt.note})</span>
                 </label>
               ))}
@@ -652,26 +677,149 @@ export function TverCampaignForm({ action, advertisers }: Props) {
 
           {/* 都道府県/市区町村 → 配信エリアセクションで対応済み */}
 
-          {/* 興味関心 / 世帯年収 / テレビ視聴傾向 / デモグラフィック */}
-          {AUDIENCE_TARGETING_CATEGORIES.map((cat) => (
-            <div key={cat.key} className="p-3 border border-zinc-200 rounded-lg">
-              <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name={`audience_${cat.key}`}
-                  checked={audienceToggles[cat.key] ?? false}
-                  onChange={(e) => setAudienceToggles((prev) => ({ ...prev, [cat.key]: e.target.checked }))}
-                  className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
-                />
-                {cat.label}を利用する
-              </label>
-              {audienceToggles[cat.key] && (
-                <p className="mt-2 text-[11px] text-zinc-400">
-                  ※ 詳細はTVer管理画面で設定します。利用希望を申請に含めます。
-                </p>
-              )}
-            </div>
-          ))}
+          {/* 興味関心 */}
+          <div className="p-3 border border-zinc-200 rounded-lg">
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 mb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useInterest}
+                onChange={(e) => setUseInterest(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+              />
+              興味関心を利用する
+            </label>
+            {useInterest && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {INTEREST_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                      ${selectedInterests.has(opt.value)
+                        ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
+                        : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="interests"
+                      value={opt.value}
+                      checked={selectedInterests.has(opt.value)}
+                      onChange={() => toggleSet(setSelectedInterests, opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 世帯年収 */}
+          <div className="p-3 border border-zinc-200 rounded-lg">
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 mb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useIncome}
+                onChange={(e) => setUseIncome(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+              />
+              世帯年収を利用する
+            </label>
+            {useIncome && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {INCOME_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                      ${selectedIncomes.has(opt.value)
+                        ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
+                        : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="incomes"
+                      value={opt.value}
+                      checked={selectedIncomes.has(opt.value)}
+                      onChange={() => toggleSet(setSelectedIncomes, opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* テレビ視聴傾向 */}
+          <div className="p-3 border border-zinc-200 rounded-lg">
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 mb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useTvViewing}
+                onChange={(e) => setUseTvViewing(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+              />
+              テレビ視聴傾向を利用する
+            </label>
+            {useTvViewing && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {TV_VIEWING_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                      ${selectedTvViewings.has(opt.value)
+                        ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
+                        : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="tvViewings"
+                      value={opt.value}
+                      checked={selectedTvViewings.has(opt.value)}
+                      onChange={() => toggleSet(setSelectedTvViewings, opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* デモグラフィック */}
+          <div className="p-3 border border-zinc-200 rounded-lg">
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 mb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useDemographic}
+                onChange={(e) => setUseDemographic(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+              />
+              デモグラフィックを利用する
+            </label>
+            {useDemographic && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {DEMOGRAPHIC_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                      ${selectedDemographics.has(opt.value)
+                        ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
+                        : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="demographics"
+                      value={opt.value}
+                      checked={selectedDemographics.has(opt.value)}
+                      onChange={() => toggleSet(setSelectedDemographics, opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -967,9 +1115,13 @@ export function TverCampaignForm({ action, advertisers }: Props) {
         type="hidden"
         name="settings"
         value={JSON.stringify({
+          adDurations: [...selectedAdDurations],
           devices: [...selectedDevices],
           ageGroups: useAge ? [...selectedAges] : [],
-          audience: Object.entries(audienceToggles).filter(([, v]) => v).map(([k]) => k),
+          interests: useInterest ? [...selectedInterests] : [],
+          incomes: useIncome ? [...selectedIncomes] : [],
+          tvViewings: useTvViewing ? [...selectedTvViewings] : [],
+          demographics: useDemographic ? [...selectedDemographics] : [],
           genres: useGenre ? [...selectedGenres] : [],
           genreExcludes: useGenreExclude ? [...selectedGenreExcludes] : [],
           subGenreExcludes: useSubGenreExclude ? [...selectedSubGenreExcludes] : [],

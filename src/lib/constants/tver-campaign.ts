@@ -143,13 +143,63 @@ export const SUB_GENRE_EXCLUDE_OPTIONS = [
 ] as const;
 
 // ---------------------------------------------------------------
-// オーディエンス — その他ターゲティングカテゴリ
+// オーディエンス — 興味関心
 // ---------------------------------------------------------------
-export const AUDIENCE_TARGETING_CATEGORIES = [
-  { key: "interest",      label: "興味関心" },
-  { key: "income",        label: "世帯年収" },
-  { key: "tvViewing",     label: "テレビ視聴傾向" },
-  { key: "demographic",   label: "デモグラフィック" },
+export const INTEREST_OPTIONS = [
+  { value: "AUTO",         label: "自動車" },
+  { value: "BEAUTY",       label: "美容・コスメ" },
+  { value: "FASHION",      label: "ファッション" },
+  { value: "FOOD",         label: "食品・飲料" },
+  { value: "FINANCE",      label: "金融・保険" },
+  { value: "REALESTATE",   label: "不動産" },
+  { value: "TRAVEL",       label: "旅行" },
+  { value: "ENTERTAINMENT",label: "エンタメ" },
+  { value: "SPORTS",       label: "スポーツ" },
+  { value: "GAMING",       label: "ゲーム" },
+  { value: "HEALTH",       label: "健康・ヘルスケア" },
+  { value: "EDUCATION",    label: "教育・学習" },
+  { value: "TECHNOLOGY",   label: "テクノロジー" },
+  { value: "PET",          label: "ペット" },
+  { value: "PARENTING",    label: "子育て・育児" },
+  { value: "GOURMET",      label: "グルメ・外食" },
+  { value: "LIFESTYLE",    label: "ライフスタイル" },
+  { value: "BUSINESS",     label: "ビジネス" },
+] as const;
+
+// ---------------------------------------------------------------
+// オーディエンス — 世帯年収
+// ---------------------------------------------------------------
+export const INCOME_OPTIONS = [
+  { value: "UNDER_300",   label: "300万円未満" },
+  { value: "300_500",     label: "300〜500万円" },
+  { value: "500_700",     label: "500〜700万円" },
+  { value: "700_1000",    label: "700〜1,000万円" },
+  { value: "1000_1500",   label: "1,000〜1,500万円" },
+  { value: "OVER_1500",   label: "1,500万円以上" },
+] as const;
+
+// ---------------------------------------------------------------
+// オーディエンス — テレビ視聴傾向
+// ---------------------------------------------------------------
+export const TV_VIEWING_OPTIONS = [
+  { value: "HEAVY",   label: "ヘビー視聴者" },
+  { value: "MIDDLE",  label: "ミドル視聴者" },
+  { value: "LIGHT",   label: "ライト視聴者" },
+  { value: "NON_TV",  label: "テレビ非視聴者" },
+] as const;
+
+// ---------------------------------------------------------------
+// オーディエンス — デモグラフィック
+// ---------------------------------------------------------------
+export const DEMOGRAPHIC_OPTIONS = [
+  { value: "M1", label: "M1（男性20-34歳）" },
+  { value: "M2", label: "M2（男性35-49歳）" },
+  { value: "M3", label: "M3（男性50歳以上）" },
+  { value: "F1", label: "F1（女性20-34歳）" },
+  { value: "F2", label: "F2（女性35-49歳）" },
+  { value: "F3", label: "F3（女性50歳以上）" },
+  { value: "T",  label: "ティーン（15-19歳）" },
+  { value: "C",  label: "キッズ（4-14歳）" },
 ] as const;
 
 // ---------------------------------------------------------------
