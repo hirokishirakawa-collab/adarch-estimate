@@ -202,8 +202,9 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 広告設定
-  const [adSeconds, setAdSeconds] = useState<AdSeconds>(15);
+  // 広告設定（複数フォーマット対応）
+  const [selectedFormats, setSelectedFormats] = useState<Set<AdSeconds>>(new Set([15]));
+  const [formatRatios, setFormatRatios] = useState<Partial<Record<AdSeconds, number>>>({ 15: 100 });
   const [customCpm, setCustomCpm] = useState<Partial<Record<AdSeconds, number>>>({});
   const [frequency, setFrequency] = useState(3);
   const [isFirstTransaction, setIsFirstTransaction] = useState(false);
@@ -215,9 +216,64 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
   const [budget, setBudget] = useState<number>(initialBudget ?? 500000);
   const [plays, setPlays] = useState<number>(100000);
 
-  // CPM取得（カスタム or デフォルト）
-  const currentFormat = AD_FORMATS.find((f) => f.seconds === adSeconds)!;
-  const cpm = customCpm[adSeconds] ?? currentFormat.cpm;
+  // フォーマット選択トグル
+  const toggleFormat = useCallback((seconds: AdSeconds) => {
+    setSelectedFormats((prev) => {
+      const next = new Set(prev);
+      if (next.has(seconds)) {
+        if (next.size <= 1) return prev; // 最低1つは必要
+        next.delete(seconds);
+      } else {
+        next.add(seconds);
+      }
+      // 配分を均等に再計算
+      const equal = Math.floor(100 / next.size);
+      const remainder = 100 - equal * next.size;
+      const newRatios: Partial<Record<AdSeconds, number>> = {};
+      let i = 0;
+      for (const s of next) {
+        newRatios[s] = equal + (i === 0 ? remainder : 0);
+        i++;
+      }
+      setFormatRatios(newRatios);
+      return next;
+    });
+  }, []);
+
+  // 配分スライダー変更（2フォーマットの場合、もう一方を自動調整）
+  const updateRatio = useCallback((seconds: AdSeconds, value: number) => {
+    setFormatRatios((prev) => {
+      const formats = [...selectedFormats];
+      if (formats.length === 2) {
+        const other = formats.find((s) => s !== seconds)!;
+        return { [seconds]: value, [other]: 100 - value };
+      }
+      // 3つ以上: 残りを他で按分
+      const remaining = 100 - value;
+      const others = formats.filter((s) => s !== seconds);
+      const otherTotal = others.reduce((sum, s) => sum + (prev[s] ?? 0), 0);
+      const newRatios: Partial<Record<AdSeconds, number>> = { [seconds]: value };
+      for (const s of others) {
+        newRatios[s] = otherTotal > 0
+          ? Math.round(((prev[s] ?? 0) / otherTotal) * remaining)
+          : Math.floor(remaining / others.length);
+      }
+      return newRatios;
+    });
+  }, [selectedFormats]);
+
+  // 加重平均CPM（複数フォーマット対応）
+  const blendedCpm = useMemo(() => {
+    let weightedSum = 0;
+    let totalWeight = 0;
+    for (const seconds of selectedFormats) {
+      const ratio = (formatRatios[seconds] ?? 0) / 100;
+      const cpm = customCpm[seconds] ?? AD_FORMATS.find((f) => f.seconds === seconds)!.cpm;
+      weightedSum += cpm * ratio;
+      totalWeight += ratio;
+    }
+    return totalWeight > 0 ? weightedSum / totalWeight : 0;
+  }, [selectedFormats, formatRatios, customCpm]);
 
   // エリア人口合計
   const totalPop = useMemo(() => {
@@ -229,14 +285,24 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
     return sum;
   }, [selected]);
 
-  // 計算
+  // 計算（複数フォーマット対応）
   const calcResult = useMemo(() => {
     const effectivePlays = inputMode === "budget"
-      ? Math.floor(budget / (cpm / 1000))
+      ? Math.floor(budget / (blendedCpm / 1000))
       : plays;
     const effectiveBudget = inputMode === "plays"
-      ? plays * (cpm / 1000)
+      ? plays * (blendedCpm / 1000)
       : budget;
+
+    // フォーマット別内訳
+    const formatBreakdown = [...selectedFormats].map((seconds) => {
+      const ratio = (formatRatios[seconds] ?? 0) / 100;
+      const cpm = customCpm[seconds] ?? AD_FORMATS.find((f) => f.seconds === seconds)!.cpm;
+      const formatPlays = Math.round(effectivePlays * ratio);
+      const formatBudget = formatPlays * (cpm / 1000);
+      const label = AD_FORMATS.find((f) => f.seconds === seconds)!.label;
+      return { seconds, label, ratio, cpm, plays: formatPlays, budget: formatBudget };
+    });
 
     const reachPotential = Math.floor((totalPop * TVER_PENETRATION) / Math.max(1, frequency));
     const reachByPlays = effectivePlays > 0
@@ -250,12 +316,13 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
       plays: effectivePlays,
       budget: effectiveBudget,
       budgetWithTax: effectiveBudget * (1 + TAX_RATE),
+      formatBreakdown,
       reachPotential,
       reachByPlays,
       fillRate,
       tverAudience: Math.floor(totalPop * TVER_PENETRATION),
     };
-  }, [inputMode, budget, plays, cpm, totalPop, frequency]);
+  }, [inputMode, budget, plays, blendedCpm, selectedFormats, formatRatios, customCpm, totalPop, frequency]);
 
   // エリア操作
   const toggleMuni = useCallback((code: string) => {
@@ -288,7 +355,8 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
     setBudget(500000);
     setPlays(100000);
     setFrequency(3);
-    setAdSeconds(15);
+    setSelectedFormats(new Set([15]));
+    setFormatRatios({ 15: 100 });
     setCustomCpm({});
     setIsFirstTransaction(false);
     setIncludeCreativeReview(true);
@@ -330,17 +398,22 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
       {/* ========== 右: シミュレーションパネル ========== */}
       <div className="flex flex-col gap-4">
 
-        {/* 広告フォーマット */}
+        {/* 広告フォーマット（複数選択対応） */}
         <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
-          <p className="text-xs font-bold text-zinc-700">広告フォーマット</p>
+          <p className="text-xs font-bold text-zinc-700">
+            広告フォーマット
+            {selectedFormats.size > 1 && (
+              <span className="ml-2 text-blue-600 font-normal">ミックス配信</span>
+            )}
+          </p>
           <div className="grid grid-cols-5 gap-1.5">
             {AD_FORMATS.map((f) => (
               <button
                 key={f.seconds}
-                onClick={() => setAdSeconds(f.seconds)}
+                onClick={() => toggleFormat(f.seconds)}
                 className={cn(
                   "py-2 rounded-lg border text-xs font-semibold transition-colors",
-                  adSeconds === f.seconds
+                  selectedFormats.has(f.seconds)
                     ? "bg-red-500 border-red-500 text-white"
                     : "border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
                 )}
@@ -350,6 +423,35 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
               </button>
             ))}
           </div>
+          <p className="text-[10px] text-zinc-400">※ 複数選択でミックス配信</p>
+
+          {/* 配分スライダー（2つ以上選択時） */}
+          {selectedFormats.size > 1 && (
+            <div className="space-y-2 pt-1">
+              <p className="text-[11px] text-zinc-500 font-semibold">配信比率</p>
+              {[...selectedFormats].map((seconds) => {
+                const fmt = AD_FORMATS.find((f) => f.seconds === seconds)!;
+                const ratio = formatRatios[seconds] ?? 0;
+                return (
+                  <div key={seconds} className="space-y-0.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-zinc-600">{fmt.label}</span>
+                      <span className="font-semibold text-zinc-700">{ratio}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={ratio}
+                      onChange={(e) => updateRatio(seconds, Number(e.target.value))}
+                      className="w-full accent-red-500"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* CPM調整（詳細設定 — 折りたたみ） */}
           <details className="group">
@@ -357,32 +459,40 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
               <ChevronRight className="w-3 h-3 group-open:rotate-90 transition-transform" />
               詳細設定
             </summary>
-            <div className="mt-2 pl-4 border-l-2 border-zinc-100">
-              <label className="flex items-center justify-between text-[11px] text-zinc-500 mb-1">
-                <span>CPM単価（{adSeconds}秒）</span>
-                <button
-                  onClick={() => setCustomCpm((p) => { const n = {...p}; delete n[adSeconds]; return n; })}
-                  className="text-zinc-400 hover:text-zinc-600 text-[10px]"
-                >
-                  フロア価格に戻す
-                </button>
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-zinc-400 text-xs">¥</span>
-                <input
-                  type="number"
-                  value={cpm}
-                  min={100}
-                  max={99999}
-                  step={100}
-                  onChange={(e) => setCustomCpm((p) => ({ ...p, [adSeconds]: Number(e.target.value) }))}
-                  className="flex-1 px-3 py-1.5 text-xs border border-zinc-200 rounded-lg outline-none focus:border-blue-400"
-                />
-                <span className="text-zinc-400 text-[11px]">/ 1,000回</span>
-              </div>
-              <p className="text-[10px] text-zinc-400 mt-1">
-                フロア価格（ネット）: ¥{AD_FORMATS.find(f => f.seconds === adSeconds)?.cpm.toLocaleString()}
-              </p>
+            <div className="mt-2 pl-4 border-l-2 border-zinc-100 space-y-3">
+              {[...selectedFormats].map((seconds) => {
+                const fmt = AD_FORMATS.find((f) => f.seconds === seconds)!;
+                const cpmVal = customCpm[seconds] ?? fmt.cpm;
+                return (
+                  <div key={seconds}>
+                    <label className="flex items-center justify-between text-[11px] text-zinc-500 mb-1">
+                      <span>CPM単価（{fmt.label}）</span>
+                      <button
+                        onClick={() => setCustomCpm((p) => { const n = {...p}; delete n[seconds]; return n; })}
+                        className="text-zinc-400 hover:text-zinc-600 text-[10px]"
+                      >
+                        フロア価格に戻す
+                      </button>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-zinc-400 text-xs">¥</span>
+                      <input
+                        type="number"
+                        value={cpmVal}
+                        min={100}
+                        max={99999}
+                        step={100}
+                        onChange={(e) => setCustomCpm((p) => ({ ...p, [seconds]: Number(e.target.value) }))}
+                        className="flex-1 px-3 py-1.5 text-xs border border-zinc-200 rounded-lg outline-none focus:border-blue-400"
+                      />
+                      <span className="text-zinc-400 text-[11px]">/ 1,000回</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-400 mt-1">
+                      フロア価格（ネット）: ¥{fmt.cpm.toLocaleString()}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </details>
         </div>
@@ -497,7 +607,9 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                   totalAmount={calcResult.budget + fees.subtotal}
                   conditions={[
                     `${selected.size}市区町村 / 推定人口 ${formatCount(totalPop)}人`,
-                    `${adSeconds}秒広告`,
+                    selectedFormats.size === 1
+                      ? `${[...selectedFormats][0]}秒広告`
+                      : `ミックス配信（${calcResult.formatBreakdown.map((b) => `${b.label} ${b.ratio * 100}%`).join(" / ")}）`,
                     `保証再生回数: ${calcResult.plays.toLocaleString()}回`,
                   ]}
                   reach={{
@@ -541,8 +653,21 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                   媒体費: {formatYen(calcResult.budget)}（税抜） / {formatYen(calcResult.budgetWithTax)}（税込）
                 </p>
                 <p className="text-[11px] text-zinc-500">
-                  {adSeconds}秒広告 / {selected.size}市区町村
+                  {selectedFormats.size === 1
+                    ? `${[...selectedFormats][0]}秒広告`
+                    : "ミックス配信"} / {selected.size}市区町村
                 </p>
+                {/* フォーマット別内訳（ミックス時） */}
+                {calcResult.formatBreakdown.length > 1 && (
+                  <div className="mt-2 pt-2 border-t border-zinc-700 space-y-1">
+                    {calcResult.formatBreakdown.map((b) => (
+                      <div key={b.seconds} className="flex items-center justify-between text-[11px]">
+                        <span className="text-zinc-500">{b.label}（{Math.round(b.ratio * 100)}%）</span>
+                        <span className="text-zinc-300">{b.plays.toLocaleString()}回 / {formatYen(b.budget)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* リーチ */}
