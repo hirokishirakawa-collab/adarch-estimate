@@ -208,8 +208,8 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
   const [frequency, setFrequency] = useState(3);
   const [isFirstTransaction, setIsFirstTransaction] = useState(false);
 
-  // 入力モード
-  const [inputMode, setInputMode] = useState<"budget" | "plays">("budget");
+  // 入力モード（再生回数保証がデフォルト）
+  const [inputMode, setInputMode] = useState<"plays" | "budget">(initialBudget ? "budget" : "plays");
   const [budget, setBudget] = useState<number>(initialBudget ?? 500000);
   const [plays, setPlays] = useState<number>(100000);
 
@@ -377,12 +377,12 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
           </div>
         </div>
 
-        {/* 予算・再生回数 */}
+        {/* 再生回数保証・予算 */}
         <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <p className="text-xs font-bold text-zinc-700">予算 / 再生回数</p>
+            <p className="text-xs font-bold text-zinc-700">再生回数保証</p>
             <div className="flex rounded-lg border border-zinc-200 overflow-hidden text-[11px]">
-              {(["budget", "plays"] as const).map((mode) => (
+              {(["plays", "budget"] as const).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setInputMode(mode)}
@@ -393,13 +393,40 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                       : "text-zinc-500 hover:bg-zinc-50"
                   )}
                 >
-                  {mode === "budget" ? "予算から" : "回数から"}
+                  {mode === "plays" ? "保証回数から" : "予算から"}
                 </button>
               ))}
             </div>
           </div>
 
-          {inputMode === "budget" ? (
+          {inputMode === "plays" ? (
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-zinc-500">保証再生回数</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={plays}
+                  min={1000}
+                  step={1000}
+                  onChange={(e) => setPlays(Number(e.target.value))}
+                  className="flex-1 px-3 py-1.5 text-xs border border-zinc-200 rounded-lg outline-none focus:border-blue-400"
+                />
+                <span className="text-zinc-400 text-[11px]">回</span>
+              </div>
+              <input
+                type="range"
+                min={10000}
+                max={5000000}
+                step={10000}
+                value={plays}
+                onChange={(e) => setPlays(Number(e.target.value))}
+                className="w-full accent-red-500"
+              />
+              <div className="flex justify-between text-[10px] text-zinc-400">
+                <span>1万回</span><span>500万回</span>
+              </div>
+            </div>
+          ) : (
             <div className="space-y-1.5">
               <label className="text-[11px] text-zinc-500">投下予算（税抜）</label>
               <div className="flex items-center gap-2">
@@ -424,33 +451,6 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
               />
               <div className="flex justify-between text-[10px] text-zinc-400">
                 <span>¥50,000</span><span>¥1,000万</span>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <label className="text-[11px] text-zinc-500">目標再生回数</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={plays}
-                  min={1000}
-                  step={1000}
-                  onChange={(e) => setPlays(Number(e.target.value))}
-                  className="flex-1 px-3 py-1.5 text-xs border border-zinc-200 rounded-lg outline-none focus:border-blue-400"
-                />
-                <span className="text-zinc-400 text-[11px]">回</span>
-              </div>
-              <input
-                type="range"
-                min={10000}
-                max={5000000}
-                step={10000}
-                value={plays}
-                onChange={(e) => setPlays(Number(e.target.value))}
-                className="w-full accent-red-500"
-              />
-              <div className="flex justify-between text-[10px] text-zinc-400">
-                <span>1万回</span><span>500万回</span>
               </div>
             </div>
           )}
@@ -488,7 +488,7 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                   conditions={[
                     `${selected.size}市区町村 / 推定人口 ${formatCount(totalPop)}人`,
                     `${adSeconds}秒 / CPM ¥${cpm.toLocaleString()}`,
-                    `再生回数: ${calcResult.plays.toLocaleString()}回`,
+                    `保証再生回数: ${calcResult.plays.toLocaleString()}回`,
                   ]}
                   reach={{
                     tverAudience: calcResult.tverAudience,
@@ -518,21 +518,20 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
 
           {selected.size > 0 && (
             <>
-              {/* コスト */}
+              {/* 保証再生回数 */}
               <div className="bg-zinc-800 rounded-lg p-3 space-y-1.5">
-                <p className="text-[10px] text-zinc-400 uppercase tracking-wider">概算費用</p>
+                <p className="text-[10px] text-zinc-400 uppercase tracking-wider">保証再生回数</p>
                 <div className="flex items-end gap-2">
-                  <span className="text-2xl font-bold text-white">
-                    {formatYen(calcResult.budget)}
+                  <span className="text-2xl font-bold text-emerald-400">
+                    {calcResult.plays.toLocaleString()}回
                   </span>
-                  <span className="text-[11px] text-zinc-400 mb-0.5">税抜</span>
+                  <span className="text-[11px] text-zinc-400 mb-0.5">再生保証</span>
                 </div>
                 <p className="text-[11px] text-zinc-400">
-                  税込: {formatYen(calcResult.budgetWithTax)}
+                  媒体費: {formatYen(calcResult.budget)}（税抜） / {formatYen(calcResult.budgetWithTax)}（税込）
                 </p>
                 <p className="text-[11px] text-zinc-400">
-                  再生回数: {calcResult.plays.toLocaleString()}回 ×
-                  CPM ¥{cpm.toLocaleString()} = {formatYen(calcResult.budget)}
+                  {calcResult.plays.toLocaleString()}回 × CPM ¥{cpm.toLocaleString()} ÷ 1,000 = {formatYen(calcResult.budget)}
                 </p>
               </div>
 
@@ -591,10 +590,11 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
               </div>
 
               {/* サマリー行 */}
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid grid-cols-4 gap-2 text-center">
                 {[
                   { label: "選択エリア", value: `${selected.size}市区町村` },
                   { label: "対象人口", value: `${formatCount(totalPop)}人` },
+                  { label: "保証再生回数", value: `${formatCount(calcResult.plays)}回` },
                   { label: "CPM単価", value: `¥${cpm.toLocaleString()}` },
                 ].map((item) => (
                   <div key={item.label} className="bg-zinc-800 rounded-lg py-2 px-1">
@@ -605,7 +605,7 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
               </div>
 
               <p className="text-[10px] text-zinc-600 text-center">
-                ※ TVer普及率30%・インプレッション数は目安値です。実際の配信結果は保証されません。
+                ※ TVer普及率30%・リーチ数は目安値です。再生回数は保証ベースでの概算です。
               </p>
 
               {/* ---- アドアーチ手数料 ---- */}
