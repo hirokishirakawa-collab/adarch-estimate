@@ -33,21 +33,18 @@ export async function sendVerificationCode(
       return { success: false, error: "メールアドレスの形式が正しくありません" };
     }
 
-    // 既存登録チェック
+    // 既存登録チェック（再登録も許可）
     const existing = await prisma.creator.findUnique({ where: { email } });
-    if (existing && existing.emailVerified) {
-      return { success: false, error: "このメールアドレスは既に登録されています" };
-    }
 
     // 6桁コード生成
     const code = String(randomInt(100000, 999999));
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10分
 
-    // 未認証の仮レコードがあれば更新、なければ作成
+    // 既存レコードがあれば更新（認証済みでも再登録可）、なければ作成
     if (existing) {
       await prisma.creator.update({
         where: { email },
-        data: { otpCode: code, otpExpiresAt: expiresAt, name },
+        data: { otpCode: code, otpExpiresAt: expiresAt, name, emailVerified: false },
       });
     } else {
       await prisma.creator.create({
@@ -173,7 +170,15 @@ export async function registerCreator(
       .update(`${name}|${email}|${now}`)
       .digest("hex");
 
-    // 既存の仮レコードを本登録に更新 + 関連データ作成
+    // 再登録の場合、既存の関連データを削除
+    await prisma.$transaction(async (tx) => {
+      await tx.creatorSkill.deleteMany({ where: { creatorId: existing.id } });
+      await tx.creatorPortfolio.deleteMany({ where: { creatorId: existing.id } });
+      await tx.creatorNda.deleteMany({ where: { creatorId: existing.id } });
+      await tx.creatorAnalysis.deleteMany({ where: { creatorId: existing.id } });
+    });
+
+    // レコードを本登録に更新 + 関連データ作成
     const creator = await prisma.$transaction(async (tx) => {
       const c = await tx.creator.update({
         where: { email },
