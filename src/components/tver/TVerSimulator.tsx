@@ -26,16 +26,16 @@ const AD_FORMATS: { seconds: AdSeconds; label: string; cpm: number; note?: strin
 // ----------------------------------------------------------------
 // アドアーチ手数料ルール
 // ----------------------------------------------------------------
-function calcAdArchFees(mediaBudget: number, isFirstTransaction: boolean) {
+function calcAdArchFees(mediaBudget: number, isFirstTransaction: boolean, creativeCount: number) {
   // 媒体管理費: 50万以下→10万固定, 50万超→20%
   const managementFee = mediaBudget <= 500000 ? 100000 : mediaBudget * 0.20;
-  // クリエイティブ考査費（固定）
-  const creativeFee = 30000;
+  // クリエイティブ考査費（1本3万円 × 本数、0本なら無し）
+  const creativeFee = 30000 * creativeCount;
   // 初期取引（業態考査含む）
   const initialFee = isFirstTransaction ? 150000 : 0;
 
   const subtotal = managementFee + creativeFee + initialFee;
-  return { managementFee, creativeFee, initialFee, subtotal };
+  return { managementFee, creativeFee, creativeCount, initialFee, subtotal };
 }
 
 // ----------------------------------------------------------------
@@ -207,6 +207,8 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
   const [customCpm, setCustomCpm] = useState<Partial<Record<AdSeconds, number>>>({});
   const [frequency, setFrequency] = useState(3);
   const [isFirstTransaction, setIsFirstTransaction] = useState(false);
+  const [includeCreativeReview, setIncludeCreativeReview] = useState(true);
+  const [creativeCount, setCreativeCount] = useState(1);
 
   // 入力モード（再生回数保証がデフォルト）
   const [inputMode, setInputMode] = useState<"plays" | "budget">(initialBudget ? "budget" : "plays");
@@ -277,8 +279,8 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
   }, []);
 
   const fees = useMemo(
-    () => calcAdArchFees(calcResult.budget, isFirstTransaction),
-    [calcResult.budget, isFirstTransaction]
+    () => calcAdArchFees(calcResult.budget, isFirstTransaction, includeCreativeReview ? creativeCount : 0),
+    [calcResult.budget, isFirstTransaction, includeCreativeReview, creativeCount]
   );
 
   const resetAll = () => {
@@ -289,6 +291,8 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
     setAdSeconds(15);
     setCustomCpm({});
     setIsFirstTransaction(false);
+    setIncludeCreativeReview(true);
+    setCreativeCount(1);
   };
 
   return (
@@ -626,6 +630,30 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                     />
                     <span className="text-[10px] text-zinc-400">初期取引（業態考査含む）</span>
                   </label>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeCreativeReview}
+                        onChange={(e) => setIncludeCreativeReview(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-emerald-400"
+                      />
+                      <span className="text-[10px] text-zinc-400">素材考査</span>
+                    </label>
+                    {includeCreativeReview && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={creativeCount}
+                          min={1}
+                          max={20}
+                          onChange={(e) => setCreativeCount(Math.max(1, Number(e.target.value)))}
+                          className="w-12 px-1.5 py-0.5 text-[10px] text-center border border-zinc-600 rounded bg-zinc-800 text-white outline-none focus:border-emerald-400"
+                        />
+                        <span className="text-[10px] text-zinc-400">本</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="bg-zinc-800 rounded-lg overflow-hidden text-[11px]">
@@ -636,12 +664,12 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                       value: fees.managementFee,
                       color: "text-zinc-200",
                     },
-                    {
-                      label: "クリエイティブ考査費",
-                      note: "（固定）",
+                    ...(fees.creativeCount > 0 ? [{
+                      label: "素材考査費",
+                      note: `（¥30,000 × ${fees.creativeCount}本）`,
                       value: fees.creativeFee,
                       color: "text-zinc-200",
-                    },
+                    }] : []),
                     ...(isFirstTransaction ? [{
                       label: "初期取引費（業態考査含む）",
                       note: "（固定）",
