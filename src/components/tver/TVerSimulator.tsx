@@ -347,34 +347,40 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
             ))}
           </div>
 
-          {/* CPM調整 */}
-          <div>
-            <label className="flex items-center justify-between text-[11px] text-zinc-500 mb-1">
-              <span>CPM単価（{adSeconds}秒）</span>
-              <button
-                onClick={() => setCustomCpm((p) => { const n = {...p}; delete n[adSeconds]; return n; })}
-                className="text-zinc-400 hover:text-zinc-600 text-[10px]"
-              >
-                フロア価格に戻す
-              </button>
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-400 text-xs">¥</span>
-              <input
-                type="number"
-                value={cpm}
-                min={100}
-                max={99999}
-                step={100}
-                onChange={(e) => setCustomCpm((p) => ({ ...p, [adSeconds]: Number(e.target.value) }))}
-                className="flex-1 px-3 py-1.5 text-xs border border-zinc-200 rounded-lg outline-none focus:border-blue-400"
-              />
-              <span className="text-zinc-400 text-[11px]">/ 1,000回</span>
+          {/* CPM調整（詳細設定 — 折りたたみ） */}
+          <details className="group">
+            <summary className="text-[11px] text-zinc-400 cursor-pointer hover:text-zinc-600 select-none flex items-center gap-1">
+              <ChevronRight className="w-3 h-3 group-open:rotate-90 transition-transform" />
+              詳細設定
+            </summary>
+            <div className="mt-2 pl-4 border-l-2 border-zinc-100">
+              <label className="flex items-center justify-between text-[11px] text-zinc-500 mb-1">
+                <span>CPM単価（{adSeconds}秒）</span>
+                <button
+                  onClick={() => setCustomCpm((p) => { const n = {...p}; delete n[adSeconds]; return n; })}
+                  className="text-zinc-400 hover:text-zinc-600 text-[10px]"
+                >
+                  フロア価格に戻す
+                </button>
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-zinc-400 text-xs">¥</span>
+                <input
+                  type="number"
+                  value={cpm}
+                  min={100}
+                  max={99999}
+                  step={100}
+                  onChange={(e) => setCustomCpm((p) => ({ ...p, [adSeconds]: Number(e.target.value) }))}
+                  className="flex-1 px-3 py-1.5 text-xs border border-zinc-200 rounded-lg outline-none focus:border-blue-400"
+                />
+                <span className="text-zinc-400 text-[11px]">/ 1,000回</span>
+              </div>
+              <p className="text-[10px] text-zinc-400 mt-1">
+                フロア価格（ネット）: ¥{AD_FORMATS.find(f => f.seconds === adSeconds)?.cpm.toLocaleString()}
+              </p>
             </div>
-            <p className="text-[10px] text-zinc-400 mt-1">
-              フロア価格（ネット）: ¥{AD_FORMATS.find(f => f.seconds === adSeconds)?.cpm.toLocaleString()}
-            </p>
-          </div>
+          </details>
         </div>
 
         {/* 再生回数保証・予算 */}
@@ -487,7 +493,7 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                   totalAmount={calcResult.budget + fees.subtotal}
                   conditions={[
                     `${selected.size}市区町村 / 推定人口 ${formatCount(totalPop)}人`,
-                    `${adSeconds}秒 / CPM ¥${cpm.toLocaleString()}`,
+                    `${adSeconds}秒広告`,
                     `保証再生回数: ${calcResult.plays.toLocaleString()}回`,
                   ]}
                   reach={{
@@ -530,8 +536,8 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                 <p className="text-[11px] text-zinc-400">
                   媒体費: {formatYen(calcResult.budget)}（税抜） / {formatYen(calcResult.budgetWithTax)}（税込）
                 </p>
-                <p className="text-[11px] text-zinc-400">
-                  {calcResult.plays.toLocaleString()}回 × CPM ¥{cpm.toLocaleString()} ÷ 1,000 = {formatYen(calcResult.budget)}
+                <p className="text-[11px] text-zinc-500">
+                  {adSeconds}秒広告 / {selected.size}市区町村
                 </p>
               </div>
 
@@ -590,12 +596,11 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
               </div>
 
               {/* サマリー行 */}
-              <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="grid grid-cols-3 gap-2 text-center">
                 {[
                   { label: "選択エリア", value: `${selected.size}市区町村` },
                   { label: "対象人口", value: `${formatCount(totalPop)}人` },
                   { label: "保証再生回数", value: `${formatCount(calcResult.plays)}回` },
-                  { label: "CPM単価", value: `¥${cpm.toLocaleString()}` },
                 ].map((item) => (
                   <div key={item.label} className="bg-zinc-800 rounded-lg py-2 px-1">
                     <p className="text-[10px] text-zinc-500">{item.label}</p>
