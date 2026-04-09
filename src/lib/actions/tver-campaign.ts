@@ -32,6 +32,11 @@ export async function createTverCampaign(
   const landingPageUrl    = (formData.get("landingPageUrl")    as string)?.trim() || null;
   const genderTarget      = (formData.get("genderTarget")      as string)?.trim() || "ALL";
   const areas             = formData.getAll("areas").map((v) => (v as string).trim()).filter(Boolean);
+  const settingsRaw       = (formData.get("settings") as string)?.trim() || null;
+  let settingsJson: Record<string, unknown> | null = null;
+  if (settingsRaw) {
+    try { settingsJson = JSON.parse(settingsRaw); } catch { /* ignore invalid JSON */ }
+  }
 
   // バリデーション
   if (!advertiserId)   return { error: "広告主を選択してください" };
@@ -82,6 +87,7 @@ export async function createTverCampaign(
         genderTarget: genderTarget as Prisma.TverCampaignCreateInput["genderTarget"],
         areas,
         landingPageUrl:  landingPageUrl  ?? null,
+        settings:        settingsJson    ?? undefined,
         status:       "SUBMITTED",
         createdById:  info.userId,
         creatorEmail: info.email,

@@ -1040,6 +1040,9 @@ model TverCampaign {
   // ── URL
   landingPageUrl String? // リンク先 LP URL
 
+  // ── 拡張設定（JSON: デバイス, オーディエンス, コンテンツ, 時間帯配分, フリークエンシー詳細等）
+  settings Json?
+
   // ── 申請ステータス
   status     TverCampaignStatus @default(SUBMITTED)
   reviewNote String?            @db.Text // 管理者コメント

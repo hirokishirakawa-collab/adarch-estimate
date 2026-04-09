@@ -10,6 +10,13 @@ import {
   COMPANION_PC_OPTIONS,
   GENDER_TARGET_OPTIONS,
   TVER_AREA_GROUPS,
+  AD_DURATION_OPTIONS,
+  DEVICE_OPTIONS,
+  AGE_GROUP_OPTIONS,
+  GENRE_OPTIONS,
+  GENRE_EXCLUDE_OPTIONS,
+  SUB_GENRE_EXCLUDE_OPTIONS,
+  AUDIENCE_TARGETING_CATEGORIES,
 } from "@/lib/constants/tver-campaign";
 
 type Advertiser = { id: string; name: string; productUrl: string };
@@ -35,6 +42,38 @@ export function TverCampaignForm({ action, advertisers }: Props) {
   const [isFetching, startFetch]      = useTransition();
   const [hasFreqCap, setHasFreqCap]   = useState(true);
   const [selectedAreas, setSelectedAreas] = useState<Set<string>>(new Set());
+
+  // 拡張設定
+  const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set(["PC", "SP_IOS", "SP_ANDROID", "CTV"]));
+  const [useAge, setUseAge] = useState(false);
+  const [selectedAges, setSelectedAges] = useState<Set<string>>(new Set());
+  const [useGenre, setUseGenre] = useState(false);
+  const [selectedGenres, setSelectedGenres] = useState<Set<string>>(new Set());
+  const [useGenreExclude, setUseGenreExclude] = useState(false);
+  const [selectedGenreExcludes, setSelectedGenreExcludes] = useState<Set<string>>(new Set());
+  const [useSubGenreExclude, setUseSubGenreExclude] = useState(false);
+  const [selectedSubGenreExcludes, setSelectedSubGenreExcludes] = useState<Set<string>>(new Set());
+  const [audienceToggles, setAudienceToggles] = useState<Record<string, boolean>>({});
+  const [useHourlyBudget, setUseHourlyBudget] = useState(false);
+  const [hourlyRatios, setHourlyRatios] = useState<Record<number, number>>(
+    Object.fromEntries(Array.from({ length: 24 }, (_, i) => [i, i >= 0 && i <= 1 ? 6 : i >= 2 && i <= 4 ? 5 : i >= 22 ? 5 : i >= 12 && i <= 13 ? 6 : 4]))
+  );
+  // フリークエンシー詳細（4段階）
+  const [freqPeriod, setFreqPeriod] = useState({ enabled: false, value: "" });
+  const [freqWeekly, setFreqWeekly] = useState({ enabled: false, value: "" });
+  const [freqDaily, setFreqDaily]   = useState({ enabled: false, value: "" });
+  const [freqHourly, setFreqHourly] = useState({ enabled: false, value: "" });
+  const [useDailyBudget, setUseDailyBudget] = useState(false);
+  const [useLastDayBudget, setUseLastDayBudget] = useState(false);
+
+  function toggleSet(setter: React.Dispatch<React.SetStateAction<Set<string>>>, code: string) {
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }
 
   function toggleArea(code: string) {
     setSelectedAreas((prev) => {
@@ -220,6 +259,92 @@ export function TverCampaignForm({ action, advertisers }: Props) {
             />
           </div>
 
+          {/* 広告グループ名 */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+              広告グループ名
+              <span className="ml-1.5 text-zinc-400 font-normal text-[11px]">任意</span>
+            </label>
+            <input
+              type="text"
+              name="adGroupName"
+              placeholder="例: ○○サービス_関東_15秒"
+              maxLength={200}
+              className={inputCls}
+            />
+          </div>
+
+          {/* 広告再生時間 */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 mb-2">
+              広告再生時間<span className="text-red-500 ml-0.5">*</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {AD_DURATION_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex items-center gap-2 px-3 py-2 border border-zinc-200 rounded-lg
+                             cursor-pointer hover:border-blue-300 hover:bg-blue-50/50
+                             has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50
+                             transition-colors"
+                >
+                  <input
+                    type="radio"
+                    name="adDuration"
+                    value={opt.value}
+                    defaultChecked={opt.value === "15"}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm text-zinc-700">{opt.label}</span>
+                  <span className="text-[10px] text-zinc-400">({opt.note})</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* ステータス */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 mb-2">ステータス</label>
+            <div className="flex gap-3">
+              {[{ value: "ACTIVE", label: "有効" }, { value: "PAUSED", label: "停止" }].map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex items-center gap-2 px-4 py-2 border border-zinc-200 rounded-lg
+                             cursor-pointer hover:border-blue-300
+                             has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50
+                             transition-colors"
+                >
+                  <input
+                    type="radio"
+                    name="campaignStatus"
+                    value={opt.value}
+                    defaultChecked={opt.value === "ACTIVE"}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm text-zinc-700">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* オークション価格 */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+              オークション入札価格
+              <span className="ml-1 text-zinc-400 font-normal text-[11px]">最低入札価格 ¥2,200</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400">¥</span>
+              <input
+                type="number"
+                name="auctionPrice"
+                placeholder="2200"
+                min={2200}
+                className={`${inputCls} pl-7`}
+              />
+            </div>
+          </div>
+
           {/* 広告予算 */}
           <div>
             <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
@@ -296,46 +421,170 @@ export function TverCampaignForm({ action, advertisers }: Props) {
             </div>
           </div>
 
-          {/* フリークエンシーキャップ */}
+          {/* 日予算 */}
           <div>
             <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 mb-2 cursor-pointer">
               <input
                 type="checkbox"
-                checked={hasFreqCap}
-                onChange={(e) => setHasFreqCap(e.target.checked)}
+                checked={useDailyBudget}
+                onChange={(e) => setUseDailyBudget(e.target.checked)}
                 className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
               />
-              フリークエンシーキャップを設定する
+              日予算を設定する
             </label>
-
-            {hasFreqCap && (
-              <div className="flex items-center gap-3 mt-2 p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
-                <div className="flex-1">
-                  <label className="block text-[11px] text-zinc-500 mb-1">カウント単位</label>
-                  <select name="freqCapUnit" className={inputCls}>
-                    {FREQ_CAP_UNIT_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-[11px] text-zinc-500 mb-1">回数</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      name="freqCapCount"
-                      min={1}
-                      placeholder="3"
-                      className={`${inputCls} pr-8`}
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">
-                      回
-                    </span>
-                  </div>
-                </div>
+            {useDailyBudget && (
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400">¥</span>
+                <input type="number" name="dailyBudget" min={0} placeholder="0" className={`${inputCls} pl-7`} />
               </div>
             )}
           </div>
+
+          {/* 配信最終日の日予算 */}
+          <div>
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 mb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useLastDayBudget}
+                onChange={(e) => setUseLastDayBudget(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+              />
+              配信最終日の日予算を設定する
+            </label>
+            {useLastDayBudget && (
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400">¥</span>
+                <input type="number" name="lastDayBudget" min={0} placeholder="0" className={`${inputCls} pl-7`} />
+              </div>
+            )}
+          </div>
+
+          {/* 時間毎予算割合 */}
+          <div>
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 mb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useHourlyBudget}
+                onChange={(e) => setUseHourlyBudget(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+              />
+              時間毎予算割合を設定する
+            </label>
+            {useHourlyBudget && (
+              <div className="mt-2 p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
+                <p className="text-[11px] text-zinc-500 mb-2">
+                  合計: {Object.values(hourlyRatios).reduce((a, b) => a + b, 0)}% / 100%
+                </p>
+                <div className="grid grid-cols-4 gap-2">
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      <span className="text-[11px] text-zinc-500 w-10 text-right">{String(i).padStart(2, "0")}:00</span>
+                      <input
+                        type="number"
+                        value={hourlyRatios[i] ?? 4}
+                        min={0}
+                        max={100}
+                        onChange={(e) => setHourlyRatios((prev) => ({ ...prev, [i]: Number(e.target.value) }))}
+                        className="w-14 px-1.5 py-1 text-xs text-center border border-zinc-200 rounded bg-white"
+                      />
+                      <span className="text-[10px] text-zinc-400">%</span>
+                    </div>
+                  ))}
+                </div>
+                <input type="hidden" name="hourlyRatios" value={JSON.stringify(hourlyRatios)} />
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════
+          フリークエンシー
+      ════════════════════════════════════ */}
+      <section>
+        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">
+          フリークエンシー
+        </h3>
+        <div className="space-y-3">
+          {([
+            { key: "period",  state: freqPeriod,  setter: setFreqPeriod,  label: "期間のフリークエンシーキャップ" },
+            { key: "weekly",  state: freqWeekly,  setter: setFreqWeekly,  label: "1週間のフリークエンシーキャップ" },
+            { key: "daily",   state: freqDaily,   setter: setFreqDaily,   label: "1日のフリークエンシーキャップ" },
+            { key: "hourly",  state: freqHourly,  setter: setFreqHourly,  label: "1時間のフリークエンシーキャップ" },
+          ] as const).map(({ key, state, setter, label }) => (
+            <div key={key} className="p-3 border border-zinc-200 rounded-lg">
+              <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={state.enabled}
+                  onChange={(e) => setter({ ...state, enabled: e.target.checked })}
+                  className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+                />
+                {label}
+              </label>
+              {state.enabled && (
+                <div className="mt-2 relative">
+                  <input
+                    type="number"
+                    name={`freq_${key}`}
+                    value={state.value}
+                    min={1}
+                    placeholder="回数を入力"
+                    onChange={(e) => setter({ ...state, value: e.target.value })}
+                    className={`${inputCls} pr-8`}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">回</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════
+          プレースメント
+      ════════════════════════════════════ */}
+      <section>
+        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">
+          プレースメント
+        </h3>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-700 mb-2">
+            デバイス<span className="text-red-500 ml-0.5">*</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {DEVICE_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg cursor-pointer transition-colors
+                  ${selectedDevices.has(opt.value)
+                    ? "border-blue-400 bg-blue-50 text-blue-700 font-semibold"
+                    : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                  }`}
+              >
+                <input
+                  type="checkbox"
+                  name="devices"
+                  value={opt.value}
+                  checked={selectedDevices.has(opt.value)}
+                  onChange={() => toggleSet(setSelectedDevices, opt.value)}
+                  className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+                />
+                <span className="text-sm">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════
+          オーディエンス
+      ════════════════════════════════════ */}
+      <section>
+        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">
+          オーディエンス
+        </h3>
+        <div className="space-y-4">
 
           {/* 性別ターゲティング */}
           <div>
@@ -363,6 +612,184 @@ export function TverCampaignForm({ action, advertisers }: Props) {
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* 年齢 */}
+          <div className="p-3 border border-zinc-200 rounded-lg">
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 mb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useAge}
+                onChange={(e) => setUseAge(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+              />
+              年齢ターゲティングを利用する
+            </label>
+            {useAge && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {AGE_GROUP_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                      ${selectedAges.has(opt.value)
+                        ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
+                        : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="ageGroups"
+                      value={opt.value}
+                      checked={selectedAges.has(opt.value)}
+                      onChange={() => toggleSet(setSelectedAges, opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 都道府県/市区町村 → 配信エリアセクションで対応済み */}
+
+          {/* 興味関心 / 世帯年収 / テレビ視聴傾向 / デモグラフィック */}
+          {AUDIENCE_TARGETING_CATEGORIES.map((cat) => (
+            <div key={cat.key} className="p-3 border border-zinc-200 rounded-lg">
+              <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name={`audience_${cat.key}`}
+                  checked={audienceToggles[cat.key] ?? false}
+                  onChange={(e) => setAudienceToggles((prev) => ({ ...prev, [cat.key]: e.target.checked }))}
+                  className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+                />
+                {cat.label}を利用する
+              </label>
+              {audienceToggles[cat.key] && (
+                <p className="mt-2 text-[11px] text-zinc-400">
+                  ※ 詳細はTVer管理画面で設定します。利用希望を申請に含めます。
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════
+          コンテンツ
+      ════════════════════════════════════ */}
+      <section>
+        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">
+          コンテンツ
+        </h3>
+        <div className="space-y-4">
+
+          {/* 番組ジャンル */}
+          <div className="p-3 border border-zinc-200 rounded-lg">
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 mb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useGenre}
+                onChange={(e) => setUseGenre(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+              />
+              番組ジャンルを指定する
+            </label>
+            {useGenre && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {GENRE_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                      ${selectedGenres.has(opt.value)
+                        ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
+                        : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="genres"
+                      value={opt.value}
+                      checked={selectedGenres.has(opt.value)}
+                      onChange={() => toggleSet(setSelectedGenres, opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 番組ジャンル除外 */}
+          <div className="p-3 border border-zinc-200 rounded-lg">
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 mb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useGenreExclude}
+                onChange={(e) => setUseGenreExclude(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+              />
+              番組ジャンルを除外する
+            </label>
+            {useGenreExclude && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {GENRE_EXCLUDE_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                      ${selectedGenreExcludes.has(opt.value)
+                        ? "bg-red-50 border-red-300 text-red-700 font-semibold"
+                        : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="genreExcludes"
+                      value={opt.value}
+                      checked={selectedGenreExcludes.has(opt.value)}
+                      onChange={() => toggleSet(setSelectedGenreExcludes, opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 番組サブジャンル除外 */}
+          <div className="p-3 border border-zinc-200 rounded-lg">
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 mb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useSubGenreExclude}
+                onChange={(e) => setUseSubGenreExclude(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600"
+              />
+              番組サブジャンルを除外する
+            </label>
+            {useSubGenreExclude && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {SUB_GENRE_EXCLUDE_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                      ${selectedSubGenreExcludes.has(opt.value)
+                        ? "bg-red-50 border-red-300 text-red-700 font-semibold"
+                        : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="subGenreExcludes"
+                      value={opt.value}
+                      checked={selectedSubGenreExcludes.has(opt.value)}
+                      onChange={() => toggleSet(setSelectedSubGenreExcludes, opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -534,6 +961,29 @@ export function TverCampaignForm({ action, advertisers }: Props) {
           </p>
         </div>
       </section>
+
+      {/* 拡張設定（JSON hidden） */}
+      <input
+        type="hidden"
+        name="settings"
+        value={JSON.stringify({
+          devices: [...selectedDevices],
+          ageGroups: useAge ? [...selectedAges] : [],
+          audience: Object.entries(audienceToggles).filter(([, v]) => v).map(([k]) => k),
+          genres: useGenre ? [...selectedGenres] : [],
+          genreExcludes: useGenreExclude ? [...selectedGenreExcludes] : [],
+          subGenreExcludes: useSubGenreExclude ? [...selectedSubGenreExcludes] : [],
+          hourlyRatios: useHourlyBudget ? hourlyRatios : null,
+          frequency: {
+            period: freqPeriod.enabled ? Number(freqPeriod.value) || null : null,
+            weekly: freqWeekly.enabled ? Number(freqWeekly.value) || null : null,
+            daily: freqDaily.enabled ? Number(freqDaily.value) || null : null,
+            hourly: freqHourly.enabled ? Number(freqHourly.value) || null : null,
+          },
+          dailyBudget: useDailyBudget,
+          lastDayBudget: useLastDayBudget,
+        })}
+      />
 
       {/* ── 送信ボタン ── */}
       <div className="flex items-center gap-3 pt-2 border-t border-zinc-100">
