@@ -859,7 +859,7 @@ function TemplateSection({
           ) : (
             <div className="space-y-4">
               {templates.map((t, i) => (
-                <TemplateCard key={t.id} template={t} index={i} total={templates.length} />
+                <TemplateCard key={t.id} template={t} index={i} total={templates.length} isAdmin={isAdmin} />
               ))}
             </div>
           )}
@@ -931,7 +931,7 @@ function TemplateSection({
 }
 
 // ─── テンプレートカード ─────────────────────────
-function TemplateCard({ template: t, index, total, readOnly }: { template: Template; index: number; total: number; readOnly?: boolean }) {
+function TemplateCard({ template: t, index, total, readOnly, isAdmin }: { template: Template; index: number; total: number; readOnly?: boolean; isAdmin?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1010,6 +1010,30 @@ function TemplateCard({ template: t, index, total, readOnly }: { template: Templ
         {/* お気に入り・アーカイブ（常に表示） */}
         {!readOnly && (
           <div className="flex items-center gap-1 pr-4">
+            {isAdmin && !t.isApproved && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleTemplatePatch({ isApproved: true }); }}
+                className="inline-flex items-center gap-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-2 rounded-lg transition-colors shadow-sm shadow-emerald-500/20"
+                title="このテンプレートを承認する"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                承認する
+              </button>
+            )}
+            {isAdmin && t.isApproved && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm("このテンプレートの承認を取り消しますか？\n営業開始で選択できなくなります。")) {
+                    handleTemplatePatch({ isApproved: false });
+                  }
+                }}
+                className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-amber-600 px-2.5 py-2 rounded-lg hover:bg-amber-50 transition-colors"
+                title="承認を取り消す"
+              >
+                承認取消
+              </button>
+            )}
             <button
               onClick={(e) => { e.stopPropagation(); handleTemplatePatch({ isFavorite: !t.isFavorite }); }}
               className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
