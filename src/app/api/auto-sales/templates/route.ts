@@ -151,10 +151,11 @@ export async function POST(req: NextRequest) {
       pitchText,
       body: generatedBody,
       scheduledStartDate: scheduledStartDate ? new Date(scheduledStartDate) : null,
-      // ADMIN が作成した場合は自動承認
-      isApproved: user.role === "ADMIN",
-      approvedAt: user.role === "ADMIN" ? new Date() : null,
-      approvedBy: user.role === "ADMIN" ? user.id : null,
+      // 承認フローは廃止：登録と同時に自動承認
+      // 問題があれば ADMIN が「承認取消」ボタンで即停止できる
+      isApproved: true,
+      approvedAt: new Date(),
+      approvedBy: user.id,
     },
   });
 

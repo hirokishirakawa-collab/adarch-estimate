@@ -1500,7 +1500,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
           type="date"
           className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all"
         />
-        <p className="text-xs text-zinc-400 mt-1.5">未指定の場合、承認後すぐに営業を開始します</p>
+        <p className="text-xs text-zinc-400 mt-1.5">未指定の場合、登録後すぐに営業を開始します</p>
       </div>
 
       {error && (
@@ -1825,7 +1825,7 @@ function LaunchSection({
               営業テンプレートを選択
             </h2>
             <p className="text-sm text-zinc-500 mt-1">
-              承認済みテンプレートを選んで営業先に一斉送信
+              テンプレートを選んで営業先に一斉送信
             </p>
           </div>
 
@@ -1871,10 +1871,10 @@ function LaunchSection({
                 <AlertCircle className="w-7 h-7 text-amber-400" />
               </div>
               <p className="text-sm font-medium text-zinc-700">
-                承認済みテンプレートがありません
+                利用可能なテンプレートがありません
               </p>
               <p className="text-xs text-zinc-400 mt-1">
-                テンプレートを作成し、本部承認を受けてください。
+                「営業テンプレート」タブから新規作成してください。
               </p>
             </div>
           ) : (
