@@ -13,7 +13,7 @@ export type EstimationRow = {
   branchId: string;
   projectId: string | null;
   customer: { id: string; name: string } | null;
-  items: { amount: { toNumber(): number } }[];
+  items: { amount: number }[];
 };
 
 interface Props {
@@ -58,7 +58,7 @@ export function EstimateTable({ estimations }: Props) {
         </thead>
         <tbody className="divide-y divide-zinc-100">
           {estimations.map((est) => {
-            const subtotal = est.items.reduce((s, it) => s + it.amount.toNumber(), 0);
+            const subtotal = est.items.reduce((s, it) => s + it.amount, 0);
             const branch = BRANCH_MAP[est.branchId as keyof typeof BRANCH_MAP];
             const dateStr = new Intl.DateTimeFormat("ja-JP", {
               year: "numeric", month: "short", day: "numeric",

@@ -88,7 +88,11 @@ export default async function EstimatesPage() {
       {/* フィルター＋テーブル */}
       <div data-tour="estimate-table">
         <EstimateListWithFilters
-          estimations={estimations.map((e) => ({ ...e, projectId: e.project?.id ?? null }))}
+          estimations={estimations.map((e) => ({
+            ...e,
+            projectId: e.project?.id ?? null,
+            items: e.items.map((it) => ({ amount: Number(it.amount) })),
+          }))}
           projects={projects}
         />
       </div>
