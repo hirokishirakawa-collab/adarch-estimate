@@ -143,6 +143,99 @@ export async function createEstimation(
 }
 
 // ---------------------------------------------------------------
+// 見積書の更新（閲覧可能ユーザー / ACCEPTED は編集不可）
+// ---------------------------------------------------------------
+export async function updateEstimation(
+  _prev: { error?: string } | null,
+  formData: FormData
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  const { role, staffName, branchId: userBranchId } = info;
+
+  const estimationId = (formData.get("estimationId") as string)?.trim();
+  if (!estimationId) return { error: "見積IDが指定されていません" };
+
+  // 既存取得 + 認可（同拠点 or ADMIN）
+  const existing = await db.estimation.findUnique({
+    where: { id: estimationId },
+    select: { id: true, branchId: true, status: true, title: true },
+  });
+  if (!existing) return { error: "見積が見つかりません" };
+  if (role !== "ADMIN" && existing.branchId !== userBranchId) {
+    return { error: "編集権限がありません" };
+  }
+  if (existing.status === "ACCEPTED") {
+    return { error: "承認済みの見積は編集できません" };
+  }
+
+  const title = (formData.get("title") as string)?.trim();
+  if (!title) return { error: "見積タイトルは必須です" };
+
+  const estimateDateRaw = (formData.get("estimateDate") as string) || null;
+  const validUntilRaw = (formData.get("validUntil") as string) || null;
+  const notes = (formData.get("notes") as string)?.trim() || null;
+  const customerId = (formData.get("customerId") as string)?.trim() || null;
+  const projectId = (formData.get("projectId") as string)?.trim() || null;
+  const itemsJson = (formData.get("items") as string) || "[]";
+  const discountAmountRaw = formData.get("discountAmount") as string;
+  const discountAmount = discountAmountRaw ? Math.max(0, Number(discountAmountRaw)) : null;
+  const discountReason = (formData.get("discountReason") as string)?.trim() || null;
+  const discountReasonNote = (formData.get("discountReasonNote") as string)?.trim() || null;
+
+  let items: EstimationItemInput[] = [];
+  try {
+    items = JSON.parse(itemsJson);
+  } catch {
+    return { error: "明細データが不正です" };
+  }
+
+  if (items.length === 0) return { error: "明細を1件以上入力してください" };
+
+  try {
+    await db.$transaction([
+      db.estimationItem.deleteMany({ where: { estimationId } }),
+      db.estimation.update({
+        where: { id: estimationId },
+        data: {
+          title,
+          estimateDate: estimateDateRaw ? new Date(estimateDateRaw) : new Date(),
+          validUntil: validUntilRaw ? new Date(validUntilRaw) : null,
+          notes,
+          customerId: customerId || null,
+          projectId: projectId || null,
+          discountAmount: discountAmount && discountAmount > 0 ? discountAmount : null,
+          discountReason: discountReason || null,
+          discountReasonNote: discountReasonNote || null,
+          items: {
+            create: items.map((item, idx) => ({
+              name: item.name,
+              spec: item.spec || null,
+              quantity: item.quantity,
+              unit: item.unit || null,
+              unitPrice: item.unitPrice,
+              amount: item.amount,
+              costPrice: item.costPrice ?? null,
+              templateId: item.templateId ?? null,
+              sortOrder: idx,
+            })),
+          },
+        },
+      }),
+    ]);
+    logAudit({ action: "estimation_updated", email: info.email, name: staffName, entity: "estimation", entityId: estimationId, detail: title });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[updateEstimation] DB error:", msg);
+    return { error: "更新に失敗しました" };
+  }
+
+  revalidatePath(`/dashboard/estimates/${estimationId}`);
+  revalidatePath("/dashboard/estimates");
+  redirect(`/dashboard/estimates/${estimationId}`);
+}
+
+// ---------------------------------------------------------------
 // 見積書の削除（ADMIN のみ）
 // ---------------------------------------------------------------
 export async function deleteEstimation(id: string): Promise<{ error?: string }> {

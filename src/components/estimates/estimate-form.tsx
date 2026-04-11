@@ -3,19 +3,42 @@
 import { useActionState, useState, useCallback } from "react";
 import Link from "next/link";
 import { Loader2, Save, Send, Plus, Eye, EyeOff, Scissors } from "lucide-react";
-import { createEstimation } from "@/lib/actions/estimate";
-import { ESTIMATION_STATUS_OPTIONS } from "@/lib/constants/estimates";
+import { createEstimation, updateEstimation } from "@/lib/actions/estimate";
 import { EstimationItemRow, type TemplateOption, type ItemState } from "./estimate-item-row";
 import { cn } from "@/lib/utils";
 
 type Customer = { id: string; name: string };
 type Project  = { id: string; title: string };
 
+export type EstimationInitialData = {
+  id: string;
+  title: string;
+  estimateDate: string; // yyyy-mm-dd
+  validUntil: string | null; // yyyy-mm-dd or null
+  notes: string | null;
+  customerId: string | null;
+  projectId: string | null;
+  discountAmount: number;
+  discountReason: string | null;
+  discountReasonNote: string | null;
+  items: Array<{
+    name: string;
+    spec: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    costPrice: number | null;
+    templateId: string | null;
+  }>;
+};
+
 interface Props {
   staffName: string;
   templates: TemplateOption[];
   customers: Customer[];
   projects: Project[];
+  mode?: "create" | "edit";
+  initialData?: EstimationInitialData;
 }
 
 let _uid = 0;
@@ -23,6 +46,20 @@ function uid() { return `item_${++_uid}_${Date.now()}`; }
 
 function emptyItem(): ItemState {
   return { _key: uid(), name: "", spec: "", quantity: 1, unit: "日", unitPrice: 0, costPrice: null, templateId: null };
+}
+
+function initialItems(initialData?: EstimationInitialData): ItemState[] {
+  if (!initialData || initialData.items.length === 0) return [emptyItem()];
+  return initialData.items.map((it) => ({
+    _key: uid(),
+    name: it.name,
+    spec: it.spec,
+    quantity: it.quantity,
+    unit: it.unit,
+    unitPrice: it.unitPrice,
+    costPrice: it.costPrice,
+    templateId: it.templateId,
+  }));
 }
 
 const DISCOUNT_REASONS = [
@@ -37,14 +74,20 @@ const inputCls =
   "focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent " +
   "placeholder:text-zinc-400 transition-colors";
 
-export function EstimateForm({ staffName, templates, customers, projects }: Props) {
-  const [state, formAction, isPending] = useActionState(createEstimation, null);
-  const [items, setItems] = useState<ItemState[]>([emptyItem()]);
+export function EstimateForm({ staffName, templates, customers, projects, mode = "create", initialData }: Props) {
+  const isEdit = mode === "edit";
+  const [state, formAction, isPending] = useActionState(
+    isEdit ? updateEstimation : createEstimation,
+    null,
+  );
+  const [items, setItems] = useState<ItemState[]>(() => initialItems(initialData));
   const [showCost, setShowCost] = useState(false);
-  const [showDiscount, setShowDiscount] = useState(false);
-  const [discountAmount, setDiscountAmount] = useState(0);
-  const [discountReason, setDiscountReason] = useState("");
-  const [discountReasonNote, setDiscountReasonNote] = useState("");
+  const [showDiscount, setShowDiscount] = useState(
+    !!initialData && initialData.discountAmount > 0,
+  );
+  const [discountAmount, setDiscountAmount] = useState(initialData?.discountAmount ?? 0);
+  const [discountReason, setDiscountReason] = useState(initialData?.discountReason ?? "");
+  const [discountReasonNote, setDiscountReasonNote] = useState(initialData?.discountReasonNote ?? "");
   const [pendingIntent, setPendingIntent] = useState<"draft" | "issue" | null>(null);
 
   const updateItem = useCallback((idx: number, updated: ItemState) => {
@@ -86,6 +129,9 @@ export function EstimateForm({ staffName, templates, customers, projects }: Prop
 
   return (
     <form action={formAction} className="space-y-6">
+      {isEdit && initialData && (
+        <input type="hidden" name="estimationId" value={initialData.id} />
+      )}
       <input type="hidden" name="items" value={serializedItems} />
       <input type="hidden" name="discountAmount" value={showDiscount ? discountAmount : 0} />
       <input type="hidden" name="discountReason" value={showDiscount ? discountReason : ""} />
@@ -104,6 +150,7 @@ export function EstimateForm({ staffName, templates, customers, projects }: Prop
             required
             maxLength={100}
             placeholder="例: ○○様 動画制作 見積書"
+            defaultValue={initialData?.title ?? ""}
             className={inputCls}
           />
         </div>
@@ -111,7 +158,7 @@ export function EstimateForm({ staffName, templates, customers, projects }: Prop
         {/* 顧客 */}
         <div>
           <label className="block text-xs font-semibold text-zinc-600 mb-1.5">顧客（任意）</label>
-          <select name="customerId" className={inputCls}>
+          <select name="customerId" defaultValue={initialData?.customerId ?? ""} className={inputCls}>
             <option value="">— 選択してください —</option>
             {customers.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
@@ -122,7 +169,7 @@ export function EstimateForm({ staffName, templates, customers, projects }: Prop
         {/* プロジェクト */}
         <div>
           <label className="block text-xs font-semibold text-zinc-600 mb-1.5">関連プロジェクト（任意）</label>
-          <select name="projectId" className={inputCls}>
+          <select name="projectId" defaultValue={initialData?.projectId ?? ""} className={inputCls}>
             <option value="">— 選択してください —</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.title}</option>
@@ -136,7 +183,7 @@ export function EstimateForm({ staffName, templates, customers, projects }: Prop
           <input
             name="estimateDate"
             type="date"
-            defaultValue={new Date().toISOString().slice(0, 10)}
+            defaultValue={initialData?.estimateDate ?? new Date().toISOString().slice(0, 10)}
             className={inputCls}
           />
         </div>
@@ -144,7 +191,7 @@ export function EstimateForm({ staffName, templates, customers, projects }: Prop
         {/* 有効期限 */}
         <div>
           <label className="block text-xs font-semibold text-zinc-600 mb-1.5">有効期限</label>
-          <input name="validUntil" type="date" className={inputCls} />
+          <input name="validUntil" type="date" defaultValue={initialData?.validUntil ?? ""} className={inputCls} />
         </div>
 
         {/* 担当者 */}
@@ -366,6 +413,7 @@ export function EstimateForm({ staffName, templates, customers, projects }: Prop
           name="notes"
           rows={3}
           placeholder="特記事項・条件など"
+          defaultValue={initialData?.notes ?? ""}
           className={`${inputCls} resize-none`}
         />
       </div>
@@ -380,41 +428,57 @@ export function EstimateForm({ staffName, templates, customers, projects }: Prop
       {/* ボタン */}
       <div className="flex items-center justify-between pt-2">
         <Link
-          href="/dashboard/estimates"
+          href={isEdit && initialData ? `/dashboard/estimates/${initialData.id}` : "/dashboard/estimates"}
           className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
         >
           キャンセル
         </Link>
         <div className="flex items-center gap-3">
-          {/* 下書きとして保存 */}
-          <button
-            type="submit"
-            name="_intent"
-            value="draft"
-            onClick={() => setPendingIntent("draft")}
-            disabled={isPending}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-white text-zinc-700 border border-zinc-300 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isPending && pendingIntent === "draft"
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <Save className="w-4 h-4" />}
-            下書きとして保存
-          </button>
+          {isEdit ? (
+            /* 更新する */
+            <button
+              type="submit"
+              disabled={isPending}
+              className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              {isPending
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Save className="w-4 h-4" />}
+              {isPending ? "更新中..." : "更新する"}
+            </button>
+          ) : (
+            <>
+              {/* 下書きとして保存 */}
+              <button
+                type="submit"
+                name="_intent"
+                value="draft"
+                onClick={() => setPendingIntent("draft")}
+                disabled={isPending}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-white text-zinc-700 border border-zinc-300 rounded-lg hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isPending && pendingIntent === "draft"
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Save className="w-4 h-4" />}
+                下書きとして保存
+              </button>
 
-          {/* 発行する（通知あり） */}
-          <button
-            type="submit"
-            name="_intent"
-            value="issue"
-            onClick={() => setPendingIntent("issue")}
-            disabled={isPending}
-            className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-          >
-            {isPending && pendingIntent === "issue"
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <Send className="w-4 h-4" />}
-            {isPending && pendingIntent === "issue" ? "発行中..." : "発行する"}
-          </button>
+              {/* 発行する（通知あり） */}
+              <button
+                type="submit"
+                name="_intent"
+                value="issue"
+                onClick={() => setPendingIntent("issue")}
+                disabled={isPending}
+                className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                {isPending && pendingIntent === "issue"
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Send className="w-4 h-4" />}
+                {isPending && pendingIntent === "issue" ? "発行中..." : "発行する"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </form>

@@ -16,6 +16,7 @@ import {
   TrendingDown,
   Scissors,
   Download,
+  Pencil,
 } from "lucide-react";
 import { DeleteEstimateButton } from "@/components/estimates/delete-estimate-button";
 
@@ -106,6 +107,15 @@ export default async function EstimateDetailPage({ params }: PageProps) {
 
           {/* アクションボタン */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {estimation.status !== "ACCEPTED" && (
+              <Link
+                href={`/dashboard/estimates/${estimation.id}/edit`}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                編集
+              </Link>
+            )}
             <a
               href={`/api/estimates/${estimation.id}/pdf`}
               target="_blank"
