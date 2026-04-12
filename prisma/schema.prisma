@@ -1381,6 +1381,12 @@ model GroupCompany {
   salesInsights        SalesInsight[]
   salesApproaches      SalesApproach[]
 
+  // ---- 稼働ステータス管理 ----
+  partnerStatuses      PartnerStatus[]      @relation("PartnerStatuses")
+  partnerStatusLogs    PartnerStatusLog[]   @relation("PartnerStatusLogs")
+  violationReports     ViolationReport[]    @relation("ViolationReporter")
+  partnerScores        PartnerScore[]       @relation("PartnerScores")
+
   @@index([phase])
   @@map("group_companies")
 }
@@ -2928,4 +2934,109 @@ model CreatorFavorite {
   @@unique([userId, creatorId])
   @@index([userId])
   @@map("creator_favorites")
+}
+
+// ==============================================================
+// パートナー稼働ステータス管理
+// ==============================================================
+
+enum PartnerStatusType {
+  ACTIVE           // 稼働中
+  INACTIVE         // 活動休止中（自己申告）
+  FORCED_INACTIVE  // 活動休止中（報告ゼロ2ヶ月で強制切替）
+  NOT_SELECTED     // 未選択
+}
+
+/// 認定パートナーの月次稼働ステータス。
+/// GroupCompany（加盟企業）ごとに毎月1レコード。
+model PartnerStatus {
+  id             String            @id @default(cuid())
+  groupCompanyId String
+  groupCompany   GroupCompany      @relation("PartnerStatuses", fields: [groupCompanyId], references: [id], onDelete: Cascade)
+  year           Int               // 対象年（例: 2026）
+  month          Int               // 対象月（1-12）
+  status         PartnerStatusType @default(NOT_SELECTED)
+  selectedAt     DateTime?         // ステータス選択日時（未選択はnull）
+  reportCount    Int               @default(0) // 当月報告件数（月次+週次+OS記載）
+  note           String?           @db.Text // 備考（「自社案件対応中」等の自由記述）
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([groupCompanyId, year, month])
+  @@index([year, month])
+  @@index([status])
+  @@map("partner_statuses")
+}
+
+/// パートナーステータス変更履歴。全変更を追跡。
+model PartnerStatusLog {
+  id             String            @id @default(cuid())
+  groupCompanyId String
+  groupCompany   GroupCompany      @relation("PartnerStatusLogs", fields: [groupCompanyId], references: [id], onDelete: Cascade)
+  fromStatus     PartnerStatusType
+  toStatus       PartnerStatusType
+  reason         String            // "自己申告" / "報告ゼロ2ヶ月による強制切替" / "ADMIN操作" / "月初リセット"
+  changedBy      String            // "SYSTEM" / "ADMIN" / パートナーのメールアドレス
+
+  createdAt DateTime @default(now())
+
+  @@index([groupCompanyId, createdAt(sort: Desc)])
+  @@map("partner_status_logs")
+}
+
+// ==============================================================
+// 違反通報（匿名可）
+// ==============================================================
+
+enum ViolationReportStatus {
+  PENDING     // 未対応
+  REVIEWING   // 調査中
+  CONFIRMED   // 違反確認
+  DISMISSED   // 該当なし
+  RESOLVED    // 対応済み
+}
+
+/// パートナーからの違反通報。匿名可。
+model ViolationReport {
+  id          String                @id @default(cuid())
+  reporterCompanyId String?         // 通報元（匿名の場合はnull）
+  reporterCompany   GroupCompany?   @relation("ViolationReporter", fields: [reporterCompanyId], references: [id], onDelete: SetNull)
+  isAnonymous       Boolean         @default(true) // 匿名フラグ
+  targetDescription String          @db.Text // 通報対象の説明（「X上で○○と名乗る人物が…」等）
+  content           String          @db.Text // 詳細内容
+  evidenceUrls      String[]        // 証拠URL（スクショのストレージURL等）
+  status            ViolationReportStatus @default(PENDING)
+  adminNote         String?         @db.Text // ADMIN対応メモ
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("violation_reports")
+}
+
+// ==============================================================
+// パートナー評価スコア（契約更新時の自動評価用）
+// ==============================================================
+
+/// パートナー月次スコアのスナップショット。案件優先度・更新評価に使用。
+model PartnerScore {
+  id               String       @id @default(cuid())
+  groupCompanyId   String
+  groupCompany     GroupCompany  @relation("PartnerScores", fields: [groupCompanyId], references: [id], onDelete: Cascade)
+  year             Int
+  month            Int
+  reportSubmitRate Float        @default(0) // 報告提出率（0.0〜1.0）
+  revenueAmount    Decimal      @default(0) @db.Decimal(15, 0) // 当月売上
+  consecutiveActive Int         @default(0) // 連続稼働月数
+  warningCount     Int          @default(0) // 累計警告回数
+  totalScore       Float        @default(0) // 総合スコア（0〜100）
+
+  createdAt DateTime @default(now())
+
+  @@unique([groupCompanyId, year, month])
+  @@index([totalScore(sort: Desc)])
+  @@map("partner_scores")
 }

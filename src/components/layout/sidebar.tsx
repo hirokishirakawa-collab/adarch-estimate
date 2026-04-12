@@ -279,6 +279,18 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-teal-500/80",
     items: [
       {
+        href: "/dashboard/partner-status",
+        label: "稼働ステータス申告",
+        icon: Activity,
+        minRole: "MANAGER",
+      },
+      {
+        href: "/dashboard/violation-report",
+        label: "違反行為の通報",
+        icon: AlertTriangle,
+        minRole: "MANAGER",
+      },
+      {
         href: "/dashboard/sales-insights",
         label: "営業分析レポート",
         icon: Activity,
@@ -490,6 +502,18 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/group-support",
         label: "グループサポート",
         icon: HeartHandshake,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/admin/partner-status",
+        label: "パートナー稼働管理",
+        icon: Activity,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/admin/violation-reports",
+        label: "違反通報管理",
+        icon: AlertTriangle,
         minRole: "ADMIN",
       },
       {
