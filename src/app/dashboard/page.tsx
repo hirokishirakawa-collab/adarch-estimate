@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getOrGenerateDigest } from "@/lib/digest";
 import { db } from "@/lib/db";
 import type { UserRole } from "@/types/roles";
+import { ForcedInactiveModal } from "@/components/partner-status/forced-inactive-modal";
 import {
   Users,
   FolderKanban,
@@ -152,6 +153,15 @@ export default async function DashboardPage() {
   const firstName = name?.split(/[\s　]/)[0] ?? null;
 
   return (
+    <>
+      {/* FORCED_INACTIVE モーダル */}
+      {partnerStatus && partnerStatus.status === "FORCED_INACTIVE" && (
+        <ForcedInactiveModal
+          companyName={partnerCompanyName}
+          year={now.getFullYear()}
+          month={now.getMonth() + 1}
+        />
+      )}
     <div className="px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
 
       {/* ── ヘッダー ── */}
@@ -785,5 +795,6 @@ export default async function DashboardPage() {
       </div>
 
     </div>
+    </>
   );
 }
