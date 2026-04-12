@@ -266,8 +266,8 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      {/* ── 営業報告・リード管理カード（ADMIN以外） ── */}
-      {role !== "ADMIN" && (
+      {/* ── 営業報告・リード管理カード ── */}
+      {(
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl px-5 py-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
