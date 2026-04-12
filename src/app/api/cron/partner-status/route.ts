@@ -9,8 +9,10 @@ const NOTIFY_SPACE = "AAQAxSqou_g";
 
 // ---------------------------------------------------------------
 // GET /api/cron/partner-status
-// 毎月1日に実行: 前月の未選択・報告ゼロを自動休止に切替 + 当月レコード作成
+// 毎月15日に実行: 当月の未選択・報告ゼロを自動休止に切替
+// 毎月1日にも実行: 当月レコードの自動作成
 // Headers: Authorization: Bearer {CRON_SECRET}
+// Query: ?action=check (15日) or ?action=init (1日) — デフォルトは check
 // ---------------------------------------------------------------
 export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization") ?? "";
@@ -23,15 +25,49 @@ export async function GET(req: NextRequest) {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
 
-    // 前月の年月を算出
-    let prevYear = currentYear;
-    let prevMonth = currentMonth - 1;
-    if (prevMonth <= 0) {
-      prevMonth = 12;
-      prevYear -= 1;
+    const url = new URL(req.url);
+    const action = url.searchParams.get("action") ?? "check";
+
+    // ── action=init: 毎月1日に当月レコードを全社分作成 ──
+    if (action === "init") {
+      const companies = await db.groupCompany.findMany({
+        where: { isActive: true },
+        select: { id: true },
+      });
+
+      let created = 0;
+      for (const company of companies) {
+        const existing = await db.partnerStatus.findUnique({
+          where: {
+            groupCompanyId_year_month: {
+              groupCompanyId: company.id,
+              year: currentYear,
+              month: currentMonth,
+            },
+          },
+        });
+        if (!existing) {
+          await db.partnerStatus.create({
+            data: {
+              groupCompanyId: company.id,
+              year: currentYear,
+              month: currentMonth,
+              status: "NOT_SELECTED",
+            },
+          });
+          created++;
+        }
+      }
+
+      await sendChatMessage(
+        NOTIFY_SPACE,
+        `📊 パートナー稼働ステータス：${currentYear}年${currentMonth}月のレコードを${created}社分作成しました。\n全パートナーにステータス選択を促してください。`
+      ).catch(() => {});
+
+      return NextResponse.json({ ok: true, action: "init", created });
     }
 
-    // 全アクティブなグループ企業を取得
+    // ── action=check: 毎月15日に未選択・報告ゼロを自動休止 ──
     const companies = await db.groupCompany.findMany({
       where: { isActive: true },
       select: { id: true, name: true, ownerName: true },
@@ -41,33 +77,29 @@ export async function GET(req: NextRequest) {
     const notSelectedInactive: string[] = [];
 
     for (const company of companies) {
-      // ── 前月のステータスを確認 ──
-      const prevStatus = await db.partnerStatus.findUnique({
+      const currentStatus = await db.partnerStatus.findUnique({
         where: {
           groupCompanyId_year_month: {
             groupCompanyId: company.id,
-            year: prevYear,
-            month: prevMonth,
+            year: currentYear,
+            month: currentMonth,
           },
         },
       });
 
-      // 前月が存在しない場合は NOT_SELECTED 扱い
-      const status = prevStatus?.status ?? "NOT_SELECTED";
-
-      // ── 未選択 → FORCED_INACTIVE に変更 ──
-      if (status === "NOT_SELECTED") {
-        if (prevStatus) {
+      // レコードなし or NOT_SELECTED → FORCED_INACTIVE
+      if (!currentStatus || currentStatus.status === "NOT_SELECTED") {
+        if (currentStatus) {
           await db.partnerStatus.update({
-            where: { id: prevStatus.id },
+            where: { id: currentStatus.id },
             data: { status: "FORCED_INACTIVE" },
           });
         } else {
           await db.partnerStatus.create({
             data: {
               groupCompanyId: company.id,
-              year: prevYear,
-              month: prevMonth,
+              year: currentYear,
+              month: currentMonth,
               status: "FORCED_INACTIVE",
             },
           });
@@ -78,7 +110,7 @@ export async function GET(req: NextRequest) {
             groupCompanyId: company.id,
             fromStatus: "NOT_SELECTED",
             toStatus: "FORCED_INACTIVE",
-            reason: "未選択のまま月末を迎えたため自動休止",
+            reason: "月半ば（15日）までに未選択のため自動休止",
             changedBy: "SYSTEM",
           },
         });
@@ -86,10 +118,10 @@ export async function GET(req: NextRequest) {
         notSelectedInactive.push(`${company.name}（${company.ownerName}）`);
       }
 
-      // ── 稼働中だが報告ゼロ → FORCED_INACTIVE に変更 ──
-      if (status === "ACTIVE" && prevStatus && prevStatus.reportCount === 0) {
+      // ACTIVE だが reportCount=0 → FORCED_INACTIVE
+      if (currentStatus?.status === "ACTIVE" && currentStatus.reportCount === 0) {
         await db.partnerStatus.update({
-          where: { id: prevStatus.id },
+          where: { id: currentStatus.id },
           data: { status: "FORCED_INACTIVE" },
         });
 
@@ -98,35 +130,17 @@ export async function GET(req: NextRequest) {
             groupCompanyId: company.id,
             fromStatus: "ACTIVE",
             toStatus: "FORCED_INACTIVE",
-            reason: "稼働中選択だが報告ゼロのため自動休止",
+            reason: "稼働中選択だが15日時点で報告ゼロのため自動休止",
             changedBy: "SYSTEM",
           },
         });
 
         forcedInactive.push(`${company.name}（${company.ownerName}）`);
       }
-
-      // ── 当月のレコードを NOT_SELECTED で自動作成 ──
-      await db.partnerStatus.upsert({
-        where: {
-          groupCompanyId_year_month: {
-            groupCompanyId: company.id,
-            year: currentYear,
-            month: currentMonth,
-          },
-        },
-        create: {
-          groupCompanyId: company.id,
-          year: currentYear,
-          month: currentMonth,
-          status: "NOT_SELECTED",
-        },
-        update: {},
-      });
     }
 
     // ── Google Chat 通知 ──
-    const lines: string[] = [`📊 パートナー稼働ステータス月次処理（${prevYear}年${prevMonth}月分）`];
+    const lines: string[] = [`📊 パートナー稼働ステータス 15日チェック（${currentYear}年${currentMonth}月）`];
 
     if (forcedInactive.length > 0) {
       lines.push("");
@@ -145,17 +159,14 @@ export async function GET(req: NextRequest) {
       lines.push("✅ 全パートナー正常（自動休止対象なし）");
     }
 
-    lines.push("");
-    lines.push(`${currentYear}年${currentMonth}月の新規レコードを${companies.length}社分作成しました。`);
-
     await sendChatMessage(NOTIFY_SPACE, lines.join("\n")).catch(() => {});
 
     return NextResponse.json({
       ok: true,
-      prevMonth: `${prevYear}-${prevMonth}`,
+      action: "check",
+      month: `${currentYear}-${currentMonth}`,
       forcedInactive: forcedInactive.length,
       notSelectedInactive: notSelectedInactive.length,
-      newRecords: companies.length,
     });
   } catch (e) {
     console.error("[cron/partner-status] Error:", e);
