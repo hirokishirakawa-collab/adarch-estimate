@@ -95,6 +95,30 @@ export default async function DashboardPage() {
     select: { name: true, parentName: true, lastUpdated: true, driveUrl: true, path: true },
   });
 
+  // ── パートナー稼働ステータスチェック（ADMIN以外） ──
+  let partnerStatus: { status: string; selectedAt: string | null; note: string | null } | null = null;
+  let partnerCompanyName = "";
+  if (role !== "ADMIN") {
+    try {
+      const psUser = await db.user.findUnique({
+        where: { email: session?.user?.email ?? "" },
+        select: { groupCompanyId: true, groupCompany: { select: { name: true } } },
+      });
+      if (psUser?.groupCompanyId) {
+        partnerCompanyName = psUser.groupCompany?.name ?? "";
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const ps = await db.partnerStatus.findUnique({
+          where: { groupCompanyId_year_month: { groupCompanyId: psUser.groupCompanyId, year, month } },
+          select: { status: true, selectedAt: true, note: true },
+        });
+        partnerStatus = ps ? { status: ps.status, selectedAt: ps.selectedAt?.toISOString() ?? null, note: ps.note } : { status: "NOT_SELECTED", selectedAt: null, note: null };
+      }
+    } catch (e) {
+      console.error("[dashboard] Partner status check failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
   // ── 月次報告チェック（ADMIN以外） ──
   let reportWarning: string | null = null;
   let reportUrgent = false;
@@ -172,6 +196,60 @@ export default async function DashboardPage() {
             </p>
           </div>
           <span className={`text-xs font-semibold group-hover:translate-x-0.5 transition-transform flex-shrink-0 ${reportUrgent ? "text-red-600" : "text-amber-600"}`}>提出する →</span>
+        </Link>
+      )}
+
+      {/* ── 稼働ステータス申告（ADMIN以外、未選択時に表示） ── */}
+      {partnerStatus && partnerStatus.status === "NOT_SELECTED" && (
+        <Link
+          href="/dashboard/partner-status"
+          className="flex items-center gap-3 rounded-xl border-2 border-blue-300 bg-blue-50 px-5 py-4 transition group hover:bg-blue-100"
+        >
+          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <Activity className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-blue-900">
+              {now.getMonth() + 1}月の稼働ステータスが未選択です
+            </p>
+            <p className="text-xs text-blue-600 mt-0.5">
+              {partnerCompanyName ? `${partnerCompanyName} — ` : ""}稼働ステータスを選択してください。未選択の場合、報告義務違反（第9条）として精算保留の対象となります。
+            </p>
+          </div>
+          <span className="text-xs font-semibold text-blue-600 group-hover:translate-x-0.5 transition-transform flex-shrink-0">選択する →</span>
+        </Link>
+      )}
+      {partnerStatus && partnerStatus.status !== "NOT_SELECTED" && (
+        <Link
+          href="/dashboard/partner-status"
+          className={`flex items-center gap-3 rounded-xl border px-5 py-3 transition group ${
+            partnerStatus.status === "ACTIVE"
+              ? "border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50"
+              : "border-amber-200 bg-amber-50/50 hover:bg-amber-50"
+          }`}
+        >
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+            partnerStatus.status === "ACTIVE" ? "bg-emerald-100" : "bg-amber-100"
+          }`}>
+            <Activity className={`w-4 h-4 ${
+              partnerStatus.status === "ACTIVE" ? "text-emerald-600" : "text-amber-600"
+            }`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-zinc-700">
+                {now.getMonth() + 1}月 稼働ステータス
+              </p>
+              <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full ${
+                partnerStatus.status === "ACTIVE"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-amber-100 text-amber-700"
+              }`}>
+                {partnerStatus.status === "ACTIVE" ? "稼働中" : "活動休止中"}
+              </span>
+            </div>
+          </div>
+          <span className="text-xs text-zinc-400 group-hover:text-zinc-600 flex-shrink-0">変更 →</span>
         </Link>
       )}
 

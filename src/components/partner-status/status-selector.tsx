@@ -71,7 +71,7 @@ const STATUS_COLOR: Record<PartnerStatusType, string> = {
 };
 
 // ------------------------------------------------------------------
-// コンポー���ント
+// コンポーネント
 // ------------------------------------------------------------------
 
 export function PartnerStatusSelector({
@@ -233,7 +233,7 @@ export function PartnerStatusSelector({
             </div>
             <div className="flex items-center gap-2">
               <Wallet className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-              <span>マネジメント料は引き続き発生��ます</span>
+              <span>マネジメント料は引き続き発生します</span>
             </div>
           </div>
         </button>
@@ -255,7 +255,7 @@ export function PartnerStatusSelector({
         </div>
       )}
 
-      {/* 送信ボ���ン */}
+      {/* 送信ボタン */}
       {selected && (
         <div className="flex items-center gap-3">
           <button
