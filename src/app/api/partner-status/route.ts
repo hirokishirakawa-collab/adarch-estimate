@@ -6,6 +6,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { sendChatMessage } from "@/lib/google-chat";
 
 export const runtime = "nodejs";
 
@@ -143,6 +144,16 @@ export async function POST(req: Request) {
         changedBy: session.user.email,
       },
     });
+
+    // Google Chat 通知（代表への即時通知）
+    const groupCompany = await db.groupCompany.findUnique({
+      where: { id: user.groupCompanyId },
+      select: { name: true, ownerName: true },
+    });
+    const statusLabel = toStatus === "ACTIVE" ? "稼働中" : "活動休止中";
+    const noteText = toStatus === "INACTIVE" && body.note ? `\n理由: ${body.note}` : "";
+    const chatText = `📋 稼働ステータス変更\n${groupCompany?.name ?? "不明"}（${groupCompany?.ownerName ?? ""}）\n${fromStatus} → ${statusLabel}${noteText}\n${year}年${month}月`;
+    sendChatMessage("AAQAxSqou_g", chatText).catch(() => {});
 
     return NextResponse.json({ status: updated }, { status: 200 });
   } catch (e) {

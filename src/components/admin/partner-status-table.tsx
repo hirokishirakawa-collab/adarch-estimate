@@ -150,8 +150,9 @@ export function PartnerStatusTable({ partners, alerts }: Props) {
                   "パートナー名",
                   "代表者",
                   "当月ステータス",
+                  "休止理由",
                   "連続休止月数",
-                  "当月報告件���",
+                  "当月報告件数",
                   "直近報告日",
                   "精算状態",
                   "スコア",
@@ -183,6 +184,13 @@ export function PartnerStatusTable({ partners, alerts }: Props) {
                     >
                       {STATUS_LABEL[p.status]}
                     </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-zinc-500 max-w-[200px]">
+                    {p.note ? (
+                      <span className="truncate block" title={p.note}>{p.note}</span>
+                    ) : (
+                      <span className="text-zinc-300">---</span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5 text-center">
                     {p.consecutiveInactiveMonths > 0 ? (
