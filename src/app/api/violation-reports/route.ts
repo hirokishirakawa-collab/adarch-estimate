@@ -6,6 +6,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { sendChatMessage } from "@/lib/google-chat";
 
 export const runtime = "nodejs";
 
@@ -98,6 +99,11 @@ export async function POST(req: Request) {
         status: "PENDING",
       },
     });
+
+    // Google Chat 通知
+    const reporterLabel = isAnonymous ? "匿名" : (user.name ?? user.email ?? "不明");
+    const chatText = `🚨 違反通報が送信されました\n通報者: ${reporterLabel}\n対象: ${body.targetDescription.slice(0, 100)}\n内容: ${body.content.slice(0, 200)}${body.content.length > 200 ? "…" : ""}\n\nOS管理画面で確認してください。`;
+    sendChatMessage("AAQAxSqou_g", chatText).catch(() => {});
 
     return NextResponse.json({ report }, { status: 201 });
   } catch (e) {
