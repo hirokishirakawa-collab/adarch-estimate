@@ -107,6 +107,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Activity,
         minRole: "MANAGER",
       },
+      {
+        href: "/dashboard/leads/list",
+        label: "リード管理・営業報告",
+        icon: ListChecks,
+        minRole: "USER",
+      },
     ],
   },
   {
