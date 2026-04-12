@@ -225,17 +225,24 @@ export function PartnerStatusSelector({
           <div className="space-y-2 text-xs text-zinc-600">
             <div className="flex items-center gap-2">
               <Ban className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-              <span>OS機能が停止されます</span>
+              <span>OS機能の一部が停止されます</span>
             </div>
             <div className="flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-              <span>3ヶ月継続で解除検討対象になります</span>
+              <Briefcase className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+              <span>案件紹介・共同稼働の対象外となります</span>
             </div>
             <div className="flex items-center gap-2">
               <Wallet className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
               <span>マネジメント料は引き続き発生します</span>
             </div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+              <span>3ヶ月継続でグループ活動意思なしと判断し、契約解除の検討対象となります</span>
+            </div>
           </div>
+          <p className="text-[11px] text-amber-600/80 mt-3 leading-relaxed">
+            ※ お忙しい場合の一時休止は問題ありません。ただし、休止が長期間続く場合はアドアーチグループとしての活動意思がないものと判断させていただきます。
+          </p>
         </button>
       </div>
 
