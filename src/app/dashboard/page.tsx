@@ -31,6 +31,9 @@ import {
   BarChart2,
   HardDrive,
   FolderOpen,
+  Upload,
+  Download,
+  ListChecks,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -263,23 +266,57 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      {/* ── 営業報告バナー（ADMIN以外） ── */}
+      {/* ── 営業報告・リード管理カード（ADMIN以外） ── */}
       {role !== "ADMIN" && (
-        <Link
-          href="/dashboard/leads/list"
-          className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 px-5 py-3 transition group hover:bg-indigo-50"
-        >
-          <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-            <FileText className="w-4 h-4 text-indigo-600" />
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl px-5 py-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Crosshair className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-base font-bold text-zinc-900">リード管理・営業報告</p>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                営業活動の記録・リードの管理はこちらから
+              </p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-zinc-700">営業報告・リードインポート</p>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              ツールを使わずに営業した場合はこちらからCSVで報告してください
-            </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Link
+              href="/dashboard/leads/list"
+              className="flex items-center gap-2 px-4 py-3 bg-white rounded-lg border border-zinc-200 hover:border-blue-300 hover:bg-blue-50/30 transition group"
+            >
+              <ListChecks className="w-4 h-4 text-blue-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-zinc-800">リード一覧</p>
+                <p className="text-[11px] text-zinc-500">ステータス管理・進捗確認</p>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-blue-500 ml-auto flex-shrink-0" />
+            </Link>
+            <Link
+              href="/dashboard/leads/list"
+              className="flex items-center gap-2 px-4 py-3 bg-white rounded-lg border border-zinc-200 hover:border-blue-300 hover:bg-blue-50/30 transition group"
+            >
+              <Upload className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-zinc-800">CSVインポート</p>
+                <p className="text-[11px] text-zinc-500">OS外の営業をまとめて報告</p>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-blue-500 ml-auto flex-shrink-0" />
+            </Link>
+            <a
+              href="/api/leads/import/template"
+              download
+              className="flex items-center gap-2 px-4 py-3 bg-white rounded-lg border border-zinc-200 hover:border-blue-300 hover:bg-blue-50/30 transition group"
+            >
+              <Download className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-zinc-800">テンプレート</p>
+                <p className="text-[11px] text-zinc-500">定型フォーマットを取得</p>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-emerald-500 ml-auto flex-shrink-0" />
+            </a>
           </div>
-          <span className="text-xs text-indigo-500 group-hover:translate-x-0.5 transition-transform flex-shrink-0">報告する →</span>
-        </Link>
+        </div>
       )}
 
       {/* ── グループダイジェスト ── */}
