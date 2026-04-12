@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { Suspense } from "react";
-import { ListChecks } from "lucide-react";
+import { ListChecks, Upload, Download } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import type { LeadStatus } from "@/generated/prisma/client";
@@ -170,9 +170,38 @@ export default async function LeadListPage({ searchParams }: PageProps) {
           </div>
         </div>
         <div data-tour="lead-list-import" className="flex items-center gap-3">
-          <LeadCsvImport />
           <LeadExportButtons />
           {isAdmin && <LeadDeleteAllButton totalCount={totalAll} />}
+        </div>
+      </div>
+
+      {/* ===== 営業報告インポートバナー ===== */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl px-5 py-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Upload className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-blue-900">
+                ツールを使わずに営業した場合の報告はこちら
+              </p>
+              <p className="text-xs text-blue-600 mt-0.5">
+                訪問営業・電話営業・紹介営業など、OS外で獲得したリードをCSVで一括インポートできます
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <a
+              href="/api/leads/import/template"
+              download
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              テンプレート
+            </a>
+            <LeadCsvImport />
+          </div>
         </div>
       </div>
 

@@ -263,6 +263,25 @@ export default async function DashboardPage() {
         </Link>
       )}
 
+      {/* ── 営業報告バナー（ADMIN以外） ── */}
+      {role !== "ADMIN" && (
+        <Link
+          href="/dashboard/leads/list"
+          className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 px-5 py-3 transition group hover:bg-indigo-50"
+        >
+          <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+            <FileText className="w-4 h-4 text-indigo-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-zinc-700">営業報告・リードインポート</p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              ツールを使わずに営業した場合はこちらからCSVで報告してください
+            </p>
+          </div>
+          <span className="text-xs text-indigo-500 group-hover:translate-x-0.5 transition-transform flex-shrink-0">報告する →</span>
+        </Link>
+      )}
+
       {/* ── グループダイジェスト ── */}
       {digest && (
         <div data-tour="digest" className="relative overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 via-indigo-50 to-violet-50 px-5 py-4">
