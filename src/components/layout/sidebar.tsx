@@ -101,6 +101,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: LayoutDashboard,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/partner-status",
+        label: "稼働ステータス申告",
+        icon: Activity,
+        minRole: "MANAGER",
+      },
     ],
   },
   {
@@ -278,12 +284,6 @@ const NAV_SECTIONS: NavSection[] = [
     section: "グループ共有",
     color: "text-teal-500/80",
     items: [
-      {
-        href: "/dashboard/partner-status",
-        label: "稼働ステータス申告",
-        icon: Activity,
-        minRole: "MANAGER",
-      },
       {
         href: "/dashboard/violation-report",
         label: "違反行為の通報",
