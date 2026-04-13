@@ -23,6 +23,26 @@ const PROTECTED_PATHS: { prefix: string; role: UserRole }[] = [
 ];
 
 // ----------------------------------------------------------------
+// IPブロックリスト
+// ----------------------------------------------------------------
+/** ハードコードされたブロックIP */
+const HARDCODED_BLOCKED_IPS = new Set([
+  "104.198.89.53", // 2026-04-13 GCP bot: /dashboard/studio への大量アクセス
+]);
+
+/** 環境変数からの追加ブロックIP（カンマ区切り） */
+const ENV_BLOCKED_IPS = (process.env.BLOCKED_IPS ?? "")
+  .split(",")
+  .map((ip) => ip.trim())
+  .filter(Boolean);
+
+const BLOCKED_IPS = new Set([...HARDCODED_BLOCKED_IPS, ...ENV_BLOCKED_IPS]);
+
+function isBlockedIp(ip: string): boolean {
+  return BLOCKED_IPS.has(ip);
+}
+
+// ----------------------------------------------------------------
 // 不正アクセス検知: 簡易レートリミット（メモリ内）
 // ----------------------------------------------------------------
 const accessAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -124,6 +144,11 @@ export default auth((req: NextAuthRequest) => {
   const isAuthenticated = !!session;
   const { ipAddress, userAgent } = getClientInfo(req);
   const hostname = req.headers.get("host") || "";
+
+  // 0a. IPブロックリストチェック
+  if (isBlockedIp(ipAddress)) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
 
   // 0. creators.adarch.co.jp → /creators 配下にリライト
   if (hostname.startsWith("creators.adarch.co.jp")) {
