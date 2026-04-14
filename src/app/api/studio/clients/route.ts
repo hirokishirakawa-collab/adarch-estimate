@@ -52,6 +52,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isAdmin = user.role === "ADMIN";
+  if (!isAdmin && !user.branchId) return NextResponse.json({ error: "No branch" }, { status: 400 });
   const branchFilter = isAdmin ? {} : { branchId: user.branchId! };
 
   const clients = await prisma.studioClient.findMany({
