@@ -621,6 +621,7 @@ const SALES_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, minRole: "USER" },
   { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
   { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
+  { href: "/dashboard/leads/list", label: "営業報告", icon: ClipboardList, minRole: "USER" },
   {
     href: "#media-simulators",
     label: "広告媒体シミュレーター",
@@ -663,6 +664,7 @@ const ADMIN_TAB_ITEMS: NavItem[] = [
     minRole: "USER",
     external: true,
   },
+  { href: "/dashboard/partner-status", label: "稼働ステータス申告", icon: Activity, minRole: "MANAGER" },
 ];
 
 type SidebarTab = "sales" | "production" | "admin" | "all";
