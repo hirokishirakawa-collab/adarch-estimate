@@ -621,9 +621,51 @@ const SALES_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, minRole: "USER" },
   { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
   { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
+  {
+    href: "#media-simulators",
+    label: "広告媒体シミュレーター",
+    icon: Megaphone,
+    minRole: "USER",
+    children: [
+      { href: "/dashboard/strategy-advisor", label: "提案戦略アドバイザー（AI）", icon: Sparkles, minRole: "USER" },
+      { href: "/dashboard/tver-simulator", label: "TVer広告", icon: Tv2, minRole: "USER" },
+      { href: "/dashboard/taxi-ads-simulator", label: "タクシー広告", icon: Car, minRole: "USER" },
+      { href: "/dashboard/skylark-simulator", label: "すかいらーくインストア", icon: UtensilsCrossed, minRole: "USER" },
+      { href: "/dashboard/univ-coop-simulator", label: "大学生協広告", icon: GraduationCap, minRole: "USER" },
+      { href: "/dashboard/aeon-cinema-simulator", label: "イオンシネマ", icon: Clapperboard, minRole: "USER" },
+      { href: "/dashboard/golfcart-simulator", label: "ゴルフカート", icon: Flag, minRole: "USER" },
+      { href: "/dashboard/omochannel-simulator", label: "おもチャンネル", icon: Tv2, minRole: "USER" },
+    ],
+  },
 ];
 
-type SidebarTab = "sales" | "all";
+// ----------------------------------------------------------------
+// 制作タブ
+// ----------------------------------------------------------------
+const PRODUCTION_TAB_ITEMS: NavItem[] = [
+  { href: "/dashboard/projects", label: "プロジェクト一覧", icon: FolderKanban, minRole: "USER" },
+  { href: "/dashboard/tver-review", label: "TVer業態考査申請", icon: Tv2, minRole: "USER" },
+  { href: "/dashboard/tver-campaign", label: "TVer配信申請", icon: Tv2, minRole: "USER" },
+  { href: "/dashboard/tver-creative-review", label: "TVer クリエイティブ考査申請", icon: Tv2, minRole: "USER" },
+  { href: "/dashboard/media", label: "媒体依頼", icon: Megaphone, minRole: "USER" },
+];
+
+// ----------------------------------------------------------------
+// 管理タブ
+// ----------------------------------------------------------------
+const ADMIN_TAB_ITEMS: NavItem[] = [
+  { href: "/dashboard/billing", label: "請求依頼", icon: CreditCard, minRole: "USER" },
+  { href: "/dashboard/sales-report", label: "月次報告", icon: BarChart2, minRole: "MANAGER" },
+  {
+    href: "https://calendar.app.google/DvCvNkUvw91Ytq9u8",
+    label: "本部打ち合わせ予約",
+    icon: CalendarCheck,
+    minRole: "USER",
+    external: true,
+  },
+];
+
+type SidebarTab = "sales" | "production" | "admin" | "all";
 
 export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: SidebarProps) {
   const pathname = usePathname();
@@ -833,29 +875,26 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
         )}
 
         {/* タブ切り替え */}
-        <div className="relative mx-3 mt-2 mb-1 flex rounded-lg bg-white/[0.04] border border-amber-900/15 p-0.5">
-          <button
-            onClick={() => setActiveTab("sales")}
-            className={cn(
-              "flex-1 py-1.5 text-[11px] font-bold tracking-wide rounded-md transition-all duration-200",
-              activeTab === "sales"
-                ? "bg-gradient-to-r from-amber-500/15 to-amber-600/10 text-amber-400 shadow-sm shadow-amber-900/20"
-                : "text-white/35 hover:text-white/55"
-            )}
-          >
-            営業
-          </button>
-          <button
-            onClick={() => setActiveTab("all")}
-            className={cn(
-              "flex-1 py-1.5 text-[11px] font-bold tracking-wide rounded-md transition-all duration-200",
-              activeTab === "all"
-                ? "bg-gradient-to-r from-amber-500/15 to-amber-600/10 text-amber-400 shadow-sm shadow-amber-900/20"
-                : "text-white/35 hover:text-white/55"
-            )}
-          >
-            すべて
-          </button>
+        <div className="relative mx-3 mt-2 mb-1 grid grid-cols-4 rounded-lg bg-white/[0.04] border border-amber-900/15 p-0.5">
+          {([
+            { key: "sales", label: "営業" },
+            { key: "production", label: "制作" },
+            { key: "admin", label: "管理" },
+            { key: "all", label: "全て" },
+          ] as const).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "py-1.5 text-[10px] font-bold tracking-wide rounded-md transition-all duration-200",
+                activeTab === tab.key
+                  ? "bg-gradient-to-r from-amber-500/15 to-amber-600/10 text-amber-400 shadow-sm shadow-amber-900/20"
+                  : "text-white/35 hover:text-white/55"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* ナビゲーション */}
@@ -976,6 +1015,91 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                       />
                       <span className="truncate flex-1">{item.label}</span>
                     </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {/* ===== 制作タブ ===== */}
+          {activeTab === "production" && (
+            <ul className="space-y-0.5">
+              {PRODUCTION_TAB_ITEMS.filter((item) => hasMinRole(user.role, item.minRole)).map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
+                        isActive
+                          ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
+                          : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                      )}
+                    >
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                      )}
+                      <item.icon
+                        className={cn(
+                          "w-4 h-4 flex-shrink-0 transition-colors",
+                          isActive ? "text-amber-500" : "text-white/30 group-hover:text-amber-600/70"
+                        )}
+                      />
+                      <span className="truncate flex-1">{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {/* ===== 管理タブ ===== */}
+          {activeTab === "admin" && (
+            <ul className="space-y-0.5">
+              {ADMIN_TAB_ITEMS.filter((item) => hasMinRole(user.role, item.minRole)).map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                const isMonthlyReport = item.href === "/dashboard/sales-report";
+                return (
+                  <li key={item.href}>
+                    {item.external ? (
+                      <a
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
+                          "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                        )}
+                      >
+                        <item.icon className="w-4 h-4 flex-shrink-0 text-white/30 group-hover:text-amber-600/70 transition-colors" />
+                        <span className="truncate flex-1">{item.label}</span>
+                      </a>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
+                          isActive
+                            ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
+                            : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                        )}
+                      >
+                        {isActive && (
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                        )}
+                        <item.icon
+                          className={cn(
+                            "w-4 h-4 flex-shrink-0 transition-colors",
+                            isActive ? "text-amber-500" : "text-white/30 group-hover:text-amber-600/70"
+                          )}
+                        />
+                        <span className="truncate flex-1">{item.label}</span>
+                        {isMonthlyReport && reportWarning && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                        )}
+                      </Link>
+                    )}
                   </li>
                 );
               })}
