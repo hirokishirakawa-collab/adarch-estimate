@@ -600,12 +600,38 @@ interface SidebarProps {
 // ----------------------------------------------------------------
 // Sidebar コンポーネント
 // ----------------------------------------------------------------
+// ----------------------------------------------------------------
+// 営業タブ: 最優先の7項目（フラット表示）
+// ----------------------------------------------------------------
+const SALES_TAB_ITEMS: NavItem[] = [
+  { href: "/dashboard/customers", label: "顧客管理", icon: Users, minRole: "USER" },
+  { href: "/dashboard/leads/list", label: "リード管理", icon: ListChecks, minRole: "USER" },
+  { href: "/dashboard/deals", label: "商談管理（SFA）", icon: TrendingUp, minRole: "USER" },
+  {
+    href: "/dashboard/leads",
+    label: "リード獲得AI",
+    icon: Crosshair,
+    minRole: "USER",
+    children: [
+      { href: "/dashboard/leads", label: "BtoC リード", icon: Crosshair, minRole: "USER" },
+      { href: "/dashboard/leads/btob", label: "BtoB リード", icon: Building2, minRole: "USER" },
+      { href: "/dashboard/leads/cinema", label: "シネアド リード", icon: Clapperboard, minRole: "USER" },
+    ],
+  },
+  { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, minRole: "USER" },
+  { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
+  { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
+];
+
+type SidebarTab = "sales" | "all";
+
 export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: SidebarProps) {
   const pathname = usePathname();
   const roleStyle = ROLE_STYLES[user.role];
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [activeTab, setActiveTab] = useState<SidebarTab>("sales");
 
   useEffect(() => {
     fetch("/api/favorites")
@@ -806,6 +832,32 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
           </Link>
         )}
 
+        {/* タブ切り替え */}
+        <div className="relative mx-3 mt-2 mb-1 flex rounded-lg bg-white/[0.04] border border-amber-900/15 p-0.5">
+          <button
+            onClick={() => setActiveTab("sales")}
+            className={cn(
+              "flex-1 py-1.5 text-[11px] font-bold tracking-wide rounded-md transition-all duration-200",
+              activeTab === "sales"
+                ? "bg-gradient-to-r from-amber-500/15 to-amber-600/10 text-amber-400 shadow-sm shadow-amber-900/20"
+                : "text-white/35 hover:text-white/55"
+            )}
+          >
+            営業
+          </button>
+          <button
+            onClick={() => setActiveTab("all")}
+            className={cn(
+              "flex-1 py-1.5 text-[11px] font-bold tracking-wide rounded-md transition-all duration-200",
+              activeTab === "all"
+                ? "bg-gradient-to-r from-amber-500/15 to-amber-600/10 text-amber-400 shadow-sm shadow-amber-900/20"
+                : "text-white/35 hover:text-white/55"
+            )}
+          >
+            すべて
+          </button>
+        </div>
+
         {/* ナビゲーション */}
         <nav
           data-tour="sidebar"
@@ -820,6 +872,118 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
             nav[data-tour="sidebar"]::-webkit-scrollbar-track { background: transparent; }
             nav[data-tour="sidebar"]::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
           `}</style>
+
+          {/* ===== 営業タブ ===== */}
+          {activeTab === "sales" && (
+            <ul className="space-y-0.5">
+              {SALES_TAB_ITEMS.filter((item) => hasMinRole(user.role, item.minRole)).map((item) => {
+                // 折りたたみグループ（リード獲得AI）
+                if (item.children && item.children.length > 0) {
+                  const groupActive = item.children.some(
+                    (child) => pathname === child.href || pathname.startsWith(child.href + "/")
+                  );
+                  const isOpen_ = expandedGroups.has(item.href) || groupActive;
+
+                  return (
+                    <li key={item.href}>
+                      <button
+                        onClick={() => toggleGroup(item.href)}
+                        className={cn(
+                          "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 w-full group",
+                          groupActive
+                            ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
+                            : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                        )}
+                      >
+                        {groupActive && (
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                        )}
+                        <item.icon
+                          className={cn(
+                            "w-4 h-4 flex-shrink-0 transition-colors",
+                            groupActive ? "text-amber-500" : "text-white/30 group-hover:text-amber-600/70"
+                          )}
+                        />
+                        <span className="truncate flex-1 text-left">{item.label}</span>
+                        {isOpen_ ? (
+                          <ChevronDown className="w-3 h-3 flex-shrink-0 text-white/20" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3 flex-shrink-0 text-white/20" />
+                        )}
+                      </button>
+                      {isOpen_ && (
+                        <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-amber-800/10 pl-2.5">
+                          {item.children
+                            .filter((child) => hasMinRole(user.role, child.minRole))
+                            .map((child) => {
+                              const childActive =
+                                child.href === "/dashboard/leads"
+                                  ? pathname === "/dashboard/leads"
+                                  : pathname === child.href || pathname.startsWith(child.href + "/");
+                              return (
+                                <li key={child.href}>
+                                  <Link
+                                    href={child.href}
+                                    className={cn(
+                                      "relative flex items-center gap-2 text-xs py-[5px] px-2.5 rounded-lg transition-all duration-150 group",
+                                      childActive
+                                        ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
+                                        : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                                    )}
+                                  >
+                                    {childActive && (
+                                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                                    )}
+                                    <child.icon
+                                      className={cn(
+                                        "w-3.5 h-3.5 flex-shrink-0 transition-colors",
+                                        childActive ? "text-amber-500" : "text-white/30 group-hover:text-amber-600/70"
+                                      )}
+                                    />
+                                    <span className="truncate">{child.label}</span>
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                }
+
+                // 通常アイテム
+                const isActive =
+                  pathname === item.href || pathname.startsWith(item.href + "/");
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
+                        isActive
+                          ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
+                          : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                      )}
+                    >
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                      )}
+                      <item.icon
+                        className={cn(
+                          "w-4 h-4 flex-shrink-0 transition-colors",
+                          isActive ? "text-amber-500" : "text-white/30 group-hover:text-amber-600/70"
+                        )}
+                      />
+                      <span className="truncate flex-1">{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {/* ===== すべてタブ ===== */}
+          {activeTab === "all" && (<>
 
           {/* ピン留めセクション */}
           {favorites.length > 0 && (
@@ -1045,6 +1209,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
               </div>
             );
           })}
+          </>)}
         </nav>
 
         {/* ログアウト */}
