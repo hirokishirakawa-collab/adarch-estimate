@@ -257,10 +257,8 @@ export async function sendDealNotification(
       : payload.logContent;
     updateLine = `更新: ${typeLabel}記録「${snippet}」`;
   } else if (payload.eventType === "DEAL_CREATED") {
-    const amt = payload.amount != null
-      ? ` / 金額: ¥${payload.amount.toLocaleString("ja-JP")}`
-      : "";
-    updateLine = `更新: 新規登録（${payload.statusLabel}${amt}）`;
+    // 金額は案件進捗スペースに送信しない（ADMIN以外も閲覧するため）
+    updateLine = `更新: 新規登録（${payload.statusLabel}）`;
   } else if (payload.eventType === "NOTES_UPDATED") {
     updateLine = `更新: メモ更新「${payload.notesSnippet}」`;
   } else {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyMobileToken } from "../_lib/verify-mobile-token";
+import { resolveDbUser, canViewAmount } from "../_lib/authorize";
 import type { DealStatus } from "@/generated/prisma/client";
 
 export const runtime = "nodejs";
@@ -34,13 +35,10 @@ export async function GET(req: NextRequest) {
       : undefined;
 
   try {
-    // Resolve branch filter for non-admin users
+    // Resolve branch filter and user id for non-admin users
+    const dbUser = await resolveDbUser(user.email);
     let branchFilter: Record<string, unknown> = {};
     if (user.role !== "ADMIN") {
-      const dbUser = await db.user.findUnique({
-        where: { email: user.email },
-        select: { branchId: true, branchId2: true },
-      });
       if (!dbUser?.branchId) {
         return NextResponse.json({ error: "Branch not assigned" }, { status: 403 });
       }
@@ -65,6 +63,7 @@ export async function GET(req: NextRequest) {
         amount: true,
         probability: true,
         expectedCloseDate: true,
+        createdById: true,
         createdAt: true,
         customer: {
           select: { name: true },
@@ -72,16 +71,20 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const result = deals.map((d) => ({
-      id: d.id,
-      title: d.title,
-      customerName: d.customer?.name ?? null,
-      status: d.status,
-      amount: d.amount ? Number(d.amount) : null,
-      probability: d.probability ?? null,
-      expectedCloseDate: d.expectedCloseDate ?? null,
-      createdAt: d.createdAt,
-    }));
+    const currentUserId = dbUser?.id ?? "";
+    const result = deals.map((d) => {
+      const showAmount = canViewAmount(user.role, currentUserId, d.createdById);
+      return {
+        id: d.id,
+        title: d.title,
+        customerName: d.customer?.name ?? null,
+        status: d.status,
+        amount: showAmount && d.amount ? Number(d.amount) : null,
+        probability: d.probability ?? null,
+        expectedCloseDate: d.expectedCloseDate ?? null,
+        createdAt: d.createdAt,
+      };
+    });
 
     return NextResponse.json(result);
   } catch (e) {
@@ -125,11 +128,8 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (user.role !== "ADMIN") {
-      const dbUser = await db.user.findUnique({
-        where: { email: user.email },
-        select: { branchId: true, branchId2: true },
-      });
-      const branchIds = [dbUser?.branchId, dbUser?.branchId2].filter(Boolean) as string[];
+      const patchUser = await resolveDbUser(user.email);
+      const branchIds = [patchUser?.branchId, patchUser?.branchId2].filter(Boolean) as string[];
       if (!branchIds.includes(deal.branchId)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }

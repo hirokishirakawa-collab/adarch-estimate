@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyMobileToken } from "../_lib/verify-mobile-token";
+import { resolveDbUser, buildBranchFilter } from "../_lib/authorize";
 
 export const runtime = "nodejs";
 
@@ -16,15 +17,27 @@ export async function GET(req: NextRequest) {
   const limit = limitParam ? Math.min(Math.max(1, parseInt(limitParam, 10)), 100) : 50;
 
   try {
-    // WikiArticle has no category field in the schema; filter by title prefix convention
-    // if a ?category= param is passed, we do a case-insensitive title/body search
-    const where = categoryParam
-      ? {
-          OR: [
-            { title: { contains: categoryParam, mode: "insensitive" as const } },
-          ],
-        }
-      : {};
+    // Branch-scope for non-ADMIN
+    let branchFilter: Record<string, unknown> = {};
+    if (user.role !== "ADMIN") {
+      const dbUser = await resolveDbUser(user.email);
+      const filter = buildBranchFilter(user.role, dbUser?.branchId ?? null, dbUser?.branchId2 ?? null);
+      if (!filter) {
+        return NextResponse.json({ error: "Branch not assigned" }, { status: 403 });
+      }
+      branchFilter = filter;
+    }
+
+    const where = {
+      ...branchFilter,
+      ...(categoryParam
+        ? {
+            OR: [
+              { title: { contains: categoryParam, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    };
 
     const articles = await db.wikiArticle.findMany({
       where,

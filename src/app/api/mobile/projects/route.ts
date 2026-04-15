@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyMobileToken } from "../_lib/verify-mobile-token";
+import { resolveDbUser } from "../_lib/authorize";
 import type { ProjectStatus } from "@/generated/prisma/client";
 
 export const runtime = "nodejs";
@@ -38,10 +39,7 @@ export async function GET(req: NextRequest) {
     // Resolve branchId for non-admin users
     let branchFilter: Record<string, unknown> = {};
     if (user.role !== "ADMIN") {
-      const dbUser = await db.user.findUnique({
-        where: { email: user.email },
-        select: { branchId: true, branchId2: true },
-      });
+      const dbUser = await resolveDbUser(user.email);
       if (!dbUser?.branchId) {
         return NextResponse.json(
           { error: "Branch not assigned" },
@@ -53,6 +51,8 @@ export async function GET(req: NextRequest) {
       ) as string[];
       branchFilter = { branchId: { in: branchIds } };
     }
+
+    const showFinancials = user.role === "ADMIN";
 
     const where = {
       ...branchFilter,
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
       customerName: p.customer?.name ?? null,
       status: p.status,
       deadline: p.deadline ?? null,
-      budget: p.budget ? Number(p.budget) : null,
+      budget: showFinancials && p.budget ? Number(p.budget) : null,
       staffName: p.staffName ?? null,
       billingStatus: p.billingStatus,
       createdAt: p.createdAt,

@@ -65,5 +65,17 @@ export async function GET() {
     orderBy: { name: "asc" },
   });
 
-  return NextResponse.json({ customers });
+  // 金額マスキング: ADMINまたは作成者本人以外は予算フィールドを非表示
+  const isAdmin = user.role === "ADMIN";
+  const masked = customers.map((c) => ({
+    ...c,
+    hearingSheets: c.hearingSheets.map((hs) => ({
+      ...hs,
+      monthlyAdBudget: isAdmin ? hs.monthlyAdBudget : null,
+      videoBudget: isAdmin ? hs.videoBudget : null,
+      annualRevenue: isAdmin ? hs.annualRevenue : null,
+    })),
+  }));
+
+  return NextResponse.json({ customers: masked });
 }

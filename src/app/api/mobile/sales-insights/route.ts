@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyMobileToken } from "../_lib/verify-mobile-token";
+import { resolveDbUser } from "../_lib/authorize";
 
 export const runtime = "nodejs";
 
@@ -31,7 +32,17 @@ export async function GET(req: NextRequest) {
         break;
     }
 
-    const where = { createdAt: { gte: sinceDate } };
+    // Non-ADMIN: only see insights for their own group company
+    let companyFilter: Record<string, unknown> = {};
+    if (user.role !== "ADMIN") {
+      const dbUser = await resolveDbUser(user.email);
+      if (!dbUser?.groupCompanyId) {
+        return NextResponse.json({ error: "Group company not assigned" }, { status: 403 });
+      }
+      companyFilter = { groupCompanyId: dbUser.groupCompanyId };
+    }
+
+    const where = { createdAt: { gte: sinceDate }, ...companyFilter };
 
     const [totals, recentInsights] = await Promise.all([
       db.salesInsight.aggregate({

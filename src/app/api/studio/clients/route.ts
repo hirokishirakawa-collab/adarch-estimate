@@ -60,5 +60,12 @@ export async function GET() {
     orderBy: { updatedAt: "desc" },
   });
 
-  return NextResponse.json(clients);
+  // 金額マスキング: ADMINまたは作成者本人以外は monthlyBudget を非表示
+  const masked = clients.map((c) => ({
+    ...c,
+    monthlyBudget:
+      isAdmin || c.createdById === user.id ? c.monthlyBudget : null,
+  }));
+
+  return NextResponse.json(masked);
 }

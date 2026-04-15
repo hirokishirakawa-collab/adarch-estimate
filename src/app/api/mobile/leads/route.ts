@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyMobileToken } from "../_lib/verify-mobile-token";
+import { resolveDbUser } from "../_lib/authorize";
 import type { LeadSource } from "@/generated/prisma/client";
 
 export const runtime = "nodejs";
@@ -29,7 +30,22 @@ export async function GET(req: NextRequest) {
       : undefined;
 
   try {
-    const where = sourceFilter ? { source: sourceFilter } : {};
+    // Non-ADMIN: only leads the user created or is assigned to
+    let ownerFilter: Record<string, unknown> = {};
+    if (user.role !== "ADMIN") {
+      const dbUser = await resolveDbUser(user.email);
+      if (!dbUser) {
+        return NextResponse.json({ error: "User not found" }, { status: 403 });
+      }
+      ownerFilter = {
+        OR: [{ createdById: dbUser.id }, { assigneeId: dbUser.id }],
+      };
+    }
+
+    const where = {
+      ...ownerFilter,
+      ...(sourceFilter ? { source: sourceFilter } : {}),
+    };
 
     const leads = await db.lead.findMany({
       where,

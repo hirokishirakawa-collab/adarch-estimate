@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyMobileToken } from "../../_lib/verify-mobile-token";
+import { resolveDbUser } from "../../_lib/authorize";
 import type { ProjectStatus, BillingStatus } from "@/generated/prisma/client";
 
 export const runtime = "nodejs";
@@ -24,10 +25,7 @@ export async function GET(
     // Resolve branchId for non-admin users
     let branchFilter: Record<string, unknown> = {};
     if (user.role !== "ADMIN") {
-      const dbUser = await db.user.findUnique({
-        where: { email: user.email },
-        select: { branchId: true, branchId2: true },
-      });
+      const dbUser = await resolveDbUser(user.email);
       if (!dbUser?.branchId) {
         return NextResponse.json(
           { error: "Branch not assigned" },
@@ -39,6 +37,8 @@ export async function GET(
       ) as string[];
       branchFilter = { branchId: { in: branchIds } };
     }
+
+    const showFinancials = user.role === "ADMIN";
 
     const project = await db.project.findFirst({
       where: { id, ...branchFilter },
@@ -94,17 +94,16 @@ export async function GET(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const totalExpenses = project.expenses.reduce(
-      (sum, exp) => sum + Number(exp.amount),
-      0
-    );
+    const totalExpenses = showFinancials
+      ? project.expenses.reduce((sum, exp) => sum + Number(exp.amount), 0)
+      : null;
 
     return NextResponse.json({
       id: project.id,
       title: project.title,
       status: project.status,
       deadline: project.deadline ?? null,
-      budget: project.budget ? Number(project.budget) : null,
+      budget: showFinancials && project.budget ? Number(project.budget) : null,
       description: project.description ?? null,
       staffName: project.staffName ?? null,
       billingStatus: project.billingStatus,
@@ -120,7 +119,7 @@ export async function GET(
       expenses: project.expenses.map((exp) => ({
         id: exp.id,
         category: exp.category,
-        amount: Number(exp.amount),
+        amount: showFinancials ? Number(exp.amount) : null,
         description: exp.description ?? null,
         createdAt: exp.createdAt,
       })),
@@ -174,10 +173,7 @@ export async function PATCH(
     // Resolve branchId for non-admin users
     let branchFilter: Record<string, unknown> = {};
     if (user.role !== "ADMIN") {
-      const dbUser = await db.user.findUnique({
-        where: { email: user.email },
-        select: { branchId: true, branchId2: true },
-      });
+      const dbUser = await resolveDbUser(user.email);
       if (!dbUser?.branchId) {
         return NextResponse.json(
           { error: "Branch not assigned" },
