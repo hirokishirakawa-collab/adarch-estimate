@@ -170,16 +170,7 @@ export async function updateLeadStatus(
       },
     });
 
-    // Chat通知（レスポンス送信後に実行）
-    const capturedName = lead.name;
-    const capturedLabel = newOption.label;
-    const capturedStaff = staffName;
-    after(async () => {
-      await sendChatMessage(
-        LEAD_CHAT_SPACE_ID,
-        `📋 リード更新\n${capturedStaff}さんが「${capturedName}」のステータスを「${capturedLabel}」に変更しました`
-      );
-    });
+    // Chat通知は停止（リード段階の更新は通知しない → 商談化してから通知）
 
     revalidatePath("/dashboard/leads/list");
     return {};
@@ -250,16 +241,7 @@ export async function assignLead(
       },
     });
 
-    // Chat通知
-    const capturedLeadName = lead?.name ?? "不明";
-    const capturedAssigneeName = assignee.name ?? assignee.email;
-    const capturedStaff = staffName;
-    after(async () => {
-      await sendChatMessage(
-        LEAD_CHAT_SPACE_ID,
-        `👤 担当者アサイン\n${capturedStaff}さんが「${capturedLeadName}」の担当者を「${capturedAssigneeName}」に設定しました`
-      );
-    });
+    // Chat通知は停止（リード段階のアサインは通知しない → 商談化してから通知）
 
     revalidatePath("/dashboard/leads/list");
     return {};
