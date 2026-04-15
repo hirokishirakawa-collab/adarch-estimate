@@ -88,11 +88,14 @@ export default async function EstimatesPage() {
       {/* フィルター＋テーブル */}
       <div data-tour="estimate-table">
         <EstimateListWithFilters
-          estimations={estimations.map((e) => ({
-            ...e,
-            projectId: e.project?.id ?? null,
-            items: e.items.map((it) => ({ amount: Number(it.amount) })),
-          }))}
+          estimations={estimations.map((e) => {
+            const canView = role === "ADMIN" || e.createdByEmail === email;
+            return {
+              ...e,
+              projectId: e.project?.id ?? null,
+              items: e.items.map((it) => ({ amount: canView ? Number(it.amount) : 0 })),
+            };
+          })}
           projects={projects}
         />
       </div>

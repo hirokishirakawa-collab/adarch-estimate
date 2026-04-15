@@ -54,9 +54,12 @@ export default async function EstimateDetailPage({ params }: PageProps) {
 
   if (!estimation) notFound();
 
+  // 金額表示: ADMIN または作成者本人のみ
+  const canViewAmount = role === "ADMIN" || estimation.createdByEmail === email;
+
   const statusOpt = ESTIMATION_STATUS_OPTIONS.find((o) => o.value === estimation.status);
 
-  // 金額計算
+  // 金額計算（canViewAmount が false でも計算は行うが表示しない）
   const subtotal      = estimation.items.reduce((s, it) => s + Number(it.amount), 0);
   const discountAmt   = estimation.discountAmount ? Number(estimation.discountAmount) : 0;
   const afterDiscount = Math.max(0, subtotal - discountAmt);
@@ -64,7 +67,7 @@ export default async function EstimateDetailPage({ params }: PageProps) {
   const total         = afterDiscount + tax;
 
   // 原価・粗利（内部用）
-  const hasCost     = estimation.items.some((it) => it.costPrice !== null);
+  const hasCost     = canViewAmount && estimation.items.some((it) => it.costPrice !== null);
   const costTotal   = estimation.items.reduce((s, it) => s + (it.costPrice ? Number(it.costPrice) * it.quantity : 0), 0);
   const grossProfit = afterDiscount - costTotal;
   const profitRate  = afterDiscount > 0 ? (grossProfit / afterDiscount) * 100 : 0;
@@ -192,8 +195,8 @@ export default async function EstimateDetailPage({ params }: PageProps) {
                 <th className="text-left px-4 py-2.5 text-xs font-semibold text-zinc-500">仕様・備考</th>
                 <th className="text-right px-4 py-2.5 text-xs font-semibold text-zinc-500 w-16">数量</th>
                 <th className="text-left px-4 py-2.5 text-xs font-semibold text-zinc-500 w-12">単位</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-zinc-500 w-28">単価</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-zinc-500 w-28">金額</th>
+                {canViewAmount && <th className="text-right px-4 py-2.5 text-xs font-semibold text-zinc-500 w-28">単価</th>}
+                {canViewAmount && <th className="text-right px-4 py-2.5 text-xs font-semibold text-zinc-500 w-28">金額</th>}
                 {hasCost && (
                   <>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-amber-500 w-28">原価/単（内部）</th>
@@ -216,12 +219,16 @@ export default async function EstimateDetailPage({ params }: PageProps) {
                     <td className="px-4 py-3 text-xs text-zinc-500 whitespace-pre-wrap">{item.spec ?? "—"}</td>
                     <td className="px-4 py-3 text-right text-zinc-700 tabular-nums">{item.quantity}</td>
                     <td className="px-4 py-3 text-zinc-500">{item.unit ?? "—"}</td>
-                    <td className="px-4 py-3 text-right text-zinc-700 tabular-nums">
-                      ¥{Number(item.unitPrice).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-zinc-800 tabular-nums">
-                      ¥{amount.toLocaleString()}
-                    </td>
+                    {canViewAmount && (
+                      <td className="px-4 py-3 text-right text-zinc-700 tabular-nums">
+                        ¥{Number(item.unitPrice).toLocaleString()}
+                      </td>
+                    )}
+                    {canViewAmount && (
+                      <td className="px-4 py-3 text-right font-semibold text-zinc-800 tabular-nums">
+                        ¥{amount.toLocaleString()}
+                      </td>
+                    )}
                     {hasCost && (
                       <>
                         <td className="px-4 py-3 text-right text-xs text-amber-700 tabular-nums">
@@ -248,30 +255,36 @@ export default async function EstimateDetailPage({ params }: PageProps) {
 
         {/* 合計フッター */}
         <div className="px-5 py-4 border-t border-zinc-100 bg-zinc-50 flex flex-col items-end gap-1.5">
-          <div className="flex gap-10 text-sm text-zinc-600">
-            <span>小計（税抜）</span>
-            <span className="tabular-nums font-medium w-32 text-right">¥{subtotal.toLocaleString()}</span>
-          </div>
-          {discountAmt > 0 && (
+          {canViewAmount ? (
             <>
-              <div className="flex gap-10 text-sm text-orange-600">
-                <span className="flex items-center gap-1"><Scissors className="w-3.5 h-3.5" /> 出精値引き</span>
-                <span className="tabular-nums w-32 text-right">−¥{discountAmt.toLocaleString()}</span>
+              <div className="flex gap-10 text-sm text-zinc-600">
+                <span>小計（税抜）</span>
+                <span className="tabular-nums font-medium w-32 text-right">¥{subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex gap-10 text-sm text-zinc-600 pt-1 border-t border-zinc-200 mt-0.5">
-                <span>値引後小計</span>
-                <span className="tabular-nums font-medium w-32 text-right">¥{afterDiscount.toLocaleString()}</span>
+              {discountAmt > 0 && (
+                <>
+                  <div className="flex gap-10 text-sm text-orange-600">
+                    <span className="flex items-center gap-1"><Scissors className="w-3.5 h-3.5" /> 出精値引き</span>
+                    <span className="tabular-nums w-32 text-right">−¥{discountAmt.toLocaleString()}</span>
+                  </div>
+                  <div className="flex gap-10 text-sm text-zinc-600 pt-1 border-t border-zinc-200 mt-0.5">
+                    <span>値引後小計</span>
+                    <span className="tabular-nums font-medium w-32 text-right">¥{afterDiscount.toLocaleString()}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex gap-10 text-sm text-zinc-500">
+                <span>消費税（10%）</span>
+                <span className="tabular-nums w-32 text-right">¥{tax.toLocaleString()}</span>
+              </div>
+              <div className="flex gap-10 text-base font-bold text-zinc-900 pt-1.5 border-t border-zinc-200 mt-1">
+                <span>合計（税込）</span>
+                <span className="tabular-nums text-blue-700 w-32 text-right">¥{total.toLocaleString()}</span>
               </div>
             </>
+          ) : (
+            <p className="text-xs text-zinc-400">金額情報は管理者または作成者のみ閲覧可能です</p>
           )}
-          <div className="flex gap-10 text-sm text-zinc-500">
-            <span>消費税（10%）</span>
-            <span className="tabular-nums w-32 text-right">¥{tax.toLocaleString()}</span>
-          </div>
-          <div className="flex gap-10 text-base font-bold text-zinc-900 pt-1.5 border-t border-zinc-200 mt-1">
-            <span>合計（税込）</span>
-            <span className="tabular-nums text-blue-700 w-32 text-right">¥{total.toLocaleString()}</span>
-          </div>
 
           {/* 値引き理由（内部用） */}
           {discountAmt > 0 && estimation.discountReason && (

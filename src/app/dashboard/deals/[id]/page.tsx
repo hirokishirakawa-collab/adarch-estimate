@@ -45,16 +45,23 @@ export default async function DealDetailPage({ params }: PageProps) {
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   const staffName = session?.user?.name ?? session?.user?.email ?? "不明";
 
-  const deal = await db.deal.findUnique({
-    where: { id },
-    include: {
-      customer: { select: { id: true, name: true, prefecture: true } },
-      assignedTo: { select: { name: true, email: true } },
-      dealLogs: { orderBy: { createdAt: "desc" } },
-    },
-  });
+  const [deal, sessionUser] = await Promise.all([
+    db.deal.findUnique({
+      where: { id },
+      include: {
+        customer: { select: { id: true, name: true, prefecture: true } },
+        assignedTo: { select: { name: true, email: true } },
+        dealLogs: { orderBy: { createdAt: "desc" } },
+      },
+    }),
+    session?.user?.email
+      ? db.user.findUnique({ where: { email: session.user.email }, select: { id: true } })
+      : null,
+  ]);
 
   if (!deal) notFound();
+
+  const canViewAmount = role === "ADMIN" || (sessionUser && deal.createdById === sessionUser.id);
 
   // 受注済みの場合、紐づくプロジェクトを取得
   const linkedProject = deal.status === "CLOSED_WON"
@@ -124,7 +131,7 @@ export default async function DealDetailPage({ params }: PageProps) {
 
         {/* 指標ライン */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-3 border-t border-zinc-100">
-          {deal.amount !== null && (
+          {deal.amount !== null && canViewAmount && (
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-zinc-400 font-medium">金額</span>
               <span className="text-base font-bold text-zinc-900">

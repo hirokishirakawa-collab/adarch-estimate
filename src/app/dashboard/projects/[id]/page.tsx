@@ -56,11 +56,15 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
   if (!project) notFound();
 
+  const showFinancials = role === "ADMIN";
+
   // ステータス設定
   const statusOpt = PROJECT_STATUS_OPTIONS.find((o) => o.value === project.status);
 
   // 経費合計
-  const totalExpense = project.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalExpense = showFinancials
+    ? project.expenses.reduce((sum, e) => sum + Number(e.amount), 0)
+    : 0;
 
   // 日付フォーマット
   const fmt = (d: Date | null | undefined) =>
@@ -163,21 +167,23 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* サマリーカード */}
-      <div className="flex flex-wrap gap-3">
-        <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4 w-full sm:w-64">
-          <p className="text-[11px] text-zinc-400 mb-1">経費合計</p>
-          <p className="text-xl font-bold text-zinc-900">
-            ¥{totalExpense.toLocaleString()}
-          </p>
+      {/* サマリーカード（ADMIN のみ金額表示） */}
+      {showFinancials && (
+        <div className="flex flex-wrap gap-3">
+          <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4 w-full sm:w-64">
+            <p className="text-[11px] text-zinc-400 mb-1">経費合計</p>
+            <p className="text-xl font-bold text-zinc-900">
+              ¥{totalExpense.toLocaleString()}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4 w-full sm:w-64">
+            <p className="text-[11px] text-zinc-400 mb-1">見積 {project.estimations.length}件</p>
+            <p className="text-xl font-bold text-zinc-900">
+              ¥{project.estimations.reduce((sum: number, e: any) => sum + e.items.reduce((s: number, it: any) => s + Number(it.amount), 0), 0).toLocaleString()}
+            </p>
+          </div>
         </div>
-        <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4 w-full sm:w-64">
-          <p className="text-[11px] text-zinc-400 mb-1">見積 {project.estimations.length}件</p>
-          <p className="text-xl font-bold text-zinc-900">
-            ¥{project.estimations.reduce((sum: number, e: any) => sum + e.items.reduce((s: number, it: any) => s + Number(it.amount), 0), 0).toLocaleString()}
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* 関連見積 */}
       <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
@@ -207,7 +213,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                 <tr className="border-b border-zinc-100 bg-zinc-50">
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-zinc-500">タイトル</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-zinc-500 w-24">ステータス</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-zinc-500 w-32">合計（税抜）</th>
+                  {showFinancials && <th className="text-right px-4 py-2.5 text-xs font-semibold text-zinc-500 w-32">合計（税抜）</th>}
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-zinc-500 w-28">見積日</th>
                 </tr>
               </thead>
@@ -232,9 +238,11 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <span className="font-semibold text-zinc-800 tabular-nums">¥{subtotal.toLocaleString()}</span>
-                      </td>
+                      {showFinancials && (
+                        <td className="px-4 py-2.5 text-right">
+                          <span className="font-semibold text-zinc-800 tabular-nums">¥{subtotal.toLocaleString()}</span>
+                        </td>
+                      )}
                       <td className="px-4 py-2.5 text-xs text-zinc-600">{dateStr}</td>
                     </tr>
                   );
@@ -247,28 +255,35 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
       {/* メインコンテンツ 2列 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* 経費管理 */}
-        <div className="bg-white rounded-xl border border-zinc-200 px-5 py-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-zinc-800">経費</h3>
-            <span className="text-xs text-zinc-400">{project.expenses.length}件</span>
-          </div>
-
-          <ExpenseForm projectId={project.id} />
-          <ExpenseList expenses={project.expenses} projectId={project.id} />
-
-          {project.expenses.length > 0 && (
-            <div className="pt-3 border-t border-zinc-100">
-              <Link
-                href={`/dashboard/billing/new?projectId=${project.id}`}
-                className="flex items-center justify-center gap-1.5 w-full px-3 py-2 text-xs font-medium text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-lg transition-colors"
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                この経費で請求依頼を作成
-              </Link>
+        {/* 経費管理（ADMIN のみ金額表示） */}
+        {showFinancials ? (
+          <div className="bg-white rounded-xl border border-zinc-200 px-5 py-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-zinc-800">経費</h3>
+              <span className="text-xs text-zinc-400">{project.expenses.length}件</span>
             </div>
-          )}
-        </div>
+
+            <ExpenseForm projectId={project.id} />
+            <ExpenseList expenses={project.expenses} projectId={project.id} />
+
+            {project.expenses.length > 0 && (
+              <div className="pt-3 border-t border-zinc-100">
+                <Link
+                  href={`/dashboard/billing/new?projectId=${project.id}`}
+                  className="flex items-center justify-center gap-1.5 w-full px-3 py-2 text-xs font-medium text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-lg transition-colors"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  この経費で請求依頼を作成
+                </Link>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-zinc-200 px-5 py-5">
+            <h3 className="text-sm font-bold text-zinc-800">経費</h3>
+            <p className="text-xs text-zinc-400 mt-2">経費情報は管理者のみ閲覧可能です</p>
+          </div>
+        )}
 
         {/* ログ */}
         <div className="bg-white rounded-xl border border-zinc-200 px-5 py-5 space-y-4">

@@ -13,9 +13,11 @@ interface PageProps {
 export default async function EditDealPage({ params }: PageProps) {
   const { id } = await params;
 
-  await auth();
+  const session = await auth();
+  const role = (session?.user?.role ?? "MANAGER") as string;
+
   // 全拠点のユーザーを表示
-  const [deal, users] = await Promise.all([
+  const [deal, users, sessionUser] = await Promise.all([
     db.deal.findUnique({
       where: { id },
       include: { customer: { select: { name: true } } },
@@ -24,16 +26,20 @@ export default async function EditDealPage({ params }: PageProps) {
       select: { id: true, name: true, email: true },
       orderBy: { name: "asc" },
     }),
+    session?.user?.email
+      ? db.user.findUnique({ where: { email: session.user.email }, select: { id: true } })
+      : null,
   ]);
 
   if (!deal) notFound();
 
+  const canViewAmount = role === "ADMIN" || (sessionUser && deal.createdById === sessionUser.id);
   const boundAction = updateDeal.bind(null, deal.id);
 
   const defaultValues = {
     title: deal.title,
     status: deal.status,
-    amount: deal.amount ? String(Number(deal.amount)) : null,
+    amount: canViewAmount && deal.amount ? String(Number(deal.amount)) : null,
     probability: deal.probability !== null ? String(deal.probability) : null,
     expectedCloseDate: deal.expectedCloseDate
       ? deal.expectedCloseDate.toISOString().slice(0, 10)
