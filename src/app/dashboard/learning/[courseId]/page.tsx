@@ -7,7 +7,6 @@ import {
   BookOpen, ArrowRight, RotateCcw,
 } from "lucide-react";
 import { LessonCompleteButton } from "./lesson-complete-button";
-import { VideoPlayer } from "./video-player";
 
 interface PageProps {
   params: Promise<{ courseId: string }>;
@@ -146,21 +145,23 @@ export default async function CoursePage({ params }: PageProps) {
                     </div>
                   </div>
 
-                  {/* Embedded video */}
-                  {isVideo && hasUrl && (
-                    <VideoPlayer url={lesson.contentUrl!} title={lesson.title} />
-                  )}
-
-                  {/* External link for PDF */}
-                  {!isVideo && hasUrl && (
+                  {/* External link for PDF / video */}
+                  {hasUrl && (
                     <a
                       href={lesson.contentUrl!}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                     >
-                      <BookOpen className="w-3.5 h-3.5" /> 教材を開く
+                      <BookOpen className="w-3.5 h-3.5" /> {isVideo ? "動画を開く" : "教材を開く"}
                     </a>
+                  )}
+
+                  {/* Text lesson body */}
+                  {lesson.body && (
+                    <div className="mt-3 text-sm text-zinc-600 leading-relaxed whitespace-pre-wrap">
+                      {lesson.body}
+                    </div>
                   )}
 
                   {/* Complete button */}
