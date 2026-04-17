@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { validateBody, leadScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import type { PlaceLead, WebsiteAnalysis, BusinessType, YouTubeChannelInfo } from "@/lib/constants/leads";
+import { getSuccessProfile } from "@/lib/leads/success-profile";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -325,15 +326,16 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return parsed.response;
   const body = parsed.data as { places: PlaceLead[]; industry: string; area: string };
 
-  // 全企業のWebサイト + YouTubeを並列で分析
+  // 全企業のWebサイト + YouTube + 成功プロファイルを並列で分析
   const allNames = body.places.map((p) => p.name);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
-  const [websiteResults, youtubeResults] = await Promise.all([
+  const [websiteResults, youtubeResults, successProfile] = await Promise.all([
     Promise.all(body.places.map((p) => analyzeWebsite(p.websiteUrl, p.name, allNames))),
     youtubeApiKey
       ? Promise.all(body.places.map((p) => searchYouTubeChannel(p.name, youtubeApiKey)))
       : Promise.resolve(body.places.map(() => null)),
+    getSuccessProfile(body.industry, "GOOGLE_PLACES"),
   ]);
   const analyses = websiteResults.map((r) => r.analysis);
 
@@ -410,9 +412,14 @@ export async function POST(req: NextRequest) {
     )
     .join("\n");
 
+  // 成功プロファイルがあれば注入
+  const profileSection = successProfile
+    ? `\n${successProfile.promptText}\n`
+    : "";
+
   const userMessage = `【対象業種】${body.industry}
 【対象エリア】${body.area}
-
+${profileSection}
 【企業リスト（Webサイト分析結果付き）】
 ${placeSummary}
 
@@ -449,7 +456,14 @@ ${placeSummary}
       youtubeMap[p.name] = youtubeResults[i];
     });
 
-    return NextResponse.json({ scores, analyses: analysisMap, youtube: youtubeMap });
+    return NextResponse.json({
+      scores,
+      analyses: analysisMap,
+      youtube: youtubeMap,
+      successProfile: successProfile
+        ? { successCount: successProfile.successCount, skippedCount: successProfile.skippedCount, avgTotal: successProfile.avgTotal }
+        : null,
+    });
   } catch (err) {
     console.error("Scoring error:", err);
     return NextResponse.json(

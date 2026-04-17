@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { PlaceLead, ScoredLead, LeadScore, WebsiteAnalysis } from "@/lib/constants/leads";
 import { LeadSearchForm } from "./lead-search-form";
 import { LeadResultsTable } from "./lead-results-table";
-import { Loader2, AlertCircle, RotateCcw, ListChecks } from "lucide-react";
+import { Loader2, AlertCircle, RotateCcw, ListChecks, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { saveLeadsFromSearch, checkExistingLeads } from "@/lib/actions/lead";
 
@@ -19,6 +19,7 @@ export function LeadSearchPanel() {
   const [errorMsg, setErrorMsg] = useState("");
   const [searchParams, setSearchParams] = useState({ industry: "", area: "" });
   const [existingMap, setExistingMap] = useState<Record<string, string>>({});
+  const [successProfileInfo, setSuccessProfileInfo] = useState<{ successCount: number; skippedCount: number; avgTotal: number } | null>(null);
 
   const handleSearch = useCallback(
     async (params: {
@@ -72,7 +73,7 @@ export function LeadSearchPanel() {
           throw new Error(err.error || "スコアリングに失敗しました");
         }
 
-        const { scores, analyses } = (await scoreRes.json()) as {
+        const { scores, analyses, successProfile } = (await scoreRes.json()) as {
           scores: Array<{
             name: string;
             total: number;
@@ -80,7 +81,9 @@ export function LeadSearchPanel() {
             comment: string;
           }>;
           analyses: Record<string, WebsiteAnalysis>;
+          successProfile: { successCount: number; skippedCount: number; avgTotal: number } | null;
         };
+        setSuccessProfileInfo(successProfile);
 
         // 3) マージ
         const merged: ScoredLead[] = places.map((place) => {
@@ -196,6 +199,23 @@ export function LeadSearchPanel() {
             <RotateCcw className="w-3.5 h-3.5" />
             やり直す
           </Button>
+        </div>
+      )}
+
+      {/* 学習データ反映バッジ */}
+      {phase === "done" && successProfileInfo && (
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200 px-5 py-3 flex items-center gap-3">
+          <Brain className="w-5 h-5 text-purple-600 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-purple-800">
+              営業実績データを反映してスコアリング
+            </p>
+            <p className="text-xs text-purple-600">
+              商談化・アポ獲得 {successProfileInfo.successCount}件
+              {successProfileInfo.skippedCount > 0 && ` / スキップ ${successProfileInfo.skippedCount}件`}
+              の実績パターンを学習済み（平均成功スコア: {successProfileInfo.avgTotal}点）
+            </p>
+          </div>
         </div>
       )}
 
