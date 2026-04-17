@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
             neighborhoodObj?.overview?.content?.text ??
             neighborhoodObj?.description?.content?.text ??
             undefined,
-          googleMapsTypeLabel: (p.googleMapsTypeLabel as string) ?? undefined,
+          googleMapsTypeLabel: (p.googleMapsTypeLabel as { text?: string })?.text ?? undefined,
           isFutureOpening: bs === "FUTURE_OPENING" || undefined,
         });
       }
