@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import type { PlaceLead, ScoredLead, LeadScore, WebsiteAnalysis, SuccessProfileInfo } from "@/lib/constants/leads";
+import type { PlaceLead, ScoredLead, LeadScore, WebsiteAnalysis, SuccessProfileInfo, GroupProfileInfo } from "@/lib/constants/leads";
 import { LeadSearchForm } from "./lead-search-form";
 import { LeadResultsTable } from "./lead-results-table";
 import { Loader2, AlertCircle, RotateCcw, ListChecks, Brain } from "lucide-react";
@@ -36,6 +36,7 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
   const [searchParams, setSearchParams] = useState({ industry: "", area: "" });
   const [existingMap, setExistingMap] = useState<Record<string, string>>({});
   const [successProfileInfo, setSuccessProfileInfo] = useState<SuccessProfileInfo | null>(null);
+  const [groupProfileInfo, setGroupProfileInfo] = useState<GroupProfileInfo | null>(null);
 
   const handleSearch = useCallback(
     async (params: {
@@ -91,7 +92,7 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
           throw new Error((err.error || "スコアリングに失敗しました") + detail);
         }
 
-        const { scores, analyses, successProfile } = (await scoreRes.json()) as {
+        const { scores, analyses, successProfile, groupProfile } = (await scoreRes.json()) as {
           scores: Array<{
             name: string;
             total: number;
@@ -100,8 +101,10 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
           }>;
           analyses: Record<string, WebsiteAnalysis>;
           successProfile: SuccessProfileInfo | null;
+          groupProfile: GroupProfileInfo | null;
         };
-        setSuccessProfileInfo(successProfile);
+        setSuccessProfileInfo(successProfile ?? null);
+        setGroupProfileInfo(groupProfile ?? null);
 
         // 3) マージ
         const merged: ScoredLead[] = places.map((place) => {
@@ -257,6 +260,25 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100/50 text-purple-500">
                 成功平均: {successProfileInfo.avgTotal}点
               </span>
+            </div>
+          )}
+          {/* グループ全体の実績（自拠点データ使用時のみ表示） */}
+          {groupProfileInfo && (
+            <div className="mt-3 pt-3 border-t border-purple-200/50">
+              <p className="text-[11px] text-purple-500 mb-1.5 flex items-center gap-1.5">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 text-zinc-600">グループ全体</span>
+                商談化・アポ {groupProfileInfo.successCount}件 / 成功平均 {groupProfileInfo.avgTotal}点
+              </p>
+              <div className="flex flex-wrap gap-1.5 ml-0">
+                {Object.entries(groupProfileInfo.avgBreakdown)
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 3)
+                  .map(([key, val]) => (
+                    <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-100 text-zinc-500">
+                      {SCORE_LABEL_MAP[key] ?? key}: {val}点
+                    </span>
+                  ))}
+              </div>
             </div>
           )}
         </div>

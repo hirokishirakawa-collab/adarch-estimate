@@ -206,6 +206,13 @@ export interface SuccessProfileInfo {
   dataSource: "branch" | "group";
 }
 
+/** グループ全体プロファイル（比較用） */
+export interface GroupProfileInfo {
+  successCount: number;
+  avgTotal: number;
+  avgBreakdown: Record<string, number>;
+}
+
 /** スコアリング済みリードの型 */
 export interface ScoredLead extends PlaceLead {
   score: LeadScore;

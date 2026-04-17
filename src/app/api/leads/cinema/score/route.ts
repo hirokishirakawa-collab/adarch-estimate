@@ -5,7 +5,7 @@ import { validateBody, cinemaScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import type { CinemaPlaceLead } from "@/lib/constants/cinema-leads";
 import type { WebsiteAnalysis, BusinessType } from "@/lib/constants/leads";
-import { getSuccessProfile } from "@/lib/leads/success-profile";
+import { getSuccessProfileDual } from "@/lib/leads/success-profile";
 import { getSessionInfo } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -121,10 +121,11 @@ export async function POST(req: NextRequest) {
     : [];
 
   // Webサイト分析 + 成功プロファイル（並列）
-  const [analyses, successProfile] = await Promise.all([
+  const [analyses, dualProfile] = await Promise.all([
     Promise.all(body.places.map((p) => analyzeWebsite(p.websiteUrl))),
-    getSuccessProfile(body.industry, "CINEMA_AD", branchIds),
+    getSuccessProfileDual(body.industry, "CINEMA_AD", branchIds),
   ]);
+  const successProfile = dualProfile?.primary ?? null;
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループのシネマ広告（イオンシネマ）営業支援AIです。
 イオンシネマ劇場周辺の企業リストを受け取り、シネマ広告のリード（見込み客）としての優先度をスコアリングしてください。
@@ -234,6 +235,13 @@ ${placeSummary}
             avgTotal: successProfile.avgTotal,
             avgBreakdown: successProfile.avgBreakdown,
             dataSource: successProfile.dataSource,
+          }
+        : null,
+      groupProfile: dualProfile?.groupProfile
+        ? {
+            successCount: dualProfile.groupProfile.successCount,
+            avgTotal: dualProfile.groupProfile.avgTotal,
+            avgBreakdown: dualProfile.groupProfile.avgBreakdown,
           }
         : null,
     });

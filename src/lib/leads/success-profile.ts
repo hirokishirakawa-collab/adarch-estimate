@@ -34,6 +34,32 @@ function branchWhere(branchIds: string[]) {
   return { createdBy: { branchId: { in: branchIds } } };
 }
 
+/** 拠点+グループ両方のプロファイルを返す */
+export interface DualSuccessProfile {
+  /** スコアリングに使用するプロファイル（自拠点優先） */
+  primary: SuccessProfile;
+  /** グループ全体のプロファイル（比較用、primaryと異なる場合のみ） */
+  groupProfile: SuccessProfile | null;
+}
+
+export async function getSuccessProfileDual(
+  industry: string,
+  source?: "GOOGLE_PLACES" | "CINEMA_AD" | "GBIZINFO",
+  branchIds?: string[]
+): Promise<DualSuccessProfile | null> {
+  // 自拠点プロファイル（スコアリングに使用）
+  const primary = await getSuccessProfile(industry, source, branchIds);
+  if (!primary) return null;
+
+  // 自拠点データで済んでいる場合、グループ全体も別途取得（比較用）
+  let groupProfile: SuccessProfile | null = null;
+  if (primary.dataSource === "branch" && branchIds?.length) {
+    groupProfile = await getSuccessProfile(industry, source);
+  }
+
+  return { primary, groupProfile };
+}
+
 /**
  * 指定業種の成功プロファイルをDBから生成する。
  * 自拠点優先で集計し、データが少なければグループ全体で補完する。

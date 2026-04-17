@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { validateBody, leadScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import type { PlaceLead, WebsiteAnalysis, BusinessType, YouTubeChannelInfo } from "@/lib/constants/leads";
-import { getSuccessProfile } from "@/lib/leads/success-profile";
+import { getSuccessProfileDual } from "@/lib/leads/success-profile";
 import { getSessionInfo } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -337,13 +337,14 @@ export async function POST(req: NextRequest) {
   const allNames = body.places.map((p) => p.name);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
-  const [websiteResults, youtubeResults, successProfile] = await Promise.all([
+  const [websiteResults, youtubeResults, dualProfile] = await Promise.all([
     Promise.all(body.places.map((p) => analyzeWebsite(p.websiteUrl, p.name, allNames))),
     youtubeApiKey
       ? Promise.all(body.places.map((p) => searchYouTubeChannel(p.name, youtubeApiKey)))
       : Promise.resolve(body.places.map(() => null)),
-    getSuccessProfile(body.industry, "GOOGLE_PLACES", branchIds),
+    getSuccessProfileDual(body.industry, "GOOGLE_PLACES", branchIds),
   ]);
+  const successProfile = dualProfile?.primary ?? null;
   const analyses = websiteResults.map((r) => r.analysis);
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループの営業支援AIです。
@@ -474,6 +475,13 @@ ${placeSummary}
             avgTotal: successProfile.avgTotal,
             avgBreakdown: successProfile.avgBreakdown,
             dataSource: successProfile.dataSource,
+          }
+        : null,
+      groupProfile: dualProfile?.groupProfile
+        ? {
+            successCount: dualProfile.groupProfile.successCount,
+            avgTotal: dualProfile.groupProfile.avgTotal,
+            avgBreakdown: dualProfile.groupProfile.avgBreakdown,
           }
         : null,
     });
