@@ -8,7 +8,7 @@ import type {
   ScoredCinemaLead,
   CinemaLeadScore,
 } from "@/lib/constants/cinema-leads";
-import type { WebsiteAnalysis } from "@/lib/constants/leads";
+import type { WebsiteAnalysis, SuccessProfileInfo } from "@/lib/constants/leads";
 import { CinemaSearchForm } from "./cinema-search-form";
 import { CinemaResultsTable } from "./cinema-results-table";
 import { Loader2, AlertCircle, RotateCcw, ListChecks, Brain } from "lucide-react";
@@ -39,7 +39,7 @@ export function CinemaSearchPanel() {
   const [maxRadius, setMaxRadius] = useState(10);
   const [searchMeta, setSearchMeta] = useState({ theaterName: "", industry: "" });
   const [existingMap, setExistingMap] = useState<Record<string, string>>({});
-  const [successProfileInfo, setSuccessProfileInfo] = useState<{ successCount: number; skippedCount: number; avgTotal: number } | null>(null);
+  const [successProfileInfo, setSuccessProfileInfo] = useState<SuccessProfileInfo | null>(null);
 
   // 距離帯サマリー
   const bandSummary = useMemo(() => {
@@ -114,7 +114,7 @@ export function CinemaSearchPanel() {
             comment: string;
           }>;
           analyses: Record<string, WebsiteAnalysis>;
-          successProfile: { successCount: number; skippedCount: number; avgTotal: number } | null;
+          successProfile: SuccessProfileInfo | null;
         };
         setSuccessProfileInfo(successProfile);
 
@@ -228,18 +228,41 @@ export function CinemaSearchPanel() {
 
       {/* 学習データ反映バッジ */}
       {phase === "done" && successProfileInfo && (
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200 px-5 py-3 flex items-center gap-3">
-          <Brain className="w-5 h-5 text-purple-600 flex-shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-purple-800">
-              営業実績データを反映してスコアリング
-            </p>
-            <p className="text-xs text-purple-600">
-              商談化・アポ獲得 {successProfileInfo.successCount}件
-              {successProfileInfo.skippedCount > 0 && ` / スキップ ${successProfileInfo.skippedCount}件`}
-              の実績パターンを学習済み（平均成功スコア: {successProfileInfo.avgTotal}点）
-            </p>
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200 px-5 py-3">
+          <div className="flex items-center gap-3 mb-2">
+            <Brain className="w-5 h-5 text-purple-600 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-purple-800">
+                営業実績データを反映してスコアリング
+              </p>
+              <p className="text-xs text-purple-600">
+                商談化・アポ獲得 {successProfileInfo.successCount}件
+                {successProfileInfo.skippedCount > 0 && ` / スキップ ${successProfileInfo.skippedCount}件`}
+                の実績データで学習済み
+              </p>
+            </div>
           </div>
+          {Object.keys(successProfileInfo.avgBreakdown).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 ml-8">
+              {Object.entries(successProfileInfo.avgBreakdown)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 3)
+                .map(([key, val]) => {
+                  const labels: Record<string, string> = {
+                    industryMatch: "業種適合度", proximity: "劇場距離", scale: "規模感",
+                    digitalPresence: "デジタル活用度", localFit: "地域密着度", accessibility: "接触しやすさ",
+                  };
+                  return (
+                    <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-700">
+                      {labels[key] ?? key}: 平均{val}点
+                    </span>
+                  );
+                })}
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100/50 text-purple-500">
+                成功平均: {successProfileInfo.avgTotal}点
+              </span>
+            </div>
+          )}
         </div>
       )}
 

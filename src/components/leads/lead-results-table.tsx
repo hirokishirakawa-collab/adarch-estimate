@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { getPriorityLabel, PRIORITY_LABELS } from "@/lib/constants/leads";
-import type { ScoredLead } from "@/lib/constants/leads";
+import type { ScoredLead, SuccessProfileInfo } from "@/lib/constants/leads";
 import { LeadDetailPanel } from "./lead-detail-panel";
 import { ChevronDown, ChevronUp, ArrowUpDown, Filter, EyeOff, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ interface LeadResultsTableProps {
   savingName: string | null;
   onSaveLead: (name: string) => void;
   existingMap?: Record<string, string>; // "name|address" → status
+  successProfile?: SuccessProfileInfo | null;
 }
 
 export function LeadResultsTable({
@@ -24,6 +25,7 @@ export function LeadResultsTable({
   savingName,
   onSaveLead,
   existingMap = {},
+  successProfile,
 }: LeadResultsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [filterPriority, setFilterPriority] = useState<string | null>(null);
@@ -221,6 +223,7 @@ export function LeadResultsTable({
                         isSaved={savedNames.has(lead.name)}
                         isSaving={savingName === lead.name}
                         onSave={() => onSaveLead(lead.name)}
+                        successProfile={successProfile}
                       />
                     )}
                   </td>

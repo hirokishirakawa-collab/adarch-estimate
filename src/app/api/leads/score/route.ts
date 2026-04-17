@@ -461,7 +461,12 @@ ${placeSummary}
       analyses: analysisMap,
       youtube: youtubeMap,
       successProfile: successProfile
-        ? { successCount: successProfile.successCount, skippedCount: successProfile.skippedCount, avgTotal: successProfile.avgTotal }
+        ? {
+            successCount: successProfile.successCount,
+            skippedCount: successProfile.skippedCount,
+            avgTotal: successProfile.avgTotal,
+            avgBreakdown: successProfile.avgBreakdown,
+          }
         : null,
     });
   } catch (err) {

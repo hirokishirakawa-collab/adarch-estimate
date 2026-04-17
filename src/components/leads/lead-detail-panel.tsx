@@ -1,7 +1,7 @@
 "use client";
 
 import { SCORE_ITEMS, getPriorityLabel } from "@/lib/constants/leads";
-import type { ScoredLead, WebsiteAnalysis, BusinessType } from "@/lib/constants/leads";
+import type { ScoredLead, WebsiteAnalysis, BusinessType, SuccessProfileInfo } from "@/lib/constants/leads";
 import {
   MapPin,
   Phone,
@@ -67,6 +67,7 @@ interface LeadDetailPanelProps {
   isSaved: boolean;
   isSaving: boolean;
   onSave: () => void;
+  successProfile?: SuccessProfileInfo | null;
 }
 
 // 企業タイプ（チェーン/独立/FC/支店）を文章で表示
@@ -237,6 +238,7 @@ export function LeadDetailPanel({
   isSaved,
   isSaving,
   onSave,
+  successProfile,
 }: LeadDetailPanelProps) {
   const priority = getPriorityLabel(lead.score.total);
 
@@ -289,16 +291,23 @@ export function LeadDetailPanel({
         <div className="space-y-2">
           <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
             スコア内訳
+            {successProfile && (
+              <span className="ml-2 text-purple-500 normal-case tracking-normal font-normal">
+                ▲ = 成功企業の平均
+              </span>
+            )}
           </p>
           {SCORE_ITEMS.map((item) => {
             const val = lead.score.breakdown[item.key] ?? 0;
             const pct = (val / item.max) * 100;
+            const successAvg = successProfile?.avgBreakdown?.[item.key];
+            const successPct = successAvg ? (successAvg / item.max) * 100 : null;
             return (
               <div key={item.key} className="flex items-center gap-2">
                 <span className="text-xs text-zinc-600 w-28 flex-shrink-0">
                   {item.label}
                 </span>
-                <div className="flex-1 h-2 bg-zinc-200 rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-zinc-200 rounded-full overflow-hidden relative">
                   <div
                     className={`h-full rounded-full transition-all ${
                       item.key === "digitalPresence"
@@ -307,6 +316,13 @@ export function LeadDetailPanel({
                     }`}
                     style={{ width: `${pct}%` }}
                   />
+                  {successPct !== null && (
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-l-transparent border-r-transparent border-b-purple-500"
+                      style={{ left: `${Math.min(successPct, 100)}%`, marginLeft: "-4px" }}
+                      title={`成功平均: ${successAvg?.toFixed(1)}`}
+                    />
+                  )}
                 </div>
                 <span className="text-xs text-zinc-500 w-12 text-right">
                   {val}/{item.max}

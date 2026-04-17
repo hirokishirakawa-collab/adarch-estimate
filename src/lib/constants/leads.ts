@@ -196,6 +196,14 @@ export interface WebsiteAnalysis {
   summary: string;
 }
 
+/** 成功プロファイル情報（API レスポンス用） */
+export interface SuccessProfileInfo {
+  successCount: number;
+  skippedCount: number;
+  avgTotal: number;
+  avgBreakdown: Record<string, number>;
+}
+
 /** スコアリング済みリードの型 */
 export interface ScoredLead extends PlaceLead {
   score: LeadScore;

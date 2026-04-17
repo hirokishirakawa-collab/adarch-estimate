@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import type { PlaceLead, ScoredLead, LeadScore, WebsiteAnalysis } from "@/lib/constants/leads";
+import type { PlaceLead, ScoredLead, LeadScore, WebsiteAnalysis, SuccessProfileInfo } from "@/lib/constants/leads";
 import { LeadSearchForm } from "./lead-search-form";
 import { LeadResultsTable } from "./lead-results-table";
 import { Loader2, AlertCircle, RotateCcw, ListChecks, Brain } from "lucide-react";
@@ -10,6 +10,17 @@ import { Button } from "@/components/ui/button";
 import { saveLeadsFromSearch, checkExistingLeads } from "@/lib/actions/lead";
 
 type Phase = "form" | "searching" | "scoring" | "done" | "error";
+
+const SCORE_LABEL_MAP: Record<string, string> = {
+  industryMatch: "業種一致度",
+  activity: "活発度",
+  scale: "規模感",
+  competitive: "競合優位性",
+  accessibility: "接触しやすさ",
+  digitalPresence: "デジタル活用度",
+  proximity: "劇場距離",
+  localFit: "地域密着度",
+};
 
 export function LeadSearchPanel() {
   const [phase, setPhase] = useState<Phase>("form");
@@ -19,7 +30,7 @@ export function LeadSearchPanel() {
   const [errorMsg, setErrorMsg] = useState("");
   const [searchParams, setSearchParams] = useState({ industry: "", area: "" });
   const [existingMap, setExistingMap] = useState<Record<string, string>>({});
-  const [successProfileInfo, setSuccessProfileInfo] = useState<{ successCount: number; skippedCount: number; avgTotal: number } | null>(null);
+  const [successProfileInfo, setSuccessProfileInfo] = useState<SuccessProfileInfo | null>(null);
 
   const handleSearch = useCallback(
     async (params: {
@@ -81,7 +92,7 @@ export function LeadSearchPanel() {
             comment: string;
           }>;
           analyses: Record<string, WebsiteAnalysis>;
-          successProfile: { successCount: number; skippedCount: number; avgTotal: number } | null;
+          successProfile: SuccessProfileInfo | null;
         };
         setSuccessProfileInfo(successProfile);
 
@@ -204,18 +215,35 @@ export function LeadSearchPanel() {
 
       {/* 学習データ反映バッジ */}
       {phase === "done" && successProfileInfo && (
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200 px-5 py-3 flex items-center gap-3">
-          <Brain className="w-5 h-5 text-purple-600 flex-shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-purple-800">
-              営業実績データを反映してスコアリング
-            </p>
-            <p className="text-xs text-purple-600">
-              商談化・アポ獲得 {successProfileInfo.successCount}件
-              {successProfileInfo.skippedCount > 0 && ` / スキップ ${successProfileInfo.skippedCount}件`}
-              の実績パターンを学習済み（平均成功スコア: {successProfileInfo.avgTotal}点）
-            </p>
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200 px-5 py-3">
+          <div className="flex items-center gap-3 mb-2">
+            <Brain className="w-5 h-5 text-purple-600 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-purple-800">
+                営業実績データを反映してスコアリング
+              </p>
+              <p className="text-xs text-purple-600">
+                商談化・アポ獲得 {successProfileInfo.successCount}件
+                {successProfileInfo.skippedCount > 0 && ` / スキップ ${successProfileInfo.skippedCount}件`}
+                の実績データで学習済み
+              </p>
+            </div>
           </div>
+          {Object.keys(successProfileInfo.avgBreakdown).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 ml-8">
+              {Object.entries(successProfileInfo.avgBreakdown)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 3)
+                .map(([key, val]) => (
+                  <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-700">
+                    {SCORE_LABEL_MAP[key] ?? key}: 平均{val}点
+                  </span>
+                ))}
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100/50 text-purple-500">
+                成功平均: {successProfileInfo.avgTotal}点
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -227,6 +255,7 @@ export function LeadSearchPanel() {
           savingName={savingName}
           onSaveLead={handleSaveLead}
           existingMap={existingMap}
+          successProfile={successProfileInfo}
         />
       )}
 

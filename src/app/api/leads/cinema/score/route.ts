@@ -221,7 +221,12 @@ ${placeSummary}
       scores,
       analyses: analysisMap,
       successProfile: successProfile
-        ? { successCount: successProfile.successCount, skippedCount: successProfile.skippedCount, avgTotal: successProfile.avgTotal }
+        ? {
+            successCount: successProfile.successCount,
+            skippedCount: successProfile.skippedCount,
+            avgTotal: successProfile.avgTotal,
+            avgBreakdown: successProfile.avgBreakdown,
+          }
         : null,
     });
   } catch (err) {
