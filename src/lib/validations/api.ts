@@ -3,7 +3,7 @@ import { z } from "zod/v4";
 // POST /api/leads/search
 export const leadSearchSchema = z.object({
   prefecture: z.string().min(1, "都道府県は必須です"),
-  city: z.string(),
+  city: z.string().optional().default(""),
   industry: z.string().min(1, "業種は必須です"),
   industryKeywords: z.string().optional().default(""),
   count: z.number().int().min(1).max(50).optional().default(20),

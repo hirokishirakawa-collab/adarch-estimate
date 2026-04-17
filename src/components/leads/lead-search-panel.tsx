@@ -53,7 +53,8 @@ export function LeadSearchPanel() {
 
         if (!searchRes.ok) {
           const err = await searchRes.json();
-          throw new Error(err.error || "企業検索に失敗しました");
+          const detail = err.details ? ` (${JSON.stringify(err.details)})` : "";
+          throw new Error((err.error || "企業検索に失敗しました") + detail);
         }
 
         const { places } = (await searchRes.json()) as {
@@ -81,7 +82,8 @@ export function LeadSearchPanel() {
 
         if (!scoreRes.ok) {
           const err = await scoreRes.json();
-          throw new Error(err.error || "スコアリングに失敗しました");
+          const detail = err.details ? ` (${JSON.stringify(err.details)})` : "";
+          throw new Error((err.error || "スコアリングに失敗しました") + detail);
         }
 
         const { scores, analyses, successProfile } = (await scoreRes.json()) as {
