@@ -21,19 +21,42 @@ interface LeadSearchFormProps {
 }
 
 export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
-  const [selectedIndustry, setSelectedIndustry] = useState("");
+  const [freeText, setFreeText] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState("");
+
+  const handlePresetClick = (value: string) => {
+    const opt = LEAD_INDUSTRY_OPTIONS.find((o) => o.value === value);
+    if (!opt) return;
+    if (selectedPreset === value) {
+      // 同じプリセットをクリックしたら解除
+      setSelectedPreset("");
+      setFreeText("");
+    } else {
+      setSelectedPreset(value);
+      setFreeText(opt.keywords);
+    }
+  };
+
+  const handleFreeTextChange = (val: string) => {
+    setFreeText(val);
+    setSelectedPreset(""); // 自由入力したらプリセット解除
+  };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const industryValue = fd.get("industry") as string;
-    const opt = LEAD_INDUSTRY_OPTIONS.find((o) => o.value === industryValue);
-    const customKeywords = (fd.get("customKeywords") as string) ?? "";
+    const keywords = freeText.trim();
+    if (!keywords) return;
+
+    // プリセットが選択中ならそのラベルを業種名に、それ以外は自由入力テキストを業種名に
+    const opt = LEAD_INDUSTRY_OPTIONS.find((o) => o.value === selectedPreset);
+    const industryLabel = opt?.label ?? keywords;
+
     onSubmit({
       prefecture: fd.get("prefecture") as string,
       city: fd.get("city") as string,
-      industry: opt?.label ?? customKeywords,
-      industryKeywords: industryValue === "other" ? customKeywords : (opt?.keywords ?? ""),
+      industry: industryLabel,
+      industryKeywords: keywords,
       count: Number(fd.get("count")) || 20,
     });
   };
@@ -73,41 +96,36 @@ export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
           />
         </div>
 
-        {/* 業種 */}
-        <div>
+        {/* 業種キーワード（自由入力メイン） */}
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-zinc-700 mb-1">
-            業種
+            業種・検索キーワード
           </label>
-          <select
-            name="industry"
+          <input
+            type="text"
+            value={freeText}
+            onChange={(e) => handleFreeTextChange(e.target.value)}
             required
-            value={selectedIndustry}
-            onChange={(e) => setSelectedIndustry(e.target.value)}
+            placeholder="例: 美容室 エステ、ハウスメーカー 注文住宅、ヨガスタジオ"
             className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">選択してください</option>
-            {LEAD_INDUSTRY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
+          />
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {LEAD_INDUSTRY_OPTIONS.filter((o) => o.value !== "other").map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => handlePresetClick(o.value)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                  selectedPreset === o.value
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-zinc-600 border-zinc-200 hover:border-blue-300 hover:text-blue-600"
+                }`}
+              >
                 {o.label}
-              </option>
+              </button>
             ))}
-          </select>
-        </div>
-
-        {selectedIndustry === "other" && (
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1">
-              検索キーワード
-            </label>
-            <input
-              name="customKeywords"
-              type="text"
-              required
-              placeholder="例: 物流会社、イベント企画"
-              className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
           </div>
-        )}
+        </div>
 
         {/* 取得件数 */}
         <div>
@@ -128,7 +146,7 @@ export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
         </div>
       </div>
 
-      <Button type="submit" disabled={loading} className="w-full sm:w-auto">
+      <Button type="submit" disabled={loading || !freeText.trim()} className="w-full sm:w-auto">
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
