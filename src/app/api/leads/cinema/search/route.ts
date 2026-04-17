@@ -125,6 +125,11 @@ export async function POST(req: NextRequest) {
       "places.googleMapsUri",
       "places.websiteUri",
       "places.location",
+      // 2026 Google Maps アップデート: AI サマリー + 新フィールド
+      "places.reviewSummary",
+      "places.generativeSummary",
+      "places.neighborhoodSummary",
+      "places.googleMapsTypeLabel",
     ].join(",");
 
     const allPlaces: CinemaPlaceLead[] = [];
@@ -148,7 +153,7 @@ export async function POST(req: NextRequest) {
           },
         };
       } else {
-        // Text Search: placeType が null の業種（結婚式場、建設業等）
+        // Text Search: placeType が null の業種（建設業等）
         requestBody.textQuery = ind.keywords;
         requestBody.locationBias = {
           circle: {
@@ -156,6 +161,7 @@ export async function POST(req: NextRequest) {
             radius: body.radius,
           },
         };
+        requestBody.includeFutureOpeningBusinesses = true;
       }
 
       const endpoint = useNearby
@@ -194,6 +200,15 @@ export async function POST(req: NextRequest) {
         // 半径内のみ
         if (distanceKm > body.radius / 1000) continue;
 
+        // AI サマリー抽出
+        const reviewSummaryObj = p.reviewSummary as { text?: { text?: string } } | undefined;
+        const generativeSummaryObj = p.generativeSummary as { overview?: { text?: string } } | undefined;
+        const neighborhoodObj = p.neighborhoodSummary as {
+          overview?: { content?: { text?: string } };
+          description?: { content?: { text?: string } };
+        } | undefined;
+        const bs = (p.businessStatus as string) ?? "";
+
         allPlaces.push({
           name,
           address,
@@ -203,11 +218,19 @@ export async function POST(req: NextRequest) {
           types: (p.types as string[]) ?? [],
           mapsUrl: (p.googleMapsUri as string) ?? "",
           websiteUrl: (p.websiteUri as string) ?? "",
-          businessStatus: (p.businessStatus as string) ?? "",
+          businessStatus: bs,
           distanceKm: Math.round(distanceKm * 100) / 100,
           radiusBand: getRadiusBand(distanceKm),
           lat: pLat,
           lng: pLng,
+          reviewSummary: reviewSummaryObj?.text?.text ?? undefined,
+          placeSummary: generativeSummaryObj?.overview?.text ?? undefined,
+          neighborhoodSummary:
+            neighborhoodObj?.overview?.content?.text ??
+            neighborhoodObj?.description?.content?.text ??
+            undefined,
+          googleMapsTypeLabel: (p.googleMapsTypeLabel as string) ?? undefined,
+          isFutureOpening: bs === "FUTURE_OPENING" || undefined,
         });
       }
     }

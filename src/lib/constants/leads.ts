@@ -168,6 +168,16 @@ export interface PlaceLead {
   mapsUrl: string;
   websiteUrl: string;
   businessStatus: string;
+  /** Google AI レビューサマリー（Gemini生成） */
+  reviewSummary?: string;
+  /** Google AI プレイスサマリー（Gemini生成） */
+  placeSummary?: string;
+  /** Google AI 周辺エリアサマリー（Gemini生成） */
+  neighborhoodSummary?: string;
+  /** Google Mapsでの業種ラベル（ローカライズ済み） */
+  googleMapsTypeLabel?: string;
+  /** 近日開業予定の店舗かどうか */
+  isFutureOpening?: boolean;
 }
 
 /** 企業タイプ（チェーン/独立判定） */

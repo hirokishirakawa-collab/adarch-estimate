@@ -23,6 +23,12 @@ export const leadScoreSchema = z.object({
         mapsUrl: z.string(),
         websiteUrl: z.string(),
         businessStatus: z.string(),
+        // 2026 Google Maps アップデート: AI サマリー + 新フィールド
+        reviewSummary: z.string().optional(),
+        placeSummary: z.string().optional(),
+        neighborhoodSummary: z.string().optional(),
+        googleMapsTypeLabel: z.string().optional(),
+        isFutureOpening: z.boolean().optional(),
       })
     )
     .min(1, "企業リストは1件以上必要です")
@@ -101,6 +107,12 @@ export const cinemaScoreSchema = z.object({
         radiusBand: z.number(),
         lat: z.number(),
         lng: z.number(),
+        // 2026 Google Maps アップデート: AI サマリー + 新フィールド
+        reviewSummary: z.string().optional(),
+        placeSummary: z.string().optional(),
+        neighborhoodSummary: z.string().optional(),
+        googleMapsTypeLabel: z.string().optional(),
+        isFutureOpening: z.boolean().optional(),
       })
     )
     .min(1)

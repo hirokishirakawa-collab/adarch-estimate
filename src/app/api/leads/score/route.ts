@@ -341,11 +341,11 @@ export async function POST(req: NextRequest) {
 企業リストを受け取り、広告営業のリード（見込み客）としての優先度をスコアリングしてください。
 
 【スコアリング基準（合計100点）】
-1. 業種一致度（25点）: 指定業種とのマッチ度。業種が一致すれば高得点。
-2. 活発度（15点）: Googleレビュー数・評価から推測する事業活動レベル。
+1. 業種一致度（25点）: 指定業種とのマッチ度。業種が一致すれば高得点。Google業種ラベルやAIプレイスサマリーが付記されている場合はそれも参考にする。
+2. 活発度（15点）: Googleレビュー数・評価から推測する事業活動レベル。AIレビューサマリーが付記されている場合は顧客の声・評判・活況度の手がかりとして活用する。
 3. 規模感（15点）: 広告予算を出せる企業規模か。複数店舗展開・商業エリア所在・採用ページあり・Webサイト整備済み → 高得点。個人事業・住宅地所在・サイトなし → 低得点。
 4. 競合優位性（15点）: アドアーチの強み（映像制作・OOH広告）が活きそうか。
-5. 接触しやすさ（10点）: 電話番号の有無、営業ステータス（OPERATIONAL等）から判定。
+5. 接触しやすさ（10点）: 電話番号の有無、営業ステータス（OPERATIONAL等）から判定。近日開業予定（FUTURE_OPENING）の場合は開業前アプローチの好機として加点。
 6. デジタル活用度（20点）: Webサイト分析結果から判定。以下の観点で採点する：
    - 動画を活用していない企業 → 映像提案チャンスが大きいため高得点（15-20点）
    - SNS運用が弱い企業 → SNS運用代行の提案余地があるため加点
@@ -355,6 +355,12 @@ export async function POST(req: NextRequest) {
    - Webサイトがない企業 → デジタル全般の提案チャンスがあるため中得点（10-15点）
    ※ 重要: このスコアは「デジタルが進んでいる＝高得点」ではなく「アドアーチが提案できる余地が大きい＝高得点」
    ※ YouTube情報が付記されている場合: チャンネルなし→YouTube開設+動画制作の提案チャンス大、チャンネルあるが動画数少/更新停止→リブート提案、活発→追加制作ニーズはあるが提案余地は限定的
+
+【Google AIサマリーの活用】
+- 「Googleレビュー要約」が付記されている場合: 顧客の評判・サービス品質・繁盛度を判断材料に使う。ネガティブ評価が多い企業はブランディング提案の好機
+- 「Google概要」が付記されている場合: 事業内容・業種の正確な把握に使う。typesフィールドだけでは分からない詳細を補完
+- 「周辺エリア」が付記されている場合: 立地の商業的ポテンシャルの判断材料に使う
+- 「近日開業」フラグがある場合: 新規開業=広告ニーズ最大のタイミング。コメントで開業前アプローチを提案
 
 【重要ルール】
 - コメントに具体的な数値予測（「売上○％UP」「集客○倍」「○％改善」等）は絶対に書かない。効果は定性的な表現（「認知拡大が期待できる」「集客強化につながる」等）に留めること
@@ -391,7 +397,15 @@ export async function POST(req: NextRequest) {
         const ytInfo = yt
           ? `YouTube: ${yt.url} (登録者${yt.subscribers}人, ${yt.videoCount}本)`
           : "YouTube: チャンネルなし";
-        return `${i + 1}. ${p.name} | ${p.address} | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary} | 企業タイプ:${analyses[i].businessType}(${analyses[i].businessTypeReason}) | ${ytInfo}`;
+        // Google AIサマリー情報を構築
+        const aiParts: string[] = [];
+        if (p.reviewSummary) aiParts.push(`Googleレビュー要約:${p.reviewSummary}`);
+        if (p.placeSummary) aiParts.push(`Google概要:${p.placeSummary}`);
+        if (p.neighborhoodSummary) aiParts.push(`周辺エリア:${p.neighborhoodSummary}`);
+        if (p.googleMapsTypeLabel) aiParts.push(`Google業種ラベル:${p.googleMapsTypeLabel}`);
+        if (p.isFutureOpening) aiParts.push(`★近日開業予定★`);
+        const aiInfo = aiParts.length > 0 ? ` | ${aiParts.join(" | ")}` : "";
+        return `${i + 1}. ${p.name} | ${p.address} | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary} | 企業タイプ:${analyses[i].businessType}(${analyses[i].businessTypeReason}) | ${ytInfo}${aiInfo}`;
       }
     )
     .join("\n");

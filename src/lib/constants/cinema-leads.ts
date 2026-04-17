@@ -8,7 +8,7 @@ import type { PlaceLead, WebsiteAnalysis, LeadScore } from "./leads";
 export const CINEMA_TARGET_INDUSTRIES: readonly CinemaIndustryDef[] = [
   { value: "real_estate", label: "不動産・ハウスメーカー", placeType: "real_estate_agency", keywords: "不動産 ハウスメーカー 住宅展示場 マンション 賃貸" },
   { value: "car_dealer", label: "自動車ディーラー", placeType: "car_dealer", keywords: "自動車販売 カーディーラー 中古車販売" },
-  { value: "wedding", label: "結婚式場・ブライダル", placeType: null, keywords: "結婚式場 ブライダル ウェディング" },
+  { value: "wedding", label: "結婚式場・ブライダル", placeType: "wedding_venue", keywords: "結婚式場 ブライダル ウェディング" },
   { value: "eye_clinic", label: "眼科", placeType: "doctor", keywords: "眼科 アイクリニック レーシック" },
   { value: "dental", label: "歯科", placeType: "dentist", keywords: "歯科 歯医者 矯正歯科 インプラント" },
   { value: "construction", label: "建設業（採用向け）", placeType: null, keywords: "建設会社 工務店 リフォーム 施工" },

@@ -128,12 +128,18 @@ export async function POST(req: NextRequest) {
 - 想定月額: 約30万円〜（ランク・本数による）
 
 【スコアリング基準（合計100点）】
-1. 業種適合度（25点）: シネアドと相性の良い業種か。不動産・自動車・ブライダル・クリニック・地場建設業の採用 → 高得点
+1. 業種適合度（25点）: シネアドと相性の良い業種か。不動産・自動車・ブライダル・クリニック・地場建設業の採用 → 高得点。Google業種ラベルやAIプレイスサマリーが付記されている場合はそれも参考にする。
 2. 劇場距離（20点）: 劇場に近いほど高得点。3km以内: 18-20点、5km: 14-17点、10km: 10-13点、15km: 6-9点、20km: 2-5点
-3. 規模感（15点）: 月30万円以上の広告予算が見込めるか。複数店舗・知名度・サイト整備 → 高得点
+3. 規模感（15点）: 月30万円以上の広告予算が見込めるか。複数店舗・知名度・サイト整備 → 高得点。AIレビューサマリーの評判・繁盛度も参考にする。
 4. デジタル活用度（15点）: 動画やSNSを活用している企業 = 広告への理解・投資意欲が高い → 高得点。デジタル未活用 = 広告に予算を割く文化がない可能性 → 低得点
-5. 地域密着度（15点）: 地元の来場者にリーチできる業態か。地域に根差した事業 → 高得点。全国チェーンの一店舗 → 低得点
-6. 接触しやすさ（10点）: 電話番号の有無、営業ステータスから判定
+5. 地域密着度（15点）: 地元の来場者にリーチできる業態か。地域に根差した事業 → 高得点。全国チェーンの一店舗 → 低得点。周辺エリアサマリーが付記されている場合はエリアの商業ポテンシャルも考慮。
+6. 接触しやすさ（10点）: 電話番号の有無、営業ステータスから判定。近日開業予定（FUTURE_OPENING）の場合は開業前アプローチの好機として加点。
+
+【Google AIサマリーの活用】
+- 「Googleレビュー要約」: 顧客の評判から繁盛度・サービス品質を判断。ネガティブ評価→ブランディング提案の好機
+- 「Google概要」: 事業内容・業種の正確な把握。typesだけでは分からない詳細を補完
+- 「周辺エリア」: 劇場周辺の商業的ポテンシャル。地域密着度スコアの判断材料
+- 「近日開業」: 新規開業=広告ニーズ最大。開業告知としてのシネアド活用をコメントで提案
 
 【重要ルール】
 - コメントに具体的な数値予測（「売上○％UP」等）は絶対に書かない
@@ -160,8 +166,17 @@ export async function POST(req: NextRequest) {
 
   const placeSummary = body.places
     .map(
-      (p, i) =>
-        `${i + 1}. ${p.name} | ${p.address} | 劇場から${p.distanceKm}km（${p.radiusBand}km圏） | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary}`
+      (p, i) => {
+        // Google AIサマリー情報を構築
+        const aiParts: string[] = [];
+        if (p.reviewSummary) aiParts.push(`Googleレビュー要約:${p.reviewSummary}`);
+        if (p.placeSummary) aiParts.push(`Google概要:${p.placeSummary}`);
+        if (p.neighborhoodSummary) aiParts.push(`周辺エリア:${p.neighborhoodSummary}`);
+        if (p.googleMapsTypeLabel) aiParts.push(`Google業種ラベル:${p.googleMapsTypeLabel}`);
+        if (p.isFutureOpening) aiParts.push(`★近日開業予定★`);
+        const aiInfo = aiParts.length > 0 ? ` | ${aiParts.join(" | ")}` : "";
+        return `${i + 1}. ${p.name} | ${p.address} | 劇場から${p.distanceKm}km（${p.radiusBand}km圏） | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary}${aiInfo}`;
+      }
     )
     .join("\n");
 

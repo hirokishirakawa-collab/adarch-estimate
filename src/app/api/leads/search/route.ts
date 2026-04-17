@@ -45,6 +45,11 @@ export async function POST(req: NextRequest) {
     "places.types",
     "places.googleMapsUri",
     "places.websiteUri",
+    // 2026 Google Maps アップデート: AI サマリー + 新フィールド
+    "places.reviewSummary",
+    "places.generativeSummary",
+    "places.neighborhoodSummary",
+    "places.googleMapsTypeLabel",
   ].join(",");
 
   try {
@@ -57,6 +62,7 @@ export async function POST(req: NextRequest) {
         textQuery: query,
         maxResultCount: Math.min(20, maxCount - allPlaces.length),
         languageCode: "ja",
+        includeFutureOpeningBusinesses: true,
       };
       if (pageToken) {
         requestBody.pageToken = pageToken;
@@ -93,17 +99,39 @@ export async function POST(req: NextRequest) {
     }
 
     // 統一フォーマットに変換
-    const results = allPlaces.slice(0, maxCount).map((p: Record<string, unknown>) => ({
-      name: (p.displayName as { text?: string })?.text ?? "",
-      address: (p.formattedAddress as string) ?? "",
-      phone: (p.internationalPhoneNumber as string) ?? "",
-      rating: (p.rating as number) ?? 0,
-      ratingCount: (p.userRatingCount as number) ?? 0,
-      types: (p.types as string[]) ?? [],
-      mapsUrl: (p.googleMapsUri as string) ?? "",
-      websiteUrl: (p.websiteUri as string) ?? "",
-      businessStatus: (p.businessStatus as string) ?? "",
-    }));
+    const results = allPlaces.slice(0, maxCount).map((p: Record<string, unknown>) => {
+      // AI サマリー抽出
+      const reviewSummaryObj = p.reviewSummary as { text?: { text?: string } } | undefined;
+      const generativeSummaryObj = p.generativeSummary as { overview?: { text?: string } } | undefined;
+      const neighborhoodObj = p.neighborhoodSummary as {
+        overview?: { content?: { text?: string } };
+        description?: { content?: { text?: string } };
+      } | undefined;
+
+      // 近日開業判定: businessStatus が CLOSED_TEMPORARILY でなく、かつ future opening として返された場合
+      const bs = (p.businessStatus as string) ?? "";
+      const isFutureOpening = bs === "FUTURE_OPENING";
+
+      return {
+        name: (p.displayName as { text?: string })?.text ?? "",
+        address: (p.formattedAddress as string) ?? "",
+        phone: (p.internationalPhoneNumber as string) ?? "",
+        rating: (p.rating as number) ?? 0,
+        ratingCount: (p.userRatingCount as number) ?? 0,
+        types: (p.types as string[]) ?? [],
+        mapsUrl: (p.googleMapsUri as string) ?? "",
+        websiteUrl: (p.websiteUri as string) ?? "",
+        businessStatus: bs,
+        reviewSummary: reviewSummaryObj?.text?.text ?? undefined,
+        placeSummary: generativeSummaryObj?.overview?.text ?? undefined,
+        neighborhoodSummary:
+          neighborhoodObj?.overview?.content?.text ??
+          neighborhoodObj?.description?.content?.text ??
+          undefined,
+        googleMapsTypeLabel: (p.googleMapsTypeLabel as string) ?? undefined,
+        isFutureOpening: isFutureOpening || undefined,
+      };
+    });
 
     return NextResponse.json({ places: results });
   } catch (err) {
