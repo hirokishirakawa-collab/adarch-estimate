@@ -6,8 +6,9 @@ import {
   LEAD_COUNT_OPTIONS,
 } from "@/lib/constants/leads";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, TrendingUp } from "lucide-react";
 import { useState } from "react";
+import type { SearchSuggestion } from "@/lib/actions/lead";
 
 interface LeadSearchFormProps {
   onSubmit: (params: {
@@ -18,11 +19,13 @@ interface LeadSearchFormProps {
     count: number;
   }) => void;
   loading: boolean;
+  suggestions?: SearchSuggestion[];
 }
 
-export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
+export function LeadSearchForm({ onSubmit, loading, suggestions = [] }: LeadSearchFormProps) {
   const [freeText, setFreeText] = useState("");
   const [selectedPreset, setSelectedPreset] = useState("");
+  const [selectedPref, setSelectedPref] = useState("");
 
   const handlePresetClick = (value: string) => {
     const opt = LEAD_INDUSTRY_OPTIONS.find((o) => o.value === value);
@@ -61,8 +64,44 @@ export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
     });
   };
 
+  const handleSuggestionClick = (s: SearchSuggestion) => {
+    setFreeText(s.keywords);
+    setSelectedPreset("");
+    // エリアから都道府県を設定
+    const pref = PREFECTURES.find((p) => s.area.includes(p));
+    if (pref) setSelectedPref(pref);
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* おすすめ検索（営業実績ベース） */}
+      {suggestions.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200 px-4 py-3">
+          <p className="text-xs font-medium text-amber-800 mb-2 flex items-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5" />
+            営業実績からのおすすめ検索
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleSuggestionClick(s)}
+                className="group flex items-center gap-2 px-3 py-1.5 rounded-lg border border-amber-200 bg-white hover:border-amber-400 hover:shadow-sm transition-all text-left"
+              >
+                <div>
+                  <p className="text-xs font-medium text-zinc-800 group-hover:text-amber-800">
+                    {s.industryLabel} × {s.area}
+                  </p>
+                  <p className="text-[10px] text-zinc-500">
+                    成功率{s.successRate}%（{s.successCount}/{s.totalCount}件） 平均{s.avgScore}点
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* 都道府県 */}
         <div>
@@ -72,6 +111,8 @@ export function LeadSearchForm({ onSubmit, loading }: LeadSearchFormProps) {
           <select
             name="prefecture"
             required
+            value={selectedPref}
+            onChange={(e) => setSelectedPref(e.target.value)}
             className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">選択してください</option>

@@ -2,8 +2,10 @@ import { Target, Search, Sparkles, ListChecks, ArrowRight, Save } from "lucide-r
 import { LeadSearchPanel } from "@/components/leads/lead-search-panel";
 import Link from "next/link";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
+import { getSearchSuggestions } from "@/lib/actions/lead";
 
-export default function LeadsPage() {
+export default async function LeadsPage() {
+  const suggestions = await getSearchSuggestions();
   return (
     <div className="px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
       <div className="flex items-start justify-between">
@@ -81,7 +83,7 @@ export default function LeadsPage() {
       </div>
 
       <div data-tour="lead-search-panel">
-        <LeadSearchPanel />
+        <LeadSearchPanel suggestions={suggestions} />
       </div>
     </div>
   );

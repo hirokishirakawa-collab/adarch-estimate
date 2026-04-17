@@ -672,3 +672,105 @@ export async function saveCinemaLeadsFromSearch(
     return { saved: savedCount, error: "保存中にエラーが発生しました" };
   }
 }
+
+// ---------------------------------------------------------------
+// 営業実績ベースの検索サジェスト
+// ---------------------------------------------------------------
+export interface SearchSuggestion {
+  /** おすすめキーワード */
+  keywords: string;
+  /** 業種ラベル */
+  industryLabel: string;
+  /** エリア */
+  area: string;
+  /** 成功件数（DEAL_CONVERTED + APPOINTMENT） */
+  successCount: number;
+  /** 総リード数 */
+  totalCount: number;
+  /** 成功率（%） */
+  successRate: number;
+  /** 平均スコア */
+  avgScore: number;
+}
+
+export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
+  try {
+    // 業種 × エリア（都道府県）の組み合わせで集計
+    const leads = await db.lead.findMany({
+      where: {
+        source: { in: ["GOOGLE_PLACES", "CINEMA_AD"] },
+        industry: { not: null },
+        area: { not: null },
+        scoreTotal: { gt: 0 },
+      },
+      select: {
+        industry: true,
+        area: true,
+        status: true,
+        scoreTotal: true,
+      },
+    });
+
+    if (leads.length === 0) return [];
+
+    // 業種 × エリアでグルーピング
+    const groups = new Map<string, {
+      industry: string;
+      area: string;
+      total: number;
+      success: number;
+      scoreSum: number;
+    }>();
+
+    for (const lead of leads) {
+      if (!lead.industry || !lead.area) continue;
+      // エリアから都道府県を抽出（「渋谷区 東京都」→「東京都」）
+      const prefMatch = lead.area.match(/(北海道|.{2,3}[都道府県])/);
+      const pref = prefMatch?.[0] ?? lead.area;
+      const key = `${lead.industry}|${pref}`;
+
+      const g = groups.get(key) ?? {
+        industry: lead.industry,
+        area: pref,
+        total: 0,
+        success: 0,
+        scoreSum: 0,
+      };
+      g.total++;
+      g.scoreSum += lead.scoreTotal;
+      if (lead.status === "DEAL_CONVERTED" || lead.status === "APPOINTMENT") {
+        g.success++;
+      }
+      groups.set(key, g);
+    }
+
+    // 成功件数 > 0 のものを成功率順にソート
+    const suggestions: SearchSuggestion[] = [];
+    for (const g of groups.values()) {
+      if (g.success === 0 || g.total < 2) continue;
+      const industryOpt = (await import("@/lib/constants/leads")).LEAD_INDUSTRY_OPTIONS
+        .find((o) => o.label === g.industry || o.keywords.includes(g.industry));
+      suggestions.push({
+        keywords: industryOpt?.keywords ?? g.industry,
+        industryLabel: g.industry,
+        area: g.area,
+        successCount: g.success,
+        totalCount: g.total,
+        successRate: Math.round((g.success / g.total) * 100),
+        avgScore: Math.round(g.scoreSum / g.total),
+      });
+    }
+
+    // 成功率 × 成功件数でスコアリングしてソート
+    suggestions.sort((a, b) => {
+      const scoreA = a.successRate * Math.log2(a.successCount + 1);
+      const scoreB = b.successRate * Math.log2(b.successCount + 1);
+      return scoreB - scoreA;
+    });
+
+    return suggestions.slice(0, 5);
+  } catch (err) {
+    console.error("getSearchSuggestions error:", err);
+    return [];
+  }
+}

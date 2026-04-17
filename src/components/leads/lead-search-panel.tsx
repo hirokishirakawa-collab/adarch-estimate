@@ -8,6 +8,7 @@ import { LeadResultsTable } from "./lead-results-table";
 import { Loader2, AlertCircle, RotateCcw, ListChecks, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { saveLeadsFromSearch, checkExistingLeads } from "@/lib/actions/lead";
+import type { SearchSuggestion } from "@/lib/actions/lead";
 
 type Phase = "form" | "searching" | "scoring" | "done" | "error";
 
@@ -22,7 +23,11 @@ const SCORE_LABEL_MAP: Record<string, string> = {
   localFit: "地域密着度",
 };
 
-export function LeadSearchPanel() {
+interface LeadSearchPanelProps {
+  suggestions?: SearchSuggestion[];
+}
+
+export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
   const [phase, setPhase] = useState<Phase>("form");
   const [leads, setLeads] = useState<ScoredLead[]>([]);
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
@@ -182,6 +187,7 @@ export function LeadSearchPanel() {
           <LeadSearchForm
             onSubmit={handleSearch}
             loading={false}
+            suggestions={suggestions}
           />
         </div>
       )}
