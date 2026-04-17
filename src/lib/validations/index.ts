@@ -27,11 +27,15 @@ export async function validateBody<T extends z.ZodType>(
 
   const result = schema.safeParse(raw);
   if (!result.success) {
-    const messages = z.flattenError(result.error).formErrors;
+    const flat = z.flattenError(result.error);
+    const fieldMessages = Object.entries(flat.fieldErrors)
+      .map(([field, errs]) => `${field}: ${(errs as string[]).join(", ")}`)
+      .concat(flat.formErrors);
+    console.error("Validation failed:", JSON.stringify({ raw, errors: fieldMessages }));
     return {
       success: false,
       response: NextResponse.json(
-        { error: "入力値が不正です", details: messages },
+        { error: "入力値が不正です", details: fieldMessages },
         { status: 400 }
       ),
     };
