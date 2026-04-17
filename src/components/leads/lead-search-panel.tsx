@@ -44,6 +44,7 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
       industry: string;
       industryKeywords: string;
       count: number;
+      futureOnly?: boolean;
     }) => {
       setPhase("searching");
       setErrorMsg("");
@@ -53,7 +54,13 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
         const searchRes = await fetch("/api/leads/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(params),
+          body: JSON.stringify({
+            prefecture: params.prefecture,
+            city: params.city,
+            industry: params.industry,
+            industryKeywords: params.industryKeywords,
+            count: params.count,
+          }),
         });
 
         if (!searchRes.ok) {
@@ -62,13 +69,20 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
           throw new Error((err.error || "企業検索に失敗しました") + detail);
         }
 
-        const { places } = (await searchRes.json()) as {
+        let { places } = (await searchRes.json()) as {
           places: PlaceLead[];
         };
 
+        // 近日開業のみフィルタ
+        if (params.futureOnly) {
+          places = places.filter((p) => p.isFutureOpening);
+        }
+
         if (places.length === 0) {
           throw new Error(
-            "該当する企業が見つかりませんでした。エリアや業種を変更してお試しください。"
+            params.futureOnly
+              ? "該当エリア・業種に近日開業の店舗が見つかりませんでした。エリアを広げるか業種を変更してお試しください。"
+              : "該当する企業が見つかりませんでした。エリアや業種を変更してお試しください。"
           );
         }
 
