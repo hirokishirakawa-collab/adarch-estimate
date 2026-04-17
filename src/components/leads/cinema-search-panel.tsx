@@ -58,6 +58,7 @@ export function CinemaSearchPanel() {
       radius: number;
       industries: string[];
       count: number;
+      customKeywords?: string;
     }) => {
       setPhase("searching");
       setErrorMsg("");

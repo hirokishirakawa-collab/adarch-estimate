@@ -17,6 +17,7 @@ interface CinemaSearchFormProps {
     radius: number;
     industries: string[];
     count: number;
+    customKeywords?: string;
   }) => void;
   loading: boolean;
 }
@@ -26,6 +27,7 @@ export function CinemaSearchForm({ onSubmit, loading }: CinemaSearchFormProps) {
   const [selectedTheaterId, setSelectedTheaterId] = useState<number | null>(null);
   const [selectedIndustries, setSelectedIndustries] = useState<Set<string>>(new Set());
   const [radius, setRadius] = useState(10);
+  const [customKeywords, setCustomKeywords] = useState("");
 
   const filteredTheaters = useMemo(() => {
     if (!selectedArea) return AEON_THEATERS;
@@ -50,9 +52,11 @@ export function CinemaSearchForm({ onSubmit, loading }: CinemaSearchFormProps) {
     setSelectedIndustries(new Set(CINEMA_TARGET_INDUSTRIES.map((i) => i.value)));
   };
 
+  const hasSearch = selectedIndustries.size > 0 || customKeywords.trim().length > 0;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTheater || selectedIndustries.size === 0) return;
+    if (!selectedTheater || !hasSearch) return;
     onSubmit({
       theaterId: selectedTheater.id,
       theaterName: selectedTheater.name,
@@ -60,6 +64,7 @@ export function CinemaSearchForm({ onSubmit, loading }: CinemaSearchFormProps) {
       radius: radius * 1000, // km → meters
       industries: Array.from(selectedIndustries),
       count: 50,
+      customKeywords: customKeywords.trim() || undefined,
     });
   };
 
@@ -138,10 +143,20 @@ export function CinemaSearchForm({ onSubmit, loading }: CinemaSearchFormProps) {
         </div>
       </div>
 
-      {/* 対象業種 */}
+      {/* 自由入力 + 対象業種 */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-xs font-medium text-zinc-700">対象業種</label>
+        <label className="block text-xs font-medium text-zinc-700 mb-1">
+          業種・検索キーワード
+        </label>
+        <input
+          type="text"
+          value={customKeywords}
+          onChange={(e) => setCustomKeywords(e.target.value)}
+          placeholder="例: スポーツジム、学習塾、ペットショップ"
+          className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <div className="flex items-center justify-between mt-2 mb-1.5">
+          <span className="text-[11px] text-zinc-400">またはプリセットから選択</span>
           <button
             type="button"
             onClick={selectAllIndustries}
@@ -170,7 +185,7 @@ export function CinemaSearchForm({ onSubmit, loading }: CinemaSearchFormProps) {
 
       <Button
         type="submit"
-        disabled={loading || !selectedTheaterId || selectedIndustries.size === 0}
+        disabled={loading || !selectedTheaterId || !hasSearch}
         className="w-full sm:w-auto"
       >
         {loading ? (

@@ -85,8 +85,9 @@ export const cinemaSearchSchema = z.object({
   theaterName: z.string().min(1),
   theaterAddress: z.string().min(1),
   radius: z.number().int().min(1000).max(20000), // meters
-  industries: z.array(z.string()).min(1, "業種を1つ以上選択してください"),
+  industries: z.array(z.string()),
   count: z.number().int().min(1).max(50).optional().default(20),
+  customKeywords: z.string().optional(),
 });
 
 // POST /api/leads/cinema/score

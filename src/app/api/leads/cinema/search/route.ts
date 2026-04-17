@@ -113,6 +113,23 @@ export async function POST(req: NextRequest) {
       body.industries.includes(ind.value)
     );
 
+    // 2.5) カスタムキーワードがあれば擬似業種として追加
+    if (body.customKeywords) {
+      selectedIndustries.push({
+        value: "_custom",
+        label: body.customKeywords,
+        placeType: null,
+        keywords: body.customKeywords,
+      });
+    }
+
+    if (selectedIndustries.length === 0) {
+      return NextResponse.json(
+        { error: "業種またはキーワードを1つ以上指定してください" },
+        { status: 400 }
+      );
+    }
+
     // 3) 各業種でNearby Search を実行
     const fieldMask = [
       "places.displayName",
