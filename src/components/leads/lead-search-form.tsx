@@ -79,7 +79,7 @@ export function LeadSearchForm({ onSubmit, loading, suggestions = [] }: LeadSear
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200 px-4 py-3">
           <p className="text-xs font-medium text-amber-800 mb-2 flex items-center gap-1.5">
             <TrendingUp className="w-3.5 h-3.5" />
-            営業実績からのおすすめ検索
+            {suggestions.some((s) => s.successCount > 0) ? "営業実績からのおすすめ検索" : "よく検索される組み合わせ"}
           </p>
           <div className="flex flex-wrap gap-2">
             {suggestions.map((s, i) => (
@@ -94,7 +94,9 @@ export function LeadSearchForm({ onSubmit, loading, suggestions = [] }: LeadSear
                     {s.industryLabel} × {s.area}
                   </p>
                   <p className="text-[10px] text-zinc-500">
-                    成功率{s.successRate}%（{s.successCount}/{s.totalCount}件） 平均{s.avgScore}点
+                    {s.successCount > 0
+                      ? `成功率${s.successRate}%（${s.successCount}/${s.totalCount}件） 平均${s.avgScore}点`
+                      : `${s.totalCount}件の検索実績 平均${s.avgScore}点`}
                   </p>
                 </div>
               </button>

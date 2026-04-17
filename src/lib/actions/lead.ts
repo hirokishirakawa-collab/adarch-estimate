@@ -740,7 +740,6 @@ export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
       });
     }
 
-    console.log(`[getSearchSuggestions] leads found: ${leads.length}, branchIds: ${JSON.stringify(branchIds)}`);
     if (leads.length === 0) return [];
 
     // 業種 × エリアでグルーピング
@@ -774,14 +773,10 @@ export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
       groups.set(key, g);
     }
 
-    // デバッグ: グループの中身を確認
-    const groupArr = Array.from(groups.values());
-    console.log(`[getSearchSuggestions] groups: ${groupArr.length}, top5:`, JSON.stringify(groupArr.sort((a, b) => b.total - a.total).slice(0, 5)));
-
-    // 成功件数 > 0 のものを成功率順にソート
+    // 成功実績があるものを優先、なければ検索実績が多い組み合わせを表示
     const suggestions: SearchSuggestion[] = [];
     for (const g of groups.values()) {
-      if (g.success === 0 || g.total < 2) continue;
+      if (g.total < 2) continue;
       const industryOpt = (await import("@/lib/constants/leads")).LEAD_INDUSTRY_OPTIONS
         .find((o) => o.label === g.industry || o.keywords.includes(g.industry));
       suggestions.push({
@@ -795,11 +790,17 @@ export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
       });
     }
 
-    // 成功率 × 成功件数でスコアリングしてソート
+    // 成功実績ありを優先、次に件数×平均スコアでソート
     suggestions.sort((a, b) => {
-      const scoreA = a.successRate * Math.log2(a.successCount + 1);
-      const scoreB = b.successRate * Math.log2(b.successCount + 1);
-      return scoreB - scoreA;
+      // 成功実績があるものを先に
+      if (a.successCount > 0 && b.successCount === 0) return -1;
+      if (a.successCount === 0 && b.successCount > 0) return 1;
+      // 成功実績同士は成功率で
+      if (a.successCount > 0 && b.successCount > 0) {
+        return (b.successRate * Math.log2(b.successCount + 1)) - (a.successRate * Math.log2(a.successCount + 1));
+      }
+      // 成功なし同士は件数×平均スコアで
+      return (b.totalCount * b.avgScore) - (a.totalCount * a.avgScore);
     });
 
     return suggestions.slice(0, 5);
