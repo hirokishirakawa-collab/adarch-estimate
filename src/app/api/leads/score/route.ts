@@ -5,6 +5,7 @@ import { validateBody, leadScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import type { PlaceLead, WebsiteAnalysis, BusinessType, YouTubeChannelInfo } from "@/lib/constants/leads";
 import { getSuccessProfile } from "@/lib/leads/success-profile";
+import { getSessionInfo } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -326,6 +327,12 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return parsed.response;
   const body = parsed.data as { places: PlaceLead[]; industry: string; area: string };
 
+  // 拠点情報を取得（成功プロファイルの拠点フィルタ用）
+  const sessionInfo = await getSessionInfo();
+  const branchIds = sessionInfo
+    ? [sessionInfo.branchId, sessionInfo.branchId2].filter((id): id is string => !!id)
+    : [];
+
   // 全企業のWebサイト + YouTube + 成功プロファイルを並列で分析
   const allNames = body.places.map((p) => p.name);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
@@ -335,7 +342,7 @@ export async function POST(req: NextRequest) {
     youtubeApiKey
       ? Promise.all(body.places.map((p) => searchYouTubeChannel(p.name, youtubeApiKey)))
       : Promise.resolve(body.places.map(() => null)),
-    getSuccessProfile(body.industry, "GOOGLE_PLACES"),
+    getSuccessProfile(body.industry, "GOOGLE_PLACES", branchIds),
   ]);
   const analyses = websiteResults.map((r) => r.analysis);
 
@@ -466,6 +473,7 @@ ${placeSummary}
             skippedCount: successProfile.skippedCount,
             avgTotal: successProfile.avgTotal,
             avgBreakdown: successProfile.avgBreakdown,
+            dataSource: successProfile.dataSource,
           }
         : null,
     });

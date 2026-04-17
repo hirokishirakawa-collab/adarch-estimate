@@ -23,17 +23,29 @@ interface SuccessProfile {
   avgRating: number;
   /** プロンプト注入用テキスト */
   promptText: string;
+  /** データソース: 自拠点 or グループ全体 */
+  dataSource: "branch" | "group";
+}
+
+/** 拠点フィルタ: createdBy の branchId で絞る */
+function branchWhere(branchIds: string[]) {
+  if (branchIds.length === 0) return {};
+  if (branchIds.length === 1) return { createdBy: { branchId: branchIds[0] } };
+  return { createdBy: { branchId: { in: branchIds } } };
 }
 
 /**
  * 指定業種の成功プロファイルをDBから生成する。
- * 業種単位で集計し、データが少なければ全業種で補完する。
+ * 自拠点優先で集計し、データが少なければグループ全体で補完する。
  */
 export async function getSuccessProfile(
   industry: string,
-  source?: "GOOGLE_PLACES" | "CINEMA_AD" | "GBIZINFO"
+  source?: "GOOGLE_PLACES" | "CINEMA_AD" | "GBIZINFO",
+  branchIds?: string[]
 ): Promise<SuccessProfile | null> {
   try {
+    const branchFilter = branchIds?.length ? branchWhere(branchIds) : {};
+
     // 成功リード: DEAL_CONVERTED または APPOINTMENT
     const successWhere = {
       status: { in: ["DEAL_CONVERTED" as const, "APPOINTMENT" as const] },
@@ -42,55 +54,78 @@ export async function getSuccessProfile(
       ...(source ? { source } : {}),
     };
 
-    // まず業種一致で検索
+    const selectFields = {
+      scoreTotal: true,
+      scoreBreakdown: true,
+      rating: true,
+      ratingCount: true,
+      industry: true,
+    } as const;
+
+    // 1) 自拠点 × 業種一致で検索
     let successLeads = await db.lead.findMany({
-      where: { ...successWhere, industry },
-      select: {
-        scoreTotal: true,
-        scoreBreakdown: true,
-        rating: true,
-        ratingCount: true,
-        industry: true,
-      },
+      where: { ...successWhere, ...branchFilter, industry },
+      select: selectFields,
       orderBy: { updatedAt: "desc" },
       take: 50,
     });
+    let dataSource: "branch" | "group" = "branch";
 
-    // 業種一致が3件未満なら全業種で補完
-    if (successLeads.length < 3) {
+    // 2) 自拠点で3件未満 → 自拠点 × 全業種
+    if (successLeads.length < 3 && branchIds?.length) {
       successLeads = await db.lead.findMany({
-        where: successWhere,
-        select: {
-          scoreTotal: true,
-          scoreBreakdown: true,
-          rating: true,
-          ratingCount: true,
-          industry: true,
-        },
+        where: { ...successWhere, ...branchFilter },
+        select: selectFields,
         orderBy: { updatedAt: "desc" },
         take: 50,
       });
     }
 
+    // 3) まだ3件未満 → グループ全体 × 業種一致
+    if (successLeads.length < 3) {
+      successLeads = await db.lead.findMany({
+        where: { ...successWhere, industry },
+        select: selectFields,
+        orderBy: { updatedAt: "desc" },
+        take: 50,
+      });
+      dataSource = "group";
+    }
+
+    // 4) まだ3件未満 → グループ全体 × 全業種
+    if (successLeads.length < 3) {
+      successLeads = await db.lead.findMany({
+        where: successWhere,
+        select: selectFields,
+        orderBy: { updatedAt: "desc" },
+        take: 50,
+      });
+      dataSource = "group";
+    }
+
     if (successLeads.length === 0) return null;
 
-    // スキップリードも取得（負の学習）
-    const skippedLeads = await db.lead.findMany({
-      where: {
-        status: "SKIPPED",
-        scoreBreakdown: { not: null as unknown as undefined },
-        scoreTotal: { gt: 0 },
-        ...(source ? { source } : {}),
-      },
-      select: {
-        scoreTotal: true,
-        scoreBreakdown: true,
-        rating: true,
-        industry: true,
-      },
+    // スキップリードも取得（同じ拠点優先ロジック）
+    const skippedWhere = {
+      status: "SKIPPED" as const,
+      scoreBreakdown: { not: null as unknown as undefined },
+      scoreTotal: { gt: 0 },
+      ...(source ? { source } : {}),
+    };
+    let skippedLeads = await db.lead.findMany({
+      where: { ...skippedWhere, ...(dataSource === "branch" ? branchFilter : {}) },
+      select: { scoreTotal: true, scoreBreakdown: true, rating: true, industry: true },
       orderBy: { updatedAt: "desc" },
       take: 30,
     });
+    if (skippedLeads.length < 3 && dataSource === "branch") {
+      skippedLeads = await db.lead.findMany({
+        where: skippedWhere,
+        select: { scoreTotal: true, scoreBreakdown: true, rating: true, industry: true },
+        orderBy: { updatedAt: "desc" },
+        take: 30,
+      });
+    }
 
     // 成功リードの平均を計算
     const avgBreakdown = calcAvgBreakdown(successLeads.map((l) => l.scoreBreakdown as ScoreBreakdown));
@@ -115,7 +150,8 @@ export async function getSuccessProfile(
       successLeads.length,
       skippedLeads.length,
       insights,
-      industry
+      industry,
+      dataSource
     );
 
     return {
@@ -126,6 +162,7 @@ export async function getSuccessProfile(
       avgTotal,
       avgRating,
       promptText,
+      dataSource,
     };
   } catch (err) {
     console.error("Success profile error:", err);
@@ -200,10 +237,12 @@ function buildPromptText(
   successCount: number,
   skippedCount: number,
   insights: string[],
-  industry: string
+  industry: string,
+  dataSource: "branch" | "group"
 ): string {
   const lines: string[] = [];
-  lines.push(`【過去の営業実績データ（${industry}）】`);
+  const scope = dataSource === "branch" ? "自拠点" : "グループ全体";
+  lines.push(`【過去の営業実績データ（${industry}・${scope}）】`);
   lines.push(`商談化・アポ獲得した企業: ${successCount}件（平均スコア${avgTotal}点、平均Google評価${avgRating}）`);
 
   // 成功パターンの平均スコア配分

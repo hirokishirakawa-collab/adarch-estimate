@@ -202,6 +202,8 @@ export interface SuccessProfileInfo {
   skippedCount: number;
   avgTotal: number;
   avgBreakdown: Record<string, number>;
+  /** データソース: 自拠点 or グループ全体 */
+  dataSource: "branch" | "group";
 }
 
 /** スコアリング済みリードの型 */

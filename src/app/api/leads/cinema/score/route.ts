@@ -6,6 +6,7 @@ import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import type { CinemaPlaceLead } from "@/lib/constants/cinema-leads";
 import type { WebsiteAnalysis, BusinessType } from "@/lib/constants/leads";
 import { getSuccessProfile } from "@/lib/leads/success-profile";
+import { getSessionInfo } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -113,10 +114,16 @@ export async function POST(req: NextRequest) {
     industry: string;
   };
 
+  // 拠点情報を取得
+  const sessionInfo = await getSessionInfo();
+  const branchIds = sessionInfo
+    ? [sessionInfo.branchId, sessionInfo.branchId2].filter((id): id is string => !!id)
+    : [];
+
   // Webサイト分析 + 成功プロファイル（並列）
   const [analyses, successProfile] = await Promise.all([
     Promise.all(body.places.map((p) => analyzeWebsite(p.websiteUrl))),
-    getSuccessProfile(body.industry, "CINEMA_AD"),
+    getSuccessProfile(body.industry, "CINEMA_AD", branchIds),
   ]);
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループのシネマ広告（イオンシネマ）営業支援AIです。
@@ -226,6 +233,7 @@ ${placeSummary}
             skippedCount: successProfile.skippedCount,
             avgTotal: successProfile.avgTotal,
             avgBreakdown: successProfile.avgBreakdown,
+            dataSource: successProfile.dataSource,
           }
         : null,
     });

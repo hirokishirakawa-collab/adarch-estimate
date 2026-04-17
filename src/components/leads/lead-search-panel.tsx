@@ -227,8 +227,15 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
           <div className="flex items-center gap-3 mb-2">
             <Brain className="w-5 h-5 text-purple-600 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-purple-800">
+              <p className="text-sm font-medium text-purple-800 flex items-center gap-2">
                 営業実績データを反映してスコアリング
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                  successProfileInfo.dataSource === "branch"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-zinc-100 text-zinc-600"
+                }`}>
+                  {successProfileInfo.dataSource === "branch" ? "自拠点データ" : "グループ全体"}
+                </span>
               </p>
               <p className="text-xs text-purple-600">
                 商談化・アポ獲得 {successProfileInfo.successCount}件

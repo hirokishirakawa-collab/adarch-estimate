@@ -695,13 +695,24 @@ export interface SearchSuggestion {
 
 export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
   try {
-    // 業種 × エリア（都道府県）の組み合わせで集計
-    const leads = await db.lead.findMany({
+    const { getSessionInfo: getSI } = await import("@/lib/session");
+    const info = await getSI();
+    const branchIds = info
+      ? [info.branchId, info.branchId2].filter((id): id is string => !!id)
+      : [];
+    // 自拠点フィルタ（ADMIN or 未割当は全体）
+    const branchFilter = branchIds.length > 0
+      ? { createdBy: { branchId: branchIds.length === 1 ? branchIds[0] : { in: branchIds } } }
+      : {};
+
+    // 業種 × エリア（都道府県）の組み合わせで集計（自拠点優先）
+    let leads = await db.lead.findMany({
       where: {
         source: { in: ["GOOGLE_PLACES", "CINEMA_AD"] },
         industry: { not: null },
         area: { not: null },
         scoreTotal: { gt: 0 },
+        ...branchFilter,
       },
       select: {
         industry: true,
@@ -710,6 +721,24 @@ export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
         scoreTotal: true,
       },
     });
+
+    // 自拠点データが少なければグループ全体で補完
+    if (leads.length < 5 && branchIds.length > 0) {
+      leads = await db.lead.findMany({
+        where: {
+          source: { in: ["GOOGLE_PLACES", "CINEMA_AD"] },
+          industry: { not: null },
+          area: { not: null },
+          scoreTotal: { gt: 0 },
+        },
+        select: {
+          industry: true,
+          area: true,
+          status: true,
+          scoreTotal: true,
+        },
+      });
+    }
 
     if (leads.length === 0) return [];
 
