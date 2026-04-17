@@ -20,6 +20,9 @@ import {
   Store,
   Landmark,
   GitBranch,
+  Sparkles,
+  MessageSquareQuote,
+  MapPinned,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -313,6 +316,54 @@ export function LeadDetailPanel({
           })}
         </div>
       </div>
+
+      {/* Google AIインサイト */}
+      {(lead.reviewSummary || lead.placeSummary || lead.neighborhoodSummary || lead.isFutureOpening) && (
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 px-4 py-3">
+          <p className="text-xs font-medium text-blue-700 mb-3 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" />
+            Google AIインサイト
+          </p>
+          <div className="space-y-2.5">
+            {lead.isFutureOpening && (
+              <div className="flex items-start gap-2">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-green-100 text-green-700 border border-green-200 flex-shrink-0">
+                  🆕 近日開業予定
+                </span>
+                <span className="text-xs text-green-700 pt-0.5">開業前の広告提案は最大のチャンス。競合より先にアプローチ可能</span>
+              </div>
+            )}
+            {lead.reviewSummary && (
+              <div className="flex items-start gap-2">
+                <MessageSquareQuote className="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[11px] font-medium text-blue-600 mb-0.5">レビュー要約</p>
+                  <p className="text-xs text-zinc-700 leading-relaxed">{lead.reviewSummary}</p>
+                </div>
+              </div>
+            )}
+            {lead.placeSummary && (
+              <div className="flex items-start gap-2">
+                <Building2 className="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[11px] font-medium text-blue-600 mb-0.5">Google概要</p>
+                  <p className="text-xs text-zinc-700 leading-relaxed">{lead.placeSummary}</p>
+                </div>
+              </div>
+            )}
+            {lead.neighborhoodSummary && (
+              <div className="flex items-start gap-2">
+                <MapPinned className="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[11px] font-medium text-blue-600 mb-0.5">周辺エリア</p>
+                  <p className="text-xs text-zinc-700 leading-relaxed">{lead.neighborhoodSummary}</p>
+                </div>
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-blue-400 mt-2">Summarized with Google Gemini</p>
+        </div>
+      )}
 
       {/* 企業タイプ + デジタル活用度 */}
       {lead.digitalAnalysis && (

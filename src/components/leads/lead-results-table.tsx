@@ -182,12 +182,20 @@ export function LeadResultsTable({
                       <div className="px-4 py-3">
                         <p className="font-medium text-zinc-900 truncate flex items-center gap-1.5">
                           {lead.name}
+                          {lead.isFutureOpening && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-green-50 text-green-700 border-green-200">
+                              🆕 近日開業
+                            </span>
+                          )}
                           {statusOption && (
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${statusOption.className}`}>
                               {statusOption.icon} {statusOption.label}
                             </span>
                           )}
                         </p>
+                        {lead.googleMapsTypeLabel && (
+                          <p className="text-[11px] text-zinc-400 truncate mt-0.5">{lead.googleMapsTypeLabel}</p>
+                        )}
                       </div>
                       <div className="px-4 py-3 hidden sm:block">
                         <p className="text-zinc-500 truncate text-xs">
