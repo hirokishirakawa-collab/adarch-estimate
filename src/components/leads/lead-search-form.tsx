@@ -17,7 +17,6 @@ interface LeadSearchFormProps {
     industry: string;
     industryKeywords: string;
     count: number;
-    futureOnly?: boolean;
   }) => void;
   loading: boolean;
   suggestions?: SearchSuggestion[];
@@ -27,7 +26,6 @@ export function LeadSearchForm({ onSubmit, loading, suggestions = [] }: LeadSear
   const [freeText, setFreeText] = useState("");
   const [selectedPreset, setSelectedPreset] = useState("");
   const [selectedPref, setSelectedPref] = useState("");
-  const [futureOnly, setFutureOnly] = useState(false);
 
   const handlePresetClick = (value: string) => {
     const opt = LEAD_INDUSTRY_OPTIONS.find((o) => o.value === value);
@@ -62,8 +60,7 @@ export function LeadSearchForm({ onSubmit, loading, suggestions = [] }: LeadSear
       city: fd.get("city") as string,
       industry: industryLabel,
       industryKeywords: keywords,
-      count: futureOnly ? 50 : (Number(fd.get("count")) || 20),
-      futureOnly,
+      count: Number(fd.get("count")) || 20,
     });
   };
 
@@ -180,7 +177,6 @@ export function LeadSearchForm({ onSubmit, loading, suggestions = [] }: LeadSear
             name="count"
             className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             defaultValue={20}
-            disabled={futureOnly}
           >
             {LEAD_COUNT_OPTIONS.map((n) => (
               <option key={n} value={n}>
@@ -190,26 +186,9 @@ export function LeadSearchForm({ onSubmit, loading, suggestions = [] }: LeadSear
           </select>
         </div>
 
-        {/* 近日開業のみ */}
-        <div className="flex items-center">
-          <label className="flex items-center gap-2.5 cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={futureOnly}
-              onChange={(e) => setFutureOnly(e.target.checked)}
-              className="w-4 h-4 rounded border-zinc-300 text-green-600 focus:ring-green-500"
-            />
-            <div>
-              <span className="text-sm font-medium text-zinc-700 group-hover:text-green-700">
-                🆕 近日開業のみ
-              </span>
-              <p className="text-[11px] text-zinc-400">開業準備中の店舗だけをピックアップ（50件取得→フィルタ）</p>
-            </div>
-          </label>
-        </div>
       </div>
 
-      <Button type="submit" disabled={loading || !freeText.trim()} className="w-full sm:w-auto">
+      <Button type="submit" disabled={loading || !freeText.trim()} className="w-full sm:w-auto mt-1">
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
