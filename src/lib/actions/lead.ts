@@ -740,6 +740,7 @@ export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
       });
     }
 
+    console.log(`[getSearchSuggestions] leads found: ${leads.length}, branchIds: ${JSON.stringify(branchIds)}`);
     if (leads.length === 0) return [];
 
     // 業種 × エリアでグルーピング
@@ -772,6 +773,10 @@ export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
       }
       groups.set(key, g);
     }
+
+    // デバッグ: グループの中身を確認
+    const groupArr = Array.from(groups.values());
+    console.log(`[getSearchSuggestions] groups: ${groupArr.length}, top5:`, JSON.stringify(groupArr.sort((a, b) => b.total - a.total).slice(0, 5)));
 
     // 成功件数 > 0 のものを成功率順にソート
     const suggestions: SearchSuggestion[] = [];
