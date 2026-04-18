@@ -32,9 +32,12 @@ export function DashboardShell({ user, reportWarning, isActive = true, children 
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#1c1914]">
+    <div className="flex h-screen overflow-hidden bg-[#fafbfe] relative">
+      {/* Ambient background glow */}
+      <div className="pointer-events-none absolute -top-[200px] -right-[200px] w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(99,102,241,0.06)_0%,rgba(6,182,212,0.03)_40%,transparent_70%)]" />
+      <div className="pointer-events-none absolute -bottom-[300px] -left-[100px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(16,185,129,0.04)_0%,transparent_60%)]" />
       <Sidebar user={user} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} reportWarning={reportWarning} isSuspended={!isActive} />
-      <div className="flex-1 flex flex-col overflow-hidden bg-zinc-50 min-w-0">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative z-[1]">
         <Header
           pageTitle="ダッシュボード"
           user={user}

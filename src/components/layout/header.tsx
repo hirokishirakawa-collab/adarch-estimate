@@ -12,8 +12,8 @@ const ROLE_BANNERS: Partial<
 > = {
   ADMIN: {
     label: "管理者モード — 全データ・財務情報へのアクセスが有効です",
-    bgClass: "bg-amber-950/60 border-b border-amber-800/50",
-    textClass: "text-amber-400",
+    bgClass: "bg-gradient-to-r from-indigo-500/[0.06] via-cyan-500/[0.04] to-indigo-500/[0.06] border-b border-indigo-500/[0.06]",
+    textClass: "text-indigo-500/80",
   },
 };
 
@@ -42,7 +42,7 @@ export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProp
       {/* ADMIN バナー */}
       {banner && (
         <div className={cn("px-6 py-1.5 flex items-center gap-2", banner.bgClass)}>
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
           <p className={cn("text-[11px] font-medium", banner.textClass)}>
             {banner.label}
           </p>
@@ -50,7 +50,7 @@ export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProp
       )}
 
       {/* メインヘッダー */}
-      <div className="h-14 px-4 sm:px-6 bg-white border-b border-zinc-200 flex items-center justify-between">
+      <div className="h-14 px-4 sm:px-6 bg-white/80 backdrop-blur-xl border-b border-black/[0.06] flex items-center justify-between">
         <div className="flex items-center">
           {/* モバイル用ハンバーガーボタン */}
           <button

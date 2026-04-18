@@ -318,7 +318,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     section: "経理",
-    color: "text-amber-500/80",
+    color: "text-indigo-500/80",
     items: [
       {
         href: "/dashboard/billing",
@@ -568,15 +568,15 @@ const NAV_SECTIONS: NavSection[] = [
 const ROLE_STYLES: Record<UserRole, { label: string; className: string }> = {
   ADMIN: {
     label: "ADMIN",
-    className: "bg-amber-500/12 text-amber-500 border border-amber-500/20",
+    className: "bg-gradient-to-r from-indigo-500 to-cyan-500 text-white border-0 rounded-full",
   },
   MANAGER: {
     label: "MANAGER",
-    className: "bg-blue-500/12 text-blue-400 border border-blue-500/20",
+    className: "bg-cyan-500/10 text-cyan-600 border border-cyan-500/15 rounded-full",
   },
   USER: {
     label: "USER",
-    className: "bg-zinc-700/60 text-zinc-400 border border-zinc-600/40",
+    className: "bg-slate-100 text-slate-500 border border-slate-200 rounded-full",
   },
 };
 
@@ -744,32 +744,27 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{
-          background: "linear-gradient(180deg, #1c1914 0%, #171310 50%, #1c1914 100%)",
-          borderRight: "1px solid rgba(200, 170, 100, 0.08)",
+          background: "rgba(255,255,255,0.65)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderRight: "1px solid rgba(0,0,0,0.04)",
           position: isOpen ? "fixed" : undefined,
         }}
       >
-        {/* Warm ambient glow */}
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background: "radial-gradient(ellipse at 30% 20%, rgba(200, 170, 100, 0.05) 0%, transparent 50%)",
-          }}
-        />
 
         {/* ロゴ */}
-        <div className="relative px-5 pt-5 pb-4 border-b border-amber-900/20">
+        <div className="relative px-5 pt-5 pb-4 border-b border-black/[0.04]">
           <div className="flex items-center justify-between">
             <Link href="/dashboard" className="no-underline cursor-pointer">
-              <Image src="/logo_white.png" alt="Ad Arch Group" width={140} height={28} />
-              <p className="text-[11px] font-medium tracking-[3px] uppercase text-amber-700/50 mt-1.5">
+              <Image src="/logo-adarch.png" alt="Ad Arch Group" width={140} height={28} />
+              <p className="text-[11px] font-medium tracking-[3px] uppercase text-slate-400 mt-1.5">
                 GROUP OS
               </p>
             </Link>
             {/* モバイル用閉じるボタン */}
             <button
               onClick={onClose}
-              className="md:hidden p-1 rounded-md text-white/30 hover:text-white/70 hover:bg-white/[0.06] transition-colors"
+              className="md:hidden p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -777,9 +772,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
         </div>
 
         {/* ユーザー情報カード */}
-        <div className="relative mx-3 my-3 p-3 rounded-xl bg-gradient-to-br from-amber-900/10 to-amber-950/5 border border-amber-900/15">
-          {/* Top highlight line */}
-          <div className="absolute top-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-amber-600/20 to-transparent" />
+        <div className="relative mx-3 my-3 p-3 rounded-xl bg-indigo-500/[0.04] border border-indigo-500/[0.08] transition-colors hover:border-indigo-500/[0.15]">
           <div className="flex items-center gap-2.5">
             {user.image ? (
               <Image
@@ -787,18 +780,18 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                 alt=""
                 width={36}
                 height={36}
-                className="w-9 h-9 rounded-[10px] ring-1 ring-white/[0.06]"
+                className="w-9 h-9 rounded-[10px] ring-1 ring-black/[0.06]"
               />
             ) : (
-              <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-sm font-bold text-[#0d0d14] flex-shrink-0">
+              <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
                 {initial}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold text-white/90 truncate">
+              <p className="text-[13px] font-semibold text-slate-800 truncate">
                 {user.name ?? "ユーザー"}
               </p>
-              <p className="text-[11px] text-white/40 truncate">{user.email}</p>
+              <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
             </div>
           </div>
           <div className="mt-2.5">
@@ -877,7 +870,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
         )}
 
         {/* タブ切り替え */}
-        <div className="relative mx-3 mt-2 mb-1 grid grid-cols-4 rounded-lg bg-white/[0.04] border border-amber-900/15 p-0.5">
+        <div className="relative mx-3 mt-2 mb-1 grid grid-cols-4 rounded-[10px] bg-black/[0.03] p-[3px] gap-0.5">
           {([
             { key: "sales", label: "営業" },
             { key: "production", label: "制作" },
@@ -890,8 +883,8 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
               className={cn(
                 "py-1.5 text-[10px] font-bold tracking-wide rounded-md transition-all duration-200",
                 activeTab === tab.key
-                  ? "bg-gradient-to-r from-amber-500/15 to-amber-600/10 text-amber-400 shadow-sm shadow-amber-900/20"
-                  : "text-white/35 hover:text-white/55"
+                  ? "bg-white text-indigo-600 shadow-sm"
+                  : "text-slate-400 hover:text-slate-600"
               )}
             >
               {tab.label}
@@ -905,13 +898,13 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
           className="relative flex-1 overflow-y-auto px-3 py-3 space-y-4"
           style={{
             scrollbarWidth: "thin",
-            scrollbarColor: "rgba(255,255,255,0.08) transparent",
+            scrollbarColor: "rgba(0,0,0,0.06) transparent",
           }}
         >
           <style>{`
             nav[data-tour="sidebar"]::-webkit-scrollbar { width: 3px; }
             nav[data-tour="sidebar"]::-webkit-scrollbar-track { background: transparent; }
-            nav[data-tour="sidebar"]::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+            nav[data-tour="sidebar"]::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.06); border-radius: 3px; }
           `}</style>
 
           {/* ===== 営業タブ ===== */}
@@ -932,28 +925,28 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                         className={cn(
                           "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 w-full group",
                           groupActive
-                            ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                            : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                            ? "bg-indigo-50 text-indigo-600 font-medium"
+                            : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                         )}
                       >
                         {groupActive && (
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-indigo-500 to-cyan-500" />
                         )}
                         <item.icon
                           className={cn(
                             "w-4 h-4 flex-shrink-0 transition-colors",
-                            groupActive ? "text-amber-500" : "text-white/30 group-hover:text-amber-600/70"
+                            groupActive ? "text-indigo-500" : "text-slate-400 group-hover:text-indigo-500/70"
                           )}
                         />
                         <span className="truncate flex-1 text-left">{item.label}</span>
                         {isOpen_ ? (
-                          <ChevronDown className="w-3 h-3 flex-shrink-0 text-white/20" />
+                          <ChevronDown className="w-3 h-3 flex-shrink-0 text-slate-300" />
                         ) : (
-                          <ChevronRight className="w-3 h-3 flex-shrink-0 text-white/20" />
+                          <ChevronRight className="w-3 h-3 flex-shrink-0 text-slate-300" />
                         )}
                       </button>
                       {isOpen_ && (
-                        <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-amber-800/10 pl-2.5">
+                        <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-indigo-200/50 pl-2.5">
                           {item.children
                             .filter((child) => hasMinRole(user.role, child.minRole))
                             .map((child) => {
@@ -968,17 +961,17 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                                     className={cn(
                                       "relative flex items-center gap-2 text-xs py-[5px] px-2.5 rounded-lg transition-all duration-150 group",
                                       childActive
-                                        ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                                        : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                                        ? "bg-indigo-50 text-indigo-600 font-medium"
+                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                                     )}
                                   >
                                     {childActive && (
-                                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-indigo-500 to-cyan-500" />
                                     )}
                                     <child.icon
                                       className={cn(
                                         "w-3.5 h-3.5 flex-shrink-0 transition-colors",
-                                        childActive ? "text-amber-500" : "text-white/30 group-hover:text-amber-600/70"
+                                        childActive ? "text-indigo-500" : "text-slate-400 group-hover:text-indigo-500/70"
                                       )}
                                     />
                                     <span className="truncate">{child.label}</span>
@@ -1002,17 +995,17 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                       className={cn(
                         "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
                         isActive
-                          ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                          : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                          ? "bg-indigo-50 text-indigo-600 font-medium"
+                          : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                       )}
                     >
                       {isActive && (
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-indigo-500 to-cyan-500" />
                       )}
                       <item.icon
                         className={cn(
                           "w-4 h-4 flex-shrink-0 transition-colors",
-                          isActive ? "text-amber-500" : "text-white/30 group-hover:text-amber-600/70"
+                          isActive ? "text-indigo-500" : "text-slate-400 group-hover:text-indigo-500/70"
                         )}
                       />
                       <span className="truncate flex-1">{item.label}</span>
@@ -1035,17 +1028,17 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                       className={cn(
                         "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
                         isActive
-                          ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                          : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                          ? "bg-indigo-50 text-indigo-600 font-medium"
+                          : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                       )}
                     >
                       {isActive && (
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-indigo-500 to-cyan-500" />
                       )}
                       <item.icon
                         className={cn(
                           "w-4 h-4 flex-shrink-0 transition-colors",
-                          isActive ? "text-amber-500" : "text-white/30 group-hover:text-amber-600/70"
+                          isActive ? "text-indigo-500" : "text-slate-400 group-hover:text-indigo-500/70"
                         )}
                       />
                       <span className="truncate flex-1">{item.label}</span>
@@ -1071,10 +1064,10 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                         rel="noopener noreferrer"
                         className={cn(
                           "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
-                          "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                          "text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                         )}
                       >
-                        <item.icon className="w-4 h-4 flex-shrink-0 text-white/30 group-hover:text-amber-600/70 transition-colors" />
+                        <item.icon className="w-4 h-4 flex-shrink-0 text-slate-400 group-hover:text-indigo-500/70 transition-colors" />
                         <span className="truncate flex-1">{item.label}</span>
                       </a>
                     ) : (
@@ -1083,17 +1076,17 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                         className={cn(
                           "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
                           isActive
-                            ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                            : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                            ? "bg-indigo-50 text-indigo-600 font-medium"
+                            : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                         )}
                       >
                         {isActive && (
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-indigo-500 to-cyan-500" />
                         )}
                         <item.icon
                           className={cn(
                             "w-4 h-4 flex-shrink-0 transition-colors",
-                            isActive ? "text-amber-500" : "text-white/30 group-hover:text-amber-600/70"
+                            isActive ? "text-indigo-500" : "text-slate-400 group-hover:text-indigo-500/70"
                           )}
                         />
                         <span className="truncate flex-1">{item.label}</span>
@@ -1114,10 +1107,10 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
           {/* ピン留めセクション */}
           {favorites.length > 0 && (
             <div>
-              <div className="flex items-center gap-2 px-2.5 py-2 text-[10px] font-semibold tracking-[1.5px] uppercase text-white/30">
-                <Star className="w-3 h-3 text-amber-500/60" />
+              <div className="flex items-center gap-2 px-2.5 py-2 text-[10px] font-semibold tracking-[1.5px] uppercase text-slate-400">
+                <Star className="w-3 h-3 text-indigo-500/60" />
                 <span className="flex-shrink-0">ピン留め</span>
-                <span className="flex-1 h-px bg-gradient-to-r from-amber-800/15 to-transparent" />
+                <span className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent" />
               </div>
               <ul className="space-y-0.5">
                 {favorites.map((fav) => {
@@ -1129,19 +1122,19 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                         className={cn(
                           "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
                           isActive
-                            ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                            : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                            ? "bg-indigo-50 text-indigo-600 font-medium"
+                            : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                         )}
                       >
                         {isActive && (
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-indigo-500 to-cyan-500" />
                         )}
                         <Star
                           className={cn(
                             "w-4 h-4 flex-shrink-0 transition-colors",
                             isActive
-                              ? "text-amber-500"
-                              : "text-amber-600/40 group-hover:text-amber-600/70"
+                              ? "text-indigo-500"
+                              : "text-indigo-400 group-hover:text-indigo-500"
                           )}
                           fill="currentColor"
                         />
@@ -1175,14 +1168,14 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
               <div key={section.section}>
                 <button
                   onClick={() => toggleSection(section.section)}
-                  className="flex items-center gap-2 px-2.5 py-2 w-full text-[10px] font-semibold tracking-[1.5px] uppercase text-white/30 cursor-pointer hover:text-white/40 transition-colors"
+                  className="flex items-center gap-2 px-2.5 py-2 w-full text-[10px] font-semibold tracking-[1.5px] uppercase text-slate-400 cursor-pointer hover:text-slate-500 transition-colors"
                 >
                   <span className="flex-shrink-0">{section.section}</span>
-                  <span className="flex-1 h-px bg-gradient-to-r from-amber-800/15 to-transparent" />
+                  <span className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent" />
                   {sectionOpen ? (
-                    <ChevronDown className="w-3 h-3 text-white/20 flex-shrink-0" />
+                    <ChevronDown className="w-3 h-3 text-slate-300 flex-shrink-0" />
                   ) : (
-                    <ChevronRight className="w-3 h-3 text-white/20 flex-shrink-0" />
+                    <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
                   )}
                 </button>
                 {sectionOpen && (
@@ -1200,35 +1193,35 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                             className={cn(
                               "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 w-full group",
                               groupActive
-                                ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                                : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                                ? "bg-indigo-50 text-indigo-600 font-medium"
+                                : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                             )}
                           >
                             {groupActive && (
-                              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-indigo-500 to-cyan-500" />
                             )}
                             <item.icon
                               className={cn(
                                 "w-4 h-4 flex-shrink-0 transition-colors",
                                 groupActive
-                                  ? "text-amber-500"
-                                  : "text-white/30 group-hover:text-amber-600/70"
+                                  ? "text-indigo-500"
+                                  : "text-slate-400 group-hover:text-indigo-500/70"
                               )}
                             />
                             <span className="truncate flex-1 text-left">{item.label}</span>
                             {item.badge && !groupActive && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500/60 border border-amber-500/15 font-semibold tracking-wide flex-shrink-0">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-500/60 border border-indigo-200/50 font-semibold tracking-wide flex-shrink-0">
                                 {item.badge}
                               </span>
                             )}
                             {isOpen_ ? (
-                              <ChevronDown className="w-3 h-3 flex-shrink-0 text-white/20" />
+                              <ChevronDown className="w-3 h-3 flex-shrink-0 text-slate-300" />
                             ) : (
-                              <ChevronRight className="w-3 h-3 flex-shrink-0 text-white/20" />
+                              <ChevronRight className="w-3 h-3 flex-shrink-0 text-slate-300" />
                             )}
                           </button>
                           {isOpen_ && (
-                            <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-amber-800/10 pl-2.5">
+                            <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-indigo-200/50 pl-2.5">
                               {item.children
                                 .filter((child) => hasMinRole(user.role, child.minRole))
                                 .map((child) => {
@@ -1245,19 +1238,19 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                                         className={cn(
                                           "relative flex items-center gap-2 text-xs py-[5px] px-2.5 rounded-lg transition-all duration-150 group",
                                           childActive
-                                            ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                                            : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                                            ? "bg-indigo-50 text-indigo-600 font-medium"
+                                            : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                                         )}
                                       >
                                         {childActive && (
-                                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-indigo-500 to-cyan-500" />
                                         )}
                                         <child.icon
                                           className={cn(
                                             "w-3.5 h-3.5 flex-shrink-0 transition-colors",
                                             childActive
-                                              ? "text-amber-500"
-                                              : "text-white/30 group-hover:text-amber-600/70"
+                                              ? "text-indigo-500"
+                                              : "text-slate-400 group-hover:text-indigo-500/70"
                                           )}
                                         />
                                         <span className="truncate">{child.label}</span>
@@ -1283,20 +1276,20 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                     const linkClass = cn(
                       "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
                       isActive
-                        ? "bg-gradient-to-r from-amber-500/12 to-amber-500/[0.06] text-white font-medium"
-                        : "text-white/45 hover:text-white/85 hover:bg-amber-900/10"
+                        ? "bg-indigo-50 text-indigo-600 font-medium"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                     );
                     const linkContent = (
                       <>
                         {isActive && (
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-amber-500 to-amber-700" />
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-indigo-500 to-cyan-500" />
                         )}
                         <item.icon
                           className={cn(
                             "w-4 h-4 flex-shrink-0 transition-colors",
                             isActive
-                              ? "text-amber-500"
-                              : "text-white/30 group-hover:text-amber-600/70"
+                              ? "text-indigo-500"
+                              : "text-slate-400 group-hover:text-indigo-500/70"
                           )}
                         />
                         <span className="truncate flex-1">{item.label}</span>
@@ -1304,7 +1297,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
                         )}
                         {item.badge && !isActive && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500/60 border border-amber-500/15 font-semibold tracking-wide flex-shrink-0">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-500/60 border border-indigo-200/50 font-semibold tracking-wide flex-shrink-0">
                             {item.badge}
                           </span>
                         )}
@@ -1339,10 +1332,10 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
         </nav>
 
         {/* ログアウト */}
-        <div className="relative px-3 py-3 border-t border-amber-900/15">
+        <div className="relative px-3 py-3 border-t border-black/[0.04]">
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-[13px] text-white/35 hover:bg-red-500/8 hover:text-red-400/70 transition-all"
+            className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-[13px] text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all"
           >
             <LogOut className="w-4 h-4" />
             <span>ログアウト</span>
