@@ -627,6 +627,7 @@ const SALES_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, minRole: "USER" },
   { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
   { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
+  { href: "/dashboard/playbook", label: "営業プレイブック", icon: BookOpen, minRole: "MANAGER" },
   { href: "/dashboard/leads/list", label: "営業報告", icon: ClipboardList, minRole: "USER" },
   {
     href: "#media-simulators",
