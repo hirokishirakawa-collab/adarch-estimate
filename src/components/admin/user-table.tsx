@@ -44,6 +44,7 @@ const SUSPEND_REASON_COLOR: Record<Exclude<SuspendReasonValue, null>, string> = 
 const OPTIONAL_FEATURES = [
   { id: "cutsheet", label: "カット表AI" },
   { id: "auto-sales", label: "自動営業" },
+  { id: "playbook", label: "プレイブック" },
 ] as const;
 
 type GroupCompanyOption = {
