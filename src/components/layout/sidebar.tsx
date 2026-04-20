@@ -199,6 +199,13 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "MANAGER",
         requiredFeature: "auto-sales",
       },
+      {
+        href: "/dashboard/auto-sales/playbook",
+        label: "プレイブック",
+        icon: BookOpen,
+        minRole: "MANAGER",
+        requiredFeature: "auto-sales",
+      },
     ],
   },
   {

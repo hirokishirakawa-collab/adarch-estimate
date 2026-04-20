@@ -2698,6 +2698,34 @@ model AutoSalesBlacklist {
   @@map("auto_sales_blacklist")
 }
 
+/// 営業プレイブック: 本部が管理する「効果的な訴求パターン」の全社共通テンプレート集。
+/// パートナーが Claude Cowork 等で自動営業を行う際の指示書として JSON で取得できる。
+model SalesPlaybook {
+  id            String   @id @default(cuid())
+  label         String   // プレイブック名（例: "美容院×動画制作"）
+  targetType    String   // BTOB / BTOC
+  industry      String?  // 対象業種
+  serviceTypes  String[] // 訴求カテゴリ（VIDEO_PRODUCTION 等）
+  pitchTemplate String   @db.Text // 訴求文テンプレート
+  approach      String?  @db.Text // 提案タイミング・切り口のコツ
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("sales_playbooks")
+}
+
+/// 営業ガイドライン: プレイブック利用時のブランドルール・禁止事項等。
+/// key-value 形式で柔軟に格納。
+model SalesGuideline {
+  id        String   @id @default(cuid())
+  key       String   @unique // "brand", "positioning", "tone", "availableMedia", "prohibited"
+  value     Json     // ガイドライン内容
+  updatedAt DateTime @updatedAt
+
+  @@map("sales_guidelines")
+}
+
 // ==============================================================
 // クリエイター登録プラットフォーム
 // 外部クリエイター（カメラマン・エディター・制作）の登録・検索・相談
