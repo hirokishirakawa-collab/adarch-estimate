@@ -85,6 +85,7 @@ export function PlaybookManager({ initialPlaybooks, initialGuidelines, isAdmin }
   const [generatedApproach, setGeneratedApproach] = useState("");
   const [generatedMessage, setGeneratedMessage] = useState<string | null>(null);
   const [exampleCount, setExampleCount] = useState(0);
+  const [dataLabel, setDataLabel] = useState("");
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -116,6 +117,7 @@ export function PlaybookManager({ initialPlaybooks, initialGuidelines, isAdmin }
         setGeneratedApproach(data.approach ?? "");
         setGeneratedMessage(data.message);
         setExampleCount(data.exampleCount ?? 0);
+        setDataLabel(data.dataLabel ?? "");
       }
     } finally {
       setGenerating(false);
@@ -295,7 +297,7 @@ export function PlaybookManager({ initialPlaybooks, initialGuidelines, isAdmin }
             <div className="bg-white rounded-lg border border-zinc-200 p-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-emerald-600">
-                  生成結果（{exampleCount}件の実績データから生成）
+                  生成結果（{dataLabel || `${exampleCount}件の実績データから生成`}）
                 </p>
                 <div className="flex items-center gap-1.5">
                   <button
