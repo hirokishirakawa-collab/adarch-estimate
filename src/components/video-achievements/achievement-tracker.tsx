@@ -90,11 +90,11 @@ export function AchievementTracker({ achievements, role, currentPage, totalPages
         alert(res.error);
         return;
       }
-      const msg = res.isNewCustomer
-        ? `${companyName} を新規顧客として登録し、攻略商談を作成しました！`
-        : `${companyName} の攻略商談を作成しました！`;
+      const msg = res.isNewLead
+        ? `${companyName} を新規リードとして登録しました！`
+        : `${companyName} は既にリードに登録済みです`;
       alert(msg);
-      router.push("/dashboard/deals");
+      router.push("/dashboard/leads/list");
     });
   };
 

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
-import type { DealStatus, CustomerStatus } from "@/generated/prisma/client";
+import type { LeadSource } from "@/generated/prisma/client";
 
 // ---------------------------------------------------------------
 // 手動で動画実績を登録する
@@ -113,65 +113,51 @@ export async function bulkDeleteVideoAchievements(
 }
 
 // ---------------------------------------------------------------
-// 動画実績から攻略商談を開始する（核心）
+// 動画実績から攻略を開始する → リード管理に登録
 // ---------------------------------------------------------------
 export async function startAttackFromAchievement(
   achievementId: string
 ): Promise<{
-  dealId?: string;
-  customerId?: string;
-  isNewCustomer?: boolean;
+  leadId?: string;
+  isNewLead?: boolean;
   error?: string;
 }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
-  if (!info.branchId) return { error: "拠点が割り当てられていません。管理者にお問い合わせください。" };
-  const { branchId, userId } = info;
+  const { userId } = info;
 
   const achievement = await db.videoAchievement.findUnique({
     where: { id: achievementId },
   });
   if (!achievement) return { error: "実績データが見つかりません" };
 
-  // 顧客を名前で検索（拠点スコープ内）
-  const existing = await db.customer.findFirst({
-    where: {
-      name: achievement.companyName,
-      branchId,
-    },
+  // リードを名前で検索（重複防止）
+  const existing = await db.lead.findFirst({
+    where: { name: achievement.companyName },
   });
 
-  let customerId: string;
-  let isNewCustomer = false;
+  let leadId: string;
+  let isNewLead = false;
 
   if (existing) {
-    customerId = existing.id;
+    leadId = existing.id;
   } else {
-    // 新規顧客として登録
-    const newCustomer = await db.customer.create({
+    const newLead = await db.lead.create({
       data: {
-        name:       achievement.companyName,
-        prefecture: achievement.prefecture,
-        industry:   achievement.industry,
-        status:     "PROSPECT" as CustomerStatus,
-        branchId,
+        name:        achievement.companyName,
+        address:     achievement.prefecture,
+        industry:    achievement.industry,
+        source:      "MANUAL" as LeadSource,
+        memo:        achievement.contentSummary
+          ? `【競合実績から攻略】${achievement.contentSummary}`
+          : "【競合実績から攻略】",
+        websiteUrl:  achievement.referenceUrl ?? null,
+        createdById: userId,
       },
     });
-    customerId = newCustomer.id;
-    isNewCustomer = true;
+    leadId = newLead.id;
+    isNewLead = true;
   }
-
-  // 攻略商談を作成
-  const deal = await db.deal.create({
-    data: {
-      title:      `【動画実績攻略】${achievement.companyName}`,
-      status:     "PROSPECTING" as DealStatus,
-      notes:      achievement.contentSummary ?? null,
-      customerId,
-      branchId,
-      createdById: userId,
-    },
-  });
 
   // 実績を処理済みにする
   await db.videoAchievement.update({
@@ -180,9 +166,9 @@ export async function startAttackFromAchievement(
   });
 
   revalidatePath("/dashboard/video-achievements");
-  revalidatePath("/dashboard/deals");
+  revalidatePath("/dashboard/leads/list");
 
-  return { dealId: deal.id, customerId, isNewCustomer };
+  return { leadId, isNewLead };
 }
 
 // ---------------------------------------------------------------
