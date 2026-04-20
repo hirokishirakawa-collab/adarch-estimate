@@ -318,7 +318,7 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/playbook",
         label: "営業プレイブック",
         icon: BookOpen,
-        minRole: "MANAGER",
+        minRole: "USER",
       },
     ],
   },

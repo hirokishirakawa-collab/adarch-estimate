@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-// プレイブック JSON 取得（アクティブ＋月次報告提出済みのパートナー、またはADMIN）
+// プレイブック JSON 取得（ログイン済み全ユーザー）
 export async function GET() {
   const session = await auth();
   if (!session?.user?.email) {
@@ -17,28 +17,6 @@ export async function GET() {
   }
 
   const isAdmin = user.role === "ADMIN";
-
-  // ADMIN以外: 「月次報告提出済み」または「個別許可(playbook)」が必要
-  if (!isAdmin) {
-    if (!user.isActive) {
-      return NextResponse.json({ error: "アカウントが停止されています" }, { status: 403 });
-    }
-    const hasFeatureAccess = user.enabledFeatures.includes("playbook");
-    if (!hasFeatureAccess) {
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      const report = await db.revenueReport.findFirst({
-        where: { createdById: user.id, targetMonth: { gte: monthStart, lt: monthEnd } },
-      });
-      if (!report) {
-        return NextResponse.json(
-          { error: "月次報告を提出してからご利用ください" },
-          { status: 403 }
-        );
-      }
-    }
-  }
 
   const [playbooks, guidelineRows] = await Promise.all([
     db.salesPlaybook.findMany({
