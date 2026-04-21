@@ -38,7 +38,7 @@ export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProp
   });
 
   return (
-    <header className="flex-shrink-0">
+    <header className="flex-shrink-0 relative z-10">
       {/* ADMIN バナー */}
       {banner && (
         <div className={cn("px-6 py-1.5 flex items-center gap-2", banner.bgClass)}>
