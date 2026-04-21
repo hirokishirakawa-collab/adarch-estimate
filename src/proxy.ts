@@ -28,6 +28,7 @@ const PROTECTED_PATHS: { prefix: string; role: UserRole }[] = [
 /** ハードコードされたブロックIP */
 const HARDCODED_BLOCKED_IPS = new Set([
   "104.198.89.53", // 2026-04-13 GCP bot: /dashboard/studio への大量アクセス
+  "45.148.10.21",  // 2026-04-20 .env/credentials スキャンボット
 ]);
 
 /** 環境変数からの追加ブロックIP（カンマ区切り） */
