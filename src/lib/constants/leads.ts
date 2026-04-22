@@ -320,3 +320,71 @@ export interface ScoredBtoBLead extends BtoBCompanyLead {
   digitalAnalysis?: WebsiteAnalysis;
   youtubeChannel?: YouTubeChannelInfo;
 }
+
+// ---------------------------------------------------------------
+// 採用リード獲得AI 定数
+// ---------------------------------------------------------------
+
+/** 採用タイプ */
+export type RecruitType = "midcareer" | "newgrad" | "both" | "unknown";
+
+/** 採用リード 業種オプション（人手不足業界優先） */
+export const RECRUIT_INDUSTRY_OPTIONS = [
+  { value: "restaurant", label: "飲食・フード", keywords: "飲食店 レストラン カフェ 居酒屋 採用 求人" },
+  { value: "nursing", label: "介護・福祉", keywords: "介護施設 老人ホーム デイサービス 福祉 採用 求人" },
+  { value: "construction", label: "建設・土木", keywords: "建設会社 工務店 土木 リフォーム 採用 求人" },
+  { value: "logistics", label: "物流・運送", keywords: "運送会社 物流 配送 倉庫 ドライバー 採用 求人" },
+  { value: "manufacturing", label: "製造業", keywords: "製造 工場 メーカー 技術者 採用 求人" },
+  { value: "retail", label: "小売・販売", keywords: "小売店 ショップ 販売 アパレル 採用 求人" },
+  { value: "beauty", label: "美容・エステ", keywords: "美容室 エステ ネイルサロン スタイリスト 採用 求人" },
+  { value: "medical", label: "医療・クリニック", keywords: "病院 クリニック 歯科 看護師 採用 求人" },
+  { value: "it_web", label: "IT・Web・SaaS", keywords: "IT企業 エンジニア プログラマー SaaS 採用 求人" },
+  { value: "education", label: "教育・保育", keywords: "学校 保育園 幼稚園 学習塾 講師 採用 求人" },
+  { value: "hotel", label: "ホテル・旅館", keywords: "ホテル 旅館 宿泊 フロント 採用 求人" },
+  { value: "real_estate", label: "不動産", keywords: "不動産 住宅 賃貸 売買 営業 採用 求人" },
+  { value: "other", label: "その他（自由入力）", keywords: "" },
+] as const;
+
+export type RecruitIndustryValue = (typeof RECRUIT_INDUSTRY_OPTIONS)[number]["value"];
+
+/** 採用リード スコア項目（合計100点） */
+export const RECRUIT_SCORE_ITEMS = [
+  { key: "recruitActivity", label: "採用活動度", max: 20 },
+  { key: "recruitMethodAge", label: "採用手法の旧さ", max: 20 },
+  { key: "videoOpportunity", label: "採用動画チャンス", max: 20 },
+  { key: "snsOpportunity", label: "採用SNSチャンス", max: 15 },
+  { key: "companyScale", label: "企業規模・予算感", max: 15 },
+  { key: "accessibility", label: "接触しやすさ", max: 10 },
+] as const;
+
+export type RecruitScoreKey = (typeof RECRUIT_SCORE_ITEMS)[number]["key"];
+
+/** 採用リード スコアリング結果の型 */
+export interface RecruitLeadScore {
+  total: number;
+  breakdown: Record<RecruitScoreKey, number>;
+  comment: string;
+}
+
+/** 採用ページ深堀り分析結果 */
+export interface RecruitmentAnalysis {
+  recruitPageUrl: string | null;
+  /** 中途/新卒/両方/不明 */
+  recruitType: RecruitType;
+  recruitTypeSignals: string[];
+  jobCount: number;
+  jobTypes: string[];
+  hasRecruitVideo: boolean;
+  hasRecruitSns: string[];
+  usesRecruitPlatform: string[];
+  urgencySignals: string[];
+  summary: string;
+}
+
+/** 採用リード スコアリング済みの型 */
+export interface ScoredRecruitLead extends PlaceLead {
+  score: RecruitLeadScore;
+  digitalAnalysis?: WebsiteAnalysis;
+  recruitAnalysis?: RecruitmentAnalysis;
+  youtubeChannel?: YouTubeChannelInfo;
+}

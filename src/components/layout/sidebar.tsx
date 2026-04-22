@@ -58,6 +58,7 @@ import {
   Bot,
   Rocket,
   Paintbrush,
+  Briefcase,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -152,6 +153,7 @@ const NAV_SECTIONS: NavSection[] = [
           { href: "/dashboard/leads", label: "BtoC リード", icon: Crosshair, minRole: "USER" },
           { href: "/dashboard/leads/btob", label: "BtoB リード", icon: Building2, minRole: "USER" },
           { href: "/dashboard/leads/cinema", label: "シネアド リード", icon: Clapperboard, minRole: "USER" },
+          { href: "/dashboard/leads/recruit", label: "採用リード", icon: Briefcase, minRole: "USER" },
         ],
       },
       {

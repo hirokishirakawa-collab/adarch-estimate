@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendChatMessage } from "@/lib/google-chat";
 import { getLeadStatusOption } from "@/lib/constants/leads";
-import type { ScoredLead, ScoredBtoBLead } from "@/lib/constants/leads";
+import type { ScoredLead, ScoredBtoBLead, ScoredRecruitLead } from "@/lib/constants/leads";
 import type { ScoredCinemaLead } from "@/lib/constants/cinema-leads";
 import type { LeadStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
@@ -669,6 +669,96 @@ export async function saveCinemaLeadsFromSearch(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[saveCinemaLeadsFromSearch] DB error:", msg, e);
+    return { saved: savedCount, error: "保存中にエラーが発生しました" };
+  }
+}
+
+// ---------------------------------------------------------------
+// 採用リード検索結果をリードとして一括保存する
+// ---------------------------------------------------------------
+export async function saveRecruitLeadsFromSearch(
+  leads: ScoredRecruitLead[],
+  industry: string,
+  area: string,
+): Promise<{ saved: number; error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { saved: 0, error: "ログインが必要です" };
+
+  const staffName = session.user.name ?? session.user.email ?? "不明";
+  const email = session.user.email ?? "";
+  const user = await db.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  let savedCount = 0;
+
+  try {
+    for (const lead of leads) {
+      const address = lead.address || "";
+      const existing = await db.lead.findUnique({
+        where: { name_address: { name: lead.name, address } },
+      });
+
+      const recruitTypeSuffix = lead.recruitAnalysis?.recruitType
+        ? `（${lead.recruitAnalysis.recruitType === "both" ? "中途+新卒" : lead.recruitAnalysis.recruitType === "midcareer" ? "中途" : lead.recruitAnalysis.recruitType === "newgrad" ? "新卒" : ""}）`
+        : "";
+
+      if (existing) {
+        await db.lead.update({
+          where: { id: existing.id },
+          data: {
+            scoreTotal: lead.score?.total ?? 0,
+            scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
+            scoreComment: lead.score?.comment ?? null,
+            source: "RECRUIT_SEARCH",
+            youtubeChannelUrl: lead.youtubeChannel?.url ?? null,
+            youtubeSubscribers: lead.youtubeChannel?.subscribers ?? null,
+          },
+        });
+      } else {
+        const created = await db.lead.create({
+          data: {
+            name: lead.name,
+            address: address || null,
+            phone: lead.phone || null,
+            rating: lead.rating,
+            ratingCount: lead.ratingCount,
+            types: lead.types,
+            mapsUrl: lead.mapsUrl || null,
+            websiteUrl: lead.websiteUrl || null,
+            businessStatus: lead.businessStatus || null,
+            scoreTotal: lead.score?.total ?? 0,
+            scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
+            scoreComment: lead.score?.comment ?? null,
+            industry,
+            area,
+            source: "RECRUIT_SEARCH",
+            youtubeChannelUrl: lead.youtubeChannel?.url ?? null,
+            youtubeSubscribers: lead.youtubeChannel?.subscribers ?? null,
+            createdById: user?.id ?? null,
+            assigneeId: user?.id ?? null,
+          },
+        });
+
+        await db.leadLog.create({
+          data: {
+            leadId: created.id,
+            action: "CREATED",
+            detail: `採用リード獲得AIから保存${recruitTypeSuffix}（スコア: ${lead.score?.total ?? 0}）`,
+            staffName,
+          },
+        });
+
+        savedCount++;
+      }
+    }
+
+    revalidatePath("/dashboard/leads/list");
+    return { saved: savedCount };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[saveRecruitLeadsFromSearch] DB error:", msg, e);
     return { saved: savedCount, error: "保存中にエラーが発生しました" };
   }
 }

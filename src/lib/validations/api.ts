@@ -143,3 +143,30 @@ export const btobScoreSchema = z.object({
   industry: z.string().min(1),
   area: z.string().min(1),
 });
+
+// POST /api/leads/recruit/score
+export const recruitScoreSchema = z.object({
+  places: z
+    .array(
+      z.object({
+        name: z.string(),
+        address: z.string(),
+        phone: z.string(),
+        rating: z.number(),
+        ratingCount: z.number(),
+        types: z.array(z.string()),
+        mapsUrl: z.string(),
+        websiteUrl: z.string(),
+        businessStatus: z.string(),
+        reviewSummary: z.string().optional(),
+        placeSummary: z.string().optional(),
+        neighborhoodSummary: z.string().optional(),
+        googleMapsTypeLabel: z.string().optional(),
+        isFutureOpening: z.boolean().optional(),
+      })
+    )
+    .min(1)
+    .max(50),
+  industry: z.string().min(1),
+  area: z.string().min(1),
+});
