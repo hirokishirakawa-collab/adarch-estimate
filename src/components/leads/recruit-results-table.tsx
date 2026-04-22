@@ -143,24 +143,24 @@ export function RecruitResultsTable({
       </div>
 
       {/* テーブル */}
-      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-xl border border-zinc-200 overflow-x-auto">
+        <table className="w-full text-sm min-w-[700px]">
           <thead>
             <tr className="border-b border-zinc-100 bg-zinc-50">
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-zinc-500 w-8" />
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-zinc-500">
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-zinc-500 w-8" />
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-zinc-500">
                 企業名
               </th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-zinc-500 hidden lg:table-cell">
-                住所
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-zinc-500 w-48">
+                リンク
               </th>
-              <th className="text-center px-4 py-2.5 text-xs font-medium text-zinc-500 hidden sm:table-cell w-24">
+              <th className="text-center px-3 py-2.5 text-xs font-medium text-zinc-500 w-24">
                 採用タイプ
               </th>
-              <th className="text-center px-4 py-2.5 text-xs font-medium text-zinc-500 w-20">
+              <th className="text-center px-3 py-2.5 text-xs font-medium text-zinc-500 w-16">
                 スコア
               </th>
-              <th className="text-center px-4 py-2.5 text-xs font-medium text-zinc-500 w-20">
+              <th className="text-center px-3 py-2.5 text-xs font-medium text-zinc-500 w-20">
                 優先度
               </th>
             </tr>
@@ -180,17 +180,18 @@ export function RecruitResultsTable({
                 <tr key={`${lead.name}-${i}`} className="group">
                   <td colSpan={6} className="p-0">
                     <div
-                      className={`grid grid-cols-[2rem_1fr_5rem_5rem] sm:grid-cols-[2rem_1fr_1fr_6rem_5rem_5rem] items-center cursor-pointer hover:bg-zinc-50 transition-colors ${existingStatus ? "opacity-60" : ""}`}
+                      className="grid grid-cols-[2rem_1fr_12rem_6rem_4rem_5rem] items-center cursor-pointer hover:bg-zinc-50 transition-colors"
+                      style={existingStatus ? { opacity: 0.6 } : undefined}
                       onClick={() => setExpandedIdx(isExpanded ? null : i)}
                     >
-                      <div className="px-4 py-3 flex items-center">
+                      <div className="px-3 py-3 flex items-center">
                         {isExpanded ? (
                           <ChevronUp className="w-4 h-4 text-zinc-400" />
                         ) : (
                           <ChevronDown className="w-4 h-4 text-zinc-400" />
                         )}
                       </div>
-                      <div className="px-4 py-3">
+                      <div className="px-3 py-3 min-w-0">
                         <p className="font-medium text-zinc-900 truncate flex items-center gap-1.5">
                           {lead.name}
                           {statusOption && (
@@ -199,25 +200,38 @@ export function RecruitResultsTable({
                             </span>
                           )}
                         </p>
+                        <p className="text-[11px] text-zinc-400 truncate mt-0.5">{lead.address}</p>
                       </div>
-                      <div className="px-4 py-3 hidden lg:block">
-                        <p className="text-zinc-500 truncate text-xs">
-                          {lead.address}
-                        </p>
+                      <div className="px-3 py-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                        {lead.websiteUrl && (
+                          <a href={lead.websiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline">
+                            <ExternalLink className="w-3 h-3" />Web
+                          </a>
+                        )}
+                        {lead.mapsUrl && (
+                          <a href={lead.mapsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline">
+                            <ExternalLink className="w-3 h-3" />Maps
+                          </a>
+                        )}
+                        {lead.recruitAnalysis?.recruitPageUrl && (
+                          <a href={lead.recruitAnalysis.recruitPageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-amber-600 hover:underline font-medium">
+                            <Briefcase className="w-3 h-3" />採用
+                          </a>
+                        )}
                       </div>
-                      <div className="px-4 py-3 text-center hidden sm:block">
+                      <div className="px-3 py-3 text-center">
                         {rtInfo && rtInfo.label !== "不明" && (
                           <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${rtInfo.className}`}>
                             {rtInfo.label}
                           </span>
                         )}
                       </div>
-                      <div className="px-4 py-3 text-center">
+                      <div className="px-3 py-3 text-center">
                         <span className="font-bold text-zinc-900">
                           {lead.score.total}
                         </span>
                       </div>
-                      <div className="px-4 py-3 text-center">
+                      <div className="px-3 py-3 text-center">
                         <span
                           className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border ${priority.className}`}
                         >
