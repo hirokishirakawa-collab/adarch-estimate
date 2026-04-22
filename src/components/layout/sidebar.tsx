@@ -149,11 +149,6 @@ const NAV_SECTIONS: NavSection[] = [
         label: "リード獲得AI",
         icon: Crosshair,
         minRole: "USER",
-        children: [
-          { href: "/dashboard/leads", label: "BtoC リード", icon: Crosshair, minRole: "USER" },
-          { href: "/dashboard/leads/btob", label: "BtoB リード", icon: Building2, minRole: "USER" },
-          { href: "/dashboard/leads/cinema", label: "シネアド リード", icon: Clapperboard, minRole: "USER" },
-        ],
       },
       {
         href: "/dashboard/video-achievements",
@@ -614,17 +609,7 @@ const SALES_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/customers", label: "顧客管理", icon: Users, minRole: "USER" },
   { href: "/dashboard/leads/list", label: "リード管理", icon: ListChecks, minRole: "USER" },
   { href: "/dashboard/deals", label: "商談管理（SFA）", icon: TrendingUp, minRole: "USER" },
-  {
-    href: "/dashboard/leads",
-    label: "リード獲得AI",
-    icon: Crosshair,
-    minRole: "USER",
-    children: [
-      { href: "/dashboard/leads", label: "BtoC リード", icon: Crosshair, minRole: "USER" },
-      { href: "/dashboard/leads/btob", label: "BtoB リード", icon: Building2, minRole: "USER" },
-      { href: "/dashboard/leads/cinema", label: "シネアド リード", icon: Clapperboard, minRole: "USER" },
-    ],
-  },
+  { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, minRole: "USER" },
   { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, minRole: "USER" },
   { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
   { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
