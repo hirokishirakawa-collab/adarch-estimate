@@ -99,6 +99,20 @@ export default async function DashboardPage() {
     select: { name: true, parentName: true, lastUpdated: true, driveUrl: true, path: true },
   });
 
+  // ── パートナー稼働ステータスサマリー（ADMIN向け） ──
+  let adminStatusCounts: { active: number; inactive: number; notSelected: number; total: number } | null = null;
+  if (role === "ADMIN") {
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const [activeCount, inactiveCount, notSelectedCount, totalCount] = await Promise.all([
+      db.partnerStatus.count({ where: { year, month, status: "ACTIVE" } }),
+      db.partnerStatus.count({ where: { year, month, status: { in: ["INACTIVE", "FORCED_INACTIVE"] } } }),
+      db.partnerStatus.count({ where: { year, month, status: "NOT_SELECTED" } }),
+      db.groupCompany.count({ where: { isActive: true } }),
+    ]);
+    adminStatusCounts = { active: activeCount, inactive: inactiveCount, notSelected: notSelectedCount, total: totalCount };
+  }
+
   // ── パートナー稼働ステータスチェック（ADMIN以外） ──
   let partnerStatus: { status: string; selectedAt: string | null; note: string | null } | null = null;
   let partnerCompanyName = "";
@@ -186,6 +200,37 @@ export default async function DashboardPage() {
           </span>
         )}
       </div>
+
+      {/* ── パートナー稼働ステータス（ADMIN） ── */}
+      {role === "ADMIN" && adminStatusCounts && (
+        <Link
+          href="/dashboard/admin/partner-status"
+          className="flex items-center gap-4 rounded-xl border border-zinc-200 bg-white px-5 py-3.5 transition group hover:border-zinc-300 hover:shadow-sm"
+        >
+          <div className="w-9 h-9 rounded-xl bg-zinc-100 flex items-center justify-center flex-shrink-0">
+            <Activity className="w-[18px] h-[18px] text-zinc-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-zinc-800">パートナー稼働ステータス</p>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="inline-flex items-center gap-1 text-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="text-zinc-600">稼働 <span className="font-semibold text-emerald-700">{adminStatusCounts.active}</span></span>
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                <span className="text-zinc-600">休止 <span className="font-semibold text-amber-700">{adminStatusCounts.inactive}</span></span>
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                <span className="text-zinc-600">未選択 <span className="font-semibold text-red-700">{adminStatusCounts.notSelected}</span></span>
+              </span>
+              <span className="text-[11px] text-zinc-400">/ 全{adminStatusCounts.total}社</span>
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-zinc-300 group-hover:text-zinc-500 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+        </Link>
+      )}
 
       {/* ── 月次報告 未提出警告 ── */}
       {reportWarning && (

@@ -288,7 +288,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       {
         href: "/dashboard/violation-report",
-        label: "違反行為の通報",
+        label: "コンプライアンス相談",
         icon: AlertTriangle,
         minRole: "MANAGER",
       },
@@ -520,7 +520,7 @@ const NAV_SECTIONS: NavSection[] = [
       },
       {
         href: "/dashboard/admin/violation-reports",
-        label: "違反通報管理",
+        label: "コンプライアンス相談管理",
         icon: AlertTriangle,
         minRole: "ADMIN",
       },

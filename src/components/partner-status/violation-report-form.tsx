@@ -81,7 +81,7 @@ export function ViolationReportForm() {
       <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-6 text-center">
         <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
         <p className="text-base font-bold text-emerald-800 mb-1">
-          通報を受け付けました
+          ご相談を受け付けました
         </p>
         <p className="text-sm text-emerald-600 mb-4">
           本部にて確認し、対応いたします。ご協力ありがとうございます。
@@ -91,7 +91,7 @@ export function ViolationReportForm() {
           onClick={() => setSuccess(false)}
           className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition-colors"
         >
-          別の通報をする
+          別の相談をする
         </button>
       </div>
     );
@@ -105,7 +105,7 @@ export function ViolationReportForm() {
           対象の説明 <span className="text-red-500">*</span>
         </label>
         <p className="text-[11px] text-zinc-400 mb-2">
-          通報対象の人物・企業・行為について、特定できる範囲でお書きください
+          対象の人物・企業・行為について、特定できる範囲でお書きください
         </p>
         <textarea
           value={targetDescription}
@@ -123,7 +123,7 @@ export function ViolationReportForm() {
           詳細内容 <span className="text-red-500">*</span>
         </label>
         <p className="text-[11px] text-zinc-400 mb-2">
-          発見した経緯、具体的な違反行為の内容を詳しくお書きください
+          発見した経緯、具体的な内容を詳しくお書きください
         </p>
         <textarea
           value={content}
@@ -186,10 +186,10 @@ export function ViolationReportForm() {
           />
           <div>
             <span className="text-sm font-medium text-zinc-800">
-              匿名で通報する
+              匿名で相談する
             </span>
             <p className="text-[11px] text-zinc-400 mt-0.5">
-              チェックを外すと、通報者としてあなたの企業名が本部に通知されます
+              チェックを外すと、相談者としてあなたの企業名が本部に通知されます
             </p>
           </div>
         </label>
@@ -216,7 +216,7 @@ export function ViolationReportForm() {
           ) : (
             <Send className="w-4 h-4" />
           )}
-          通報を送信
+          相談を送信
         </button>
       </div>
     </div>

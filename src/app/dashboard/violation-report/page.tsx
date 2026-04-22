@@ -18,9 +18,9 @@ export default async function ViolationReportPage() {
           />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-zinc-900">違反行為の通報</h2>
+          <h2 className="text-lg font-bold text-zinc-900">コンプライアンス相談</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            グループの信頼を守るため、不正行為を発見された場合はこちらからご報告ください。匿名での通報も可能です。
+            グループの信頼を守るため、気になる行為を発見された場合はこちらからご相談ください。匿名でのご相談も可能です。
           </p>
         </div>
       </div>

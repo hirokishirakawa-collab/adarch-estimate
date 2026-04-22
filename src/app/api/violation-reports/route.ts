@@ -1,6 +1,6 @@
 // ==============================================================
-// GET  /api/violation-reports — 違反通報一覧（ADMIN: 全件 / パートナー: 自分の通報のみ）
-// POST /api/violation-reports — 違反通報の新規作成
+// GET  /api/violation-reports — コンプライアンス相談一覧（ADMIN: 全件 / パートナー: 自分の相談のみ）
+// POST /api/violation-reports — コンプライアンス相談の新規作成
 // ==============================================================
 
 import { auth } from "@/lib/auth";
@@ -58,7 +58,7 @@ export async function GET() {
   }
 }
 
-// POST: 違反通報を新規作成
+// POST: コンプライアンス相談を新規作成
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
 
     // Google Chat 通知
     const reporterLabel = isAnonymous ? "匿名" : (user.name ?? user.email ?? "不明");
-    const chatText = `🚨 違反通報が送信されました\n通報者: ${reporterLabel}\n対象: ${body.targetDescription.slice(0, 100)}\n内容: ${body.content.slice(0, 200)}${body.content.length > 200 ? "…" : ""}\n\nOS管理画面で確認してください。`;
+    const chatText = `📋 コンプライアンス相談が届きました\n相談者: ${reporterLabel}\n対象: ${body.targetDescription.slice(0, 100)}\n内容: ${body.content.slice(0, 200)}${body.content.length > 200 ? "…" : ""}\n\nOS管理画面で確認してください。`;
     sendChatMessage("AAQAxSqou_g", chatText).catch(() => {});
 
     return NextResponse.json({ report }, { status: 201 });

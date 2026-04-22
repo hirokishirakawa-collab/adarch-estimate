@@ -92,9 +92,9 @@ export default async function AdminViolationReportsPage() {
           />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-zinc-900">違反通報管理</h2>
+          <h2 className="text-lg font-bold text-zinc-900">コンプライアンス相談管理</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            パートナーからの違反通報を管理します（ADMIN専用）
+            パートナーからのコンプライアンス相談を管理します（ADMIN専用）
           </p>
         </div>
       </div>
