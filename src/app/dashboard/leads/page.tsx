@@ -1,5 +1,5 @@
 import { Target, Search, Sparkles, ListChecks, ArrowRight, Save } from "lucide-react";
-import { LeadSearchPanel } from "@/components/leads/lead-search-panel";
+import { LeadTabs } from "@/components/leads/lead-tabs";
 import Link from "next/link";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { getSearchSuggestions } from "@/lib/actions/lead";
@@ -42,7 +42,7 @@ export default async function LeadsPage() {
             <div>
               <p className="text-xs font-medium text-zinc-800">1. 検索</p>
               <p className="text-[11px] text-zinc-500 mt-0.5">
-                都道府県・市区町村・業種を選んで検索。Google Maps上の企業情報を自動取得します。
+                リード手法を選び、都道府県・業種を指定して検索。企業情報を自動取得します。
               </p>
             </div>
           </div>
@@ -53,7 +53,7 @@ export default async function LeadsPage() {
             <div>
               <p className="text-xs font-medium text-zinc-800">2. AIスコアリング</p>
               <p className="text-[11px] text-zinc-500 mt-0.5">
-                取得した企業をAIが自動で分析。業種適合度・活発度・規模感など5項目でスコアリングします。
+                取得した企業をAIが自動で分析。各手法に特化した基準でスコアリングします。
               </p>
             </div>
           </div>
@@ -64,7 +64,7 @@ export default async function LeadsPage() {
             <div>
               <p className="text-xs font-medium text-zinc-800">3. 選択して保存</p>
               <p className="text-[11px] text-zinc-500 mt-0.5">
-                結果一覧の<span className="font-bold text-zinc-700">「+」ボタン</span>で保存したい企業を選択し、下の<span className="font-bold text-zinc-700">「選択した◯件を保存」</span>で登録。
+                結果一覧の<span className="font-bold text-zinc-700">「+」ボタン</span>で保存したい企業を選択し、リード管理に登録。
               </p>
             </div>
           </div>
@@ -82,9 +82,7 @@ export default async function LeadsPage() {
         </div>
       </div>
 
-      <div data-tour="lead-search-panel">
-        <LeadSearchPanel suggestions={suggestions} />
-      </div>
+      <LeadTabs suggestions={suggestions} />
     </div>
   );
 }
