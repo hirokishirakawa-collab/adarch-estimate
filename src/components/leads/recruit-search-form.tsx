@@ -7,6 +7,7 @@ import {
 } from "@/lib/constants/leads";
 import { Button } from "@/components/ui/button";
 import { Search, Loader2 } from "lucide-react";
+import { useState } from "react";
 
 interface RecruitSearchFormProps {
   onSubmit: (params: {
@@ -20,18 +21,40 @@ interface RecruitSearchFormProps {
 }
 
 export function RecruitSearchForm({ onSubmit, loading }: RecruitSearchFormProps) {
+  const [freeText, setFreeText] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState("");
+
+  const handlePresetClick = (value: string) => {
+    const opt = RECRUIT_INDUSTRY_OPTIONS.find((o) => o.value === value);
+    if (!opt) return;
+    if (selectedPreset === value) {
+      setSelectedPreset("");
+      setFreeText("");
+    } else {
+      setSelectedPreset(value);
+      setFreeText(opt.keywords);
+    }
+  };
+
+  const handleFreeTextChange = (val: string) => {
+    setFreeText(val);
+    setSelectedPreset("");
+  };
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const industryValue = fd.get("industry") as string;
-    const opt = RECRUIT_INDUSTRY_OPTIONS.find((o) => o.value === industryValue);
-    const customKw = fd.get("customKeywords") as string;
+    const keywords = freeText.trim();
+    if (!keywords) return;
+
+    const opt = RECRUIT_INDUSTRY_OPTIONS.find((o) => o.value === selectedPreset);
+    const industryLabel = opt?.label ?? keywords;
 
     onSubmit({
       prefecture: fd.get("prefecture") as string,
       city: fd.get("city") as string,
-      industry: industryValue || "採用",
-      industryKeywords: customKw || opt?.keywords || "採用 求人",
+      industry: industryLabel,
+      industryKeywords: keywords,
       count: Number(fd.get("count")) || 20,
     });
   };
@@ -71,22 +94,35 @@ export function RecruitSearchForm({ onSubmit, loading }: RecruitSearchFormProps)
           />
         </div>
 
-        {/* 業種 */}
-        <div>
+        {/* 業種・検索キーワード */}
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-zinc-700 mb-1">
-            業種（採用が多い業界）
+            業種・検索キーワード
           </label>
-          <select
-            name="industry"
+          <input
+            type="text"
+            value={freeText}
+            onChange={(e) => handleFreeTextChange(e.target.value)}
+            required
+            placeholder="例: 介護施設 採用 求人、飲食店 正社員 急募、ITエンジニア 採用"
             className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-          >
-            <option value="">選択してください</option>
-            {RECRUIT_INDUSTRY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
+          />
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {RECRUIT_INDUSTRY_OPTIONS.filter((o) => o.value !== "other").map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => handlePresetClick(o.value)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                  selectedPreset === o.value
+                    ? "bg-amber-600 text-white border-amber-600"
+                    : "bg-white text-zinc-600 border-zinc-200 hover:border-amber-300 hover:text-amber-600"
+                }`}
+              >
                 {o.label}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         {/* 取得件数 */}
@@ -106,22 +142,9 @@ export function RecruitSearchForm({ onSubmit, loading }: RecruitSearchFormProps)
             ))}
           </select>
         </div>
-
-        {/* カスタムキーワード */}
-        <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-zinc-700 mb-1">
-            追加キーワード（任意）
-          </label>
-          <input
-            name="customKeywords"
-            type="text"
-            placeholder="例: 正社員 急募 ドライバー"
-            className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-          />
-        </div>
       </div>
 
-      <Button type="submit" disabled={loading} className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700">
+      <Button type="submit" disabled={loading || !freeText.trim()} className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700">
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
