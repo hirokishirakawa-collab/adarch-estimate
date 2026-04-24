@@ -90,6 +90,8 @@ export async function POST(req: Request) {
     const body = (await req.json()) as {
       status: string;
       note?: string;
+      reactivate?: boolean;
+      reactivateReason?: string;
     };
 
     if (!body.status || !["ACTIVE", "INACTIVE"].includes(body.status)) {
@@ -123,6 +125,15 @@ export async function POST(req: Request) {
     });
 
     const fromStatus = existing.status;
+    const isReactivation = fromStatus === "FORCED_INACTIVE" && toStatus === "ACTIVE";
+
+    // 強制休止からの復帰時は理由必須
+    if (isReactivation && !body.reactivateReason?.trim()) {
+      return NextResponse.json(
+        { error: "復帰の理由を入力してください" },
+        { status: 400 }
+      );
+    }
 
     // ステータス更新
     const updated = await db.partnerStatus.update({
@@ -130,7 +141,9 @@ export async function POST(req: Request) {
       data: {
         status: toStatus,
         selectedAt: now,
-        note: body.note ?? existing.note,
+        note: isReactivation
+          ? `復帰理由: ${body.reactivateReason}`
+          : (body.note ?? existing.note),
       },
     });
 
@@ -140,7 +153,7 @@ export async function POST(req: Request) {
         groupCompanyId: user.groupCompanyId,
         fromStatus,
         toStatus,
-        reason: "自己申告",
+        reason: isReactivation ? "強制休止からの復帰" : "自己申告",
         changedBy: session.user.email,
       },
     });
@@ -151,8 +164,14 @@ export async function POST(req: Request) {
       select: { name: true, ownerName: true },
     });
     const statusLabel = toStatus === "ACTIVE" ? "稼働中" : "活動休止中";
-    const noteText = toStatus === "INACTIVE" && body.note ? `\n理由: ${body.note}` : "";
-    const chatText = `📋 稼働ステータス変更\n${groupCompany?.name ?? "不明"}（${groupCompany?.ownerName ?? ""}）\n${fromStatus} → ${statusLabel}${noteText}\n${year}年${month}月`;
+
+    let chatText: string;
+    if (isReactivation) {
+      chatText = `🔄 強制休止からの復帰\n${groupCompany?.name ?? "不明"}（${groupCompany?.ownerName ?? ""}）\n理由: ${body.reactivateReason}\n${year}年${month}月`;
+    } else {
+      const noteText = toStatus === "INACTIVE" && body.note ? `\n理由: ${body.note}` : "";
+      chatText = `📋 稼働ステータス変更\n${groupCompany?.name ?? "不明"}（${groupCompany?.ownerName ?? ""}）\n${fromStatus} → ${statusLabel}${noteText}\n${year}年${month}月`;
+    }
     sendChatMessage("AAQAxSqou_g", chatText).catch(() => {});
 
     return NextResponse.json({ status: updated }, { status: 200 });

@@ -13,6 +13,7 @@ import {
   Ban,
   Clock,
   Wallet,
+  RotateCcw,
 } from "lucide-react";
 
 // ------------------------------------------------------------------
@@ -82,6 +83,7 @@ export function PartnerStatusSelector({
   const [current, setCurrent] = useState<StatusRecord | null>(initialStatus);
   const [selected, setSelected] = useState<"ACTIVE" | "INACTIVE" | null>(null);
   const [note, setNote] = useState("");
+  const [reactivateReason, setReactivateReason] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -132,6 +134,42 @@ export function PartnerStatusSelector({
     }
   }, [selected, note]);
 
+  // 強制休止からの復帰
+  const handleReactivate = useCallback(async () => {
+    if (!reactivateReason.trim()) return;
+    setIsPending(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      const res = await fetch("/api/partner-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "ACTIVE",
+          reactivate: true,
+          reactivateReason: reactivateReason.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "エラーが発生しました");
+      }
+
+      const data = await res.json();
+      setCurrent(data.status);
+      setSuccess(true);
+      setReactivateReason("");
+
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "エラーが発生しました");
+    } finally {
+      setIsPending(false);
+    }
+  }, [reactivateReason]);
+
   const now = new Date();
   const monthLabel = `${now.getFullYear()}年${now.getMonth() + 1}月`;
 
@@ -154,7 +192,68 @@ export function PartnerStatusSelector({
         )}
       </div>
 
-      {/* ステータス選択カード */}
+      {/* 強制休止からの復帰セクション */}
+      {currentStatus === "FORCED_INACTIVE" && (
+        <div className="bg-red-50 border-2 border-red-200 rounded-xl px-5 py-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <p className="text-base font-bold text-red-900">
+                強制休止中です
+              </p>
+              <p className="text-xs text-red-600 mt-0.5">
+                未報告により自動的に休止状態となりました
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white/80 rounded-lg px-4 py-3 text-xs text-zinc-600 space-y-1.5">
+            <p>強制休止は以下の理由で適用されます：</p>
+            <ul className="list-disc list-inside space-y-0.5 ml-1">
+              <li>月初にステータスを選択しなかった</li>
+              <li>「稼働中」を選択したが、月内に報告がゼロだった</li>
+            </ul>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+              復帰の理由（必須）
+            </label>
+            <textarea
+              value={reactivateReason}
+              onChange={(e) => setReactivateReason(e.target.value)}
+              rows={3}
+              placeholder="例: 自社案件が落ち着いたため、今月からグループ活動を再開します"
+              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none resize-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleReactivate}
+              disabled={isPending || !reactivateReason.trim()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+            >
+              {isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4" />
+              )}
+              稼働中に復帰する
+            </button>
+          </div>
+
+          <p className="text-[11px] text-zinc-500 leading-relaxed">
+            ※ 復帰後は当月の報告義務が発生します。報告がない場合、翌月再び強制休止となります。
+          </p>
+        </div>
+      )}
+
+      {/* ステータス選択カード（強制休止中は非表示） */}
+      {currentStatus !== "FORCED_INACTIVE" && (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* 稼働中カード */}
         <button
@@ -245,6 +344,7 @@ export function PartnerStatusSelector({
           </p>
         </button>
       </div>
+      )}
 
       {/* 活動休止中の理由入力 */}
       {selected === "INACTIVE" && (
