@@ -232,6 +232,25 @@ export default async function DashboardPage() {
         </Link>
       )}
 
+      {/* ── 加盟リード獲得（ADMIN専用） ── */}
+      {role === "ADMIN" && (
+        <Link
+          href="/dashboard/franchise-leads"
+          className="flex items-center gap-4 rounded-xl border border-red-200 bg-gradient-to-r from-red-50 via-rose-50 to-pink-50 px-5 py-3.5 transition group hover:border-red-300 hover:shadow-sm"
+        >
+          <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+            <Target className="w-[18px] h-[18px] text-red-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-zinc-800">加盟リード獲得AI</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">
+              加盟候補の自動検索・AIスコアリング・パイプライン管理
+            </p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-red-300 group-hover:text-red-500 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+        </Link>
+      )}
+
       {/* ── 月次報告 未提出警告 ── */}
       {reportWarning && (
         <Link
