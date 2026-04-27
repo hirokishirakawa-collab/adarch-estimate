@@ -170,3 +170,53 @@ export const recruitScoreSchema = z.object({
   industry: z.string().min(1),
   area: z.string().min(1),
 });
+
+// ================================================================
+// Franchise Lead（加盟リード）
+// ================================================================
+
+// POST /api/franchise-leads/search
+export const franchiseLeadSearchSchema = z.object({
+  prefecture: z.string().min(1, "都道府県は必須です"),
+  city: z.string().optional().default(""),
+  businessType: z.string().min(1, "業種は必須です"),
+  businessTypeKeywords: z.string().optional().default(""),
+  count: z.number().int().min(1).max(50).optional().default(20),
+});
+
+// POST /api/franchise-leads/score
+export const franchiseLeadScoreSchema = z.object({
+  places: z
+    .array(
+      z.object({
+        name: z.string(),
+        address: z.string(),
+        phone: z.string(),
+        rating: z.number(),
+        ratingCount: z.number(),
+        types: z.array(z.string()),
+        mapsUrl: z.string(),
+        websiteUrl: z.string(),
+        businessStatus: z.string(),
+        reviewSummary: z.string().optional(),
+        placeSummary: z.string().optional(),
+        neighborhoodSummary: z.string().optional(),
+        googleMapsTypeLabel: z.string().optional(),
+        isFutureOpening: z.boolean().optional(),
+      })
+    )
+    .min(1)
+    .max(50),
+  businessType: z.string().min(1),
+  area: z.string().min(1),
+});
+
+// POST /api/franchise-leads/advise
+export const franchiseLeadAdviseSchema = z.object({
+  companyName: z.string().min(1),
+  address: z.string(),
+  businessType: z.string(),
+  website: z.string().optional(),
+  scoreComment: z.string().optional(),
+  scoreTotal: z.number().optional(),
+});

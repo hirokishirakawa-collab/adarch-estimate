@@ -3069,3 +3069,64 @@ model PartnerScore {
   @@index([totalScore(sort: Desc)])
   @@map("partner_scores")
 }
+
+// ==============================================================
+// FranchiseLead（加盟リード管理 — ADMIN専用）
+// ==============================================================
+
+enum FranchiseLeadStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  MEETING_SCHEDULED
+  MEETING_DONE
+  NEGOTIATING
+  CONTRACTED
+  REJECTED
+  NOT_FIT
+}
+
+/// 加盟候補企業のリード管理。白川代表（ADMIN）のみアクセス可能。
+/// 既存の Lead モデルとは完全に分離。
+model FranchiseLead {
+  id              String   @id @default(cuid())
+  companyName     String
+  address         String
+  prefecture      String?
+  phone           String?
+  website         String?
+  googleMapsUrl   String?
+  rating          Float?
+  reviewCount     Int?
+  businessType    String?   // 映像制作, 広告代理店, Web制作, 印刷, 営業会社 等
+
+  // AI分析結果
+  scoreTotal      Int?
+  scoreBreakdown  Json?
+  scoreComment    String?
+  aiAdvice        String?   @db.Text // 営業アプローチ提案
+
+  // Web/SNS分析
+  hasWebsite      Boolean  @default(false)
+  hasYoutube      Boolean  @default(false)
+  hasSns          Boolean  @default(false)
+  employeeEstimate String?
+
+  // ステータス管理
+  status          FranchiseLeadStatus @default(NEW)
+  priority        String?  // S, A, B, C
+  notes           String?  @db.Text
+  contactedAt     DateTime?
+  nextAction      String?
+  nextActionDate  DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([companyName, address])
+  @@index([status])
+  @@index([prefecture])
+  @@index([priority])
+  @@index([createdAt(sort: Desc)])
+  @@map("franchise_leads")
+}
