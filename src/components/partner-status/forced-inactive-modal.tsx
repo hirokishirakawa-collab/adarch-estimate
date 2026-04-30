@@ -18,6 +18,7 @@ interface Props {
 export function ForcedInactiveModal({ companyName, year, month }: Props) {
   const [choice, setChoice] = useState<"ACTIVE" | "INACTIVE" | null>(null);
   const [note, setNote] = useState("");
+  const [reactivateReason, setReactivateReason] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +27,10 @@ export function ForcedInactiveModal({ companyName, year, month }: Props) {
     if (!choice) return;
     if (choice === "INACTIVE" && !note.trim()) {
       setError("休止を継続する場合は理由を入力してください");
+      return;
+    }
+    if (choice === "ACTIVE" && !reactivateReason.trim()) {
+      setError("復帰の理由を入力してください");
       return;
     }
 
@@ -39,6 +44,8 @@ export function ForcedInactiveModal({ companyName, year, month }: Props) {
         body: JSON.stringify({
           status: choice,
           note: choice === "INACTIVE" ? note : undefined,
+          reactivate: choice === "ACTIVE" ? true : undefined,
+          reactivateReason: choice === "ACTIVE" ? reactivateReason.trim() : undefined,
         }),
       });
 
@@ -55,7 +62,7 @@ export function ForcedInactiveModal({ companyName, year, month }: Props) {
     } finally {
       setIsPending(false);
     }
-  }, [choice, note]);
+  }, [choice, note, reactivateReason]);
 
   if (done) {
     return (
@@ -141,6 +148,22 @@ export function ForcedInactiveModal({ companyName, year, month }: Props) {
               </div>
             </button>
           </div>
+
+          {/* 復帰理由入力 */}
+          {choice === "ACTIVE" && (
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+                復帰の理由（必須）
+              </label>
+              <textarea
+                value={reactivateReason}
+                onChange={(e) => setReactivateReason(e.target.value)}
+                rows={3}
+                placeholder="例: 自社案件が落ち着いたため、今月からグループ活動を再開します"
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none resize-none"
+              />
+            </div>
+          )}
 
           {/* 休止理由入力 */}
           {choice === "INACTIVE" && (
