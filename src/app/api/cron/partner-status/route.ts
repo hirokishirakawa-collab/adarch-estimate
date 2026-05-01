@@ -67,7 +67,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: true, action: "init", created });
     }
 
-    // ── action=check: 毎月15日に未選択・報告ゼロを自動休止 ──
+    // ── action=check: 毎月15日にのみ未選択・報告ゼロを自動休止 ──
+    // 15日以外に実行された場合はスキップ（複数回実行による誤休止を防止）
+    if (now.getDate() !== 15) {
+      return NextResponse.json({
+        ok: true,
+        action: "check",
+        skipped: true,
+        reason: `${now.getDate()}日: 15日以外のためスキップ`,
+      });
+    }
+
     const companies = await db.groupCompany.findMany({
       where: { isActive: true },
       select: { id: true, name: true, ownerName: true },
