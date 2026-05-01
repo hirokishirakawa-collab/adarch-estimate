@@ -91,12 +91,17 @@ export default async function PartnerStatusPage() {
     updatedAt: currentStatus.updatedAt.toISOString(),
   };
 
+  const userEmail = session.user.email;
   const serializedLogs = logs.map((l) => ({
     id: l.id,
     fromStatus: l.fromStatus,
     toStatus: l.toStatus,
     reason: l.reason,
-    changedBy: l.changedBy,
+    changedBy:
+      l.changedBy === userEmail ? "自分" :
+      l.changedBy === "SYSTEM" ? "システム自動" :
+      l.changedBy === "ADMIN_MANUAL" ? "管理者" :
+      l.changedBy.includes("@") ? "管理者" : l.changedBy,
     createdAt: l.createdAt.toISOString(),
   }));
 
