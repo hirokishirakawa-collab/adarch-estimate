@@ -9,7 +9,7 @@ import type { NextAuthRequest } from "next-auth";
 // ----------------------------------------------------------------
 
 /** 認証なしでアクセス可能なパス */
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/partner"];
 
 /**
  * ロールごとの保護パス
@@ -43,6 +43,27 @@ const BLOCKED_IPS = new Set([...HARDCODED_BLOCKED_IPS, ...ENV_BLOCKED_IPS]);
 
 function isBlockedIp(ip: string): boolean {
   return BLOCKED_IPS.has(ip);
+}
+
+// ----------------------------------------------------------------
+// スキャナーが狙う不正パス（即403）
+// ----------------------------------------------------------------
+const BLOCKED_PATH_PATTERNS: RegExp[] = [
+  /\.env($|\.)/, // .env, .env.local, .env.production, .env.save 等
+  /\.(git|svn|hg)(\/|$)/, // .git/, .svn/
+  /\.(DS_Store|htaccess|htpasswd)$/,
+  /\/(wp-admin|wp-login|wp-content|wordpress|xmlrpc\.php)/, // WordPress
+  /\/(phpinfo|phpmyadmin|pma|adminer|mysql)/i, // PHP/DB admin
+  /\/(web\.config|appsettings\.\w+\.json)$/, // .NET config
+  /\/(appveyor|appspec|buildspec|Jenkinsfile|Vagrantfile)\.(yml|yaml|json)$/,
+  /\/(webpack\.mix\.js|composer\.(json|lock)|Gemfile)$/,
+  /\/\.vscode(-server)?\//, // VS Code config
+  /\/(credentials|secrets|private[_-]?key|id_rsa)/i,
+  /\/admin\/(master|console|config|login|panel)/i, // 偽管理画面
+];
+
+function isBlockedPath(pathname: string): boolean {
+  return BLOCKED_PATH_PATTERNS.some((re) => re.test(pathname));
 }
 
 // ----------------------------------------------------------------
@@ -153,6 +174,11 @@ export default auth((req: NextAuthRequest) => {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
+  // 0b. スキャナーが狙う不正パス → 即403（ログ・レートリミット不要）
+  if (isBlockedPath(pathname)) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
   // 0. creators.adarch.co.jp → /creators 配下にリライト
   if (hostname.startsWith("creators.adarch.co.jp")) {
     if (pathname.startsWith("/creators")) {
@@ -249,6 +275,6 @@ export default auth((req: NextAuthRequest) => {
 // ----------------------------------------------------------------
 export const config = {
   matcher: [
-    "/((?!api/auth|api/cron|api/group-support|api/auto-sales/check-replies|api/auto-sales/check-responses|api/auto-sales/weekly-report|api/auto-sales/finalize-no-reply|api/auto-sales/generate-insights|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|test-form|p/|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
+    "/((?!api/auth|api/cron|api/group-support|api/auto-sales/check-replies|api/auto-sales/check-responses|api/auto-sales/weekly-report|api/auto-sales/finalize-no-reply|api/auto-sales/generate-insights|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|test-form|p/|partner|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
   ],
 };
