@@ -23,14 +23,12 @@ const PROTECTED_PATHS: { prefix: string; role: UserRole }[] = [
 ];
 
 // ----------------------------------------------------------------
-// IPブロックリスト
+// IPブロックリスト（個別IP + CIDRレンジ）
 // ----------------------------------------------------------------
 /** ハードコードされたブロックIP */
 const HARDCODED_BLOCKED_IPS = new Set([
-  "104.198.89.53",  // 2026-04-13 GCP bot: /dashboard/studio への大量アクセス
-  "45.148.10.21",   // 2026-04-20 .env/credentials スキャンボット
-  "34.133.107.119", // 2026-05-03 GCP bot: 設定ファイル・管理画面パス総当たりスキャン
-  "34.162.22.181",  // 2026-05-04 GCP bot: .env ファイルスキャン
+  "104.198.89.53", // 2026-04-13 GCP bot: /dashboard/studio への大量アクセス
+  "45.148.10.21",  // 2026-04-20 .env/credentials スキャンボット
 ]);
 
 /** 環境変数からの追加ブロックIP（カンマ区切り） */
@@ -41,25 +39,57 @@ const ENV_BLOCKED_IPS = (process.env.BLOCKED_IPS ?? "")
 
 const BLOCKED_IPS = new Set([...HARDCODED_BLOCKED_IPS, ...ENV_BLOCKED_IPS]);
 
+/**
+ * ブロック対象CIDRレンジ（[ipBase, prefixLength]）
+ * GCP 34.128.0.0/10: 34.128.x.x〜34.191.x.x — スキャナーの温床
+ */
+const BLOCKED_CIDRS: [number, number][] = [
+  [ipToNumber("34.128.0.0"), 10], // GCP — 34.128.0.0〜34.191.255.255
+];
+
+function ipToNumber(ip: string): number {
+  const parts = ip.split(".");
+  return ((+parts[0]) << 24 | (+parts[1]) << 16 | (+parts[2]) << 8 | (+parts[3])) >>> 0;
+}
+
 function isBlockedIp(ip: string): boolean {
-  return BLOCKED_IPS.has(ip);
+  if (BLOCKED_IPS.has(ip)) return true;
+  const ipNum = ipToNumber(ip);
+  for (const [base, prefix] of BLOCKED_CIDRS) {
+    const mask = (0xFFFFFFFF << (32 - prefix)) >>> 0;
+    if ((ipNum & mask) === (base & mask)) return true;
+  }
+  return false;
 }
 
 // ----------------------------------------------------------------
 // スキャナーが狙う不正パス（即403）
 // ----------------------------------------------------------------
 const BLOCKED_PATH_PATTERNS: RegExp[] = [
+  // 環境変数・機密ファイル
   /\.env($|\.)/, // .env, .env.local, .env.production, .env.save 等
-  /\.(git|svn|hg)(\/|$)/, // .git/, .svn/
-  /\.(DS_Store|htaccess|htpasswd)$/,
-  /\/(wp-admin|wp-login|wp-content|wordpress|xmlrpc\.php)/, // WordPress
-  /\/(phpinfo|phpmyadmin|pma|adminer|mysql)/i, // PHP/DB admin
-  /\/(web\.config|appsettings\.\w+\.json)$/, // .NET config
-  /\/(appveyor|appspec|buildspec|Jenkinsfile|Vagrantfile)\.(yml|yaml|json)$/,
-  /\/(webpack\.mix\.js|composer\.(json|lock)|Gemfile)$/,
-  /\/\.vscode(-server)?\//, // VS Code config
   /\/(credentials|secrets|private[_-]?key|id_rsa)/i,
-  /\/admin\/(master|console|config|login|panel)/i, // 偽管理画面
+  /\/auth\.json$/,
+  /\/google-services\.json$/,
+  // バージョン管理・OS
+  /\.(git|svn|hg)(\/|$)/,
+  /\.(DS_Store|htaccess|htpasswd)$/,
+  /\/Thumbs\.db$/,
+  // WordPress
+  /\/(wp-admin|wp-login|wp-content|wordpress|xmlrpc\.php)/,
+  // PHP / DB管理
+  /\.(php|aspx?|axd|cgi)($|\?)/,  // Next.jsにPHP/ASP/CGIは存在しない
+  /\/(phpinfo|phpmyadmin|pma|adminer|mysql)/i,
+  // .NET / Java / Python / Ruby 設定
+  /\/(web\.config|appsettings\.\w+\.json)$/,
+  /\/(appveyor|appspec|buildspec|Jenkinsfile|Vagrantfile)\.(yml|yaml|json)$/,
+  /\/(webpack\.mix\.js|composer\.(json|lock)|Gemfile|tox\.ini|setup\.cfg)$/,
+  /\/Trace\.axd$/,
+  // IDE設定
+  /\/\.vscode(-server)?\//,
+  // 偽管理画面・内部API探索
+  /\/admin\/(master|console|config|login|panel)/i,
+  /\/api\/(http\/routers|requestlogs|swagger|graphql)/i,
 ];
 
 function isBlockedPath(pathname: string): boolean {
