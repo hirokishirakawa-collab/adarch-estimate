@@ -22,6 +22,8 @@ interface ProposalContent {
   cover: { title: string; subtitle: string; date: string; to: string };
   companyIntro: { heading: string; description: string; strengths: string[] };
   proposal: { heading: string; challenge: string; solutions: { title: string; description: string }[] };
+  mediaPlan?: { heading: string; description: string; items: { media: string; purpose: string; approach: string; expectedEffect: string }[] };
+  timeline?: { heading: string; phases: { period: string; title: string; items: string[] }[] };
   cases: { heading: string; items: { title: string; description: string }[] };
   nextSteps: { heading: string; steps: string[]; contact: string };
   styleOverrides?: { [key: string]: { fontScale?: number } };
@@ -70,6 +72,20 @@ function calcAutoScale(sectionKey: string, content: ProposalContent): number {
       if (count > 2 || chars > 150) return 0.92;
       return 1;
     }
+    case "mediaPlan": {
+      const count = content.mediaPlan?.items.length ?? 0;
+      if (count > 4) return 0.75;
+      if (count > 3) return 0.85;
+      return 1;
+    }
+    case "timeline": {
+      const count = content.timeline?.phases.length ?? 0;
+      const totalItems = content.timeline?.phases.reduce((a, p) => a + p.items.length, 0) ?? 0;
+      if (count > 4 || totalItems > 12) return 0.75;
+      if (count > 3 || totalItems > 9) return 0.82;
+      if (totalItems > 6) return 0.9;
+      return 1;
+    }
     case "nextSteps": {
       const chars = content.nextSteps.steps.join("").length + content.nextSteps.contact.length;
       const count = content.nextSteps.steps.length;
@@ -105,10 +121,28 @@ function ScaledContent({ scale, children }: { scale: number; children: React.Rea
   );
 }
 
-const TOTAL_SLIDES = 6;
+function getTotalSlides(content: ProposalContent): number {
+  let total = 6; // cover, intro, proposal, cases, creative, nextSteps
+  if (content.mediaPlan?.items?.length) total++;
+  if (content.timeline?.phases?.length) total++;
+  return total;
+}
 
 export function PublicProposalView({ proposal, preview, onClose }: PublicProposalViewProps) {
   const c = proposal.content as ProposalContent;
+  const TOTAL_SLIDES = getTotalSlides(c);
+
+  // スライドインデックスを動的に計算
+  const hasMediaPlan = !!(c.mediaPlan?.items?.length);
+  const hasTimeline = !!(c.timeline?.phases?.length);
+
+  // 動的スライドマッピング: 0=cover, 1=intro, 2=proposal, 3?=mediaPlan, 4?=timeline, N-2=cases, N-1=creative, N=nextSteps
+  let slideIdx = 2; // proposalは常に2
+  const mediaPlanSlide = hasMediaPlan ? ++slideIdx : -1;
+  const timelineSlide = hasTimeline ? ++slideIdx : -1;
+  const casesSlide = ++slideIdx;
+  const creativeSlide = ++slideIdx;
+  const nextStepsSlide = ++slideIdx;
   const companyName = proposal.companyName;
   const recipientName = c.cover.to;
   const presenterCompany = c.presenter?.company || "Ad Arch Group";
@@ -451,6 +485,7 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
                   })}
                 </div>
                 <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={2} total={TOTAL_SLIDES} />
+
               </div>
               </ScaledContent>
             </div>
@@ -520,8 +555,117 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
             </div>
           )}
 
-          {/* ━━━ スライド3: 実績・事例 ━━━ */}
-          {currentSlide === 3 && (
+          {/* ━━━ 媒体プラン ━━━ */}
+          {currentSlide === mediaPlanSlide && c.mediaPlan && (
+            <div className="w-full h-full relative overflow-hidden" style={{ background: brand.slideBg }}>
+              <ArchLines variant={2} />
+              <ScaledContent scale={getEffectiveScale("mediaPlan", c)}>
+              <div className="relative z-10 h-full flex flex-col justify-center px-12 sm:px-16 py-10">
+                <SlideHeader
+                  label={`${companyName} 様に最適なメディアプラン`}
+                  title={c.mediaPlan.heading}
+                />
+                <p className="text-xs leading-relaxed mb-5" style={{ color: brand.textSub, maxWidth: 600 }}>
+                  {c.mediaPlan.description}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {c.mediaPlan.items.map((item, i) => {
+                    const colors = ["#4285F4", "#34A853", "#FBBC04", "#EA4335"];
+                    return (
+                      <div
+                        key={i}
+                        className="rounded-lg px-4 py-3.5"
+                        style={{
+                          background: brand.bg,
+                          border: `1px solid ${brand.border}`,
+                          borderLeft: `4px solid ${colors[i % colors.length]}`,
+                        }}
+                      >
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span
+                            className="text-xs font-bold px-2 py-0.5 rounded"
+                            style={{ background: colors[i % colors.length], color: "#FFFFFF" }}
+                          >
+                            {item.media}
+                          </span>
+                          <span className="text-xs" style={{ color: brand.textSub }}>
+                            {item.purpose}
+                          </span>
+                        </div>
+                        <p className="text-xs leading-relaxed mb-1" style={{ color: brand.text }}>
+                          {item.approach}
+                        </p>
+                        <p className="text-xs" style={{ color: brand.accent }}>
+                          → {item.expectedEffect}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={mediaPlanSlide + 1} total={TOTAL_SLIDES} />
+              </div>
+              </ScaledContent>
+            </div>
+          )}
+
+          {/* ━━━ スケジュール ━━━ */}
+          {currentSlide === timelineSlide && c.timeline && (
+            <div className="w-full h-full relative overflow-hidden" style={{ background: brand.slideBg }}>
+              <ArchLines variant={3} />
+              <ScaledContent scale={getEffectiveScale("timeline", c)}>
+              <div className="relative z-10 h-full flex flex-col justify-center px-12 sm:px-16 py-10">
+                <SlideHeader
+                  label={`${companyName} 様 実施スケジュール案`}
+                  title={c.timeline.heading}
+                />
+                <div className="flex gap-3">
+                  {c.timeline.phases.map((phase, i) => {
+                    const colors = ["#4285F4", "#34A853", "#FBBC04", "#EA4335"];
+                    const color = colors[i % colors.length];
+                    return (
+                      <div key={i} className="flex-1">
+                        {/* フェーズヘッダー */}
+                        <div className="rounded-t-lg px-4 py-2.5" style={{ background: color }}>
+                          <p className="text-xs font-bold" style={{ color: "#FFFFFF" }}>
+                            {phase.period}
+                          </p>
+                          <p className="text-xs" style={{ color: "rgba(255,255,255,0.85)" }}>
+                            {phase.title}
+                          </p>
+                        </div>
+                        {/* フェーズ内容 */}
+                        <div
+                          className="rounded-b-lg px-4 py-3 space-y-1.5"
+                          style={{
+                            background: brand.bg,
+                            border: `1px solid ${brand.border}`,
+                            borderTop: "none",
+                          }}
+                        >
+                          {phase.items.map((item, j) => (
+                            <div key={j} className="flex items-start gap-2">
+                              <div
+                                className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
+                                style={{ background: color }}
+                              />
+                              <p className="text-xs leading-relaxed" style={{ color: brand.text }}>
+                                {item}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={timelineSlide + 1} total={TOTAL_SLIDES} />
+              </div>
+              </ScaledContent>
+            </div>
+          )}
+
+          {/* ━━━ 実績・事例 ━━━ */}
+          {currentSlide === casesSlide && (
             <div className="w-full h-full relative overflow-hidden" style={{ background: brand.slideBg }}>
               <ArchLines variant={3} />
               <ScaledContent scale={getEffectiveScale("cases", c)}>
@@ -553,14 +697,14 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
                     );
                   })}
                 </div>
-                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={4} total={TOTAL_SLIDES} />
+                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={casesSlide + 1} total={TOTAL_SLIDES} />
               </div>
               </ScaledContent>
             </div>
           )}
 
-          {/* ━━━ スライド4: クリエイティブ提案について ━━━ */}
-          {currentSlide === 4 && (
+          {/* ━━━ クリエイティブ提案について ━━━ */}
+          {currentSlide === creativeSlide && (
             <div className="w-full h-full relative overflow-hidden" style={{ background: brand.slideBg }}>
               <ArchLines variant={3} />
               <div className="relative z-10 h-full flex flex-col items-center justify-center px-12 sm:px-16 py-10 text-center">
@@ -611,8 +755,8 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
             </div>
           )}
 
-          {/* ━━━ スライド5: ネクストステップ ━━━ */}
-          {currentSlide === 5 && (
+          {/* ━━━ ネクストステップ ━━━ */}
+          {currentSlide === nextStepsSlide && (
             <div className="w-full h-full relative overflow-hidden" style={{ background: brand.slideBg }}>
               <ArchLines variant={4} />
               <ScaledContent scale={getEffectiveScale("nextSteps", c)}>
@@ -682,7 +826,7 @@ export function PublicProposalView({ proposal, preview, onClose }: PublicProposa
                     </div>
                   </div>
                 </div>
-                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={6} total={TOTAL_SLIDES} />
+                <SlideFooter companyName={companyName} presenterCompany={presenterCompany} slideNum={nextStepsSlide + 1} total={TOTAL_SLIDES} />
               </div>
               </ScaledContent>
             </div>

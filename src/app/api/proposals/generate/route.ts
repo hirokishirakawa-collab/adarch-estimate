@@ -9,6 +9,108 @@ import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
+// ---- 提案先企業のWebサイトを分析 ----
+async function fetchWebsiteAnalysis(websiteUrl: string): Promise<string | null> {
+  if (!websiteUrl) return null;
+
+  try {
+    const url = websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; AdArchBot/1.0)" },
+      signal: AbortSignal.timeout(5000),
+      redirect: "follow",
+    });
+
+    if (!res.ok) return null;
+
+    const html = await res.text();
+
+    // メタ情報
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([\s\S]*?)["']/i)
+      || html.match(/<meta[^>]*content=["']([\s\S]*?)["'][^>]*name=["']description["']/i);
+    const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([\s\S]*?)["']/i);
+
+    // 見出し抽出（H1〜H3）
+    const headings: string[] = [];
+    const hMatches = html.matchAll(/<h[123][^>]*>([\s\S]*?)<\/h[123]>/gi);
+    for (const m of hMatches) {
+      const text = m[1].replace(/<[^>]+>/g, "").trim();
+      if (text && text.length < 100) headings.push(text);
+      if (headings.length >= 10) break;
+    }
+
+    // SNSリンク検出
+    const socialLinks: string[] = [];
+    const socialPatterns = [
+      { name: "Instagram", pattern: /instagram\.com\/[^"'\s]+/i },
+      { name: "Facebook", pattern: /facebook\.com\/[^"'\s]+/i },
+      { name: "Twitter/X", pattern: /(?:twitter|x)\.com\/[^"'\s]+/i },
+      { name: "YouTube", pattern: /youtube\.com\/[^"'\s]+/i },
+      { name: "LINE", pattern: /line\.me\/[^"'\s]+/i },
+      { name: "TikTok", pattern: /tiktok\.com\/@[^"'\s]+/i },
+    ];
+    for (const { name, pattern } of socialPatterns) {
+      if (pattern.test(html)) socialLinks.push(name);
+    }
+
+    // 広告・分析ツール検出
+    const adTools: string[] = [];
+    if (/gtag|google-analytics|googletagmanager/i.test(html)) adTools.push("Google Analytics/GTM");
+    if (/fbq|facebook.*pixel|meta.*pixel/i.test(html)) adTools.push("Meta Pixel");
+    if (/yjtag|yahoo.*tag|yads/i.test(html)) adTools.push("Yahoo広告タグ");
+    if (/linead|line.*tag/i.test(html)) adTools.push("LINE広告タグ");
+    if (/adsbygoogle/i.test(html)) adTools.push("Google AdSense");
+
+    // 予約・EC系
+    const platforms: string[] = [];
+    if (/hotpepper/i.test(html)) platforms.push("ホットペッパー");
+    if (/tabelog|食べログ/i.test(html)) platforms.push("食べログ");
+    if (/gurunavi|ぐるなび/i.test(html)) platforms.push("ぐるなび");
+    if (/shopify/i.test(html)) platforms.push("Shopify");
+    if (/stores\.jp/i.test(html)) platforms.push("STORES");
+    if (/base\.(in|ec)/i.test(html)) platforms.push("BASE");
+
+    const lines: string[] = ["--- 提案先Webサイト分析結果 ---"];
+    lines.push(`URL: ${url}`);
+    if (titleMatch?.[1]) lines.push(`サイトタイトル: ${titleMatch[1].trim()}`);
+    if (descMatch?.[1]) lines.push(`メタディスクリプション: ${descMatch[1].trim().slice(0, 200)}`);
+    if (headings.length > 0) lines.push(`主な見出し: ${headings.slice(0, 5).join(" / ")}`);
+    if (socialLinks.length > 0) lines.push(`SNSアカウント: ${socialLinks.join(", ")}`);
+    else lines.push("SNSアカウント: リンクなし（SNS活用の余地あり）");
+    if (adTools.length > 0) lines.push(`導入済み広告ツール: ${adTools.join(", ")}`);
+    else lines.push("広告ツール: 未検出（デジタル広告は未着手の可能性）");
+    if (platforms.length > 0) lines.push(`連携プラットフォーム: ${platforms.join(", ")}`);
+    if (ogImageMatch?.[1]) lines.push("OGP画像: 設定あり");
+    else lines.push("OGP画像: 未設定（SNSシェア時の見栄えに改善余地）");
+
+    return lines.join("\n");
+  } catch (err) {
+    console.error("Website analysis error:", err);
+    return null;
+  }
+}
+
+// ---- 業種別のプロンプト強化ヒント ----
+function getIndustryHints(industry: string): string {
+  const hints: Record<string, string> = {
+    restaurant: "飲食業向け: 口コミ活用・来店促進・メニュー動画・Googleマップ対策・SNS映えコンテンツが効果的。季節メニューやイベントに合わせた提案を。",
+    retail: "小売業向け: 店頭POP連動・EC送客・チラシ代替デジタル広告・LINE集客・セール告知動画が効果的。オンライン×オフラインの統合提案を。",
+    realestate: "不動産業向け: エリアマーケティング・物件動画（ルームツアー）・看板広告・Web広告での反響獲得が効果的。地域密着型の施策提案を。",
+    beauty: "美容業向け: Instagram/TikTok活用・ビフォーアフター動画・口コミ促進・リピーター獲得施策が効果的。ビジュアル重視の提案を。",
+    medical: "医療・クリニック向け: 信頼感を重視したWebサイト・Google対策・院内動画・患者向け説明コンテンツが効果的。薬機法・医療広告ガイドラインへの準拠に注意。",
+    education: "教育業向け: 体験授業の動画・保護者向けSNS広告・地域密着型OOH・季節（入学/夏期講習）に合わせた広告が効果的。",
+    manufacturing: "製造業向け: BtoB向けの技術動画・展示会連動コンテンツ・採用ブランディング・企業PR映像が効果的。専門性と信頼感を訴求。",
+    it: "IT/テック向け: サービス紹介動画・ウェビナー連動広告・リード獲得型LP・テック系メディアへの出稿が効果的。",
+    hotel: "宿泊・観光向け: 施設紹介動画・OTA連携・SNSでの体験共有促進・地域観光との連携・インバウンド対応が効果的。",
+    automotive: "自動車関連向け: 店舗周辺OOH・試乗動画・Google広告（地域指定）・イベント告知が効果的。",
+    fitness: "フィットネス向け: トレーニング動画・ビフォーアフター・SNSチャレンジ企画・地域ターゲティング広告が効果的。",
+    wedding: "ブライダル向け: 感動的な映像制作・SNS広告（25-35歳女性ターゲット）・口コミ促進・フェア告知が効果的。",
+    other: "業種横断: クライアントの事業内容をよく理解し、最も効果的な媒体ミックスを提案してください。",
+  };
+  return hints[industry] || hints.other;
+}
+
 // ---- Google Places API で提案先企業の情報・口コミを取得 ----
 async function fetchPlacesInfo(companyName: string) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
@@ -142,6 +244,10 @@ export async function POST(req: NextRequest) {
       : Promise.resolve(null),
   ]);
 
+  // 5. Webサイト分析（Places or Lead からURLを取得して分析）
+  const websiteUrl = placesInfo?.websiteUrl || leadData?.websiteUrl || "";
+  const websiteAnalysis = await fetchWebsiteAnalysis(websiteUrl);
+
   // ---- データ整形 ----
 
   const projectLines = projects
@@ -229,6 +335,8 @@ Webサイト: ${leadData.websiteUrl || "なし"}`;
 
   const presenterName = body.presenter?.company || "アドアーチグループ";
 
+  const industryHints = getIndustryHints(body.industry);
+
   const systemPrompt = `あなたは${presenterName}（アドアーチグループ）の提案書作成AIアシスタントです。
 アドアーチグループは映像制作・広告代理を中心としたクリエイティブ企業グループです。
 
@@ -254,6 +362,28 @@ Webサイト: ${leadData.websiteUrl || "なし"}`;
       {
         "title": "ご提案内容の名称",
         "description": "説明（2〜3文）"
+      }
+    ]
+  },
+  "mediaPlan": {
+    "heading": "推奨メディアプラン",
+    "description": "メディアプラン全体の説明（1〜2文。提案先の特性を踏まえたメディアミックスの考え方）",
+    "items": [
+      {
+        "media": "媒体名（例: Instagram広告、交通広告、TVer等）",
+        "purpose": "目的（例: 認知拡大、来店促進、ブランディング等）",
+        "approach": "手法の概要（1文）",
+        "expectedEffect": "期待される効果（1文）"
+      }
+    ]
+  },
+  "timeline": {
+    "heading": "実施スケジュール（案）",
+    "phases": [
+      {
+        "period": "期間（例: 1ヶ月目）",
+        "title": "フェーズ名",
+        "items": ["実施項目1", "実施項目2"]
       }
     ]
   },
@@ -290,6 +420,20 @@ Webサイト: ${leadData.websiteUrl || "なし"}`;
 - トーンはプロフェッショナルかつ丁寧で謙虚に。上から目線にならないよう注意してください
 - JSON以外のテキストは出力しないでください
 
+【mediaPlan セクションのルール】
+- 提案先の業種・規模・現在のデジタル活用状況に合わせて、最適な媒体を2〜4つ選定してください
+- Webサイト分析結果がある場合、SNS未活用ならSNS広告を、広告ツール未導入ならデジタル広告の導入を優先的に提案してください
+- Web広告とOOH/マス広告の両方を組み合わせた「メディアミックス」を心がけてください
+- 具体的な媒体名を使ってください（「デジタル広告」ではなく「Instagram広告」「Google検索広告」等）
+
+【timeline セクションのルール】
+- 3〜4フェーズで実施スケジュール案を構成してください（準備→実施→効果検証→改善のサイクル）
+- 各フェーズの期間は「1ヶ月目」「2〜3ヶ月目」等の形式で
+- 提案内容に対応した具体的な実施項目を記載してください
+
+【業種別ヒント】
+${industryHints}
+
 --- アドアーチが提供可能な広告媒体（業種マッチ） ---
 ${matchingMedia.length > 0 ? mediaLines : "（業種に直接マッチする媒体なし。以下全媒体から最適なものを選択してください）\n" + allMediaLines}
 
@@ -300,7 +444,9 @@ ${placesSection}
 
 ${leadSection}
 
-${hearingSection}`;
+${hearingSection}
+
+${websiteAnalysis || ""}`;
 
   const titleInstruction = body.proposalTitle
     ? `\n提案書タイトル: 「${body.proposalTitle}」を cover.title にそのまま使用してください`
