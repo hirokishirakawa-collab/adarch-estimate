@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { X, Send, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
 
 // ── アシスタントキャラクター SVG ──
 function AssistantAvatar({ size = 40, className }: { size?: number; className?: string }) {
@@ -353,13 +354,42 @@ export function ChatbotWidget() {
                 )}
                 <div
                   className={cn(
-                    "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap",
+                    "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
                     msg.role === "user"
-                      ? "bg-blue-600 text-white rounded-br-md"
+                      ? "bg-blue-600 text-white rounded-br-md whitespace-pre-wrap"
                       : "bg-zinc-100 text-zinc-800 rounded-bl-md"
                   )}
                 >
-                  {msg.content}
+                  {msg.role === "assistant" ? (
+                    <ReactMarkdown
+                      components={{
+                        a: ({ href, children }) => (
+                          <a
+                            href={href || "#"}
+                            onClick={(e) => {
+                              if (href?.startsWith("/")) {
+                                e.preventDefault();
+                                window.location.href = href;
+                              }
+                            }}
+                            target={href?.startsWith("/") ? undefined : "_blank"}
+                            rel={href?.startsWith("/") ? undefined : "noopener noreferrer"}
+                            className="text-blue-600 underline hover:text-blue-800"
+                          >
+                            {children}
+                          </a>
+                        ),
+                        p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+                        ul: ({ children }) => <ul className="list-disc pl-4 mb-1.5">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-4 mb-1.5">{children}</ol>,
+                        li: ({ children }) => <li className="mb-0.5">{children}</li>,
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  ) : (
+                    msg.content
+                  )}
                 </div>
               </div>
             ))}

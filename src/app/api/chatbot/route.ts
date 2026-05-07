@@ -47,7 +47,199 @@ Ad-Arch Group OS は広告映像制作グループ「アドアーチ」の業務
 社内ナレッジが2件以下の時は、必ず以下を添える:
 「現在この領域のグループ事例は少ないため、一般的な知見と合わせてお答えします。実践された方は [アプローチ事例集](/dashboard/sales-approaches/new) への投稿をお願いします」
 
-**要するに: 役に立つ回答を常に返す。ただし、社内データとそれ以外を明確に区別して伝える。**`;
+**要するに: 役に立つ回答を常に返す。ただし、社内データとそれ以外を明確に区別して伝える。**
+
+## ツール活用
+データベースを検索するツールが利用可能です。ユーザーが具体的な商談・顧客・実績について質問した場合は、ツールを使って実データを取得してから回答してください。
+ツールで取得したデータは件数や具体名を引用して回答に含めてください。`;
+
+// ----------------------------------------------------------------
+// Tool Use: アーチくんが OS データベースを検索できるツール定義
+// ----------------------------------------------------------------
+const CHATBOT_TOOLS: Anthropic.Messages.Tool[] = [
+  {
+    name: "search_deals",
+    description: "商談を検索する。顧客名・タイトル・ステータスで絞り込み可能。",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "顧客名やタイトルのキーワード" },
+        status: { type: "string", description: "ステータス: PROSPECTING, PROPOSAL, NEGOTIATION, WON, LOST" },
+      },
+    },
+  },
+  {
+    name: "search_customers",
+    description: "顧客（取引先）を名前で検索する。",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "顧客名のキーワード" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "get_my_stats",
+    description: "自分（またはログインユーザー）の商談件数・売上サマリーを取得する。",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
+  {
+    name: "check_report_status",
+    description: "月次報告（売上報告）の提出状況を確認する。管理者のみ全拠点の提出状況を取得可能。",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        month: { type: "string", description: "対象月 YYYY-MM（省略時は今月）" },
+      },
+    },
+  },
+];
+
+// ----------------------------------------------------------------
+// ツール実行関数
+// ----------------------------------------------------------------
+async function executeTool(
+  name: string,
+  input: Record<string, unknown>,
+  user: { id: string; branchId: string | null; role: string },
+): Promise<unknown> {
+  const isAdmin = user.role === "ADMIN";
+  const branchFilter = isAdmin ? {} : user.branchId ? { branchId: user.branchId } : {};
+
+  switch (name) {
+    case "search_deals": {
+      const where: Record<string, unknown> = { ...branchFilter };
+      if (input.query) {
+        where.OR = [
+          { title: { contains: input.query as string, mode: "insensitive" } },
+          { customer: { name: { contains: input.query as string, mode: "insensitive" } } },
+        ];
+      }
+      if (input.status) where.status = input.status;
+
+      const deals = await db.deal.findMany({
+        where,
+        include: { customer: { select: { name: true } }, assignedTo: { select: { name: true } } },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+      });
+
+      return deals.map((d) => ({
+        title: d.title,
+        customer: d.customer.name,
+        assignedTo: d.assignedTo?.name || "未割当",
+        amount: d.amount ? `¥${Number(d.amount).toLocaleString()}` : "未設定",
+        status: d.status,
+        probability: d.probability ? `${d.probability}%` : null,
+        expectedClose: d.expectedCloseDate?.toISOString().split("T")[0],
+        updated: d.updatedAt.toISOString().split("T")[0],
+      }));
+    }
+
+    case "search_customers": {
+      const customers = await db.customer.findMany({
+        where: {
+          ...branchFilter,
+          name: { contains: input.query as string, mode: "insensitive" },
+        },
+        select: {
+          name: true,
+          industry: true,
+          status: true,
+          contactName: true,
+          phone: true,
+          prefecture: true,
+          _count: { select: { deals: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+      });
+
+      return customers.map((c) => ({
+        name: c.name,
+        industry: c.industry || "未設定",
+        status: c.status,
+        contactName: c.contactName,
+        phone: c.phone,
+        prefecture: c.prefecture,
+        dealCount: c._count.deals,
+      }));
+    }
+
+    case "get_my_stats": {
+      const [dealCounts, thisMonthRevenue] = await Promise.all([
+        db.deal.groupBy({
+          by: ["status"],
+          where: branchFilter,
+          _count: true,
+        }),
+        db.revenueReport.aggregate({
+          where: {
+            ...branchFilter,
+            targetMonth: {
+              gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+            },
+          },
+          _sum: { amount: true },
+          _count: true,
+        }),
+      ]);
+
+      return {
+        deals: dealCounts.map((d) => ({ status: d.status, count: d._count })),
+        thisMonth: {
+          revenue: thisMonthRevenue._sum.amount
+            ? `¥${Number(thisMonthRevenue._sum.amount).toLocaleString()}`
+            : "¥0",
+          reportCount: thisMonthRevenue._count,
+        },
+      };
+    }
+
+    case "check_report_status": {
+      if (!isAdmin) return { error: "この機能は管理者のみ利用可能です" };
+
+      const now = new Date();
+      const monthStr =
+        (input.month as string) ||
+        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const [y, m] = monthStr.split("-").map(Number);
+      const targetMonth = new Date(y, m - 1, 1);
+
+      const [reports, branches] = await Promise.all([
+        db.revenueReport.findMany({
+          where: { targetMonth },
+          include: {
+            branch: { select: { name: true } },
+            createdBy: { select: { name: true } },
+          },
+        }),
+        db.branch.findMany({
+          where: { isActive: true },
+          select: { id: true, name: true },
+        }),
+      ]);
+
+      const submittedIds = new Set(reports.map((r) => r.branchId));
+      return {
+        month: monthStr,
+        submitted: reports.map((r) => ({
+          branch: r.branch.name,
+          by: r.createdBy.name,
+          amount: `¥${Number(r.amount).toLocaleString()}`,
+        })),
+        missing: branches.filter((b) => !submittedIds.has(b.id)).map((b) => b.name),
+      };
+    }
+
+    default:
+      return { error: `不明なツール: ${name}` };
+  }
+}
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -145,17 +337,12 @@ export async function POST(req: NextRequest) {
   }));
   history.push({ role: "user", content: message.trim() });
 
-  // Claude API 呼び出し（ストリーミング + プロンプトキャッシュ）
+  // Claude API 呼び出し（ストリーミング + Tool Use + プロンプトキャッシュ）
   const client = new Anthropic({ apiKey });
-  const stream = await client.messages.stream({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    system: [
-      { type: "text", text: BASE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-      { type: "text", text: dynamicContext },
-    ],
-    messages: history,
-  });
+  const systemPrompt = [
+    { type: "text" as const, text: BASE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" as const } },
+    { type: "text" as const, text: dynamicContext },
+  ];
 
   const encoder = new TextEncoder();
   let fullText = "";
@@ -172,14 +359,57 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       controller.enqueue(encoder.encode(`data: ${JSON.stringify(metadata)}\n\n`));
 
-      for await (const event of stream) {
-        if (
-          event.type === "content_block_delta" &&
-          event.delta.type === "text_delta"
-        ) {
-          fullText += event.delta.text;
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`));
+      let currentMessages: Anthropic.Messages.MessageParam[] = [...history];
+      let iterations = 0;
+
+      while (iterations < 3) {
+        const stream = client.messages.stream({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: currentMessages,
+          tools: CHATBOT_TOOLS,
+        });
+
+        for await (const event of stream) {
+          if (
+            event.type === "content_block_delta" &&
+            event.delta.type === "text_delta"
+          ) {
+            fullText += event.delta.text;
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`));
+          }
         }
+
+        const finalMessage = await stream.finalMessage();
+        if (finalMessage.stop_reason !== "tool_use") break;
+
+        // ツール実行
+        const toolBlocks = finalMessage.content.filter(
+          (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use",
+        );
+
+        const toolResults: Anthropic.Messages.ToolResultBlockParam[] = await Promise.all(
+          toolBlocks.map(async (block) => ({
+            type: "tool_result" as const,
+            tool_use_id: block.id,
+            content: JSON.stringify(
+              await executeTool(
+                block.name,
+                block.input as Record<string, unknown>,
+                { id: user.id, branchId: user.branchId, role: user.role },
+              ),
+            ),
+          })),
+        );
+
+        currentMessages = [
+          ...currentMessages,
+          { role: "assistant" as const, content: finalMessage.content },
+          { role: "user" as const, content: toolResults },
+        ];
+
+        iterations++;
       }
 
       await db.chatbotMessage.create({
