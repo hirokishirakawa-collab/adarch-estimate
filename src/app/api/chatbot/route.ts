@@ -115,25 +115,23 @@ export async function POST(req: NextRequest) {
   const wikiContext = formatArticlesForPrompt(wikiArticles);
   const internalContext = formatInternalSourcesForPrompt(internalSources);
 
-  // system promptに動的注入
-  let contextualPrompt = BASE_SYSTEM_PROMPT;
-  contextualPrompt += `\n\n---\n\n# 検出された質問タイプ: ${intent}\n# 見つかった社内データ件数: ${internalSources.length}件\n# 見つかったWiki記事: ${wikiArticles.length}件`;
+  // 動的コンテキストを構築（BASE_SYSTEM_PROMPTはキャッシュ対象として分離）
+  let dynamicContext = `\n\n---\n\n# 検出された質問タイプ: ${intent}\n# 見つかった社内データ件数: ${internalSources.length}件\n# 見つかったWiki記事: ${wikiArticles.length}件`;
 
   if (wikiContext) {
-    contextualPrompt += `\n\n---\n\n# 関連Wiki記事\n\n${wikiContext}`;
+    dynamicContext += `\n\n---\n\n# 関連Wiki記事\n\n${wikiContext}`;
   }
 
   if (internalContext) {
-    contextualPrompt += `\n\n---\n\n# 社内ナレッジ（グループ内の実例データ）\n\n**これらを根拠として引用・類推し、具体的なアドバイスを返してください。件数が少なくても必ず活用してください。**\n\n${internalContext}`;
+    dynamicContext += `\n\n---\n\n# 社内ナレッジ（グループ内の実例データ）\n\n**これらを根拠として引用・類推し、具体的なアドバイスを返してください。件数が少なくても必ず活用してください。**\n\n${internalContext}`;
   }
 
   if (!wikiContext && !internalContext) {
-    contextualPrompt += `\n\n---\n\n# 情報源\n\n関連する社内データは今回見つかりませんでした。一般的な広告営業・映像制作のベストプラクティスで回答してください。末尾に「社内で〇〇の事例が増えるとより具体的にお答えできます」と添えてください。`;
+    dynamicContext += `\n\n---\n\n# 情報源\n\n関連する社内データは今回見つかりませんでした。一般的な広告営業・映像制作のベストプラクティスで回答してください。末尾に「社内で〇〇の事例が増えるとより具体的にお答えできます」と添えてください。`;
   }
 
-  // ページコンテキストを追加
   if (currentPage && pageLabel) {
-    contextualPrompt += `\n\n---\n\n## 現在のコンテキスト
+    dynamicContext += `\n\n---\n\n## 現在のコンテキスト
 - ユーザーが今見ているページ: ${pageLabel}（${currentPage}）
 - ユーザーのロール: ${user.role}
 - ユーザー名: ${user.name || "不明"}
@@ -147,34 +145,61 @@ export async function POST(req: NextRequest) {
   }));
   history.push({ role: "user", content: message.trim() });
 
-  // Claude API 呼び出し
+  // Claude API 呼び出し（ストリーミング + プロンプトキャッシュ）
   const client = new Anthropic({ apiKey });
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+  const stream = await client.messages.stream({
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
-    system: contextualPrompt,
+    system: [
+      { type: "text", text: BASE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+      { type: "text", text: dynamicContext },
+    ],
     messages: history,
   });
 
-  const assistantContent =
-    response.content[0].type === "text" ? response.content[0].text : "";
-
-  // アシスタントメッセージを保存
-  await db.chatbotMessage.create({
-    data: {
-      conversationId: conversation.id,
-      role: "assistant",
-      content: assistantContent,
-    },
-  });
-
-  return NextResponse.json({
-    reply: assistantContent,
+  const encoder = new TextEncoder();
+  let fullText = "";
+  const metadata = {
     conversationId: conversation.id,
     intent,
     sources: {
       wiki: wikiArticles.map((a) => ({ id: a.id, title: a.title })),
       internal: internalSources.map((s) => ({ type: s.type, title: s.title })),
+    },
+  };
+
+  const readable = new ReadableStream({
+    async start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(metadata)}\n\n`));
+
+      for await (const event of stream) {
+        if (
+          event.type === "content_block_delta" &&
+          event.delta.type === "text_delta"
+        ) {
+          fullText += event.delta.text;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`));
+        }
+      }
+
+      await db.chatbotMessage.create({
+        data: {
+          conversationId: conversation.id,
+          role: "assistant",
+          content: fullText,
+        },
+      });
+
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
+      controller.close();
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
     },
   });
 }

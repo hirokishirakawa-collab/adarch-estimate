@@ -167,7 +167,10 @@ ${freeTextSection}
   const stream = await client.messages.stream({
     model: "claude-sonnet-4-6",
     max_tokens: 8000,
-    system: SYSTEM_PROMPT,
+    thinking: { type: "enabled", budget_tokens: 5000 },
+    system: [
+      { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+    ],
     messages: [{ role: "user", content: userMessage }],
   });
 

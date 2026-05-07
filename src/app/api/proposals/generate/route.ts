@@ -457,14 +457,19 @@ ${websiteAnalysis || ""}`;
 ご提案したいこと: ${body.challenge}${titleInstruction}`;
 
   const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 4096,
+    thinking: { type: "enabled", budget_tokens: 8000 },
     messages: [{ role: "user", content: userPrompt }],
-    system: systemPrompt,
+    system: [
+      { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
+    ],
   });
 
-  const text =
-    response.content[0].type === "text" ? response.content[0].text : "";
+  const textBlock = response.content.find(
+    (b) => b.type === "text"
+  );
+  const text = textBlock && textBlock.type === "text" ? textBlock.text : "";
 
   let content;
   try {

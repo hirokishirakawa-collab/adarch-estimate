@@ -236,14 +236,54 @@ export function ChatbotWidget() {
           pageLabel,
         }),
       });
-      const data = await res.json();
-      if (res.ok) {
-        setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
-        if (data.conversationId) setConversationId(data.conversationId);
-      } else {
+
+      if (!res.ok || !res.body) {
+        const err = await res.json().catch(() => ({ error: "エラーが発生しました。" }));
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: data.error || "エラーが発生しました。" },
+          { role: "assistant", content: err.error || "エラーが発生しました。" },
+        ]);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let assistantAdded = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
+
+        for (const part of parts) {
+          if (!part.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(part.slice(6));
+            if (data.conversationId) setConversationId(data.conversationId);
+            if (data.text) {
+              if (!assistantAdded) {
+                setMessages((prev) => [...prev, { role: "assistant", content: data.text }]);
+                assistantAdded = true;
+              } else {
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  updated[updated.length - 1] = { ...last, content: last.content + data.text };
+                  return updated;
+                });
+              }
+            }
+          } catch { /* skip malformed SSE */ }
+        }
+      }
+
+      if (!assistantAdded) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "回答を生成できませんでした。" },
         ]);
       }
     } catch {
@@ -323,7 +363,7 @@ export function ChatbotWidget() {
                 </div>
               </div>
             ))}
-            {loading && (
+            {loading && messages[messages.length - 1]?.role !== "assistant" && (
               <div className="flex items-start gap-2 justify-start">
                 <div className="flex-shrink-0 mt-0.5">
                   <AssistantAvatarSmall />

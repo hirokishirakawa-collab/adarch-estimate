@@ -95,7 +95,7 @@ ${monthPlan.content.substring(0, 1000)}...` : ""}
 
   // ストリーミング
   const stream = await anthropic.messages.stream({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 4000,
     messages: [{ role: "user", content: prompt }],
   });
@@ -121,7 +121,7 @@ ${monthPlan.content.substring(0, 1000)}...` : ""}
           content: fullText,
           month,
           inputData: { rawInsights },
-          metadata: { model: "claude-sonnet-4-20250514", generatedAt: new Date().toISOString() },
+          metadata: { model: "claude-sonnet-4-6", generatedAt: new Date().toISOString() },
           studioClientId,
           branchId: user.branchId!,
           createdById: user.id,

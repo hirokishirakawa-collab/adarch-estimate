@@ -133,7 +133,7 @@ ${pastContext}
 
   // ストリーミングで生成
   const stream = await anthropic.messages.stream({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 8000,
     messages: [{ role: "user", content: prompt }],
   });
@@ -161,7 +161,7 @@ ${pastContext}
             content: fullText,
             month,
             inputData: { businessType, businessName, area, target, sellingPoints, snsAccounts, postsPerMonth: posts },
-            metadata: { tokens: fullText.length, model: "claude-sonnet-4-20250514", generatedAt: new Date().toISOString() },
+            metadata: { tokens: fullText.length, model: "claude-sonnet-4-6", generatedAt: new Date().toISOString() },
             studioClientId,
             branchId: user.branchId!,
             createdById: user.id,

@@ -374,7 +374,7 @@ export async function POST(req: NextRequest) {
 
 【重要ルール】
 - コメントに具体的な数値予測（「売上○％UP」「集客○倍」「○％改善」等）は絶対に書かない。効果は定性的な表現（「認知拡大が期待できる」「集客強化につながる」等）に留めること
-- 必ずJSON配列のみで返答（前置きや後書き一切不要）
+- output_scores ツールを使って結果を出力してください
 - 各企業に対して上記6項目の内訳スコアと合計スコア、1行コメントを付与
 - 合計スコアは各項目の合計（最大100点）
 - コメントは営業担当が読む想定で、デジタル活用状況を踏まえた具体的なアプローチのヒントを含める
@@ -436,25 +436,60 @@ ${placeSummary}
   try {
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 4096,
-      system: SYSTEM_PROMPT,
+      system: [
+        { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+      ],
       messages: [{ role: "user", content: userMessage }],
+      tools: [{
+        name: "output_scores",
+        description: "スコアリング結果を出力する",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            scores: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  total: { type: "number" },
+                  breakdown: {
+                    type: "object",
+                    properties: {
+                      industryMatch: { type: "number" },
+                      activity: { type: "number" },
+                      scale: { type: "number" },
+                      competitive: { type: "number" },
+                      accessibility: { type: "number" },
+                      digitalPresence: { type: "number" },
+                    },
+                    required: ["industryMatch", "activity", "scale", "competitive", "accessibility", "digitalPresence"],
+                  },
+                  comment: { type: "string" },
+                },
+                required: ["name", "total", "breakdown", "comment"],
+              },
+            },
+          },
+          required: ["scores"],
+        },
+      }],
+      tool_choice: { type: "tool", name: "output_scores" },
     });
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "";
-
-    // JSON部分を抽出（万が一マークダウンで囲まれていた場合も対応）
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
+    const toolBlock = response.content.find(
+      (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+    );
+    if (!toolBlock) {
       return NextResponse.json(
         { error: "AIレスポンスのパースに失敗しました" },
         { status: 500 }
       );
     }
 
-    const scores = JSON.parse(jsonMatch[0]);
+    const scores = (toolBlock.input as { scores: unknown[] }).scores;
 
     // 各企業のWebサイト分析結果とYouTube情報をインデックス付きで返す
     const analysisMap: Record<string, typeof analyses[number]> = {};
