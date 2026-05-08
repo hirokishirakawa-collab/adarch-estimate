@@ -98,6 +98,118 @@ const tdStyle =
   "border-bottom:1px solid #e4e4e7;";
 
 // ---------------------------------------------------------------
+// コーポレートサイト お問い合わせ通知（→ 管理者）
+// ---------------------------------------------------------------
+export type ContactInquiryPayload = {
+  company: string;
+  name: string;
+  email: string;
+  phone: string;
+  inquiryType: string;
+  message: string;
+};
+
+const INQUIRY_LABELS: Record<string, string> = {
+  production: "映像制作のご依頼",
+  media: "広告媒体のご相談",
+  partnership: "グループ加盟について",
+  other: "その他",
+};
+
+export async function sendContactInquiryEmail(
+  payload: ContactInquiryPayload
+): Promise<void> {
+  const { company, name, email, phone, inquiryType, message } = payload;
+  const typeLabel = INQUIRY_LABELS[inquiryType] ?? inquiryType;
+  const subject = `【お問い合わせ】${typeLabel} — ${company || name}`;
+
+  const rows = [
+    ["会社名", company || "（未入力）"],
+    ["お名前", name],
+    ["メール", email],
+    ["電話番号", phone || "（未入力）"],
+    ["お問い合わせ種別", typeLabel],
+  ]
+    .map(
+      ([label, value]) => `
+      <tr>
+        <th style="${thStyle}">${escHtml(label)}</th>
+        <td style="${tdStyle}">${escHtml(value)}</td>
+      </tr>`
+    )
+    .join("");
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#1a1a2e,#0f3460);padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;">Ad Arch</span>
+            <span style="color:#c4a35a;font-size:13px;margin-left:8px;">adarch.co.jp お問い合わせ</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;">
+              コーポレートサイトからお問い合わせがありました。
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0"
+                   style="border-collapse:collapse;font-size:14px;">
+              ${rows}
+            </table>
+            <div style="margin-top:20px;padding:16px;background:#f4f4f5;border-radius:8px;">
+              <p style="margin:0 0 8px;font-size:12px;color:#71717a;font-weight:600;">メッセージ</p>
+              <p style="margin:0;font-size:14px;color:#18181b;line-height:1.7;white-space:pre-wrap;">${escHtml(message)}</p>
+            </div>
+            <div style="margin-top:24px;text-align:center;">
+              <a href="mailto:${escHtml(email)}?subject=Re: ${encodeURIComponent(subject)}"
+                 style="display:inline-block;padding:11px 28px;background:#1a1a2e;color:#ffffff;
+                        text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
+                返信する →
+              </a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f4f4f5;padding:16px 28px;border-top:1px solid #e4e4e7;">
+            <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">
+              このメールは adarch.co.jp のお問い合わせフォームから自動送信されています。
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    await sendMail({ to: ["hiroki.shirakawa@adarch.co.jp"], subject, html });
+  } catch (e) {
+    console.error("[resend:contact-inquiry] error:", e instanceof Error ? e.message : e);
+    throw e;
+  }
+
+  // Google Chat にも通知
+  notifyCeo([
+    `📩 コーポレートサイト お問い合わせ`,
+    `種別: ${typeLabel}`,
+    `会社: ${company || "（未入力）"}`,
+    `氏名: ${name}`,
+    `メール: ${email}`,
+    `電話: ${phone || "—"}`,
+    ``,
+    message.length > 200 ? message.slice(0, 200) + "…" : message,
+  ].join("\n")).catch(() => {});
+}
+
+// ---------------------------------------------------------------
 // TVer配信申請 新規申請通知（→ 管理者）
 // ---------------------------------------------------------------
 export type TverCampaignCreatedPayload = {
