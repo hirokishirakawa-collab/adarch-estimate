@@ -199,6 +199,9 @@ export async function updatePaymentStatementStatus(
 // ADMIN: パートナー一覧（ドロップダウン用）
 // ---------------------------------------------------------------
 export async function getPartnersForSelect() {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return [];
+
   return db.groupCompany.findMany({
     where: { isActive: true },
     select: {

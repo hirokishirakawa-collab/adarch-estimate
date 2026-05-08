@@ -1,11 +1,21 @@
 import Link from "next/link";
-import { CreditCard, Plus } from "lucide-react";
+import { CreditCard, Plus, AlertTriangle } from "lucide-react";
 import { getInvoiceRequestList } from "@/lib/actions/billing";
+import { getMyBillingInfo } from "@/lib/actions/partner-billing";
 import { InvoiceRequestList } from "@/components/billing/invoice-request-list";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 export default async function BillingPage() {
-  const { requests, role } = await getInvoiceRequestList();
+  const [{ requests, role }, billingInfo] = await Promise.all([
+    getInvoiceRequestList(),
+    getMyBillingInfo(),
+  ]);
+
+  const needsSetup = billingInfo && (
+    billingInfo.entityType === "UNKNOWN" ||
+    !billingInfo.bankName ||
+    !billingInfo.bankAccountNumber
+  );
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
@@ -37,6 +47,21 @@ export default async function BillingPage() {
           請求依頼を申請する
         </Link>
       </div>
+
+      {needsSetup && role !== "ADMIN" && (
+        <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div className="text-xs text-amber-800">
+            <p className="font-semibold">経理情報が未登録です</p>
+            <p className="mt-0.5">
+              法人区分・振込先口座を登録すると、支払明細の発行がスムーズになります。
+              <Link href="/dashboard/billing/settings" className="ml-1 text-indigo-600 hover:underline font-medium">
+                登録する →
+              </Link>
+            </p>
+          </div>
+        </div>
+      )}
 
       <div data-tour="billing-list">
         <InvoiceRequestList requests={requests} role={role} />

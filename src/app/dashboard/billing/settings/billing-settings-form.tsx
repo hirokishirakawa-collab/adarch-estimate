@@ -63,7 +63,9 @@ export function BillingSettingsForm({ billingInfo, action }: Props) {
           </select>
           {entityType === "SOLE_PROPRIETOR" && (
             <p className="mt-1.5 text-[11px] text-amber-600">
-              個人事業主の場合、本部からの制作費の支払い時に源泉徴収（10.21%）が発生します。
+              個人事業主の場合、本部からの制作費の支払い時に源泉徴収が発生します。
+              <br />
+              100万円以下: 10.21% / 100万円超の部分: 20.42%
             </p>
           )}
         </div>
@@ -81,7 +83,15 @@ export function BillingSettingsForm({ billingInfo, action }: Props) {
               className={inputCls}
             />
             <p className="mt-1 text-[11px] text-zinc-400">
-              国税庁の法人番号公表サイトで確認できます
+              <a
+                href="https://www.houjin-bangou.nta.go.jp/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-500 hover:underline"
+              >
+                国税庁 法人番号公表サイト
+              </a>
+              で確認できます
             </p>
           </div>
         )}
@@ -126,7 +136,16 @@ export function BillingSettingsForm({ billingInfo, action }: Props) {
               className={inputCls}
             />
             <p className="mt-1 text-[11px] text-zinc-400">
-              「T」 + 13桁の番号です。国税庁のサイトで確認できます
+              「T」 + 13桁の番号です。
+              <a
+                href="https://www.invoice-kohyo.nta.go.jp/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-500 hover:underline"
+              >
+                国税庁 適格請求書発行事業者公表サイト
+              </a>
+              で確認できます
             </p>
           </div>
         )}

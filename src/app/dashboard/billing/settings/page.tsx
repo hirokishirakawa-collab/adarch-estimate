@@ -1,11 +1,21 @@
 import { redirect } from "next/navigation";
-import { Building2 } from "lucide-react";
+import { Building2, Check, X, ExternalLink } from "lucide-react";
 import { getMyBillingInfo, updateMyBillingInfo } from "@/lib/actions/partner-billing";
 import { BillingSettingsForm } from "./billing-settings-form";
+
+const ENTITY_LABELS: Record<string, string> = {
+  CORPORATION: "法人",
+  SOLE_PROPRIETOR: "個人事業主",
+  UNKNOWN: "未設定",
+};
 
 export default async function BillingSettingsPage() {
   const billingInfo = await getMyBillingInfo();
   if (!billingInfo) redirect("/dashboard/billing");
+
+  const hasEntity = billingInfo.entityType !== "UNKNOWN";
+  const hasBank = !!(billingInfo.bankName && billingInfo.bankAccountNumber);
+  const allRegistered = hasEntity && billingInfo.invoiceRegistered && hasBank;
 
   return (
     <div className="px-6 py-6 max-w-2xl mx-auto w-full">
@@ -30,7 +40,34 @@ export default async function BillingSettingsPage() {
         <p className="text-xs text-zinc-500">{billingInfo.name}</p>
       </div>
 
-      {/* インボイス制度の説明 */}
+      {/* 現在の登録状況サマリー */}
+      <div className={`mb-4 border rounded-xl p-4 ${allRegistered ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
+        <p className={`text-xs font-semibold mb-3 ${allRegistered ? "text-emerald-800" : "text-amber-800"}`}>
+          {allRegistered ? "すべての経理情報が登録されています" : "登録が完了していない項目があります"}
+        </p>
+        <div className="space-y-2">
+          <StatusRow
+            label="事業形態"
+            value={ENTITY_LABELS[billingInfo.entityType] ?? "未設定"}
+            registered={hasEntity}
+            detail={billingInfo.corporateNumber ? `法人番号: ${billingInfo.corporateNumber}` : undefined}
+          />
+          <StatusRow
+            label="インボイス"
+            value={billingInfo.invoiceRegistered ? "登録済" : "未登録"}
+            registered={billingInfo.invoiceRegistered}
+            detail={billingInfo.invoiceNumber ? `登録番号: ${billingInfo.invoiceNumber}` : undefined}
+          />
+          <StatusRow
+            label="振込先口座"
+            value={hasBank ? `${billingInfo.bankName} ${billingInfo.bankBranch ?? ""}` : "未登録"}
+            registered={hasBank}
+            detail={hasBank ? `${billingInfo.bankAccountType === "SAVINGS" ? "普通" : "当座"} ${billingInfo.bankAccountNumber} / ${billingInfo.bankAccountHolder}` : undefined}
+          />
+        </div>
+      </div>
+
+      {/* 説明 */}
       <div className="mb-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
         <p className="text-xs font-semibold text-blue-800 mb-1">経理情報の登録をお願いします</p>
         <ul className="text-[11px] text-blue-700 space-y-0.5 list-disc list-inside">
@@ -45,6 +82,39 @@ export default async function BillingSettingsPage() {
           billingInfo={billingInfo}
           action={updateMyBillingInfo}
         />
+      </div>
+    </div>
+  );
+}
+
+function StatusRow({
+  label,
+  value,
+  registered,
+  detail,
+}: {
+  label: string;
+  value: string;
+  registered: boolean;
+  detail?: string;
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      {registered ? (
+        <Check className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
+      ) : (
+        <X className="w-3.5 h-3.5 text-red-500 mt-0.5 flex-shrink-0" />
+      )}
+      <div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-zinc-700">{label}:</span>
+          <span className={`text-xs ${registered ? "text-zinc-800" : "text-red-600 font-medium"}`}>
+            {value}
+          </span>
+        </div>
+        {detail && (
+          <p className="text-[11px] text-zinc-400">{detail}</p>
+        )}
       </div>
     </div>
   );
