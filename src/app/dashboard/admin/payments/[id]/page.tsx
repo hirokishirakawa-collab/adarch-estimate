@@ -1,0 +1,151 @@
+import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { auth } from "@/lib/auth";
+import { ArrowLeft, Banknote } from "lucide-react";
+import type { UserRole } from "@/types/roles";
+import { getPaymentStatementById } from "@/lib/actions/payment-statement";
+import { PaymentStatusActions } from "./status-actions";
+
+function fmtNum(n: number | bigint | { toString(): string }): string {
+  return Number(n).toLocaleString("ja-JP");
+}
+
+function fmtDate(d: Date | string | null): string {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
+const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  DRAFT: { label: "下書き", cls: "bg-zinc-100 text-zinc-600" },
+  CONFIRMED: { label: "確定", cls: "bg-blue-50 text-blue-700" },
+  PAID: { label: "支払済", cls: "bg-emerald-50 text-emerald-700" },
+};
+
+export default async function PaymentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  const role = (session?.user?.role ?? "USER") as UserRole;
+  if (role !== "ADMIN") redirect("/dashboard");
+
+  const { id } = await params;
+  const s = await getPaymentStatementById(id);
+  if (!s) notFound();
+
+  const badge = STATUS_BADGE[s.status] ?? STATUS_BADGE.DRAFT;
+  const gc = s.groupCompany;
+  const hasBank = gc.bankName && gc.bankAccountNumber;
+
+  return (
+    <div className="px-6 py-6 max-w-2xl mx-auto w-full">
+      <Link
+        href="/dashboard/admin/payments"
+        className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800 transition-colors mb-4"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        一覧に戻る
+      </Link>
+
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
+          <Banknote className="text-emerald-600" style={{ width: "1.125rem", height: "1.125rem" }} />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-lg font-bold text-zinc-900">{s.title}</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">作成: {fmtDate(s.createdAt)} / {s.createdBy?.name ?? "—"}</p>
+        </div>
+        <span className={`px-3 py-1 text-xs font-semibold rounded-full ${badge.cls}`}>
+          {badge.label}
+        </span>
+      </div>
+
+      {/* パートナー情報 */}
+      <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 mb-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <p className="text-sm font-bold text-zinc-900">{gc.name}</p>
+            <p className="text-xs text-zinc-500">{gc.ownerName}</p>
+          </div>
+          <div className="flex gap-1.5">
+            <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-full border ${
+              gc.entityType === "SOLE_PROPRIETOR" ? "bg-amber-50 text-amber-700 border-amber-200"
+              : gc.entityType === "CORPORATION" ? "bg-blue-50 text-blue-700 border-blue-200"
+              : "bg-red-50 text-red-700 border-red-200"
+            }`}>
+              {gc.entityType === "SOLE_PROPRIETOR" ? "個人事業主" : gc.entityType === "CORPORATION" ? "法人" : "未確認"}
+            </span>
+            <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-full border ${
+              gc.invoiceRegistered ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
+            }`}>
+              {gc.invoiceRegistered ? "インボイス済" : "インボイス未登録"}
+            </span>
+          </div>
+        </div>
+        {hasBank && (
+          <div className="mt-2 pt-2 border-t border-zinc-200 text-xs text-zinc-600">
+            <p>振込先: {gc.bankName} {gc.bankBranch} / {gc.bankAccountType === "SAVINGS" ? "普通" : "当座"} {gc.bankAccountNumber} / {gc.bankAccountHolder}</p>
+          </div>
+        )}
+      </div>
+
+      {/* 金額明細 */}
+      <div className="bg-white border border-zinc-200 rounded-xl p-5 mb-4 space-y-3">
+        {s.clientName && (
+          <div className="flex justify-between text-sm">
+            <span className="text-zinc-500">クライアント</span>
+            <span className="text-zinc-800 font-medium">{s.clientName}</span>
+          </div>
+        )}
+        <div className="flex justify-between text-sm">
+          <span className="text-zinc-500">クライアント入金額（税込）</span>
+          <span className="text-zinc-800 font-bold">¥{fmtNum(s.grossAmount)}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-zinc-500">本部手数料（{Number(s.commissionRate)}%）</span>
+          <span className="text-red-600 font-medium">-¥{fmtNum(s.commissionAmount)}</span>
+        </div>
+        {Number(s.mediaExpense) > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-zinc-500">うち媒体費（税抜・源泉対象外）</span>
+            <span className="text-zinc-600">¥{fmtNum(s.mediaExpense)}</span>
+          </div>
+        )}
+        {Number(s.productionExpense) > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-zinc-500">うち制作費（税抜・源泉対象）</span>
+            <span className="text-zinc-600">¥{fmtNum(s.productionExpense)}</span>
+          </div>
+        )}
+        {Number(s.withholdingTaxAmount) > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-zinc-500">源泉徴収税</span>
+            <span className="text-red-600 font-medium">-¥{fmtNum(s.withholdingTaxAmount)}</span>
+          </div>
+        )}
+        {Number(s.nonDeductibleTaxAmount) > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-zinc-500">控除不可消費税</span>
+            <span className="text-red-600 font-medium">-¥{fmtNum(s.nonDeductibleTaxAmount)}</span>
+          </div>
+        )}
+        <div className="flex justify-between text-base pt-3 border-t border-emerald-200">
+          <span className="font-semibold text-zinc-700">差引支払額</span>
+          <span className="font-bold text-emerald-700 text-lg">¥{fmtNum(s.netPaymentAmount)}</span>
+        </div>
+        {s.paidAt && (
+          <p className="text-xs text-emerald-600 text-right">支払日: {fmtDate(s.paidAt)}</p>
+        )}
+      </div>
+
+      {s.description && (
+        <div className="bg-white border border-zinc-200 rounded-xl p-4 mb-4">
+          <p className="text-xs font-semibold text-zinc-500 mb-1">備考</p>
+          <p className="text-sm text-zinc-700 whitespace-pre-wrap">{s.description}</p>
+        </div>
+      )}
+
+      {/* ステータス操作 */}
+      {s.status !== "PAID" && (
+        <PaymentStatusActions id={s.id} currentStatus={s.status} />
+      )}
+    </div>
+  );
+}

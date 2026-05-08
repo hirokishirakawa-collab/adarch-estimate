@@ -128,6 +128,12 @@ enum PaymentStatus {
   PAID   // 支払済み
 }
 
+enum PaymentStatementStatus {
+  DRAFT     // 下書き
+  CONFIRMED // 確定（パートナーに公開）
+  PAID      // 支払済み
+}
+
 enum EstimationStatus {
   DRAFT // 下書き（未発行・通知なし）
   ISSUED // 発行済み（通知送信済み）
@@ -354,6 +360,7 @@ model User {
   lockedCustomers             Customer[]                  @relation("LockedBy") // 先着ロック中の顧客
   revenueReports              RevenueReport[]
   invoiceRequests             InvoiceRequest[]
+  paymentStatements           PaymentStatement[]
   collaborationRequests       GroupCollaborationRequest[]
   mediaRequests               MediaRequest[]
   createdAdvertiserReviews    AdvertiserReview[]          @relation("CreatedAdvertiserReview")
@@ -780,6 +787,9 @@ model InvoiceRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // ---- 支払明細リレーション ----
+  paymentStatements PaymentStatement[]
+
   @@index([branchId])
   @@index([createdById])
   @@index([status])
@@ -788,6 +798,58 @@ model InvoiceRequest {
   // 複合インデックス: 自分の依頼を最新順で取得（一覧の主要クエリ）
   @@index([createdById, createdAt(sort: Desc)])
   @@map("invoice_requests")
+}
+
+// ==============================================================
+// PaymentStatement（支払明細書）
+// ==============================================================
+
+/// 本部 → パートナーへの支払明細。
+/// クライアントからの入金に対して、手数料・源泉徴収・控除不可消費税を差し引いた
+/// パートナーへの支払額を明細として管理する。
+model PaymentStatement {
+  id String @id @default(cuid())
+
+  // ── 支払先パートナー
+  groupCompanyId String
+  groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
+
+  // ── 元の請求依頼（任意リンク）
+  invoiceRequestId String?
+  invoiceRequest   InvoiceRequest? @relation(fields: [invoiceRequestId], references: [id], onDelete: SetNull)
+
+  // ── 明細情報
+  title         String  // 件名（例: ○○案件 支払明細）
+  clientName    String? // クライアント名（参照用）
+  description   String? @db.Text // 備考
+
+  // ── 金額
+  grossAmount       Decimal @db.Decimal(15, 0) // クライアントからの入金額（税込）
+  commissionRate    Decimal @default(10) @db.Decimal(5, 2) // 本部手数料率（%）
+  commissionAmount  Decimal @db.Decimal(15, 0) // 本部手数料額
+  mediaExpense      Decimal @default(0) @db.Decimal(15, 0) // 媒体費（税抜・パススルー）
+  productionExpense Decimal @default(0) @db.Decimal(15, 0) // 制作費（税抜）
+
+  // ── 税額調整
+  withholdingTaxAmount   Decimal @default(0) @db.Decimal(15, 0) // 源泉徴収税額
+  nonDeductibleTaxAmount Decimal @default(0) @db.Decimal(15, 0) // 控除不可消費税額
+  netPaymentAmount       Decimal @db.Decimal(15, 0) // 差引支払額
+
+  // ── ステータス
+  status PaymentStatementStatus @default(DRAFT)
+  paidAt DateTime?
+
+  // ── 作成者
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupCompanyId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("payment_statements")
 }
 
 // ==============================================================
@@ -1425,6 +1487,9 @@ model GroupCompany {
   partnerStatusLogs    PartnerStatusLog[]   @relation("PartnerStatusLogs")
   violationReports     ViolationReport[]    @relation("ViolationReporter")
   partnerScores        PartnerScore[]       @relation("PartnerScores")
+
+  // ---- 支払明細 ----
+  paymentStatements    PaymentStatement[]
 
   @@index([phase])
   @@map("group_companies")

@@ -59,6 +59,7 @@ import {
   Rocket,
   Paintbrush,
   Briefcase,
+  Banknote,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -329,6 +330,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/payments",
+        label: "支払明細",
+        icon: Banknote,
+        minRole: "MANAGER",
+      },
+      {
         href: "/dashboard/billing/settings",
         label: "経理情報の登録",
         icon: Building2,
@@ -528,6 +535,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/admin/violation-reports",
         label: "コンプライアンス相談管理",
         icon: AlertTriangle,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/admin/payments",
+        label: "支払明細管理",
+        icon: Banknote,
         minRole: "ADMIN",
       },
       {
