@@ -25,6 +25,8 @@ export default async function AdminPartnerBillingPage() {
       bankAccountType: true,
       bankAccountNumber: true,
       bankAccountHolder: true,
+      contractEndDate: true,
+      contractRenewed: true,
     },
     orderBy: { name: "asc" },
   });

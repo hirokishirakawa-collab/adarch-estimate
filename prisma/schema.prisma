@@ -1454,6 +1454,10 @@ model GroupCompany {
   bankAccountNumber String?         // 口座番号
   bankAccountHolder String?         // 口座名義
 
+  // ---- 契約管理 ----
+  contractEndDate   DateTime?       // 契約満了日
+  contractRenewed   Boolean         @default(false) // 次期更新確認済みか
+
   // ---- プロフィール情報 ----
   emoji        String? // プロフィールアイコン（絵文字）
   genre        String? // ジャンル（営業 / 制作 / 両方 / その他）

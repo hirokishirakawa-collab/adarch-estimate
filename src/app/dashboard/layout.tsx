@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { SuspendedRedirect } from "@/components/layout/suspended-redirect";
+import { ContractExpiredRedirect } from "@/components/layout/contract-expired-redirect";
 import { ChatbotWidget } from "@/components/chatbot/chatbot-widget";
 import { Toaster } from "sonner";
 import { db } from "@/lib/db";
@@ -36,6 +37,29 @@ export default async function DashboardLayout({
     enabledFeatures: session.user?.enabledFeatures ?? [],
   };
 
+  // ── 契約更新チェック（ADMIN以外） ──
+  let contractDaysLeft: number | null = null;
+  let contractExpired = false;
+  if (role !== "ADMIN" && session.user?.email) {
+    try {
+      const userGc = await db.user.findUnique({
+        where: { email: session.user.email },
+        select: { groupCompany: { select: { contractEndDate: true, contractRenewed: true } } },
+      });
+      const gc = userGc?.groupCompany;
+      if (gc?.contractEndDate) {
+        const now = new Date();
+        const diff = gc.contractEndDate.getTime() - now.getTime();
+        contractDaysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        if (contractDaysLeft <= 0 && !gc.contractRenewed) {
+          contractExpired = true;
+        }
+      }
+    } catch (e) {
+      console.error("[layout] Contract check failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
   // ── 月次報告チェック（ADMIN以外） ──
   let reportWarning: "yellow" | "red" | null = null;
   if (role !== "ADMIN") {
@@ -67,8 +91,9 @@ export default async function DashboardLayout({
 
   return (
     <>
-      <DashboardShell user={user} reportWarning={reportWarning} isActive={isActive}>
+      <DashboardShell user={user} reportWarning={reportWarning} isActive={isActive} contractDaysLeft={contractDaysLeft}>
         {!isActive && <SuspendedRedirect suspendReason={suspendReason} />}
+        {contractExpired && <ContractExpiredRedirect />}
         {children}
       </DashboardShell>
       <ChatbotWidget />

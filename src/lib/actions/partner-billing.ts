@@ -15,6 +15,8 @@ interface BillingInfo {
   bankAccountType: "SAVINGS" | "CHECKING" | null;
   bankAccountNumber: string | null;
   bankAccountHolder: string | null;
+  contractEndDate?: string | null;
+  contractRenewed?: boolean;
 }
 
 export async function updatePartnerBillingInfo(
@@ -39,6 +41,12 @@ export async function updatePartnerBillingInfo(
         bankAccountType: data.bankAccountType,
         bankAccountNumber: data.bankAccountNumber,
         bankAccountHolder: data.bankAccountHolder,
+        ...(data.contractEndDate !== undefined
+          ? { contractEndDate: data.contractEndDate ? new Date(data.contractEndDate) : null }
+          : {}),
+        ...(data.contractRenewed !== undefined
+          ? { contractRenewed: data.contractRenewed }
+          : {}),
       },
     });
 

@@ -20,6 +20,8 @@ interface Company {
   bankAccountType: BankAccountType;
   bankAccountNumber: string | null;
   bankAccountHolder: string | null;
+  contractEndDate: Date | string | null;
+  contractRenewed: boolean;
 }
 
 const ENTITY_LABELS: Record<EntityType, { label: string; cls: string }> = {
@@ -42,6 +44,7 @@ export function PartnerBillingTable({ companies }: { companies: Company[] }) {
               <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600">インボイス</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600">振込先口座</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600">源泉徴収</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600">契約満了</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-zinc-600 w-20">操作</th>
             </tr>
           </thead>
@@ -126,6 +129,9 @@ function ViewRow({ company: c, onEdit }: { company: Company; onEdit: () => void 
           <span className="text-xs text-zinc-400">不要</span>
         )}
       </td>
+      <td className="px-4 py-3">
+        <ContractCell endDate={c.contractEndDate} renewed={c.contractRenewed} />
+      </td>
       <td className="px-4 py-3 text-center">
         <button
           onClick={onEdit}
@@ -150,6 +156,10 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
   const [bankAccountType, setBankAccountType] = useState<string>(c.bankAccountType ?? "SAVINGS");
   const [bankAccountNumber, setBankAccountNumber] = useState(c.bankAccountNumber ?? "");
   const [bankAccountHolder, setBankAccountHolder] = useState(c.bankAccountHolder ?? "");
+  const [contractEndDate, setContractEndDate] = useState(
+    c.contractEndDate ? new Date(c.contractEndDate).toISOString().slice(0, 10) : ""
+  );
+  const [contractRenewed, setContractRenewed] = useState(c.contractRenewed);
 
   function handleSave() {
     startTransition(async () => {
@@ -163,6 +173,8 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
         bankAccountType: (bankAccountType as "SAVINGS" | "CHECKING") || null,
         bankAccountNumber: bankAccountNumber || null,
         bankAccountHolder: bankAccountHolder || null,
+        contractEndDate: contractEndDate || null,
+        contractRenewed,
       });
       onDone();
     });
@@ -263,6 +275,23 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
       <td className="px-4 py-3 text-xs text-zinc-400">
         {entityType === "SOLE_PROPRIETOR" ? "要源泉" : entityType === "CORPORATION" ? "不要" : "要確認"}
       </td>
+      <td className="px-4 py-3 space-y-1.5">
+        <input
+          type="date"
+          value={contractEndDate}
+          onChange={(e) => setContractEndDate(e.target.value)}
+          className={inputCls}
+        />
+        <label className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+          <input
+            type="checkbox"
+            checked={contractRenewed}
+            onChange={(e) => setContractRenewed(e.target.checked)}
+            className="rounded border-zinc-300"
+          />
+          更新済
+        </label>
+      </td>
       <td className="px-4 py-3 text-center space-y-1">
         <button
           onClick={handleSave}
@@ -281,5 +310,50 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
         </button>
       </td>
     </tr>
+  );
+}
+
+function ContractCell({ endDate, renewed }: { endDate: Date | string | null; renewed: boolean }) {
+  if (!endDate) return <span className="text-xs text-zinc-300">未設定</span>;
+
+  const end = new Date(endDate);
+  const now = new Date();
+  const diff = end.getTime() - now.getTime();
+  const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  const dateStr = end.toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
+
+  if (renewed) {
+    return (
+      <div>
+        <span className="text-xs text-emerald-600 font-medium">更新済</span>
+        <p className="text-[11px] text-zinc-400">{dateStr}</p>
+      </div>
+    );
+  }
+
+  if (daysLeft <= 0) {
+    return (
+      <div>
+        <span className="inline-block px-2 py-0.5 text-[11px] font-semibold rounded-full bg-red-50 text-red-700 border border-red-200">満了</span>
+        <p className="text-[11px] text-zinc-400">{dateStr}</p>
+      </div>
+    );
+  }
+
+  const cls = daysLeft <= 30
+    ? "bg-red-50 text-red-700 border-red-200"
+    : daysLeft <= 60
+    ? "bg-orange-50 text-orange-700 border-orange-200"
+    : daysLeft <= 90
+    ? "bg-amber-50 text-amber-700 border-amber-200"
+    : "bg-zinc-50 text-zinc-600 border-zinc-200";
+
+  return (
+    <div>
+      <span className={`inline-block px-2 py-0.5 text-[11px] font-semibold rounded-full border ${cls}`}>
+        残{daysLeft}日
+      </span>
+      <p className="text-[11px] text-zinc-400">{dateStr}</p>
+    </div>
   );
 }
