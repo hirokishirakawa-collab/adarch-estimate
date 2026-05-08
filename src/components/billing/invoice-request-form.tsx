@@ -19,12 +19,18 @@ export interface Props {
     dueDate?: string | null;
     details?: string | null;
     amountExclTax?: number;
+    mediaExpense?: number;
+    productionExpense?: number;
     inspectionStatus?: string | null;
     fileUrl?: string | null;
     notes?: string | null;
     projectId?: string | null;
   };
   submitLabel?: string;
+  /** パートナーが個人事業主かどうか（ADMINがGroupCompanyに設定） */
+  isSoleProprietor?: boolean;
+  /** パートナーがインボイス未登録かどうか */
+  isInvoiceUnregistered?: boolean;
 }
 
 function fmtNum(n: number): string {
@@ -144,12 +150,33 @@ function CustomerCombobox({
   );
 }
 
+// 源泉徴収税額を計算（クライアントサイド）
+function calcWithholding(productionExpense: number): number {
+  if (productionExpense <= 0) return 0;
+  if (productionExpense <= 1_000_000) {
+    return Math.floor(productionExpense * 0.1021);
+  }
+  return Math.floor(1_000_000 * 0.1021) + Math.floor((productionExpense - 1_000_000) * 0.2042);
+}
+
+// 控除不可消費税額を計算（クライアントサイド）
+function calcNonDeductible(amountExclTax: number): number {
+  if (amountExclTax <= 0) return 0;
+  const tax = Math.round(amountExclTax * 0.1);
+  // 2026/10 まで 20%、それ以降 50%
+  const now = new Date();
+  const rate = now < new Date("2026-10-01") ? 0.2 : now < new Date("2029-10-01") ? 0.5 : 1.0;
+  return Math.floor(tax * rate);
+}
+
 export function InvoiceRequestForm({
   action,
   projects,
   customers,
   defaultValues,
   submitLabel = "申請する",
+  isSoleProprietor = false,
+  isInvoiceUnregistered = false,
 }: Props) {
   const [state, formAction, isPending] = useActionState(action, null);
 
@@ -188,6 +215,15 @@ export function InvoiceRequestForm({
   const [amountExclTax, setAmountExclTax] = useState(initAmount);
   const taxAmount     = Math.round(amountExclTax * 0.1);
   const amountInclTax = amountExclTax + taxAmount;
+
+  // ── 媒体費 / 制作費 内訳
+  const [mediaExpense, setMediaExpense] = useState(defaultValues?.mediaExpense ?? 0);
+  const [productionExpense, setProductionExpense] = useState(defaultValues?.productionExpense ?? 0);
+
+  // ── 源泉徴収・控除不可消費税の自動計算
+  const withholdingTaxAmount = isSoleProprietor ? calcWithholding(productionExpense) : 0;
+  const nonDeductibleTaxAmount = isInvoiceUnregistered ? calcNonDeductible(amountExclTax) : 0;
+  const netPaymentAmount = amountInclTax - withholdingTaxAmount - nonDeductibleTaxAmount;
 
   // ── ファイル選択
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -352,6 +388,70 @@ export function InvoiceRequestForm({
         </div>
         <input type="hidden" name="taxAmount"     value={taxAmount} />
         <input type="hidden" name="amountInclTax" value={amountInclTax} />
+
+        {/* ── 媒体費 / 制作費 内訳 ── */}
+        <div className="pt-3 border-t border-zinc-200 space-y-3">
+          <p className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">内訳（任意）</p>
+          <p className="text-[11px] text-zinc-400">
+            媒体費は源泉徴収の対象外です。個人事業主への支払いで制作費が含まれる場合は分離して入力してください。
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] text-zinc-500 mb-1">媒体費（税抜）</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
+                <input
+                  type="number" name="mediaExpense"
+                  min={0} step={1}
+                  value={mediaExpense === 0 ? "" : mediaExpense}
+                  onChange={(e) => setMediaExpense(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                  placeholder="0"
+                  className={`${inputCls} pl-7 text-xs`}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[11px] text-zinc-500 mb-1">制作費（税抜）</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
+                <input
+                  type="number" name="productionExpense"
+                  min={0} step={1}
+                  value={productionExpense === 0 ? "" : productionExpense}
+                  onChange={(e) => setProductionExpense(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                  placeholder="0"
+                  className={`${inputCls} pl-7 text-xs`}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 源泉徴収・インボイス自動計算 ── */}
+        {(isSoleProprietor || isInvoiceUnregistered) && (
+          <div className="pt-3 border-t border-zinc-200 space-y-2">
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">税額調整（自動計算）</p>
+            {isSoleProprietor && withholdingTaxAmount > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-zinc-600">源泉徴収税（制作費 ¥{fmtNum(productionExpense)} に対して）</span>
+                <span className="font-bold text-red-600">-¥{fmtNum(withholdingTaxAmount)}</span>
+              </div>
+            )}
+            {isInvoiceUnregistered && nonDeductibleTaxAmount > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-zinc-600">控除不可消費税（インボイス未登録）</span>
+                <span className="font-bold text-red-600">-¥{fmtNum(nonDeductibleTaxAmount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm pt-1 border-t border-amber-200">
+              <span className="font-semibold text-zinc-700">差引支払額</span>
+              <span className="font-bold text-indigo-700">¥{fmtNum(netPaymentAmount)}</span>
+            </div>
+          </div>
+        )}
+        <input type="hidden" name="withholdingTaxAmount"   value={withholdingTaxAmount || ""} />
+        <input type="hidden" name="nonDeductibleTaxAmount"  value={nonDeductibleTaxAmount || ""} />
+        <input type="hidden" name="netPaymentAmount"        value={netPaymentAmount || ""} />
       </div>
 
       {/* ── 内訳 ── */}

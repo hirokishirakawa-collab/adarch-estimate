@@ -2,6 +2,7 @@ import { CreditCard } from "lucide-react";
 import { InvoiceRequestForm, type Props } from "@/components/billing/invoice-request-form";
 import { createInvoiceRequest, getProjectsForSelect, getCustomersForSelect } from "@/lib/actions/billing";
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { EXPENSE_CATEGORY_OPTIONS } from "@/lib/constants/expenses";
 
 interface PageProps {
@@ -11,10 +12,29 @@ interface PageProps {
 export default async function NewBillingRequestPage({ searchParams }: PageProps) {
   const { projectId } = await searchParams;
 
+  const session = await auth();
+  const email = session?.user?.email;
+
+  // ユーザーの所属GroupCompanyを取得して法人区分・インボイス登録状態を判定
+  const userWithCompany = email
+    ? await db.user.findUnique({
+        where: { email },
+        select: {
+          groupCompany: {
+            select: { entityType: true, invoiceRegistered: true },
+          },
+        },
+      })
+    : null;
+
   const [projects, customers] = await Promise.all([
     getProjectsForSelect(),
     getCustomersForSelect(),
   ]);
+
+  const gc = userWithCompany?.groupCompany;
+  const isSoleProprietor = gc?.entityType === "SOLE_PROPRIETOR";
+  const isInvoiceUnregistered = gc ? !gc.invoiceRegistered : false;
 
   // プロジェクトから経費を自動入力
   let defaults: Props["defaultValues"] | undefined;
@@ -62,6 +82,8 @@ export default async function NewBillingRequestPage({ searchParams }: PageProps)
           projects={projects}
           customers={customers}
           defaultValues={defaults as Record<string, string | number | null> | undefined}
+          isSoleProprietor={isSoleProprietor}
+          isInvoiceUnregistered={isInvoiceUnregistered}
         />
       </div>
     </div>

@@ -41,6 +41,11 @@ async function parseFormData(formData: FormData): Promise<
         amountExclTax: number;
         taxAmount: number;
         amountInclTax: number;
+        mediaExpense: number | null;
+        productionExpense: number | null;
+        withholdingTaxAmount: number | null;
+        nonDeductibleTaxAmount: number | null;
+        netPaymentAmount: number | null;
         inspectionStatus: string | null;
         fileUrl: string | null;
         notes: string | null;
@@ -82,6 +87,20 @@ async function parseFormData(formData: FormData): Promise<
   const taxAmount     = Math.round(amountExclTax * 0.1);
   const amountInclTax = amountExclTax + taxAmount;
 
+  // ── 媒体費 / 制作費 内訳
+  const mediaExpenseRaw      = (formData.get("mediaExpense")      as string)?.replace(/,/g, "").trim() || null;
+  const productionExpenseRaw = (formData.get("productionExpense") as string)?.replace(/,/g, "").trim() || null;
+  const mediaExpense      = mediaExpenseRaw ? parseInt(mediaExpenseRaw, 10) : null;
+  const productionExpense = productionExpenseRaw ? parseInt(productionExpenseRaw, 10) : null;
+
+  // ── 源泉徴収・控除不可消費税（hidden fields）
+  const withholdingRaw       = (formData.get("withholdingTaxAmount")   as string)?.trim() || null;
+  const nonDeductibleRaw     = (formData.get("nonDeductibleTaxAmount") as string)?.trim() || null;
+  const netPaymentRaw        = (formData.get("netPaymentAmount")       as string)?.trim() || null;
+  const withholdingTaxAmount   = withholdingRaw ? parseInt(withholdingRaw, 10) : null;
+  const nonDeductibleTaxAmount = nonDeductibleRaw ? parseInt(nonDeductibleRaw, 10) : null;
+  const netPaymentAmount       = netPaymentRaw ? parseInt(netPaymentRaw, 10) : null;
+
   // ファイルアップロード（あれば）
   let fileUrl = fileUrlInput;
   if (file && file.size > 0) {
@@ -94,6 +113,8 @@ async function parseFormData(formData: FormData): Promise<
     data: {
       subject, customerId, contactName, contactEmail, billingDate, dueDate,
       details, amountExclTax, taxAmount, amountInclTax,
+      mediaExpense, productionExpense,
+      withholdingTaxAmount, nonDeductibleTaxAmount, netPaymentAmount,
       inspectionStatus, fileUrl, notes,
       projectId: projectId || null,
     },
@@ -138,16 +159,21 @@ export async function createInvoiceRequest(
         billingDate:      d.billingDate,
         dueDate:          d.dueDate,
         details:          d.details,
-        amountExclTax:    d.amountExclTax,
-        taxAmount:        d.taxAmount,
-        amountInclTax:    d.amountInclTax,
-        inspectionStatus: d.inspectionStatus,
-        fileUrl:          d.fileUrl,
-        notes:            d.notes,
-        projectId:        d.projectId,
-        createdById:      info.userId,
-        creatorEmail:     info.email,
-        branchId:         info.branchId,
+        amountExclTax:          d.amountExclTax,
+        taxAmount:              d.taxAmount,
+        amountInclTax:          d.amountInclTax,
+        mediaExpense:           d.mediaExpense,
+        productionExpense:      d.productionExpense,
+        withholdingTaxAmount:   d.withholdingTaxAmount,
+        nonDeductibleTaxAmount: d.nonDeductibleTaxAmount,
+        netPaymentAmount:       d.netPaymentAmount,
+        inspectionStatus:       d.inspectionStatus,
+        fileUrl:                d.fileUrl,
+        notes:                  d.notes,
+        projectId:              d.projectId,
+        createdById:            info.userId,
+        creatorEmail:           info.email,
+        branchId:               info.branchId,
       },
     });
     requestId = created.id;
@@ -213,13 +239,18 @@ export async function updateInvoiceRequest(
         billingDate:      d.billingDate,
         dueDate:          d.dueDate,
         details:          d.details,
-        amountExclTax:    d.amountExclTax,
-        taxAmount:        d.taxAmount,
-        amountInclTax:    d.amountInclTax,
-        inspectionStatus: d.inspectionStatus,
+        amountExclTax:          d.amountExclTax,
+        taxAmount:              d.taxAmount,
+        amountInclTax:          d.amountInclTax,
+        mediaExpense:           d.mediaExpense,
+        productionExpense:      d.productionExpense,
+        withholdingTaxAmount:   d.withholdingTaxAmount,
+        nonDeductibleTaxAmount: d.nonDeductibleTaxAmount,
+        netPaymentAmount:       d.netPaymentAmount,
+        inspectionStatus:       d.inspectionStatus,
         fileUrl,
-        notes:            d.notes,
-        projectId:        d.projectId,
+        notes:                  d.notes,
+        projectId:              d.projectId,
       },
     });
     logAudit({ action: "invoice_updated", email: info.email, name: info.staffName, entity: "invoice", entityId: requestId, detail: d.subject });

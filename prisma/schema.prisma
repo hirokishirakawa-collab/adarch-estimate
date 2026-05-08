@@ -112,6 +112,22 @@ enum InvoiceRequestStatus {
   SUBMITTED // 提出済
 }
 
+enum EntityType {
+  CORPORATION      // 法人（株式会社・合同会社等）
+  SOLE_PROPRIETOR  // 個人事業主
+  UNKNOWN          // 未確認
+}
+
+enum BankAccountType {
+  SAVINGS  // 普通
+  CHECKING // 当座
+}
+
+enum PaymentStatus {
+  UNPAID // 未払い
+  PAID   // 支払済み
+}
+
 enum EstimationStatus {
   DRAFT // 下書き（未発行・通知なし）
   ISSUED // 発行済み（通知送信済み）
@@ -730,8 +746,19 @@ model InvoiceRequest {
   fileUrl          String? // 請求書PDF URL
   notes            String? @db.Text // 備考
 
+  // ── 内訳（媒体費 / 制作費）
+  mediaExpense      Decimal? @db.Decimal(15, 0) // 媒体費（税抜・源泉対象外）
+  productionExpense Decimal? @db.Decimal(15, 0) // 制作費（税抜・源泉対象）
+
+  // ── 源泉徴収・インボイス
+  withholdingTaxAmount    Decimal? @db.Decimal(15, 0) // 源泉徴収税額
+  nonDeductibleTaxAmount  Decimal? @db.Decimal(15, 0) // 控除不可消費税額
+  netPaymentAmount        Decimal? @db.Decimal(15, 0) // 差引支払額
+
   // ── ステータス
-  status InvoiceRequestStatus @default(DRAFT)
+  status        InvoiceRequestStatus @default(DRAFT)
+  paymentStatus PaymentStatus        @default(UNPAID)
+  paidAt        DateTime?
 
   // ── プロジェクト紐付け（任意）
   projectId String?
@@ -1353,6 +1380,17 @@ model GroupCompany {
   phase       GroupCompanyPhase @default(ONBOARDING)
   memo        String?           @db.Text // 本部メモ
   isActive    Boolean           @default(true)
+
+  // ---- 法人区分・経理情報 ----
+  entityType        EntityType      @default(UNKNOWN) // 法人 / 個人事業主 / 未確認
+  corporateNumber   String?         // 法人番号（13桁）
+  invoiceNumber     String?         // インボイス登録番号（T+13桁）
+  invoiceRegistered Boolean         @default(false) // インボイス登録済みか
+  bankName          String?         // 銀行名
+  bankBranch        String?         // 支店名
+  bankAccountType   BankAccountType? // 普通 / 当座
+  bankAccountNumber String?         // 口座番号
+  bankAccountHolder String?         // 口座名義
 
   // ---- プロフィール情報 ----
   emoji        String? // プロフィールアイコン（絵文字）

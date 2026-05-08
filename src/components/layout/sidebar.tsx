@@ -329,6 +329,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/billing/settings",
+        label: "経理情報の登録",
+        icon: Building2,
+        minRole: "MANAGER",
+      },
+      {
         href: "/dashboard/sales-report",
         label: "月次報告",
         icon: BarChart2,
@@ -522,6 +528,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/admin/violation-reports",
         label: "コンプライアンス相談管理",
         icon: AlertTriangle,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/admin/partner-billing",
+        label: "パートナー経理管理",
+        icon: Building2,
         minRole: "ADMIN",
       },
       {
