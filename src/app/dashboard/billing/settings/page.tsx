@@ -38,6 +38,9 @@ export default async function BillingSettingsPage() {
       <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 mb-4">
         <p className="text-sm font-bold text-zinc-900">{billingInfo.ownerName}</p>
         <p className="text-xs text-zinc-500">{billingInfo.name}</p>
+        {billingInfo.registeredName && (
+          <p className="text-xs text-indigo-600 mt-0.5">{billingInfo.registeredName}</p>
+        )}
       </div>
 
       {/* 現在の登録状況サマリー */}

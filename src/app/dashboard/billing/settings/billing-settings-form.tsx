@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface BillingInfo {
+  registeredName: string | null;
   entityType: string;
   corporateNumber: string | null;
   invoiceNumber: string | null;
@@ -46,6 +47,20 @@ export function BillingSettingsForm({ billingInfo, action }: Props) {
       {/* ── 法人区分 ── */}
       <div className="space-y-3">
         <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">法人区分</h3>
+        <div>
+          <label className={labelCls}>登記名（正式な法人名 or 屋号）</label>
+          <input
+            type="text"
+            name="registeredName"
+            defaultValue={billingInfo.registeredName ?? ""}
+            placeholder="例: 合同会社○○ / ○○事務所"
+            disabled={isPending}
+            className={inputCls}
+          />
+          <p className="mt-1 text-[11px] text-zinc-400">
+            法人の場合は登記簿上の正式名称、個人事業主の場合は屋号を入力してください
+          </p>
+        </div>
         <div>
           <label className={labelCls}>
             事業形態<span className="text-red-500 ml-0.5">*</span>

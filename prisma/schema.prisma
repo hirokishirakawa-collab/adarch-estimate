@@ -1444,6 +1444,7 @@ model GroupCompany {
   isActive    Boolean           @default(true)
 
   // ---- 法人区分・経理情報 ----
+  registeredName    String?         // 登記名（正式な法人名 or 屋号）
   entityType        EntityType      @default(UNKNOWN) // 法人 / 個人事業主 / 未確認
   corporateNumber   String?         // 法人番号（13桁）
   invoiceNumber     String?         // インボイス登録番号（T+13桁）

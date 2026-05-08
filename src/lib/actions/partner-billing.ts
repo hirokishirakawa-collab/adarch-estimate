@@ -6,6 +6,7 @@ import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 
 interface BillingInfo {
+  registeredName?: string | null;
   entityType: "CORPORATION" | "SOLE_PROPRIETOR" | "UNKNOWN";
   corporateNumber: string | null;
   invoiceNumber: string | null;
@@ -32,6 +33,7 @@ export async function updatePartnerBillingInfo(
     await db.groupCompany.update({
       where: { id: companyId },
       data: {
+        ...(data.registeredName !== undefined ? { registeredName: data.registeredName } : {}),
         entityType: data.entityType,
         corporateNumber: data.corporateNumber,
         invoiceNumber: data.invoiceNumber,
@@ -87,6 +89,7 @@ export async function getMyBillingInfo() {
       id: true,
       name: true,
       ownerName: true,
+      registeredName: true,
       entityType: true,
       corporateNumber: true,
       invoiceNumber: true,
@@ -118,6 +121,7 @@ export async function updateMyBillingInfo(
     return { error: "グループ企業が紐付けされていません。管理者にお問い合わせください。" };
   }
 
+  const registeredName = (formData.get("registeredName") as string)?.trim() || null;
   const entityType = (formData.get("entityType") as string) || "UNKNOWN";
   const corporateNumber = (formData.get("corporateNumber") as string)?.trim() || null;
   const invoiceRegistered = formData.get("invoiceRegistered") === "on";
@@ -132,6 +136,7 @@ export async function updateMyBillingInfo(
     await db.groupCompany.update({
       where: { id: user.groupCompanyId },
       data: {
+        registeredName,
         entityType: entityType as "CORPORATION" | "SOLE_PROPRIETOR" | "UNKNOWN",
         corporateNumber,
         invoiceNumber,

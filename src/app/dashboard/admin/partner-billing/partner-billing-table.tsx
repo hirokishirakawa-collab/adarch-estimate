@@ -11,6 +11,7 @@ interface Company {
   id: string;
   name: string;
   ownerName: string;
+  registeredName: string | null;
   entityType: EntityType;
   corporateNumber: string | null;
   invoiceNumber: string | null;
@@ -73,6 +74,9 @@ function ViewRow({ company: c, onEdit }: { company: Company; onEdit: () => void 
       <td className="px-4 py-3">
         <p className="font-medium text-zinc-900">{c.name}</p>
         <p className="text-[11px] text-zinc-400">{c.ownerName}</p>
+        {c.registeredName && (
+          <p className="text-[11px] text-indigo-500">{c.registeredName}</p>
+        )}
       </td>
       <td className="px-4 py-3">
         <span className={`inline-block px-2 py-0.5 text-[11px] font-semibold rounded-full border ${entity.cls}`}>
@@ -147,8 +151,27 @@ function ViewRow({ company: c, onEdit }: { company: Company; onEdit: () => void 
 
 function EditRow({ company: c, onDone }: { company: Company; onDone: () => void }) {
   const [isPending, startTransition] = useTransition();
+  const [registeredName, setRegisteredName] = useState(c.registeredName ?? "");
   const [entityType, setEntityType] = useState<EntityType>(c.entityType);
   const [corporateNumber, setCorporateNumber] = useState(c.corporateNumber ?? "");
+  const [isLookingUp, setIsLookingUp] = useState(false);
+
+  // 法人番号13桁入力時に国税庁APIから法人名を自動取得
+  async function lookupCorporateNumber(num: string) {
+    if (num.length !== 13) return;
+    setIsLookingUp(true);
+    try {
+      const res = await fetch(`/api/corporate-number/${num}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.name) setRegisteredName(data.name);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLookingUp(false);
+    }
+  }
   const [invoiceNumber, setInvoiceNumber] = useState(c.invoiceNumber ?? "");
   const [invoiceRegistered, setInvoiceRegistered] = useState(c.invoiceRegistered);
   const [bankName, setBankName] = useState(c.bankName ?? "");
@@ -164,6 +187,7 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
   function handleSave() {
     startTransition(async () => {
       await updatePartnerBillingInfo(c.id, {
+        registeredName: registeredName || null,
         entityType,
         corporateNumber: corporateNumber || null,
         invoiceNumber: invoiceNumber || null,
@@ -188,6 +212,14 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
       <td className="px-4 py-3">
         <p className="font-medium text-zinc-900">{c.name}</p>
         <p className="text-[11px] text-zinc-400">{c.ownerName}</p>
+        <input
+          type="text"
+          value={registeredName}
+          onChange={(e) => setRegisteredName(e.target.value)}
+          placeholder="登記名（例: 合同会社○○）"
+          className={`${inputCls} mt-1`}
+        />
+        {isLookingUp && <p className="text-[10px] text-indigo-500">法人名を取得中...</p>}
       </td>
       <td className="px-4 py-3 space-y-1.5">
         <select
@@ -203,8 +235,12 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
           <input
             type="text"
             value={corporateNumber}
-            onChange={(e) => setCorporateNumber(e.target.value)}
-            placeholder="法人番号（13桁）"
+            onChange={(e) => {
+              const v = e.target.value;
+              setCorporateNumber(v);
+              if (v.length === 13) lookupCorporateNumber(v);
+            }}
+            placeholder="法人番号（13桁）→自動取得"
             maxLength={13}
             className={inputCls}
           />
