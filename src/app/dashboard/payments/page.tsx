@@ -1,4 +1,4 @@
-import { Banknote } from "lucide-react";
+import { Banknote, Download } from "lucide-react";
 import { getPaymentStatements } from "@/lib/actions/payment-statement";
 
 function fmtNum(n: number | bigint | { toString(): string }): string {
@@ -47,6 +47,7 @@ export default async function PaymentsPage() {
                   <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-600">支払額</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-zinc-600">ステータス</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600">日付</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-zinc-600 w-16">PDF</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -81,6 +82,16 @@ export default async function PaymentsPage() {
                       </td>
                       <td className="px-4 py-3 text-xs text-zinc-400">
                         {s.status === "PAID" ? fmtDate(s.paidAt) : fmtDate(s.createdAt)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <a
+                          href={`/api/payments/${s.id}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-indigo-600 transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </a>
                       </td>
                     </tr>
                   );

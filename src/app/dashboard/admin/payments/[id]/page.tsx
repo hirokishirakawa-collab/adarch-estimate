@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { ArrowLeft, Banknote } from "lucide-react";
+import { ArrowLeft, Banknote, Download } from "lucide-react";
 import type { UserRole } from "@/types/roles";
 import { getPaymentStatementById } from "@/lib/actions/payment-statement";
 import { PaymentStatusActions } from "./status-actions";
@@ -142,10 +142,21 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
         </div>
       )}
 
-      {/* ステータス操作 */}
-      {s.status !== "PAID" && (
-        <PaymentStatusActions id={s.id} currentStatus={s.status} />
-      )}
+      {/* アクション */}
+      <div className="flex items-center gap-3">
+        {s.status !== "PAID" && (
+          <PaymentStatusActions id={s.id} currentStatus={s.status} />
+        )}
+        <a
+          href={`/api/payments/${s.id}/pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-zinc-100 text-zinc-700 rounded-lg hover:bg-zinc-200 transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          PDF書き出し
+        </a>
+      </div>
     </div>
   );
 }
