@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { btobScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
+import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -36,6 +37,27 @@ export async function POST(req: NextRequest) {
   const body = parseResult.data;
   const enrichments: Record<string, any> = rawBody.enrichments ?? {};
 
+  // 既存リード・顧客の照合
+  const allNames = body.companies.map((c: any) => c.name);
+  const [existingLeads, existingCustomers] = await Promise.all([
+    db.lead.findMany({
+      where: { name: { in: allNames } },
+      select: { name: true, status: true, scoreTotal: true },
+    }).catch(() => [] as { name: string; status: string; scoreTotal: number }[]),
+    db.customer.findMany({
+      where: { name: { in: allNames } },
+      select: { name: true, status: true },
+    }).catch(() => [] as { name: string; status: string }[]),
+  ]);
+
+  const existingMap = new Map<string, string>();
+  for (const l of existingLeads) {
+    existingMap.set(l.name, `既存リード（${l.status}・スコア${l.scoreTotal}点）`);
+  }
+  for (const c of existingCustomers) {
+    existingMap.set(c.name, `既存顧客（${c.status}）`);
+  }
+
   const SYSTEM_PROMPT = `あなたはアドアーチグループの法人営業支援AIです。
 BtoB企業リストを受け取り、動画制作・広告営業のリード（見込み客）としての優先度をスコアリングしてください。
 
@@ -60,6 +82,7 @@ BtoB企業リストを受け取り、動画制作・広告営業のリード（�
 - output_scores ツールを使って結果を出力してください
 - 各企業に対して6項目の内訳スコアと合計スコア、1行コメント
 - コメントはBtoB営業向け：企業VP（企業紹介動画）、採用動画、商品PR動画、YouTube企業チャンネル、施設紹介動画等の具体的な提案ヒントを含める
+- 「⚠️既存リード」「⚠️既存顧客」が付記されている企業は、コメントにその旨を明記し、重複アプローチを避けるよう注意喚起する
 
 【出力JSON形式】
 [
@@ -78,93 +101,109 @@ BtoB企業リストを受け取り、動画制作・広告営業のリード（�
   }
 ]`;
 
-  const companySummary = body.companies
-    .map((c: any, i: number) => {
-      const enrichment = enrichments[c.name] ?? {};
-      const wa = enrichment.websiteAnalysis;
-      const yt = enrichment.youtubeChannel;
-      const parts = [
-        `${i + 1}. ${c.name}`,
-        `住所: ${c.address}`,
-        `法人番号: ${c.corporateNumber}`,
-        c.capital ? `資本金: ${(c.capital / 10000).toLocaleString()}万円` : "資本金: 不明",
-        c.employeeCount ? `従業員: ${c.employeeCount}名` : "従業員: 不明",
-        c.representativeName ? `代表: ${c.representativeName}` : "",
-        c.websiteUrl ? `Web: ${c.websiteUrl}` : "Web: なし",
-        c.businessItems?.length ? `事業: ${c.businessItems.join(", ")}` : "",
-        c.subsidies?.length ? `補助金: ${c.subsidies.slice(0, 3).join(", ")}` : "補助金: なし",
-        wa ? `サイト分析: ${wa.summary}` : "",
-        yt ? `YouTube: ${yt.url} (登録者${yt.subscribers}人, ${yt.videoCount}本)` : "YouTube: チャンネルなし",
-      ].filter(Boolean);
-      return parts.join(" | ");
-    })
-    .join("\n");
+  function formatCompany(c: any, i: number) {
+    const enrichment = enrichments[c.name] ?? {};
+    const wa = enrichment.websiteAnalysis;
+    const yt = enrichment.youtubeChannel;
+    const existingInfo = existingMap.get(c.name);
+    const existTag = existingInfo ? ` | ⚠️${existingInfo}` : "";
+    const parts = [
+      `${i + 1}. ${c.name}`,
+      `住所: ${c.address}`,
+      `法人番号: ${c.corporateNumber}`,
+      c.capital ? `資本金: ${(c.capital / 10000).toLocaleString()}万円` : "資本金: 不明",
+      c.employeeCount ? `従業員: ${c.employeeCount}名` : "従業員: 不明",
+      c.representativeName ? `代表: ${c.representativeName}` : "",
+      c.websiteUrl ? `Web: ${c.websiteUrl}` : "Web: なし",
+      c.businessItems?.length ? `事業: ${c.businessItems.join(", ")}` : "",
+      c.subsidies?.length ? `補助金: ${c.subsidies.slice(0, 3).join(", ")}` : "補助金: なし",
+      wa ? `サイト分析: ${wa.summary}` : "",
+      yt ? `YouTube: ${yt.url} (登録者${yt.subscribers}人, ${yt.videoCount}本)` : "YouTube: チャンネルなし",
+    ].filter(Boolean);
+    return parts.join(" | ") + existTag;
+  }
 
-  const userMessage = `【対象業種】${body.industry}
-【対象エリア】${body.area}
+  const SCORE_TOOLS = [{
+    name: "output_scores" as const,
+    description: "スコアリング結果を出力する",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        scores: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              total: { type: "number" },
+              breakdown: {
+                type: "object",
+                properties: {
+                  industryMatch: { type: "number" },
+                  scale: { type: "number" },
+                  digitalPresence: { type: "number" },
+                  youtubeOpportunity: { type: "number" },
+                  growthSignal: { type: "number" },
+                  accessibility: { type: "number" },
+                },
+                required: ["industryMatch", "scale", "digitalPresence", "youtubeOpportunity", "growthSignal", "accessibility"],
+              },
+              comment: { type: "string" },
+            },
+            required: ["name", "total", "breakdown", "comment"],
+          },
+        },
+      },
+      required: ["scores"],
+    },
+  }];
 
-【企業リスト（エンリッチメント付き）】
-${companySummary}
-
-上記のBtoB企業リストをスコアリングしてください。`;
+  // 分割並列スコアリング（15件以上は分割して並列実行）
+  const BATCH_SIZE = 15;
+  const indices = body.companies.map((_: any, i: number) => i);
+  const batches: number[][] = [];
+  for (let i = 0; i < indices.length; i += BATCH_SIZE) {
+    batches.push(indices.slice(i, i + BATCH_SIZE));
+  }
 
   try {
     const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      system: [
-        { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-      ],
-      messages: [{ role: "user", content: userMessage }],
-      tools: [{
-        name: "output_scores",
-        description: "スコアリング結果を出力する",
-        input_schema: {
-          type: "object" as const,
-          properties: {
-            scores: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  total: { type: "number" },
-                  breakdown: {
-                    type: "object",
-                    properties: {
-                      industryMatch: { type: "number" },
-                      scale: { type: "number" },
-                      digitalPresence: { type: "number" },
-                      youtubeOpportunity: { type: "number" },
-                      growthSignal: { type: "number" },
-                      accessibility: { type: "number" },
-                    },
-                    required: ["industryMatch", "scale", "digitalPresence", "youtubeOpportunity", "growthSignal", "accessibility"],
-                  },
-                  comment: { type: "string" },
-                },
-                required: ["name", "total", "breakdown", "comment"],
-              },
-            },
-          },
-          required: ["scores"],
-        },
-      }],
-      tool_choice: { type: "tool", name: "output_scores" },
-    });
 
-    const toolBlock = response.content.find(
-      (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
-    );
-    if (!toolBlock) {
-      return NextResponse.json(
-        { error: "AIレスポンスのパースに失敗しました" },
-        { status: 500 }
+    async function scoreBatch(batchIndices: number[]) {
+      const batchSummary = batchIndices
+        .map((i, j) => formatCompany(body.companies[i], j))
+        .join("\n");
+
+      const userMessage = `【対象業種】${body.industry}
+【対象エリア】${body.area}
+
+【企業リスト（エンリッチメント付き）】
+${batchSummary}
+
+上記のBtoB企業リストをスコアリングしてください。`;
+
+      const response = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: [
+          { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+        ],
+        messages: [{ role: "user", content: userMessage }],
+        tools: SCORE_TOOLS,
+        tool_choice: { type: "tool", name: "output_scores" },
+      });
+
+      const toolBlock = response.content.find(
+        (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
       );
+      if (!toolBlock) return [];
+      return (toolBlock.input as { scores: unknown[] }).scores;
     }
 
-    const scores = (toolBlock.input as { scores: unknown[] }).scores;
+    // 並列実行してマージ
+    const batchResults = await Promise.all(batches.map(scoreBatch));
+    const scores = batchResults.flat();
+
     return NextResponse.json({ scores });
   } catch (err) {
     console.error("[btob/score] error:", err);

@@ -193,7 +193,7 @@ export function BtoBResultsTable({
                 <tr key={`${lead.name}-${i}`} className="group">
                   <td colSpan={7} className="p-0">
                     <div
-                      className={`grid grid-cols-[2rem_1fr_5rem_5rem] sm:grid-cols-[2rem_1fr_1fr_7rem_6rem_5rem_5rem] items-center cursor-pointer hover:bg-zinc-50 transition-colors ${existingStatus ? "opacity-60" : ""}`}
+                      className={`grid grid-cols-[2rem_1fr_5rem_5rem] sm:grid-cols-[2rem_1fr_1fr_7rem_6rem_5rem_5rem] items-center cursor-pointer transition-colors ${existingStatus ? "bg-amber-50/60 opacity-60 hover:bg-amber-50" : "hover:bg-zinc-50"}`}
                       onClick={() => setExpandedIdx(isExpanded ? null : i)}
                     >
                       <div className="px-4 py-3 flex items-center">

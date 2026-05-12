@@ -8,6 +8,7 @@ import type { WebsiteAnalysis } from "@/lib/constants/leads";
 import { analyzeWebsiteSimple } from "@/lib/leads/analyze-website";
 import { getSuccessProfileDual } from "@/lib/leads/success-profile";
 import { getSessionInfo } from "@/lib/session";
+import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -44,12 +45,29 @@ export async function POST(req: NextRequest) {
     ? [sessionInfo.branchId, sessionInfo.branchId2].filter((id): id is string => !!id)
     : [];
 
-  // Webサイト分析 + 成功プロファイル（並列）
-  const [analyses, dualProfile] = await Promise.all([
+  // Webサイト分析 + 成功プロファイル + 既存照合（並列）
+  const allNames = body.places.map((p) => p.name);
+  const [analyses, dualProfile, existingLeads, existingCustomers] = await Promise.all([
     Promise.all(body.places.map((p) => analyzeWebsiteSimple(p.websiteUrl).then((r) => r.analysis))),
     getSuccessProfileDual(body.industry, "CINEMA_AD", branchIds),
+    db.lead.findMany({
+      where: { name: { in: allNames } },
+      select: { name: true, status: true, scoreTotal: true },
+    }).catch(() => [] as { name: string; status: string; scoreTotal: number }[]),
+    db.customer.findMany({
+      where: { name: { in: allNames } },
+      select: { name: true, status: true },
+    }).catch(() => [] as { name: string; status: string }[]),
   ]);
   const successProfile = dualProfile?.primary ?? null;
+
+  const existingMap = new Map<string, string>();
+  for (const l of existingLeads) {
+    existingMap.set(l.name, `既存リード（${l.status}・スコア${l.scoreTotal}点）`);
+  }
+  for (const c of existingCustomers) {
+    existingMap.set(c.name, `既存顧客（${c.status}）`);
+  }
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループのシネマ広告（イオンシネマ）営業支援AIです。
 イオンシネマ劇場周辺の企業リストを受け取り、シネマ広告のリード（見込み客）としての優先度をスコアリングしてください。
@@ -80,6 +98,7 @@ export async function POST(req: NextRequest) {
 - output_scores ツールを使って結果を出力してください
 - コメントはシネアド営業担当が読む想定で、「この企業にシネアドをどう提案するか」のヒントを含める
 - 採用ページがある建設業は「採用動画→シネアド上映」のクロスセル提案を示唆
+- 「⚠️既存リード」「⚠️既存顧客」が付記されている企業は、コメントにその旨を明記し、重複アプローチを避けるよう注意喚起する
 
 【出力JSON形式】
 [
@@ -98,89 +117,104 @@ export async function POST(req: NextRequest) {
   }
 ]`;
 
-  const placeSummary = body.places
-    .map(
-      (p, i) => {
-        // Google AIサマリー情報を構築
-        const aiParts: string[] = [];
-        if (p.reviewSummary) aiParts.push(`Googleレビュー要約:${p.reviewSummary}`);
-        if (p.placeSummary) aiParts.push(`Google概要:${p.placeSummary}`);
-        if (p.neighborhoodSummary) aiParts.push(`周辺エリア:${p.neighborhoodSummary}`);
-        if (p.googleMapsTypeLabel) aiParts.push(`Google業種ラベル:${p.googleMapsTypeLabel}`);
-        if (p.isFutureOpening) aiParts.push(`★近日開業予定★`);
-        const aiInfo = aiParts.length > 0 ? ` | ${aiParts.join(" | ")}` : "";
-        return `${i + 1}. ${p.name} | ${p.address} | 劇場から${p.distanceKm}km（${p.radiusBand}km圏） | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary}${aiInfo}`;
-      }
-    )
-    .join("\n");
+  function formatPlace(p: CinemaPlaceLead, i: number) {
+    const aiParts: string[] = [];
+    if (p.reviewSummary) aiParts.push(`Googleレビュー要約:${p.reviewSummary}`);
+    if (p.placeSummary) aiParts.push(`Google概要:${p.placeSummary}`);
+    if (p.neighborhoodSummary) aiParts.push(`周辺エリア:${p.neighborhoodSummary}`);
+    if (p.googleMapsTypeLabel) aiParts.push(`Google業種ラベル:${p.googleMapsTypeLabel}`);
+    if (p.isFutureOpening) aiParts.push(`★近日開業予定★`);
+    const aiInfo = aiParts.length > 0 ? ` | ${aiParts.join(" | ")}` : "";
+    const existingInfo = existingMap.get(p.name);
+    const existTag = existingInfo ? ` | ⚠️${existingInfo}` : "";
+    return `${i + 1}. ${p.name} | ${p.address} | 劇場から${p.distanceKm}km（${p.radiusBand}km圏） | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary}${aiInfo}${existTag}`;
+  }
 
   // 成功プロファイルがあれば注入
   const profileSection = successProfile
     ? `\n${successProfile.promptText}\n`
     : "";
 
-  const userMessage = `【対象劇場】イオンシネマ${body.theaterName}
-【対象業種】${body.industry}
-${profileSection}
-【企業リスト】
-${placeSummary}
+  const SCORE_TOOLS = [{
+    name: "output_scores" as const,
+    description: "スコアリング結果を出力する",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        scores: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              total: { type: "number" },
+              breakdown: {
+                type: "object",
+                properties: {
+                  industryMatch: { type: "number" },
+                  proximity: { type: "number" },
+                  scale: { type: "number" },
+                  digitalPresence: { type: "number" },
+                  localFit: { type: "number" },
+                  accessibility: { type: "number" },
+                },
+                required: ["industryMatch", "proximity", "scale", "digitalPresence", "localFit", "accessibility"],
+              },
+              comment: { type: "string" },
+            },
+            required: ["name", "total", "breakdown", "comment"],
+          },
+        },
+      },
+      required: ["scores"],
+    },
+  }];
 
-上記の企業リストをシネマ広告のリードとしてスコアリングしてください。`;
+  // 分割並列スコアリング（15件以上は分割して並列実行）
+  const BATCH_SIZE = 15;
+  const indices = body.places.map((_, i) => i);
+  const batches: number[][] = [];
+  for (let i = 0; i < indices.length; i += BATCH_SIZE) {
+    batches.push(indices.slice(i, i + BATCH_SIZE));
+  }
 
   try {
     const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      system: [
-        { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-      ],
-      messages: [{ role: "user", content: userMessage }],
-      tools: [{
-        name: "output_scores",
-        description: "スコアリング結果を出力する",
-        input_schema: {
-          type: "object" as const,
-          properties: {
-            scores: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  total: { type: "number" },
-                  breakdown: {
-                    type: "object",
-                    properties: {
-                      industryMatch: { type: "number" },
-                      proximity: { type: "number" },
-                      scale: { type: "number" },
-                      digitalPresence: { type: "number" },
-                      localFit: { type: "number" },
-                      accessibility: { type: "number" },
-                    },
-                    required: ["industryMatch", "proximity", "scale", "digitalPresence", "localFit", "accessibility"],
-                  },
-                  comment: { type: "string" },
-                },
-                required: ["name", "total", "breakdown", "comment"],
-              },
-            },
-          },
-          required: ["scores"],
-        },
-      }],
-      tool_choice: { type: "tool", name: "output_scores" },
-    });
 
-    const toolBlock = response.content.find(
-      (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
-    );
-    if (!toolBlock) {
-      return NextResponse.json({ error: "AIレスポンスのパースに失敗しました" }, { status: 500 });
+    async function scoreBatch(batchIndices: number[]) {
+      const batchSummary = batchIndices
+        .map((i, j) => formatPlace(body.places[i], j))
+        .join("\n");
+
+      const userMessage = `【対象劇場】イオンシネマ${body.theaterName}
+【対象業種】${body.industry}
+${profileSection}
+【企業リスト】
+${batchSummary}
+
+上記の企業リストをシネマ広告のリードとしてスコアリングしてください。`;
+
+      const response = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: [
+          { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+        ],
+        messages: [{ role: "user", content: userMessage }],
+        tools: SCORE_TOOLS,
+        tool_choice: { type: "tool", name: "output_scores" },
+      });
+
+      const toolBlock = response.content.find(
+        (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+      );
+      if (!toolBlock) return [];
+      return (toolBlock.input as { scores: unknown[] }).scores;
     }
 
-    const scores = (toolBlock.input as { scores: unknown[] }).scores;
+    // 並列実行してマージ
+    const batchResults = await Promise.all(batches.map(scoreBatch));
+    const scores = batchResults.flat();
 
     const analysisMap: Record<string, WebsiteAnalysis> = {};
     body.places.forEach((p, i) => {

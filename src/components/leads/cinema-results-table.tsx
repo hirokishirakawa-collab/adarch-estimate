@@ -7,8 +7,9 @@ import {
   CINEMA_SCORE_ITEMS,
 } from "@/lib/constants/cinema-leads";
 import type { ScoredCinemaLead, CinemaScoreKey } from "@/lib/constants/cinema-leads";
-import { ChevronDown, ChevronUp, ArrowUpDown, Filter, MapPin, Plus, Check, Loader2, Sparkles, MessageSquareQuote, Building2, MapPinned } from "lucide-react";
+import { ChevronDown, ChevronUp, ArrowUpDown, Filter, MapPin, Plus, Check, Loader2, Sparkles, MessageSquareQuote, Building2, MapPinned, EyeOff, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getLeadStatusOption } from "@/lib/constants/leads";
 
 type SortKey = "score" | "distance" | "name";
 
@@ -31,12 +32,21 @@ export function CinemaResultsTable({
   const [filterBand, setFilterBand] = useState<number | null>(null);
   const [filterPriority, setFilterPriority] = useState<string | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [hideExisting, setHideExisting] = useState(true);
 
   const getExistingStatus = (lead: ScoredCinemaLead) =>
     existingMap[`${lead.name}|${lead.address ?? ""}`] ?? null;
 
+  const existingCount = useMemo(
+    () => leads.filter((l) => getExistingStatus(l)).length,
+    [leads, existingMap]
+  );
+
   const filtered = useMemo(() => {
     let list = [...leads];
+    if (hideExisting) {
+      list = list.filter((l) => !getExistingStatus(l));
+    }
     if (filterBand !== null) {
       list = list.filter((l) => l.radiusBand === filterBand);
     }
@@ -53,7 +63,7 @@ export function CinemaResultsTable({
       return a.name.localeCompare(b.name, "ja");
     });
     return list;
-  }, [leads, sortKey, filterBand, filterPriority]);
+  }, [leads, sortKey, filterBand, filterPriority, hideExisting, existingMap]);
 
   // 距離帯ごとの件数
   const bandCounts = useMemo(() => {
@@ -87,6 +97,20 @@ export function CinemaResultsTable({
 
       {/* コントロール */}
       <div className="flex flex-wrap gap-1.5">
+        {existingCount > 0 && (
+          <>
+            <Button
+              size="xs"
+              variant={hideExisting ? "default" : "outline"}
+              onClick={() => setHideExisting(!hideExisting)}
+              className="gap-1"
+            >
+              {hideExisting ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              登録済み{existingCount}件{hideExisting ? "を除外中" : "を表示中"}
+            </Button>
+            <span className="w-px bg-zinc-200" />
+          </>
+        )}
         {/* 距離帯フィルタ */}
         <Button
           size="xs"
@@ -177,6 +201,7 @@ export function CinemaResultsTable({
               const bandColor = RADIUS_BAND_COLORS[lead.radiusBand];
               const isExpanded = expandedIdx === i;
               const existing = getExistingStatus(lead);
+              const statusOption = existing ? getLeadStatusOption(existing) : null;
               const isSaved = savedNames.has(lead.name);
               const isSavingThis = savingName === lead.name;
 
@@ -184,7 +209,7 @@ export function CinemaResultsTable({
                 <tr key={`${lead.name}-${i}`} className="group">
                   <td colSpan={7} className="p-0">
                     <div
-                      className={`grid grid-cols-[2rem_4rem_1fr_5rem_5rem_2.5rem] md:grid-cols-[2rem_4rem_1fr_1fr_5rem_5rem_2.5rem] items-center cursor-pointer hover:bg-zinc-50 transition-colors ${existing ? "opacity-50" : ""}`}
+                      className={`grid grid-cols-[2rem_4rem_1fr_5rem_5rem_2.5rem] md:grid-cols-[2rem_4rem_1fr_1fr_5rem_5rem_2.5rem] items-center cursor-pointer transition-colors ${existing ? "bg-amber-50/60 opacity-60 hover:bg-amber-50" : "hover:bg-zinc-50"}`}
                       onClick={() => setExpandedIdx(isExpanded ? null : i)}
                     >
                       <div className="px-3 py-2.5">
@@ -205,6 +230,11 @@ export function CinemaResultsTable({
                           {lead.isFutureOpening && (
                             <span className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium bg-green-50 text-green-700 border border-green-200">
                               🆕 開業予定
+                            </span>
+                          )}
+                          {statusOption && (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium border ${statusOption.className}`}>
+                              {statusOption.icon} {statusOption.label}
                             </span>
                           )}
                         </p>

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { recruitScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
+import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -34,6 +35,27 @@ export async function POST(req: NextRequest) {
   }
   const body = parseResult.data;
   const enrichments: Record<string, any> = rawBody.enrichments ?? {};
+
+  // 既存リード・顧客の照合
+  const allNames = body.places.map((p: any) => p.name);
+  const [existingLeads, existingCustomers] = await Promise.all([
+    db.lead.findMany({
+      where: { name: { in: allNames } },
+      select: { name: true, status: true, scoreTotal: true },
+    }).catch(() => [] as { name: string; status: string; scoreTotal: number }[]),
+    db.customer.findMany({
+      where: { name: { in: allNames } },
+      select: { name: true, status: true },
+    }).catch(() => [] as { name: string; status: string }[]),
+  ]);
+
+  const existingMap = new Map<string, string>();
+  for (const l of existingLeads) {
+    existingMap.set(l.name, `既存リード（${l.status}・スコア${l.scoreTotal}点）`);
+  }
+  for (const c of existingCustomers) {
+    existingMap.set(c.name, `既存顧客（${c.status}）`);
+  }
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループの採用マーケティング支援AIです。
 企業リストを受け取り、「採用動画・採用SNS・採用ブランディング」の提案先としての優先度をスコアリングしてください。
@@ -68,6 +90,7 @@ export async function POST(req: NextRequest) {
 - output_scores ツールを使って結果を出力してください
 - 各企業に対して6項目の内訳スコアと合計スコア、1行コメントを付与
 - コメントには採用タイプ（中途/新卒/両方）を踏まえた具体的な提案ヒントを含める
+- 「⚠️既存リード」「⚠️既存顧客」が付記されている企業は、コメントにその旨を明記し、重複アプローチを避けるよう注意喚起する
 
 【出力JSON形式】
 [
@@ -86,120 +109,135 @@ export async function POST(req: NextRequest) {
   }
 ]`;
 
-  const placeSummary = body.places
-    .map((p: any, i: number) => {
-      const enrichment = enrichments[p.name] ?? {};
-      const wa = enrichment.websiteAnalysis;
-      const yt = enrichment.youtubeChannel;
-      const ra = enrichment.recruitAnalysis;
+  function formatPlace(p: any, i: number) {
+    const enrichment = enrichments[p.name] ?? {};
+    const wa = enrichment.websiteAnalysis;
+    const yt = enrichment.youtubeChannel;
+    const ra = enrichment.recruitAnalysis;
+    const existingInfo = existingMap.get(p.name);
+    const existTag = existingInfo ? ` | ⚠️${existingInfo}` : "";
 
-      const parts = [
-        `${i + 1}. ${p.name}`,
-        `住所: ${p.address}`,
-        `電話: ${p.phone || "なし"}`,
-        `評価: ${p.rating}(${p.ratingCount}件)`,
-        `ステータス: ${p.businessStatus}`,
-        `業態: ${p.types?.slice(0, 5).join(",")}`,
-        `Web: ${p.websiteUrl || "なし"}`,
-      ];
+    const parts = [
+      `${i + 1}. ${p.name}`,
+      `住所: ${p.address}`,
+      `電話: ${p.phone || "なし"}`,
+      `評価: ${p.rating}(${p.ratingCount}件)`,
+      `ステータス: ${p.businessStatus}`,
+      `業態: ${p.types?.slice(0, 5).join(",")}`,
+      `Web: ${p.websiteUrl || "なし"}`,
+    ];
 
-      if (wa) parts.push(`サイト分析: ${wa.summary}`);
+    if (wa) parts.push(`サイト分析: ${wa.summary}`);
 
-      if (ra) {
-        parts.push(`採用分析: ${ra.summary}`);
-        if (ra.recruitType !== "unknown") {
-          const typeLabel = ra.recruitType === "both" ? "中途+新卒"
-            : ra.recruitType === "midcareer" ? "中途採用"
-            : "新卒採用";
-          parts.push(`採用タイプ: ${typeLabel}`);
-        }
-        if (ra.recruitTypeSignals?.length > 0) {
-          parts.push(`採用シグナル: ${ra.recruitTypeSignals.join(", ")}`);
-        }
-        if (ra.jobTypes?.length > 0) parts.push(`募集職種: ${ra.jobTypes.join(",")}`);
-        if (ra.usesRecruitPlatform?.length > 0) parts.push(`求人サイト: ${ra.usesRecruitPlatform.join(",")}`);
-        if (ra.urgencySignals?.length > 0) parts.push(`急募: ${ra.urgencySignals.join(",")}`);
-        parts.push(`採用動画: ${ra.hasRecruitVideo ? "あり" : "なし"}`);
-        if (ra.hasRecruitSns?.length > 0) parts.push(`採用SNS: ${ra.hasRecruitSns.join(",")}`);
+    if (ra) {
+      parts.push(`採用分析: ${ra.summary}`);
+      if (ra.recruitType !== "unknown") {
+        const typeLabel = ra.recruitType === "both" ? "中途+新卒"
+          : ra.recruitType === "midcareer" ? "中途採用"
+          : "新卒採用";
+        parts.push(`採用タイプ: ${typeLabel}`);
       }
+      if (ra.recruitTypeSignals?.length > 0) {
+        parts.push(`採用シグナル: ${ra.recruitTypeSignals.join(", ")}`);
+      }
+      if (ra.jobTypes?.length > 0) parts.push(`募集職種: ${ra.jobTypes.join(",")}`);
+      if (ra.usesRecruitPlatform?.length > 0) parts.push(`求人サイト: ${ra.usesRecruitPlatform.join(",")}`);
+      if (ra.urgencySignals?.length > 0) parts.push(`急募: ${ra.urgencySignals.join(",")}`);
+      parts.push(`採用動画: ${ra.hasRecruitVideo ? "あり" : "なし"}`);
+      if (ra.hasRecruitSns?.length > 0) parts.push(`採用SNS: ${ra.hasRecruitSns.join(",")}`);
+    }
 
-      if (yt) parts.push(`YouTube: ${yt.url} (登録者${yt.subscribers}人, ${yt.videoCount}本)`);
-      else parts.push("YouTube: チャンネルなし");
+    if (yt) parts.push(`YouTube: ${yt.url} (登録者${yt.subscribers}人, ${yt.videoCount}本)`);
+    else parts.push("YouTube: チャンネルなし");
 
-      // Google AI summaries
-      if (p.reviewSummary) parts.push(`レビュー要約: ${p.reviewSummary}`);
-      if (p.placeSummary) parts.push(`概要: ${p.placeSummary}`);
-      if (p.googleMapsTypeLabel) parts.push(`業種ラベル: ${p.googleMapsTypeLabel}`);
+    if (p.reviewSummary) parts.push(`レビュー要約: ${p.reviewSummary}`);
+    if (p.placeSummary) parts.push(`概要: ${p.placeSummary}`);
+    if (p.googleMapsTypeLabel) parts.push(`業種ラベル: ${p.googleMapsTypeLabel}`);
 
-      return parts.join(" | ");
-    })
-    .join("\n");
+    return parts.join(" | ") + existTag;
+  }
 
-  const userMessage = `【対象業種】${body.industry}
-【対象エリア】${body.area}
+  const SCORE_TOOLS = [{
+    name: "output_scores" as const,
+    description: "スコアリング結果を出力する",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        scores: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              total: { type: "number" },
+              breakdown: {
+                type: "object",
+                properties: {
+                  recruitActivity: { type: "number" },
+                  recruitMethodAge: { type: "number" },
+                  videoOpportunity: { type: "number" },
+                  snsOpportunity: { type: "number" },
+                  companyScale: { type: "number" },
+                  accessibility: { type: "number" },
+                },
+                required: ["recruitActivity", "recruitMethodAge", "videoOpportunity", "snsOpportunity", "companyScale", "accessibility"],
+              },
+              comment: { type: "string" },
+            },
+            required: ["name", "total", "breakdown", "comment"],
+          },
+        },
+      },
+      required: ["scores"],
+    },
+  }];
 
-【企業リスト（採用ページ分析・エンリッチメント付き）】
-${placeSummary}
-
-上記の企業リストを採用マーケティングの観点でスコアリングしてください。`;
+  // 分割並列スコアリング（15件以上は分割して並列実行）
+  const BATCH_SIZE = 15;
+  const indices = body.places.map((_: any, i: number) => i);
+  const batches: number[][] = [];
+  for (let i = 0; i < indices.length; i += BATCH_SIZE) {
+    batches.push(indices.slice(i, i + BATCH_SIZE));
+  }
 
   try {
     const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      system: [
-        { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-      ],
-      messages: [{ role: "user", content: userMessage }],
-      tools: [{
-        name: "output_scores",
-        description: "スコアリング結果を出力する",
-        input_schema: {
-          type: "object" as const,
-          properties: {
-            scores: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  total: { type: "number" },
-                  breakdown: {
-                    type: "object",
-                    properties: {
-                      recruitActivity: { type: "number" },
-                      recruitMethodAge: { type: "number" },
-                      videoOpportunity: { type: "number" },
-                      snsOpportunity: { type: "number" },
-                      companyScale: { type: "number" },
-                      accessibility: { type: "number" },
-                    },
-                    required: ["recruitActivity", "recruitMethodAge", "videoOpportunity", "snsOpportunity", "companyScale", "accessibility"],
-                  },
-                  comment: { type: "string" },
-                },
-                required: ["name", "total", "breakdown", "comment"],
-              },
-            },
-          },
-          required: ["scores"],
-        },
-      }],
-      tool_choice: { type: "tool", name: "output_scores" },
-    });
 
-    const toolBlock = response.content.find(
-      (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
-    );
-    if (!toolBlock) {
-      return NextResponse.json(
-        { error: "AIレスポンスのパースに失敗しました" },
-        { status: 500 },
+    async function scoreBatch(batchIndices: number[]) {
+      const batchSummary = batchIndices
+        .map((i, j) => formatPlace(body.places[i], j))
+        .join("\n");
+
+      const userMessage = `【対象業種】${body.industry}
+【対象エリア】${body.area}
+
+【企業リスト（採用ページ分析・エンリッチメント付き）】
+${batchSummary}
+
+上記の企業リストを採用マーケティングの観点でスコアリングしてください。`;
+
+      const response = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: [
+          { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+        ],
+        messages: [{ role: "user", content: userMessage }],
+        tools: SCORE_TOOLS,
+        tool_choice: { type: "tool", name: "output_scores" },
+      });
+
+      const toolBlock = response.content.find(
+        (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
       );
+      if (!toolBlock) return [];
+      return (toolBlock.input as { scores: unknown[] }).scores;
     }
 
-    const scores = (toolBlock.input as { scores: unknown[] }).scores;
+    // 並列実行してマージ
+    const batchResults = await Promise.all(batches.map(scoreBatch));
+    const scores = batchResults.flat();
+
     return NextResponse.json({ scores });
   } catch (err) {
     console.error("[recruit/score] error:", err);
