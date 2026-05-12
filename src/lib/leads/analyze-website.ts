@@ -306,7 +306,7 @@ export async function analyzeWebsite(
         businessType: bt.type,
         businessTypeReason: bt.reason,
         summary,
-      } satisfies WebsiteAnalysis,
+      } as WebsiteAnalysis,
       html,
     };
 
@@ -385,7 +385,7 @@ export async function analyzeWebsiteSimple(
         businessType: "unknown" as const,
         businessTypeReason: "",
         summary,
-      } satisfies WebsiteAnalysis,
+      } as WebsiteAnalysis,
       html,
     };
 

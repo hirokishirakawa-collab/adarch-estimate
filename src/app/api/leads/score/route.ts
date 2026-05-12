@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
     ? [sessionInfo.branchId, sessionInfo.branchId2].filter((id): id is string => !!id)
     : [];
 
+  try {
   // 全企業のWebサイト + YouTube + 成功プロファイルを並列で分析
   const allNames = body.places.map((p) => p.name);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
@@ -195,7 +196,6 @@ export async function POST(req: NextRequest) {
     batches.push(indices.slice(i, i + BATCH_SIZE));
   }
 
-  try {
     const client = new Anthropic({ apiKey });
 
     async function scoreBatch(batchIndices: number[]) {
