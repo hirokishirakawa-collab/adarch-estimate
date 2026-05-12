@@ -4,151 +4,9 @@ import { auth } from "@/lib/auth";
 import { validateBody, franchiseLeadScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import type { UserRole } from "@/types/roles";
-
-export const runtime = "nodejs";
-export const maxDuration = 120;
-
-// ----------------------------------------------------------------
-// Webサイト分析（簡易版）
-// ----------------------------------------------------------------
-interface WebAnalysis {
-  hasWebsite: boolean;
-  hasYoutube: boolean;
-  hasSns: string[];
-  siteAge: "modern" | "outdated" | "unknown";
-  hasRecruitPage: boolean;
-  summary: string;
-}
-
-async function analyzeWebsite(url: string): Promise<{ analysis: WebAnalysis; html: string | null }> {
-  const empty: WebAnalysis = {
-    hasWebsite: false,
-    hasYoutube: false,
-    hasSns: [],
-    siteAge: "unknown",
-    hasRecruitPage: false,
-    summary: "Webサイトなし",
-  };
-
-  if (!url) return { analysis: empty, html: null };
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; AdArchBot/1.0; +https://adarch.co.jp)",
-        Accept: "text/html",
-      },
-      redirect: "follow",
-    });
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      return { analysis: { ...empty, hasWebsite: true, summary: "サイトアクセス不可" }, html: null };
-    }
-
-    const html = await res.text();
-    const lower = html.toLowerCase();
-
-    const hasYouTube =
-      lower.includes("youtube.com/embed") ||
-      lower.includes("youtube.com/watch") ||
-      lower.includes("youtu.be/");
-    const hasVideo = hasYouTube || lower.includes("<video") || lower.includes("vimeo.com");
-
-    const snsPatterns: [string, RegExp][] = [
-      ["Instagram", /instagram\.com\/[a-zA-Z0-9_.]+/],
-      ["Twitter/X", /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+/],
-      ["Facebook", /facebook\.com\/[a-zA-Z0-9_.]+/],
-      ["TikTok", /tiktok\.com\/@[a-zA-Z0-9_.]+/],
-      ["LINE", /line\.me\//],
-    ];
-    const hasSns = snsPatterns.filter(([, re]) => re.test(lower)).map(([name]) => name);
-
-    const hasViewport = lower.includes('name="viewport"') || lower.includes("name='viewport'");
-    const hasModernFramework =
-      lower.includes("next") || lower.includes("nuxt") || lower.includes("react") || lower.includes("vue") || lower.includes("__next");
-    const siteAge: WebAnalysis["siteAge"] = hasModernFramework ? "modern" : hasViewport ? "modern" : "outdated";
-
-    const hasRecruitPage =
-      lower.includes("recruit") || lower.includes("career") || lower.includes("採用") || lower.includes("求人");
-
-    const parts: string[] = [];
-    if (hasVideo) parts.push(hasYouTube ? "YouTube動画あり" : "動画コンテンツあり");
-    else parts.push("動画未活用");
-    if (hasSns.length > 0) parts.push(`SNS: ${hasSns.join(",")}`);
-    else parts.push("SNSリンクなし");
-    if (siteAge === "outdated") parts.push("サイト古め");
-    if (hasRecruitPage) parts.push("採用ページあり");
-
-    return {
-      analysis: {
-        hasWebsite: true,
-        hasYoutube: hasYouTube,
-        hasSns,
-        siteAge,
-        hasRecruitPage,
-        summary: parts.join(" / "),
-      },
-      html,
-    };
-  } catch {
-    return { analysis: { ...empty, hasWebsite: true, summary: "サイト取得タイムアウト" }, html: null };
-  }
-}
-
-// ----------------------------------------------------------------
-// YouTubeチャンネル検索
-// ----------------------------------------------------------------
-interface YouTubeInfo {
-  url: string;
-  subscribers: number;
-  videoCount: number;
-}
-
-async function searchYouTubeChannel(companyName: string, apiKey: string): Promise<YouTubeInfo | null> {
-  try {
-    const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
-    searchUrl.searchParams.set("part", "snippet");
-    searchUrl.searchParams.set("type", "channel");
-    searchUrl.searchParams.set("q", companyName);
-    searchUrl.searchParams.set("maxResults", "1");
-    searchUrl.searchParams.set("key", apiKey);
-
-    const searchRes = await fetch(searchUrl.toString());
-    if (!searchRes.ok) return null;
-
-    const searchData = await searchRes.json();
-    const items = searchData.items ?? [];
-    if (items.length === 0) return null;
-
-    const channelId = items[0].snippet?.channelId ?? items[0].id?.channelId;
-    if (!channelId) return null;
-
-    const statsUrl = new URL("https://www.googleapis.com/youtube/v3/channels");
-    statsUrl.searchParams.set("part", "statistics");
-    statsUrl.searchParams.set("id", channelId);
-    statsUrl.searchParams.set("key", apiKey);
-
-    const statsRes = await fetch(statsUrl.toString());
-    if (!statsRes.ok) return null;
-
-    const statsData = await statsRes.json();
-    const channel = statsData.items?.[0];
-    if (!channel) return null;
-
-    return {
-      url: `https://www.youtube.com/channel/${channelId}`,
-      subscribers: Number(channel.statistics?.subscriberCount ?? 0),
-      videoCount: Number(channel.statistics?.videoCount ?? 0),
-    };
-  } catch {
-    return null;
-  }
-}
+import { analyzeWebsiteSimple } from "@/lib/leads/analyze-website";
+import { searchYouTubeChannel } from "@/lib/leads/search-youtube";
+import type { YouTubeChannelInfo } from "@/lib/constants/leads";
 
 // ----------------------------------------------------------------
 // POST /api/franchise-leads/score
@@ -181,10 +39,10 @@ export async function POST(req: NextRequest) {
   // Webサイト + YouTube 並列分析
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
   const [websiteResults, youtubeResults] = await Promise.all([
-    Promise.all(body.places.map((p) => analyzeWebsite(p.websiteUrl))),
+    Promise.all(body.places.map((p) => analyzeWebsiteSimple(p.websiteUrl))),
     youtubeApiKey
       ? Promise.all(body.places.map((p) => searchYouTubeChannel(p.name, youtubeApiKey)))
-      : Promise.resolve(body.places.map(() => null)),
+      : Promise.resolve(body.places.map(() => null as YouTubeChannelInfo | null)),
   ]);
   const analyses = websiteResults.map((r) => r.analysis);
 
@@ -307,8 +165,8 @@ ${placeSummary}
 
     const scores = (toolBlock.input as { scores: unknown[] }).scores;
 
-    const analysisMap: Record<string, WebAnalysis> = {};
-    const youtubeMap: Record<string, YouTubeInfo | null> = {};
+    const analysisMap: Record<string, typeof analyses[number]> = {};
+    const youtubeMap: Record<string, YouTubeChannelInfo | null> = {};
     body.places.forEach((p, i) => {
       analysisMap[p.name] = analyses[i];
       youtubeMap[p.name] = youtubeResults[i];

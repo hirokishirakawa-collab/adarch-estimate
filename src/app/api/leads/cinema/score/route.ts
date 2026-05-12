@@ -4,89 +4,13 @@ import { auth } from "@/lib/auth";
 import { validateBody, cinemaScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import type { CinemaPlaceLead } from "@/lib/constants/cinema-leads";
-import type { WebsiteAnalysis, BusinessType } from "@/lib/constants/leads";
+import type { WebsiteAnalysis } from "@/lib/constants/leads";
+import { analyzeWebsiteSimple } from "@/lib/leads/analyze-website";
 import { getSuccessProfileDual } from "@/lib/leads/success-profile";
 import { getSessionInfo } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
-
-// ----------------------------------------------------------------
-// 簡易Webサイト分析（既存 score/route.ts と同等のロジック）
-// ----------------------------------------------------------------
-async function analyzeWebsite(url: string): Promise<WebsiteAnalysis> {
-  const empty: WebsiteAnalysis = {
-    hasWebsite: false,
-    hasVideo: false,
-    hasYouTube: false,
-    hasSns: [],
-    siteAge: "unknown",
-    hasRecruitPage: false,
-    businessType: "unknown" as BusinessType,
-    businessTypeReason: "",
-    summary: "Webサイトなし",
-  };
-
-  if (!url) return empty;
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; AdArchBot/1.0; +https://adarch.co.jp)",
-        Accept: "text/html",
-      },
-      redirect: "follow",
-    });
-    clearTimeout(timeout);
-
-    if (!res.ok) return { ...empty, hasWebsite: true, summary: "サイトアクセス不可" };
-
-    const html = await res.text();
-    const lower = html.toLowerCase();
-
-    const hasYouTube = lower.includes("youtube.com/embed") || lower.includes("youtube.com/watch") || lower.includes("youtu.be/");
-    const hasVideo = hasYouTube || lower.includes("<video") || lower.includes("vimeo.com");
-
-    const snsPatterns: [string, RegExp][] = [
-      ["Instagram", /instagram\.com\/[a-zA-Z0-9_.]+/],
-      ["Twitter/X", /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+/],
-      ["Facebook", /facebook\.com\/[a-zA-Z0-9_.]+/],
-      ["LINE", /line\.me\//],
-    ];
-    const hasSns = snsPatterns.filter(([, re]) => re.test(lower)).map(([name]) => name);
-
-    const hasViewport = lower.includes('name="viewport"');
-    const siteAge: WebsiteAnalysis["siteAge"] = hasViewport ? "modern" : "outdated";
-
-    const hasRecruitPage = lower.includes("recruit") || lower.includes("career") || lower.includes("採用") || lower.includes("求人");
-
-    const parts: string[] = [];
-    if (hasVideo) parts.push("動画あり");
-    else parts.push("動画未活用");
-    if (hasSns.length > 0) parts.push(`SNS: ${hasSns.join(",")}`);
-    else parts.push("SNSなし");
-    if (siteAge === "outdated") parts.push("サイト古め");
-    if (hasRecruitPage) parts.push("採用ページあり");
-
-    return {
-      hasWebsite: true,
-      hasVideo,
-      hasYouTube,
-      hasSns,
-      siteAge,
-      hasRecruitPage,
-      businessType: "independent" as BusinessType,
-      businessTypeReason: "",
-      summary: parts.join(" / "),
-    };
-  } catch {
-    return { ...empty, hasWebsite: true, summary: "サイト取得タイムアウト" };
-  }
-}
 
 // ----------------------------------------------------------------
 // POST /api/leads/cinema/score
@@ -122,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   // Webサイト分析 + 成功プロファイル（並列）
   const [analyses, dualProfile] = await Promise.all([
-    Promise.all(body.places.map((p) => analyzeWebsite(p.websiteUrl))),
+    Promise.all(body.places.map((p) => analyzeWebsiteSimple(p.websiteUrl).then((r) => r.analysis))),
     getSuccessProfileDual(body.industry, "CINEMA_AD", branchIds),
   ]);
   const successProfile = dualProfile?.primary ?? null;
