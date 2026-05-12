@@ -48,7 +48,11 @@ export async function POST(req: NextRequest) {
     businessStatus: string | null;
     scoreTotal: number;
     scoreComment: string | null;
+    scoreBreakdown: Record<string, number> | null;
     memo: string | null;
+    websiteUrl: string | null;
+    youtubeChannelUrl: string | null;
+    youtubeSubscribers: number | null;
   };
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループの営業支援AIです。
@@ -116,6 +120,23 @@ ${MEDIA_TEXT}
 - 500〜800文字程度でまとめる
 - マークダウン形式で返答`;
 
+  // デジタル分析情報を構築
+  const digitalParts: string[] = [];
+  if (body.websiteUrl) digitalParts.push(`Webサイト: ${body.websiteUrl}`);
+  else digitalParts.push("Webサイト: なし");
+  if (body.youtubeChannelUrl) {
+    digitalParts.push(`YouTube: ${body.youtubeChannelUrl}（登録者${body.youtubeSubscribers ?? 0}人）`);
+  } else {
+    digitalParts.push("YouTube: チャンネルなし → 企業YouTube開設+動画制作の提案チャンス");
+  }
+  if (body.scoreBreakdown) {
+    const bd = body.scoreBreakdown;
+    const dp = bd.digitalPresence;
+    if (dp !== undefined) {
+      digitalParts.push(`デジタル活用度スコア: ${dp}/20点${dp >= 15 ? "（提案余地大）" : dp >= 10 ? "（中程度）" : "（活用済み）"}`);
+    }
+  }
+
   const userMessage = `【企業情報】
 企業名: ${body.name}
 住所: ${body.address ?? "不明"}
@@ -127,6 +148,7 @@ Google評価: ${body.rating}（${body.ratingCount}件）
 営業ステータス: ${body.businessStatus ?? "不明"}
 AIスコア: ${body.scoreTotal}点
 AIコメント: ${body.scoreComment ?? "なし"}
+${digitalParts.join("\n")}
 ${body.memo ? `営業メモ: ${body.memo}` : ""}
 
 この企業への最適な営業アプローチを提案してください。`;

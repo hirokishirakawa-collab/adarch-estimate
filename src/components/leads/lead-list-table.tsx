@@ -22,11 +22,15 @@ interface LeadRow {
   businessStatus: string | null;
   scoreTotal: number;
   scoreComment: string | null;
+  scoreBreakdown: Record<string, number> | null;
   status: string;
   memo: string | null;
   mapsUrl: string | null;
+  websiteUrl: string | null;
   industry: string | null;
   area: string | null;
+  youtubeChannelUrl: string | null;
+  youtubeSubscribers: number | null;
   assignee: { id: string; name: string | null; email: string } | null;
   convertedCustomer: { id: string; name: string } | null;
 }
@@ -389,7 +393,11 @@ function LeadRow({
           businessStatus: lead.businessStatus,
           scoreTotal: lead.scoreTotal,
           scoreComment: lead.scoreComment,
+          scoreBreakdown: lead.scoreBreakdown,
           memo: lead.memo,
+          websiteUrl: lead.websiteUrl,
+          youtubeChannelUrl: lead.youtubeChannelUrl,
+          youtubeSubscribers: lead.youtubeSubscribers,
         }),
       });
       if (!res.ok) throw new Error("API error");
