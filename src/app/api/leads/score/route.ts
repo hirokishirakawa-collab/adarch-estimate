@@ -8,6 +8,7 @@ import { analyzeWebsite } from "@/lib/leads/analyze-website";
 import { searchYouTubeChannel } from "@/lib/leads/search-youtube";
 import { getSuccessProfileDual } from "@/lib/leads/success-profile";
 import { getSessionInfo } from "@/lib/session";
+import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -47,13 +48,31 @@ export async function POST(req: NextRequest) {
   const allNames = body.places.map((p) => p.name);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
-  const [websiteResults, youtubeResults, dualProfile] = await Promise.all([
+  // 既存リード・顧客の照合クエリも並列で実行
+  const [websiteResults, youtubeResults, dualProfile, existingLeads, existingCustomers] = await Promise.all([
     Promise.all(body.places.map((p) => analyzeWebsite(p.websiteUrl, p.name, allNames))),
     youtubeApiKey
       ? Promise.all(body.places.map((p) => searchYouTubeChannel(p.name, youtubeApiKey)))
       : Promise.resolve(body.places.map(() => null)),
     getSuccessProfileDual(body.industry, "GOOGLE_PLACES", branchIds),
+    db.lead.findMany({
+      where: { name: { in: allNames } },
+      select: { name: true, status: true, scoreTotal: true },
+    }).catch(() => [] as { name: string; status: string; scoreTotal: number }[]),
+    db.customer.findMany({
+      where: { name: { in: allNames } },
+      select: { name: true, status: true },
+    }).catch(() => [] as { name: string; status: string }[]),
   ]);
+
+  // 既存データマップ
+  const existingMap = new Map<string, string>();
+  for (const l of existingLeads) {
+    existingMap.set(l.name, `既存リード（${l.status}・スコア${l.scoreTotal}点）`);
+  }
+  for (const c of existingCustomers) {
+    existingMap.set(c.name, `既存顧客（${c.status}）`);
+  }
   const successProfile = dualProfile?.primary ?? null;
   const analyses = websiteResults.map((r) => r.analysis);
 
@@ -92,6 +111,7 @@ export async function POST(req: NextRequest) {
   - チェーン・FC → 本部決裁の可能性、エリア限定施策の提案が有効
   - 独立企業 → オーナー直接提案が可能、意思決定が早い傾向
   - 支店 → 本社への紹介依頼 or 支店独自予算の確認が必要
+- 「⚠️既存リード」「⚠️既存顧客」が付記されている企業は、コメントにその旨を明記し、重複アプローチを避けるよう注意喚起する
 
 【出力JSON形式】
 [
@@ -110,96 +130,108 @@ export async function POST(req: NextRequest) {
   }
 ]`;
 
-  const placeSummary = body.places
-    .map(
-      (p, i) => {
-        const yt = youtubeResults[i];
-        const ytInfo = yt
-          ? `YouTube: ${yt.url} (登録者${yt.subscribers}人, ${yt.videoCount}本)`
-          : "YouTube: チャンネルなし";
-        // Google AIサマリー情報を構築
-        const aiParts: string[] = [];
-        if (p.reviewSummary) aiParts.push(`Googleレビュー要約:${p.reviewSummary}`);
-        if (p.placeSummary) aiParts.push(`Google概要:${p.placeSummary}`);
-        if (p.neighborhoodSummary) aiParts.push(`周辺エリア:${p.neighborhoodSummary}`);
-        if (p.googleMapsTypeLabel) aiParts.push(`Google業種ラベル:${p.googleMapsTypeLabel}`);
-        if (p.isFutureOpening) aiParts.push(`★近日開業予定★`);
-        const aiInfo = aiParts.length > 0 ? ` | ${aiParts.join(" | ")}` : "";
-        return `${i + 1}. ${p.name} | ${p.address} | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary} | 企業タイプ:${analyses[i].businessType}(${analyses[i].businessTypeReason}) | ${ytInfo}${aiInfo}`;
-      }
-    )
-    .join("\n");
+  // 企業情報を文字列に変換するヘルパー
+  function formatPlace(p: PlaceLead, i: number) {
+    const yt = youtubeResults[i];
+    const ytInfo = yt
+      ? `YouTube: ${yt.url} (登録者${yt.subscribers}人, ${yt.videoCount}本)`
+      : "YouTube: チャンネルなし";
+    const aiParts: string[] = [];
+    if (p.reviewSummary) aiParts.push(`Googleレビュー要約:${p.reviewSummary}`);
+    if (p.placeSummary) aiParts.push(`Google概要:${p.placeSummary}`);
+    if (p.neighborhoodSummary) aiParts.push(`周辺エリア:${p.neighborhoodSummary}`);
+    if (p.googleMapsTypeLabel) aiParts.push(`Google業種ラベル:${p.googleMapsTypeLabel}`);
+    if (p.isFutureOpening) aiParts.push(`★近日開業予定★`);
+    const aiInfo = aiParts.length > 0 ? ` | ${aiParts.join(" | ")}` : "";
+    const existingInfo = existingMap.get(p.name);
+    const existTag = existingInfo ? ` | ⚠️${existingInfo}` : "";
+    return `${p.name} | ${p.address} | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary} | 企業タイプ:${analyses[i].businessType}(${analyses[i].businessTypeReason}) | ${ytInfo}${aiInfo}${existTag}`;
+  }
 
-  // 成功プロファイルがあれば注入
   const profileSection = successProfile
     ? `\n${successProfile.promptText}\n`
     : "";
 
-  const userMessage = `【対象業種】${body.industry}
-【対象エリア】${body.area}
-${profileSection}
-【企業リスト（Webサイト分析結果付き）】
-${placeSummary}
+  const SCORE_TOOLS = [{
+    name: "output_scores" as const,
+    description: "スコアリング結果を出力する",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        scores: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              total: { type: "number" },
+              breakdown: {
+                type: "object",
+                properties: {
+                  industryMatch: { type: "number" },
+                  activity: { type: "number" },
+                  scale: { type: "number" },
+                  competitive: { type: "number" },
+                  accessibility: { type: "number" },
+                  digitalPresence: { type: "number" },
+                },
+                required: ["industryMatch", "activity", "scale", "competitive", "accessibility", "digitalPresence"],
+              },
+              comment: { type: "string" },
+            },
+            required: ["name", "total", "breakdown", "comment"],
+          },
+        },
+      },
+      required: ["scores"],
+    },
+  }];
 
-上記の企業リストをスコアリングしてください。JSON配列のみで返答してください。`;
+  // 分割並列スコアリング（15件以上は分割して並列実行）
+  const BATCH_SIZE = 15;
+  const indices = body.places.map((_, i) => i);
+  const batches: number[][] = [];
+  for (let i = 0; i < indices.length; i += BATCH_SIZE) {
+    batches.push(indices.slice(i, i + BATCH_SIZE));
+  }
 
   try {
     const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      system: [
-        { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-      ],
-      messages: [{ role: "user", content: userMessage }],
-      tools: [{
-        name: "output_scores",
-        description: "スコアリング結果を出力する",
-        input_schema: {
-          type: "object" as const,
-          properties: {
-            scores: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  total: { type: "number" },
-                  breakdown: {
-                    type: "object",
-                    properties: {
-                      industryMatch: { type: "number" },
-                      activity: { type: "number" },
-                      scale: { type: "number" },
-                      competitive: { type: "number" },
-                      accessibility: { type: "number" },
-                      digitalPresence: { type: "number" },
-                    },
-                    required: ["industryMatch", "activity", "scale", "competitive", "accessibility", "digitalPresence"],
-                  },
-                  comment: { type: "string" },
-                },
-                required: ["name", "total", "breakdown", "comment"],
-              },
-            },
-          },
-          required: ["scores"],
-        },
-      }],
-      tool_choice: { type: "tool", name: "output_scores" },
-    });
 
-    const toolBlock = response.content.find(
-      (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
-    );
-    if (!toolBlock) {
-      return NextResponse.json(
-        { error: "AIレスポンスのパースに失敗しました" },
-        { status: 500 }
+    async function scoreBatch(batchIndices: number[]) {
+      const batchSummary = batchIndices
+        .map((i, j) => `${j + 1}. ${formatPlace(body.places[i], i)}`)
+        .join("\n");
+
+      const userMessage = `【対象業種】${body.industry}
+【対象エリア】${body.area}
+${profileSection}
+【企業リスト（Webサイト分析結果付き）】
+${batchSummary}
+
+上記の企業リストをスコアリングしてください。`;
+
+      const response = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: [
+          { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+        ],
+        messages: [{ role: "user", content: userMessage }],
+        tools: SCORE_TOOLS,
+        tool_choice: { type: "tool", name: "output_scores" },
+      });
+
+      const toolBlock = response.content.find(
+        (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
       );
+      if (!toolBlock) return [];
+      return (toolBlock.input as { scores: unknown[] }).scores;
     }
 
-    const scores = (toolBlock.input as { scores: unknown[] }).scores;
+    // 並列実行してマージ
+    const batchResults = await Promise.all(batches.map(scoreBatch));
+    const scores = batchResults.flat();
 
     // 各企業のWebサイト分析結果とYouTube情報をインデックス付きで返す
     const analysisMap: Record<string, typeof analyses[number]> = {};
