@@ -8,6 +8,7 @@ import { BtoBResultsTable } from "./btob-results-table";
 import { Loader2, AlertCircle, RotateCcw, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { saveBtoBLeadsFromSearch, checkExistingLeads } from "@/lib/actions/lead";
+import { findScoreByName } from "@/lib/leads/match-score";
 
 type Phase = "form" | "searching" | "enriching" | "scoring" | "done" | "error";
 
@@ -126,7 +127,7 @@ export function BtoBSearchPanel() {
 
         // 4) マージ
         const merged: ScoredBtoBLead[] = companies.map((company) => {
-          const s = scores.find((sc) => sc.name === company.name);
+          const s = findScoreByName(scores, company.name);
           const enrich = enrichments?.[company.name];
           return {
             ...company,

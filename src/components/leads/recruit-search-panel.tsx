@@ -13,6 +13,7 @@ import type {
 import { RecruitSearchForm } from "./recruit-search-form";
 import { RecruitResultsTable } from "./recruit-results-table";
 import { Loader2, AlertCircle, RotateCcw, ListChecks } from "lucide-react";
+import { findScoreByName } from "@/lib/leads/match-score";
 import { Button } from "@/components/ui/button";
 import { saveRecruitLeadsFromSearch, checkExistingLeads } from "@/lib/actions/lead";
 
@@ -121,7 +122,7 @@ export function RecruitSearchPanel() {
 
         // 4) マージ
         const merged: ScoredRecruitLead[] = places.map((place) => {
-          const s = scores.find((sc) => sc.name === place.name);
+          const s = findScoreByName(scores, place.name);
           const enrich = enrichments[place.name];
           return {
             ...place,

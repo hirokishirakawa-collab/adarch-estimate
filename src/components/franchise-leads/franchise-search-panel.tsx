@@ -14,6 +14,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { findScoreByName } from "@/lib/leads/match-score";
 
 // ----------------------------------------------------------------
 // Types
@@ -245,7 +246,7 @@ export function FranchiseSearchPanel() {
       };
 
       const merged: ScoredPlace[] = places.map((place) => {
-        const s = scores.find((sc) => sc.name === place.name);
+        const s = findScoreByName(scores, place.name);
         return {
           ...place,
           score: s ?? {

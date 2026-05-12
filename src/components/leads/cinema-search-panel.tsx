@@ -13,6 +13,7 @@ import { CinemaSearchForm } from "./cinema-search-form";
 import { CinemaResultsTable } from "./cinema-results-table";
 import { Loader2, AlertCircle, RotateCcw, ListChecks, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { findScoreByName } from "@/lib/leads/match-score";
 import { saveCinemaLeadsFromSearch, checkExistingLeads } from "@/lib/actions/lead";
 
 // Leaflet は SSR 非対応なので dynamic import
@@ -124,7 +125,7 @@ export function CinemaSearchPanel() {
 
         // 3) マージ
         const merged: ScoredCinemaLead[] = places.map((place) => {
-          const s = scores.find((sc) => sc.name === place.name);
+          const s = findScoreByName(scores, place.name);
           return {
             ...place,
             score: s

@@ -8,6 +8,7 @@ import { LeadResultsTable } from "./lead-results-table";
 import { Loader2, AlertCircle, RotateCcw, ListChecks, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { saveLeadsFromSearch, checkExistingLeads } from "@/lib/actions/lead";
+import { findScoreByName } from "@/lib/leads/match-score";
 import type { SearchSuggestion } from "@/lib/actions/lead";
 
 type Phase = "form" | "searching" | "scoring" | "done" | "error";
@@ -108,7 +109,7 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
 
         // 3) マージ
         const merged: ScoredLead[] = places.map((place) => {
-          const s = scores.find((sc) => sc.name === place.name);
+          const s = findScoreByName(scores, place.name);
           return {
             ...place,
             score: s
