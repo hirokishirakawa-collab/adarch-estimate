@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
 6. 相性（10点）: Ad Archグループのモデル（広告媒体営業+制作）との親和性
 
 【重要ルール】
-- 必ずJSON配列のみで返答（前置きや後書き一切不要）
+- output_scores ツールを使って結果を出力してください
 - 各企業に対して上記6項目の内訳スコアと合計スコア、1行コメントを付与
 - コメントは加盟促進の営業担当（白川代表）が読む想定で、アプローチのヒントを含める
 
@@ -250,7 +250,7 @@ export async function POST(req: NextRequest) {
 【企業リスト（Webサイト分析結果付き）】
 ${placeSummary}
 
-上記の企業リストをAd Archグループ加盟候補としてスコアリングしてください。JSON配列のみで返答してください。`;
+上記の企業リストをAd Archグループ加盟候補としてスコアリングしてください。`;
 
   try {
     const client = new Anthropic({ apiKey });
@@ -261,16 +261,51 @@ ${placeSummary}
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],
       messages: [{ role: "user", content: userMessage }],
+      tools: [{
+        name: "output_scores",
+        description: "スコアリング結果を出力する",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            scores: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  total: { type: "number" },
+                  breakdown: {
+                    type: "object",
+                    properties: {
+                      regionPotential: { type: "number" },
+                      salesPotential: { type: "number" },
+                      businessScale: { type: "number" },
+                      digitalLiteracy: { type: "number" },
+                      motivationEstimate: { type: "number" },
+                      compatibility: { type: "number" },
+                    },
+                    required: ["regionPotential", "salesPotential", "businessScale", "digitalLiteracy", "motivationEstimate", "compatibility"],
+                  },
+                  comment: { type: "string" },
+                },
+                required: ["name", "total", "breakdown", "comment"],
+              },
+            },
+          },
+          required: ["scores"],
+        },
+      }],
+      tool_choice: { type: "tool", name: "output_scores" },
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
-
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
+    const toolBlock = response.content.find(
+      (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+    );
+    if (!toolBlock) {
       return NextResponse.json({ error: "AIレスポンスのパースに失敗しました" }, { status: 500 });
     }
 
-    const scores = JSON.parse(jsonMatch[0]);
+    const scores = (toolBlock.input as { scores: unknown[] }).scores;
 
     const analysisMap: Record<string, WebAnalysis> = {};
     const youtubeMap: Record<string, YouTubeInfo | null> = {};

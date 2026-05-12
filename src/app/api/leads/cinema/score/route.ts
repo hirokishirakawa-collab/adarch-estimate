@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
 
 【重要ルール】
 - コメントに具体的な数値予測（「売上○％UP」等）は絶対に書かない
-- 必ずJSON配列のみで返答（前置きや後書き一切不要）
+- output_scores ツールを使って結果を出力してください
 - コメントはシネアド営業担当が読む想定で、「この企業にシネアドをどう提案するか」のヒントを含める
 - 採用ページがある建設業は「採用動画→シネアド上映」のクロスセル提案を示唆
 
@@ -201,7 +201,7 @@ ${profileSection}
 【企業リスト】
 ${placeSummary}
 
-上記の企業リストをシネマ広告のリードとしてスコアリングしてください。JSON配列のみで返答してください。`;
+上記の企業リストをシネマ広告のリードとしてスコアリングしてください。`;
 
   try {
     const client = new Anthropic({ apiKey });
@@ -212,15 +212,51 @@ ${placeSummary}
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],
       messages: [{ role: "user", content: userMessage }],
+      tools: [{
+        name: "output_scores",
+        description: "スコアリング結果を出力する",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            scores: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  total: { type: "number" },
+                  breakdown: {
+                    type: "object",
+                    properties: {
+                      industryMatch: { type: "number" },
+                      proximity: { type: "number" },
+                      scale: { type: "number" },
+                      digitalPresence: { type: "number" },
+                      localFit: { type: "number" },
+                      accessibility: { type: "number" },
+                    },
+                    required: ["industryMatch", "proximity", "scale", "digitalPresence", "localFit", "accessibility"],
+                  },
+                  comment: { type: "string" },
+                },
+                required: ["name", "total", "breakdown", "comment"],
+              },
+            },
+          },
+          required: ["scores"],
+        },
+      }],
+      tool_choice: { type: "tool", name: "output_scores" },
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
+    const toolBlock = response.content.find(
+      (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+    );
+    if (!toolBlock) {
       return NextResponse.json({ error: "AIレスポンスのパースに失敗しました" }, { status: 500 });
     }
 
-    const scores = JSON.parse(jsonMatch[0]);
+    const scores = (toolBlock.input as { scores: unknown[] }).scores;
 
     const analysisMap: Record<string, WebsiteAnalysis> = {};
     body.places.forEach((p, i) => {

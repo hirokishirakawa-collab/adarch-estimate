@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
 【重要ルール】
 - コメントに具体的な数値予測（「応募○倍」等）は絶対に書かない
-- 必ずJSON配列のみで返答（前置きや後書き不要）
+- output_scores ツールを使って結果を出力してください
 - 各企業に対して6項目の内訳スコアと合計スコア、1行コメントを付与
 - コメントには採用タイプ（中途/新卒/両方）を踏まえた具体的な提案ヒントを含める
 
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
 【企業リスト（採用ページ分析・エンリッチメント付き）】
 ${placeSummary}
 
-上記の企業リストを採用マーケティングの観点でスコアリングしてください。JSON配列のみで返答してください。`;
+上記の企業リストを採用マーケティングの観点でスコアリングしてください。`;
 
   try {
     const client = new Anthropic({ apiKey });
@@ -152,20 +152,54 @@ ${placeSummary}
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],
       messages: [{ role: "user", content: userMessage }],
+      tools: [{
+        name: "output_scores",
+        description: "スコアリング結果を出力する",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            scores: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  total: { type: "number" },
+                  breakdown: {
+                    type: "object",
+                    properties: {
+                      recruitActivity: { type: "number" },
+                      recruitMethodAge: { type: "number" },
+                      videoOpportunity: { type: "number" },
+                      snsOpportunity: { type: "number" },
+                      companyScale: { type: "number" },
+                      accessibility: { type: "number" },
+                    },
+                    required: ["recruitActivity", "recruitMethodAge", "videoOpportunity", "snsOpportunity", "companyScale", "accessibility"],
+                  },
+                  comment: { type: "string" },
+                },
+                required: ["name", "total", "breakdown", "comment"],
+              },
+            },
+          },
+          required: ["scores"],
+        },
+      }],
+      tool_choice: { type: "tool", name: "output_scores" },
     });
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "";
-
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
+    const toolBlock = response.content.find(
+      (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+    );
+    if (!toolBlock) {
       return NextResponse.json(
         { error: "AIレスポンスのパースに失敗しました" },
         { status: 500 },
       );
     }
 
-    const scores = JSON.parse(jsonMatch[0]);
+    const scores = (toolBlock.input as { scores: unknown[] }).scores;
     return NextResponse.json({ scores });
   } catch (err) {
     console.error("[recruit/score] error:", err);

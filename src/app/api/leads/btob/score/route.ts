@@ -57,7 +57,7 @@ BtoB企業リストを受け取り、動画制作・広告営業のリード（�
 
 【重要ルール】
 - コメントに具体的な数値予測（「売上○％UP」等）は絶対に書かない
-- 必ずJSON配列のみで返答（前置きや後書き不要）
+- output_scores ツールを使って結果を出力してください
 - 各企業に対して6項目の内訳スコアと合計スコア、1行コメント
 - コメントはBtoB営業向け：企業VP（企業紹介動画）、採用動画、商品PR動画、YouTube企業チャンネル、施設紹介動画等の具体的な提案ヒントを含める
 
@@ -106,7 +106,7 @@ BtoB企業リストを受け取り、動画制作・広告営業のリード（�
 【企業リスト（エンリッチメント付き）】
 ${companySummary}
 
-上記のBtoB企業リストをスコアリングしてください。JSON配列のみで返答してください。`;
+上記のBtoB企業リストをスコアリングしてください。`;
 
   try {
     const client = new Anthropic({ apiKey });
@@ -117,20 +117,54 @@ ${companySummary}
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],
       messages: [{ role: "user", content: userMessage }],
+      tools: [{
+        name: "output_scores",
+        description: "スコアリング結果を出力する",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            scores: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  total: { type: "number" },
+                  breakdown: {
+                    type: "object",
+                    properties: {
+                      industryMatch: { type: "number" },
+                      scale: { type: "number" },
+                      digitalPresence: { type: "number" },
+                      youtubeOpportunity: { type: "number" },
+                      growthSignal: { type: "number" },
+                      accessibility: { type: "number" },
+                    },
+                    required: ["industryMatch", "scale", "digitalPresence", "youtubeOpportunity", "growthSignal", "accessibility"],
+                  },
+                  comment: { type: "string" },
+                },
+                required: ["name", "total", "breakdown", "comment"],
+              },
+            },
+          },
+          required: ["scores"],
+        },
+      }],
+      tool_choice: { type: "tool", name: "output_scores" },
     });
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "";
-
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
+    const toolBlock = response.content.find(
+      (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+    );
+    if (!toolBlock) {
       return NextResponse.json(
         { error: "AIレスポンスのパースに失敗しました" },
         { status: 500 }
       );
     }
 
-    const scores = JSON.parse(jsonMatch[0]);
+    const scores = (toolBlock.input as { scores: unknown[] }).scores;
     return NextResponse.json({ scores });
   } catch (err) {
     console.error("[btob/score] error:", err);

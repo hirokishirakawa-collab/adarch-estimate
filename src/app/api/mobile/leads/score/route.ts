@@ -75,7 +75,7 @@ Scoring criteria (100 points total):
 5. Accessibility (10pts): Phone availability, operational status
 6. Digital presence (20pts): Opportunity for digital marketing proposals (low digital = high opportunity)
 
-Return ONLY a JSON array:
+Use the output_scores tool to return results.
 [
   {
     "name": "Business Name",
@@ -105,7 +105,7 @@ Area: ${area}
 Leads:
 ${placeSummary}
 
-Score these leads. Return JSON array only.`;
+Score these leads.`;
 
   try {
     const client = new Anthropic({ apiKey });
@@ -116,20 +116,54 @@ Score these leads. Return JSON array only.`;
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],
       messages: [{ role: "user", content: userMessage }],
+      tools: [{
+        name: "output_scores",
+        description: "Score output tool",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            scores: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  total: { type: "number" },
+                  breakdown: {
+                    type: "object",
+                    properties: {
+                      industryMatch: { type: "number" },
+                      activity: { type: "number" },
+                      scale: { type: "number" },
+                      competitive: { type: "number" },
+                      accessibility: { type: "number" },
+                      digitalPresence: { type: "number" },
+                    },
+                    required: ["industryMatch", "activity", "scale", "competitive", "accessibility", "digitalPresence"],
+                  },
+                  comment: { type: "string" },
+                },
+                required: ["name", "total", "breakdown", "comment"],
+              },
+            },
+          },
+          required: ["scores"],
+        },
+      }],
+      tool_choice: { type: "tool", name: "output_scores" },
     });
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "";
-
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
+    const toolBlock = response.content.find(
+      (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+    );
+    if (!toolBlock) {
       return NextResponse.json(
         { error: "Failed to parse AI response" },
         { status: 500 }
       );
     }
 
-    const scores = JSON.parse(jsonMatch[0]);
+    const scores = (toolBlock.input as { scores: unknown[] }).scores;
 
     return NextResponse.json({ scores });
   } catch (err) {
