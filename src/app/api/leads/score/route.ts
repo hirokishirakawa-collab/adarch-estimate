@@ -9,6 +9,7 @@ import { searchYouTubeChannel } from "@/lib/leads/search-youtube";
 import { getSuccessProfileDual } from "@/lib/leads/success-profile";
 import { getSessionInfo } from "@/lib/session";
 import { db } from "@/lib/db";
+import { normalizeCompanyName } from "@/lib/leads/match-score";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -66,13 +67,22 @@ export async function POST(req: NextRequest) {
     }).catch(() => [] as { name: string; status: string }[]),
   ]);
 
-  // 既存データマップ
+  // 既存データマップ（正規化名でもマッチ）
   const existingMap = new Map<string, string>();
+  const normalizedExisting = new Map<string, string>();
   for (const l of existingLeads) {
-    existingMap.set(l.name, `既存リード（${l.status}・スコア${l.scoreTotal}点）`);
+    const tag = `既存リード（${l.status}・スコア${l.scoreTotal}点）`;
+    existingMap.set(l.name, tag);
+    normalizedExisting.set(normalizeCompanyName(l.name), tag);
   }
   for (const c of existingCustomers) {
-    existingMap.set(c.name, `既存顧客（${c.status}）`);
+    const tag = `既存顧客（${c.status}）`;
+    existingMap.set(c.name, tag);
+    normalizedExisting.set(normalizeCompanyName(c.name), tag);
+  }
+  // 検索対象企業名を正規化名でもルックアップ
+  function getExistingTag(name: string): string | undefined {
+    return existingMap.get(name) ?? normalizedExisting.get(normalizeCompanyName(name));
   }
   const successProfile = dualProfile?.primary ?? null;
   const analyses = websiteResults.map((r) => r.analysis);
@@ -144,7 +154,7 @@ export async function POST(req: NextRequest) {
     if (p.googleMapsTypeLabel) aiParts.push(`Google業種ラベル:${p.googleMapsTypeLabel}`);
     if (p.isFutureOpening) aiParts.push(`★近日開業予定★`);
     const aiInfo = aiParts.length > 0 ? ` | ${aiParts.join(" | ")}` : "";
-    const existingInfo = existingMap.get(p.name);
+    const existingInfo = getExistingTag(p.name);
     const existTag = existingInfo ? ` | ⚠️${existingInfo}` : "";
     return `${p.name} | ${p.address} | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary} | 企業タイプ:${analyses[i].businessType}(${analyses[i].businessTypeReason}) | ${ytInfo}${aiInfo}${existTag}`;
   }

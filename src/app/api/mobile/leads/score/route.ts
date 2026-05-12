@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyMobileToken } from "../../_lib/verify-mobile-token";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
+import { normalizeCompanyName } from "@/lib/leads/match-score";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -83,11 +84,19 @@ export async function POST(req: NextRequest) {
   ]);
 
   const existingMap = new Map<string, string>();
+  const normalizedExisting = new Map<string, string>();
   for (const l of existingLeads) {
-    existingMap.set(l.name, `Existing lead (${l.status}, score ${l.scoreTotal})`);
+    const tag = `Existing lead (${l.status}, score ${l.scoreTotal})`;
+    existingMap.set(l.name, tag);
+    normalizedExisting.set(normalizeCompanyName(l.name), tag);
   }
   for (const c of existingCustomers) {
-    existingMap.set(c.name, `Existing customer (${c.status})`);
+    const tag = `Existing customer (${c.status})`;
+    existingMap.set(c.name, tag);
+    normalizedExisting.set(normalizeCompanyName(c.name), tag);
+  }
+  function getExistingTag(name: string): string | undefined {
+    return existingMap.get(name) ?? normalizedExisting.get(normalizeCompanyName(name));
   }
 
   const SYSTEM_PROMPT = `You are a sales support AI for Ad Arch Group.
@@ -121,7 +130,7 @@ Use the output_scores tool to return results.
 ]`;
 
   function formatLead(p: LeadCandidate, i: number) {
-    const existingInfo = existingMap.get(p.name);
+    const existingInfo = getExistingTag(p.name);
     const existTag = existingInfo ? ` | ⚠️${existingInfo}` : "";
     return `${i + 1}. ${p.name} | ${p.address ?? "N/A"} | Phone:${p.phone || "none"} | Rating:${p.rating ?? 0}(${p.ratingCount ?? 0} reviews) | Status:${p.businessStatus ?? "N/A"} | Types:${(p.types ?? []).slice(0, 5).join(",")} | Web:${p.websiteUrl || "none"}${existTag}`;
   }

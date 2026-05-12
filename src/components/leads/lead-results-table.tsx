@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { getPriorityLabel, PRIORITY_LABELS } from "@/lib/constants/leads";
 import type { ScoredLead, SuccessProfileInfo } from "@/lib/constants/leads";
 import { LeadDetailPanel } from "./lead-detail-panel";
-import { ChevronDown, ChevronUp, ArrowUpDown, Filter, EyeOff, Eye } from "lucide-react";
+import { ChevronDown, ChevronUp, ArrowUpDown, Filter, EyeOff, Eye, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getLeadStatusOption } from "@/lib/constants/leads";
 
@@ -15,6 +15,7 @@ interface LeadResultsTableProps {
   savedNames: Set<string>;
   savingName: string | null;
   onSaveLead: (name: string) => void;
+  onSaveAll?: (names: string[]) => void;
   existingMap?: Record<string, string>; // "name|address" → status
   successProfile?: SuccessProfileInfo | null;
 }
@@ -24,6 +25,7 @@ export function LeadResultsTable({
   savedNames,
   savingName,
   onSaveLead,
+  onSaveAll,
   existingMap = {},
   successProfile,
 }: LeadResultsTableProps) {
@@ -72,6 +74,11 @@ export function LeadResultsTable({
     return c;
   }, [leads]);
 
+  const unsavedFiltered = useMemo(
+    () => filtered.filter((l) => !savedNames.has(l.name) && !getExistingStatus(l)),
+    [filtered, savedNames, existingMap]
+  );
+
   return (
     <div className="space-y-3">
       {/* サマリー + コントロール */}
@@ -83,6 +90,21 @@ export function LeadResultsTable({
           <span className="text-zinc-500">⚪ {counts.low}</span>
         </p>
         <div className="flex gap-1.5 ml-auto">
+          {onSaveAll && unsavedFiltered.length > 0 && (
+            <>
+              <Button
+                size="xs"
+                variant="default"
+                className="gap-1 bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => onSaveAll(unsavedFiltered.map((l) => l.name))}
+                disabled={!!savingName}
+              >
+                <Plus className="w-3 h-3" />
+                表示中{unsavedFiltered.length}件を一括保存
+              </Button>
+              <span className="w-px bg-zinc-200" />
+            </>
+          )}
           {existingCount > 0 && (
             <Button
               size="xs"

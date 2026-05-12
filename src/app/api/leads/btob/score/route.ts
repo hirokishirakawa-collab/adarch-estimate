@@ -4,6 +4,9 @@ import { auth } from "@/lib/auth";
 import { btobScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
+import { normalizeCompanyName } from "@/lib/leads/match-score";
+import { getSuccessProfileDual } from "@/lib/leads/success-profile";
+import { getSessionInfo } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -37,9 +40,15 @@ export async function POST(req: NextRequest) {
   const body = parseResult.data;
   const enrichments: Record<string, any> = rawBody.enrichments ?? {};
 
-  // 既存リード・顧客の照合
+  // 拠点情報を取得
+  const sessionInfo = await getSessionInfo();
+  const branchIds = sessionInfo
+    ? [sessionInfo.branchId, sessionInfo.branchId2].filter((id): id is string => !!id)
+    : [];
+
+  // 既存リード・顧客の照合 + 成功プロファイル
   const allNames = body.companies.map((c: any) => c.name);
-  const [existingLeads, existingCustomers] = await Promise.all([
+  const [existingLeads, existingCustomers, dualProfile] = await Promise.all([
     db.lead.findMany({
       where: { name: { in: allNames } },
       select: { name: true, status: true, scoreTotal: true },
@@ -48,14 +57,24 @@ export async function POST(req: NextRequest) {
       where: { name: { in: allNames } },
       select: { name: true, status: true },
     }).catch(() => [] as { name: string; status: string }[]),
+    getSuccessProfileDual(body.industry, "GBIZINFO", branchIds),
   ]);
+  const successProfile = dualProfile?.primary ?? null;
 
   const existingMap = new Map<string, string>();
+  const normalizedExisting = new Map<string, string>();
   for (const l of existingLeads) {
-    existingMap.set(l.name, `既存リード（${l.status}・スコア${l.scoreTotal}点）`);
+    const tag = `既存リード（${l.status}・スコア${l.scoreTotal}点）`;
+    existingMap.set(l.name, tag);
+    normalizedExisting.set(normalizeCompanyName(l.name), tag);
   }
   for (const c of existingCustomers) {
-    existingMap.set(c.name, `既存顧客（${c.status}）`);
+    const tag = `既存顧客（${c.status}）`;
+    existingMap.set(c.name, tag);
+    normalizedExisting.set(normalizeCompanyName(c.name), tag);
+  }
+  function getExistingTag(name: string): string | undefined {
+    return existingMap.get(name) ?? normalizedExisting.get(normalizeCompanyName(name));
   }
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループの法人営業支援AIです。
@@ -105,7 +124,7 @@ BtoB企業リストを受け取り、動画制作・広告営業のリード（�
     const enrichment = enrichments[c.name] ?? {};
     const wa = enrichment.websiteAnalysis;
     const yt = enrichment.youtubeChannel;
-    const existingInfo = existingMap.get(c.name);
+    const existingInfo = getExistingTag(c.name);
     const existTag = existingInfo ? ` | ⚠️${existingInfo}` : "";
     const parts = [
       `${i + 1}. ${c.name}`,
@@ -166,6 +185,10 @@ BtoB企業リストを受け取り、動画制作・広告営業のリード（�
     batches.push(indices.slice(i, i + BATCH_SIZE));
   }
 
+  const profileSection = successProfile
+    ? `\n${successProfile.promptText}\n`
+    : "";
+
   try {
     const client = new Anthropic({ apiKey });
 
@@ -176,7 +199,7 @@ BtoB企業リストを受け取り、動画制作・広告営業のリード（�
 
       const userMessage = `【対象業種】${body.industry}
 【対象エリア】${body.area}
-
+${profileSection}
 【企業リスト（エンリッチメント付き）】
 ${batchSummary}
 
@@ -204,7 +227,25 @@ ${batchSummary}
     const batchResults = await Promise.all(batches.map(scoreBatch));
     const scores = batchResults.flat();
 
-    return NextResponse.json({ scores });
+    return NextResponse.json({
+      scores,
+      successProfile: successProfile
+        ? {
+            successCount: successProfile.successCount,
+            skippedCount: successProfile.skippedCount,
+            avgTotal: successProfile.avgTotal,
+            avgBreakdown: successProfile.avgBreakdown,
+            dataSource: successProfile.dataSource,
+          }
+        : null,
+      groupProfile: dualProfile?.groupProfile
+        ? {
+            successCount: dualProfile.groupProfile.successCount,
+            avgTotal: dualProfile.groupProfile.avgTotal,
+            avgBreakdown: dualProfile.groupProfile.avgBreakdown,
+          }
+        : null,
+    });
   } catch (err) {
     console.error("[btob/score] error:", err);
     return NextResponse.json(

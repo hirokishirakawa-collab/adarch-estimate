@@ -10,6 +10,18 @@ function normalize(s: string): string {
     .toLowerCase();
 }
 
+/** 企業名から法人格を除去して正規化（既存リード照合の表記揺れ対応） */
+export function normalizeCompanyName(name: string): string {
+  return name
+    .normalize("NFKC")
+    .replace(/[\s\u3000\u00A0]+/g, "")
+    .replace(/株式会社|有限会社|合同会社|合資会社|一般社団法人|一般財団法人|公益社団法人|公益財団法人|医療法人|社会福祉法人|学校法人|宗教法人|NPO法人|特定非営利活動法人/g, "")
+    .replace(/[（(]\s*株\s*[）)]/g, "")
+    .replace(/[（(]\s*有\s*[）)]/g, "")
+    .replace(/[（(]\s*合\s*[）)]/g, "")
+    .toLowerCase();
+}
+
 export function findScoreByName<T extends { name: string }>(
   scores: T[],
   targetName: string,
@@ -23,9 +35,13 @@ export function findScoreByName<T extends { name: string }>(
   const normed = scores.find((s) => normalize(s.name) === nt);
   if (normed) return normed;
 
-  // 3) 部分一致（一方が他方を含む）
-  return scores.find((s) => {
-    const ns = normalize(s.name);
-    return ns.includes(nt) || nt.includes(ns);
-  });
+  // 3) 部分一致（一方が他方を含む — 短すぎる名前の誤マッチ防止）
+  if (nt.length >= 4) {
+    return scores.find((s) => {
+      const ns = normalize(s.name);
+      if (ns.length < 4) return false;
+      return ns.includes(nt) || nt.includes(ns);
+    });
+  }
+  return undefined;
 }

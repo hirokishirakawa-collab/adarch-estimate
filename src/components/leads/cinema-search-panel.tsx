@@ -188,6 +188,33 @@ export function CinemaSearchPanel() {
     [leads, savedNames, savingName, searchMeta]
   );
 
+  const handleSaveAll = useCallback(
+    async (names: string[]) => {
+      const unsaved = names.filter((n) => !savedNames.has(n));
+      if (unsaved.length === 0 || savingName) return;
+
+      for (const name of unsaved) {
+        const lead = leads.find((l) => l.name === name);
+        if (!lead) continue;
+        setSavingName(name);
+        try {
+          const result = await saveCinemaLeadsFromSearch(
+            [lead],
+            searchMeta.industry,
+            `イオンシネマ${searchMeta.theaterName}周辺`
+          );
+          if (!result.error) {
+            setSavedNames((prev) => new Set(prev).add(name));
+          }
+        } catch {
+          // continue
+        }
+      }
+      setSavingName(null);
+    },
+    [leads, savedNames, savingName, searchMeta]
+  );
+
   const handleReset = useCallback(() => {
     setPhase("form");
     setLeads([]);
@@ -198,7 +225,7 @@ export function CinemaSearchPanel() {
   return (
     <div className="space-y-5">
       {/* 検索フォーム */}
-      {(phase === "form" || phase === "done") && (
+      {(phase === "form" || phase === "done" || phase === "error") && (
         <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
           <CinemaSearchForm onSubmit={handleSearch} loading={false} />
         </div>
@@ -221,13 +248,9 @@ export function CinemaSearchPanel() {
 
       {/* エラー */}
       {phase === "error" && (
-        <div className="bg-white rounded-xl border border-red-200 px-5 py-6 flex flex-col items-center gap-3">
-          <AlertCircle className="w-8 h-8 text-red-400" />
+        <div className="bg-red-50 rounded-xl border border-red-200 px-5 py-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
           <p className="text-sm text-red-600">{errorMsg}</p>
-          <Button size="sm" variant="outline" onClick={handleReset}>
-            <RotateCcw className="w-3.5 h-3.5" />
-            やり直す
-          </Button>
         </div>
       )}
 
@@ -337,6 +360,7 @@ export function CinemaSearchPanel() {
           savedNames={savedNames}
           savingName={savingName}
           onSaveLead={handleSaveLead}
+          onSaveAll={handleSaveAll}
           existingMap={existingMap}
         />
       )}

@@ -9,6 +9,7 @@ import { analyzeWebsiteSimple } from "@/lib/leads/analyze-website";
 import { getSuccessProfileDual } from "@/lib/leads/success-profile";
 import { getSessionInfo } from "@/lib/session";
 import { db } from "@/lib/db";
+import { normalizeCompanyName } from "@/lib/leads/match-score";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -62,11 +63,19 @@ export async function POST(req: NextRequest) {
   const successProfile = dualProfile?.primary ?? null;
 
   const existingMap = new Map<string, string>();
+  const normalizedExisting = new Map<string, string>();
   for (const l of existingLeads) {
-    existingMap.set(l.name, `既存リード（${l.status}・スコア${l.scoreTotal}点）`);
+    const tag = `既存リード（${l.status}・スコア${l.scoreTotal}点）`;
+    existingMap.set(l.name, tag);
+    normalizedExisting.set(normalizeCompanyName(l.name), tag);
   }
   for (const c of existingCustomers) {
-    existingMap.set(c.name, `既存顧客（${c.status}）`);
+    const tag = `既存顧客（${c.status}）`;
+    existingMap.set(c.name, tag);
+    normalizedExisting.set(normalizeCompanyName(c.name), tag);
+  }
+  function getExistingTag(name: string): string | undefined {
+    return existingMap.get(name) ?? normalizedExisting.get(normalizeCompanyName(name));
   }
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループのシネマ広告（イオンシネマ）営業支援AIです。
@@ -125,7 +134,7 @@ export async function POST(req: NextRequest) {
     if (p.googleMapsTypeLabel) aiParts.push(`Google業種ラベル:${p.googleMapsTypeLabel}`);
     if (p.isFutureOpening) aiParts.push(`★近日開業予定★`);
     const aiInfo = aiParts.length > 0 ? ` | ${aiParts.join(" | ")}` : "";
-    const existingInfo = existingMap.get(p.name);
+    const existingInfo = getExistingTag(p.name);
     const existTag = existingInfo ? ` | ⚠️${existingInfo}` : "";
     return `${i + 1}. ${p.name} | ${p.address} | 劇場から${p.distanceKm}km（${p.radiusBand}km圏） | 電話:${p.phone || "なし"} | 評価:${p.rating}(${p.ratingCount}件) | ステータス:${p.businessStatus} | 業態:${p.types.slice(0, 5).join(",")} | Web:${p.websiteUrl || "なし"} | サイト分析:${analyses[i].summary}${aiInfo}${existTag}`;
   }

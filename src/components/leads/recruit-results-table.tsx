@@ -17,6 +17,7 @@ interface RecruitResultsTableProps {
   savedNames: Set<string>;
   savingName: string | null;
   onSaveLead: (name: string) => void;
+  onSaveAll?: (names: string[]) => void;
   existingMap?: Record<string, string>;
 }
 
@@ -32,6 +33,7 @@ export function RecruitResultsTable({
   savedNames,
   savingName,
   onSaveLead,
+  onSaveAll,
   existingMap = {},
 }: RecruitResultsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("score");
@@ -79,6 +81,11 @@ export function RecruitResultsTable({
     return c;
   }, [leads]);
 
+  const unsavedFiltered = useMemo(
+    () => filtered.filter((l) => !savedNames.has(l.name) && !getExistingStatus(l)),
+    [filtered, savedNames, existingMap]
+  );
+
   return (
     <div className="space-y-3">
       {/* サマリー + コントロール */}
@@ -90,6 +97,21 @@ export function RecruitResultsTable({
           <span className="text-zinc-500">⚪ {counts.low}</span>
         </p>
         <div className="flex gap-1.5 ml-auto flex-wrap">
+          {onSaveAll && unsavedFiltered.length > 0 && (
+            <>
+              <Button
+                size="xs"
+                variant="default"
+                className="gap-1 bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => onSaveAll(unsavedFiltered.map((l) => l.name))}
+                disabled={!!savingName}
+              >
+                <Plus className="w-3 h-3" />
+                表示中{unsavedFiltered.length}件を一括保存
+              </Button>
+              <span className="w-px bg-zinc-200" />
+            </>
+          )}
           {existingCount > 0 && (
             <Button
               size="xs"

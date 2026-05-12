@@ -4,6 +4,9 @@ import { auth } from "@/lib/auth";
 import { recruitScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
+import { normalizeCompanyName } from "@/lib/leads/match-score";
+import { getSuccessProfileDual } from "@/lib/leads/success-profile";
+import { getSessionInfo } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -36,9 +39,15 @@ export async function POST(req: NextRequest) {
   const body = parseResult.data;
   const enrichments: Record<string, any> = rawBody.enrichments ?? {};
 
-  // 既存リード・顧客の照合
+  // 拠点情報を取得
+  const sessionInfo = await getSessionInfo();
+  const branchIds = sessionInfo
+    ? [sessionInfo.branchId, sessionInfo.branchId2].filter((id): id is string => !!id)
+    : [];
+
+  // 既存リード・顧客の照合 + 成功プロファイル
   const allNames = body.places.map((p: any) => p.name);
-  const [existingLeads, existingCustomers] = await Promise.all([
+  const [existingLeads, existingCustomers, dualProfile] = await Promise.all([
     db.lead.findMany({
       where: { name: { in: allNames } },
       select: { name: true, status: true, scoreTotal: true },
@@ -47,14 +56,24 @@ export async function POST(req: NextRequest) {
       where: { name: { in: allNames } },
       select: { name: true, status: true },
     }).catch(() => [] as { name: string; status: string }[]),
+    getSuccessProfileDual(body.industry, "GOOGLE_PLACES", branchIds),
   ]);
+  const successProfile = dualProfile?.primary ?? null;
 
   const existingMap = new Map<string, string>();
+  const normalizedExisting = new Map<string, string>();
   for (const l of existingLeads) {
-    existingMap.set(l.name, `既存リード（${l.status}・スコア${l.scoreTotal}点）`);
+    const tag = `既存リード（${l.status}・スコア${l.scoreTotal}点）`;
+    existingMap.set(l.name, tag);
+    normalizedExisting.set(normalizeCompanyName(l.name), tag);
   }
   for (const c of existingCustomers) {
-    existingMap.set(c.name, `既存顧客（${c.status}）`);
+    const tag = `既存顧客（${c.status}）`;
+    existingMap.set(c.name, tag);
+    normalizedExisting.set(normalizeCompanyName(c.name), tag);
+  }
+  function getExistingTag(name: string): string | undefined {
+    return existingMap.get(name) ?? normalizedExisting.get(normalizeCompanyName(name));
   }
 
   const SYSTEM_PROMPT = `あなたはアドアーチグループの採用マーケティング支援AIです。
@@ -114,7 +133,7 @@ export async function POST(req: NextRequest) {
     const wa = enrichment.websiteAnalysis;
     const yt = enrichment.youtubeChannel;
     const ra = enrichment.recruitAnalysis;
-    const existingInfo = existingMap.get(p.name);
+    const existingInfo = getExistingTag(p.name);
     const existTag = existingInfo ? ` | ⚠️${existingInfo}` : "";
 
     const parts = [
@@ -200,6 +219,10 @@ export async function POST(req: NextRequest) {
     batches.push(indices.slice(i, i + BATCH_SIZE));
   }
 
+  const profileSection = successProfile
+    ? `\n${successProfile.promptText}\n`
+    : "";
+
   try {
     const client = new Anthropic({ apiKey });
 
@@ -210,7 +233,7 @@ export async function POST(req: NextRequest) {
 
       const userMessage = `【対象業種】${body.industry}
 【対象エリア】${body.area}
-
+${profileSection}
 【企業リスト（採用ページ分析・エンリッチメント付き）】
 ${batchSummary}
 
@@ -238,7 +261,25 @@ ${batchSummary}
     const batchResults = await Promise.all(batches.map(scoreBatch));
     const scores = batchResults.flat();
 
-    return NextResponse.json({ scores });
+    return NextResponse.json({
+      scores,
+      successProfile: successProfile
+        ? {
+            successCount: successProfile.successCount,
+            skippedCount: successProfile.skippedCount,
+            avgTotal: successProfile.avgTotal,
+            avgBreakdown: successProfile.avgBreakdown,
+            dataSource: successProfile.dataSource,
+          }
+        : null,
+      groupProfile: dualProfile?.groupProfile
+        ? {
+            successCount: dualProfile.groupProfile.successCount,
+            avgTotal: dualProfile.groupProfile.avgTotal,
+            avgBreakdown: dualProfile.groupProfile.avgBreakdown,
+          }
+        : null,
+    });
   } catch (err) {
     console.error("[recruit/score] error:", err);
     return NextResponse.json(
