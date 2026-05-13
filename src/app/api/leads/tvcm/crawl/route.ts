@@ -7,7 +7,6 @@ import { checkRateLimit, TVCM_RATE_LIMIT } from "@/lib/rate-limit";
 import {
   TVCM_SEARCH_KEYWORDS,
   detectMajorAgency,
-  isTokyo,
   type TvcmLeadCandidate,
   type TvcmLeadResult,
 } from "@/lib/constants/tvcm-leads";
@@ -160,9 +159,7 @@ function applyFilters(c: TvcmLeadCandidate): TvcmLeadResult {
   if (c.isListed) {
     return { ...c, excluded: true, exclusionReason: "上場企業のため除外" };
   }
-  if (isTokyo(c.prefecture, c.address)) {
-    return { ...c, excluded: true, exclusionReason: "東京本社のため除外" };
-  }
+  // 東京本社の除外は配布モデルでは撤廃（代表が選別する前提なので候補は広めに）
   return { ...c, excluded: false, exclusionReason: null };
 }
 

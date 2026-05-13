@@ -293,8 +293,10 @@ export function TvcmSearchPanel() {
           <ul className="text-[11px] text-rose-700 space-y-0.5 ml-4 list-disc">
             <li>大手代理店（電通・博報堂・ADK等）が言及されている案件</li>
             <li>上場企業（既にエージェンシー関係を持つ可能性）</li>
-            <li>東京本社の企業</li>
           </ul>
+          <p className="text-[10px] text-rose-600 mt-1">
+            ※ 全国対象（東京含む）。代表が結果を選別してプールに投入してください。
+          </p>
         </div>
 
         <button
