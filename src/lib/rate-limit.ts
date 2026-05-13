@@ -64,6 +64,12 @@ export const SCRAPE_RATE_LIMIT: RateLimitConfig = {
   maxPerDay: getEnvNumber("RATE_LIMIT_SCRAPE_PER_DAY", 50),
 };
 
+/** プリセット: TVCM/動画PRクロール（1回でPR TIMES多数+AI多数を消費するため厳格） */
+export const TVCM_RATE_LIMIT: RateLimitConfig = {
+  maxPerMinute: getEnvNumber("RATE_LIMIT_TVCM_PER_MINUTE", 1),
+  maxPerDay: getEnvNumber("RATE_LIMIT_TVCM_PER_DAY", 3),
+};
+
 /** ユーザーあたり全AI API合計の日次上限（デフォルト: 30回/日） */
 const USER_DAILY_TOTAL_LIMIT = getEnvNumber("RATE_LIMIT_USER_DAILY_TOTAL", 30);
 

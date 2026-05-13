@@ -90,6 +90,39 @@ export const cinemaSearchSchema = z.object({
   customKeywords: z.string().optional(),
 });
 
+// POST /api/leads/tvcm/crawl
+export const tvcmCrawlSchema = z.object({
+  keywords: z.array(z.string().min(1)).max(12).optional(),
+  maxPerKeyword: z.number().int().min(1).max(20).optional().default(8),
+  totalLimit: z.number().int().min(1).max(60).optional().default(30),
+});
+
+// POST /api/leads/tvcm/save
+export const tvcmSaveSchema = z.object({
+  candidates: z
+    .array(
+      z.object({
+        pressReleaseUrl: z.string().url(),
+        pressReleaseTitle: z.string().min(1),
+        announcedDate: z.string().nullable(),
+        companyName: z.string().min(1),
+        companyWebsite: z.string().nullable(),
+        prefecture: z.string().nullable(),
+        address: z.string().nullable(),
+        videoUrl: z.string().nullable(),
+        productionCompany: z.string().nullable(),
+        agencyDetected: z.string().nullable(),
+        isListed: z.boolean(),
+        capital: z.number().nullable(),
+        employeeCount: z.number().nullable(),
+        industryGuess: z.string().nullable(),
+        summary: z.string(),
+      })
+    )
+    .min(1)
+    .max(60),
+});
+
 // POST /api/leads/cinema/score
 export const cinemaScoreSchema = z.object({
   places: z

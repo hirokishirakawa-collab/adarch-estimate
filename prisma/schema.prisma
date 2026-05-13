@@ -236,6 +236,7 @@ enum LeadSource {
   CSV_IMPORT
   MANUAL
   SIGNBOARD_SCAN
+  PR_TIMES_TVCM
 }
 
 enum AutoSalesTargetType {
@@ -1676,6 +1677,15 @@ model Lead {
   cinemaTheaterId     Int?
   cinemaTheaterName   String?
   distanceKm          Float?
+  // ---- TVCM/動画PR リード（PR TIMES由来）----
+  pressReleaseUrl    String?
+  pressReleaseTitle  String?
+  videoUrl           String?
+  announcedDate      DateTime?
+  productionCompany  String?
+  prefecture         String?
+  agencyDetected     String?
+  isListed           Boolean?
   assigneeId          String?
   assignee            User?         @relation("LeadAssignee", fields: [assigneeId], references: [id])
   createdById         String?

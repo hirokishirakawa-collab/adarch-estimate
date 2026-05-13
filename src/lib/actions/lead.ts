@@ -8,6 +8,7 @@ import { sendChatMessage } from "@/lib/google-chat";
 import { getLeadStatusOption } from "@/lib/constants/leads";
 import type { ScoredLead, ScoredBtoBLead, ScoredRecruitLead } from "@/lib/constants/leads";
 import type { ScoredCinemaLead } from "@/lib/constants/cinema-leads";
+import type { TvcmLeadCandidate } from "@/lib/constants/tvcm-leads";
 import type { LeadStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 
@@ -897,5 +898,99 @@ export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
   } catch (err) {
     console.error("getSearchSuggestions error:", err);
     return [];
+  }
+}
+
+// ---------------------------------------------------------------
+// TVCM/動画PR リード（PR TIMES由来）を一括保存する
+// ---------------------------------------------------------------
+export async function saveTvcmLeadsFromSearch(
+  candidates: TvcmLeadCandidate[],
+): Promise<{ saved: number; error?: string }> {
+  const session = await auth();
+  if (!session?.user?.email) return { saved: 0, error: "ログインが必要です" };
+
+  const staffName = session.user.name ?? session.user.email ?? "不明";
+  const email = session.user.email;
+  const user = await db.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  let savedCount = 0;
+
+  try {
+    for (const c of candidates) {
+      const address = c.address ?? "";
+      const existing = await db.lead.findUnique({
+        where: { name_address: { name: c.companyName, address } },
+      });
+
+      if (existing) {
+        await db.lead.update({
+          where: { id: existing.id },
+          data: {
+            source: "PR_TIMES_TVCM",
+            pressReleaseUrl: c.pressReleaseUrl,
+            pressReleaseTitle: c.pressReleaseTitle,
+            videoUrl: c.videoUrl,
+            productionCompany: c.productionCompany,
+            announcedDate: c.announcedDate ? new Date(c.announcedDate) : null,
+            prefecture: c.prefecture,
+            agencyDetected: c.agencyDetected,
+            isListed: c.isListed,
+            capital: c.capital !== null ? BigInt(c.capital) : null,
+            employeeCount: c.employeeCount,
+            industry: c.industryGuess,
+            area: c.prefecture,
+            scoreComment: c.summary,
+            websiteUrl: c.companyWebsite,
+          },
+        });
+      } else {
+        const created = await db.lead.create({
+          data: {
+            name: c.companyName,
+            address: address || null,
+            websiteUrl: c.companyWebsite,
+            industry: c.industryGuess,
+            area: c.prefecture,
+            source: "PR_TIMES_TVCM",
+            status: "UNTOUCHED",
+            scoreComment: c.summary,
+            capital: c.capital !== null ? BigInt(c.capital) : null,
+            employeeCount: c.employeeCount,
+            pressReleaseUrl: c.pressReleaseUrl,
+            pressReleaseTitle: c.pressReleaseTitle,
+            videoUrl: c.videoUrl,
+            productionCompany: c.productionCompany,
+            announcedDate: c.announcedDate ? new Date(c.announcedDate) : null,
+            prefecture: c.prefecture,
+            agencyDetected: c.agencyDetected,
+            isListed: c.isListed,
+            createdById: user?.id ?? null,
+            assigneeId: user?.id ?? null,
+          },
+        });
+
+        await db.leadLog.create({
+          data: {
+            leadId: created.id,
+            action: "CREATED",
+            detail: `TVCM/動画PRリード獲得AIから保存（${c.prefecture ?? "地域不明"}・${c.industryGuess ?? "業種不明"}）`,
+            staffName,
+          },
+        });
+
+        savedCount++;
+      }
+    }
+
+    revalidatePath("/dashboard/leads/list");
+    return { saved: savedCount };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[saveTvcmLeadsFromSearch] DB error:", msg, e);
+    return { saved: savedCount, error: "保存中にエラーが発生しました" };
   }
 }
