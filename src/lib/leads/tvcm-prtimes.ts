@@ -47,21 +47,32 @@ export async function fetchPrTimesByKeyword(
 
   const items: PrTimesListItem[] = [];
   const seen = new Set<string>();
-  // 検索結果ページの記事リンク抽出
-  const re = /<a[^>]+href="(\/main\/html\/rd\/p\/[\d]+\.html)"[^>]*>([\s\S]*?)<\/a>/g;
+  // PR TIMES の記事URLは "/main/html/rd/p/000003103.000001304.html" のようなドット区切り数字
+  // <a ...> タグ全体を捕まえて、その中から href / title / inner text を抽出する
+  const linkRe = /<a([^>]*?)>([\s\S]*?)<\/a>/g;
+  const hrefRe = /href="(\/main\/html\/rd\/p\/[\d.]+\.html)"/;
+  const titleRe = /title="([^"]+)"/;
+
   let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null && items.length < maxItems) {
-    const path = m[1];
+  while ((m = linkRe.exec(html)) !== null && items.length < maxItems) {
+    const attrs = m[1];
+    const hrefMatch = attrs.match(hrefRe);
+    if (!hrefMatch) continue;
+    const path = hrefMatch[1];
     if (seen.has(path)) continue;
+
+    const titleAttr = attrs.match(titleRe)?.[1]?.trim() ?? "";
     const innerText = m[2]
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim();
-    if (!innerText) continue;
+    const title = titleAttr || innerText;
+    if (!title) continue;
+
     seen.add(path);
     items.push({
       url: `https://prtimes.jp${path}`,
-      title: innerText.slice(0, 200),
+      title: title.slice(0, 200),
       keyword,
     });
   }
