@@ -80,7 +80,7 @@ export function TvcmResultsTable({
     return (
       <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center">
         <p className="text-sm text-zinc-500">
-          条件に合致するTVCM/動画PR発表企業が見つかりませんでした。
+          条件に合致する動画コンテンツ発表企業が見つかりませんでした。
         </p>
       </div>
     );

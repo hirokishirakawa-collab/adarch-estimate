@@ -308,12 +308,12 @@ export function TvcmSearchPanel() {
           {phase === "crawling" ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              PR TIMES をクロール中...（最大3分）
+              クロール中...（最大3分）
             </>
           ) : (
             <>
               <Search className="w-4 h-4" />
-              TVCM/動画PR 発表企業をクロール
+              動画コンテンツ発表企業をクロール（TVer広告案件抽出）
             </>
           )}
         </button>

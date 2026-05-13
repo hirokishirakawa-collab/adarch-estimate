@@ -134,10 +134,10 @@ export default async function TvcmPoolPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">
-              TVCM/動画PR 案件プール
+              TVer広告 案件プール
             </h2>
             <p className="text-xs text-zinc-500">
-              本部が抽出したTVCM発表企業のリスト。「私がやります」で先着順に担当を確保
+              本部が抽出した動画コンテンツ発表企業のリスト。「私がやります」で先着順に担当を確保
             </p>
           </div>
         </div>
@@ -166,7 +166,7 @@ export default async function TvcmPoolPage() {
           <div>
             <p className="text-xs font-medium text-zinc-800">1. プールを見る</p>
             <p className="text-zinc-500 mt-0.5">
-              本部が抽出した、新CM・ブランドムービー発表企業のリストを確認
+              本部が抽出した、新CM・ブランドムービー・サービス紹介動画 発表企業のリストを確認
             </p>
           </div>
           <div>
@@ -178,7 +178,7 @@ export default async function TvcmPoolPage() {
           <div>
             <p className="text-xs font-medium text-zinc-800">3. リード管理で営業</p>
             <p className="text-zinc-500 mt-0.5">
-              「TVer広告いかがですか？」の切り口で営業開始
+              「動画があるならTVerで流しませんか？」の切り口で営業開始
             </p>
           </div>
         </div>
@@ -191,7 +191,7 @@ export default async function TvcmPoolPage() {
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-blue-600" />
               <h3 className="text-sm font-semibold text-blue-900">
-                パートナー別claim状況（本部のみ）
+                パートナー別claim状況（本部のみ・TVer広告案件）
               </h3>
               <span className="text-[10px] font-medium text-blue-700 bg-white border border-blue-200 px-1.5 py-0.5 rounded">
                 {partnerStats.length}名がclaim
@@ -265,7 +265,7 @@ export default async function TvcmPoolPage() {
       <section>
         <div className="flex items-center gap-2 mb-3">
           <Inbox className="w-4 h-4 text-rose-600" />
-          <h3 className="text-sm font-semibold text-zinc-900">未claim案件プール</h3>
+          <h3 className="text-sm font-semibold text-zinc-900">未claim案件プール（TVer広告営業）</h3>
           <span className="text-[10px] font-medium text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
             {unclaimedLeads.length}件
           </span>
@@ -276,7 +276,7 @@ export default async function TvcmPoolPage() {
           <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center">
             <Inbox className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
             <p className="text-sm text-zinc-500">
-              現在、未claimのTVCM案件はありません。
+              現在、未claimのTVer広告案件はありません。
             </p>
             <p className="text-[11px] text-zinc-400 mt-1">
               本部がプールに新規追加するまでお待ちください。

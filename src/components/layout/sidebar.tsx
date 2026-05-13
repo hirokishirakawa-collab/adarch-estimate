@@ -153,19 +153,19 @@ const NAV_SECTIONS: NavSection[] = [
       },
       {
         href: "/dashboard/leads/tvcm-pool",
-        label: "TVCM案件プール",
+        label: "TVer広告 案件プール",
         icon: Film,
         minRole: "USER",
       },
       {
         href: "/dashboard/leads/tvcm",
-        label: "TVCMクロール（本部）",
+        label: "TVer広告 案件クロール（本部）",
         icon: Film,
         minRole: "ADMIN",
       },
       {
         href: "/dashboard/leads/tvcm-history",
-        label: "TVCMクロール履歴（本部）",
+        label: "TVer広告 案件履歴（本部）",
         icon: Film,
         minRole: "ADMIN",
       },

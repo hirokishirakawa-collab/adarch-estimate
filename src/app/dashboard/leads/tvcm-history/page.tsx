@@ -116,7 +116,7 @@ export default async function TvcmHistoryPage({ searchParams }: SearchParams) {
             <Database className="w-4 h-4 text-zinc-600" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-zinc-900">TVCM/動画PR クロール履歴</h2>
+            <h2 className="text-lg font-bold text-zinc-900">TVer広告 案件 クロール履歴</h2>
             <p className="text-xs text-zinc-500">
               全クロール候補をデータ保全。後からプール投入・却下を判断できます（本部のみ）
             </p>
@@ -174,7 +174,7 @@ export default async function TvcmHistoryPage({ searchParams }: SearchParams) {
       {leads.length === 0 ? (
         <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center">
           <Database className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-          <p className="text-sm text-zinc-500">該当するTVCMリードがありません。</p>
+          <p className="text-sm text-zinc-500">該当するTVer広告案件リードがありません。</p>
           <p className="text-[11px] text-zinc-400 mt-1">
             クロール画面から新規取得してください。
           </p>

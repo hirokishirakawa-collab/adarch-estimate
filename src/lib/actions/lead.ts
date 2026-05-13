@@ -928,7 +928,7 @@ export async function transitionTvcmLeadStatus(
     select: { source: true, name: true, prefecture: true, industry: true, status: true },
   });
   if (!lead || lead.source !== "PR_TIMES_TVCM") {
-    return { success: false, error: "TVCMリードではありません" };
+    return { success: false, error: "TVer広告案件リードではありません" };
   }
 
   const newStatus: LeadStatus = decision === "pool" ? "UNTOUCHED" : "SKIPPED";
@@ -953,7 +953,7 @@ export async function transitionTvcmLeadStatus(
       const metaText = meta ? `（${meta}）` : "";
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
       const poolUrl = `${appUrl}/dashboard/leads/tvcm-pool`;
-      const message = `📢 TVCM案件プールに「${lead.name}」を追加${metaText}\n👉 先着順！${poolUrl}`;
+      const message = `📢 TVer広告 案件プールに「${lead.name}」を追加${metaText}\n👉 先着順！${poolUrl}`;
       after(async () => {
         try {
           await sendChatMessage(LEAD_CHAT_SPACE_ID, message);
@@ -1027,7 +1027,7 @@ export async function claimTvcmLead(
       data: {
         leadId,
         action: "CLAIMED",
-        detail: `TVCMプールから claim`,
+        detail: `TVer広告案件プールから claim`,
         staffName,
       },
     });
@@ -1081,12 +1081,12 @@ export async function saveTvcmLeadsFromSearch(
   });
   if (!user) return { saved: 0, error: "ユーザーが見つかりません" };
   if (user.role !== "ADMIN") {
-    return { saved: 0, error: "TVCMリードの保存は管理者専用です" };
+    return { saved: 0, error: "TVer広告案件リードの保存は管理者専用です" };
   }
 
   const targetStatus: LeadStatus = decision === "reject" ? "SKIPPED" : "UNTOUCHED";
   const logAction = decision === "reject" ? "REJECTED" : "POOLED";
-  const logDetailPrefix = decision === "reject" ? "TVCM却下記録" : "TVCM/動画PRプール投入";
+  const logDetailPrefix = decision === "reject" ? "TVer広告案件 却下記録" : "TVer広告 案件プール投入";
 
   let savedCount = 0;
   const savedPrefectures: string[] = [];

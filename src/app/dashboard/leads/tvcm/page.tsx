@@ -25,10 +25,10 @@ export default async function TvcmLeadsPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">
-              TVCM/動画PR 発表企業 リード獲得AI
+              TVer広告 案件クロール（本部）
             </h2>
             <p className="text-xs text-zinc-500">
-              PR TIMES から直近の新CM・ブランドムービー発表企業を抽出し、TVer営業候補リストを自動生成
+              YouTube / PR TIMES から動画コンテンツ発表企業を抽出し、TVer広告案件プールへ投入
             </p>
           </div>
         </div>
@@ -63,9 +63,9 @@ export default async function TvcmLeadsPage() {
             </p>
           </div>
           <div>
-            <p className="text-xs font-medium text-zinc-800">4. リード化</p>
+            <p className="text-xs font-medium text-zinc-800">4. プール投入</p>
             <p className="text-zinc-500 mt-0.5">
-              「TVerで流しませんか？」の営業候補として登録
+              本部の判断で「プールへ」「却下」を選別、全パートナーへ配信
             </p>
           </div>
         </div>
