@@ -993,6 +993,7 @@ export async function saveTvcmLeadsFromSearch(
   }
 
   let savedCount = 0;
+  const savedPrefectures: string[] = [];
 
   try {
     for (const c of candidates) {
@@ -1023,6 +1024,7 @@ export async function saveTvcmLeadsFromSearch(
           },
         });
       } else {
+        savedPrefectures.push(c.prefecture ?? "地域不明");
         const created = await db.lead.create({
           data: {
             name: c.companyName,
@@ -1061,7 +1063,32 @@ export async function saveTvcmLeadsFromSearch(
       }
     }
 
+    // 新規投入があればGoogle Chatで全パートナーに通知（先着案内）
+    if (savedCount > 0) {
+      const prefCounts: Record<string, number> = {};
+      for (const p of savedPrefectures) {
+        prefCounts[p] = (prefCounts[p] ?? 0) + 1;
+      }
+      const prefSummary = Object.entries(prefCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([pref, n]) => `${pref} ${n}件`)
+        .join("・");
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+      const poolUrl = `${appUrl}/dashboard/leads/tvcm-pool`;
+      const message = `📢 TVCM/動画PR 案件プールに ${savedCount}件 追加されました\n地域内訳: ${prefSummary}\n\n👉 先着順！「私がやります」でclaim:\n${poolUrl}`;
+
+      after(async () => {
+        try {
+          await sendChatMessage(LEAD_CHAT_SPACE_ID, message);
+        } catch (e) {
+          console.error("[saveTvcmLeadsFromSearch] Chat通知失敗:", e);
+        }
+      });
+    }
+
     revalidatePath("/dashboard/leads/list");
+    revalidatePath("/dashboard/leads/tvcm-pool");
     return { saved: savedCount };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
