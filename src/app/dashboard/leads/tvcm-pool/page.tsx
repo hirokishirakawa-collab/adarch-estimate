@@ -1,0 +1,184 @@
+import { Film, Inbox, CheckCircle2, ArrowRight } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import Link from "next/link";
+import { TvcmPoolCard, type TvcmPoolLead } from "@/components/leads/tvcm-pool-card";
+
+export default async function TvcmPoolPage() {
+  const session = await auth();
+  if (!session?.user?.email) redirect("/");
+
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true, role: true },
+  });
+  if (!user) redirect("/");
+
+  const isAdmin = user.role === "ADMIN";
+
+  // 未claim案件（全パートナーに公開）
+  const unclaimedLeads = (await db.lead.findMany({
+    where: {
+      source: "PR_TIMES_TVCM",
+      assigneeId: null,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      prefecture: true,
+      industry: true,
+      pressReleaseUrl: true,
+      pressReleaseTitle: true,
+      videoUrl: true,
+      productionCompany: true,
+      announcedDate: true,
+      websiteUrl: true,
+      scoreComment: true,
+      capital: true,
+      employeeCount: true,
+      createdAt: true,
+    },
+  })) as TvcmPoolLead[];
+
+  // 自分がclaim済み案件
+  const myClaimedLeads = (await db.lead.findMany({
+    where: {
+      source: "PR_TIMES_TVCM",
+      assigneeId: user.id,
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      prefecture: true,
+      industry: true,
+      pressReleaseUrl: true,
+      pressReleaseTitle: true,
+      videoUrl: true,
+      productionCompany: true,
+      announcedDate: true,
+      websiteUrl: true,
+      scoreComment: true,
+      capital: true,
+      employeeCount: true,
+      createdAt: true,
+    },
+  })) as TvcmPoolLead[];
+
+  return (
+    <div className="px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-rose-50 rounded-xl flex items-center justify-center">
+            <Film className="w-4 h-4 text-rose-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-zinc-900">
+              TVCM/動画PR 案件プール
+            </h2>
+            <p className="text-xs text-zinc-500">
+              本部が抽出したTVCM発表企業のリスト。「私がやります」で先着順に担当を確保
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Link
+              href="/dashboard/leads/tvcm"
+              className="text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg flex items-center gap-1 border border-rose-200"
+            >
+              プールに追加（クロール）
+            </Link>
+          )}
+          <Link
+            href="/dashboard/leads/list"
+            className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+          >
+            リード管理へ <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+      </div>
+
+      {/* 使い方 */}
+      <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
+        <p className="text-xs font-semibold text-zinc-700 mb-3">使い方</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-[11px]">
+          <div>
+            <p className="text-xs font-medium text-zinc-800">1. プールを見る</p>
+            <p className="text-zinc-500 mt-0.5">
+              本部が抽出した、新CM・ブランドムービー発表企業のリストを確認
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-zinc-800">2. 「私がやります」</p>
+            <p className="text-zinc-500 mt-0.5">
+              気になる案件を先着でclaim。他パートナーは取れなくなります
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-zinc-800">3. リード管理で営業</p>
+            <p className="text-zinc-500 mt-0.5">
+              「TVer広告いかがですか？」の切り口で営業開始
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 自分のclaim済み（先頭に表示） */}
+      {myClaimedLeads.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <h3 className="text-sm font-semibold text-zinc-900">
+              あなたが担当中の案件
+            </h3>
+            <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+              {myClaimedLeads.length}件
+            </span>
+          </div>
+          <div className="space-y-2">
+            {myClaimedLeads.map((lead) => (
+              <TvcmPoolCard key={lead.id} lead={lead} claimable={false} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 未claim プール */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <Inbox className="w-4 h-4 text-rose-600" />
+          <h3 className="text-sm font-semibold text-zinc-900">未claim案件プール</h3>
+          <span className="text-[10px] font-medium text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+            {unclaimedLeads.length}件
+          </span>
+          <span className="text-[10px] text-zinc-500 ml-2">先着順</span>
+        </div>
+
+        {unclaimedLeads.length === 0 ? (
+          <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center">
+            <Inbox className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+            <p className="text-sm text-zinc-500">
+              現在、未claimのTVCM案件はありません。
+            </p>
+            <p className="text-[11px] text-zinc-400 mt-1">
+              本部がプールに新規追加するまでお待ちください。
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {unclaimedLeads.map((lead) => (
+              <TvcmPoolCard key={lead.id} lead={lead} claimable={true} />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}

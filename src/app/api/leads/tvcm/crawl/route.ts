@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { validateBody, tvcmCrawlSchema } from "@/lib/validations";
 import { checkRateLimit, TVCM_RATE_LIMIT } from "@/lib/rate-limit";
 import {
@@ -155,7 +156,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // レート制限: 1ユーザー 1分1回 / 1日3回
+  // 配布モデル: クロールは ADMIN（代表）のみ
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+    select: { role: true },
+  });
+  if (user?.role !== "ADMIN") {
+    return NextResponse.json(
+      { error: "クロール機能は管理者専用です" },
+      { status: 403 },
+    );
+  }
+
   const limited = checkRateLimit(
     session.user.email,
     "leads/tvcm/crawl",

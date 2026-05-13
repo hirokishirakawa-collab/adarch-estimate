@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Crosshair, Building2, Clapperboard, Briefcase, Film } from "lucide-react";
+import { Crosshair, Building2, Clapperboard, Briefcase } from "lucide-react";
 import { LeadSearchPanel } from "./lead-search-panel";
 import { BtoBSearchPanel } from "./btob-search-panel";
 import { RecruitSearchPanel } from "./recruit-search-panel";
-import { TvcmSearchPanel } from "./tvcm-search-panel";
 import type { SearchSuggestion } from "@/lib/actions/lead";
 
 // Cinema は動的 import（シネアド用はページ固有のため遅延読み込み）
@@ -20,7 +19,6 @@ const TABS = [
   { key: "btob", label: "BtoB リード", icon: Building2, color: "indigo" },
   { key: "cinema", label: "シネアド", icon: Clapperboard, color: "purple" },
   { key: "recruit", label: "採用リード", icon: Briefcase, color: "amber" },
-  { key: "tvcm", label: "TVCM/動画PR", icon: Film, color: "rose" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -30,7 +28,6 @@ const TAB_COLORS: Record<string, { active: string; inactive: string }> = {
   indigo: { active: "bg-indigo-600 text-white border-indigo-600", inactive: "text-indigo-600 border-indigo-200 hover:border-indigo-400" },
   purple: { active: "bg-purple-600 text-white border-purple-600", inactive: "text-purple-600 border-purple-200 hover:border-purple-400" },
   amber:  { active: "bg-amber-600 text-white border-amber-600", inactive: "text-amber-600 border-amber-200 hover:border-amber-400" },
-  rose:   { active: "bg-rose-600 text-white border-rose-600", inactive: "text-rose-600 border-rose-200 hover:border-rose-400" },
 };
 
 interface LeadTabsProps {
@@ -69,7 +66,6 @@ export function LeadTabs({ suggestions = [] }: LeadTabsProps) {
         {activeTab === "btob" && <BtoBSearchPanel />}
         {activeTab === "cinema" && <CinemaSearchPanel />}
         {activeTab === "recruit" && <RecruitSearchPanel />}
-        {activeTab === "tvcm" && <TvcmSearchPanel />}
       </div>
     </div>
   );

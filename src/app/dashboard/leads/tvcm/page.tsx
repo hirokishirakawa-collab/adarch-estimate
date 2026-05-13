@@ -1,8 +1,21 @@
 import { Film, ArrowRight } from "lucide-react";
 import { TvcmSearchPanel } from "@/components/leads/tvcm-search-panel";
 import Link from "next/link";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
 
-export default function TvcmLeadsPage() {
+export default async function TvcmLeadsPage() {
+  const session = await auth();
+  if (!session?.user?.email) redirect("/");
+
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+    select: { role: true },
+  });
+  // 配布モデル: 代表（ADMIN）のみがクロール → 全パートナー向けプールに配信
+  if (user?.role !== "ADMIN") redirect("/dashboard/leads/tvcm-pool");
+
   return (
     <div className="px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
       <div className="flex items-start justify-between">

@@ -567,6 +567,9 @@ export default async function DashboardPage() {
           <Link href="/dashboard/leads/cinema" className="text-[11px] font-semibold text-purple-600 bg-purple-100 hover:bg-purple-200 px-2.5 py-1 rounded-full border border-purple-200 transition-colors">
             シネアド
           </Link>
+          <Link href="/dashboard/leads/tvcm-pool" className="text-[11px] font-semibold text-rose-600 bg-rose-100 hover:bg-rose-200 px-2.5 py-1 rounded-full border border-rose-200 transition-colors">
+            TVCM案件プール
+          </Link>
         </div>
       </div>
 

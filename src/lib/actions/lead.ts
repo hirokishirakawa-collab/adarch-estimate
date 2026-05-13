@@ -902,7 +902,78 @@ export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
 }
 
 // ---------------------------------------------------------------
+// TVCM/動画PR プールから案件をclaim（早い者勝ち）
+// ---------------------------------------------------------------
+export async function claimTvcmLead(
+  leadId: string,
+): Promise<{ success: boolean; error?: string; assignedTo?: string }> {
+  const session = await auth();
+  if (!session?.user?.email) return { success: false, error: "ログインが必要です" };
+
+  const staffName = session.user.name ?? session.user.email ?? "不明";
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true, name: true, email: true },
+  });
+  if (!user) return { success: false, error: "ユーザーが見つかりません" };
+
+  try {
+    // updateMany で条件付きアトミック更新（assigneeId=null かつ source=PR_TIMES_TVCM の時のみ更新）
+    const result = await db.lead.updateMany({
+      where: {
+        id: leadId,
+        source: "PR_TIMES_TVCM",
+        assigneeId: null,
+      },
+      data: {
+        assigneeId: user.id,
+      },
+    });
+
+    if (result.count === 0) {
+      // 既に他人にclaimされている or 存在しない or TVCM以外
+      const existing = await db.lead.findUnique({
+        where: { id: leadId },
+        select: {
+          assigneeId: true,
+          assignee: { select: { name: true, email: true } },
+        },
+      });
+      if (!existing) return { success: false, error: "案件が見つかりません" };
+      if (existing.assigneeId === user.id) {
+        return { success: true, assignedTo: user.name ?? user.email };
+      }
+      const claimedBy =
+        existing.assignee?.name ?? existing.assignee?.email ?? "他のパートナー";
+      return {
+        success: false,
+        error: `すでに ${claimedBy} さんがclaim済みです`,
+      };
+    }
+
+    await db.leadLog.create({
+      data: {
+        leadId,
+        action: "CLAIMED",
+        detail: `TVCMプールから claim`,
+        staffName,
+      },
+    });
+
+    revalidatePath("/dashboard/leads/tvcm-pool");
+    revalidatePath("/dashboard/leads/list");
+
+    return { success: true, assignedTo: user.name ?? user.email };
+  } catch (e) {
+    console.error("[claimTvcmLead] DB error:", e);
+    return { success: false, error: "claim中にエラーが発生しました" };
+  }
+}
+
+// ---------------------------------------------------------------
 // TVCM/動画PR リード（PR TIMES由来）を一括保存する
+// 配布モデル: ADMIN のみが保存可能、保存されたリードは assigneeId=null（未アサイン）で
+// 全パートナーから claim 可能なプールに入る
 // ---------------------------------------------------------------
 export async function saveTvcmLeadsFromSearch(
   candidates: TvcmLeadCandidate[],
@@ -914,8 +985,12 @@ export async function saveTvcmLeadsFromSearch(
   const email = session.user.email;
   const user = await db.user.findUnique({
     where: { email },
-    select: { id: true },
+    select: { id: true, role: true },
   });
+  if (!user) return { saved: 0, error: "ユーザーが見つかりません" };
+  if (user.role !== "ADMIN") {
+    return { saved: 0, error: "TVCMリードの保存は管理者専用です" };
+  }
 
   let savedCount = 0;
 
@@ -968,16 +1043,16 @@ export async function saveTvcmLeadsFromSearch(
             prefecture: c.prefecture,
             agencyDetected: c.agencyDetected,
             isListed: c.isListed,
-            createdById: user?.id ?? null,
-            assigneeId: user?.id ?? null,
+            createdById: user.id,
+            assigneeId: null, // 未アサイン状態でプールに投入、パートナーが claim する
           },
         });
 
         await db.leadLog.create({
           data: {
             leadId: created.id,
-            action: "CREATED",
-            detail: `TVCM/動画PRリード獲得AIから保存（${c.prefecture ?? "地域不明"}・${c.industryGuess ?? "業種不明"}）`,
+            action: "POOLED",
+            detail: `TVCM/動画PRプール投入（${c.prefecture ?? "地域不明"}・${c.industryGuess ?? "業種不明"}）`,
             staffName,
           },
         });
