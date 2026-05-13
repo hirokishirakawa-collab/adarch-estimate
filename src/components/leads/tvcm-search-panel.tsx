@@ -8,7 +8,7 @@ import {
   type TvcmLeadResult,
 } from "@/lib/constants/tvcm-leads";
 import { TvcmResultsTable } from "./tvcm-results-table";
-import { saveTvcmLeadsFromSearch, checkExistingLeads } from "@/lib/actions/lead";
+import { saveTvcmLeadsFromSearch } from "@/lib/actions/lead";
 
 type Phase = "form" | "crawling" | "done" | "error";
 type Source = "youtube" | "prtimes" | "both";
@@ -45,7 +45,6 @@ export function TvcmSearchPanel() {
   // companyName → 決定（"pool" or "reject"）。サーバー側成功時のみ記録
   const [decidedMap, setDecidedMap] = useState<Map<string, "pool" | "reject">>(new Map());
   const [decidingName, setDecidingName] = useState<string | null>(null);
-  const [existingMap, setExistingMap] = useState<Record<string, string>>({});
 
   const toggleKeyword = (kw: string) => {
     setSelectedKeywords((cur) =>
@@ -91,21 +90,10 @@ export function TvcmSearchPanel() {
         message?: string;
       };
 
-      // 配布モデル: 全候補をフラットに表示
+      // 配布モデル: 全候補をフラットに表示（DB状態はcrawl APIで付与済み）
       setAllResults(data.results);
       setStats(data.stats);
       setPhase("done");
-
-      // 既存リード照合
-      if (data.results.length > 0) {
-        const existing = await checkExistingLeads(
-          data.results.map((c) => ({
-            name: c.companyName,
-            address: c.address ?? "",
-          })),
-        );
-        setExistingMap(existing);
-      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "クロール中にエラーが発生しました";
       setErrorMsg(msg);
@@ -365,7 +353,6 @@ export function TvcmSearchPanel() {
           candidates={allResults}
           decidedMap={decidedMap}
           decidingName={decidingName}
-          existingMap={existingMap}
           onPool={handlePool}
           onReject={handleReject}
           onPoolAll={handlePoolAll}

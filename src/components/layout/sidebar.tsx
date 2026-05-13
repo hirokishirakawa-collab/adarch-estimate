@@ -164,6 +164,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "ADMIN",
       },
       {
+        href: "/dashboard/leads/tvcm-history",
+        label: "TVCMクロール履歴（本部）",
+        icon: Film,
+        minRole: "ADMIN",
+      },
+      {
         href: "/dashboard/video-achievements",
         label: "競合実績スクレイピング（自動収集）",
         icon: Target,

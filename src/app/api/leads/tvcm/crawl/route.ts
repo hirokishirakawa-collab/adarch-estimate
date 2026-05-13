@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
   // 配布モデル: クロールは ADMIN（代表）のみ
   const user = await db.user.findUnique({
     where: { email: session.user.email },
-    select: { role: true },
+    select: { id: true, role: true },
   });
   if (user?.role !== "ADMIN") {
     return NextResponse.json(
@@ -443,6 +443,89 @@ ${article.bodyText}`;
     if (!dedupedMap.has(key)) dedupedMap.set(key, r);
   }
   const results = Array.from(dedupedMap.values());
+
+  // 全候補を「クロール済」として自動保存（データ保全）
+  // 既存リードのstatusは保持（CRAWLED → UNTOUCHED → SKIPPED 等の上書きを防ぐ）
+  for (const r of results) {
+    const address = r.address ?? "";
+    try {
+      const existing = await db.lead.findUnique({
+        where: { name_address: { name: r.companyName, address } },
+        select: {
+          id: true,
+          status: true,
+          assignee: { select: { name: true, email: true } },
+        },
+      });
+
+      if (existing) {
+        // 既存: TVCM関連の最新情報のみ更新、statusは維持
+        await db.lead.update({
+          where: { id: existing.id },
+          data: {
+            source: "PR_TIMES_TVCM",
+            pressReleaseUrl: r.pressReleaseUrl,
+            pressReleaseTitle: r.pressReleaseTitle,
+            videoUrl: r.videoUrl,
+            productionCompany: r.productionCompany,
+            announcedDate: r.announcedDate ? new Date(r.announcedDate) : null,
+            prefecture: r.prefecture,
+            agencyDetected: r.agencyDetected,
+            isListed: r.isListed,
+            capital: r.capital !== null ? BigInt(r.capital) : null,
+            employeeCount: r.employeeCount,
+            industry: r.industryGuess,
+            area: r.prefecture,
+            scoreComment: r.summary,
+            websiteUrl: r.companyWebsite,
+          },
+        });
+        r.leadId = existing.id;
+        r.currentStatus = existing.status;
+        r.currentAssigneeName =
+          existing.assignee?.name ?? existing.assignee?.email ?? null;
+      } else {
+        // 新規: CRAWLED で作成
+        const created = await db.lead.create({
+          data: {
+            name: r.companyName,
+            address: address || null,
+            websiteUrl: r.companyWebsite,
+            industry: r.industryGuess,
+            area: r.prefecture,
+            source: "PR_TIMES_TVCM",
+            status: "CRAWLED",
+            scoreComment: r.summary,
+            capital: r.capital !== null ? BigInt(r.capital) : null,
+            employeeCount: r.employeeCount,
+            pressReleaseUrl: r.pressReleaseUrl,
+            pressReleaseTitle: r.pressReleaseTitle,
+            videoUrl: r.videoUrl,
+            productionCompany: r.productionCompany,
+            announcedDate: r.announcedDate ? new Date(r.announcedDate) : null,
+            prefecture: r.prefecture,
+            agencyDetected: r.agencyDetected,
+            isListed: r.isListed,
+            createdById: user.id,
+            assigneeId: null,
+          },
+        });
+        await db.leadLog.create({
+          data: {
+            leadId: created.id,
+            action: "CRAWLED",
+            detail: `TVCM/動画PR 自動保存（${r.prefecture ?? "地域不明"}・${r.industryGuess ?? "業種不明"}）`,
+            staffName: session.user.name ?? session.user.email ?? "ADMIN",
+          },
+        });
+        r.leadId = created.id;
+        r.currentStatus = "CRAWLED";
+        r.currentAssigneeName = null;
+      }
+    } catch (err) {
+      console.error("[tvcm/crawl] auto-save error for", r.companyName, err);
+    }
+  }
 
   const kept = results.filter((r) => !r.excluded);
   const excluded = results.filter((r) => r.excluded);

@@ -10,24 +10,68 @@ import {
   MapPin,
   X,
   AlertTriangle,
+  Inbox,
+  PhoneCall,
+  Calendar,
+  Trophy,
+  XCircle,
+  Database,
+  User,
 } from "lucide-react";
 import type { TvcmLeadCandidate, TvcmLeadResult } from "@/lib/constants/tvcm-leads";
 
 interface Props {
-  candidates: TvcmLeadResult[]; // 警告情報を含む全候補
-  decidedMap: Map<string, "pool" | "reject">; // companyName → 決定
+  candidates: TvcmLeadResult[]; // 警告情報・現在のDB状態を含む全候補
+  decidedMap: Map<string, "pool" | "reject">; // companyName → 決定（このセッション中の操作）
   decidingName: string | null;
-  existingMap: Record<string, string>;
   onPool: (c: TvcmLeadCandidate) => void;
   onReject: (c: TvcmLeadCandidate) => void;
   onPoolAll: () => void;
+}
+
+function StatusBadge({
+  status,
+  assigneeName,
+}: {
+  status?: TvcmLeadResult["currentStatus"];
+  assigneeName?: string | null;
+}) {
+  if (!status) return null;
+  const config: Record<
+    NonNullable<TvcmLeadResult["currentStatus"]>,
+    { label: string; bg: string; text: string; icon: typeof Inbox }
+  > = {
+    CRAWLED: { label: "クロール済", bg: "bg-zinc-100", text: "text-zinc-700", icon: Database },
+    UNTOUCHED: { label: "プール中", bg: "bg-blue-50", text: "text-blue-700", icon: Inbox },
+    CALLED: { label: "架電済", bg: "bg-violet-50", text: "text-violet-700", icon: PhoneCall },
+    APPOINTMENT: { label: "アポ獲得", bg: "bg-amber-50", text: "text-amber-700", icon: Calendar },
+    DEAL_CONVERTED: { label: "受注済", bg: "bg-emerald-50", text: "text-emerald-700", icon: Trophy },
+    SKIPPED: { label: "却下済", bg: "bg-red-50", text: "text-red-700", icon: XCircle },
+  };
+  const c = config[status];
+  if (!c) return null;
+  const Icon = c.icon;
+  const showAssignee = assigneeName && (status === "UNTOUCHED" || status === "CALLED" || status === "APPOINTMENT" || status === "DEAL_CONVERTED");
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[10px] font-medium ${c.bg} ${c.text} border border-current/20 px-1.5 py-0.5 rounded`}
+    >
+      <Icon className="w-2.5 h-2.5" />
+      {c.label}
+      {showAssignee && (
+        <>
+          <User className="w-2.5 h-2.5 ml-0.5" />
+          {assigneeName}
+        </>
+      )}
+    </span>
+  );
 }
 
 export function TvcmResultsTable({
   candidates,
   decidedMap,
   decidingName,
-  existingMap,
   onPool,
   onReject,
   onPoolAll,
@@ -64,7 +108,6 @@ export function TvcmResultsTable({
         {candidates.map((c) => {
           const decision = decidedMap.get(c.companyName);
           const deciding = decidingName === c.companyName;
-          const existingTag = existingMap[`${c.companyName}|${c.address ?? ""}`];
 
           return (
             <div
@@ -81,6 +124,7 @@ export function TvcmResultsTable({
                     <span className="text-sm font-semibold text-zinc-900">
                       {c.companyName}
                     </span>
+                    <StatusBadge status={c.currentStatus} assigneeName={c.currentAssigneeName} />
                     {c.prefecture && (
                       <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
                         <MapPin className="w-2.5 h-2.5" />
@@ -97,11 +141,6 @@ export function TvcmResultsTable({
                       <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
                         <AlertTriangle className="w-2.5 h-2.5" />
                         {c.exclusionReason}
-                      </span>
-                    )}
-                    {existingTag && (
-                      <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
-                        ⚠️ {existingTag}
                       </span>
                     )}
                   </div>

@@ -93,6 +93,7 @@ enum LeadStatus {
   APPOINTMENT // アポ獲得
   DEAL_CONVERTED // 商談化
   SKIPPED // スキップ
+  CRAWLED // クロール済（未判定。TVCM/動画PR専用）
 }
 
 enum BillingStatus {

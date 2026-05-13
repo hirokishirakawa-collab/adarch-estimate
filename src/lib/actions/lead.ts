@@ -902,6 +902,78 @@ export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
 }
 
 // ---------------------------------------------------------------
+// TVCM/動画PR リードの状態遷移（履歴画面から後判定するため）
+//   "pool"   → status を UNTOUCHED に変更（プール投入）
+//   "reject" → status を SKIPPED に変更（却下）
+// ADMIN 専用
+// ---------------------------------------------------------------
+export async function transitionTvcmLeadStatus(
+  leadId: string,
+  decision: "pool" | "reject",
+): Promise<{ success: boolean; error?: string }> {
+  const session = await auth();
+  if (!session?.user?.email) return { success: false, error: "ログインが必要です" };
+
+  const staffName = session.user.name ?? session.user.email ?? "ADMIN";
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+    select: { role: true },
+  });
+  if (!user || user.role !== "ADMIN") {
+    return { success: false, error: "管理者専用です" };
+  }
+
+  const lead = await db.lead.findUnique({
+    where: { id: leadId },
+    select: { source: true, name: true, prefecture: true, industry: true, status: true },
+  });
+  if (!lead || lead.source !== "PR_TIMES_TVCM") {
+    return { success: false, error: "TVCMリードではありません" };
+  }
+
+  const newStatus: LeadStatus = decision === "pool" ? "UNTOUCHED" : "SKIPPED";
+
+  try {
+    await db.lead.update({
+      where: { id: leadId },
+      data: { status: newStatus, assigneeId: null },
+    });
+    await db.leadLog.create({
+      data: {
+        leadId,
+        action: decision === "pool" ? "POOLED" : "REJECTED",
+        detail: decision === "pool" ? "履歴画面からプール投入" : "履歴画面から却下",
+        staffName,
+      },
+    });
+
+    // プール投入時のみChat通知
+    if (decision === "pool" && lead.status !== "UNTOUCHED") {
+      const meta = [lead.prefecture, lead.industry].filter(Boolean).join("・");
+      const metaText = meta ? `（${meta}）` : "";
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+      const poolUrl = `${appUrl}/dashboard/leads/tvcm-pool`;
+      const message = `📢 TVCM案件プールに「${lead.name}」を追加${metaText}\n👉 先着順！${poolUrl}`;
+      after(async () => {
+        try {
+          await sendChatMessage(LEAD_CHAT_SPACE_ID, message);
+        } catch (e) {
+          console.error("[transitionTvcmLeadStatus] Chat通知失敗:", e);
+        }
+      });
+    }
+
+    revalidatePath("/dashboard/leads/tvcm-history");
+    revalidatePath("/dashboard/leads/tvcm-pool");
+    revalidatePath("/dashboard/leads/list");
+    return { success: true };
+  } catch (e) {
+    console.error("[transitionTvcmLeadStatus] DB error:", e);
+    return { success: false, error: "更新に失敗しました" };
+  }
+}
+
+// ---------------------------------------------------------------
 // TVCM/動画PR プールから案件をclaim（早い者勝ち）
 // ---------------------------------------------------------------
 export async function claimTvcmLead(

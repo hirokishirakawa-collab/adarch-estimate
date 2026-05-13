@@ -59,7 +59,11 @@ export interface TvcmLeadCandidate {
 /** フィルタ適用後 */
 export interface TvcmLeadResult extends TvcmLeadCandidate {
   excluded: boolean;
-  exclusionReason: string | null; // 除外理由（東京/代理店/上場/不明）
+  exclusionReason: string | null; // 警告理由（大手代理店/上場 等）
+  // クロール時に自動保存されたDB状態（auto-save後にAPI側で付与）
+  leadId?: string;
+  currentStatus?: "CRAWLED" | "UNTOUCHED" | "CALLED" | "APPOINTMENT" | "DEAL_CONVERTED" | "SKIPPED";
+  currentAssigneeName?: string | null;
 }
 
 /** 大手代理店名を本文から検出 */
