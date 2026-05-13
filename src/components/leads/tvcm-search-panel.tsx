@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import Link from "next/link";
 import { Loader2, AlertCircle, Search, Filter, Film, Youtube, FileText, Layers } from "lucide-react";
 import {
   TVCM_SEARCH_KEYWORDS,
@@ -38,14 +37,14 @@ export function TvcmSearchPanel() {
   const [maxSubscribers, setMaxSubscribers] = useState(50000);
   const [publishedWithinDays, setPublishedWithinDays] = useState(60);
 
-  const [candidates, setCandidates] = useState<TvcmLeadCandidate[]>([]);
-  const [excludedResults, setExcludedResults] = useState<TvcmLeadResult[]>([]);
+  // 配布モデル: 全候補（除外含む）をフラットに表示。代表が個別に「プール投入」「却下」を判定する
+  const [allResults, setAllResults] = useState<TvcmLeadResult[]>([]);
   const [stats, setStats] = useState<CrawlStats | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [showExcluded, setShowExcluded] = useState(false);
 
-  const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
-  const [savingName, setSavingName] = useState<string | null>(null);
+  // companyName → 決定（"pool" or "reject"）。サーバー側成功時のみ記録
+  const [decidedMap, setDecidedMap] = useState<Map<string, "pool" | "reject">>(new Map());
+  const [decidingName, setDecidingName] = useState<string | null>(null);
   const [existingMap, setExistingMap] = useState<Record<string, string>>({});
 
   const toggleKeyword = (kw: string) => {
@@ -62,8 +61,8 @@ export function TvcmSearchPanel() {
 
     setPhase("crawling");
     setErrorMsg("");
-    setCandidates([]);
-    setExcludedResults([]);
+    setAllResults([]);
+    setDecidedMap(new Map());
     setStats(null);
 
     try {
@@ -86,21 +85,21 @@ export function TvcmSearchPanel() {
       }
 
       const data = (await res.json()) as {
-        candidates: TvcmLeadCandidate[];
-        results: TvcmLeadResult[];
+        candidates: TvcmLeadResult[]; // フィルタ通過分（実質的に全件）
+        results: TvcmLeadResult[]; // 全件
         stats: CrawlStats;
         message?: string;
       };
 
-      setCandidates(data.candidates);
-      setExcludedResults(data.results.filter((r) => r.excluded));
+      // 配布モデル: 全候補をフラットに表示
+      setAllResults(data.results);
       setStats(data.stats);
       setPhase("done");
 
       // 既存リード照合
-      if (data.candidates.length > 0) {
+      if (data.results.length > 0) {
         const existing = await checkExistingLeads(
-          data.candidates.map((c) => ({
+          data.results.map((c) => ({
             name: c.companyName,
             address: c.address ?? "",
           })),
@@ -112,43 +111,57 @@ export function TvcmSearchPanel() {
       setErrorMsg(msg);
       setPhase("error");
     }
-  }, [selectedKeywords, maxPerKeyword, totalLimit]);
+  }, [source, selectedKeywords, maxPerKeyword, totalLimit, maxSubscribers, publishedWithinDays]);
 
-  const handleSave = useCallback(async (c: TvcmLeadCandidate) => {
-    setSavingName(c.companyName);
+  const handlePool = useCallback(async (c: TvcmLeadCandidate) => {
+    setDecidingName(c.companyName);
     try {
-      const result = await saveTvcmLeadsFromSearch([c]);
+      const result = await saveTvcmLeadsFromSearch([c], "pool");
       if (result.error) {
         alert(result.error);
       } else {
-        setSavedNames((prev) => new Set(prev).add(c.companyName));
+        setDecidedMap((prev) => new Map(prev).set(c.companyName, "pool"));
       }
     } finally {
-      setSavingName(null);
+      setDecidingName(null);
     }
   }, []);
 
-  const handleSaveAll = useCallback(async () => {
-    const unsaved = candidates.filter((c) => !savedNames.has(c.companyName));
-    if (unsaved.length === 0) return;
-    if (!confirm(`${unsaved.length}件をリードとして保存します。よろしいですか？`)) return;
-
-    setSavingName("__bulk__");
+  const handleReject = useCallback(async (c: TvcmLeadCandidate) => {
+    setDecidingName(c.companyName);
     try {
-      const result = await saveTvcmLeadsFromSearch(unsaved);
+      const result = await saveTvcmLeadsFromSearch([c], "reject");
       if (result.error) {
         alert(result.error);
       } else {
-        setSavedNames((prev) => {
-          const next = new Set(prev);
-          for (const c of unsaved) next.add(c.companyName);
+        setDecidedMap((prev) => new Map(prev).set(c.companyName, "reject"));
+      }
+    } finally {
+      setDecidingName(null);
+    }
+  }, []);
+
+  const handlePoolAll = useCallback(async () => {
+    const undecided = allResults.filter((c) => !decidedMap.has(c.companyName));
+    if (undecided.length === 0) return;
+    if (!confirm(`未判定の${undecided.length}件を全てプールに投入します。よろしいですか？\n（却下したい案件があれば先に個別に却下してください）`)) return;
+
+    setDecidingName("__bulk__");
+    try {
+      const result = await saveTvcmLeadsFromSearch(undecided, "pool");
+      if (result.error) {
+        alert(result.error);
+      } else {
+        setDecidedMap((prev) => {
+          const next = new Map(prev);
+          for (const c of undecided) next.set(c.companyName, "pool");
           return next;
         });
       }
     } finally {
-      setSavingName(null);
+      setDecidingName(null);
     }
-  }, [candidates, savedNames]);
+  }, [allResults, decidedMap]);
 
   return (
     <div className="space-y-5">
@@ -285,17 +298,17 @@ export function TvcmSearchPanel() {
           </div>
         )}
 
-        {/* フィルタ説明 */}
-        <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 mb-4">
-          <p className="text-[11px] font-semibold text-rose-800 mb-1">
-            自動除外フィルタ（営業対象から外す条件）
+        {/* 警告フラグ説明 */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+          <p className="text-[11px] font-semibold text-amber-800 mb-1">
+            警告バッジが付く条件（自動除外はせず、代表の判断材料として表示）
           </p>
-          <ul className="text-[11px] text-rose-700 space-y-0.5 ml-4 list-disc">
+          <ul className="text-[11px] text-amber-700 space-y-0.5 ml-4 list-disc">
             <li>大手代理店（電通・博報堂・ADK等）が言及されている案件</li>
             <li>上場企業（既にエージェンシー関係を持つ可能性）</li>
           </ul>
-          <p className="text-[10px] text-rose-600 mt-1">
-            ※ 全国対象（東京含む）。代表が結果を選別してプールに投入してください。
+          <p className="text-[10px] text-amber-600 mt-1">
+            ※ 全国対象（東京含む）。全候補をリスト表示し、代表が「プール投入」または「却下」を選択してください。
           </p>
         </div>
 
@@ -329,9 +342,9 @@ export function TvcmSearchPanel() {
       {/* 統計 */}
       {stats && (
         <div className="bg-white rounded-xl border border-zinc-200 p-4">
-          <div className="grid grid-cols-4 gap-3 text-center">
+          <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <div className="text-[10px] text-zinc-500 mb-0.5">取得記事</div>
+              <div className="text-[10px] text-zinc-500 mb-0.5">取得記事/動画</div>
               <div className="text-lg font-bold text-zinc-900">{stats.fetched}</div>
             </div>
             <div>
@@ -339,71 +352,27 @@ export function TvcmSearchPanel() {
               <div className="text-lg font-bold text-zinc-900">{stats.extracted}</div>
             </div>
             <div>
-              <div className="text-[10px] text-emerald-600 mb-0.5">営業候補</div>
-              <div className="text-lg font-bold text-emerald-600">{stats.kept}</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-zinc-500 mb-0.5">フィルタ除外</div>
-              <div className="text-lg font-bold text-zinc-400">{stats.excluded}</div>
+              <div className="text-[10px] text-amber-600 mb-0.5">警告付き候補</div>
+              <div className="text-lg font-bold text-amber-600">{stats.excluded}</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* 結果テーブル */}
+      {/* 結果テーブル（全候補をフラットに表示） */}
       {phase === "done" && (
-        <>
-          <TvcmResultsTable
-            candidates={candidates}
-            savedNames={savedNames}
-            savingName={savingName}
-            existingMap={existingMap}
-            onSave={handleSave}
-            onSaveAll={handleSaveAll}
-          />
-
-          {/* 除外候補（折りたたみ） */}
-          {excludedResults.length > 0 && (
-            <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-              <button
-                onClick={() => setShowExcluded((s) => !s)}
-                className="w-full px-5 py-3 text-xs font-medium text-zinc-600 hover:bg-zinc-50 flex items-center justify-between"
-              >
-                <span>除外された {excludedResults.length} 件を表示</span>
-                <span>{showExcluded ? "▲" : "▼"}</span>
-              </button>
-              {showExcluded && (
-                <div className="divide-y divide-zinc-100 border-t border-zinc-100">
-                  {excludedResults.map((r) => (
-                    <div key={r.pressReleaseUrl} className="px-5 py-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-medium text-zinc-700">
-                          {r.companyName || "（社名抽出失敗）"}
-                        </span>
-                        <span className="text-[10px] text-zinc-500">
-                          {r.prefecture}
-                        </span>
-                        <span className="text-[10px] font-medium text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
-                          {r.exclusionReason}
-                        </span>
-                        <Link
-                          href={r.pressReleaseUrl}
-                          target="_blank"
-                          className="text-[10px] text-blue-600 hover:underline ml-auto"
-                        >
-                          PR記事
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </>
+        <TvcmResultsTable
+          candidates={allResults}
+          decidedMap={decidedMap}
+          decidingName={decidingName}
+          existingMap={existingMap}
+          onPool={handlePool}
+          onReject={handleReject}
+          onPoolAll={handlePoolAll}
+        />
       )}
 
-      {phase === "done" && candidates.length === 0 && (
+      {phase === "done" && allResults.length === 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-2">
           <Film className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-xs text-amber-800">

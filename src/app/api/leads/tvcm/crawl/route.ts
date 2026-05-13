@@ -153,14 +153,16 @@ function numToNullable(n: number): number | null {
 }
 
 function applyFilters(c: TvcmLeadCandidate): TvcmLeadResult {
-  if (c.agencyDetected) {
-    return { ...c, excluded: true, exclusionReason: `大手代理店検出: ${c.agencyDetected}` };
-  }
-  if (c.isListed) {
-    return { ...c, excluded: true, exclusionReason: "上場企業のため除外" };
-  }
-  // 東京本社の除外は配布モデルでは撤廃（代表が選別する前提なので候補は広めに）
-  return { ...c, excluded: false, exclusionReason: null };
+  // 配布モデルでは代表が全候補を見て判断するため、自動除外しない。
+  // 大手代理店検出・上場企業はメインリストに警告バッジ付きで表示する。
+  const warnings: string[] = [];
+  if (c.agencyDetected) warnings.push(`⚠️大手代理店: ${c.agencyDetected}`);
+  if (c.isListed) warnings.push("⚠️上場企業");
+  return {
+    ...c,
+    excluded: false,
+    exclusionReason: warnings.length > 0 ? warnings.join(" / ") : null,
+  };
 }
 
 export async function POST(req: NextRequest) {

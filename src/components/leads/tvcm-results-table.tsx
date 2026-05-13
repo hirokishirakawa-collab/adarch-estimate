@@ -1,24 +1,36 @@
 "use client";
 
-import { ExternalLink, Plus, Check, Loader2, Building2, Film, MapPin } from "lucide-react";
-import type { TvcmLeadCandidate } from "@/lib/constants/tvcm-leads";
+import {
+  ExternalLink,
+  Plus,
+  Check,
+  Loader2,
+  Building2,
+  Film,
+  MapPin,
+  X,
+  AlertTriangle,
+} from "lucide-react";
+import type { TvcmLeadCandidate, TvcmLeadResult } from "@/lib/constants/tvcm-leads";
 
 interface Props {
-  candidates: TvcmLeadCandidate[];
-  savedNames: Set<string>;
-  savingName: string | null;
+  candidates: TvcmLeadResult[]; // 警告情報を含む全候補
+  decidedMap: Map<string, "pool" | "reject">; // companyName → 決定
+  decidingName: string | null;
   existingMap: Record<string, string>;
-  onSave: (c: TvcmLeadCandidate) => void;
-  onSaveAll: () => void;
+  onPool: (c: TvcmLeadCandidate) => void;
+  onReject: (c: TvcmLeadCandidate) => void;
+  onPoolAll: () => void;
 }
 
 export function TvcmResultsTable({
   candidates,
-  savedNames,
-  savingName,
+  decidedMap,
+  decidingName,
   existingMap,
-  onSave,
-  onSaveAll,
+  onPool,
+  onReject,
+  onPoolAll,
 }: Props) {
   if (candidates.length === 0) {
     return (
@@ -30,30 +42,37 @@ export function TvcmResultsTable({
     );
   }
 
+  const undecidedCount = candidates.filter((c) => !decidedMap.has(c.companyName)).length;
+
   return (
     <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
       <div className="px-5 py-3 border-b border-zinc-200 flex items-center justify-between">
         <div className="text-xs text-zinc-600">
-          <span className="font-semibold text-zinc-900">{candidates.length}件</span> の営業候補（フィルタ通過）
+          <span className="font-semibold text-zinc-900">{candidates.length}件</span> の候補（未判定 {undecidedCount}件）
         </div>
         <button
-          onClick={onSaveAll}
+          onClick={onPoolAll}
           className="text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-50"
-          disabled={savingName !== null}
+          disabled={decidingName !== null || undecidedCount === 0}
         >
           <Plus className="w-3 h-3" />
-          すべてリードに保存
+          未判定を全てプール投入
         </button>
       </div>
 
       <div className="divide-y divide-zinc-100">
         {candidates.map((c) => {
-          const saved = savedNames.has(c.companyName);
-          const saving = savingName === c.companyName;
+          const decision = decidedMap.get(c.companyName);
+          const deciding = decidingName === c.companyName;
           const existingTag = existingMap[`${c.companyName}|${c.address ?? ""}`];
 
           return (
-            <div key={c.pressReleaseUrl} className="px-5 py-4 hover:bg-zinc-50">
+            <div
+              key={c.pressReleaseUrl}
+              className={`px-5 py-4 hover:bg-zinc-50 ${
+                decision === "reject" ? "bg-zinc-50/60 opacity-60" : ""
+              } ${decision === "pool" ? "bg-emerald-50/40" : ""}`}
+            >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   {/* ヘッダー: 会社名 + バッジ */}
@@ -71,6 +90,13 @@ export function TvcmResultsTable({
                     {c.industryGuess && (
                       <span className="text-[10px] font-medium text-zinc-600 bg-zinc-100 px-1.5 py-0.5 rounded">
                         {c.industryGuess}
+                      </span>
+                    )}
+                    {/* 警告（大手代理店/上場企業） */}
+                    {c.exclusionReason && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                        <AlertTriangle className="w-2.5 h-2.5" />
+                        {c.exclusionReason}
                       </span>
                     )}
                     {existingTag && (
@@ -121,7 +147,7 @@ export function TvcmResultsTable({
                       className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:underline"
                     >
                       <ExternalLink className="w-3 h-3" />
-                      プレスリリース
+                      ソースを開く
                     </a>
                     {c.companyWebsite && (
                       <a
@@ -137,31 +163,44 @@ export function TvcmResultsTable({
                   </div>
                 </div>
 
-                {/* 保存ボタン */}
-                <div className="shrink-0">
-                  <button
-                    onClick={() => onSave(c)}
-                    disabled={saved || saving}
-                    className={`text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1 ${
-                      saved
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default"
-                        : "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50"
-                    }`}
-                  >
-                    {saving ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : saved ? (
-                      <>
-                        <Check className="w-3 h-3" />
-                        保存済
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-3 h-3" />
-                        リード化
-                      </>
-                    )}
-                  </button>
+                {/* アクションボタン（プール / 却下） */}
+                <div className="shrink-0 flex flex-col gap-1.5">
+                  {decision === "pool" ? (
+                    <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      プール投入済
+                    </span>
+                  ) : decision === "reject" ? (
+                    <span className="text-xs font-medium text-zinc-500 bg-zinc-100 border border-zinc-200 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                      <X className="w-3 h-3" />
+                      却下済
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => onPool(c)}
+                        disabled={deciding}
+                        className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {deciding ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="w-3 h-3" />
+                            プールへ
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => onReject(c)}
+                        disabled={deciding}
+                        className="text-xs font-medium text-zinc-600 bg-white border border-zinc-300 hover:bg-zinc-50 px-3 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-50"
+                      >
+                        <X className="w-3 h-3" />
+                        却下
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

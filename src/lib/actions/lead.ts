@@ -960,6 +960,24 @@ export async function claimTvcmLead(
       },
     });
 
+    // claim 後のリード情報を取得して Chat 通知
+    const claimedLead = await db.lead.findUnique({
+      where: { id: leadId },
+      select: { name: true, prefecture: true, industry: true },
+    });
+    if (claimedLead) {
+      const meta = [claimedLead.prefecture, claimedLead.industry].filter(Boolean).join("・");
+      const metaText = meta ? `（${meta}）` : "";
+      const message = `🎯 ${staffName} さんが「${claimedLead.name}」をclaim${metaText}`;
+      after(async () => {
+        try {
+          await sendChatMessage(LEAD_CHAT_SPACE_ID, message);
+        } catch (e) {
+          console.error("[claimTvcmLead] Chat通知失敗:", e);
+        }
+      });
+    }
+
     revalidatePath("/dashboard/leads/tvcm-pool");
     revalidatePath("/dashboard/leads/list");
 
@@ -972,11 +990,13 @@ export async function claimTvcmLead(
 
 // ---------------------------------------------------------------
 // TVCM/動画PR リード（PR TIMES由来）を一括保存する
-// 配布モデル: ADMIN のみが保存可能、保存されたリードは assigneeId=null（未アサイン）で
-// 全パートナーから claim 可能なプールに入る
+// 配布モデル: ADMIN のみが保存可能。
+//  - decision="pool"   → assigneeId=null + status=UNTOUCHED でプールに投入（パートナーがclaim可）
+//  - decision="reject" → status=SKIPPED で記録（次回クロール時に重複判定でスキップされる）
 // ---------------------------------------------------------------
 export async function saveTvcmLeadsFromSearch(
   candidates: TvcmLeadCandidate[],
+  decision: "pool" | "reject" = "pool",
 ): Promise<{ saved: number; error?: string }> {
   const session = await auth();
   if (!session?.user?.email) return { saved: 0, error: "ログインが必要です" };
@@ -991,6 +1011,10 @@ export async function saveTvcmLeadsFromSearch(
   if (user.role !== "ADMIN") {
     return { saved: 0, error: "TVCMリードの保存は管理者専用です" };
   }
+
+  const targetStatus: LeadStatus = decision === "reject" ? "SKIPPED" : "UNTOUCHED";
+  const logAction = decision === "reject" ? "REJECTED" : "POOLED";
+  const logDetailPrefix = decision === "reject" ? "TVCM却下記録" : "TVCM/動画PRプール投入";
 
   let savedCount = 0;
   const savedPrefectures: string[] = [];
@@ -1007,6 +1031,7 @@ export async function saveTvcmLeadsFromSearch(
           where: { id: existing.id },
           data: {
             source: "PR_TIMES_TVCM",
+            status: targetStatus,
             pressReleaseUrl: c.pressReleaseUrl,
             pressReleaseTitle: c.pressReleaseTitle,
             videoUrl: c.videoUrl,
@@ -1024,7 +1049,7 @@ export async function saveTvcmLeadsFromSearch(
           },
         });
       } else {
-        savedPrefectures.push(c.prefecture ?? "地域不明");
+        if (decision === "pool") savedPrefectures.push(c.prefecture ?? "地域不明");
         const created = await db.lead.create({
           data: {
             name: c.companyName,
@@ -1033,7 +1058,7 @@ export async function saveTvcmLeadsFromSearch(
             industry: c.industryGuess,
             area: c.prefecture,
             source: "PR_TIMES_TVCM",
-            status: "UNTOUCHED",
+            status: targetStatus,
             scoreComment: c.summary,
             capital: c.capital !== null ? BigInt(c.capital) : null,
             employeeCount: c.employeeCount,
@@ -1046,15 +1071,15 @@ export async function saveTvcmLeadsFromSearch(
             agencyDetected: c.agencyDetected,
             isListed: c.isListed,
             createdById: user.id,
-            assigneeId: null, // 未アサイン状態でプールに投入、パートナーが claim する
+            assigneeId: null,
           },
         });
 
         await db.leadLog.create({
           data: {
             leadId: created.id,
-            action: "POOLED",
-            detail: `TVCM/動画PRプール投入（${c.prefecture ?? "地域不明"}・${c.industryGuess ?? "業種不明"}）`,
+            action: logAction,
+            detail: `${logDetailPrefix}（${c.prefecture ?? "地域不明"}・${c.industryGuess ?? "業種不明"}）`,
             staffName,
           },
         });
@@ -1063,8 +1088,8 @@ export async function saveTvcmLeadsFromSearch(
       }
     }
 
-    // 新規投入があればGoogle Chatで全パートナーに通知（先着案内）
-    if (savedCount > 0) {
+    // プール投入の場合のみ、新規投入があればGoogle Chatで全パートナーに通知
+    if (decision === "pool" && savedCount > 0) {
       const prefCounts: Record<string, number> = {};
       for (const p of savedPrefectures) {
         prefCounts[p] = (prefCounts[p] ?? 0) + 1;
