@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { Loader2, AlertCircle, Search, Filter, Film } from "lucide-react";
+import { Loader2, AlertCircle, Search, Filter, Film, Youtube, FileText, Layers } from "lucide-react";
 import {
   TVCM_SEARCH_KEYWORDS,
   type TvcmLeadCandidate,
@@ -12,6 +12,7 @@ import { TvcmResultsTable } from "./tvcm-results-table";
 import { saveTvcmLeadsFromSearch, checkExistingLeads } from "@/lib/actions/lead";
 
 type Phase = "form" | "crawling" | "done" | "error";
+type Source = "youtube" | "prtimes" | "both";
 
 interface CrawlStats {
   fetched: number;
@@ -20,13 +21,22 @@ interface CrawlStats {
   excluded: number;
 }
 
+const SOURCE_OPTIONS: { value: Source; label: string; icon: typeof Youtube; desc: string }[] = [
+  { value: "youtube", label: "YouTube", icon: Youtube, desc: "中小企業特化（登録者5万以下フィルタ）" },
+  { value: "prtimes", label: "PR TIMES", icon: FileText, desc: "プレスリリース系（大手寄り）" },
+  { value: "both", label: "両方", icon: Layers, desc: "包括的に。APIコスト高め" },
+];
+
 export function TvcmSearchPanel() {
   const [phase, setPhase] = useState<Phase>("form");
+  const [source, setSource] = useState<Source>("youtube");
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>(
     Array.from(TVCM_SEARCH_KEYWORDS).slice(0, 4),
   );
   const [maxPerKeyword, setMaxPerKeyword] = useState(8);
   const [totalLimit, setTotalLimit] = useState(30);
+  const [maxSubscribers, setMaxSubscribers] = useState(50000);
+  const [publishedWithinDays, setPublishedWithinDays] = useState(60);
 
   const [candidates, setCandidates] = useState<TvcmLeadCandidate[]>([]);
   const [excludedResults, setExcludedResults] = useState<TvcmLeadResult[]>([]);
@@ -61,9 +71,12 @@ export function TvcmSearchPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          source,
           keywords: selectedKeywords,
           maxPerKeyword,
           totalLimit,
+          maxSubscribers,
+          publishedWithinDays,
         }),
       });
 
@@ -146,10 +159,42 @@ export function TvcmSearchPanel() {
           <h3 className="text-sm font-semibold text-zinc-900">検索条件</h3>
         </div>
 
+        {/* ソース選択 */}
+        <div className="mb-4">
+          <label className="text-xs font-medium text-zinc-700 mb-2 block">
+            検索ソース
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {SOURCE_OPTIONS.map((opt) => {
+              const active = source === opt.value;
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setSource(opt.value)}
+                  className={`text-left px-3 py-2.5 rounded-lg border transition-all ${
+                    active
+                      ? "border-rose-500 bg-rose-50 ring-1 ring-rose-200"
+                      : "border-zinc-200 bg-white hover:border-zinc-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <Icon className={`w-3.5 h-3.5 ${active ? "text-rose-600" : "text-zinc-500"}`} />
+                    <span className={`text-xs font-semibold ${active ? "text-rose-700" : "text-zinc-700"}`}>
+                      {opt.label}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-zinc-500 leading-snug">{opt.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* キーワード */}
         <div className="mb-4">
           <label className="text-xs font-medium text-zinc-700 mb-2 block">
-            検索キーワード（PR TIMES のトピック検索に投げます）
+            検索キーワード
           </label>
           <div className="flex flex-wrap gap-1.5">
             {TVCM_SEARCH_KEYWORDS.map((kw) => {
@@ -200,6 +245,45 @@ export function TvcmSearchPanel() {
             />
           </div>
         </div>
+
+        {/* YouTube 固有オプション */}
+        {(source === "youtube" || source === "both") && (
+          <div className="grid grid-cols-2 gap-3 mb-4 bg-rose-50/40 border border-rose-100 rounded-lg p-3">
+            <div>
+              <label className="text-[11px] font-medium text-rose-800 mb-1 block">
+                YouTube: チャンネル登録者数の上限
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={10000000}
+                step={1000}
+                value={maxSubscribers}
+                onChange={(e) => setMaxSubscribers(Number(e.target.value))}
+                className="w-full text-xs border border-rose-200 rounded-lg px-3 py-1.5 bg-white"
+              />
+              <p className="text-[10px] text-rose-700 mt-0.5">
+                これより多いチャンネルは除外（中小判定）。0で無制限
+              </p>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-rose-800 mb-1 block">
+                YouTube: 直近何日以内の動画を対象に
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={publishedWithinDays}
+                onChange={(e) => setPublishedWithinDays(Number(e.target.value))}
+                className="w-full text-xs border border-rose-200 rounded-lg px-3 py-1.5 bg-white"
+              />
+              <p className="text-[10px] text-rose-700 mt-0.5">
+                例: 60 → 直近60日にアップロードされた動画のみ
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* フィルタ説明 */}
         <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 mb-4">

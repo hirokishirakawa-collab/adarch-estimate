@@ -92,9 +92,14 @@ export const cinemaSearchSchema = z.object({
 
 // POST /api/leads/tvcm/crawl
 export const tvcmCrawlSchema = z.object({
+  source: z.enum(["youtube", "prtimes", "both"]).optional().default("youtube"),
   keywords: z.array(z.string().min(1)).max(12).optional(),
   maxPerKeyword: z.number().int().min(1).max(20).optional().default(8),
   totalLimit: z.number().int().min(1).max(60).optional().default(30),
+  /** YouTube用: チャンネル登録者数の上限（中小判定） */
+  maxSubscribers: z.number().int().min(0).max(10_000_000).optional().default(50000),
+  /** YouTube用: 発表日が「現在から〜日以内」の動画のみ */
+  publishedWithinDays: z.number().int().min(1).max(365).optional().default(60),
 });
 
 // POST /api/leads/tvcm/save
