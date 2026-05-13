@@ -5,6 +5,10 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { TvcmPoolCard, type TvcmPoolLead } from "@/components/leads/tvcm-pool-card";
 
+// 保存直後にプール画面の表示を確実にリフレッシュするため動的レンダリング強制
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function TvcmPoolPage() {
   const session = await auth();
   if (!session?.user?.email) redirect("/");
