@@ -203,6 +203,21 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return parsed.response;
   const body = parsed.data;
 
+  // YouTube ソースが指定されているが API キーが無い場合は明示エラー
+  if ((body.source === "youtube" || body.source === "both") && !process.env.YOUTUBE_API_KEY) {
+    if (body.source === "youtube") {
+      return NextResponse.json(
+        {
+          error:
+            "YOUTUBE_API_KEY が未設定です。Railway の環境変数に追加してください（Google Cloud Console > APIキー）。",
+        },
+        { status: 500 },
+      );
+    }
+    // both の場合は警告のみで PR TIMES だけ実行
+    console.warn("YOUTUBE_API_KEY 未設定 → YouTube ソースをスキップして PR TIMES のみで実行");
+  }
+
   const keywords = body.keywords?.length
     ? body.keywords
     : Array.from(TVCM_SEARCH_KEYWORDS).slice(0, 4);
