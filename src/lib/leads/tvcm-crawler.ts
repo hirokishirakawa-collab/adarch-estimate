@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import {
   TVCM_SEARCH_KEYWORDS,
   detectMajorAgency,
+  isTargetIndustry,
+  isExcludedArea,
   type TvcmLeadCandidate,
   type TvcmLeadResult,
 } from "@/lib/constants/tvcm-leads";
@@ -227,6 +229,16 @@ function applyFilters(c: TvcmLeadCandidate): TvcmLeadResult {
 }
 
 /**
+ * スコープフィルタ: ターゲット業種 + 除外エリア チェック。
+ * AI抽出後に呼び出し、false ならその候補は DB 保存せずドロップ。
+ */
+function passesScopeFilter(c: TvcmLeadCandidate): boolean {
+  if (!isTargetIndustry(c.industryGuess)) return false;
+  if (isExcludedArea(c.prefecture, c.address)) return false;
+  return true;
+}
+
+/**
  * TVCM/動画PRリードのクロール本体。
  * - source: youtube / prtimes / both
  * - DBに「CRAWLED」ステータスで自動保存
@@ -353,6 +365,7 @@ ${v.channelDescription.slice(0, 3000)}
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
         };
+        if (!passesScopeFilter(candidate)) return null;
         return applyFilters(candidate);
       } catch (err) {
         console.error("YouTube extract error:", v.videoUrl, err);
@@ -442,6 +455,7 @@ ${article.bodyText}`;
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
         };
+        if (!passesScopeFilter(candidate)) return null;
         return applyFilters(candidate);
       } catch (err) {
         console.error("TVCM extract error:", item.url, err);
@@ -531,6 +545,7 @@ ${article.bodyText}`;
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
         };
+        if (!passesScopeFilter(candidate)) return null;
         return applyFilters(candidate);
       } catch (err) {
         console.error("@Press extract error:", item.url, err);

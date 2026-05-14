@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
         source: "all", // YouTube + PR TIMES + @Press
         maxPerKeyword: 6,
         totalLimit: 40,
-        // ローカル小規模狙い: 大手チャンネルは除外、登録者1万以下のみ
-        maxSubscribers: 10_000,
+        // ローカル小規模狙い: 登録者3,000以下のチャンネルのみ
+        maxSubscribers: 3_000,
         publishedWithinDays: 7,
         hideRecentlyDecidedDays: 30,
       },

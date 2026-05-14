@@ -84,6 +84,71 @@ export function isTokyo(prefecture: string | null | undefined, address: string |
   return target.includes("東京都") || /東京$/.test(prefecture ?? "");
 }
 
+/**
+ * ターゲット業種（地方中小事業者向け）
+ * industryGuess に部分一致したらヒット扱い。
+ * これに合致しない業種（IT/SaaS/全国チェーン/上場企業 等）は営業対象外として除外。
+ */
+export const TARGET_INDUSTRY_KEYWORDS = [
+  "飲食",
+  "レストラン",
+  "カフェ",
+  "美容",
+  "ヘアサロン",
+  "サロン",
+  "ネイル",
+  "エステ",
+  "工務",
+  "建設",
+  "リフォーム",
+  "不動産",
+  "自動車",
+  "整備",
+  "歯科",
+  "クリニック",
+  "整骨",
+  "整体",
+  "鍼灸",
+  "塾",
+  "スクール",
+  "スイミング",
+  "教室",
+  "葬儀",
+  "葬祭",
+  "ペット",
+  "観光",
+  "旅館",
+  "ホテル",
+  "民泊",
+  "フィットネス",
+  "ジム",
+  "結婚式",
+  "フォトスタジオ",
+  "食品",
+  "酒造",
+  "醸造",
+  "農園",
+  "牧場",
+] as const;
+
+/** 除外エリア（3大都市圏は対象外 — ローカル小規模に絞るため） */
+export const EXCLUDED_AREA_KEYWORDS = ["東京", "大阪", "名古屋"] as const;
+
+/** industryGuess がターゲット業種に該当するか判定 */
+export function isTargetIndustry(industryGuess: string | null | undefined): boolean {
+  if (!industryGuess) return false; // 業種不明は除外（精度優先）
+  return TARGET_INDUSTRY_KEYWORDS.some((kw) => industryGuess.includes(kw));
+}
+
+/** 本社所在地が除外エリア（東京・大阪・名古屋）に該当するか判定 */
+export function isExcludedArea(
+  prefecture: string | null | undefined,
+  address: string | null | undefined,
+): boolean {
+  const target = `${prefecture ?? ""} ${address ?? ""}`;
+  return EXCLUDED_AREA_KEYWORDS.some((kw) => target.includes(kw));
+}
+
 /** 情報元プラットフォーム */
 export type TvcmSourcePlatform = "youtube" | "prtimes" | "atpress" | "unknown";
 
