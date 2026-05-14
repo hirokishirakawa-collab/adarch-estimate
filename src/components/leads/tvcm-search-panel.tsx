@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Loader2, AlertCircle, Search, Filter, Film, Youtube, FileText, Layers } from "lucide-react";
+import { Loader2, AlertCircle, Search, Filter, Film, Youtube, FileText, Layers, Newspaper, Globe } from "lucide-react";
 import {
   TVCM_SEARCH_KEYWORDS,
   type TvcmLeadCandidate,
@@ -11,7 +11,7 @@ import { TvcmResultsTable } from "./tvcm-results-table";
 import { saveTvcmLeadsFromSearch } from "@/lib/actions/lead";
 
 type Phase = "form" | "crawling" | "done" | "error";
-type Source = "youtube" | "prtimes" | "both";
+type Source = "youtube" | "prtimes" | "atpress" | "both" | "all";
 
 interface CrawlStats {
   fetched: number;
@@ -29,7 +29,8 @@ function clampInt(raw: string, min: number, max: number, fallback: number): numb
 const SOURCE_OPTIONS: { value: Source; label: string; icon: typeof Youtube; desc: string }[] = [
   { value: "youtube", label: "YouTube", icon: Youtube, desc: "中小企業特化（登録者5万以下フィルタ）" },
   { value: "prtimes", label: "PR TIMES", icon: FileText, desc: "プレスリリース系（大手寄り）" },
-  { value: "both", label: "両方", icon: Layers, desc: "包括的に。APIコスト高め" },
+  { value: "atpress", label: "@Press", icon: Newspaper, desc: "中小・地方寄りのリリース" },
+  { value: "all", label: "全部", icon: Globe, desc: "3ソース全体。APIコスト最大" },
 ];
 
 export function TvcmSearchPanel() {
@@ -176,7 +177,7 @@ export function TvcmSearchPanel() {
           <label className="text-xs font-medium text-zinc-700 mb-2 block">
             検索ソース
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {SOURCE_OPTIONS.map((opt) => {
               const active = source === opt.value;
               const Icon = opt.icon;
@@ -259,7 +260,7 @@ export function TvcmSearchPanel() {
         </div>
 
         {/* YouTube 固有オプション */}
-        {(source === "youtube" || source === "both") && (
+        {(source === "youtube" || source === "both" || source === "all") && (
           <div className="grid grid-cols-2 gap-3 mb-4 bg-rose-50/40 border border-rose-100 rounded-lg p-3">
             <div>
               <label className="text-[11px] font-medium text-rose-800 mb-1 block">

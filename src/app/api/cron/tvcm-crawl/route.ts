@@ -23,9 +23,9 @@ export async function GET(req: NextRequest) {
   try {
     const outcome = await runTvcmCrawl(
       {
-        source: "youtube",
-        maxPerKeyword: 8,
-        totalLimit: 30,
+        source: "all", // YouTube + PR TIMES + @Press
+        maxPerKeyword: 6,
+        totalLimit: 40,
         maxSubscribers: 50_000,
         publishedWithinDays: 7,
         hideRecentlyDecidedDays: 30,

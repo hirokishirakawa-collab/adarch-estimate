@@ -17,8 +17,27 @@ import {
   Trophy,
   XCircle,
   User,
+  Youtube,
+  FileText,
+  Newspaper,
+  Globe,
 } from "lucide-react";
 import { transitionTvcmLeadStatus } from "@/lib/actions/lead";
+import {
+  detectTvcmSourcePlatform,
+  TVCM_SOURCE_LABEL,
+  type TvcmSourcePlatform,
+} from "@/lib/constants/tvcm-leads";
+
+const SOURCE_VISUAL: Record<
+  TvcmSourcePlatform,
+  { icon: typeof Youtube; bg: string; text: string }
+> = {
+  youtube: { icon: Youtube, bg: "bg-red-50", text: "text-red-700" },
+  prtimes: { icon: FileText, bg: "bg-blue-50", text: "text-blue-700" },
+  atpress: { icon: Newspaper, bg: "bg-amber-50", text: "text-amber-700" },
+  unknown: { icon: Globe, bg: "bg-zinc-50", text: "text-zinc-600" },
+};
 
 type Status = "CRAWLED" | "UNTOUCHED" | "CALLED" | "APPOINTMENT" | "DEAL_CONVERTED" | "SKIPPED";
 
@@ -85,6 +104,20 @@ export function TvcmHistoryCard({ lead }: { lead: TvcmHistoryLead }) {
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
             <Building2 className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             <span className="text-sm font-semibold text-zinc-900">{lead.name}</span>
+            {(() => {
+              const platform = detectTvcmSourcePlatform(lead.pressReleaseUrl);
+              const visual = SOURCE_VISUAL[platform];
+              const Icon = visual.icon;
+              return (
+                <span
+                  className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${visual.bg} ${visual.text} px-1.5 py-0.5 rounded`}
+                  title="情報元"
+                >
+                  <Icon className="w-2.5 h-2.5" />
+                  {TVCM_SOURCE_LABEL[platform]}
+                </span>
+              );
+            })()}
             <span
               className={`inline-flex items-center gap-1 text-[10px] font-medium ${sc.bg} ${sc.text} border border-current/20 px-1.5 py-0.5 rounded`}
             >

@@ -17,8 +17,28 @@ import {
   XCircle,
   Database,
   User,
+  Youtube,
+  FileText,
+  Newspaper,
+  Globe,
 } from "lucide-react";
-import type { TvcmLeadCandidate, TvcmLeadResult } from "@/lib/constants/tvcm-leads";
+import {
+  detectTvcmSourcePlatform,
+  TVCM_SOURCE_LABEL,
+  type TvcmLeadCandidate,
+  type TvcmLeadResult,
+  type TvcmSourcePlatform,
+} from "@/lib/constants/tvcm-leads";
+
+const SOURCE_VISUAL: Record<
+  TvcmSourcePlatform,
+  { icon: typeof Youtube; bg: string; text: string }
+> = {
+  youtube: { icon: Youtube, bg: "bg-red-50", text: "text-red-700" },
+  prtimes: { icon: FileText, bg: "bg-blue-50", text: "text-blue-700" },
+  atpress: { icon: Newspaper, bg: "bg-amber-50", text: "text-amber-700" },
+  unknown: { icon: Globe, bg: "bg-zinc-50", text: "text-zinc-600" },
+};
 
 interface Props {
   candidates: TvcmLeadResult[]; // 警告情報・現在のDB状態を含む全候補
@@ -124,6 +144,20 @@ export function TvcmResultsTable({
                     <span className="text-sm font-semibold text-zinc-900">
                       {c.companyName}
                     </span>
+                    {(() => {
+                      const platform = detectTvcmSourcePlatform(c.pressReleaseUrl);
+                      const visual = SOURCE_VISUAL[platform];
+                      const Icon = visual.icon;
+                      return (
+                        <span
+                          className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${visual.bg} ${visual.text} px-1.5 py-0.5 rounded`}
+                          title="情報元"
+                        >
+                          <Icon className="w-2.5 h-2.5" />
+                          {TVCM_SOURCE_LABEL[platform]}
+                        </span>
+                      );
+                    })()}
                     <StatusBadge status={c.currentStatus} assigneeName={c.currentAssigneeName} />
                     {c.prefecture && (
                       <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">

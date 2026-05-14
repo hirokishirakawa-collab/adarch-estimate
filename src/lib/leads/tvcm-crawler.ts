@@ -11,12 +11,18 @@ import {
   fetchPrTimesArticle,
 } from "@/lib/leads/tvcm-prtimes";
 import {
+  fetchAtPressByKeyword,
+  fetchAtPressArticle,
+} from "@/lib/leads/tvcm-atpress";
+import {
   searchTvcmVideos,
   type YouTubeVideoCandidate,
 } from "@/lib/leads/tvcm-youtube";
 
 export interface TvcmCrawlOptions {
-  source: "youtube" | "prtimes" | "both";
+  // "both" は YouTube + PR TIMES（後方互換、@Press 含まず）
+  // "all"  は YouTube + PR TIMES + @Press
+  source: "youtube" | "prtimes" | "atpress" | "both" | "all";
   keywords?: string[];
   maxPerKeyword: number;
   totalLimit: number;
@@ -65,7 +71,7 @@ const EXTRACT_TOOL = [
         isVideoAnnouncement: {
           type: "boolean",
           description:
-            "対象が『企業による新CM・ブランドムービー・PR動画・コンセプトムービー等の公開発表』に該当するか。広告・宣伝目的の動画コンテンツである場合のみ true。個人投稿・MV単体・ニュース報道などは false。",
+            "対象が『企業が新規に動画コンテンツを公開・発表した』内容に該当するか。次の場合のみ true: 新CM公開、ブランドムービー公開、コンセプトムービー公開、採用動画公開、PR動画公開、新TVCM放映開始。次の場合は false: 動画への言及はあるが既存動画の単なる紹介、製品紹介ページの静的説明、SaaSサービスの一般紹介、個人投稿・MV単体・ニュース報道、第三者の解説動画。",
         },
         companyName: {
           type: "string",
@@ -135,29 +141,45 @@ const EXTRACT_TOOL = [
 ];
 
 const SYSTEM_PROMPT = `あなたはアドアーチグループのTVer広告営業を支援するアシスタントです。
-PR TIMES プレスリリースまたは YouTube 動画情報を受け取り、対象企業情報を構造化抽出してください。
+PR TIMES / @Press プレスリリースまたは YouTube 動画情報を受け取り、対象企業情報を構造化抽出してください。
 
 【目的】
-- 中小企業・地方企業が、CMや動画コンテンツを自社で発表した案件を見つける
-- 大手代理店（電通・博報堂 等）が噛んでいる案件は除外したい
-- 上場企業は除外したい
+- 中小企業・地方企業が、CMや動画コンテンツを"新規に公開した"案件を見つける
+- 大手代理店（電通・博報堂 等）が噛んでいる案件は警告したい
+- 上場企業は警告したい
 - 「自社で動画作ったが、TVには流していない地方中小企業」が最高の営業対象
 
-【抽出ルール】
-- isVideoAnnouncement: 本文または動画情報が『企業による広告・宣伝目的の動画コンテンツ公開』に該当する場合のみ true。
-  ・採用動画・ブランドムービー・新商品CM等は true
-  ・サービス説明動画・サービス紹介動画・会社紹介動画・製品紹介動画も true（BtoBの動画営業対象として有効）
-  ・個人投稿のVlog・MV・ニュース報道・ゲーム実況・第三者の解説動画は false
-  ・チャンネル名から明らかに企業の公式チャンネルではないものは false（個人名/タレント名チャンネル等）
-- companyName: 必ず発表元の企業を抽出。YouTubeなら原則チャンネル名から判断。タレント名チャンネルや個人名なら false にする。
-- prefecture / address: 本社所在地。チャンネル概要欄や本文から推定。
-- videoUrl: 動画のURL。
-- productionCompany: クレジット表記から抽出。
-- agencyDetected: 大手代理店名が出てきたらその名前。
-- isListed: 上場企業を示す表記があればtrue。
+【isVideoAnnouncement 判定 — 厳格に】
+true にしてよいケース（"新規に動画コンテンツを公開・発表"していることが本文から明確に読み取れる）:
+- 新CM公開・新CM発表・新CM放映開始
+- ブランドムービー公開・コンセプトムービー公開・ティザームービー公開
+- 採用動画公開・PR動画公開・プロモーションムービー公開
+- 新商品CM・新サービスPR動画の公開発表
+- YouTube投稿された企業公式チャンネルの広告・宣伝用動画（最近の投稿）
 
-【summary の書き方】
-- 1〜2文。営業担当が即判断できる内容に。
+false にすべきケース（紛らわしいもの）:
+- 動画への言及はあるが既存動画の単なる紹介・再掲
+- 製品紹介ページの静的説明、SaaSサービスの一般紹介
+- "動画"と書いてあるが実体は資料DL・ウェビナー告知
+- 個人投稿のVlog・MV単体・ニュース報道・ゲーム実況
+- 第三者（YouTuber等）による企業/商品の解説動画
+- タレント名/個人名チャンネルの動画
+- イベント開催告知のみ（動画公開を主目的としていない）
+
+【companyName】
+- 必ず発表元の企業を抽出
+- YouTubeなら原則チャンネル名から判断
+- タレント名・個人名チャンネルは false にする（isVideoAnnouncement=false）
+
+【他フィールド】
+- prefecture / address: 本社所在地。チャンネル概要欄や本文から推定
+- videoUrl: 動画のURL
+- productionCompany: クレジット表記から抽出
+- agencyDetected: 大手代理店名が出てきたらその名前
+- isListed: 上場企業を示す表記があればtrue
+
+【summary】
+- 1〜2文。営業担当が即判断できる内容に
 - 例: 「青森の地酒メーカーがブランドムービー公開。地元クリエイター制作、TV未放映。地域限定TVerが刺さる」`;
 
 interface ExtractedRaw {
@@ -216,8 +238,16 @@ export async function runTvcmCrawl(
   }
 
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
-  const wantsYoutube = options.source === "youtube" || options.source === "both";
-  const wantsPrTimes = options.source === "prtimes" || options.source === "both";
+  const wantsYoutube =
+    options.source === "youtube" ||
+    options.source === "both" ||
+    options.source === "all";
+  const wantsPrTimes =
+    options.source === "prtimes" ||
+    options.source === "both" ||
+    options.source === "all";
+  const wantsAtPress =
+    options.source === "atpress" || options.source === "all";
 
   if (options.source === "youtube" && !youtubeApiKey) {
     throw new Error(
@@ -423,9 +453,99 @@ ${article.bodyText}`;
     return out;
   }
 
+  async function collectFromAtPress(): Promise<TvcmLeadResult[]> {
+    const listings = await Promise.all(
+      keywords.map((kw) => fetchAtPressByKeyword(kw, options.maxPerKeyword)),
+    );
+    const collected: { url: string; title: string }[] = [];
+    const seen = new Set<string>();
+    for (const list of listings) {
+      for (const item of list) {
+        if (seen.has(item.url)) continue;
+        seen.add(item.url);
+        collected.push(item);
+      }
+    }
+    if (collected.length === 0) return [];
+
+    const targets = collected.slice(0, options.totalLimit);
+
+    async function extractAtPress(
+      item: { url: string; title: string },
+    ): Promise<TvcmLeadResult | null> {
+      const article = await fetchAtPressArticle(item.url);
+      if (!article) return null;
+      const localAgency = detectMajorAgency(article.bodyText);
+      const videoHint =
+        article.videoEmbeds.length > 0
+          ? `\n【検出された動画URL候補】${article.videoEmbeds.join(", ")}`
+          : "";
+
+      const userMessage = `【ソース】@Press
+【記事タイトル】${item.title}
+【記事URL】${item.url}
+【OGタイトル】${article.ogTitle ?? "（なし）"}
+【OG説明】${article.ogDescription ?? "（なし）"}${videoHint}
+【本文（先頭9000字）】
+${article.bodyText}`;
+
+      try {
+        const response = await client.messages.create({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1500,
+          system: [
+            { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+          ],
+          messages: [{ role: "user", content: userMessage }],
+          tools: EXTRACT_TOOL,
+          tool_choice: { type: "tool", name: "extract_tvcm_lead" },
+        });
+        const toolBlock = response.content.find(
+          (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use",
+        );
+        if (!toolBlock) return null;
+        const raw = toolBlock.input as ExtractedRaw;
+        if (!raw.isVideoAnnouncement) return null;
+        if (!raw.companyName?.trim()) return null;
+
+        const candidate: TvcmLeadCandidate = {
+          pressReleaseUrl: item.url,
+          pressReleaseTitle: item.title,
+          announcedDate: null,
+          companyName: raw.companyName.trim(),
+          companyWebsite: emptyToNull(raw.companyWebsite),
+          prefecture: emptyToNull(raw.prefecture),
+          address: emptyToNull(raw.address),
+          videoUrl: emptyToNull(raw.videoUrl) ?? article.videoEmbeds[0] ?? null,
+          productionCompany: emptyToNull(raw.productionCompany),
+          agencyDetected: emptyToNull(raw.agencyDetected) ?? localAgency,
+          isListed: !!raw.isListed,
+          capital: numToNullable(raw.capital),
+          employeeCount: numToNullable(raw.employeeCount),
+          industryGuess: emptyToNull(raw.industryGuess),
+          summary: raw.summary?.trim() ?? "",
+        };
+        return applyFilters(candidate);
+      } catch (err) {
+        console.error("@Press extract error:", item.url, err);
+        return null;
+      }
+    }
+
+    const CONCURRENCY = 5;
+    const out: TvcmLeadResult[] = [];
+    for (let i = 0; i < targets.length; i += CONCURRENCY) {
+      const slice = targets.slice(i, i + CONCURRENCY);
+      const batch = await Promise.all(slice.map(extractAtPress));
+      for (const r of batch) if (r) out.push(r);
+    }
+    return out;
+  }
+
   const tasks: Promise<TvcmLeadResult[]>[] = [];
   if (wantsYoutube) tasks.push(collectFromYouTube());
   if (wantsPrTimes) tasks.push(collectFromPrTimes());
+  if (wantsAtPress) tasks.push(collectFromAtPress());
 
   const allResults = (await Promise.all(tasks)).flat();
 
