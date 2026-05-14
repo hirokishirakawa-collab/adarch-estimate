@@ -28,11 +28,13 @@ export async function GET(req: NextRequest) {
         totalLimit: 30,
         maxSubscribers: 50_000,
         publishedWithinDays: 7,
+        hideRecentlyDecidedDays: 30,
       },
       { userId: null, staffName: "SYSTEM_CRON" },
     );
 
-    const { newlyCreated, updated, fetched, extracted, excluded } = outcome.stats;
+    const { newlyCreated, updated, fetched, extracted, excluded, hidden } =
+      outcome.stats;
 
     if (newlyCreated > 0) {
       const appUrl =
@@ -52,7 +54,7 @@ export async function GET(req: NextRequest) {
 
       const message = [
         `📊 TVer広告 自動クロール完了`,
-        `新規: ${newlyCreated}件（警告付き ${excluded}件 / 既存更新 ${updated}件）`,
+        `新規: ${newlyCreated}件（警告付き ${excluded}件 / 既存更新 ${updated}件 / 直近判断済み除外 ${hidden}件）`,
         ``,
         top.join("\n") + more,
         ``,
@@ -64,7 +66,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      stats: { fetched, extracted, newlyCreated, updated, excluded },
+      stats: { fetched, extracted, newlyCreated, updated, excluded, hidden },
     });
   } catch (err) {
     const message =

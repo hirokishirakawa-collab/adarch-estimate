@@ -38,10 +38,13 @@ export async function POST(req: NextRequest) {
   const body = parsed.data;
 
   try {
-    const outcome = await runTvcmCrawl(body, {
-      userId: user.id,
-      staffName: session.user.name ?? session.user.email ?? "ADMIN",
-    });
+    const outcome = await runTvcmCrawl(
+      { ...body, hideRecentlyDecidedDays: 30 },
+      {
+        userId: user.id,
+        staffName: session.user.name ?? session.user.email ?? "ADMIN",
+      },
+    );
     return NextResponse.json({
       candidates: outcome.candidates,
       results: outcome.results,

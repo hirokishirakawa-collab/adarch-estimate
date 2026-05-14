@@ -22,11 +22,17 @@ export interface TvcmCrawlOptions {
   totalLimit: number;
   maxSubscribers: number;
   publishedWithinDays: number;
+  /**
+   * 過去 N 日以内に判断（プール/却下/架電/アポ/受注）されたリードを
+   * 結果から除外する。DB の auto-save は引き続き行う（後で履歴画面から見直せる）。
+   * 0 を渡すと除外しない。default は呼び出し側で指定。
+   */
+  hideRecentlyDecidedDays?: number;
 }
 
 export interface TvcmCrawlOutcome {
   candidates: TvcmLeadResult[]; // 警告除外後（実質的に全件 — applyFilters は自動除外しない）
-  results: TvcmLeadResult[]; // 全件
+  results: TvcmLeadResult[]; // 全件（hidden を除く）
   stats: {
     fetched: number;
     extracted: number;
@@ -34,8 +40,19 @@ export interface TvcmCrawlOutcome {
     excluded: number;
     newlyCreated: number;
     updated: number;
+    hidden: number; // 直近に判断済みで結果から除外した件数
   };
 }
+
+// 「判断済み」とみなす LeadLog の action
+const DECIDED_LOG_ACTIONS = [
+  "POOLED",
+  "REJECTED",
+  "CLAIMED",
+  "ASSIGNED",
+  "STATUS_CHANGED",
+  "CONVERTED",
+] as const;
 
 const EXTRACT_TOOL = [
   {
@@ -504,12 +521,43 @@ ${article.bodyText}`;
     }
   }
 
-  const kept = results.filter((r) => !r.excluded);
-  const excluded = results.filter((r) => r.excluded);
+  // 直近 N 日以内に判断済み（POOLED/REJECTED/CLAIMED/ASSIGNED/STATUS_CHANGED/CONVERTED）の
+  // リードは結果から除外する。DB 更新は既に行われているため、履歴画面からは見える。
+  const hideDays = options.hideRecentlyDecidedDays ?? 0;
+  let visibleResults: TvcmLeadResult[] = results;
+  let hidden = 0;
+
+  if (hideDays > 0) {
+    const leadIds = results
+      .map((r) => r.leadId)
+      .filter((id): id is string => !!id);
+
+    if (leadIds.length > 0) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - hideDays);
+      const recentLogs = await db.leadLog.findMany({
+        where: {
+          leadId: { in: leadIds },
+          action: { in: [...DECIDED_LOG_ACTIONS] },
+          createdAt: { gte: cutoff },
+        },
+        select: { leadId: true },
+      });
+      const recentlyDecidedSet = new Set(recentLogs.map((l) => l.leadId));
+
+      visibleResults = results.filter(
+        (r) => !r.leadId || !recentlyDecidedSet.has(r.leadId),
+      );
+      hidden = results.length - visibleResults.length;
+    }
+  }
+
+  const kept = visibleResults.filter((r) => !r.excluded);
+  const excluded = visibleResults.filter((r) => r.excluded);
 
   return {
     candidates: kept,
-    results,
+    results: visibleResults,
     stats: {
       fetched: allResults.length,
       extracted: results.length,
@@ -517,6 +565,7 @@ ${article.bodyText}`;
       excluded: excluded.length,
       newlyCreated,
       updated,
+      hidden,
     },
   };
 }
