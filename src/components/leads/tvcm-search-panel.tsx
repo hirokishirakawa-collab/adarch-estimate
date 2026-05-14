@@ -20,6 +20,12 @@ interface CrawlStats {
   excluded: number;
 }
 
+function clampInt(raw: string, min: number, max: number, fallback: number): number {
+  const n = parseInt(raw, 10);
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
 const SOURCE_OPTIONS: { value: Source; label: string; icon: typeof Youtube; desc: string }[] = [
   { value: "youtube", label: "YouTube", icon: Youtube, desc: "中小企業特化（登録者5万以下フィルタ）" },
   { value: "prtimes", label: "PR TIMES", icon: FileText, desc: "プレスリリース系（大手寄り）" },
@@ -80,7 +86,12 @@ export function TvcmSearchPanel() {
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "クロール中にエラーが発生しました");
+        const base = err.error || "クロール中にエラーが発生しました";
+        const detail =
+          Array.isArray(err.details) && err.details.length > 0
+            ? `\n${err.details.join("\n")}`
+            : "";
+        throw new Error(`${base}${detail}`);
       }
 
       const data = (await res.json()) as {
@@ -228,7 +239,7 @@ export function TvcmSearchPanel() {
               min={1}
               max={20}
               value={maxPerKeyword}
-              onChange={(e) => setMaxPerKeyword(Number(e.target.value))}
+              onChange={(e) => setMaxPerKeyword(clampInt(e.target.value, 1, 20, 8))}
               className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-1.5"
             />
           </div>
@@ -241,7 +252,7 @@ export function TvcmSearchPanel() {
               min={1}
               max={60}
               value={totalLimit}
-              onChange={(e) => setTotalLimit(Number(e.target.value))}
+              onChange={(e) => setTotalLimit(clampInt(e.target.value, 1, 60, 30))}
               className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-1.5"
             />
           </div>
@@ -260,7 +271,7 @@ export function TvcmSearchPanel() {
                 max={10000000}
                 step={1000}
                 value={maxSubscribers}
-                onChange={(e) => setMaxSubscribers(Number(e.target.value))}
+                onChange={(e) => setMaxSubscribers(clampInt(e.target.value, 0, 10000000, 50000))}
                 className="w-full text-xs border border-rose-200 rounded-lg px-3 py-1.5 bg-white"
               />
               <p className="text-[10px] text-rose-700 mt-0.5">
@@ -276,7 +287,7 @@ export function TvcmSearchPanel() {
                 min={1}
                 max={365}
                 value={publishedWithinDays}
-                onChange={(e) => setPublishedWithinDays(Number(e.target.value))}
+                onChange={(e) => setPublishedWithinDays(clampInt(e.target.value, 1, 365, 60))}
                 className="w-full text-xs border border-rose-200 rounded-lg px-3 py-1.5 bg-white"
               />
               <p className="text-[10px] text-rose-700 mt-0.5">
@@ -323,7 +334,7 @@ export function TvcmSearchPanel() {
       {phase === "error" && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
-          <p className="text-xs text-red-700">{errorMsg}</p>
+          <p className="text-xs text-red-700 whitespace-pre-line">{errorMsg}</p>
         </div>
       )}
 
