@@ -19,7 +19,8 @@ export interface WikiSearchResult {
  */
 export async function searchWikiArticles(
   query: string,
-  limit = 5
+  limit = 5,
+  opts: { isAdmin?: boolean } = {}
 ): Promise<WikiSearchResult[]> {
   // クエリをキーワード分割（2文字以上）
   const keywords = query
@@ -34,8 +35,15 @@ export async function searchWikiArticles(
     select: { id: true, title: true, body: true },
   });
 
+  // ADMIN向け記事は一般ユーザーの検索結果から除外
+  const filtered = opts.isAdmin
+    ? articles
+    : articles.filter(
+        (a) => !/ADMIN向け|ADMIN専用|本部のみ/i.test(a.title)
+      );
+
   // スコアリング
-  const scored = articles.map((a) => {
+  const scored = filtered.map((a) => {
     const titleLower = a.title.toLowerCase();
     const bodyLower = a.body.toLowerCase();
     let score = 0;

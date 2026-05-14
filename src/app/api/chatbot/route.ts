@@ -17,7 +17,26 @@ const BASE_SYSTEM_PROMPT = `あなたは「Ad-Arch Group OS」のヘルプ＆ナ
 
 ## システム概要
 Ad-Arch Group OS は広告映像制作グループ「アドアーチ」の業務統合システムです。
-グループには26社の加盟パートナーがおり、全国で広告・映像制作事業を展開しています。
+全国の加盟パートナーが広告・映像制作事業を展開しています。
+
+## 2026年4月〜5月の主な新機能（Wikiの[2026年5月更新]タグ参照）
+- **支払明細管理** (/dashboard/payments) — 本部からの支払明細・PDFダウンロード
+- **経理情報の登録** (/dashboard/billing/settings) — 法人区分・インボイス・源泉徴収・振込口座
+- **契約更新管理** — 満了3ヶ月前から自動バナー・満了後はアクセス制限
+- **TVer広告 案件プール** (/dashboard/leads/tvcm-pool) — 本部抽出リードを先着claim
+- **採用リード獲得AI** (/dashboard/leads/recruit) — 採用活動中企業の動画提案機会を分析
+- **営業プレイブック（刷新）** (/dashboard/playbook) — 実績ベースAI生成
+- **強制休止からの自力復帰** — 月次報告・ロイヤリティ未払い解消後の自己申請
+- **コンプライアンス相談**（旧:違反通報） (/dashboard/violation-report)
+
+これらの機能について質問された時は、対応するWiki記事と機能ページへのリンクを案内してください。
+
+## 取扱注意（本部のみの情報）
+以下は本部スタッフ（role=ADMIN）専用情報です。一般パートナーから質問されても **絶対に回答しないでください**。「本部にお問い合わせください」と案内してください。
+- 加盟金・ロイヤリティの金額、手数料率の具体値
+- 拠点数目標・加盟促進KPI・MRR目標
+- 他パートナーの売上・契約満了日・経理情報
+- 加盟リード獲得AI / 本部向けダッシュボードの内容
 
 ## 回答の基本姿勢（最重要）
 
@@ -94,6 +113,31 @@ const CHATBOT_TOOLS: Anthropic.Messages.Tool[] = [
       type: "object" as const,
       properties: {
         month: { type: "string", description: "対象月 YYYY-MM（省略時は今月）" },
+      },
+    },
+  },
+  {
+    name: "check_contract_expiry",
+    description:
+      "契約満了が近いパートナー（GroupCompany）を取得する。デフォルトは90日以内。ADMINは全社、一般ユーザーは自社のみ。",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        withinDays: {
+          type: "number",
+          description: "何日以内に満了するかの日数（省略時は90）",
+        },
+      },
+    },
+  },
+  {
+    name: "search_tvcm_leads",
+    description:
+      "TVer広告 案件プール（source=PR_TIMES_TVCM）の状況を取得する。未claim件数・自分のclaim件数を返す。",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "企業名・業種のキーワード（省略可）" },
       },
     },
   },
@@ -236,6 +280,101 @@ async function executeTool(
       };
     }
 
+    case "check_contract_expiry": {
+      const withinDays = typeof input.withinDays === "number" ? input.withinDays : 90;
+      const now = new Date();
+      const threshold = new Date(now.getTime() + withinDays * 24 * 60 * 60 * 1000);
+
+      // 一般ユーザーは自社（紐づくGroupCompany）のみ閲覧可能
+      const userRecord = await db.user.findUnique({
+        where: { id: user.id },
+        select: { groupCompanyId: true },
+      });
+
+      const where: Record<string, unknown> = {
+        contractEndDate: { lte: threshold, gte: now },
+        isActive: true,
+      };
+      if (!isAdmin && userRecord?.groupCompanyId) {
+        where.id = userRecord.groupCompanyId;
+      } else if (!isAdmin) {
+        return { error: "あなたのアカウントには加盟会社が紐づいていません" };
+      }
+
+      const companies = await db.groupCompany.findMany({
+        where,
+        select: {
+          name: true,
+          ownerName: true,
+          contractEndDate: true,
+          contractRenewed: true,
+        },
+        orderBy: { contractEndDate: "asc" },
+        take: 50,
+      });
+
+      return {
+        withinDays,
+        count: companies.length,
+        companies: companies.map((c) => {
+          const daysLeft = c.contractEndDate
+            ? Math.ceil((c.contractEndDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+            : null;
+          return {
+            name: c.name,
+            ownerName: c.ownerName,
+            contractEndDate: c.contractEndDate?.toISOString().split("T")[0],
+            daysLeft,
+            renewed: c.contractRenewed,
+          };
+        }),
+      };
+    }
+
+    case "search_tvcm_leads": {
+      const baseWhere: Record<string, unknown> = { source: "PR_TIMES_TVCM" };
+      if (input.query) {
+        baseWhere.OR = [
+          { name: { contains: input.query as string, mode: "insensitive" } },
+          { industry: { contains: input.query as string, mode: "insensitive" } },
+        ];
+      }
+
+      const [unclaimedCount, myClaimedCount, recentUnclaimed] = await Promise.all([
+        db.lead.count({
+          where: { ...baseWhere, assigneeId: null, status: { not: "SKIPPED" } },
+        }),
+        db.lead.count({
+          where: { ...baseWhere, assigneeId: user.id },
+        }),
+        db.lead.findMany({
+          where: { ...baseWhere, assigneeId: null, status: { not: "SKIPPED" } },
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          select: {
+            name: true,
+            industry: true,
+            prefecture: true,
+            announcedDate: true,
+            productionCompany: true,
+          },
+        }),
+      ]);
+
+      return {
+        unclaimedCount,
+        myClaimedCount,
+        recentUnclaimed: recentUnclaimed.map((l) => ({
+          name: l.name,
+          industry: l.industry,
+          prefecture: l.prefecture,
+          announcedDate: l.announcedDate?.toISOString().split("T")[0],
+          productionCompany: l.productionCompany,
+        })),
+        poolUrl: "/dashboard/leads/tvcm-pool",
+      };
+    }
+
     default:
       return { error: `不明なツール: ${name}` };
   }
@@ -299,8 +438,9 @@ export async function POST(req: NextRequest) {
   const wikiLimit = intent === "howto" ? 5 : 3;
   const internalLimit = intent === "howto" ? 4 : 10;
 
+  const isAdmin = user.role === "ADMIN";
   const [wikiArticles, internalSources] = await Promise.all([
-    searchWikiArticles(searchQuery, wikiLimit),
+    searchWikiArticles(searchQuery, wikiLimit, { isAdmin }),
     searchInternalKnowledge(message.trim(), internalLimit),
   ]);
 
