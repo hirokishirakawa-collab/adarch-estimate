@@ -67,7 +67,7 @@ export default async function LeadsPage() {
               </span>
             </div>
             <p className="text-xs text-zinc-600">
-              本部が抽出した「新CM・ブランドムービー・サービス紹介動画」発表企業に、TVerでの動画放映を提案できる案件
+              本部が抽出した「採用動画・会社紹介ムービー・ブランディング動画」公開企業に、TVerでの動画放映を提案できる案件
             </p>
           </div>
           <div className="flex-shrink-0 flex items-center gap-3">
