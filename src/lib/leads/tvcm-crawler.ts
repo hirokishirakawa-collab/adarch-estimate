@@ -217,25 +217,17 @@ function numToNullable(n: number): number | null {
 
 function applyFilters(c: TvcmLeadCandidate): TvcmLeadResult {
   // 配布モデルでは代表が全候補を見て判断するため、自動除外しない。
-  // 大手代理店検出・上場企業はメインリストに警告バッジ付きで表示する。
+  // 全ての要警戒条件は警告バッジ付きで表示する。
   const warnings: string[] = [];
   if (c.agencyDetected) warnings.push(`⚠️大手代理店: ${c.agencyDetected}`);
   if (c.isListed) warnings.push("⚠️上場企業");
+  if (!isTargetIndustry(c.industryGuess)) warnings.push("⚠️業種ターゲット外");
+  if (isExcludedArea(c.prefecture, c.address)) warnings.push("⚠️大都市圏（東京/大阪/名古屋）");
   return {
     ...c,
     excluded: false,
     exclusionReason: warnings.length > 0 ? warnings.join(" / ") : null,
   };
-}
-
-/**
- * スコープフィルタ: ターゲット業種 + 除外エリア チェック。
- * AI抽出後に呼び出し、false ならその候補は DB 保存せずドロップ。
- */
-function passesScopeFilter(c: TvcmLeadCandidate): boolean {
-  if (!isTargetIndustry(c.industryGuess)) return false;
-  if (isExcludedArea(c.prefecture, c.address)) return false;
-  return true;
 }
 
 /**
@@ -365,7 +357,6 @@ ${v.channelDescription.slice(0, 3000)}
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
         };
-        if (!passesScopeFilter(candidate)) return null;
         return applyFilters(candidate);
       } catch (err) {
         console.error("YouTube extract error:", v.videoUrl, err);
@@ -455,7 +446,6 @@ ${article.bodyText}`;
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
         };
-        if (!passesScopeFilter(candidate)) return null;
         return applyFilters(candidate);
       } catch (err) {
         console.error("TVCM extract error:", item.url, err);
@@ -545,7 +535,6 @@ ${article.bodyText}`;
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
         };
-        if (!passesScopeFilter(candidate)) return null;
         return applyFilters(candidate);
       } catch (err) {
         console.error("@Press extract error:", item.url, err);
