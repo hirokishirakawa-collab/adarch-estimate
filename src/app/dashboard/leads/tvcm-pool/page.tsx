@@ -166,7 +166,7 @@ export default async function TvcmPoolPage() {
           <div>
             <p className="text-xs font-medium text-zinc-800">1. プールを見る</p>
             <p className="text-zinc-500 mt-0.5">
-              本部が抽出した、採用動画・会社紹介ムービー・ブランディング動画を公開した企業のリストを確認
+              本部が抽出した、採用動画・プロモーションムービー・ブランディング動画を公開した企業のリストを確認
             </p>
           </div>
           <div>

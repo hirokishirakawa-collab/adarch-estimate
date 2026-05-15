@@ -47,7 +47,7 @@ export default async function TvcmLeadsPage() {
           <div>
             <p className="text-xs font-medium text-zinc-800">1. キーワード選択</p>
             <p className="text-zinc-500 mt-0.5">
-              採用動画・会社紹介ムービー等のキーワードを選択
+              採用動画・ブランドムービー等のキーワードを選択
             </p>
           </div>
           <div>
