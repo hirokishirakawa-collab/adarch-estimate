@@ -29,6 +29,8 @@ const PROTECTED_PATHS: { prefix: string; role: UserRole }[] = [
 const HARDCODED_BLOCKED_IPS = new Set([
   "104.198.89.53", // 2026-04-13 GCP bot: /dashboard/studio への大量アクセス
   "45.148.10.21",  // 2026-04-20 .env/credentials スキャンボット
+  "45.88.138.44",  // 2026-05-17 設定ファイル探索ボット (pip.conf, .terraform, .vercel など)
+  "146.190.63.248", // 2026-05-17 leakix.net 公開スキャナー (DigitalOcean)
 ]);
 
 /** 環境変数からの追加ブロックIP（カンマ区切り） */
@@ -90,7 +92,41 @@ const BLOCKED_PATH_PATTERNS: RegExp[] = [
   // 偽管理画面・内部API探索
   /\/admin\/(master|console|config|login|panel)/i,
   /\/api\/(http\/routers|requestlogs|swagger|graphql)/i,
+  // クラウド/IaC 設定ファイル探索（2026-05-17 45.88.138.44 攻撃由来）
+  /\/pip\.conf$/i,
+  /\/netlify\.toml$/i,
+  /\.terraform(\/|$)/i,
+  /\/terraform\.tfstate/i,
+  /\.vercel(\/|$)/i,
+  // メトリクス/プロキシ/デバッグエンドポイント探索
+  /^\/(metrics|proxy|api\/proxy)(\/|$)/i,
+  /\/debug\/(default\/)?view/i,
+  /\/actuator(\/|$)/i,        // Spring Boot Actuator
+  /\/_profiler(\/|$)/i,       // Symfony / Laravel
+  /\/server-status$/i,        // Apache mod_status
 ];
+
+// ----------------------------------------------------------------
+// スキャナー User-Agent ブロック（自己申告型スキャナーを先回り遮断）
+// ----------------------------------------------------------------
+const BLOCKED_UA_PATTERNS: RegExp[] = [
+  /l9scan/i,                  // leakix.net
+  /leakix/i,
+  /censys/i,
+  /shodan/i,
+  /zgrab/i,                   // 大規模ポートスキャナー
+  /masscan/i,
+  /nuclei/i,                  // Vulnerability scanner
+  /sqlmap/i,                  // SQL injection scanner
+  /nikto/i,                   // Web server scanner
+  /acunetix/i,
+  /netsparker/i,
+];
+
+function isBlockedUserAgent(ua: string): boolean {
+  if (!ua || ua === "unknown") return false;
+  return BLOCKED_UA_PATTERNS.some((re) => re.test(ua));
+}
 
 function isBlockedPath(pathname: string): boolean {
   return BLOCKED_PATH_PATTERNS.some((re) => re.test(pathname));
@@ -204,7 +240,12 @@ export default auth((req: NextAuthRequest) => {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  // 0b. スキャナーが狙う不正パス → 即403（ログ・レートリミット不要）
+  // 0b. スキャナー UA を自己申告で名乗るボット → 即403
+  if (isBlockedUserAgent(userAgent)) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  // 0c. スキャナーが狙う不正パス → 即403（ログ・レートリミット不要）
   if (isBlockedPath(pathname)) {
     return new NextResponse("Forbidden", { status: 403 });
   }
