@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import Link from "next/link";
 import { getOrGenerateDigest } from "@/lib/digest";
 import { db } from "@/lib/db";
-import type { UserRole } from "@/types/roles";
+import { hasMinRole, type UserRole } from "@/types/roles";
 import { ForcedInactiveModal } from "@/components/partner-status/forced-inactive-modal";
 import {
   Users,
@@ -753,17 +753,22 @@ export default async function DashboardPage() {
         <div>
           <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-widest mb-2">営業</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-            {[
-              { href: "/dashboard/customers", label: "顧客管理", icon: Users, iconClass: "text-blue-500" },
-              { href: "/dashboard/deals", label: "商談管理（SFA）", icon: TrendingUp, iconClass: "text-blue-500" },
-              { href: "/dashboard/estimates", label: "公式見積もり", icon: FileText, iconClass: "text-blue-500" },
-              { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, iconClass: "text-orange-500" },
-              { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, iconClass: "text-violet-500" },
-              { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Search, iconClass: "text-teal-500" },
-              { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, iconClass: "text-rose-500" },
-              { href: "/dashboard/proposals", label: "提案書AI", icon: Sparkles, iconClass: "text-amber-500" },
-              { href: "/dashboard/proposals/analytics", label: "提案書 閲覧分析", icon: Eye, iconClass: "text-amber-500" },
-            ].map((link) => (
+            {([
+              { href: "/dashboard/customers", label: "顧客管理", icon: Users, iconClass: "text-blue-500", minRole: "USER" as UserRole },
+              { href: "/dashboard/deals", label: "商談管理（SFA）", icon: TrendingUp, iconClass: "text-blue-500", minRole: "USER" as UserRole },
+              { href: "/dashboard/estimates", label: "公式見積もり", icon: FileText, iconClass: "text-blue-500", minRole: "USER" as UserRole },
+              { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, iconClass: "text-orange-500", minRole: "USER" as UserRole },
+              { href: "/dashboard/leads/tvcm-pool", label: "TVer広告 案件プール", icon: Film, iconClass: "text-rose-500", minRole: "USER" as UserRole },
+              { href: "/dashboard/leads/tvcm", label: "TVer広告 案件クロール（本部）", icon: Film, iconClass: "text-rose-500", minRole: "ADMIN" as UserRole },
+              { href: "/dashboard/leads/tvcm-history", label: "TVer広告 案件履歴（本部）", icon: Film, iconClass: "text-rose-500", minRole: "ADMIN" as UserRole },
+              { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, iconClass: "text-violet-500", minRole: "USER" as UserRole },
+              { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Search, iconClass: "text-teal-500", minRole: "USER" as UserRole },
+              { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, iconClass: "text-rose-500", minRole: "USER" as UserRole },
+              { href: "/dashboard/proposals", label: "提案書AI", icon: Sparkles, iconClass: "text-amber-500", minRole: "USER" as UserRole },
+              { href: "/dashboard/proposals/analytics", label: "提案書 閲覧分析", icon: Eye, iconClass: "text-amber-500", minRole: "USER" as UserRole },
+            ])
+              .filter((link) => hasMinRole(role, link.minRole))
+              .map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
