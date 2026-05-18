@@ -35,11 +35,11 @@ const SOURCE_OPTIONS: { value: Source; label: string; icon: typeof Youtube; desc
 
 export function TvcmSearchPanel() {
   const [phase, setPhase] = useState<Phase>("form");
-  const [source, setSource] = useState<Source>("youtube");
+  const [source, setSource] = useState<Source>("all");
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>(
     Array.from(TVCM_SEARCH_KEYWORDS).slice(0, 4),
   );
-  const [maxPerKeyword, setMaxPerKeyword] = useState(8);
+  const [maxPerKeyword, setMaxPerKeyword] = useState(15);
   const [totalLimit, setTotalLimit] = useState(30);
   const [maxSubscribers, setMaxSubscribers] = useState(50000);
   const [publishedWithinDays, setPublishedWithinDays] = useState(60);
