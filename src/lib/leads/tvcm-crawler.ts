@@ -49,6 +49,10 @@ export interface TvcmCrawlOutcome {
     newlyCreated: number;
     updated: number;
     hidden: number; // 直近に判断済みで結果から除外した件数
+    // 切り分け用: 各ソースが「生記事を何件拾えたか」（AI判定前）
+    youtubeRaw: number;
+    prTimesRaw: number;
+    atPressRaw: number;
   };
 }
 
@@ -270,6 +274,11 @@ export async function runTvcmCrawl(
     : Array.from(TVCM_SEARCH_KEYWORDS).slice(0, 12);
   const client = new Anthropic({ apiKey });
 
+  // 切り分け診断: 各ソースの「生記事数」（AI判定前）を記録
+  let youtubeRaw = 0;
+  let prTimesRaw = 0;
+  let atPressRaw = 0;
+
   async function collectFromYouTube(): Promise<TvcmLeadResult[]> {
     if (!youtubeApiKey) {
       console.error("YOUTUBE_API_KEY 未設定 → YouTube ソースをスキップ");
@@ -301,6 +310,8 @@ export async function runTvcmCrawl(
       }
     }
     const videos = Array.from(videoMap.values()).slice(0, options.totalLimit);
+    youtubeRaw = videos.length;
+    console.log(`[tvcm-crawler] YouTube raw: ${youtubeRaw} videos (after dedupe + sub filter)`);
     if (videos.length === 0) return [];
 
     async function extractVideo(v: YouTubeVideoCandidate): Promise<TvcmLeadResult | null> {
@@ -387,6 +398,8 @@ ${v.channelDescription.slice(0, 3000)}
         collected.push(item);
       }
     }
+    prTimesRaw = collected.length;
+    console.log(`[tvcm-crawler] PR TIMES raw: ${prTimesRaw} articles (${keywords.length} keywords)`);
     if (collected.length === 0) return [];
 
     const targets = collected.slice(0, options.totalLimit);
@@ -476,6 +489,8 @@ ${article.bodyText}`;
         collected.push(item);
       }
     }
+    atPressRaw = collected.length;
+    console.log(`[tvcm-crawler] @Press raw: ${atPressRaw} articles (${keywords.length} keywords)`);
     if (collected.length === 0) return [];
 
     const targets = collected.slice(0, options.totalLimit);
@@ -696,6 +711,9 @@ ${article.bodyText}`;
       newlyCreated,
       updated,
       hidden,
+      youtubeRaw,
+      prTimesRaw,
+      atPressRaw,
     },
   };
 }

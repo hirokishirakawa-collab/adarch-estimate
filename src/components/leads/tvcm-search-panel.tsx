@@ -18,6 +18,9 @@ interface CrawlStats {
   extracted: number;
   kept: number;
   excluded: number;
+  youtubeRaw?: number;
+  prTimesRaw?: number;
+  atPressRaw?: number;
 }
 
 function clampInt(raw: string, min: number, max: number, fallback: number): number {
@@ -341,14 +344,32 @@ export function TvcmSearchPanel() {
 
       {/* 統計 */}
       {stats && (
-        <div className="bg-white rounded-xl border border-zinc-200 p-4">
+        <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
+          {/* ソース別の生フェッチ数（切り分け診断用） */}
+          {(stats.youtubeRaw !== undefined || stats.prTimesRaw !== undefined || stats.atPressRaw !== undefined) && (
+            <div className="grid grid-cols-3 gap-3 text-center pb-3 border-b border-zinc-100">
+              <div>
+                <div className="text-[10px] text-zinc-500 mb-0.5">YouTube 生取得</div>
+                <div className="text-base font-semibold text-zinc-700">{stats.youtubeRaw ?? "-"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-zinc-500 mb-0.5">PR TIMES 生取得</div>
+                <div className="text-base font-semibold text-zinc-700">{stats.prTimesRaw ?? "-"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-zinc-500 mb-0.5">@Press 生取得</div>
+                <div className="text-base font-semibold text-zinc-700">{stats.atPressRaw ?? "-"}</div>
+              </div>
+            </div>
+          )}
+          {/* AI判定後のサマリー */}
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <div className="text-[10px] text-zinc-500 mb-0.5">取得記事/動画</div>
+              <div className="text-[10px] text-zinc-500 mb-0.5">AI判定通過</div>
               <div className="text-lg font-bold text-zinc-900">{stats.fetched}</div>
             </div>
             <div>
-              <div className="text-[10px] text-zinc-500 mb-0.5">AI抽出成功</div>
+              <div className="text-[10px] text-zinc-500 mb-0.5">重複排除後</div>
               <div className="text-lg font-bold text-zinc-900">{stats.extracted}</div>
             </div>
             <div>
