@@ -267,7 +267,7 @@ export async function runTvcmCrawl(
 
   const keywords = options.keywords?.length
     ? options.keywords
-    : Array.from(TVCM_SEARCH_KEYWORDS).slice(0, 4);
+    : Array.from(TVCM_SEARCH_KEYWORDS).slice(0, 12);
   const client = new Anthropic({ apiKey });
 
   async function collectFromYouTube(): Promise<TvcmLeadResult[]> {
