@@ -74,6 +74,8 @@ export interface TvcmLeadCandidate {
   industryGuess: string | null;
   /** AIが「ノイズの可能性あり」と判定した場合 true（フィルタは行わず警告バッジ用） */
   aiSuspectsNoise?: boolean;
+  /** 発信元自体が動画制作会社・映像プロダクションの場合 true（営業対象としてはノイズ扱い） */
+  isProductionCompany?: boolean;
   summary: string; // AI生成の営業観点サマリー
 }
 

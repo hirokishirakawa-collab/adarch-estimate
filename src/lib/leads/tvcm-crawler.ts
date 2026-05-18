@@ -121,6 +121,11 @@ const EXTRACT_TOOL = [
           description:
             "発表企業が上場企業か。証券コード・東証プライム・(東1)等の記載で判断。",
         },
+        isProductionCompany: {
+          type: "boolean",
+          description:
+            "発信元（companyName）自体が動画制作会社・映像プロダクション・クリエイティブスタジオか。判定材料: 社名に『映像』『動画制作』『プロダクション』『フィルム』『スタジオ』『クリエイティブ』『Films』『Studio』『Production』等が含まれる／会社概要に『映像制作』『動画制作』『CM制作』等が書かれている／チャンネル概要に『制作実績』『クライアントワーク』等の記載がある。これらに該当すれば true。営業対象としては競合・サプライヤー側になるため、別途警告表示する。",
+        },
         capital: { type: "number", description: "資本金（円。不明なら0）" },
         employeeCount: { type: "number", description: "従業員数（不明なら0）" },
         industryGuess: {
@@ -143,6 +148,7 @@ const EXTRACT_TOOL = [
         "productionCompany",
         "agencyDetected",
         "isListed",
+        "isProductionCompany",
         "capital",
         "employeeCount",
         "industryGuess",
@@ -189,6 +195,7 @@ PR TIMES / @Press プレスリリースまたは YouTube 動画情報を受け�
 - productionCompany: クレジット表記から抽出
 - agencyDetected: 大手代理店名（電通・博報堂等）が出てきたら記載
 - isListed: 上場企業を示す表記があれば true
+- isProductionCompany: 発信元自体が動画制作会社・映像プロダクション・スタジオの場合 true。社名や事業内容で判断（『映像制作』『動画制作』『CM制作』『プロダクション』『フィルム』『Studio』『Films』『Production』『クリエイティブ』等）。代表が一目で「これはうちと同業」と判断できるようバッジ表示する
 - industryGuess: 業種推定（飲食・建設・製造・観光 等）
 
 【summary】
@@ -206,6 +213,7 @@ interface ExtractedRaw {
   productionCompany: string;
   agencyDetected: string;
   isListed: boolean;
+  isProductionCompany: boolean;
   capital: number;
   employeeCount: number;
   industryGuess: string;
@@ -225,6 +233,7 @@ function applyFilters(c: TvcmLeadCandidate): TvcmLeadResult {
   // 配布モデルでは代表が全候補を見て判断するため、自動除外しない。
   // 全ての要警戒条件は警告バッジ付きで表示する。
   const warnings: string[] = [];
+  if (c.isProductionCompany) warnings.push("⚠️動画制作会社（営業対象外の可能性）");
   if (c.aiSuspectsNoise) warnings.push("⚠️AI判定: ノイズ可能性（個人/MV/ニュース等）");
   if (c.agencyDetected) warnings.push(`⚠️大手代理店: ${c.agencyDetected}`);
   if (c.isListed) warnings.push("⚠️上場企業");
@@ -386,6 +395,7 @@ ${v.channelDescription.slice(0, 3000)}
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
           aiSuspectsNoise: raw.isVideoAnnouncement === false,
+          isProductionCompany: !!raw.isProductionCompany,
         };
         return applyFilters(candidate);
       } catch (err) {
@@ -488,6 +498,7 @@ ${article.bodyText}`;
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
           aiSuspectsNoise: raw.isVideoAnnouncement === false,
+          isProductionCompany: !!raw.isProductionCompany,
         };
         return applyFilters(candidate);
       } catch (err) {
@@ -590,6 +601,7 @@ ${article.bodyText}`;
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
           aiSuspectsNoise: raw.isVideoAnnouncement === false,
+          isProductionCompany: !!raw.isProductionCompany,
         };
         return applyFilters(candidate);
       } catch (err) {

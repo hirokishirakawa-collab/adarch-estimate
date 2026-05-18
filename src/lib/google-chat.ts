@@ -25,11 +25,14 @@ export async function sendChatMessage(
   text: string
 ): Promise<boolean> {
   const map = getWebhookMap();
+  const mapKeys = Object.keys(map);
   // DBのchatSpaceIdは "spaces/XXX" 形式、マップキーはどちらの形式でも対応
   const key = spaceId.replace(/^spaces\//, "");
   const webhookUrl = map[key] ?? map[spaceId];
   if (!webhookUrl) {
-    console.warn(`[google-chat] No webhook URL for spaceId: ${spaceId}`);
+    console.warn(
+      `[google-chat] No webhook URL for spaceId: ${spaceId} (env has ${mapKeys.length} keys: [${mapKeys.join(", ")}])`,
+    );
     return false;
   }
 
@@ -40,12 +43,19 @@ export async function sendChatMessage(
       body: JSON.stringify({ text }),
     });
     if (!res.ok) {
-      console.error(`[google-chat] Send failed (${res.status}): ${spaceId}`);
+      const body = await res.text().catch(() => "(body読み取り失敗)");
+      console.error(
+        `[google-chat] Send failed (${res.status}): spaceId=${spaceId} body=${body.slice(0, 300)}`,
+      );
       return false;
     }
+    console.log(`[google-chat] ✓ Sent to ${spaceId} (${text.length} chars)`);
     return true;
   } catch (e) {
-    console.error(`[google-chat] Send error for ${spaceId}:`, e);
+    console.error(
+      `[google-chat] Send error for ${spaceId}:`,
+      e instanceof Error ? e.message : e,
+    );
     return false;
   }
 }
