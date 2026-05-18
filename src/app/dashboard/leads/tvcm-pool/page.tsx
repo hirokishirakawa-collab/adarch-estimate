@@ -1,4 +1,4 @@
-import { Film, Inbox, CheckCircle2, ArrowRight, Users, TrendingUp } from "lucide-react";
+import { Film, Inbox, CheckCircle2, ArrowRight, Users, TrendingUp, MapPin, Clock } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -9,7 +9,13 @@ import { TvcmPoolCard, type TvcmPoolLead } from "@/components/leads/tvcm-pool-ca
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function TvcmPoolPage() {
+type SortKey = "updated" | "prefecture";
+
+interface SearchParamsProps {
+  searchParams?: Promise<{ sort?: string }>;
+}
+
+export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) {
   const session = await auth();
   if (!session?.user?.email) redirect("/");
 
@@ -21,14 +27,17 @@ export default async function TvcmPoolPage() {
 
   const isAdmin = user.role === "ADMIN";
 
+  const params = await searchParams;
+  const sortKey: SortKey = params?.sort === "prefecture" ? "prefecture" : "updated";
+
   // 未claim案件（全パートナーに公開）。SKIPPED（却下済み）は除外
-  const unclaimedLeads = (await db.lead.findMany({
+  const rawUnclaimed = await db.lead.findMany({
     where: {
       source: "PR_TIMES_TVCM",
       assigneeId: null,
       status: { not: "SKIPPED" },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { updatedAt: "desc" },
     take: 100,
     select: {
       id: true,
@@ -46,8 +55,24 @@ export default async function TvcmPoolPage() {
       capital: true,
       employeeCount: true,
       createdAt: true,
+      updatedAt: true,
     },
-  })) as TvcmPoolLead[];
+  });
+
+  // ソート: 都道府県順は null を最後（「都道府県不明」）に。それ以外は ja localeCompare
+  let unclaimedLeads: TvcmPoolLead[] = rawUnclaimed as TvcmPoolLead[];
+  if (sortKey === "prefecture") {
+    unclaimedLeads = [...rawUnclaimed].sort((a, b) => {
+      const pa = a.prefecture?.trim() || "";
+      const pb = b.prefecture?.trim() || "";
+      if (!pa && !pb) return b.updatedAt.getTime() - a.updatedAt.getTime();
+      if (!pa) return 1;
+      if (!pb) return -1;
+      const cmp = pa.localeCompare(pb, "ja");
+      if (cmp !== 0) return cmp;
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    }) as TvcmPoolLead[];
+  }
 
   // 自分がclaim済み案件
   const myClaimedLeads = (await db.lead.findMany({
@@ -73,6 +98,7 @@ export default async function TvcmPoolPage() {
       capital: true,
       employeeCount: true,
       createdAt: true,
+      updatedAt: true,
     },
   })) as TvcmPoolLead[];
 
@@ -263,13 +289,40 @@ export default async function TvcmPoolPage() {
 
       {/* 未claim プール */}
       <section>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
           <Inbox className="w-4 h-4 text-rose-600" />
           <h3 className="text-sm font-semibold text-zinc-900">未claim案件プール（TVer広告営業）</h3>
           <span className="text-[10px] font-medium text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
             {unclaimedLeads.length}件
           </span>
-          <span className="text-[10px] text-zinc-500 ml-2">先着順</span>
+          <span className="text-[10px] text-zinc-500">先着順</span>
+
+          {/* ソート切り替え */}
+          <div className="ml-auto flex items-center gap-1">
+            <span className="text-[10px] text-zinc-400">並び順</span>
+            <Link
+              href="/dashboard/leads/tvcm-pool"
+              className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded border ${
+                sortKey === "updated"
+                  ? "bg-rose-600 text-white border-rose-600"
+                  : "bg-white text-zinc-600 border-zinc-200 hover:border-rose-300"
+              }`}
+            >
+              <Clock className="w-3 h-3" />
+              更新日
+            </Link>
+            <Link
+              href="/dashboard/leads/tvcm-pool?sort=prefecture"
+              className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded border ${
+                sortKey === "prefecture"
+                  ? "bg-rose-600 text-white border-rose-600"
+                  : "bg-white text-zinc-600 border-zinc-200 hover:border-rose-300"
+              }`}
+            >
+              <MapPin className="w-3 h-3" />
+              都道府県
+            </Link>
+          </div>
         </div>
 
         {unclaimedLeads.length === 0 ? (

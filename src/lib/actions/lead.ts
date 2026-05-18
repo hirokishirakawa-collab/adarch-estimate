@@ -974,6 +974,108 @@ export async function transitionTvcmLeadStatus(
 }
 
 // ---------------------------------------------------------------
+// TVCM/動画PR リードの一括状態遷移（履歴画面の一括プール投入用）
+// ADMIN 専用。プール投入時のみ Chat に都道府県内訳を含めて1回通知。
+// ---------------------------------------------------------------
+export async function bulkTransitionTvcmLeads(
+  leadIds: string[],
+  decision: "pool" | "reject",
+): Promise<{ success: boolean; updated: number; error?: string }> {
+  const session = await auth();
+  if (!session?.user?.email) return { success: false, updated: 0, error: "ログインが必要です" };
+
+  const staffName = session.user.name ?? session.user.email ?? "ADMIN";
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+    select: { role: true },
+  });
+  if (!user || user.role !== "ADMIN") {
+    return { success: false, updated: 0, error: "管理者専用です" };
+  }
+
+  if (leadIds.length === 0) {
+    return { success: false, updated: 0, error: "対象リードがありません" };
+  }
+
+  try {
+    // 対象リードを一括取得（TVCM由来 & UNTOUCHED 以外のみ更新対象とする）
+    const targets = await db.lead.findMany({
+      where: {
+        id: { in: leadIds },
+        source: "PR_TIMES_TVCM",
+      },
+      select: { id: true, name: true, prefecture: true, industry: true, status: true },
+    });
+
+    const newStatus: LeadStatus = decision === "pool" ? "UNTOUCHED" : "SKIPPED";
+    const logAction = decision === "pool" ? "POOLED" : "REJECTED";
+    const logDetail = decision === "pool"
+      ? "履歴画面から一括プール投入"
+      : "履歴画面から一括却下";
+
+    // プール投入: 既に UNTOUCHED のものは Chat 通知に含めない（重複通知防止）
+    const newlyPooled = decision === "pool"
+      ? targets.filter((t) => t.status !== "UNTOUCHED")
+      : targets;
+
+    // 一括更新
+    await db.lead.updateMany({
+      where: { id: { in: targets.map((t) => t.id) } },
+      data: { status: newStatus, assigneeId: null },
+    });
+
+    // ログを一括作成
+    await db.leadLog.createMany({
+      data: targets.map((t) => ({
+        leadId: t.id,
+        action: logAction,
+        detail: logDetail,
+        staffName,
+      })),
+    });
+
+    // プール投入の場合、Chat に都道府県内訳付きで1回だけ通知
+    if (decision === "pool" && newlyPooled.length > 0) {
+      const prefCounts: Record<string, number> = {};
+      for (const t of newlyPooled) {
+        const key = t.prefecture?.trim() || "都道府県不明";
+        prefCounts[key] = (prefCounts[key] ?? 0) + 1;
+      }
+      const prefSummary = Object.entries(prefCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([pref, n]) => `${pref} ${n}件`)
+        .join("・");
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+      const poolUrl = `${appUrl}/dashboard/leads/tvcm-pool`;
+      const message = [
+        `📢 TVer広告 案件プールに ${newlyPooled.length}件 を一括投入しました`,
+        `地域内訳: ${prefSummary}`,
+        ``,
+        `👉 先着順！「私がやります」でclaim:`,
+        poolUrl,
+      ].join("\n");
+
+      after(async () => {
+        try {
+          await sendChatMessage(LEAD_CHAT_SPACE_ID, message);
+        } catch (e) {
+          console.error("[bulkTransitionTvcmLeads] Chat通知失敗:", e);
+        }
+      });
+    }
+
+    revalidatePath("/dashboard/leads/tvcm-history");
+    revalidatePath("/dashboard/leads/tvcm-pool");
+    revalidatePath("/dashboard/leads/list");
+    return { success: true, updated: targets.length };
+  } catch (e) {
+    console.error("[bulkTransitionTvcmLeads] DB error:", e);
+    return { success: false, updated: 0, error: "一括更新に失敗しました" };
+  }
+}
+
+// ---------------------------------------------------------------
 // TVCM/動画PR プールから案件をclaim（早い者勝ち）
 // ---------------------------------------------------------------
 export async function claimTvcmLead(

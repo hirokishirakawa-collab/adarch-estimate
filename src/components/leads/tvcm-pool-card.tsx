@@ -48,6 +48,7 @@ export interface TvcmPoolLead {
   capital: bigint | null;
   employeeCount: number | null;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 interface Props {
@@ -103,12 +104,16 @@ export function TvcmPoolCard({ lead, claimable }: Props) {
               </span>
             );
           })()}
-          {lead.prefecture && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded shrink-0">
-              <MapPin className="w-2.5 h-2.5" />
-              {lead.prefecture}
-            </span>
-          )}
+          <span
+            className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${
+              lead.prefecture
+                ? "text-emerald-700 bg-emerald-50"
+                : "text-zinc-500 bg-zinc-100"
+            }`}
+          >
+            <MapPin className="w-2.5 h-2.5" />
+            {lead.prefecture || "都道府県不明"}
+          </span>
           {lead.industry && (
             <span className="text-[10px] font-medium text-zinc-600 bg-zinc-100 px-1.5 py-0.5 rounded shrink-0">
               {lead.industry}

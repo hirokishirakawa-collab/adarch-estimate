@@ -1,9 +1,10 @@
-import { Film, ArrowRight, Database, Inbox, PhoneCall, Calendar, Trophy, XCircle } from "lucide-react";
+import { Film, ArrowRight, Database, Inbox, PhoneCall, Trophy, XCircle } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import Link from "next/link";
-import { TvcmHistoryCard, type TvcmHistoryLead } from "@/components/leads/tvcm-history-card";
+import { type TvcmHistoryLead } from "@/components/leads/tvcm-history-card";
+import { TvcmHistoryList } from "@/components/leads/tvcm-history-list";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -170,7 +171,7 @@ export default async function TvcmHistoryPage({ searchParams }: SearchParams) {
         </div>
       </div>
 
-      {/* リード一覧 */}
+      {/* リード一覧（クライアント側で一括選択管理） */}
       {leads.length === 0 ? (
         <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center">
           <Database className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
@@ -180,11 +181,7 @@ export default async function TvcmHistoryPage({ searchParams }: SearchParams) {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {leads.map((lead) => (
-            <TvcmHistoryCard key={lead.id} lead={lead} />
-          ))}
-        </div>
+        <TvcmHistoryList leads={leads} />
       )}
     </div>
   );

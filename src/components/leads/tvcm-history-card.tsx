@@ -21,6 +21,8 @@ import {
   FileText,
   Newspaper,
   Globe,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { transitionTvcmLeadStatus } from "@/lib/actions/lead";
 import {
@@ -74,7 +76,19 @@ const STATUS_CONFIG: Record<
   SKIPPED: { label: "却下済", bg: "bg-red-50", text: "text-red-700", icon: XCircle },
 };
 
-export function TvcmHistoryCard({ lead }: { lead: TvcmHistoryLead }) {
+interface CardProps {
+  lead: TvcmHistoryLead;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+}
+
+export function TvcmHistoryCard({
+  lead,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
+}: CardProps) {
   const [isPending, startTransition] = useTransition();
   const [currentStatus, setCurrentStatus] = useState<Status>(lead.status);
   const [resultMsg, setResultMsg] = useState<string | null>(null);
@@ -98,8 +112,26 @@ export function TvcmHistoryCard({ lead }: { lead: TvcmHistoryLead }) {
   const canDecide = currentStatus === "CRAWLED";
 
   return (
-    <div className="bg-white rounded-xl border border-zinc-200 p-4">
+    <div
+      className={`bg-white rounded-xl border p-4 transition-colors ${
+        selected ? "border-blue-400 ring-1 ring-blue-200" : "border-zinc-200"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
+        {selectable && (
+          <button
+            type="button"
+            onClick={onToggleSelect}
+            className="shrink-0 mt-0.5"
+            aria-label={selected ? "選択解除" : "選択"}
+          >
+            {selected ? (
+              <CheckSquare className="w-4 h-4 text-blue-600" />
+            ) : (
+              <Square className="w-4 h-4 text-zinc-300 hover:text-blue-400" />
+            )}
+          </button>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
             <Building2 className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
@@ -130,12 +162,16 @@ export function TvcmHistoryCard({ lead }: { lead: TvcmHistoryLead }) {
                 </>
               )}
             </span>
-            {lead.prefecture && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                <MapPin className="w-2.5 h-2.5" />
-                {lead.prefecture}
-              </span>
-            )}
+            <span
+              className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                lead.prefecture
+                  ? "text-emerald-700 bg-emerald-50"
+                  : "text-zinc-500 bg-zinc-100"
+              }`}
+            >
+              <MapPin className="w-2.5 h-2.5" />
+              {lead.prefecture || "都道府県不明"}
+            </span>
             {lead.industry && (
               <span className="text-[10px] font-medium text-zinc-600 bg-zinc-100 px-1.5 py-0.5 rounded">
                 {lead.industry}
