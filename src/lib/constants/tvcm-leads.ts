@@ -72,6 +72,8 @@ export interface TvcmLeadCandidate {
   capital: number | null; // 円
   employeeCount: number | null;
   industryGuess: string | null;
+  /** AIが「ノイズの可能性あり」と判定した場合 true（フィルタは行わず警告バッジ用） */
+  aiSuspectsNoise?: boolean;
   summary: string; // AI生成の営業観点サマリー
 }
 

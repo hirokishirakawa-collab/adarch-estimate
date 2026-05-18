@@ -219,6 +219,7 @@ function applyFilters(c: TvcmLeadCandidate): TvcmLeadResult {
   // 配布モデルでは代表が全候補を見て判断するため、自動除外しない。
   // 全ての要警戒条件は警告バッジ付きで表示する。
   const warnings: string[] = [];
+  if (c.aiSuspectsNoise) warnings.push("⚠️AI判定: ノイズ可能性（個人/MV/ニュース等）");
   if (c.agencyDetected) warnings.push(`⚠️大手代理店: ${c.agencyDetected}`);
   if (c.isListed) warnings.push("⚠️上場企業");
   if (!isTargetIndustry(c.industryGuess)) warnings.push("⚠️業種ターゲット外");
@@ -344,7 +345,8 @@ ${v.channelDescription.slice(0, 3000)}
         );
         if (!toolBlock) return null;
         const raw = toolBlock.input as ExtractedRaw;
-        if (!raw.isVideoAnnouncement) return null;
+        // 配布モデル: AIフィルターは廃止。代表＋パートナーが全候補を見て判断。
+        // 企業名さえ取れていれば候補として残す（isVideoAnnouncement は警告材料としてのみ使用）。
         if (!raw.companyName?.trim()) return null;
 
         const candidate: TvcmLeadCandidate = {
@@ -363,6 +365,7 @@ ${v.channelDescription.slice(0, 3000)}
           employeeCount: numToNullable(raw.employeeCount),
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
+          aiSuspectsNoise: raw.isVideoAnnouncement === false,
         };
         return applyFilters(candidate);
       } catch (err) {
@@ -435,7 +438,8 @@ ${article.bodyText}`;
         );
         if (!toolBlock) return null;
         const raw = toolBlock.input as ExtractedRaw;
-        if (!raw.isVideoAnnouncement) return null;
+        // 配布モデル: AIフィルターは廃止。代表＋パートナーが全候補を見て判断。
+        // 企業名さえ取れていれば候補として残す（isVideoAnnouncement は警告材料としてのみ使用）。
         if (!raw.companyName?.trim()) return null;
 
         const candidate: TvcmLeadCandidate = {
@@ -454,6 +458,7 @@ ${article.bodyText}`;
           employeeCount: numToNullable(raw.employeeCount),
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
+          aiSuspectsNoise: raw.isVideoAnnouncement === false,
         };
         return applyFilters(candidate);
       } catch (err) {
@@ -526,7 +531,8 @@ ${article.bodyText}`;
         );
         if (!toolBlock) return null;
         const raw = toolBlock.input as ExtractedRaw;
-        if (!raw.isVideoAnnouncement) return null;
+        // 配布モデル: AIフィルターは廃止。代表＋パートナーが全候補を見て判断。
+        // 企業名さえ取れていれば候補として残す（isVideoAnnouncement は警告材料としてのみ使用）。
         if (!raw.companyName?.trim()) return null;
 
         const candidate: TvcmLeadCandidate = {
@@ -545,6 +551,7 @@ ${article.bodyText}`;
           employeeCount: numToNullable(raw.employeeCount),
           industryGuess: emptyToNull(raw.industryGuess),
           summary: raw.summary?.trim() ?? "",
+          aiSuspectsNoise: raw.isVideoAnnouncement === false,
         };
         return applyFilters(candidate);
       } catch (err) {
