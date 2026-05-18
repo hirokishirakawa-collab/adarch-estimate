@@ -53,6 +53,12 @@ export interface TvcmCrawlOutcome {
     youtubeRaw: number;
     prTimesRaw: number;
     atPressRaw: number;
+    // AI呼び出し診断
+    aiAttempts: number;
+    aiApiErrors: number; // API例外（rate limit / 認証 / ネットワーク等）
+    aiNoToolBlock: number; // AIがtool_useを返さなかった
+    aiEmptyCompany: number; // companyName が空でドロップ
+    aiSuccess: number; // 抽出成功
   };
 }
 
@@ -275,6 +281,12 @@ export async function runTvcmCrawl(
   let youtubeRaw = 0;
   let prTimesRaw = 0;
   let atPressRaw = 0;
+  // AI呼び出し診断: 試行回数 / API成功 / API失敗 / 空のcompanyName で除外
+  let aiAttempts = 0;
+  let aiApiErrors = 0;
+  let aiNoToolBlock = 0;
+  let aiEmptyCompany = 0;
+  let aiSuccess = 0;
 
   async function collectFromYouTube(): Promise<TvcmLeadResult[]> {
     if (!youtubeApiKey) {
@@ -329,6 +341,7 @@ ${v.channelDescription.slice(0, 3000)}
 
 【公開日】${v.publishedAt}`;
 
+      aiAttempts++;
       try {
         const response = await client.messages.create({
           model: "claude-sonnet-4-6",
@@ -343,11 +356,18 @@ ${v.channelDescription.slice(0, 3000)}
         const toolBlock = response.content.find(
           (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use",
         );
-        if (!toolBlock) return null;
+        if (!toolBlock) {
+          aiNoToolBlock++;
+          console.warn("[tvcm-crawler] YouTube: no tool_use block", v.videoUrl);
+          return null;
+        }
         const raw = toolBlock.input as ExtractedRaw;
-        // 配布モデル: AIフィルターは廃止。代表＋パートナーが全候補を見て判断。
-        // 企業名さえ取れていれば候補として残す（isVideoAnnouncement は警告材料としてのみ使用）。
-        if (!raw.companyName?.trim()) return null;
+        if (!raw.companyName?.trim()) {
+          aiEmptyCompany++;
+          console.warn("[tvcm-crawler] YouTube: empty companyName", v.videoUrl);
+          return null;
+        }
+        aiSuccess++;
 
         const candidate: TvcmLeadCandidate = {
           pressReleaseUrl: v.videoUrl,
@@ -369,7 +389,8 @@ ${v.channelDescription.slice(0, 3000)}
         };
         return applyFilters(candidate);
       } catch (err) {
-        console.error("YouTube extract error:", v.videoUrl, err);
+        aiApiErrors++;
+        console.error("[tvcm-crawler] YouTube AI error:", v.videoUrl, err instanceof Error ? err.message : err);
         return null;
       }
     }
@@ -422,6 +443,7 @@ ${v.channelDescription.slice(0, 3000)}
 【本文（先頭9000字）】
 ${article.bodyText}`;
 
+      aiAttempts++;
       try {
         const response = await client.messages.create({
           model: "claude-sonnet-4-6",
@@ -436,11 +458,18 @@ ${article.bodyText}`;
         const toolBlock = response.content.find(
           (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use",
         );
-        if (!toolBlock) return null;
+        if (!toolBlock) {
+          aiNoToolBlock++;
+          console.warn("[tvcm-crawler] PR TIMES: no tool_use block", item.url);
+          return null;
+        }
         const raw = toolBlock.input as ExtractedRaw;
-        // 配布モデル: AIフィルターは廃止。代表＋パートナーが全候補を見て判断。
-        // 企業名さえ取れていれば候補として残す（isVideoAnnouncement は警告材料としてのみ使用）。
-        if (!raw.companyName?.trim()) return null;
+        if (!raw.companyName?.trim()) {
+          aiEmptyCompany++;
+          console.warn("[tvcm-crawler] PR TIMES: empty companyName", item.url);
+          return null;
+        }
+        aiSuccess++;
 
         const candidate: TvcmLeadCandidate = {
           pressReleaseUrl: item.url,
@@ -462,7 +491,8 @@ ${article.bodyText}`;
         };
         return applyFilters(candidate);
       } catch (err) {
-        console.error("TVCM extract error:", item.url, err);
+        aiApiErrors++;
+        console.error("[tvcm-crawler] PR TIMES AI error:", item.url, err instanceof Error ? err.message : err);
         return null;
       }
     }
@@ -515,6 +545,7 @@ ${article.bodyText}`;
 【本文（先頭9000字）】
 ${article.bodyText}`;
 
+      aiAttempts++;
       try {
         const response = await client.messages.create({
           model: "claude-sonnet-4-6",
@@ -529,11 +560,18 @@ ${article.bodyText}`;
         const toolBlock = response.content.find(
           (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use",
         );
-        if (!toolBlock) return null;
+        if (!toolBlock) {
+          aiNoToolBlock++;
+          console.warn("[tvcm-crawler] @Press: no tool_use block", item.url);
+          return null;
+        }
         const raw = toolBlock.input as ExtractedRaw;
-        // 配布モデル: AIフィルターは廃止。代表＋パートナーが全候補を見て判断。
-        // 企業名さえ取れていれば候補として残す（isVideoAnnouncement は警告材料としてのみ使用）。
-        if (!raw.companyName?.trim()) return null;
+        if (!raw.companyName?.trim()) {
+          aiEmptyCompany++;
+          console.warn("[tvcm-crawler] @Press: empty companyName", item.url);
+          return null;
+        }
+        aiSuccess++;
 
         const candidate: TvcmLeadCandidate = {
           pressReleaseUrl: item.url,
@@ -555,7 +593,8 @@ ${article.bodyText}`;
         };
         return applyFilters(candidate);
       } catch (err) {
-        console.error("@Press extract error:", item.url, err);
+        aiApiErrors++;
+        console.error("[tvcm-crawler] @Press AI error:", item.url, err instanceof Error ? err.message : err);
         return null;
       }
     }
@@ -574,6 +613,13 @@ ${article.bodyText}`;
   if (wantsYoutube) tasks.push(collectFromYouTube());
   if (wantsPrTimes) tasks.push(collectFromPrTimes());
   if (wantsAtPress) tasks.push(collectFromAtPress());
+
+  // 各ソース完了後、AI診断サマリーを必ずログに残す
+  Promise.all(tasks).then(() => {
+    console.log(
+      `[tvcm-crawler] AI診断サマリー: attempts=${aiAttempts}, success=${aiSuccess}, apiErrors=${aiApiErrors}, noToolBlock=${aiNoToolBlock}, emptyCompany=${aiEmptyCompany}`,
+    );
+  }).catch(() => {});
 
   const allResults = (await Promise.all(tasks)).flat();
 
@@ -717,6 +763,11 @@ ${article.bodyText}`;
       youtubeRaw,
       prTimesRaw,
       atPressRaw,
+      aiAttempts,
+      aiApiErrors,
+      aiNoToolBlock,
+      aiEmptyCompany,
+      aiSuccess,
     },
   };
 }

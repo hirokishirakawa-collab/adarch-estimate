@@ -21,6 +21,11 @@ interface CrawlStats {
   youtubeRaw?: number;
   prTimesRaw?: number;
   atPressRaw?: number;
+  aiAttempts?: number;
+  aiApiErrors?: number;
+  aiNoToolBlock?: number;
+  aiEmptyCompany?: number;
+  aiSuccess?: number;
 }
 
 function clampInt(raw: string, min: number, max: number, fallback: number): number {
@@ -362,10 +367,37 @@ export function TvcmSearchPanel() {
               </div>
             </div>
           )}
+
+          {/* AI呼び出し診断（切り分け用） */}
+          {stats.aiAttempts !== undefined && (
+            <div className="grid grid-cols-5 gap-2 text-center pb-3 border-b border-zinc-100">
+              <div>
+                <div className="text-[10px] text-zinc-500 mb-0.5">AI試行</div>
+                <div className="text-sm font-semibold text-zinc-700">{stats.aiAttempts}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-emerald-600 mb-0.5">成功</div>
+                <div className="text-sm font-semibold text-emerald-700">{stats.aiSuccess ?? 0}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-red-500 mb-0.5">APIエラー</div>
+                <div className="text-sm font-semibold text-red-600">{stats.aiApiErrors ?? 0}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-amber-500 mb-0.5">tool未返答</div>
+                <div className="text-sm font-semibold text-amber-600">{stats.aiNoToolBlock ?? 0}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-zinc-400 mb-0.5">企業名空</div>
+                <div className="text-sm font-semibold text-zinc-500">{stats.aiEmptyCompany ?? 0}</div>
+              </div>
+            </div>
+          )}
+
           {/* AI判定後のサマリー */}
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <div className="text-[10px] text-zinc-500 mb-0.5">AI判定通過</div>
+              <div className="text-[10px] text-zinc-500 mb-0.5">最終候補</div>
               <div className="text-lg font-bold text-zinc-900">{stats.fetched}</div>
             </div>
             <div>
