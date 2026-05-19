@@ -23,6 +23,7 @@ interface LeadRow {
   scoreTotal: number;
   scoreComment: string | null;
   scoreBreakdown: Record<string, number> | null;
+  source: string | null;
   status: string;
   memo: string | null;
   mapsUrl: string | null;
@@ -491,17 +492,26 @@ function LeadRow({
         )}
       </td>
 
-      {/* スコア */}
+      {/* スコア（TVer広告プール由来は専用バッジ表示） */}
       <td className="px-3 py-3 text-center">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border",
-            priority.className
-          )}
-          title={lead.scoreComment ?? ""}
-        >
-          {priority.emoji} {lead.scoreTotal}
-        </span>
+        {lead.source === "PR_TIMES_TVCM" ? (
+          <span
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border bg-rose-50 text-rose-700 border-rose-200"
+            title={lead.scoreComment ?? "TVer広告 案件プール由来（AIスコアリング対象外）"}
+          >
+            🎬 TVerプール
+          </span>
+        ) : (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border",
+              priority.className
+            )}
+            title={lead.scoreComment ?? ""}
+          >
+            {priority.emoji} {lead.scoreTotal}
+          </span>
+        )}
       </td>
 
       {/* ステータス */}
