@@ -103,6 +103,8 @@ export const tvcmCrawlSchema = z.object({
   maxSubscribers: z.number().int().min(0).max(10_000_000).optional().default(50000),
   /** YouTube用: 発表日が「現在から〜日以内」の動画のみ */
   publishedWithinDays: z.number().int().min(1).max(365).optional().default(60),
+  /** 直近 N 日以内に判断済み（プール/却下/claim/ステータス変更/受注）のリードを結果から除外 */
+  hideRecentlyDecidedDays: z.number().int().min(0).max(365).optional().default(30),
 });
 
 // POST /api/leads/tvcm/save

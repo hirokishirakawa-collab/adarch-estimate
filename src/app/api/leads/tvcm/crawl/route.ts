@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const outcome = await runTvcmCrawl(
-      { ...body, hideRecentlyDecidedDays: 30 },
+      // body にhideRecentlyDecidedDaysが含まれていればその値、無ければ schema default(30)
+      body,
       {
         userId: user.id,
         staffName: session.user.name ?? session.user.email ?? "ADMIN",

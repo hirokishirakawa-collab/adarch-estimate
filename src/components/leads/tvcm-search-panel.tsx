@@ -18,6 +18,7 @@ interface CrawlStats {
   extracted: number;
   kept: number;
   excluded: number;
+  hidden?: number; // 直近に判断済みで除外した件数
   youtubeRaw?: number;
   prTimesRaw?: number;
   atPressRaw?: number;
@@ -51,6 +52,7 @@ export function TvcmSearchPanel() {
   const [totalLimit, setTotalLimit] = useState(30);
   const [maxSubscribers, setMaxSubscribers] = useState(50000);
   const [publishedWithinDays, setPublishedWithinDays] = useState(60);
+  const [hideRecentlyDecidedDays, setHideRecentlyDecidedDays] = useState(30);
 
   // 配布モデル: 全候補（除外含む）をフラットに表示。代表が個別に「プール投入」「却下」を判定する
   const [allResults, setAllResults] = useState<TvcmLeadResult[]>([]);
@@ -90,6 +92,7 @@ export function TvcmSearchPanel() {
           totalLimit,
           maxSubscribers,
           publishedWithinDays,
+          hideRecentlyDecidedDays,
         }),
       });
 
@@ -119,7 +122,7 @@ export function TvcmSearchPanel() {
       setErrorMsg(msg);
       setPhase("error");
     }
-  }, [source, selectedKeywords, maxPerKeyword, totalLimit, maxSubscribers, publishedWithinDays]);
+  }, [source, selectedKeywords, maxPerKeyword, totalLimit, maxSubscribers, publishedWithinDays, hideRecentlyDecidedDays]);
 
   const handlePool = useCallback(async (c: TvcmLeadCandidate) => {
     setDecidingName(c.companyName);
@@ -306,6 +309,27 @@ export function TvcmSearchPanel() {
           </div>
         )}
 
+        {/* 判断済みリードの除外日数（全ソース共通） */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <label className="text-[11px] font-medium text-zinc-700 mb-1 block">
+              判断済みリードを除外（過去何日）
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={365}
+              value={hideRecentlyDecidedDays}
+              onChange={(e) => setHideRecentlyDecidedDays(clampInt(e.target.value, 0, 365, 30))}
+              className="w-full text-xs border border-zinc-300 rounded-lg px-3 py-1.5 bg-white"
+            />
+            <p className="text-[10px] text-zinc-500 mt-0.5">
+              プール投入／却下／claim／受注を行った企業を除外。0で無効化。既定30日
+            </p>
+          </div>
+        </div>
+
+
         {/* 警告フラグ説明 */}
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
           <p className="text-[11px] font-semibold text-amber-800 mb-1">
@@ -395,7 +419,7 @@ export function TvcmSearchPanel() {
           )}
 
           {/* AI判定後のサマリー */}
-          <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="grid grid-cols-4 gap-3 text-center">
             <div>
               <div className="text-[10px] text-zinc-500 mb-0.5">最終候補</div>
               <div className="text-lg font-bold text-zinc-900">{stats.fetched}</div>
@@ -407,6 +431,10 @@ export function TvcmSearchPanel() {
             <div>
               <div className="text-[10px] text-amber-600 mb-0.5">警告付き候補</div>
               <div className="text-lg font-bold text-amber-600">{stats.excluded}</div>
+            </div>
+            <div title="プール／却下／claim 等で判断済みのリードを直近N日分除外">
+              <div className="text-[10px] text-blue-500 mb-0.5">判断済み除外</div>
+              <div className="text-lg font-bold text-blue-600">{stats.hidden ?? 0}</div>
             </div>
           </div>
         </div>
