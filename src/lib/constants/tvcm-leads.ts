@@ -76,6 +76,8 @@ export interface TvcmLeadCandidate {
   aiSuspectsNoise?: boolean;
   /** 発信元自体が動画制作会社・映像プロダクションの場合 true（営業対象としてはノイズ扱い） */
   isProductionCompany?: boolean;
+  /** 発信元が個人クリエイター・YouTuber・インフルエンサーで法人化されていない場合 true（営業対象外） */
+  isIndividualCreator?: boolean;
   summary: string; // AI生成の営業観点サマリー
 }
 

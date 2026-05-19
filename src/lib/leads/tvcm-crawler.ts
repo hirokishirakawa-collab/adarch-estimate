@@ -126,6 +126,11 @@ const EXTRACT_TOOL = [
           description:
             "発信元（companyName）自体が動画制作会社・映像プロダクション・クリエイティブスタジオか。判定材料: 社名に『映像』『動画制作』『プロダクション』『フィルム』『スタジオ』『クリエイティブ』『Films』『Studio』『Production』等が含まれる／会社概要に『映像制作』『動画制作』『CM制作』等が書かれている／チャンネル概要に『制作実績』『クライアントワーク』等の記載がある。これらに該当すれば true。営業対象としては競合・サプライヤー側になるため、別途警告表示する。",
         },
+        isIndividualCreator: {
+          type: "boolean",
+          description:
+            "発信元が個人クリエイター（YouTuber・Vlogger・インフルエンサー・タレント・芸能人・配信者）で、法人化されていないか。判定材料: チャンネル名が個人名／『○○Channel』『○○TV』『○○の日常』等の個人発信スタイル／会社概要に法人名・住所が記載されていない／『YouTuber』『クリエイター』『発信者』として自己紹介している／個人を主役とした動画が中心。法人化されたYouTuberプロダクション（VTuber事務所・芸能事務所・タレント所属事務所等）は false。広告予算の意思決定者が個人事業主レベルになり、TVer広告の最低出稿額（月数十万円〜）と合わないため警告表示する。",
+        },
         capital: { type: "number", description: "資本金（円。不明なら0）" },
         employeeCount: { type: "number", description: "従業員数（不明なら0）" },
         industryGuess: {
@@ -149,6 +154,7 @@ const EXTRACT_TOOL = [
         "agencyDetected",
         "isListed",
         "isProductionCompany",
+        "isIndividualCreator",
         "capital",
         "employeeCount",
         "industryGuess",
@@ -196,6 +202,7 @@ PR TIMES / @Press プレスリリースまたは YouTube 動画情報を受け�
 - agencyDetected: 大手代理店名（電通・博報堂等）が出てきたら記載
 - isListed: 上場企業を示す表記があれば true
 - isProductionCompany: 発信元自体が動画制作会社・映像プロダクション・スタジオの場合 true。社名や事業内容で判断（『映像制作』『動画制作』『CM制作』『プロダクション』『フィルム』『Studio』『Films』『Production』『クリエイティブ』等）。代表が一目で「これはうちと同業」と判断できるようバッジ表示する
+- isIndividualCreator: 発信元が個人YouTuber/Vlogger/インフルエンサー/タレントで法人化されていない場合 true。チャンネル名が個人名／『○○Channel』『○○TV』『○○の日常』形式／会社概要に法人情報なし／自己紹介が個人発信スタイル等で判断。法人化されたVTuber事務所・芸能事務所・タレント所属事務所は false（広告予算の意思決定者が個人だと TVer の最低出稿額と合わないため警告対象）
 - industryGuess: 業種推定（飲食・建設・製造・観光 等）
 
 【summary】
@@ -214,6 +221,7 @@ interface ExtractedRaw {
   agencyDetected: string;
   isListed: boolean;
   isProductionCompany: boolean;
+  isIndividualCreator: boolean;
   capital: number;
   employeeCount: number;
   industryGuess: string;
@@ -233,6 +241,7 @@ function applyFilters(c: TvcmLeadCandidate): TvcmLeadResult {
   // 配布モデルでは代表が全候補を見て判断するため、自動除外しない。
   // 全ての要警戒条件は警告バッジ付きで表示する。
   const warnings: string[] = [];
+  if (c.isIndividualCreator) warnings.push("⚠️個人クリエイター/YouTuber（営業対象外）");
   if (c.isProductionCompany) warnings.push("⚠️動画制作会社（営業対象外の可能性）");
   if (c.aiSuspectsNoise) warnings.push("⚠️AI判定: ノイズ可能性（個人/MV/ニュース等）");
   if (c.agencyDetected) warnings.push(`⚠️大手代理店: ${c.agencyDetected}`);
@@ -396,6 +405,7 @@ ${v.channelDescription.slice(0, 3000)}
           summary: raw.summary?.trim() ?? "",
           aiSuspectsNoise: raw.isVideoAnnouncement === false,
           isProductionCompany: !!raw.isProductionCompany,
+          isIndividualCreator: !!raw.isIndividualCreator,
         };
         return applyFilters(candidate);
       } catch (err) {
@@ -499,6 +509,7 @@ ${article.bodyText}`;
           summary: raw.summary?.trim() ?? "",
           aiSuspectsNoise: raw.isVideoAnnouncement === false,
           isProductionCompany: !!raw.isProductionCompany,
+          isIndividualCreator: !!raw.isIndividualCreator,
         };
         return applyFilters(candidate);
       } catch (err) {
@@ -602,6 +613,7 @@ ${article.bodyText}`;
           summary: raw.summary?.trim() ?? "",
           aiSuspectsNoise: raw.isVideoAnnouncement === false,
           isProductionCompany: !!raw.isProductionCompany,
+          isIndividualCreator: !!raw.isIndividualCreator,
         };
         return applyFilters(candidate);
       } catch (err) {
