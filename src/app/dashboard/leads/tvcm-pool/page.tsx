@@ -281,7 +281,7 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
           </div>
           <div className="space-y-2">
             {myClaimedLeads.map((lead) => (
-              <TvcmPoolCard key={lead.id} lead={lead} claimable={false} />
+              <TvcmPoolCard key={lead.id} lead={lead} claimable={false} isAdmin={isAdmin} />
             ))}
           </div>
         </section>
@@ -338,7 +338,7 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
         ) : (
           <div className="space-y-2">
             {unclaimedLeads.map((lead) => (
-              <TvcmPoolCard key={lead.id} lead={lead} claimable={true} />
+              <TvcmPoolCard key={lead.id} lead={lead} claimable={true} isAdmin={isAdmin} />
             ))}
           </div>
         )}

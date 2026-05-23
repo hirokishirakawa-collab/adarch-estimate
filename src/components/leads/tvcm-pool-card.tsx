@@ -14,8 +14,9 @@ import {
   FileText,
   Newspaper,
   Globe,
+  Trash2,
 } from "lucide-react";
-import { claimTvcmLead } from "@/lib/actions/lead";
+import { claimTvcmLead, transitionTvcmLeadStatus } from "@/lib/actions/lead";
 import {
   detectTvcmSourcePlatform,
   TVCM_SOURCE_LABEL,
@@ -54,14 +55,17 @@ export interface TvcmPoolLead {
 interface Props {
   lead: TvcmPoolLead;
   claimable: boolean; // true = 未claim（claim可能）、false = 自分がclaim済み
+  isAdmin?: boolean; // true のとき本部向けの「プールから外す」削除操作を表示
 }
 
-export function TvcmPoolCard({ lead, claimable }: Props) {
+export function TvcmPoolCard({ lead, claimable, isAdmin = false }: Props) {
   const [isPending, startTransition] = useTransition();
+  const [isRemoving, startRemoving] = useTransition();
   const [resultMsg, setResultMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(
     null,
   );
   const [claimed, setClaimed] = useState(!claimable);
+  const [removed, setRemoved] = useState(false);
 
   const handleClaim = () => {
     if (!confirm(`${lead.name} の案件を担当します。よろしいですか？\n（claimすると他のパートナーは取れなくなります）`)) {
@@ -77,6 +81,33 @@ export function TvcmPoolCard({ lead, claimable }: Props) {
       }
     });
   };
+
+  const handleRemove = () => {
+    if (
+      !confirm(
+        `${lead.name} をプールから外します（却下扱い）。よろしいですか？\n履歴には記録が残り、次回クロールでも復活しません。`,
+      )
+    ) {
+      return;
+    }
+    startRemoving(async () => {
+      const res = await transitionTvcmLeadStatus(lead.id, "reject");
+      if (res.success) {
+        setRemoved(true);
+      } else {
+        setResultMsg({ kind: "err", text: res.error ?? "プールから外せませんでした" });
+      }
+    });
+  };
+
+  if (removed) {
+    return (
+      <div className="bg-zinc-50 rounded-xl border border-zinc-200 px-4 py-3 text-[11px] text-zinc-400 flex items-center gap-1.5">
+        <Trash2 className="w-3 h-3" />
+        「{lead.name}」をプールから外しました
+      </div>
+    );
+  }
 
   return (
     <div
@@ -126,6 +157,22 @@ export function TvcmPoolCard({ lead, claimable }: Props) {
             </span>
           )}
         </div>
+
+        {isAdmin && claimable && (
+          <button
+            onClick={handleRemove}
+            disabled={isRemoving}
+            title="プールから外す（却下扱い・本部のみ）"
+            className="text-[11px] font-medium text-zinc-400 hover:text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-lg flex items-center gap-1 disabled:opacity-50 shrink-0"
+          >
+            {isRemoving ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Trash2 className="w-3 h-3" />
+            )}
+            削除
+          </button>
+        )}
       </div>
 
       {lead.scoreComment && (
