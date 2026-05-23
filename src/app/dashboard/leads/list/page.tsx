@@ -251,7 +251,15 @@ export default async function LeadListPage({ searchParams }: PageProps) {
 
       {/* ===== テーブル ===== */}
       <div data-tour="lead-list-table">
-        <LeadListTable leads={leads} users={users} isAdmin={isAdmin} canSelect={canSelect} />
+        <LeadListTable
+          leads={leads.map((l) => ({
+            ...l,
+            scoreBreakdown: l.scoreBreakdown as Record<string, number> | null,
+          }))}
+          users={users}
+          isAdmin={isAdmin}
+          canSelect={canSelect}
+        />
       </div>
 
       {/* ===== ページネーション ===== */}

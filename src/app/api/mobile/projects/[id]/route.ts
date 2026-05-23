@@ -71,7 +71,7 @@ export async function GET(
             id: true,
             category: true,
             amount: true,
-            description: true,
+            title: true,
             createdAt: true,
           },
           orderBy: { createdAt: "desc" },
@@ -120,7 +120,7 @@ export async function GET(
         id: exp.id,
         category: exp.category,
         amount: showFinancials ? Number(exp.amount) : null,
-        description: exp.description ?? null,
+        description: exp.title,
         createdAt: exp.createdAt,
       })),
       recentLogs: project.logs.map((log) => ({

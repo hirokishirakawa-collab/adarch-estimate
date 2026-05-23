@@ -33,7 +33,7 @@ export async function createTverCampaign(
   const genderTarget      = (formData.get("genderTarget")      as string)?.trim() || "ALL";
   const areas             = formData.getAll("areas").map((v) => (v as string).trim()).filter(Boolean);
   const settingsRaw       = (formData.get("settings") as string)?.trim() || null;
-  let settingsJson: Record<string, unknown> | null = null;
+  let settingsJson: Prisma.InputJsonValue | null = null;
   if (settingsRaw) {
     try { settingsJson = JSON.parse(settingsRaw); } catch { /* ignore invalid JSON */ }
   }

@@ -26,7 +26,7 @@ interface AdvisorResult {
 interface Props {
   achievement: Achievement;
   role:        UserRole;
-  onAttackDone?: (dealId: string) => void;
+  onAttackDone?: (leadId: string) => void;
 }
 
 export function AiTalkModal({ achievement, role, onAttackDone }: Props) {
@@ -35,7 +35,7 @@ export function AiTalkModal({ achievement, role, onAttackDone }: Props) {
   const [result, setResult] = useState<AdvisorResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [attackResult, setAttackResult] = useState<{ dealId?: string; isNewCustomer?: boolean } | null>(null);
+  const [attackResult, setAttackResult] = useState<{ leadId?: string; isNewLead?: boolean } | null>(null);
 
   const videoTypeLabel =
     VIDEO_TYPE_OPTIONS.find((o) => o.value === achievement.videoType)?.label ??
@@ -81,8 +81,8 @@ export function AiTalkModal({ achievement, role, onAttackDone }: Props) {
         setError(res.error);
         return;
       }
-      setAttackResult({ dealId: res.dealId, isNewCustomer: res.isNewCustomer });
-      if (res.dealId && onAttackDone) onAttackDone(res.dealId);
+      setAttackResult({ leadId: res.leadId, isNewLead: res.isNewLead });
+      if (res.leadId && onAttackDone) onAttackDone(res.leadId);
     });
   };
 
@@ -149,9 +149,9 @@ export function AiTalkModal({ achievement, role, onAttackDone }: Props) {
 
           {attackResult && (
             <div className="mt-4 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
-              商談を作成しました！
-              {attackResult.isNewCustomer && " 新規顧客も登録されました。"}
-              <a href="/dashboard/deals" className="ml-2 underline font-medium">商談一覧を確認する →</a>
+              リードを作成しました！
+              {attackResult.isNewLead && " 新規リードとして登録されました。"}
+              <a href="/dashboard/leads/list" className="ml-2 underline font-medium">リード一覧を確認する →</a>
             </div>
           )}
 
