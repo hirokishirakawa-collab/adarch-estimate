@@ -346,6 +346,6 @@ export default auth((req: NextAuthRequest) => {
 // ----------------------------------------------------------------
 export const config = {
   matcher: [
-    "/((?!api/auth|api/cron|api/contact|api/group-support|api/auto-sales/check-replies|api/auto-sales/check-responses|api/auto-sales/weekly-report|api/auto-sales/finalize-no-reply|api/auto-sales/generate-insights|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|test-form|p/|partner|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
+    "/((?!api/auth|api/cron|api/contact|api/group-support|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|test-form|p/|partner|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
   ],
 };

@@ -190,33 +190,6 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    section: "自動営業",
-    color: "text-emerald-500/80",
-    items: [
-      {
-        href: "/dashboard/auto-sales/request",
-        label: "営業依頼",
-        icon: Rocket,
-        minRole: "MANAGER",
-        requiredFeature: "auto-sales",
-      },
-      {
-        href: "/dashboard/auto-sales",
-        label: "モニター",
-        icon: Bot,
-        minRole: "MANAGER",
-        requiredFeature: "auto-sales",
-      },
-      {
-        href: "/dashboard/auto-sales/analytics",
-        label: "分析",
-        icon: BarChart2,
-        minRole: "MANAGER",
-        requiredFeature: "auto-sales",
-      },
-    ],
-  },
-  {
     section: "広告媒体シミュレーター",
     color: "text-indigo-500/80",
     items: [
