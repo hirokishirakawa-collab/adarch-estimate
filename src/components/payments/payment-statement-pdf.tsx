@@ -1,23 +1,9 @@
 // サーバー専用 — API ルートから呼び出す
 // @react-pdf/renderer は Node.js でのみ動作
 
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-  Font,
-} from "@react-pdf/renderer";
-import path from "path";
-
-// ----------------------------------------------------------------
-// 日本語フォント
-// ----------------------------------------------------------------
-Font.register({
-  family: "NotoSansJP",
-  src: path.join(process.cwd(), "public/fonts/NotoSansJP.ttf"),
-});
+import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { C, fmtMoney, fmtDate } from "@/components/pdf/theme";
+import { PdfHeader, PdfFooter, IssuerBlock, MetaList } from "@/components/pdf/pdf-kit";
 
 // ----------------------------------------------------------------
 // 型定義
@@ -52,168 +38,65 @@ export type PaymentStatementForPDF = {
 };
 
 // ----------------------------------------------------------------
-// ヘルパー
-// ----------------------------------------------------------------
-function fmtDate(d: Date | string | null | undefined): string {
-  if (!d) return "—";
-  return new Intl.DateTimeFormat("ja-JP", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(d));
-}
-
-function fmtMoney(n: number): string {
-  return `¥${n.toLocaleString("ja-JP")}`;
-}
-
-// ----------------------------------------------------------------
 // スタイル
 // ----------------------------------------------------------------
-const NAVY = "#1e3a5f";
-const GOLD = "#b8860b";
-const GRAY_DARK = "#1a1a1a";
-const GRAY_MID = "#6b7280";
-const GRAY_LIGHT = "#f8f9fa";
-const GRAY_BORDER = "#e4e4e7";
-
 const s = StyleSheet.create({
   page: {
     fontFamily: "NotoSansJP",
     fontSize: 9,
-    color: GRAY_DARK,
-    paddingTop: 50,
-    paddingBottom: 60,
-    paddingHorizontal: 50,
+    color: C.body,
+    paddingTop: 40,
+    paddingBottom: 52,
+    paddingHorizontal: 44,
   },
-  // ヘッダー
-  header: {
-    borderBottom: `2px solid ${NAVY}`,
-    paddingBottom: 12,
-    marginBottom: 20,
-  },
-  docTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: NAVY,
-    letterSpacing: 2,
-  },
-  docSubtitle: {
-    fontSize: 8,
-    color: GRAY_MID,
-    marginTop: 4,
-  },
+
   // 宛先 & 発行元
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
-  infoBox: {
-    width: "48%",
-  },
-  infoLabel: {
-    fontSize: 7,
-    color: GRAY_MID,
-    marginBottom: 4,
-    textTransform: "uppercase" as const,
-    letterSpacing: 1,
-  },
-  infoName: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: GRAY_DARK,
-  },
-  infoSub: {
-    fontSize: 8,
-    color: GRAY_MID,
-    marginTop: 2,
-  },
+  infoRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 22 },
+  recipientBox: { maxWidth: "55%" },
+  infoLabel: { fontSize: 7, color: C.faint, marginBottom: 5, letterSpacing: 1.5, textTransform: "uppercase" },
+  infoName: { fontSize: 14, fontFamily: "NotoSansJP", fontWeight: "bold", color: C.ink, borderBottomWidth: 1, borderBottomColor: C.line, alignSelf: "flex-start", paddingBottom: 3 },
+  infoSub: { fontSize: 8, color: C.mid, marginTop: 4 },
+  rightCol: { alignItems: "flex-end" },
+  issuerSpacer: { marginTop: 12 },
+
+  // 件名
+  subjectRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  subjectBar: { width: 3, height: 13, backgroundColor: C.accent, marginRight: 8 },
+  subjectText: { fontSize: 11, fontFamily: "NotoSansJP", fontWeight: "bold", color: C.ink },
+  subjectSub: { fontSize: 8, color: C.mid, marginTop: 3, marginLeft: 11 },
+
   // 金額テーブル
-  table: {
-    marginBottom: 16,
-  },
-  tableHeader: {
-    flexDirection: "row",
-    backgroundColor: NAVY,
-    color: "white",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  tableHeaderText: {
-    fontSize: 8,
-    fontWeight: "bold",
-    color: "white",
-  },
-  tableRow: {
-    flexDirection: "row",
-    borderBottom: `1px solid ${GRAY_BORDER}`,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  tableRowAlt: {
-    backgroundColor: GRAY_LIGHT,
-  },
-  tableRowTotal: {
-    flexDirection: "row",
-    backgroundColor: NAVY,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  colLabel: { width: "65%" },
-  colAmount: { width: "35%", textAlign: "right" as const },
-  totalText: {
-    fontSize: 11,
-    fontWeight: "bold",
-    color: "white",
-  },
-  // 振込先
-  bankBox: {
-    border: `1px solid ${GRAY_BORDER}`,
-    borderRadius: 4,
-    padding: 10,
-    marginBottom: 16,
-  },
-  bankLabel: {
-    fontSize: 7,
-    color: GRAY_MID,
-    marginBottom: 4,
-    letterSpacing: 1,
-  },
-  bankText: {
-    fontSize: 9,
-    color: GRAY_DARK,
-  },
-  // 備考
-  noteBox: {
-    borderTop: `1px solid ${GRAY_BORDER}`,
-    paddingTop: 8,
-    marginBottom: 16,
-  },
-  noteLabel: {
-    fontSize: 7,
-    color: GRAY_MID,
-    marginBottom: 4,
-  },
-  noteText: {
-    fontSize: 8,
-    color: GRAY_DARK,
-  },
-  // フッター
-  footer: {
-    position: "absolute" as const,
-    bottom: 30,
-    left: 50,
-    right: 50,
-    borderTop: `1px solid ${GOLD}`,
-    paddingTop: 8,
+  table: { marginBottom: 16 },
+  tableHeader: { flexDirection: "row", backgroundColor: C.accent, paddingVertical: 6, paddingHorizontal: 12 },
+  tableHeaderText: { fontSize: 8, fontFamily: "NotoSansJP", fontWeight: "bold", color: C.white, letterSpacing: 0.5 },
+  tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: C.lineSoft, paddingVertical: 6, paddingHorizontal: 12 },
+  tableRowAlt: { backgroundColor: C.rowAlt },
+  rowLabel: { fontSize: 8.5, color: C.body },
+  colLabel: { width: "62%" },
+  colAmount: { width: "38%", textAlign: "right" },
+
+  grandRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: C.accentSoft,
+    borderRadius: 3,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginTop: 6,
   },
-  footerText: {
-    fontSize: 7,
-    color: GRAY_MID,
-  },
+  grandLabel: { fontSize: 10.5, fontFamily: "NotoSansJP", fontWeight: "bold", color: C.accent },
+  grandValue: { fontSize: 14, fontFamily: "NotoSansJP", fontWeight: "bold", color: C.accent },
+
+  // 振込先
+  bankBox: { borderWidth: 1, borderColor: C.line, borderRadius: 4, padding: 12, marginBottom: 14 },
+  bankLabel: { fontSize: 7, color: C.faint, marginBottom: 5, letterSpacing: 1.5, textTransform: "uppercase" },
+  bankText: { fontSize: 9, color: C.body },
+
+  // 備考
+  noteBox: { borderTopWidth: 1, borderTopColor: C.line, paddingTop: 10 },
+  noteLabel: { fontSize: 8, fontFamily: "NotoSansJP", fontWeight: "bold", color: C.mid, marginBottom: 4, letterSpacing: 0.5 },
+  noteText: { fontSize: 8.5, color: C.body, lineHeight: 1.6 },
 });
 
 // ----------------------------------------------------------------
@@ -240,11 +123,7 @@ export function PaymentStatementPDFDocument({
     rows.push({ label: "うち制作費（税抜・源泉対象）", amount: statement.productionExpense });
   }
   if (statement.withholdingTaxAmount > 0) {
-    rows.push({
-      label: "源泉徴収税",
-      amount: -statement.withholdingTaxAmount,
-      isDeduction: true,
-    });
+    rows.push({ label: "源泉徴収税", amount: -statement.withholdingTaxAmount, isDeduction: true });
   }
   if (statement.nonDeductibleTaxAmount > 0) {
     rows.push({
@@ -254,72 +133,72 @@ export function PaymentStatementPDFDocument({
     });
   }
 
-  const bankType = gc.bankAccountType === "SAVINGS" ? "普通" : gc.bankAccountType === "CHECKING" ? "当座" : "";
+  const bankType =
+    gc.bankAccountType === "SAVINGS" ? "普通" : gc.bankAccountType === "CHECKING" ? "当座" : "";
+  const entityLabel =
+    gc.entityType === "SOLE_PROPRIETOR" ? "個人事業主" : gc.entityType === "CORPORATION" ? "法人" : "";
+
+  const meta = [
+    { label: "発行日", value: fmtDate(statement.paidAt || statement.createdAt) },
+    { label: "No.", value: statement.id.slice(-8).toUpperCase() },
+  ];
 
   return (
-    <Document>
+    <Document title={`支払明細書 ${statement.title}`} author="Ad Arch株式会社" creator="Ad Arch Group OS">
       <Page size="A4" style={s.page}>
-        {/* ヘッダー */}
-        <View style={s.header}>
-          <Text style={s.docTitle}>支 払 明 細 書</Text>
-          <Text style={s.docSubtitle}>
-            発行日: {fmtDate(statement.paidAt || statement.createdAt)} / No. {statement.id.slice(-8).toUpperCase()}
-          </Text>
-        </View>
+        <PdfHeader title="支払明細書" subtitle="Statement" />
 
-        {/* 宛先 & 発行元 */}
+        {/* 宛先 & メタ & 発行元 */}
         <View style={s.infoRow}>
-          <View style={s.infoBox}>
+          <View style={s.recipientBox}>
             <Text style={s.infoLabel}>お支払先</Text>
             <Text style={s.infoName}>{gc.name}</Text>
             <Text style={s.infoSub}>{gc.ownerName} 様</Text>
             <Text style={s.infoSub}>
-              {gc.entityType === "SOLE_PROPRIETOR" ? "個人事業主" : gc.entityType === "CORPORATION" ? "法人" : ""} / インボイス{gc.invoiceRegistered ? "登録済" : "未登録"}
+              {entityLabel} / インボイス{gc.invoiceRegistered ? "登録済" : "未登録"}
             </Text>
           </View>
-          <View style={s.infoBox}>
-            <Text style={s.infoLabel}>発行元</Text>
-            <Text style={s.infoName}>Ad Arch株式会社</Text>
-            <Text style={s.infoSub}>〒220-0004 神奈川県横浜市西区北幸2-10-27</Text>
-            <Text style={s.infoSub}>東武立川ビル5F</Text>
+          <View style={s.rightCol}>
+            <MetaList items={meta} />
+            <View style={s.issuerSpacer}>
+              <IssuerBlock />
+            </View>
           </View>
         </View>
 
         {/* 件名 */}
-        <View style={{ marginBottom: 12 }}>
-          <Text style={{ fontSize: 11, fontWeight: "bold", color: GRAY_DARK }}>
-            {statement.title}
-          </Text>
-          {statement.clientName && (
-            <Text style={{ fontSize: 8, color: GRAY_MID, marginTop: 2 }}>
-              クライアント: {statement.clientName}
-            </Text>
-          )}
+        <View style={s.subjectRow}>
+          <View style={s.subjectBar} />
+          <Text style={s.subjectText}>{statement.title}</Text>
         </View>
+        {statement.clientName && (
+          <Text style={s.subjectSub}>クライアント: {statement.clientName}</Text>
+        )}
 
         {/* 金額テーブル */}
-        <View style={s.table}>
+        <View style={[s.table, { marginTop: 12 }]}>
           <View style={s.tableHeader}>
             <Text style={[s.tableHeaderText, s.colLabel]}>項目</Text>
             <Text style={[s.tableHeaderText, s.colAmount]}>金額</Text>
           </View>
           {rows.map((row, i) => (
             <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]}>
-              <Text style={s.colLabel}>{row.label}</Text>
+              <Text style={[s.rowLabel, s.colLabel]}>{row.label}</Text>
               <Text
                 style={[
                   s.colAmount,
-                  { color: row.isDeduction ? "#dc2626" : GRAY_DARK, fontWeight: "bold" },
+                  s.rowLabel,
+                  { color: row.isDeduction ? "#b91c1c" : C.body, fontFamily: "NotoSansJP", fontWeight: "bold" },
                 ]}
               >
-                {row.isDeduction ? fmtMoney(row.amount) : fmtMoney(row.amount)}
+                {row.isDeduction ? `−${fmtMoney(Math.abs(row.amount))}` : fmtMoney(row.amount)}
               </Text>
             </View>
           ))}
-          {/* 合計行 */}
-          <View style={s.tableRowTotal}>
-            <Text style={[s.totalText, s.colLabel]}>差引支払額</Text>
-            <Text style={[s.totalText, s.colAmount]}>{fmtMoney(statement.netPaymentAmount)}</Text>
+          {/* 合計 */}
+          <View style={s.grandRow}>
+            <Text style={s.grandLabel}>差引支払額</Text>
+            <Text style={s.grandValue}>{fmtMoney(statement.netPaymentAmount)}</Text>
           </View>
         </View>
 
@@ -341,11 +220,7 @@ export function PaymentStatementPDFDocument({
           </View>
         )}
 
-        {/* フッター */}
-        <View style={s.footer} fixed>
-          <Text style={s.footerText}>Ad Arch株式会社 — 支払明細書</Text>
-          <Text style={s.footerText}>{fmtDate(statement.paidAt || statement.createdAt)}</Text>
-        </View>
+        <PdfFooter label="Ad Arch株式会社 — 支払明細書" />
       </Page>
     </Document>
   );

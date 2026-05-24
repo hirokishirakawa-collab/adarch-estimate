@@ -1,25 +1,9 @@
 // このファイルはサーバー専用（API ルートから呼び出す）
 // @react-pdf/renderer は Node.js でのみ動作します
 
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-  Font,
-} from "@react-pdf/renderer";
-import path from "path";
-
-// 日本語フォント登録（サーバーサイド：絶対パスで指定）
-const fontDir = path.join(process.cwd(), "public/fonts");
-Font.register({
-  family: "NotoSansJP",
-  fonts: [
-    { src: path.join(fontDir, "NotoSansJP-Regular.ttf"), fontWeight: 400 },
-    { src: path.join(fontDir, "NotoSansJP-Bold.ttf"), fontWeight: 700 },
-  ],
-});
+import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
+import { C, COMPANY, LOGO_PATH } from "@/components/pdf/theme";
+import { PdfFooter } from "@/components/pdf/pdf-kit";
 
 interface ProposalContent {
   cover: { title: string; subtitle: string; date: string; to: string };
@@ -34,201 +18,65 @@ interface ProposalContent {
   styleOverrides?: { [key: string]: { fontScale?: number } };
 }
 
-const colors = {
-  black: "#1a1a1a",
-  dark: "#333333",
-  gray: "#666666",
-  lightGray: "#999999",
-  border: "#e0e0e0",
-  bg: "#f5f5f5",
-  accent: "#2563eb",
-  accentLight: "#eff6ff",
-  white: "#ffffff",
-};
-
 const s = StyleSheet.create({
   page: {
     fontFamily: "NotoSansJP",
     paddingHorizontal: 50,
-    paddingVertical: 40,
+    paddingTop: 44,
+    paddingBottom: 52,
     fontSize: 10,
-    color: colors.dark,
-    backgroundColor: colors.white,
+    color: C.body,
+    backgroundColor: C.white,
   },
   // Cover
   coverPage: {
     fontFamily: "NotoSansJP",
     paddingHorizontal: 50,
     paddingVertical: 40,
-    backgroundColor: colors.white,
+    backgroundColor: C.white,
     justifyContent: "center",
     alignItems: "center",
   },
-  coverTo: {
-    fontSize: 11,
-    color: colors.gray,
-    marginBottom: 30,
-  },
-  coverTitle: {
-    fontSize: 26,
-    fontWeight: 700,
-    color: colors.black,
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  coverSubtitle: {
-    fontSize: 12,
-    color: colors.gray,
-    textAlign: "center",
-    marginBottom: 40,
-  },
-  coverLine: {
-    width: 60,
-    height: 2,
-    backgroundColor: colors.dark,
-    marginBottom: 40,
-  },
-  coverDate: {
-    fontSize: 10,
-    color: colors.lightGray,
-    marginBottom: 6,
-  },
-  coverFrom: {
-    fontSize: 11,
-    color: colors.dark,
-    fontWeight: 700,
-  },
+  coverLogo: { width: 132, height: 33, marginBottom: 48 },
+  coverTo: { fontSize: 11, color: C.mid, marginBottom: 28 },
+  coverTitle: { fontSize: 26, fontFamily: "NotoSansJP", fontWeight: "bold", color: C.ink, textAlign: "center", marginBottom: 8 },
+  coverSubtitle: { fontSize: 12, color: C.mid, textAlign: "center", marginBottom: 36 },
+  coverLine: { width: 56, height: 2, backgroundColor: C.accent, marginBottom: 36 },
+  coverDate: { fontSize: 10, color: C.faint, marginBottom: 6 },
+  coverFrom: { fontSize: 11, color: C.ink, fontFamily: "NotoSansJP", fontWeight: "bold" },
   // Section
   sectionHeading: {
     fontSize: 16,
-    fontWeight: 700,
-    color: colors.black,
+    fontFamily: "NotoSansJP",
+    fontWeight: "bold",
+    color: C.ink,
     marginBottom: 16,
     paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomWidth: 1.2,
+    borderBottomColor: C.accent,
   },
-  paragraph: {
-    fontSize: 10,
-    lineHeight: 1.8,
-    color: colors.dark,
-    marginBottom: 12,
-  },
+  paragraph: { fontSize: 10, lineHeight: 1.8, color: C.body, marginBottom: 12 },
   // Strengths
-  strengthsRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 8,
-  },
-  strengthBox: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    padding: 12,
-    borderRadius: 4,
-    alignItems: "center",
-  },
-  strengthText: {
-    fontSize: 9,
-    fontWeight: 700,
-    color: colors.dark,
-    textAlign: "center",
-  },
+  strengthsRow: { flexDirection: "row", gap: 12, marginTop: 8 },
+  strengthBox: { flex: 1, backgroundColor: C.accentSoft, padding: 12, borderRadius: 4, alignItems: "center" },
+  strengthText: { fontSize: 9, fontFamily: "NotoSansJP", fontWeight: "bold", color: C.accent, textAlign: "center" },
   // Challenge box
-  challengeBox: {
-    backgroundColor: colors.bg,
-    padding: 14,
-    borderRadius: 4,
-    marginBottom: 16,
-  },
-  challengeText: {
-    fontSize: 10,
-    color: colors.dark,
-    lineHeight: 1.7,
-  },
+  challengeBox: { backgroundColor: C.rowAlt, padding: 14, borderRadius: 4, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: C.accent },
+  challengeText: { fontSize: 10, color: C.body, lineHeight: 1.7 },
   // Solution card
-  solutionCard: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: 14,
-    marginBottom: 10,
-  },
-  solutionTitle: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: colors.black,
-    marginBottom: 6,
-  },
-  solutionDesc: {
-    fontSize: 9,
-    color: colors.gray,
-    lineHeight: 1.7,
-  },
+  solutionCard: { borderWidth: 1, borderColor: C.line, borderRadius: 4, padding: 14, marginBottom: 10 },
+  solutionTitle: { fontSize: 11, fontFamily: "NotoSansJP", fontWeight: "bold", color: C.ink, marginBottom: 6 },
+  solutionDesc: { fontSize: 9, color: C.mid, lineHeight: 1.7 },
   // Case item
-  caseItem: {
-    backgroundColor: colors.bg,
-    padding: 14,
-    borderRadius: 4,
-    marginBottom: 10,
-  },
-  caseTitle: {
-    fontSize: 10,
-    fontWeight: 700,
-    color: colors.dark,
-    marginBottom: 4,
-  },
-  caseDesc: {
-    fontSize: 9,
-    color: colors.gray,
-    lineHeight: 1.7,
-  },
+  caseItem: { backgroundColor: C.rowAlt, padding: 14, borderRadius: 4, marginBottom: 10 },
+  caseTitle: { fontSize: 10, fontFamily: "NotoSansJP", fontWeight: "bold", color: C.body, marginBottom: 4 },
+  caseDesc: { fontSize: 9, color: C.mid, lineHeight: 1.7 },
   // Steps
-  stepRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 10,
-    gap: 10,
-  },
-  stepNumber: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.bg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepNumberText: {
-    fontSize: 9,
-    fontWeight: 700,
-    color: colors.dark,
-  },
-  stepText: {
-    flex: 1,
-    fontSize: 10,
-    color: colors.dark,
-    lineHeight: 1.7,
-    paddingTop: 3,
-  },
-  contactText: {
-    fontSize: 10,
-    color: colors.gray,
-    textAlign: "center",
-    marginTop: 30,
-  },
-  // Footer
-  footer: {
-    position: "absolute",
-    bottom: 20,
-    left: 50,
-    right: 50,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  footerText: {
-    fontSize: 7,
-    color: colors.lightGray,
-  },
+  stepRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 10, gap: 10 },
+  stepNumber: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.accent, alignItems: "center", justifyContent: "center" },
+  stepNumberText: { fontSize: 9, fontFamily: "NotoSansJP", fontWeight: "bold", color: C.white },
+  stepText: { flex: 1, fontSize: 10, color: C.body, lineHeight: 1.7, paddingTop: 3 },
+  contactText: { fontSize: 10, color: C.mid, textAlign: "center", marginTop: 30 },
 });
 
 interface Props {
@@ -296,16 +144,20 @@ export function ProposalPdfDocument({ content }: Props) {
   const casesScale = getScale("cases", c);
   const stepsScale = getScale("nextSteps", c);
 
+  const FOOTER = "Ad Arch Group";
+
   return (
-    <Document>
+    <Document title={c.cover.title} author="Ad Arch株式会社" creator="Ad Arch Group OS">
       {/* Page 1: Cover */}
       <Page size="A4" style={s.coverPage}>
+        {/* eslint-disable-next-line jsx-a11y/alt-text */}
+        <Image src={LOGO_PATH} style={s.coverLogo} />
         <Text style={s.coverTo}>{c.cover.to}</Text>
         <Text style={s.coverTitle}>{c.cover.title}</Text>
         <Text style={s.coverSubtitle}>{c.cover.subtitle}</Text>
         <View style={s.coverLine} />
         <Text style={s.coverDate}>{c.cover.date}</Text>
-        <Text style={s.coverFrom}>Ad-Arch Group</Text>
+        <Text style={s.coverFrom}>{COMPANY.name}</Text>
       </Page>
 
       {/* Page 2: Company Intro */}
@@ -319,10 +171,7 @@ export function ProposalPdfDocument({ content }: Props) {
             </View>
           ))}
         </View>
-        <View style={s.footer}>
-          <Text style={s.footerText}>Ad-Arch Group</Text>
-          <Text style={s.footerText}>2</Text>
-        </View>
+        <PdfFooter label={FOOTER} />
       </Page>
 
       {/* Page 3: Proposal */}
@@ -337,10 +186,7 @@ export function ProposalPdfDocument({ content }: Props) {
             <Text style={[s.solutionDesc, { fontSize: sf(9, proposalScale) }]}>{sol.description}</Text>
           </View>
         ))}
-        <View style={s.footer}>
-          <Text style={s.footerText}>Ad-Arch Group</Text>
-          <Text style={s.footerText}>3</Text>
-        </View>
+        <PdfFooter label={FOOTER} />
       </Page>
 
       {/* Page 4: Cases */}
@@ -352,10 +198,7 @@ export function ProposalPdfDocument({ content }: Props) {
             <Text style={[s.caseDesc, { fontSize: sf(9, casesScale) }]}>{item.description}</Text>
           </View>
         ))}
-        <View style={s.footer}>
-          <Text style={s.footerText}>Ad-Arch Group</Text>
-          <Text style={s.footerText}>4</Text>
-        </View>
+        <PdfFooter label={FOOTER} />
       </Page>
 
       {/* Page 5: Next Steps */}
@@ -370,10 +213,7 @@ export function ProposalPdfDocument({ content }: Props) {
           </View>
         ))}
         <Text style={[s.contactText, { fontSize: sf(10, stepsScale) }]}>{c.nextSteps.contact}</Text>
-        <View style={s.footer}>
-          <Text style={s.footerText}>Ad-Arch Group</Text>
-          <Text style={s.footerText}>5</Text>
-        </View>
+        <PdfFooter label={FOOTER} />
       </Page>
     </Document>
   );
