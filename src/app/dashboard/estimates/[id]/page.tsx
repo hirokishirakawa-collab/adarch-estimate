@@ -54,8 +54,8 @@ export default async function EstimateDetailPage({ params }: PageProps) {
 
   if (!estimation) notFound();
 
-  // 金額表示: ADMIN または作成者本人のみ
-  const canViewAmount = role === "ADMIN" || estimation.createdByEmail === email;
+  // 金額表示: ADMIN（全拠点）/ MANAGER（自拠点）のみ。USER・他拠点はマスク
+  const canViewAmount = role === "ADMIN" || (role === "MANAGER" && estimation.branchId === userBranchId);
 
   const statusOpt = ESTIMATION_STATUS_OPTIONS.find((o) => o.value === estimation.status);
 

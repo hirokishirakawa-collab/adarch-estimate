@@ -89,7 +89,8 @@ export default async function EstimatesPage() {
       <div data-tour="estimate-table">
         <EstimateListWithFilters
           estimations={estimations.map((e) => {
-            const canView = role === "ADMIN" || e.createdByEmail === email;
+            // 金額表示: ADMIN（全拠点）/ MANAGER（自拠点）のみ。USER・他拠点はマスク
+            const canView = role === "ADMIN" || (role === "MANAGER" && e.branchId === userBranchId);
             return {
               ...e,
               projectId: e.project?.id ?? null,
