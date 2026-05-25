@@ -34,6 +34,13 @@ interface LeadRow {
   youtubeSubscribers: number | null;
   assignee: { id: string; name: string | null; email: string } | null;
   convertedCustomer: { id: string; name: string } | null;
+  createdAt: string | Date;
+}
+
+/** 登録日を YYYY/MM/DD 形式で表示 */
+function formatRegisteredDate(value: string | Date): string {
+  const date = new Date(value);
+  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
 }
 
 interface Props {
@@ -315,6 +322,9 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
               <th className="text-left px-3 py-2.5 text-xs font-medium text-zinc-500 w-28 hidden md:table-cell">
                 電話
               </th>
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-zinc-500 w-24 hidden lg:table-cell">
+                登録日
+              </th>
               <th className="text-left px-3 py-2.5 text-xs font-medium text-zinc-500 min-w-[160px]">
                 メモ
               </th>
@@ -566,6 +576,13 @@ function LeadRow({
         )}
       </td>
 
+      {/* 登録日 */}
+      <td className="px-3 py-3 hidden lg:table-cell">
+        <span className="text-xs text-zinc-500 whitespace-nowrap">
+          {formatRegisteredDate(lead.createdAt)}
+        </span>
+      </td>
+
       {/* メモ */}
       <td className="px-3 py-3">
         {editingMemo ? (
@@ -678,7 +695,7 @@ function LeadRow({
     </tr>
     {hearingOpen && (
       <tr>
-        <td colSpan={canSelect ? 8 : 7} className="px-0 py-0">
+        <td colSpan={canSelect ? 9 : 8} className="px-0 py-0">
           <HearingSheetForm
             leadId={lead.id}
             leadName={lead.name}
@@ -690,7 +707,7 @@ function LeadRow({
     )}
     {adviceOpen && (
       <tr>
-        <td colSpan={canSelect ? 8 : 7} className="px-0 py-0">
+        <td colSpan={canSelect ? 9 : 8} className="px-0 py-0">
           <div className="bg-purple-50 border-t border-b border-purple-100 px-5 py-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
