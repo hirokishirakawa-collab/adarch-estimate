@@ -1,4 +1,4 @@
-import { Film, Inbox, CheckCircle2, ArrowRight, Users, TrendingUp, MapPin, Clock } from "lucide-react";
+import { Film, Inbox, CheckCircle2, ArrowRight, Users, TrendingUp, MapPin, Clock, Search, X, Type } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -10,10 +10,10 @@ import { TvcmPoolUnclaimedSection } from "@/components/leads/tvcm-pool-unclaimed
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-type SortKey = "updated" | "prefecture";
+type SortKey = "updated" | "prefecture" | "name";
 
 interface SearchParamsProps {
-  searchParams?: Promise<{ sort?: string }>;
+  searchParams?: Promise<{ sort?: string; q?: string }>;
 }
 
 export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) {
@@ -29,7 +29,26 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
   const isAdmin = user.role === "ADMIN";
 
   const params = await searchParams;
-  const sortKey: SortKey = params?.sort === "prefecture" ? "prefecture" : "updated";
+  const sortKey: SortKey =
+    params?.sort === "prefecture" ? "prefecture" :
+    params?.sort === "name"       ? "name" :
+    "updated";
+  const q = params?.q?.trim() ?? "";
+
+  // 自由記述検索: 会社名・住所・都道府県・業種・制作会社・AIコメント・プレスリリースタイトル を横断
+  const searchFilter = q
+    ? {
+        OR: [
+          { name:              { contains: q, mode: "insensitive" as const } },
+          { address:           { contains: q, mode: "insensitive" as const } },
+          { prefecture:        { contains: q, mode: "insensitive" as const } },
+          { industry:          { contains: q, mode: "insensitive" as const } },
+          { productionCompany: { contains: q, mode: "insensitive" as const } },
+          { scoreComment:      { contains: q, mode: "insensitive" as const } },
+          { pressReleaseTitle: { contains: q, mode: "insensitive" as const } },
+        ],
+      }
+    : {};
 
   // 未claim案件（全パートナーに公開）。SKIPPED（却下済み）は除外
   const rawUnclaimed = await db.lead.findMany({
@@ -37,8 +56,12 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
       source: "PR_TIMES_TVCM",
       assigneeId: null,
       status: { not: "SKIPPED" },
+      ...searchFilter,
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy:
+      sortKey === "name"
+        ? { name: "asc" }
+        : { updatedAt: "desc" },
     take: 100,
     select: {
       id: true,
@@ -73,6 +96,11 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
       if (cmp !== 0) return cmp;
       return b.updatedAt.getTime() - a.updatedAt.getTime();
     }) as TvcmPoolLead[];
+  } else if (sortKey === "name") {
+    // 会社名: localeCompare ja で並べ替え（Prismaのasc は ASCII順なので日本語並び替えはJSで実施）
+    unclaimedLeads = [...rawUnclaimed].sort((a, b) =>
+      a.name.localeCompare(b.name, "ja"),
+    ) as TvcmPoolLead[];
   }
 
   // 自分がclaim済み案件
@@ -298,33 +326,67 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
           </span>
           <span className="text-[10px] text-zinc-500">先着順</span>
 
-          {/* ソート切り替え */}
-          <div className="ml-auto flex items-center gap-1">
+          {/* ソート切り替え（現在の q を保持） */}
+          <div className="ml-auto flex items-center gap-1 flex-wrap">
             <span className="text-[10px] text-zinc-400">並び順</span>
-            <Link
-              href="/dashboard/leads/tvcm-pool"
-              className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded border ${
-                sortKey === "updated"
-                  ? "bg-rose-600 text-white border-rose-600"
-                  : "bg-white text-zinc-600 border-zinc-200 hover:border-rose-300"
-              }`}
-            >
-              <Clock className="w-3 h-3" />
-              更新日
-            </Link>
-            <Link
-              href="/dashboard/leads/tvcm-pool?sort=prefecture"
-              className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded border ${
-                sortKey === "prefecture"
-                  ? "bg-rose-600 text-white border-rose-600"
-                  : "bg-white text-zinc-600 border-zinc-200 hover:border-rose-300"
-              }`}
-            >
-              <MapPin className="w-3 h-3" />
-              都道府県
-            </Link>
+            {([
+              { key: "updated",    label: "更新日",    icon: Clock,  query: q ? `?q=${encodeURIComponent(q)}` : "" },
+              { key: "name",       label: "会社名",    icon: Type,   query: `?sort=name${q ? `&q=${encodeURIComponent(q)}` : ""}` },
+              { key: "prefecture", label: "都道府県",  icon: MapPin, query: `?sort=prefecture${q ? `&q=${encodeURIComponent(q)}` : ""}` },
+            ] as const).map((opt) => {
+              const Icon = opt.icon;
+              return (
+                <Link
+                  key={opt.key}
+                  href={`/dashboard/leads/tvcm-pool${opt.query}`}
+                  className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded border ${
+                    sortKey === opt.key
+                      ? "bg-rose-600 text-white border-rose-600"
+                      : "bg-white text-zinc-600 border-zinc-200 hover:border-rose-300"
+                  }`}
+                >
+                  <Icon className="w-3 h-3" />
+                  {opt.label}
+                </Link>
+              );
+            })}
           </div>
         </div>
+
+        {/* 自由記述検索（会社名・住所・都道府県・業種・制作会社・AIコメント・PRタイトル を横断） */}
+        <form method="get" action="/dashboard/leads/tvcm-pool" className="mb-3 flex items-center gap-2 flex-wrap">
+          {sortKey !== "updated" && <input type="hidden" name="sort" value={sortKey} />}
+          <div className="relative flex-1 min-w-[220px] max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+            <input
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="会社名・住所・業種・制作会社・コメントで検索..."
+              className="w-full pl-9 pr-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400"
+            />
+          </div>
+          <button
+            type="submit"
+            className="text-[11px] font-medium px-3 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700"
+          >
+            検索
+          </button>
+          {q && (
+            <Link
+              href={`/dashboard/leads/tvcm-pool${sortKey !== "updated" ? `?sort=${sortKey}` : ""}`}
+              className="inline-flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-800 px-2 py-2"
+            >
+              <X className="w-3 h-3" />
+              検索をクリア
+            </Link>
+          )}
+          {q && (
+            <span className="text-[11px] text-zinc-500">
+              「{q}」でヒット: {unclaimedLeads.length}件
+            </span>
+          )}
+        </form>
 
         {unclaimedLeads.length === 0 ? (
           <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center">

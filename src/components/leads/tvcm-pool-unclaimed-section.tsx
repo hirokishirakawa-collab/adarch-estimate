@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckSquare, Square, HandMetal, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
-import { bulkClaimTvcmLeads } from "@/lib/actions/lead";
+import { CheckSquare, Square, HandMetal, Loader2, AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
+import { bulkClaimTvcmLeads, bulkTransitionTvcmLeads } from "@/lib/actions/lead";
 import { TvcmPoolCard, type TvcmPoolLead } from "./tvcm-pool-card";
 
 interface Props {
@@ -57,6 +57,29 @@ export function TvcmPoolUnclaimedSection({ leads, isAdmin }: Props) {
     });
   };
 
+  const handleBulkReject = () => {
+    if (selectedIds.size === 0) return;
+    if (
+      !confirm(
+        `選択した ${selectedIds.size} 件をプールから外します（却下扱い）。よろしいですか？\n履歴には記録が残り、次回クロールでも復活しません。`,
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const res = await bulkTransitionTvcmLeads(Array.from(selectedIds), "reject");
+      if (!res.success) {
+        setResultMsg({ kind: "err", text: res.error ?? "一括削除に失敗しました" });
+        return;
+      }
+      setResultMsg({
+        kind: "ok",
+        text: `${res.updated}件 をプールから外しました`,
+      });
+      setSelectedIds(new Set());
+    });
+  };
+
   return (
     <div className="space-y-2">
       {/* 一括claim ツールバー */}
@@ -74,23 +97,36 @@ export function TvcmPoolUnclaimedSection({ leads, isAdmin }: Props) {
             </span>
           )}
         </button>
-        <button
-          onClick={handleBulkClaim}
-          disabled={isPending || selectedIds.size === 0}
-          className="text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-50"
-        >
-          {isPending ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              一括claim中...
-            </>
-          ) : (
-            <>
-              <HandMetal className="w-3.5 h-3.5" />
-              選択した {selectedIds.size} 件をまとめて担当
-            </>
+        <div className="flex items-center gap-2 flex-wrap">
+          {isAdmin && selectedIds.size > 0 && (
+            <button
+              onClick={handleBulkReject}
+              disabled={isPending}
+              className="text-xs font-medium text-rose-700 bg-white border border-rose-300 hover:bg-rose-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-50"
+              title="プールから外す（却下扱い・本部のみ）"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              プールから外す
+            </button>
           )}
-        </button>
+          <button
+            onClick={handleBulkClaim}
+            disabled={isPending || selectedIds.size === 0}
+            className="text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                処理中...
+              </>
+            ) : (
+              <>
+                <HandMetal className="w-3.5 h-3.5" />
+                選択した {selectedIds.size} 件をまとめて担当
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {resultMsg && (
