@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel } from "@/lib/constants/leads";
+import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel, getLeadSourceOption } from "@/lib/constants/leads";
 import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads, bulkUpdateLeadStatus, bulkAssignLeads } from "@/lib/actions/lead";
 import { getHearingSheet } from "@/lib/actions/hearing";
 import { HearingSheetForm } from "./hearing-sheet-form";
@@ -310,6 +310,9 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
               <th className="text-left px-4 py-2.5 text-xs font-medium text-zinc-500">
                 会社名
               </th>
+              <th className="text-center px-3 py-2.5 text-xs font-medium text-zinc-500 w-24">
+                獲得元
+              </th>
               <th className="text-center px-3 py-2.5 text-xs font-medium text-zinc-500 w-16">
                 スコア
               </th>
@@ -502,14 +505,33 @@ function LeadRow({
         )}
       </td>
 
-      {/* スコア（TVer広告プール由来は専用バッジ表示） */}
+      {/* 獲得元（どのリード獲得AIで取得したか） */}
+      <td className="px-3 py-3 text-center">
+        {(() => {
+          const sourceOpt = getLeadSourceOption(lead.source);
+          if (!sourceOpt) return <span className="text-xs text-zinc-300">-</span>;
+          return (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border whitespace-nowrap",
+                sourceOpt.className
+              )}
+              title={sourceOpt.label}
+            >
+              {sourceOpt.icon} {sourceOpt.shortLabel}
+            </span>
+          );
+        })()}
+      </td>
+
+      {/* スコア（TVer広告プール由来はAIスコア対象外） */}
       <td className="px-3 py-3 text-center">
         {lead.source === "PR_TIMES_TVCM" ? (
           <span
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border bg-rose-50 text-rose-700 border-rose-200"
-            title={lead.scoreComment ?? "TVer広告 案件プール由来（AIスコアリング対象外）"}
+            className="text-[11px] text-zinc-400"
+            title="TVer広告 案件プール由来（AIスコアリング対象外）"
           >
-            🎬 TVerプール
+            —
           </span>
         ) : (
           <span

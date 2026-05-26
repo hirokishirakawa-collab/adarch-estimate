@@ -3,10 +3,10 @@
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition, useCallback, useState } from "react";
 import { AiTalkModal } from "./ai-talk-modal";
-import { deleteVideoAchievement, bulkDeleteVideoAchievements, startAttackFromAchievement } from "@/lib/actions/video-achievement";
+import { deleteVideoAchievement, bulkDeleteVideoAchievements, startAttackFromAchievement, bulkAttackFromAchievement } from "@/lib/actions/video-achievement";
 import { VIDEO_TYPE_OPTIONS, VIDEO_ACHIEVEMENT_INDUSTRY_OPTIONS } from "@/lib/constants/video-achievements";
 import { PREFECTURES } from "@/lib/constants/crm";
-import { Trash2, Crosshair, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, Crosshair, CheckCircle2, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { UserRole } from "@/types/roles";
 
 interface Achievement {
@@ -98,6 +98,33 @@ export function AchievementTracker({ achievements, role, currentPage, totalPages
     });
   };
 
+  const handleBulkAttack = () => {
+    // 未攻略のみを攻略対象にする
+    const unprocessedIds = Array.from(selectedIds).filter((id) => {
+      const a = achievements.find((x) => x.id === id);
+      return a && !a.isProcessed;
+    });
+    if (unprocessedIds.length === 0) {
+      alert("攻略可能な（未攻略の）実績が選択されていません");
+      return;
+    }
+    if (!confirm(`選択した ${unprocessedIds.length} 件をまとめてリード管理に登録します。よろしいですか？`)) return;
+    startTransition(async () => {
+      const res = await bulkAttackFromAchievement(unprocessedIds);
+      if (res.error) {
+        alert(res.error);
+        return;
+      }
+      const parts: string[] = [];
+      if (res.newLeads > 0) parts.push(`新規リード ${res.newLeads}件`);
+      if (res.existingLeads > 0) parts.push(`既存リード ${res.existingLeads}件は重複のためスキップ`);
+      if (res.skipped > 0) parts.push(`${res.skipped}件は処理できませんでした`);
+      alert(parts.join(" / ") || "対象がありませんでした");
+      setSelectedIds(new Set());
+      if (res.newLeads > 0) router.push("/dashboard/leads/list");
+    });
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -107,18 +134,23 @@ export function AchievementTracker({ achievements, role, currentPage, totalPages
     });
   };
 
+  // 一括攻略対象（未攻略）。ADMIN は削除のために攻略済みも選択可。
+  const selectableAchievements = role === "ADMIN"
+    ? achievements
+    : achievements.filter((a) => !a.isProcessed);
+
   const toggleSelectAll = () => {
-    if (selectedIds.size === achievements.length) {
+    if (selectedIds.size === selectableAchievements.length && selectableAchievements.length > 0) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(achievements.map((a) => a.id)));
+      setSelectedIds(new Set(selectableAchievements.map((a) => a.id)));
     }
   };
 
   const videoTypeLabel = (val: string) =>
     VIDEO_TYPE_OPTIONS.find((o) => o.value === val)?.label ?? val;
 
-  const allSelected = achievements.length > 0 && selectedIds.size === achievements.length;
+  const allSelected = selectableAchievements.length > 0 && selectedIds.size === selectableAchievements.length;
 
   return (
     <div className="space-y-4">
@@ -166,19 +198,34 @@ export function AchievementTracker({ achievements, role, currentPage, totalPages
       </div>
 
       {/* カウント + 一括操作 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-xs text-zinc-500">
           全 {totalCount} 件中 {(currentPage - 1) * 50 + 1}〜{Math.min(currentPage * 50, totalCount)} 件表示
         </p>
-        {role === "ADMIN" && selectedIds.size > 0 && (
-          <button
-            onClick={handleBulkDelete}
-            disabled={isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-60 transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            選択した {selectedIds.size} 件を削除
-          </button>
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-zinc-600">
+              {selectedIds.size} 件選択中
+            </span>
+            <button
+              onClick={handleBulkAttack}
+              disabled={isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            >
+              {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Crosshair className="w-3.5 h-3.5" />}
+              選択した {selectedIds.size} 件をまとめて攻略開始
+            </button>
+            {role === "ADMIN" && (
+              <button
+                onClick={handleBulkDelete}
+                disabled={isPending}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-60 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                削除
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -192,16 +239,15 @@ export function AchievementTracker({ achievements, role, currentPage, totalPages
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-zinc-50 border-b border-zinc-200">
-                {role === "ADMIN" && (
-                  <th className="px-3 py-2.5 w-8">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleSelectAll}
-                      className="rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </th>
-                )}
+                <th className="px-3 py-2.5 w-8">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
+                    aria-label="全選択"
+                  />
+                </th>
                 <th className="text-left px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">企業名</th>
                 <th className="text-left px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">所在地</th>
                 <th className="text-left px-4 py-2.5 font-medium text-zinc-600 whitespace-nowrap">業種</th>
@@ -215,16 +261,17 @@ export function AchievementTracker({ achievements, role, currentPage, totalPages
             <tbody className="divide-y divide-zinc-100">
               {achievements.map((a) => (
                 <tr key={a.id} className={`hover:bg-zinc-50 transition-colors ${selectedIds.has(a.id) ? "bg-blue-50/50" : ""}`}>
-                  {role === "ADMIN" && (
-                    <td className="px-3 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(a.id)}
-                        onChange={() => toggleSelect(a.id)}
-                        className="rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    </td>
-                  )}
+                  <td className="px-3 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(a.id)}
+                      onChange={() => toggleSelect(a.id)}
+                      disabled={a.isProcessed && role !== "ADMIN"}
+                      title={a.isProcessed ? "攻略済み（一括攻略の対象外）" : ""}
+                      className="rounded border-zinc-300 text-blue-600 focus:ring-blue-500 disabled:opacity-40"
+                      aria-label={`${a.companyName} を選択`}
+                    />
+                  </td>
                   {/* 企業名 */}
                   <td className="px-4 py-3 font-medium">
                     <AiTalkModal achievement={a} role={role} />

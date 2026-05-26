@@ -56,9 +56,13 @@ interface Props {
   lead: TvcmPoolLead;
   claimable: boolean; // true = 未claim（claim可能）、false = 自分がclaim済み
   isAdmin?: boolean; // true のとき本部向けの「プールから外す」削除操作を表示
+  // 一括claimモード用（claimable=true 時のみ意味を持つ）
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
-export function TvcmPoolCard({ lead, claimable, isAdmin = false }: Props) {
+export function TvcmPoolCard({ lead, claimable, isAdmin = false, selectable = false, selected = false, onToggleSelect }: Props) {
   const [isPending, startTransition] = useTransition();
   const [isRemoving, startRemoving] = useTransition();
   const [resultMsg, setResultMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(
@@ -117,6 +121,15 @@ export function TvcmPoolCard({ lead, claimable, isAdmin = false }: Props) {
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2 flex-wrap min-w-0">
+          {selectable && claimable && !claimed && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggleSelect}
+              className="rounded border-zinc-300 text-rose-600 focus:ring-rose-500 shrink-0"
+              aria-label={`${lead.name} を選択`}
+            />
+          )}
           <Building2 className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
           <span className="text-sm font-semibold text-zinc-900 truncate">
             {lead.name}

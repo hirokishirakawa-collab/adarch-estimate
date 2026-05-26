@@ -238,6 +238,7 @@ enum LeadSource {
   MANUAL
   SIGNBOARD_SCAN
   PR_TIMES_TVCM
+  VIDEO_ACHIEVEMENT
 }
 
 enum AutoSalesTargetType {

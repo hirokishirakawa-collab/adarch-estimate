@@ -238,6 +238,28 @@ export function getLeadStatusOption(value: string) {
 }
 
 // ---------------------------------------------------------------
+// 獲得元（リード獲得AIのどの機能で取得したか）
+// ---------------------------------------------------------------
+export const LEAD_SOURCE_OPTIONS = [
+  { value: "GOOGLE_PLACES",     label: "BtoC リード",   shortLabel: "BtoC",     className: "bg-blue-50 text-blue-700 border-blue-200",         icon: "🎯" },
+  { value: "GBIZINFO",          label: "BtoB リード",   shortLabel: "BtoB",     className: "bg-indigo-50 text-indigo-700 border-indigo-200",   icon: "🏢" },
+  { value: "CINEMA_AD",         label: "シネアド",      shortLabel: "シネアド", className: "bg-purple-50 text-purple-700 border-purple-200",   icon: "🎬" },
+  { value: "RECRUIT_SEARCH",    label: "採用リード",    shortLabel: "採用",     className: "bg-amber-50 text-amber-700 border-amber-200",      icon: "💼" },
+  { value: "PR_TIMES_TVCM",     label: "TVer広告プール", shortLabel: "TVer",    className: "bg-rose-50 text-rose-700 border-rose-200",         icon: "📺" },
+  { value: "VIDEO_ACHIEVEMENT", label: "競合実績",      shortLabel: "競合",     className: "bg-orange-50 text-orange-700 border-orange-200",   icon: "🔥" },
+  { value: "CSV_IMPORT",        label: "CSVインポート",  shortLabel: "CSV",     className: "bg-zinc-100 text-zinc-600 border-zinc-200",        icon: "📋" },
+  { value: "MANUAL",            label: "手動登録",      shortLabel: "手動",     className: "bg-zinc-100 text-zinc-600 border-zinc-200",        icon: "✏️" },
+  { value: "SIGNBOARD_SCAN",    label: "看板スキャン",  shortLabel: "看板",     className: "bg-teal-50 text-teal-700 border-teal-200",         icon: "📷" },
+] as const;
+
+export type LeadSourceValue = (typeof LEAD_SOURCE_OPTIONS)[number]["value"];
+
+export function getLeadSourceOption(value: string | null | undefined) {
+  if (!value) return null;
+  return LEAD_SOURCE_OPTIONS.find((o) => o.value === value) ?? null;
+}
+
+// ---------------------------------------------------------------
 // BtoB リード獲得AI 定数
 // ---------------------------------------------------------------
 

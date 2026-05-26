@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
-import { LEAD_STATUS_OPTIONS } from "@/lib/constants/leads";
+import { LEAD_STATUS_OPTIONS, LEAD_SOURCE_OPTIONS } from "@/lib/constants/leads";
 
 interface Props {
   users: Array<{ id: string; name: string | null; email: string }>;
@@ -20,6 +20,7 @@ export function LeadListFilters({ users, industries, areas }: Props) {
   const assigneeId = searchParams.get("assigneeId") ?? "";
   const industry = searchParams.get("industry") ?? "";
   const area = searchParams.get("area") ?? "";
+  const source = searchParams.get("source") ?? "";
   const sort = searchParams.get("sort") ?? "";
 
   const updateParam = (key: string, value: string) => {
@@ -33,7 +34,7 @@ export function LeadListFilters({ users, industries, areas }: Props) {
     router.replace(`${pathname}?${params.toString()}`);
   };
 
-  const hasFilter = !!(q || status || assigneeId || industry || area || sort);
+  const hasFilter = !!(q || status || assigneeId || industry || area || source || sort);
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -98,6 +99,20 @@ export function LeadListFilters({ users, industries, areas }: Props) {
           ))}
         </select>
       )}
+
+      {/* 獲得元（どのリード獲得AIで取得したか） */}
+      <select
+        value={source}
+        onChange={(e) => updateParam("source", e.target.value)}
+        className="text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+      >
+        <option value="">全獲得元</option>
+        {LEAD_SOURCE_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.icon} {opt.label}
+          </option>
+        ))}
+      </select>
 
       {/* 担当者 */}
       <select

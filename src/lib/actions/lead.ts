@@ -1163,6 +1163,89 @@ export async function claimTvcmLead(
 }
 
 // ---------------------------------------------------------------
+// TVCM/動画PR リード（PR TIMES由来）を「一括」でclaimする
+// 競合状態に強いアトミック実装:
+//   1) updateMany でフィルタ条件に合うものだけを current user に assign
+//   2) 直前に取得した「未claim」スナップショットと突き合わせて、
+//      claim できなかったID（他人に先取り済み）を error メッセージとして返す
+// ---------------------------------------------------------------
+export async function bulkClaimTvcmLeads(
+  leadIds: string[],
+): Promise<{ success: boolean; claimed: number; skipped: number; error?: string }> {
+  const session = await auth();
+  if (!session?.user?.email) return { success: false, claimed: 0, skipped: 0, error: "ログインが必要です" };
+  if (leadIds.length === 0) return { success: true, claimed: 0, skipped: 0 };
+
+  const staffName = session.user.name ?? session.user.email ?? "不明";
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true, name: true, email: true },
+  });
+  if (!user) return { success: false, claimed: 0, skipped: 0, error: "ユーザーが見つかりません" };
+
+  try {
+    // 事前に「対象IDのうち未claimだったもの」を取得（通知用）
+    const beforeClaim = await db.lead.findMany({
+      where: {
+        id: { in: leadIds },
+        source: "PR_TIMES_TVCM",
+        assigneeId: null,
+      },
+      select: { id: true, name: true, prefecture: true, industry: true },
+    });
+
+    const result = await db.lead.updateMany({
+      where: {
+        id: { in: leadIds },
+        source: "PR_TIMES_TVCM",
+        assigneeId: null,
+      },
+      data: {
+        assigneeId: user.id,
+      },
+    });
+
+    const claimed = result.count;
+    const skipped = leadIds.length - claimed;
+
+    if (claimed > 0) {
+      // ログ記録
+      await db.leadLog.createMany({
+        data: beforeClaim.slice(0, claimed).map((l) => ({
+          leadId: l.id,
+          action: "CLAIMED",
+          detail: `TVer広告案件プールから 一括claim`,
+          staffName,
+        })),
+      });
+
+      // Chat通知（1メッセージにまとめる）
+      after(async () => {
+        try {
+          const names = beforeClaim
+            .slice(0, Math.min(claimed, 5))
+            .map((l) => l.name)
+            .join("・");
+          const suffix = claimed > 5 ? ` ほか${claimed - 5}件` : "";
+          const message = `🎯 ${staffName} さんが ${claimed}件 を一括claim: ${names}${suffix}`;
+          await sendChatMessage(LEAD_CHAT_SPACE_ID, message);
+        } catch (e) {
+          console.error("[bulkClaimTvcmLeads] Chat通知失敗:", e);
+        }
+      });
+    }
+
+    revalidatePath("/dashboard/leads/tvcm-pool");
+    revalidatePath("/dashboard/leads/list");
+
+    return { success: true, claimed, skipped };
+  } catch (e) {
+    console.error("[bulkClaimTvcmLeads] DB error:", e);
+    return { success: false, claimed: 0, skipped: 0, error: "一括claim中にエラーが発生しました" };
+  }
+}
+
+// ---------------------------------------------------------------
 // TVCM/動画PR リード（PR TIMES由来）を一括保存する
 // 配布モデル: ADMIN のみが保存可能。
 //  - decision="pool"   → assigneeId=null + status=UNTOUCHED でプールに投入（パートナーがclaim可）

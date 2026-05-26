@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import Link from "next/link";
 import { TvcmPoolCard, type TvcmPoolLead } from "@/components/leads/tvcm-pool-card";
+import { TvcmPoolUnclaimedSection } from "@/components/leads/tvcm-pool-unclaimed-section";
 
 // 保存直後にプール画面の表示を確実にリフレッシュするため動的レンダリング強制
 export const dynamic = "force-dynamic";
@@ -336,11 +337,7 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {unclaimedLeads.map((lead) => (
-              <TvcmPoolCard key={lead.id} lead={lead} claimable={true} isAdmin={isAdmin} />
-            ))}
-          </div>
+          <TvcmPoolUnclaimedSection leads={unclaimedLeads} isAdmin={isAdmin} />
         )}
       </section>
     </div>

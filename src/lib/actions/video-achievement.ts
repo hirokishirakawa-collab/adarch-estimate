@@ -147,7 +147,7 @@ export async function startAttackFromAchievement(
         name:        achievement.companyName,
         address:     achievement.prefecture,
         industry:    achievement.industry,
-        source:      "MANUAL" as LeadSource,
+        source:      "VIDEO_ACHIEVEMENT" as LeadSource,
         memo:        achievement.contentSummary
           ? `【競合実績から攻略】${achievement.contentSummary}`
           : "【競合実績から攻略】",
@@ -169,6 +169,88 @@ export async function startAttackFromAchievement(
   revalidatePath("/dashboard/leads/list");
 
   return { leadId, isNewLead };
+}
+
+// ---------------------------------------------------------------
+// 動画実績から「一括」で攻略開始する → リード管理に登録
+// 既存リード（同名）は新規作成せず、未処理の実績だけリードに変換する。
+// ---------------------------------------------------------------
+export async function bulkAttackFromAchievement(
+  achievementIds: string[],
+): Promise<{
+  newLeads: number;
+  existingLeads: number;
+  skipped: number;
+  error?: string;
+}> {
+  const info = await getSessionInfo();
+  if (!info) return { newLeads: 0, existingLeads: 0, skipped: 0, error: "ログインが必要です" };
+  const { userId } = info;
+
+  if (achievementIds.length === 0) {
+    return { newLeads: 0, existingLeads: 0, skipped: 0 };
+  }
+
+  // 対象実績を取得（未処理 + 指定IDのみ）
+  const achievements = await db.videoAchievement.findMany({
+    where: { id: { in: achievementIds }, isProcessed: false },
+  });
+
+  // 同名既存リードを一括取得
+  const names = achievements.map((a) => a.companyName);
+  const existingLeads = await db.lead.findMany({
+    where: { name: { in: names } },
+    select: { id: true, name: true },
+  });
+  const existingNames = new Set(existingLeads.map((l) => l.name));
+
+  let newLeadsCount = 0;
+  let existingLeadsCount = 0;
+  const processedIds: string[] = [];
+
+  for (const a of achievements) {
+    try {
+      if (existingNames.has(a.companyName)) {
+        existingLeadsCount++;
+      } else {
+        await db.lead.create({
+          data: {
+            name:        a.companyName,
+            address:     a.prefecture,
+            industry:    a.industry,
+            source:      "VIDEO_ACHIEVEMENT" as LeadSource,
+            memo:        a.contentSummary
+              ? `【競合実績から攻略】${a.contentSummary}`
+              : "【競合実績から攻略】",
+            websiteUrl:  a.referenceUrl ?? null,
+            createdById: userId,
+          },
+        });
+        newLeadsCount++;
+        existingNames.add(a.companyName); // 同バッチ内の重複作成を防ぐ
+      }
+      processedIds.push(a.id);
+    } catch (e) {
+      console.error("[bulkAttackFromAchievement] create error:", e);
+    }
+  }
+
+  // 処理済みフラグを一括更新
+  if (processedIds.length > 0) {
+    await db.videoAchievement.updateMany({
+      where: { id: { in: processedIds } },
+      data:  { isProcessed: true },
+    });
+  }
+
+  revalidatePath("/dashboard/video-achievements");
+  revalidatePath("/dashboard/leads/list");
+
+  return {
+    newLeads:      newLeadsCount,
+    existingLeads: existingLeadsCount,
+    skipped:       achievementIds.length - newLeadsCount - existingLeadsCount,
+  };
 }
 
 // ---------------------------------------------------------------

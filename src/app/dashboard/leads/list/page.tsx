@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { ListChecks, Upload, Download } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import type { LeadStatus } from "@/generated/prisma/client";
+import type { LeadStatus, LeadSource } from "@/generated/prisma/client";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption } from "@/lib/constants/leads";
 import { LeadListTable } from "@/components/leads/lead-list-table";
 import { LeadListFilters } from "@/components/leads/lead-list-filters";
@@ -24,6 +24,7 @@ interface PageProps {
     assigneeId?: string;
     industry?: string;
     area?: string;
+    source?: string;
     sort?: string;
     page?: string;
   }>;
@@ -43,6 +44,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   const assigneeIdParam = params.assigneeId ?? "";
   const industryParam = params.industry ?? "";
   const areaParam = params.area ?? "";
+  const sourceParam = params.source ?? "";
   const sortParam = params.sort ?? "";
   const page = Math.max(1, parseInt(params.page ?? "1") || 1);
 
@@ -59,6 +61,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     assigneeId?: string | null;
     industry?: string;
     area?: { contains: string; mode: "insensitive" };
+    source?: LeadSource;
   };
 
   const where: WhereInput = {};
@@ -75,6 +78,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   }
   if (industryParam) where.industry = industryParam;
   if (areaParam) where.area = { contains: areaParam, mode: "insensitive" };
+  if (sourceParam) where.source = sourceParam as LeadSource;
 
   // ソート
   type OrderBy = { createdAt?: "asc" | "desc"; scoreTotal?: "asc" | "desc"; area?: "asc" | "desc"; industry?: "asc" | "desc" };
