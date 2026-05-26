@@ -49,6 +49,8 @@ export interface TvcmCrawlOutcome {
     newlyCreated: number;
     updated: number;
     hidden: number; // 直近に判断済みで結果から除外した件数
+    filteredIndividual: number; // 個人クリエイター・個人YouTubeとして非表示にした件数
+    filteredAlreadyPicked: number; // 既にピックアップ済（CRAWLED以外のステータス）として非表示にした件数
     // 切り分け用: 各ソースが「生記事を何件拾えたか」（AI判定前）
     youtubeRaw: number;
     prTimesRaw: number;
@@ -739,14 +741,31 @@ ${article.bodyText}`;
     }
   }
 
+  // 本部の調整画面では以下を無条件で非表示にする（DBには保存済み、履歴画面からは見える）:
+  //   1. 個人クリエイター・個人YouTube（isIndividualCreator=true）
+  //   2. 既にピックアップ済の会社（currentStatus が CRAWLED 以外＝本部判断済 or 加盟者が触ったもの）
+  let filteredIndividual = 0;
+  let filteredAlreadyPicked = 0;
+  const adjustedResults = results.filter((r) => {
+    if (r.isIndividualCreator) {
+      filteredIndividual++;
+      return false;
+    }
+    if (r.currentStatus && r.currentStatus !== "CRAWLED") {
+      filteredAlreadyPicked++;
+      return false;
+    }
+    return true;
+  });
+
   // 直近 N 日以内に判断済み（POOLED/REJECTED/CLAIMED/ASSIGNED/STATUS_CHANGED/CONVERTED）の
   // リードは結果から除外する。DB 更新は既に行われているため、履歴画面からは見える。
   const hideDays = options.hideRecentlyDecidedDays ?? 0;
-  let visibleResults: TvcmLeadResult[] = results;
+  let visibleResults: TvcmLeadResult[] = adjustedResults;
   let hidden = 0;
 
   if (hideDays > 0) {
-    const leadIds = results
+    const leadIds = adjustedResults
       .map((r) => r.leadId)
       .filter((id): id is string => !!id);
 
@@ -763,10 +782,10 @@ ${article.bodyText}`;
       });
       const recentlyDecidedSet = new Set(recentLogs.map((l) => l.leadId));
 
-      visibleResults = results.filter(
+      visibleResults = adjustedResults.filter(
         (r) => !r.leadId || !recentlyDecidedSet.has(r.leadId),
       );
-      hidden = results.length - visibleResults.length;
+      hidden = adjustedResults.length - visibleResults.length;
     }
   }
 
@@ -784,6 +803,8 @@ ${article.bodyText}`;
       newlyCreated,
       updated,
       hidden,
+      filteredIndividual,
+      filteredAlreadyPicked,
       youtubeRaw,
       prTimesRaw,
       atPressRaw,

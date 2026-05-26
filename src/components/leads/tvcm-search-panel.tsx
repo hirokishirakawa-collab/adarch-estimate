@@ -19,6 +19,8 @@ interface CrawlStats {
   kept: number;
   excluded: number;
   hidden?: number; // 直近に判断済みで除外した件数
+  filteredIndividual?: number; // 個人・個人YouTubeとして非表示にした件数
+  filteredAlreadyPicked?: number; // 既にピックアップ済として非表示にした件数
   youtubeRaw?: number;
   prTimesRaw?: number;
   atPressRaw?: number;
@@ -437,6 +439,20 @@ export function TvcmSearchPanel() {
               <div className="text-lg font-bold text-blue-600">{stats.hidden ?? 0}</div>
             </div>
           </div>
+
+          {/* 本部調整での非表示件数（個人 / 既にピックアップ済） */}
+          {((stats.filteredIndividual ?? 0) > 0 || (stats.filteredAlreadyPicked ?? 0) > 0) && (
+            <div className="grid grid-cols-2 gap-3 text-center pt-3 border-t border-zinc-100">
+              <div title="個人クリエイター・個人YouTubeとして自動非表示にした件数">
+                <div className="text-[10px] text-zinc-500 mb-0.5">個人 / 個人YouTube 非表示</div>
+                <div className="text-base font-semibold text-zinc-700">{stats.filteredIndividual ?? 0}</div>
+              </div>
+              <div title="既存リードでステータスが CRAWLED 以外（本部か加盟者が既に触れた会社）を非表示">
+                <div className="text-[10px] text-zinc-500 mb-0.5">既にピックアップ済 非表示</div>
+                <div className="text-base font-semibold text-zinc-700">{stats.filteredAlreadyPicked ?? 0}</div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
