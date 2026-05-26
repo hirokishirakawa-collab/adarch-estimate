@@ -20,6 +20,7 @@ import {
   searchTvcmVideos,
   type YouTubeVideoCandidate,
 } from "@/lib/leads/tvcm-youtube";
+import { normalizeCompanyName } from "@/lib/leads/match-score";
 
 export interface TvcmCrawlOptions {
   // "both" は YouTube + PR TIMES（後方互換、@Press 含まず）
@@ -663,14 +664,51 @@ ${article.bodyText}`;
   for (const r of results) {
     const address = r.address ?? "";
     try {
-      const existing = await db.lead.findUnique({
-        where: { name_address: { name: r.companyName, address } },
+      // 重複作成防止: 以下の優先順位で既存リードを探す
+      //   ① videoUrl 完全一致（最強の同一案件キー）
+      //   ② pressReleaseUrl 完全一致
+      //   ③ name+address ユニーク（従来通り）
+      //   ④ 正規化社名一致（PR_TIMES_TVCM由来のみ。法人格・全半角・空白を吸収）
+      // ① ② ③ を一発で取れる findFirst を使う
+      const orConditions: Array<Record<string, unknown>> = [];
+      if (r.videoUrl) orConditions.push({ videoUrl: r.videoUrl });
+      if (r.pressReleaseUrl) orConditions.push({ pressReleaseUrl: r.pressReleaseUrl });
+      orConditions.push({ name: r.companyName, address: address || null });
+
+      let existing = await db.lead.findFirst({
+        where: { source: "PR_TIMES_TVCM", OR: orConditions },
         select: {
           id: true,
           status: true,
           assignee: { select: { name: true, email: true } },
         },
+        orderBy: { updatedAt: "desc" },
       });
+
+      // ④ 正規化社名フォールバック（PR_TIMES_TVCM由来のみ・候補件数を小さく絞ってからJSで判定）
+      if (!existing) {
+        const normedTarget = normalizeCompanyName(r.companyName);
+        const candidates = await db.lead.findMany({
+          where: { source: "PR_TIMES_TVCM", name: { contains: r.companyName.slice(0, 2) } },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            updatedAt: true,
+            assignee: { select: { name: true, email: true } },
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 50,
+        });
+        const match = candidates.find((c) => normalizeCompanyName(c.name) === normedTarget);
+        if (match) {
+          existing = {
+            id: match.id,
+            status: match.status,
+            assignee: match.assignee,
+          };
+        }
+      }
 
       if (existing) {
         await db.lead.update({

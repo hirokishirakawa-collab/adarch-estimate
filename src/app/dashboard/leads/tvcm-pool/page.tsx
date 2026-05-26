@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { TvcmPoolCard, type TvcmPoolLead } from "@/components/leads/tvcm-pool-card";
 import { TvcmPoolUnclaimedSection } from "@/components/leads/tvcm-pool-unclaimed-section";
+import { normalizeCompanyName } from "@/lib/leads/match-score";
 
 // 保存直後にプール画面の表示を確実にリフレッシュするため動的レンダリング強制
 export const dynamic = "force-dynamic";
@@ -83,25 +84,77 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
     },
   });
 
-  // ソート: 都道府県順は null を最後（「都道府県不明」）に。それ以外は ja localeCompare
-  let unclaimedLeads: TvcmPoolLead[] = rawUnclaimed as TvcmPoolLead[];
+  // ---------- 重複の自動マージ（同一動画URL/PR URL/正規化名でグループ化）----------
+  // クロール側のゆらぎ（都道府県・業種ラベル違い）で同じ案件が複数行になっているのを統合する。
+  // 代表は「より情報が埋まっている」「より新しい」レコード。
+  function dedupKey(l: typeof rawUnclaimed[number]): string {
+    if (l.videoUrl) return `v:${l.videoUrl.trim()}`;
+    if (l.pressReleaseUrl) return `p:${l.pressReleaseUrl.trim()}`;
+    return `n:${normalizeCompanyName(l.name)}`;
+  }
+  function score(l: typeof rawUnclaimed[number]): number {
+    // 情報が埋まっているほど高得点
+    let s = 0;
+    if (l.prefecture) s += 4;
+    if (l.industry) s += 3;
+    if (l.address) s += 2;
+    if (l.scoreComment) s += 1;
+    return s;
+  }
+  const groupMap = new Map<string, { rep: typeof rawUnclaimed[number]; dupIds: string[] }>();
+  for (const l of rawUnclaimed) {
+    const key = dedupKey(l);
+    const existing = groupMap.get(key);
+    if (!existing) {
+      groupMap.set(key, { rep: l, dupIds: [] });
+    } else {
+      // どちらを代表にするか: スコア優先、同スコアなら updatedAt 新しい方
+      const sNew = score(l);
+      const sExisting = score(existing.rep);
+      const isNewerBetter =
+        sNew > sExisting ||
+        (sNew === sExisting && l.updatedAt.getTime() > existing.rep.updatedAt.getTime());
+      if (isNewerBetter) {
+        existing.dupIds.push(existing.rep.id);
+        existing.rep = l;
+      } else {
+        existing.dupIds.push(l.id);
+      }
+    }
+  }
+  const groupedRaw = Array.from(groupMap.values());
+
+  // ソート: 代表レコードを基準に並べる
+  let unclaimedGroups = groupedRaw;
   if (sortKey === "prefecture") {
-    unclaimedLeads = [...rawUnclaimed].sort((a, b) => {
-      const pa = a.prefecture?.trim() || "";
-      const pb = b.prefecture?.trim() || "";
-      if (!pa && !pb) return b.updatedAt.getTime() - a.updatedAt.getTime();
+    unclaimedGroups = [...groupedRaw].sort((a, b) => {
+      const pa = a.rep.prefecture?.trim() || "";
+      const pb = b.rep.prefecture?.trim() || "";
+      if (!pa && !pb) return b.rep.updatedAt.getTime() - a.rep.updatedAt.getTime();
       if (!pa) return 1;
       if (!pb) return -1;
       const cmp = pa.localeCompare(pb, "ja");
       if (cmp !== 0) return cmp;
-      return b.updatedAt.getTime() - a.updatedAt.getTime();
-    }) as TvcmPoolLead[];
+      return b.rep.updatedAt.getTime() - a.rep.updatedAt.getTime();
+    });
   } else if (sortKey === "name") {
-    // 会社名: localeCompare ja で並べ替え（Prismaのasc は ASCII順なので日本語並び替えはJSで実施）
-    unclaimedLeads = [...rawUnclaimed].sort((a, b) =>
-      a.name.localeCompare(b.name, "ja"),
-    ) as TvcmPoolLead[];
+    unclaimedGroups = [...groupedRaw].sort((a, b) =>
+      a.rep.name.localeCompare(b.rep.name, "ja"),
+    );
+  } else {
+    // updated (デフォルト)
+    unclaimedGroups = [...groupedRaw].sort((a, b) =>
+      b.rep.updatedAt.getTime() - a.rep.updatedAt.getTime(),
+    );
   }
+
+  // クライアントに渡す形式: 代表 lead + 重複IDs
+  const unclaimedLeads: (TvcmPoolLead & { duplicateIds: string[] })[] = unclaimedGroups.map((g) => ({
+    ...(g.rep as TvcmPoolLead),
+    duplicateIds: g.dupIds,
+  }));
+  // マージ前/後の件数（UI表示用）
+  const mergedCount = rawUnclaimed.length - unclaimedLeads.length;
 
   // 自分がclaim済み案件
   const myClaimedLeads = (await db.lead.findMany({
@@ -324,6 +377,14 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
           <span className="text-[10px] font-medium text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
             {unclaimedLeads.length}件
           </span>
+          {mergedCount > 0 && (
+            <span
+              className="text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded"
+              title="同一動画URL・PR URL・社名の重複を自動でまとめて表示しています"
+            >
+              重複 {mergedCount}件 を自動マージ
+            </span>
+          )}
           <span className="text-[10px] text-zinc-500">先着順</span>
 
           {/* ソート切り替え（現在の q を保持） */}

@@ -16,7 +16,7 @@ import {
   Globe,
   Trash2,
 } from "lucide-react";
-import { claimTvcmLead, transitionTvcmLeadStatus } from "@/lib/actions/lead";
+import { claimTvcmLead, transitionTvcmLeadStatus, bulkClaimTvcmLeads, bulkTransitionTvcmLeads } from "@/lib/actions/lead";
 import {
   detectTvcmSourcePlatform,
   TVCM_SOURCE_LABEL,
@@ -60,9 +60,11 @@ interface Props {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
+  // 自動マージされた重複の他IDs（claim/reject時に一緒に処理する）
+  duplicateIds?: string[];
 }
 
-export function TvcmPoolCard({ lead, claimable, isAdmin = false, selectable = false, selected = false, onToggleSelect }: Props) {
+export function TvcmPoolCard({ lead, claimable, isAdmin = false, selectable = false, selected = false, onToggleSelect, duplicateIds = [] }: Props) {
   const [isPending, startTransition] = useTransition();
   const [isRemoving, startRemoving] = useTransition();
   const [resultMsg, setResultMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(
@@ -71,35 +73,64 @@ export function TvcmPoolCard({ lead, claimable, isAdmin = false, selectable = fa
   const [claimed, setClaimed] = useState(!claimable);
   const [removed, setRemoved] = useState(false);
 
+  const allIds = [lead.id, ...duplicateIds];
+  const hasDuplicates = duplicateIds.length > 0;
+
   const handleClaim = () => {
-    if (!confirm(`${lead.name} の案件を担当します。よろしいですか？\n（claimすると他のパートナーは取れなくなります）`)) {
+    const dupMsg = hasDuplicates
+      ? `\n（同一案件の重複 ${duplicateIds.length}件 もまとめてclaimします）`
+      : "";
+    if (!confirm(`${lead.name} の案件を担当します。よろしいですか？${dupMsg}\n（claimすると他のパートナーは取れなくなります）`)) {
       return;
     }
     startTransition(async () => {
-      const res = await claimTvcmLead(lead.id);
-      if (res.success) {
-        setClaimed(true);
-        setResultMsg({ kind: "ok", text: `あなたの案件になりました` });
+      // 重複があれば bulk、なければ単発
+      if (hasDuplicates) {
+        const res = await bulkClaimTvcmLeads(allIds);
+        if (res.success && res.claimed > 0) {
+          setClaimed(true);
+          setResultMsg({ kind: "ok", text: `あなたの案件になりました（重複含む${res.claimed}件）` });
+        } else {
+          setResultMsg({ kind: "err", text: res.error ?? "claim失敗" });
+        }
       } else {
-        setResultMsg({ kind: "err", text: res.error ?? "claim失敗" });
+        const res = await claimTvcmLead(lead.id);
+        if (res.success) {
+          setClaimed(true);
+          setResultMsg({ kind: "ok", text: `あなたの案件になりました` });
+        } else {
+          setResultMsg({ kind: "err", text: res.error ?? "claim失敗" });
+        }
       }
     });
   };
 
   const handleRemove = () => {
+    const dupMsg = hasDuplicates
+      ? `\n（同一案件の重複 ${duplicateIds.length}件 もまとめて外します）`
+      : "";
     if (
       !confirm(
-        `${lead.name} をプールから外します（却下扱い）。よろしいですか？\n履歴には記録が残り、次回クロールでも復活しません。`,
+        `${lead.name} をプールから外します（却下扱い）。よろしいですか？${dupMsg}\n履歴には記録が残り、次回クロールでも復活しません。`,
       )
     ) {
       return;
     }
     startRemoving(async () => {
-      const res = await transitionTvcmLeadStatus(lead.id, "reject");
-      if (res.success) {
-        setRemoved(true);
+      if (hasDuplicates) {
+        const res = await bulkTransitionTvcmLeads(allIds, "reject");
+        if (res.success) {
+          setRemoved(true);
+        } else {
+          setResultMsg({ kind: "err", text: res.error ?? "プールから外せませんでした" });
+        }
       } else {
-        setResultMsg({ kind: "err", text: res.error ?? "プールから外せませんでした" });
+        const res = await transitionTvcmLeadStatus(lead.id, "reject");
+        if (res.success) {
+          setRemoved(true);
+        } else {
+          setResultMsg({ kind: "err", text: res.error ?? "プールから外せませんでした" });
+        }
       }
     });
   };
@@ -134,6 +165,14 @@ export function TvcmPoolCard({ lead, claimable, isAdmin = false, selectable = fa
           <span className="text-sm font-semibold text-zinc-900 truncate">
             {lead.name}
           </span>
+          {hasDuplicates && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shrink-0"
+              title={`同一案件の重複 ${duplicateIds.length}件 を自動マージ済み（claim/却下時にまとめて処理されます）`}
+            >
+              重複{duplicateIds.length + 1}件 統合
+            </span>
+          )}
           {(() => {
             const platform = detectTvcmSourcePlatform(lead.pressReleaseUrl);
             const visual = SOURCE_VISUAL[platform];

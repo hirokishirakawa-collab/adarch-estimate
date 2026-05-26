@@ -5,8 +5,10 @@ import { CheckSquare, Square, HandMetal, Loader2, AlertCircle, CheckCircle2, Tra
 import { bulkClaimTvcmLeads, bulkTransitionTvcmLeads } from "@/lib/actions/lead";
 import { TvcmPoolCard, type TvcmPoolLead } from "./tvcm-pool-card";
 
+type PoolLeadWithDup = TvcmPoolLead & { duplicateIds?: string[] };
+
 interface Props {
-  leads: TvcmPoolLead[];
+  leads: PoolLeadWithDup[];
   isAdmin: boolean;
 }
 
@@ -14,6 +16,19 @@ export function TvcmPoolUnclaimedSection({ leads, isAdmin }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const [resultMsg, setResultMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  // 代表IDが選択されたら、紐づく重複IDsも展開する
+  const expandWithDuplicates = (ids: Iterable<string>): string[] => {
+    const out = new Set<string>();
+    for (const id of ids) {
+      out.add(id);
+      const lead = leads.find((l) => l.id === id);
+      if (lead?.duplicateIds) {
+        for (const dupId of lead.duplicateIds) out.add(dupId);
+      }
+    }
+    return Array.from(out);
+  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -41,7 +56,8 @@ export function TvcmPoolUnclaimedSection({ leads, isAdmin }: Props) {
       return;
     }
     startTransition(async () => {
-      const res = await bulkClaimTvcmLeads(Array.from(selectedIds));
+      const expanded = expandWithDuplicates(selectedIds);
+      const res = await bulkClaimTvcmLeads(expanded);
       if (!res.success) {
         setResultMsg({ kind: "err", text: res.error ?? "一括claimに失敗しました" });
         return;
@@ -67,7 +83,8 @@ export function TvcmPoolUnclaimedSection({ leads, isAdmin }: Props) {
       return;
     }
     startTransition(async () => {
-      const res = await bulkTransitionTvcmLeads(Array.from(selectedIds), "reject");
+      const expanded = expandWithDuplicates(selectedIds);
+      const res = await bulkTransitionTvcmLeads(expanded, "reject");
       if (!res.success) {
         setResultMsg({ kind: "err", text: res.error ?? "一括削除に失敗しました" });
         return;
@@ -155,6 +172,7 @@ export function TvcmPoolUnclaimedSection({ leads, isAdmin }: Props) {
           selectable={true}
           selected={selectedIds.has(lead.id)}
           onToggleSelect={() => toggleSelect(lead.id)}
+          duplicateIds={lead.duplicateIds}
         />
       ))}
     </div>
