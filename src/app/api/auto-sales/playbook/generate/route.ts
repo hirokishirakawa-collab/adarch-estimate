@@ -119,6 +119,7 @@ export async function POST(req: NextRequest) {
 
   const totalExamples = successApproaches.length + successJobs.length;
   const targetLabel = targetType === "BTOB" ? "法人（BtoB）" : "個人・店舗（BtoC）";
+  const senderName = user.name?.trim() || session.user.email.split("@")[0];
 
   // ── データ量に応じてプロンプトを構築 ──
   let dataSection = "";
@@ -147,10 +148,11 @@ export async function POST(req: NextRequest) {
     messages: [
       {
         role: "user",
-        content: `あなたはアドアーチグループの営業コンサルタントです。
+        content: `あなたはアドアーチグループ加盟パートナー「${senderName}」本人として営業文を作成します。
 以下のデータを元に、最も効果的な営業文テンプレートを1つ作成してください。
 
 【条件】
+- 差出人（自己紹介で名乗る名前）: ${senderName}
 - ターゲット: ${targetLabel}
 ${industry ? `- 業種: ${industry}` : "- 業種: 指定なし（汎用）"}
 
@@ -168,6 +170,7 @@ ${dataSection}
 
 1. 営業文テンプレート（150〜250文字）
 - お手本の営業文のトーンと構成を参考にする（自己紹介→相手への関心→提供サービス→打ち合わせ提案）
+- 冒頭の自己紹介では必ず「${senderName}」という実名で名乗ること（「営業コンサルタント」「担当者」等の役職名で名乗らない）
 ${totalExamples > 0 ? "- 成功事例のパターンも踏襲する" : ""}
 - {industry}, {area}, {companyInsight} の3つの変数を必ず使用
 - 自然体で堅すぎないトーン。「拝見し」「お力になれれば」のような柔らかい表現
