@@ -4,7 +4,7 @@ import { ListChecks, Upload, Download } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import type { LeadStatus, LeadSource } from "@/generated/prisma/client";
-import { LEAD_STATUS_OPTIONS, getLeadStatusOption } from "@/lib/constants/leads";
+import { LEAD_STATUS_OPTIONS } from "@/lib/constants/leads";
 import { LeadListTable } from "@/components/leads/lead-list-table";
 import { LeadListFilters } from "@/components/leads/lead-list-filters";
 import { LeadActivityFeed } from "@/components/leads/lead-activity-feed";
@@ -51,20 +51,22 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   // ---------------------------------------------------------------
   // WHERE 条件を構築
   // ---------------------------------------------------------------
+  // SKIPPED（=TVerプールの「却下」含む）はリード管理から完全に不可視化する。
+  // 詳細: memory/feedback_tver_rejected_hidden.md
   type WhereInput = {
     OR?: Array<{
       name?: { contains: string; mode: "insensitive" };
       address?: { contains: string; mode: "insensitive" };
       memo?: { contains: string; mode: "insensitive" };
     }>;
-    status?: LeadStatus;
+    status?: LeadStatus | { not: LeadStatus };
     assigneeId?: string | null;
     industry?: string;
     area?: { contains: string; mode: "insensitive" };
     source?: LeadSource;
   };
 
-  const where: WhereInput = {};
+  const where: WhereInput = { status: { not: "SKIPPED" } };
   if (q) {
     where.OR = [
       { name: { contains: q, mode: "insensitive" } },
@@ -72,7 +74,9 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       { memo: { contains: q, mode: "insensitive" } },
     ];
   }
-  if (statusParam) where.status = statusParam as LeadStatus;
+  if (statusParam && statusParam !== "SKIPPED") {
+    where.status = statusParam as LeadStatus;
+  }
   if (assigneeIdParam) {
     where.assigneeId = assigneeIdParam === "unassigned" ? null : assigneeIdParam;
   }
@@ -101,7 +105,6 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     calledCount,
     appointmentCount,
     dealConvertedCount,
-    skippedCount,
     users,
     recentLogs,
     industries,
@@ -118,12 +121,11 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       take: PER_PAGE,
     }),
     db.lead.count({ where }),
-    db.lead.count(),
+    db.lead.count({ where: { status: { not: "SKIPPED" } } }),
     db.lead.count({ where: { status: "UNTOUCHED" } }),
     db.lead.count({ where: { status: "CALLED" } }),
     db.lead.count({ where: { status: "APPOINTMENT" } }),
     db.lead.count({ where: { status: "DEAL_CONVERTED" } }),
-    db.lead.count({ where: { status: "SKIPPED" } }),
     db.user.findMany({
       where: { isActive: true },
       select: { id: true, name: true, email: true },
@@ -149,8 +151,10 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     CALLED: calledCount,
     APPOINTMENT: appointmentCount,
     DEAL_CONVERTED: dealConvertedCount,
-    SKIPPED: skippedCount,
   };
+
+  // SKIPPED はリード管理から不可視化のため、サマリーカード／フィルターから除外する
+  const visibleStatusOptions = LEAD_STATUS_OPTIONS.filter((o) => o.value !== "SKIPPED");
 
   return (
     <div className="px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
@@ -224,7 +228,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
             {totalAll.toLocaleString()}
           </p>
         </Link>
-        {LEAD_STATUS_OPTIONS.map((opt) => {
+        {visibleStatusOptions.map((opt) => {
           const count = statusCounts[opt.value as keyof typeof statusCounts];
           const isActive = statusParam === opt.value;
           return (

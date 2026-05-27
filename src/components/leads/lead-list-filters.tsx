@@ -54,14 +54,14 @@ export function LeadListFilters({ users, industries, areas }: Props) {
         />
       </div>
 
-      {/* ステータス */}
+      {/* ステータス（SKIPPEDは不可視化のため除外） */}
       <select
         value={status}
         onChange={(e) => updateParam("status", e.target.value)}
         className="text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
       >
         <option value="">全ステータス</option>
-        {LEAD_STATUS_OPTIONS.map((opt) => (
+        {LEAD_STATUS_OPTIONS.filter((opt) => opt.value !== "SKIPPED").map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.icon} {opt.label}
           </option>
