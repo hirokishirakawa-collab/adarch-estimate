@@ -51,8 +51,10 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   // ---------------------------------------------------------------
   // WHERE 条件を構築
   // ---------------------------------------------------------------
-  // SKIPPED（=TVerプールの「却下」含む）はリード管理から完全に不可視化する。
-  // 詳細: memory/feedback_tver_rejected_hidden.md
+  // リード管理のベース除外条件:
+  // - SKIPPED（=TVerプールの「却下」含む）は不可視化（feedback_tver_rejected_hidden）
+  // - 未claimのTVerプール案件はプール画面のみ表示。リード管理に出てくる
+  //   TVer案件は「claim済み＝担当者付き」だけが自然な状態
   type WhereInput = {
     OR?: Array<{
       name?: { contains: string; mode: "insensitive" };
@@ -64,9 +66,15 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     industry?: string;
     area?: { contains: string; mode: "insensitive" };
     source?: LeadSource;
+    NOT?: { source: LeadSource; assigneeId: null };
   };
 
-  const where: WhereInput = { status: { not: "SKIPPED" } };
+  const baseExclude = {
+    status: { not: "SKIPPED" as LeadStatus },
+    NOT: { source: "PR_TIMES_TVCM" as LeadSource, assigneeId: null },
+  };
+
+  const where: WhereInput = { ...baseExclude };
   if (q) {
     where.OR = [
       { name: { contains: q, mode: "insensitive" } },
@@ -121,11 +129,11 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       take: PER_PAGE,
     }),
     db.lead.count({ where }),
-    db.lead.count({ where: { status: { not: "SKIPPED" } } }),
-    db.lead.count({ where: { status: "UNTOUCHED" } }),
-    db.lead.count({ where: { status: "CALLED" } }),
-    db.lead.count({ where: { status: "APPOINTMENT" } }),
-    db.lead.count({ where: { status: "DEAL_CONVERTED" } }),
+    db.lead.count({ where: baseExclude }),
+    db.lead.count({ where: { ...baseExclude, status: "UNTOUCHED" } }),
+    db.lead.count({ where: { ...baseExclude, status: "CALLED" } }),
+    db.lead.count({ where: { ...baseExclude, status: "APPOINTMENT" } }),
+    db.lead.count({ where: { ...baseExclude, status: "DEAL_CONVERTED" } }),
     db.user.findMany({
       where: { isActive: true },
       select: { id: true, name: true, email: true },
