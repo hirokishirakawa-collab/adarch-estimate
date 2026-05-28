@@ -11,6 +11,8 @@ import {
   ChevronUp,
   Trash2,
   Loader2,
+  Mail,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FranchiseLeadData } from "./franchise-pipeline";
@@ -37,6 +39,11 @@ export function FranchiseLeadCard({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [email, setEmail] = useState(lead.email ?? "");
+  const [emailSubject, setEmailSubject] = useState(lead.emailSubject ?? "");
+  const [emailBody, setEmailBody] = useState(lead.emailBody ?? "");
+  const [generating, setGenerating] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
 
   const getPriorityBadge = (score: number | null) => {
     if (!score) return null;
@@ -59,10 +66,56 @@ export function FranchiseLeadCard({
         notes: notes || null,
         nextAction: nextAction || null,
         nextActionDate: nextActionDate || null,
+        email: email || null,
+        emailSubject: emailSubject || null,
+        emailBody: emailBody || null,
       } as Partial<FranchiseLeadData>);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleGenerateDraft = async () => {
+    setGenerating(true);
+    setDraftError(null);
+    try {
+      const res = await fetch("/api/franchise-leads/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: lead.id,
+          companyName: lead.companyName,
+          address: lead.address,
+          businessType: lead.businessType ?? "",
+          website: lead.website ?? undefined,
+          scoreComment: lead.scoreComment ?? undefined,
+          scoreTotal: lead.scoreTotal ?? undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDraftError(data.error ?? "生成に失敗しました");
+        return;
+      }
+      setEmailSubject(data.subject);
+      setEmailBody(data.body);
+    } catch {
+      setDraftError("生成に失敗しました。通信状況を確認してください。");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const openInGmail = () => {
+    const params = new URLSearchParams({ view: "cm", fs: "1" });
+    if (email) params.set("to", email);
+    if (emailSubject) params.set("su", emailSubject);
+    if (emailBody) params.set("body", emailBody);
+    window.open(
+      `https://mail.google.com/mail/?${params.toString()}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   };
 
   const handleDelete = async () => {
@@ -225,6 +278,79 @@ export function FranchiseLeadCard({
                 className="w-full border border-zinc-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
+          </div>
+
+          {/* 営業メール下書き（コックピット） */}
+          <div className="border-t border-zinc-100 pt-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-semibold text-zinc-600 flex items-center gap-1">
+                <Mail className="w-3 h-3" /> 営業メール下書き
+              </p>
+              {lead.emailDraftedAt && (
+                <span className="text-[9px] text-zinc-400">生成済</span>
+              )}
+            </div>
+
+            <div>
+              <p className="text-[10px] text-zinc-500 mb-1">宛先メール（任意）</p>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-zinc-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="例: info@example.co.jp"
+              />
+            </div>
+
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={handleGenerateDraft}
+              disabled={generating}
+              className="gap-1 w-full"
+            >
+              {generating ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Sparkles className="w-3 h-3" />
+              )}
+              {emailBody ? "下書きを再生成" : "AIで下書きを生成"}
+            </Button>
+            {draftError && <p className="text-[10px] text-red-600">{draftError}</p>}
+
+            {(emailSubject || emailBody) && (
+              <>
+                <div>
+                  <p className="text-[10px] text-zinc-500 mb-1">件名</p>
+                  <input
+                    type="text"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    className="w-full border border-zinc-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] text-zinc-500 mb-1">本文</p>
+                  <textarea
+                    value={emailBody}
+                    onChange={(e) => setEmailBody(e.target.value)}
+                    rows={10}
+                    className="w-full border border-zinc-300 rounded-md px-2 py-1.5 text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
+                  />
+                </div>
+                <Button
+                  size="xs"
+                  variant="default"
+                  onClick={openInGmail}
+                  className="gap-1 w-full bg-emerald-600 hover:bg-emerald-700"
+                >
+                  <ExternalLink className="w-3 h-3" /> Gmailで下書きを開く
+                </Button>
+                <p className="text-[9px] text-zinc-400 leading-snug">
+                  Gmailの作成画面が件名・本文入りで開きます。内容を確認し、送信・下書き保存はご自身で行ってください。編集した内容は「保存」で記録されます。
+                </p>
+              </>
+            )}
           </div>
 
           {/* アクションボタン */}

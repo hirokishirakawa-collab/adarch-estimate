@@ -15,6 +15,7 @@ export interface FranchiseLeadData {
   prefecture: string | null;
   phone: string | null;
   website: string | null;
+  email: string | null;
   googleMapsUrl: string | null;
   rating: number | null;
   reviewCount: number | null;
@@ -23,6 +24,9 @@ export interface FranchiseLeadData {
   scoreBreakdown: Record<string, number> | null;
   scoreComment: string | null;
   aiAdvice: string | null;
+  emailSubject: string | null;
+  emailBody: string | null;
+  emailDraftedAt: string | null;
   hasWebsite: boolean;
   hasYoutube: boolean;
   hasSns: boolean;

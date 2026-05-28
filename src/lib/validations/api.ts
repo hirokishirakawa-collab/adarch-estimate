@@ -263,3 +263,14 @@ export const franchiseLeadAdviseSchema = z.object({
   scoreComment: z.string().optional(),
   scoreTotal: z.number().optional(),
 });
+
+// POST /api/franchise-leads/draft
+export const franchiseLeadDraftSchema = z.object({
+  id: z.string().min(1),
+  companyName: z.string().min(1),
+  address: z.string().optional(),
+  businessType: z.string().optional(),
+  website: z.string().optional(),
+  scoreComment: z.string().optional(),
+  scoreTotal: z.number().optional(),
+});

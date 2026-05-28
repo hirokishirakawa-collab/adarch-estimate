@@ -164,6 +164,7 @@ export async function PUT(req: NextRequest) {
       "status", "priority", "notes", "contactedAt",
       "nextAction", "nextActionDate", "aiAdvice",
       "scoreTotal", "scoreBreakdown", "scoreComment",
+      "email", "emailSubject", "emailBody", "emailDraftedAt",
     ];
     const data: Record<string, unknown> = {};
     for (const key of allowedFields) {
@@ -178,6 +179,9 @@ export async function PUT(req: NextRequest) {
     }
     if (typeof data.nextActionDate === "string") {
       data.nextActionDate = new Date(data.nextActionDate);
+    }
+    if (typeof data.emailDraftedAt === "string") {
+      data.emailDraftedAt = new Date(data.emailDraftedAt);
     }
 
     const updated = await db.franchiseLead.update({

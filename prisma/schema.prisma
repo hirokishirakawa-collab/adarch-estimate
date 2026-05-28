@@ -3215,6 +3215,7 @@ model FranchiseLead {
   prefecture      String?
   phone           String?
   website         String?
+  email           String?   // 初回コンタクト送付先（任意。Places検索では取得不可のため手入力 or サイトから補完）
   googleMapsUrl   String?
   rating          Float?
   reviewCount     Int?
@@ -3225,6 +3226,11 @@ model FranchiseLead {
   scoreBreakdown  Json?
   scoreComment    String?
   aiAdvice        String?   @db.Text // 営業アプローチ提案
+
+  // 営業メール下書き（コックピット）
+  emailSubject    String?
+  emailBody       String?   @db.Text
+  emailDraftedAt  DateTime?
 
   // Web/SNS分析
   hasWebsite      Boolean  @default(false)
