@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText } from "lucide-react";
+import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText, Film, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel, getLeadSourceOption } from "@/lib/constants/leads";
 import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads, bulkUpdateLeadStatus, bulkAssignLeads } from "@/lib/actions/lead";
@@ -28,6 +28,8 @@ interface LeadRow {
   memo: string | null;
   mapsUrl: string | null;
   websiteUrl: string | null;
+  videoUrl: string | null;
+  pressReleaseUrl: string | null;
   industry: string | null;
   area: string | null;
   youtubeChannelUrl: string | null;
@@ -503,6 +505,45 @@ function LeadRow({
             {lead.address}
           </p>
         )}
+        {/* TVer案件プール由来のURL（動画・PR記事・企業サイト） */}
+        {lead.source === "PR_TIMES_TVCM" &&
+          (lead.videoUrl || lead.pressReleaseUrl || lead.websiteUrl) && (
+            <div className="flex items-center gap-2.5 mt-1 flex-wrap">
+              {lead.videoUrl && (
+                <a
+                  href={lead.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-600 hover:underline"
+                >
+                  <Film className="w-3 h-3" />
+                  動画
+                </a>
+              )}
+              {lead.pressReleaseUrl && (
+                <a
+                  href={lead.pressReleaseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:underline"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  PR記事
+                </a>
+              )}
+              {lead.websiteUrl && (
+                <a
+                  href={lead.websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-600 hover:underline"
+                >
+                  <Globe className="w-3 h-3" />
+                  企業サイト
+                </a>
+              )}
+            </div>
+          )}
       </td>
 
       {/* 獲得元（どのリード獲得AIで取得したか） */}
