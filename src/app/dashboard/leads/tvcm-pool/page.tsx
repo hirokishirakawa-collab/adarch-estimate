@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { TvcmPoolCard, type TvcmPoolLead } from "@/components/leads/tvcm-pool-card";
 import { TvcmPoolUnclaimedSection } from "@/components/leads/tvcm-pool-unclaimed-section";
+import { TvcmPoolExportButton } from "@/components/leads/tvcm-pool-export-button";
 import { normalizeCompanyName } from "@/lib/leads/match-score";
 
 // 保存直後にプール画面の表示を確実にリフレッシュするため動的レンダリング強制
@@ -250,6 +251,9 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {(isAdmin ? partnerStats.length > 0 : myClaimedLeads.length > 0) && (
+            <TvcmPoolExportButton />
+          )}
           {isAdmin && (
             <Link
               href="/dashboard/leads/tvcm"
