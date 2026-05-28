@@ -45,6 +45,17 @@ function formatRegisteredDate(value: string | Date): string {
   return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
 }
 
+/** href に使う前にスキームを http/https に限定（javascript: 等のXSS対策） */
+function safeHttpUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 interface Props {
   leads: LeadRow[];
   users: Array<{ id: string; name: string | null; email: string }>;
@@ -507,43 +518,49 @@ function LeadRow({
         )}
         {/* TVer案件プール由来のURL（動画・PR記事・企業サイト） */}
         {lead.source === "PR_TIMES_TVCM" &&
-          (lead.videoUrl || lead.pressReleaseUrl || lead.websiteUrl) && (
-            <div className="flex items-center gap-2.5 mt-1 flex-wrap">
-              {lead.videoUrl && (
-                <a
-                  href={lead.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-600 hover:underline"
-                >
-                  <Film className="w-3 h-3" />
-                  動画
-                </a>
-              )}
-              {lead.pressReleaseUrl && (
-                <a
-                  href={lead.pressReleaseUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:underline"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  PR記事
-                </a>
-              )}
-              {lead.websiteUrl && (
-                <a
-                  href={lead.websiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-600 hover:underline"
-                >
-                  <Globe className="w-3 h-3" />
-                  企業サイト
-                </a>
-              )}
-            </div>
-          )}
+          (() => {
+            const videoUrl = safeHttpUrl(lead.videoUrl);
+            const pressReleaseUrl = safeHttpUrl(lead.pressReleaseUrl);
+            const websiteUrl = safeHttpUrl(lead.websiteUrl);
+            if (!videoUrl && !pressReleaseUrl && !websiteUrl) return null;
+            return (
+              <div className="flex items-center gap-2.5 mt-1 flex-wrap">
+                {videoUrl && (
+                  <a
+                    href={videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-600 hover:underline"
+                  >
+                    <Film className="w-3 h-3" />
+                    動画
+                  </a>
+                )}
+                {pressReleaseUrl && (
+                  <a
+                    href={pressReleaseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:underline"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    PR記事
+                  </a>
+                )}
+                {websiteUrl && (
+                  <a
+                    href={websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-600 hover:underline"
+                  >
+                    <Globe className="w-3 h-3" />
+                    企業サイト
+                  </a>
+                )}
+              </div>
+            );
+          })()}
       </td>
 
       {/* 獲得元（どのリード獲得AIで取得したか） */}
