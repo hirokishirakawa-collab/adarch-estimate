@@ -103,6 +103,8 @@ function generateCsv(leads: LeadRow[]) {
     "メモ",
     "Google Maps",
     "登録日",
+    "動画URL",
+    "PR記事URL",
   ];
 
   const rows = leads.map((lead) => {
@@ -125,6 +127,8 @@ function generateCsv(leads: LeadRow[]) {
       lead.memo ?? "",
       lead.mapsUrl ?? "",
       lead.createdAt.toISOString().split("T")[0],
+      lead.videoUrl ?? "",
+      lead.pressReleaseUrl ?? "",
     ];
   });
 
