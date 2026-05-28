@@ -13,6 +13,7 @@ import {
   Loader2,
   Mail,
   Sparkles,
+  AtSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FranchiseLeadData } from "./franchise-pipeline";
@@ -44,6 +45,8 @@ export function FranchiseLeadCard({
   const [emailBody, setEmailBody] = useState(lead.emailBody ?? "");
   const [generating, setGenerating] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [findingEmail, setFindingEmail] = useState(false);
+  const [emailFindMsg, setEmailFindMsg] = useState<string | null>(null);
 
   const getPriorityBadge = (score: number | null) => {
     if (!score) return null;
@@ -103,6 +106,38 @@ export function FranchiseLeadCard({
       setDraftError("生成に失敗しました。通信状況を確認してください。");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleFindEmail = async () => {
+    if (!lead.website) return;
+    setFindingEmail(true);
+    setEmailFindMsg(null);
+    try {
+      const res = await fetch("/api/franchise-leads/find-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: lead.id, website: lead.website }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEmailFindMsg(data.error ?? "取得に失敗しました");
+        return;
+      }
+      if (data.email) {
+        setEmail(data.email);
+        setEmailFindMsg(
+          data.candidates?.length > 1
+            ? `取得しました（候補: ${data.candidates.join(", ")}）`
+            : "サイトから取得しました"
+        );
+      } else {
+        setEmailFindMsg("サイトにメール記載が見つかりません（フォームのみの可能性）");
+      }
+    } catch {
+      setEmailFindMsg("取得に失敗しました");
+    } finally {
+      setFindingEmail(false);
     }
   };
 
@@ -293,13 +328,35 @@ export function FranchiseLeadCard({
 
             <div>
               <p className="text-[10px] text-zinc-500 mb-1">宛先メール（任意）</p>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-zinc-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="例: info@example.co.jp"
-              />
+              <div className="flex gap-1.5">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="flex-1 min-w-0 border border-zinc-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="例: info@example.co.jp"
+                />
+                {lead.website && (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={handleFindEmail}
+                    disabled={findingEmail}
+                    className="gap-1 flex-shrink-0"
+                    title="サイトからメールを自動取得"
+                  >
+                    {findingEmail ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <AtSign className="w-3 h-3" />
+                    )}
+                    取得
+                  </Button>
+                )}
+              </div>
+              {emailFindMsg && (
+                <p className="text-[10px] text-zinc-400 mt-1 break-all">{emailFindMsg}</p>
+              )}
             </div>
 
             <Button
