@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { ArrowLeft, Banknote, Download } from "lucide-react";
 import type { UserRole } from "@/types/roles";
 import { getPaymentStatementById } from "@/lib/actions/payment-statement";
+import { breakdownFromStored } from "@/lib/payment-statement-calc";
 import { PaymentStatusActions } from "./status-actions";
 
 function fmtNum(n: number | bigint | { toString(): string }): string {
@@ -33,6 +34,17 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
   const badge = STATUS_BADGE[s.status] ?? STATUS_BADGE.DRAFT;
   const gc = s.groupCompany;
   const hasBank = gc.bankName && gc.bankAccountNumber;
+
+  const b = breakdownFromStored({
+    grossAmount: Number(s.grossAmount),
+    commissionRate: Number(s.commissionRate),
+    commissionAmount: Number(s.commissionAmount),
+    mediaExpense: Number(s.mediaExpense),
+    productionExpense: Number(s.productionExpense),
+    withholdingTaxAmount: Number(s.withholdingTaxAmount),
+    nonDeductibleTaxAmount: Number(s.nonDeductibleTaxAmount),
+    netPaymentAmount: Number(s.netPaymentAmount),
+  });
 
   return (
     <div className="px-6 py-6 max-w-2xl mx-auto w-full">
@@ -110,49 +122,60 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
         </div>
       )}
 
-      {/* 金額明細 */}
-      <div className="bg-white border border-zinc-200 rounded-xl p-5 mb-4 space-y-3">
+      {/* 金額明細（税抜ベース） */}
+      <div className="bg-white border border-zinc-200 rounded-xl p-5 mb-4 space-y-2">
         {s.clientName && (!s.items || s.items.length === 0) && (
-          <div className="flex justify-between text-sm">
+          <div className="flex justify-between text-sm mb-1">
             <span className="text-zinc-500">クライアント</span>
             <span className="text-zinc-800 font-medium">{s.clientName}</span>
           </div>
         )}
         <div className="flex justify-between text-sm">
-          <span className="text-zinc-500">クライアント入金額（税込）{s.items && s.items.length > 0 ? " 合計" : ""}</span>
-          <span className="text-zinc-800 font-bold">¥{fmtNum(s.grossAmount)}</span>
+          <span className="text-zinc-500">入金額（税込）{s.items && s.items.length > 0 ? " 合計" : ""}</span>
+          <span className="text-zinc-800 font-bold">¥{fmtNum(b.grossInclTax)}</span>
+        </div>
+        <div className="flex justify-between text-xs text-zinc-400">
+          <span className="pl-3">本体（税抜）</span>
+          <span>¥{fmtNum(b.grossExclTax)}</span>
+        </div>
+        <div className="flex justify-between text-xs text-zinc-400">
+          <span className="pl-3">消費税（10%）</span>
+          <span>¥{fmtNum(b.grossTax)}</span>
+        </div>
+
+        <div className="flex justify-between text-sm pt-1">
+          <span className="text-zinc-500">本部手数料（{b.commissionRate}%・税抜）</span>
+          <span className="text-red-600 font-medium">-¥{fmtNum(b.commissionExclTax)}</span>
+        </div>
+
+        <div className="flex justify-between text-sm pt-1 border-t border-zinc-100">
+          <span className="text-zinc-500">パートナー報酬（税抜）</span>
+          <span className="text-zinc-800 font-medium">¥{fmtNum(b.partnerFeeExclTax)}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-zinc-500">本部手数料（{Number(s.commissionRate)}%）</span>
-          <span className="text-red-600 font-medium">-¥{fmtNum(s.commissionAmount)}</span>
+          <span className="text-zinc-500">消費税（10%）</span>
+          <span className="text-zinc-800 font-medium">+¥{fmtNum(b.partnerTax)}</span>
         </div>
-        {Number(s.mediaExpense) > 0 && (
+        <div className="flex justify-between text-sm">
+          <span className="text-zinc-500">パートナー報酬（税込）</span>
+          <span className="text-zinc-800 font-medium">¥{fmtNum(b.partnerInclTax)}</span>
+        </div>
+
+        {b.withholdingTaxAmount > 0 && (
           <div className="flex justify-between text-sm">
-            <span className="text-zinc-500">うち媒体費（税抜・源泉対象外）</span>
-            <span className="text-zinc-600">¥{fmtNum(s.mediaExpense)}</span>
+            <span className="text-zinc-500">源泉徴収税（制作費 ¥{fmtNum(b.productionExclTax)}）</span>
+            <span className="text-red-600 font-medium">-¥{fmtNum(b.withholdingTaxAmount)}</span>
           </div>
         )}
-        {Number(s.productionExpense) > 0 && (
+        {b.nonDeductibleTaxAmount > 0 && (
           <div className="flex justify-between text-sm">
-            <span className="text-zinc-500">うち制作費（税抜・源泉対象）</span>
-            <span className="text-zinc-600">¥{fmtNum(s.productionExpense)}</span>
-          </div>
-        )}
-        {Number(s.withholdingTaxAmount) > 0 && (
-          <div className="flex justify-between text-sm">
-            <span className="text-zinc-500">源泉徴収税</span>
-            <span className="text-red-600 font-medium">-¥{fmtNum(s.withholdingTaxAmount)}</span>
-          </div>
-        )}
-        {Number(s.nonDeductibleTaxAmount) > 0 && (
-          <div className="flex justify-between text-sm">
-            <span className="text-zinc-500">控除不可消費税</span>
-            <span className="text-red-600 font-medium">-¥{fmtNum(s.nonDeductibleTaxAmount)}</span>
+            <span className="text-zinc-500">控除不可消費税（インボイス未登録）</span>
+            <span className="text-red-600 font-medium">-¥{fmtNum(b.nonDeductibleTaxAmount)}</span>
           </div>
         )}
         <div className="flex justify-between text-base pt-3 border-t border-emerald-200">
           <span className="font-semibold text-zinc-700">差引支払額</span>
-          <span className="font-bold text-emerald-700 text-lg">¥{fmtNum(s.netPaymentAmount)}</span>
+          <span className="font-bold text-emerald-700 text-lg">¥{fmtNum(b.netPaymentAmount)}</span>
         </div>
         {s.paidAt && (
           <p className="text-xs text-emerald-600 text-right">支払日: {fmtDate(s.paidAt)}</p>

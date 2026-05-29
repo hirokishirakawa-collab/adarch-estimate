@@ -2,8 +2,8 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle2, Banknote } from "lucide-react";
-import { updatePaymentStatementStatus } from "@/lib/actions/payment-statement";
+import { Loader2, CheckCircle2, Banknote, Trash2 } from "lucide-react";
+import { updatePaymentStatementStatus, deletePaymentStatement } from "@/lib/actions/payment-statement";
 
 export function PaymentStatusActions({
   id,
@@ -28,6 +28,17 @@ export function PaymentStatusActions({
     });
   }
 
+  function handleDelete() {
+    if (!confirm("この下書きを削除しますか？この操作は取り消せません。")) return;
+    startTransition(async () => {
+      const res = await deletePaymentStatement(id);
+      // 成功時はサーバー側で一覧へリダイレクトされる。失敗時のみ通知。
+      if (res?.error) {
+        alert(res.error);
+      }
+    });
+  }
+
   return (
     <div className="flex gap-3">
       {currentStatus === "DRAFT" && (
@@ -48,6 +59,16 @@ export function PaymentStatusActions({
         >
           {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
           支払済みにする
+        </button>
+      )}
+      {currentStatus === "DRAFT" && (
+        <button
+          onClick={handleDelete}
+          disabled={isPending}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-white text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-60 transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+          下書きを削除
         </button>
       )}
     </div>

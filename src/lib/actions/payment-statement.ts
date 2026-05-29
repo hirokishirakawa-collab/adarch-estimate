@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
+import { computeBreakdown } from "@/lib/payment-statement-calc";
 
 // ---------------------------------------------------------------
 // ADMIN: 支払明細一覧
@@ -98,22 +99,15 @@ export async function createPaymentStatement(
   const description = (formData.get("description") as string)?.trim() || null;
   const invoiceRequestId = (formData.get("invoiceRequestId") as string)?.trim() || null;
   const itemsRaw = (formData.get("items") as string)?.trim() || "";
-  const grossAmountRaw = (formData.get("grossAmount") as string)?.replace(/,/g, "").trim();
+  const grossAmountRaw = (formData.get("grossAmount") as string)?.replace(/,/g, "").trim() || "";
   const commissionRateRaw = (formData.get("commissionRate") as string)?.trim() || "10";
-  const mediaExpenseRaw = (formData.get("mediaExpense") as string)?.replace(/,/g, "").trim() || "0";
   const productionExpenseRaw = (formData.get("productionExpense") as string)?.replace(/,/g, "").trim() || "0";
-  const withholdingRaw = (formData.get("withholdingTaxAmount") as string)?.replace(/,/g, "").trim() || "0";
-  const nonDeductibleRaw = (formData.get("nonDeductibleTaxAmount") as string)?.replace(/,/g, "").trim() || "0";
 
   if (!groupCompanyId) return { error: "支払先パートナーを選択してください" };
   if (!title) return { error: "件名を入力してください" };
-  if (!grossAmountRaw) return { error: "入金額を入力してください" };
 
-  const commissionRate = parseFloat(commissionRateRaw);
-  const mediaExpense = parseInt(mediaExpenseRaw, 10);
-  const productionExpense = parseInt(productionExpenseRaw, 10);
-  const withholdingTaxAmount = parseInt(withholdingRaw, 10);
-  const nonDeductibleTaxAmount = parseInt(nonDeductibleRaw, 10);
+  const commissionRate = parseFloat(commissionRateRaw) || 0;
+  const productionExpenseInput = parseInt(productionExpenseRaw, 10) || 0;
 
   // クライアント別明細行（複数クライアントを1明細にまとめる場合）
   type ItemInput = { clientName: string; grossAmount: number; note: string | null };
@@ -133,16 +127,27 @@ export async function createPaymentStatement(
     }
   }
 
-  // 明細行がある場合は入金額合計を行から算出（整合性のため）。無い場合は単一入金額。
-  const grossAmount = items.length > 0
+  // 入金額（税込）合計。明細行があれば行の合計、無ければ単一入金額。
+  const grossInclTax = items.length > 0
     ? items.reduce((sum, r) => sum + r.grossAmount, 0)
     : parseInt(grossAmountRaw || "0", 10);
 
-  if (isNaN(grossAmount) || grossAmount <= 0) return { error: "入金額を入力してください（クライアント明細を1件以上）" };
+  if (isNaN(grossInclTax) || grossInclTax <= 0) return { error: "入金額を入力してください（クライアント明細を1件以上）" };
 
-  // サーバー側で合計から手数料・差引支払額を再計算（行の合計と必ず整合させる）
-  const commissionAmount = Math.floor((grossAmount * commissionRate) / 100);
-  const netPaymentAmount = grossAmount - commissionAmount - withholdingTaxAmount - nonDeductibleTaxAmount;
+  // パートナーの税区分を取得し、税抜ベースでサーバー側計算（クライアント送信値は信用しない）
+  const partner = await db.groupCompany.findUnique({
+    where: { id: groupCompanyId },
+    select: { entityType: true, invoiceRegistered: true },
+  });
+  if (!partner) return { error: "支払先パートナーが見つかりません" };
+
+  const b = computeBreakdown({
+    grossInclTax,
+    commissionRate,
+    productionExclTax: productionExpenseInput,
+    isSoleProprietor: partner.entityType === "SOLE_PROPRIETOR",
+    isInvoiceUnregistered: !partner.invoiceRegistered,
+  });
 
   let createdId = "";
   try {
@@ -153,14 +158,14 @@ export async function createPaymentStatement(
         title,
         clientName,
         description,
-        grossAmount,
-        commissionRate,
-        commissionAmount,
-        mediaExpense,
-        productionExpense,
-        withholdingTaxAmount,
-        nonDeductibleTaxAmount,
-        netPaymentAmount,
+        grossAmount: b.grossInclTax,
+        commissionRate: b.commissionRate,
+        commissionAmount: b.commissionExclTax,
+        mediaExpense: b.mediaExclTax,
+        productionExpense: b.productionExclTax,
+        withholdingTaxAmount: b.withholdingTaxAmount,
+        nonDeductibleTaxAmount: b.nonDeductibleTaxAmount,
+        netPaymentAmount: b.netPaymentAmount,
         createdById: info.userId,
         ...(items.length > 0
           ? {
@@ -183,7 +188,7 @@ export async function createPaymentStatement(
       name: info.staffName,
       entity: "payment_statement",
       entityId: created.id,
-      detail: `${title} / 支払額: ¥${netPaymentAmount.toLocaleString()}`,
+      detail: `${title} / 支払額: ¥${b.netPaymentAmount.toLocaleString()}`,
     });
   } catch (e) {
     console.error("[createPaymentStatement] DB error:", e instanceof Error ? e.message : e);
@@ -229,6 +234,42 @@ export async function updatePaymentStatementStatus(
   revalidatePath(`/dashboard/admin/payments/${id}`);
   revalidatePath("/dashboard/payments");
   return {};
+}
+
+// ---------------------------------------------------------------
+// ADMIN: 下書きの削除（DRAFT のみ。確定/支払済みは削除不可）
+// ---------------------------------------------------------------
+export async function deletePaymentStatement(id: string): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return { error: "権限がありません" };
+
+  const existing = await db.paymentStatement.findUnique({
+    where: { id },
+    select: { status: true, title: true },
+  });
+  if (!existing) return { error: "明細が見つかりません" };
+  if (existing.status !== "DRAFT") {
+    return { error: "確定・支払済みの明細は削除できません（先に下書きへ戻すか、そのまま保管してください）" };
+  }
+
+  try {
+    // items は onDelete: Cascade で同時削除される
+    await db.paymentStatement.delete({ where: { id } });
+    logAudit({
+      action: "payment_statement_deleted",
+      email: info.email,
+      name: info.staffName,
+      entity: "payment_statement",
+      entityId: id,
+      detail: `下書き削除: ${existing.title}`,
+    });
+  } catch (e) {
+    console.error("[deletePaymentStatement] DB error:", e instanceof Error ? e.message : e);
+    return { error: "削除に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/admin/payments");
+  redirect("/dashboard/admin/payments");
 }
 
 // ---------------------------------------------------------------

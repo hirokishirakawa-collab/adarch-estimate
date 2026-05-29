@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Loader2, AlertTriangle, Plus, Trash2 } from "lucide-react";
+import { computeBreakdown } from "@/lib/payment-statement-calc";
 
 type Partner = {
   id: string;
@@ -23,20 +24,6 @@ function fmtNum(n: number): string {
   return n.toLocaleString("ja-JP");
 }
 
-function calcWithholding(productionExpense: number): number {
-  if (productionExpense <= 0) return 0;
-  if (productionExpense <= 1_000_000) return Math.floor(productionExpense * 0.1021);
-  return Math.floor(1_000_000 * 0.1021) + Math.floor((productionExpense - 1_000_000) * 0.2042);
-}
-
-function calcNonDeductible(amountExclTax: number): number {
-  if (amountExclTax <= 0) return 0;
-  const tax = Math.round(amountExclTax * 0.1);
-  const now = new Date();
-  const rate = now < new Date("2026-10-01") ? 0.2 : now < new Date("2029-10-01") ? 0.5 : 1.0;
-  return Math.floor(tax * rate);
-}
-
 const inputCls =
   "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg " +
   "focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 bg-white text-zinc-900";
@@ -47,7 +34,6 @@ export function PaymentStatementForm({ action, partners }: Props) {
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [rows, setRows] = useState<ClientRow[]>([{ clientName: "", grossAmount: 0, note: "" }]);
   const [commissionRate, setCommissionRate] = useState(10);
-  const [mediaExpense, setMediaExpense] = useState(0);
   const [productionExpense, setProductionExpense] = useState(0);
 
   const partner = partners.find((p) => p.id === selectedPartnerId);
@@ -55,17 +41,17 @@ export function PaymentStatementForm({ action, partners }: Props) {
   const isInvoiceUnregistered = partner ? !partner.invoiceRegistered : false;
   const isUnknownEntity = partner?.entityType === "UNKNOWN";
 
-  // 入金額合計（クライアント行の和）
-  const grossAmount = rows.reduce((sum, r) => sum + (r.grossAmount || 0), 0);
+  // 入金額（税込）合計
+  const grossInclTax = rows.reduce((sum, r) => sum + (r.grossAmount || 0), 0);
 
-  // 自動計算（合計に対して）
-  const commissionAmount = Math.floor((grossAmount * commissionRate) / 100);
-  const afterCommission = grossAmount - commissionAmount;
-  const withholdingTaxAmount = isSoleProprietor ? calcWithholding(productionExpense) : 0;
-  // 控除不可消費税: 手数料差引後の税抜額に対して計算
-  const partnerAmountExclTax = Math.round(afterCommission / 1.1);
-  const nonDeductibleTaxAmount = isInvoiceUnregistered ? calcNonDeductible(partnerAmountExclTax) : 0;
-  const netPaymentAmount = afterCommission - withholdingTaxAmount - nonDeductibleTaxAmount;
+  // 税抜ベースで一括計算（共通ロジック）
+  const b = computeBreakdown({
+    grossInclTax,
+    commissionRate,
+    productionExclTax: productionExpense,
+    isSoleProprietor: !!isSoleProprietor,
+    isInvoiceUnregistered,
+  });
 
   const validRows = rows.filter((r) => r.clientName.trim() && r.grossAmount > 0);
   const canSubmit = !!selectedPartnerId && validRows.length > 0;
@@ -146,7 +132,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
       {/* クライアント明細行 */}
       <div className="border border-zinc-200 rounded-xl p-4 space-y-3 bg-zinc-50">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">クライアント別 入金内訳</p>
+          <p className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">クライアント別 入金内訳（税込）</p>
           <button
             type="button"
             onClick={addRow}
@@ -197,12 +183,16 @@ export function PaymentStatementForm({ action, partners }: Props) {
 
         <div className="flex justify-between text-xs pt-2 border-t border-zinc-200">
           <span className="text-zinc-600 font-semibold">入金額合計（税込）</span>
-          <span className="font-bold text-zinc-900">¥{fmtNum(grossAmount)}</span>
+          <span className="font-bold text-zinc-900">¥{fmtNum(grossInclTax)}</span>
+        </div>
+        <div className="flex justify-between text-[11px] text-zinc-500">
+          <span>うち 本体（税抜） ¥{fmtNum(b.grossExclTax)}</span>
+          <span>消費税 ¥{fmtNum(b.grossTax)}</span>
         </div>
 
         {/* 行データを JSON で送信 */}
         <input type="hidden" name="items" value={JSON.stringify(validRows)} />
-        <input type="hidden" name="grossAmount" value={grossAmount} />
+        <input type="hidden" name="grossAmount" value={grossInclTax} />
       </div>
 
       {/* 手数料・税セクション */}
@@ -221,84 +211,93 @@ export function PaymentStatementForm({ action, partners }: Props) {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-zinc-700 mb-1.5">手数料額（合計に対して）</label>
+            <label className="block text-xs font-semibold text-zinc-700 mb-1.5">手数料額（税抜）</label>
             <p className="px-3 py-2 text-sm font-bold text-zinc-700 bg-white border border-zinc-200 rounded-lg">
-              ¥{fmtNum(commissionAmount)}
+              ¥{fmtNum(b.commissionExclTax)}
             </p>
           </div>
         </div>
 
-        {/* 媒体費 / 制作費 */}
-        <div className="pt-3 border-t border-zinc-200 space-y-3">
-          <p className="text-[11px] text-zinc-500">
-            源泉徴収は制作費に対してのみ適用されます（媒体費は対象外）。複数クライアントの場合は合計額を入力してください。
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] text-zinc-500 mb-1">媒体費 合計（税抜）</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
-                <input
-                  type="number" name="mediaExpense" min={0} step={1}
-                  value={mediaExpense === 0 ? "" : mediaExpense}
-                  onChange={(e) => setMediaExpense(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                  placeholder="0"
-                  className={`${inputCls} pl-7 text-xs`}
-                />
-              </div>
+        {/* 源泉対象の制作費（個人事業主のみ意味を持つ） */}
+        {isSoleProprietor && (
+          <div className="pt-3 border-t border-zinc-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-[11px] text-zinc-500">源泉対象の制作費（税抜）</label>
+              <button
+                type="button"
+                onClick={() => setProductionExpense(b.partnerFeeExclTax)}
+                className="text-[11px] font-semibold text-emerald-700 hover:underline"
+              >
+                報酬全額を制作費にする
+              </button>
             </div>
-            <div>
-              <label className="block text-[11px] text-zinc-500 mb-1">制作費 合計（税抜）</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
-                <input
-                  type="number" name="productionExpense" min={0} step={1}
-                  value={productionExpense === 0 ? "" : productionExpense}
-                  onChange={(e) => setProductionExpense(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                  placeholder="0"
-                  className={`${inputCls} pl-7 text-xs`}
-                />
-              </div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
+              <input
+                type="number" name="productionExpense" min={0} step={1}
+                value={productionExpense === 0 ? "" : productionExpense}
+                onChange={(e) => setProductionExpense(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                placeholder="0"
+                className={`${inputCls} pl-7 text-xs`}
+              />
             </div>
+            <p className="text-[11px] text-zinc-400">
+              源泉徴収は制作費（税抜）に対してのみ課されます。媒体費など源泉対象外の分は差し引いて入力してください（残り ¥{fmtNum(b.mediaExclTax)} は媒体費等として源泉対象外）。
+            </p>
           </div>
-        </div>
+        )}
+        {!isSoleProprietor && <input type="hidden" name="productionExpense" value={0} />}
 
-        {/* 計算結果 */}
+        {/* 計算結果（税抜ベース） */}
         <div className="pt-3 border-t border-zinc-200 space-y-2">
           <div className="flex justify-between text-xs">
-            <span className="text-zinc-600">クライアント入金額 合計（税込）</span>
-            <span className="font-medium">¥{fmtNum(grossAmount)}</span>
+            <span className="text-zinc-600">入金額 合計（税込）</span>
+            <span className="font-medium">¥{fmtNum(b.grossInclTax)}</span>
           </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-zinc-600">本部手数料（{commissionRate}%）</span>
-            <span className="font-medium text-red-600">-¥{fmtNum(commissionAmount)}</span>
+          <div className="flex justify-between text-[11px] text-zinc-400">
+            <span className="pl-3">本体（税抜）</span>
+            <span>¥{fmtNum(b.grossExclTax)}</span>
           </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-zinc-600">手数料差引後</span>
-            <span className="font-medium">¥{fmtNum(afterCommission)}</span>
+          <div className="flex justify-between text-[11px] text-zinc-400">
+            <span className="pl-3">消費税（10%）</span>
+            <span>¥{fmtNum(b.grossTax)}</span>
+          </div>
+          <div className="flex justify-between text-xs pt-1">
+            <span className="text-zinc-600">本部手数料（{commissionRate}%・税抜）</span>
+            <span className="font-medium text-red-600">-¥{fmtNum(b.commissionExclTax)}</span>
           </div>
 
-          {isSoleProprietor && withholdingTaxAmount > 0 && (
+          <div className="flex justify-between text-xs pt-1 border-t border-zinc-100">
+            <span className="text-zinc-600">パートナー報酬（税抜）</span>
+            <span className="font-medium">¥{fmtNum(b.partnerFeeExclTax)}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-zinc-600">消費税（10%）</span>
+            <span className="font-medium">+¥{fmtNum(b.partnerTax)}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-zinc-600">パートナー報酬（税込）</span>
+            <span className="font-medium">¥{fmtNum(b.partnerInclTax)}</span>
+          </div>
+
+          {isSoleProprietor && b.withholdingTaxAmount > 0 && (
             <div className="flex justify-between text-xs">
-              <span className="text-zinc-600">源泉徴収税（制作費 ¥{fmtNum(productionExpense)}）</span>
-              <span className="font-medium text-red-600">-¥{fmtNum(withholdingTaxAmount)}</span>
+              <span className="text-zinc-600">源泉徴収税（制作費 ¥{fmtNum(b.productionExclTax)}）</span>
+              <span className="font-medium text-red-600">-¥{fmtNum(b.withholdingTaxAmount)}</span>
             </div>
           )}
-          {isInvoiceUnregistered && nonDeductibleTaxAmount > 0 && (
+          {isInvoiceUnregistered && b.nonDeductibleTaxAmount > 0 && (
             <div className="flex justify-between text-xs">
               <span className="text-zinc-600">控除不可消費税（インボイス未登録）</span>
-              <span className="font-medium text-red-600">-¥{fmtNum(nonDeductibleTaxAmount)}</span>
+              <span className="font-medium text-red-600">-¥{fmtNum(b.nonDeductibleTaxAmount)}</span>
             </div>
           )}
 
           <div className="flex justify-between text-base pt-2 border-t border-emerald-200">
             <span className="font-semibold text-zinc-700">差引支払額</span>
-            <span className="font-bold text-emerald-700">¥{fmtNum(netPaymentAmount)}</span>
+            <span className="font-bold text-emerald-700">¥{fmtNum(b.netPaymentAmount)}</span>
           </div>
         </div>
-        <input type="hidden" name="withholdingTaxAmount" value={withholdingTaxAmount} />
-        <input type="hidden" name="nonDeductibleTaxAmount" value={nonDeductibleTaxAmount} />
-        <input type="hidden" name="netPaymentAmount" value={netPaymentAmount} />
       </div>
 
       {/* 備考 */}

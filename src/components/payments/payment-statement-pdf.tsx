@@ -4,6 +4,7 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { C, fmtMoney, fmtDate } from "@/components/pdf/theme";
 import { PdfHeader, PdfFooter, IssuerBlock, MetaList } from "@/components/pdf/pdf-kit";
+import { breakdownFromStored } from "@/lib/payment-statement-calc";
 
 // ----------------------------------------------------------------
 // 型定義
@@ -110,33 +111,43 @@ export function PaymentStatementPDFDocument({
 }) {
   const gc = statement.groupCompany;
   const hasItems = !!statement.items && statement.items.length > 0;
-  const rows: { label: string; amount: number; isDeduction?: boolean }[] = [];
+  const b = breakdownFromStored({
+    grossAmount: statement.grossAmount,
+    commissionRate: statement.commissionRate,
+    commissionAmount: statement.commissionAmount,
+    mediaExpense: statement.mediaExpense,
+    productionExpense: statement.productionExpense,
+    withholdingTaxAmount: statement.withholdingTaxAmount,
+    nonDeductibleTaxAmount: statement.nonDeductibleTaxAmount,
+    netPaymentAmount: statement.netPaymentAmount,
+  });
+
+  const rows: { label: string; amount: number; isDeduction?: boolean; isSub?: boolean }[] = [];
   if (hasItems) {
     statement.items!.forEach((it) => {
       rows.push({ label: `入金 — ${it.clientName}${it.note ? `（${it.note}）` : ""}`, amount: it.grossAmount });
     });
-    rows.push({ label: "入金額合計（税込）", amount: statement.grossAmount });
+    rows.push({ label: "入金額合計（税込）", amount: b.grossInclTax });
   } else {
-    rows.push({ label: "クライアント入金額（税込）", amount: statement.grossAmount });
+    rows.push({ label: "入金額（税込）", amount: b.grossInclTax });
   }
+  rows.push({ label: "　本体（税抜）", amount: b.grossExclTax, isSub: true });
+  rows.push({ label: "　消費税（10%）", amount: b.grossTax, isSub: true });
   rows.push({
-    label: `本部手数料（${statement.commissionRate}%）`,
-    amount: -statement.commissionAmount,
+    label: `本部手数料（${statement.commissionRate}%・税抜）`,
+    amount: -b.commissionExclTax,
     isDeduction: true,
   });
-  if (statement.mediaExpense > 0) {
-    rows.push({ label: "うち媒体費（税抜・源泉対象外）", amount: statement.mediaExpense });
+  rows.push({ label: "パートナー報酬（税抜）", amount: b.partnerFeeExclTax });
+  rows.push({ label: "消費税（10%）", amount: b.partnerTax });
+  rows.push({ label: "パートナー報酬（税込）", amount: b.partnerInclTax });
+  if (b.withholdingTaxAmount > 0) {
+    rows.push({ label: `源泉徴収税（制作費 ${fmtMoney(b.productionExclTax)}）`, amount: -b.withholdingTaxAmount, isDeduction: true });
   }
-  if (statement.productionExpense > 0) {
-    rows.push({ label: "うち制作費（税抜・源泉対象）", amount: statement.productionExpense });
-  }
-  if (statement.withholdingTaxAmount > 0) {
-    rows.push({ label: "源泉徴収税", amount: -statement.withholdingTaxAmount, isDeduction: true });
-  }
-  if (statement.nonDeductibleTaxAmount > 0) {
+  if (b.nonDeductibleTaxAmount > 0) {
     rows.push({
       label: "控除不可消費税（インボイス未登録）",
-      amount: -statement.nonDeductibleTaxAmount,
+      amount: -b.nonDeductibleTaxAmount,
       isDeduction: true,
     });
   }
@@ -206,7 +217,7 @@ export function PaymentStatementPDFDocument({
           {/* 合計 */}
           <View style={s.grandRow}>
             <Text style={s.grandLabel}>差引支払額</Text>
-            <Text style={s.grandValue}>{fmtMoney(statement.netPaymentAmount)}</Text>
+            <Text style={s.grandValue}>{fmtMoney(b.netPaymentAmount)}</Text>
           </View>
         </View>
 
