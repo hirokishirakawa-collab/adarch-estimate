@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { computeBreakdown } from "@/lib/payment-statement-calc";
-import { createInAppNotification } from "@/lib/notifications";
+import { createInAppNotification, notifyAdmins } from "@/lib/notifications";
 
 // ---------------------------------------------------------------
 // ADMIN: 支払明細一覧
@@ -210,7 +210,9 @@ export async function updatePaymentStatementStatus(
   const info = await getSessionInfo();
   if (!info || info.role !== "ADMIN") return { error: "権限がありません" };
 
-  let statement: { groupCompanyId: string; title: string; netPaymentAmount: unknown } | null = null;
+  let statement:
+    | { groupCompanyId: string; title: string; netPaymentAmount: unknown; groupCompany: { name: string } }
+    | null = null;
   try {
     statement = await db.paymentStatement.update({
       where: { id },
@@ -218,7 +220,12 @@ export async function updatePaymentStatementStatus(
         status: newStatus,
         ...(newStatus === "PAID" ? { paidAt: new Date() } : {}),
       },
-      select: { groupCompanyId: true, title: true, netPaymentAmount: true },
+      select: {
+        groupCompanyId: true,
+        title: true,
+        netPaymentAmount: true,
+        groupCompany: { select: { name: true } },
+      },
     });
     logAudit({
       action: `payment_statement_${newStatus.toLowerCase()}`,
@@ -262,6 +269,21 @@ export async function updatePaymentStatementStatus(
           })
         )
       );
+
+      // 本部（ADMIN）にも記録用のお知らせ
+      const partnerName = statement.groupCompany?.name ?? "";
+      await notifyAdmins({
+        type: "SYSTEM",
+        title:
+          newStatus === "CONFIRMED"
+            ? "支払明細を確定しました"
+            : "支払明細を支払済みにしました",
+        message:
+          newStatus === "CONFIRMED"
+            ? `${partnerName}：「${statement.title}」を確定（パートナーに公開）しました。`
+            : `${partnerName}：「${statement.title}」（差引支払額 ¥${net}）を支払済みにしました。`,
+        linkUrl: `/dashboard/admin/payments/${id}`,
+      });
     } catch (e) {
       // 通知失敗はステータス変更の成功を妨げない
       console.error("[updatePaymentStatementStatus] notify error:", e instanceof Error ? e.message : e);
