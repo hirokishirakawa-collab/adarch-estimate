@@ -188,6 +188,29 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
         )}
       </div>
 
+      {/* 本部取り分（管理用・ADMINのみ。パートナー向けPDFには出さない） */}
+      <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 mb-4 space-y-2">
+        <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wider">本部取り分（管理用）</p>
+        <div className="flex justify-between text-xs">
+          <span className="text-zinc-500">本部手数料（税抜）</span>
+          <span className="text-zinc-700 font-medium">¥{fmtNum(b.commissionExclTax)}</span>
+        </div>
+        <div className="flex justify-between text-xs">
+          <span className="text-zinc-500">うち消費税（10%）</span>
+          <span className="text-zinc-700 font-medium">¥{fmtNum(b.commissionTax)}</span>
+        </div>
+        <div className="flex justify-between text-sm pt-2 border-t border-indigo-100">
+          <span className="font-semibold text-zinc-700">本部取り分（税込）</span>
+          <span className="font-bold text-indigo-700">¥{fmtNum(b.commissionExclTax + b.commissionTax)}</span>
+        </div>
+        <p className="text-[11px] text-zinc-400">
+          手数料（税抜）¥{fmtNum(b.commissionExclTax)} ＋ その消費税 ¥{fmtNum(b.commissionTax)}。
+          {b.withholdingTaxAmount > 0 && ` 源泉徴収 ¥${fmtNum(b.withholdingTaxAmount)} は預り金として後日納付（取り分には含めない）。`}
+          {b.nonDeductibleTaxAmount > 0 && ` 控除不可消費税 ¥${fmtNum(b.nonDeductibleTaxAmount)} は仕入税額控除の目減り分の補填として別途保持。`}
+          {" "}広告媒体費は媒体へのパススルー（差引済み）。
+        </p>
+      </div>
+
       {s.description && (
         <div className="bg-white border border-zinc-200 rounded-xl p-4 mb-4">
           <p className="text-xs font-semibold text-zinc-500 mb-1">備考</p>
