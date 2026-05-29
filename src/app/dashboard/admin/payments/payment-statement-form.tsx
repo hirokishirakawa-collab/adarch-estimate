@@ -34,7 +34,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [rows, setRows] = useState<ClientRow[]>([{ clientName: "", grossAmount: 0, note: "" }]);
   const [commissionRate, setCommissionRate] = useState(10);
-  const [productionExpense, setProductionExpense] = useState(0);
+  const [adMediaCost, setAdMediaCost] = useState(0);
 
   const partner = partners.find((p) => p.id === selectedPartnerId);
   const isSoleProprietor = partner?.entityType === "SOLE_PROPRIETOR";
@@ -48,7 +48,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
   const b = computeBreakdown({
     grossInclTax,
     commissionRate,
-    productionExclTax: productionExpense,
+    adMediaCost,
     isSoleProprietor: !!isSoleProprietor,
     isInvoiceUnregistered,
   });
@@ -218,35 +218,23 @@ export function PaymentStatementForm({ action, partners }: Props) {
           </div>
         </div>
 
-        {/* 源泉対象の制作費（個人事業主のみ意味を持つ） */}
-        {isSoleProprietor && (
-          <div className="pt-3 border-t border-zinc-200 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="block text-[11px] text-zinc-500">源泉対象の制作費（税抜）</label>
-              <button
-                type="button"
-                onClick={() => setProductionExpense(b.partnerFeeExclTax)}
-                className="text-[11px] font-semibold text-emerald-700 hover:underline"
-              >
-                報酬全額を制作費にする
-              </button>
-            </div>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
-              <input
-                type="number" name="productionExpense" min={0} step={1}
-                value={productionExpense === 0 ? "" : productionExpense}
-                onChange={(e) => setProductionExpense(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                placeholder="0"
-                className={`${inputCls} pl-7 text-xs`}
-              />
-            </div>
-            <p className="text-[11px] text-zinc-400">
-              源泉徴収は制作費（税抜）に対してのみ課されます。媒体費など源泉対象外の分は差し引いて入力してください（残り ¥{fmtNum(b.mediaExclTax)} は媒体費等として源泉対象外）。
-            </p>
+        {/* 広告媒体費（税抜・源泉対象外・支払から差引） */}
+        <div className="pt-3 border-t border-zinc-200 space-y-2">
+          <label className="block text-[11px] text-zinc-500">広告媒体費（税抜・源泉対象外）</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
+            <input
+              type="number" name="adMediaCost" min={0} step={1}
+              value={adMediaCost === 0 ? "" : adMediaCost}
+              onChange={(e) => setAdMediaCost(Math.max(0, parseInt(e.target.value, 10) || 0))}
+              placeholder="0"
+              className={`${inputCls} pl-7 text-xs`}
+            />
           </div>
-        )}
-        {!isSoleProprietor && <input type="hidden" name="productionExpense" value={0} />}
+          <p className="text-[11px] text-zinc-400">
+            手数料控除後のパートナー報酬から差し引きます。残り（制作費 ¥{fmtNum(b.productionExclTax)}・税抜）が源泉徴収の対象になります。
+          </p>
+        </div>
 
         {/* 計算結果（税抜ベース） */}
         <div className="pt-3 border-t border-zinc-200 space-y-2">
@@ -280,6 +268,12 @@ export function PaymentStatementForm({ action, partners }: Props) {
             <span className="font-medium">¥{fmtNum(b.partnerInclTax)}</span>
           </div>
 
+          {b.adMediaCost > 0 && (
+            <div className="flex justify-between text-xs">
+              <span className="text-zinc-600">広告媒体費（源泉対象外）</span>
+              <span className="font-medium text-red-600">-¥{fmtNum(b.adMediaCost)}</span>
+            </div>
+          )}
           {isSoleProprietor && b.withholdingTaxAmount > 0 && (
             <div className="flex justify-between text-xs">
               <span className="text-zinc-600">源泉徴収税（制作費 ¥{fmtNum(b.productionExclTax)}）</span>

@@ -47,6 +47,8 @@ export const COMPANY = {
   address1: "東京都港区南青山2-15-5",
   address2: "FARO1F",
   email: "info@adarch.co.jp",
+  // 適格請求書発行事業者 登録番号（T＋13桁）。未設定の場合は帳票に表示しない。
+  registrationNumber: "",
 } as const;
 
 // ----------------------------------------------------------------

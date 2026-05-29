@@ -28,6 +28,7 @@ export async function GET(
           ownerName: true,
           entityType: true,
           invoiceRegistered: true,
+          invoiceNumber: true,
           bankName: true,
           bankBranch: true,
           bankAccountType: true,

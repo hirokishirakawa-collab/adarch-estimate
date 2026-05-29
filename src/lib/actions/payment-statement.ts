@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { computeBreakdown } from "@/lib/payment-statement-calc";
+import { createInAppNotification } from "@/lib/notifications";
 
 // ---------------------------------------------------------------
 // ADMIN: 支払明細一覧
@@ -101,13 +102,13 @@ export async function createPaymentStatement(
   const itemsRaw = (formData.get("items") as string)?.trim() || "";
   const grossAmountRaw = (formData.get("grossAmount") as string)?.replace(/,/g, "").trim() || "";
   const commissionRateRaw = (formData.get("commissionRate") as string)?.trim() || "10";
-  const productionExpenseRaw = (formData.get("productionExpense") as string)?.replace(/,/g, "").trim() || "0";
+  const adMediaCostRaw = (formData.get("adMediaCost") as string)?.replace(/,/g, "").trim() || "0";
 
   if (!groupCompanyId) return { error: "支払先パートナーを選択してください" };
   if (!title) return { error: "件名を入力してください" };
 
   const commissionRate = parseFloat(commissionRateRaw) || 0;
-  const productionExpenseInput = parseInt(productionExpenseRaw, 10) || 0;
+  const adMediaCostInput = parseInt(adMediaCostRaw, 10) || 0;
 
   // クライアント別明細行（複数クライアントを1明細にまとめる場合）
   type ItemInput = { clientName: string; grossAmount: number; note: string | null };
@@ -144,7 +145,7 @@ export async function createPaymentStatement(
   const b = computeBreakdown({
     grossInclTax,
     commissionRate,
-    productionExclTax: productionExpenseInput,
+    adMediaCost: adMediaCostInput,
     isSoleProprietor: partner.entityType === "SOLE_PROPRIETOR",
     isInvoiceUnregistered: !partner.invoiceRegistered,
   });
@@ -161,7 +162,7 @@ export async function createPaymentStatement(
         grossAmount: b.grossInclTax,
         commissionRate: b.commissionRate,
         commissionAmount: b.commissionExclTax,
-        mediaExpense: b.mediaExclTax,
+        mediaExpense: b.adMediaCost,
         productionExpense: b.productionExclTax,
         withholdingTaxAmount: b.withholdingTaxAmount,
         nonDeductibleTaxAmount: b.nonDeductibleTaxAmount,
@@ -209,13 +210,15 @@ export async function updatePaymentStatementStatus(
   const info = await getSessionInfo();
   if (!info || info.role !== "ADMIN") return { error: "権限がありません" };
 
+  let statement: { groupCompanyId: string; title: string; netPaymentAmount: unknown } | null = null;
   try {
-    await db.paymentStatement.update({
+    statement = await db.paymentStatement.update({
       where: { id },
       data: {
         status: newStatus,
         ...(newStatus === "PAID" ? { paidAt: new Date() } : {}),
       },
+      select: { groupCompanyId: true, title: true, netPaymentAmount: true },
     });
     logAudit({
       action: `payment_statement_${newStatus.toLowerCase()}`,
@@ -228,6 +231,41 @@ export async function updatePaymentStatementStatus(
   } catch (e) {
     console.error("[updatePaymentStatementStatus] DB error:", e instanceof Error ? e.message : e);
     return { error: "更新に失敗しました" };
+  }
+
+  // パートナー（該当グループ会社所属ユーザー）へOS内お知らせ
+  if (statement) {
+    try {
+      const partnerUsers = await db.user.findMany({
+        where: { groupCompanyId: statement.groupCompanyId },
+        select: { id: true },
+      });
+      const net = Number(statement.netPaymentAmount).toLocaleString("ja-JP");
+      const payload =
+        newStatus === "CONFIRMED"
+          ? {
+              title: "支払明細が発行されました",
+              message: `「${statement.title}」の支払明細を確認できます。`,
+            }
+          : {
+              title: "お支払いが完了しました",
+              message: `「${statement.title}」（差引支払額 ¥${net}）を支払済みにしました。`,
+            };
+      await Promise.all(
+        partnerUsers.map((u) =>
+          createInAppNotification({
+            userId: u.id,
+            type: "SYSTEM",
+            title: payload.title,
+            message: payload.message,
+            linkUrl: "/dashboard/payments",
+          })
+        )
+      );
+    } catch (e) {
+      // 通知失敗はステータス変更の成功を妨げない
+      console.error("[updatePaymentStatementStatus] notify error:", e instanceof Error ? e.message : e);
+    }
   }
 
   revalidatePath("/dashboard/admin/payments");

@@ -102,6 +102,9 @@ export function IssuerBlock({ showAddress = true }: { showAddress?: boolean }) {
         </>
       )}
       <Text style={k.issuerLine}>{COMPANY.email}</Text>
+      {COMPANY.registrationNumber ? (
+        <Text style={k.issuerLine}>登録番号: {COMPANY.registrationNumber}</Text>
+      ) : null}
     </View>
   );
 }

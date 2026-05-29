@@ -53,6 +53,7 @@ const payment: PaymentStatementForPDF = {
     ownerName: "山田 太郎",
     entityType: "SOLE_PROPRIETOR",
     invoiceRegistered: true,
+    invoiceNumber: "T1234567890123",
     bankName: "みずほ銀行",
     bankBranch: "横浜支店",
     bankAccountType: "SAVINGS",
