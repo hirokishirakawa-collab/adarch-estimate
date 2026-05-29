@@ -24,6 +24,7 @@ export type PaymentStatementForPDF = {
   status: string;
   paidAt: Date | string | null;
   createdAt: Date | string;
+  items?: { clientName: string; grossAmount: number; note: string | null }[];
   groupCompany: {
     name: string;
     ownerName: string;
@@ -108,14 +109,21 @@ export function PaymentStatementPDFDocument({
   statement: PaymentStatementForPDF;
 }) {
   const gc = statement.groupCompany;
-  const rows: { label: string; amount: number; isDeduction?: boolean }[] = [
-    { label: "クライアント入金額（税込）", amount: statement.grossAmount },
-    {
-      label: `本部手数料（${statement.commissionRate}%）`,
-      amount: -statement.commissionAmount,
-      isDeduction: true,
-    },
-  ];
+  const hasItems = !!statement.items && statement.items.length > 0;
+  const rows: { label: string; amount: number; isDeduction?: boolean }[] = [];
+  if (hasItems) {
+    statement.items!.forEach((it) => {
+      rows.push({ label: `入金 — ${it.clientName}${it.note ? `（${it.note}）` : ""}`, amount: it.grossAmount });
+    });
+    rows.push({ label: "入金額合計（税込）", amount: statement.grossAmount });
+  } else {
+    rows.push({ label: "クライアント入金額（税込）", amount: statement.grossAmount });
+  }
+  rows.push({
+    label: `本部手数料（${statement.commissionRate}%）`,
+    amount: -statement.commissionAmount,
+    isDeduction: true,
+  });
   if (statement.mediaExpense > 0) {
     rows.push({ label: "うち媒体費（税抜・源泉対象外）", amount: statement.mediaExpense });
   }

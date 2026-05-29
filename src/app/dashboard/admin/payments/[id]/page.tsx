@@ -86,16 +86,40 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
         )}
       </div>
 
+      {/* クライアント別 入金内訳 */}
+      {s.items && s.items.length > 0 && (
+        <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden mb-4">
+          <div className="px-4 py-2.5 bg-zinc-50 border-b border-zinc-200">
+            <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+              クライアント別 入金内訳（{s.items.length}件）
+            </p>
+          </div>
+          <table className="w-full text-sm">
+            <tbody className="divide-y divide-zinc-100">
+              {s.items.map((it) => (
+                <tr key={it.id}>
+                  <td className="px-4 py-2.5 text-zinc-800">
+                    {it.clientName}
+                    {it.note && <span className="text-[11px] text-zinc-400 ml-2">{it.note}</span>}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-medium text-zinc-800">¥{fmtNum(it.grossAmount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* 金額明細 */}
       <div className="bg-white border border-zinc-200 rounded-xl p-5 mb-4 space-y-3">
-        {s.clientName && (
+        {s.clientName && (!s.items || s.items.length === 0) && (
           <div className="flex justify-between text-sm">
             <span className="text-zinc-500">クライアント</span>
             <span className="text-zinc-800 font-medium">{s.clientName}</span>
           </div>
         )}
         <div className="flex justify-between text-sm">
-          <span className="text-zinc-500">クライアント入金額（税込）</span>
+          <span className="text-zinc-500">クライアント入金額（税込）{s.items && s.items.length > 0 ? " 合計" : ""}</span>
           <span className="text-zinc-800 font-bold">¥{fmtNum(s.grossAmount)}</span>
         </div>
         <div className="flex justify-between text-sm">

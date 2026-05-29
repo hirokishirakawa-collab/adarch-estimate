@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Loader2, AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { Loader2, AlertTriangle, Plus, Trash2 } from "lucide-react";
 
 type Partner = {
   id: string;
@@ -15,6 +16,8 @@ interface Props {
   action: (prev: { error?: string } | null, formData: FormData) => Promise<{ error?: string }>;
   partners: Partner[];
 }
+
+type ClientRow = { clientName: string; grossAmount: number; note: string };
 
 function fmtNum(n: number): string {
   return n.toLocaleString("ja-JP");
@@ -42,7 +45,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
   const [state, formAction, isPending] = useActionState(action, null);
 
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
-  const [grossAmount, setGrossAmount] = useState(0);
+  const [rows, setRows] = useState<ClientRow[]>([{ clientName: "", grossAmount: 0, note: "" }]);
   const [commissionRate, setCommissionRate] = useState(10);
   const [mediaExpense, setMediaExpense] = useState(0);
   const [productionExpense, setProductionExpense] = useState(0);
@@ -52,14 +55,30 @@ export function PaymentStatementForm({ action, partners }: Props) {
   const isInvoiceUnregistered = partner ? !partner.invoiceRegistered : false;
   const isUnknownEntity = partner?.entityType === "UNKNOWN";
 
-  // 自動計算
-  const commissionAmount = Math.floor(grossAmount * commissionRate / 100);
+  // 入金額合計（クライアント行の和）
+  const grossAmount = rows.reduce((sum, r) => sum + (r.grossAmount || 0), 0);
+
+  // 自動計算（合計に対して）
+  const commissionAmount = Math.floor((grossAmount * commissionRate) / 100);
   const afterCommission = grossAmount - commissionAmount;
   const withholdingTaxAmount = isSoleProprietor ? calcWithholding(productionExpense) : 0;
   // 控除不可消費税: 手数料差引後の税抜額に対して計算
   const partnerAmountExclTax = Math.round(afterCommission / 1.1);
   const nonDeductibleTaxAmount = isInvoiceUnregistered ? calcNonDeductible(partnerAmountExclTax) : 0;
   const netPaymentAmount = afterCommission - withholdingTaxAmount - nonDeductibleTaxAmount;
+
+  const validRows = rows.filter((r) => r.clientName.trim() && r.grossAmount > 0);
+  const canSubmit = !!selectedPartnerId && validRows.length > 0;
+
+  function updateRow(idx: number, patch: Partial<ClientRow>) {
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
+  function addRow() {
+    setRows((prev) => [...prev, { clientName: "", grossAmount: 0, note: "" }]);
+  }
+  function removeRow(idx: number) {
+    setRows((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
+  }
 
   return (
     <form action={formAction} className="space-y-5 max-w-xl">
@@ -121,35 +140,74 @@ export function PaymentStatementForm({ action, partners }: Props) {
         <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
           件名<span className="text-red-500 ml-0.5">*</span>
         </label>
-        <input type="text" name="title" required maxLength={200} placeholder="例: ○○案件 支払明細" className={inputCls} />
+        <input type="text" name="title" required maxLength={200} placeholder="例: 2026年5月 グループ案件 支払明細" className={inputCls} />
       </div>
 
-      {/* クライアント名 */}
-      <div>
-        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">クライアント名</label>
-        <input type="text" name="clientName" maxLength={200} placeholder="例: ○○株式会社" className={inputCls} />
-      </div>
-
-      {/* 金額セクション */}
-      <div className="border border-zinc-200 rounded-xl p-4 space-y-4 bg-zinc-50">
-        <p className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">金額</p>
-
-        {/* 入金額 */}
-        <div>
-          <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-            クライアントからの入金額（税込）<span className="text-red-500 ml-0.5">*</span>
-          </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
-            <input
-              type="number" name="grossAmount" min={0} step={1} required
-              value={grossAmount === 0 ? "" : grossAmount}
-              onChange={(e) => setGrossAmount(Math.max(0, parseInt(e.target.value, 10) || 0))}
-              placeholder="0"
-              className={`${inputCls} pl-7`}
-            />
-          </div>
+      {/* クライアント明細行 */}
+      <div className="border border-zinc-200 rounded-xl p-4 space-y-3 bg-zinc-50">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">クライアント別 入金内訳</p>
+          <button
+            type="button"
+            onClick={addRow}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md hover:bg-emerald-100 transition-colors"
+          >
+            <Plus className="w-3 h-3" />
+            クライアントを追加
+          </button>
         </div>
+
+        <div className="space-y-2">
+          {rows.map((row, i) => (
+            <div key={i} className="flex gap-2 items-start">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={row.clientName}
+                  onChange={(e) => updateRow(i, { clientName: e.target.value })}
+                  maxLength={200}
+                  placeholder={`クライアント名${rows.length > 1 ? ` ${i + 1}` : ""}`}
+                  className={`${inputCls} text-xs`}
+                />
+              </div>
+              <div className="w-36">
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 text-xs">¥</span>
+                  <input
+                    type="number" min={0} step={1}
+                    value={row.grossAmount === 0 ? "" : row.grossAmount}
+                    onChange={(e) => updateRow(i, { grossAmount: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                    placeholder="入金額(税込)"
+                    className={`${inputCls} pl-6 text-xs`}
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeRow(i)}
+                disabled={rows.length <= 1}
+                className="mt-1.5 text-zinc-300 hover:text-red-500 disabled:opacity-30 disabled:hover:text-zinc-300 transition-colors"
+                aria-label="行を削除"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-between text-xs pt-2 border-t border-zinc-200">
+          <span className="text-zinc-600 font-semibold">入金額合計（税込）</span>
+          <span className="font-bold text-zinc-900">¥{fmtNum(grossAmount)}</span>
+        </div>
+
+        {/* 行データを JSON で送信 */}
+        <input type="hidden" name="items" value={JSON.stringify(validRows)} />
+        <input type="hidden" name="grossAmount" value={grossAmount} />
+      </div>
+
+      {/* 手数料・税セクション */}
+      <div className="border border-zinc-200 rounded-xl p-4 space-y-4 bg-zinc-50">
+        <p className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">手数料・控除</p>
 
         {/* 手数料率 */}
         <div className="grid grid-cols-2 gap-3">
@@ -163,22 +221,21 @@ export function PaymentStatementForm({ action, partners }: Props) {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-zinc-700 mb-1.5">手数料額</label>
+            <label className="block text-xs font-semibold text-zinc-700 mb-1.5">手数料額（合計に対して）</label>
             <p className="px-3 py-2 text-sm font-bold text-zinc-700 bg-white border border-zinc-200 rounded-lg">
               ¥{fmtNum(commissionAmount)}
             </p>
           </div>
         </div>
-        <input type="hidden" name="commissionAmount" value={commissionAmount} />
 
         {/* 媒体費 / 制作費 */}
         <div className="pt-3 border-t border-zinc-200 space-y-3">
           <p className="text-[11px] text-zinc-500">
-            源泉徴収は制作費に対してのみ適用されます（媒体費は対象外）
+            源泉徴収は制作費に対してのみ適用されます（媒体費は対象外）。複数クライアントの場合は合計額を入力してください。
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] text-zinc-500 mb-1">媒体費（税抜）</label>
+              <label className="block text-[11px] text-zinc-500 mb-1">媒体費 合計（税抜）</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
                 <input
@@ -191,7 +248,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
               </div>
             </div>
             <div>
-              <label className="block text-[11px] text-zinc-500 mb-1">制作費（税抜）</label>
+              <label className="block text-[11px] text-zinc-500 mb-1">制作費 合計（税抜）</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
                 <input
@@ -209,7 +266,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
         {/* 計算結果 */}
         <div className="pt-3 border-t border-zinc-200 space-y-2">
           <div className="flex justify-between text-xs">
-            <span className="text-zinc-600">クライアント入金額（税込）</span>
+            <span className="text-zinc-600">クライアント入金額 合計（税込）</span>
             <span className="font-medium">¥{fmtNum(grossAmount)}</span>
           </div>
           <div className="flex justify-between text-xs">
@@ -253,15 +310,15 @@ export function PaymentStatementForm({ action, partners }: Props) {
       {/* 送信 */}
       <div className="flex items-center gap-3 pt-2">
         <button
-          type="submit" disabled={isPending}
+          type="submit" disabled={isPending || !canSubmit}
           className="inline-flex items-center gap-1.5 px-5 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-60 transition-colors"
         >
           {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
           作成する
         </button>
-        <a href="/dashboard/admin/payments" className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-800 transition-colors">
+        <Link href="/dashboard/admin/payments" className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-800 transition-colors">
           キャンセル
-        </a>
+        </Link>
       </div>
     </form>
   );

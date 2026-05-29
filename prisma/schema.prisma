@@ -849,10 +849,37 @@ model PaymentStatement {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // ── クライアント別明細行（複数クライアントを1明細にまとめる場合）
+  items PaymentStatementItem[]
+
   @@index([groupCompanyId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@map("payment_statements")
+}
+
+// ==============================================================
+// PaymentStatementItem（支払明細のクライアント別行）
+// ==============================================================
+
+/// 1枚の支払明細に複数クライアント分の入金をまとめる際の明細行。
+/// 手数料率・媒体費・制作費・各種税は親 PaymentStatement 側で合計管理し、
+/// この行はクライアントごとの入金額（税込）の内訳を保持する。
+/// 行が無い明細は従来どおり親の clientName / grossAmount を単一クライアントとして扱う。
+model PaymentStatementItem {
+  id                 String           @id @default(cuid())
+  paymentStatementId String
+  paymentStatement   PaymentStatement @relation(fields: [paymentStatementId], references: [id], onDelete: Cascade)
+
+  clientName  String // クライアント名
+  grossAmount Decimal @db.Decimal(15, 0) // そのクライアントからの入金額（税込）
+  note        String? // 補足（案件名など）
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([paymentStatementId])
+  @@map("payment_statement_items")
 }
 
 // ==============================================================

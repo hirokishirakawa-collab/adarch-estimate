@@ -35,6 +35,7 @@ export async function GET(
           bankAccountHolder: true,
         },
       },
+      items: { orderBy: { sortOrder: "asc" } },
     },
   });
 
@@ -70,10 +71,15 @@ export async function GET(
       withholdingTaxAmount: Number(statement.withholdingTaxAmount),
       nonDeductibleTaxAmount: Number(statement.nonDeductibleTaxAmount),
       netPaymentAmount: Number(statement.netPaymentAmount),
+      items: statement.items.map((it) => ({
+        clientName: it.clientName,
+        grossAmount: Number(it.grossAmount),
+        note: it.note,
+      })),
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const buffer = await renderToBuffer(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       React.createElement(PaymentStatementPDFDocument, { statement: pdfData }) as any
     );
 

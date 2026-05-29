@@ -63,6 +63,7 @@ export async function getPaymentStatementById(id: string) {
       },
       invoiceRequest: { select: { id: true, subject: true } },
       createdBy: { select: { name: true } },
+      items: { orderBy: { sortOrder: "asc" } },
     },
   });
 
@@ -96,29 +97,52 @@ export async function createPaymentStatement(
   const clientName = (formData.get("clientName") as string)?.trim() || null;
   const description = (formData.get("description") as string)?.trim() || null;
   const invoiceRequestId = (formData.get("invoiceRequestId") as string)?.trim() || null;
+  const itemsRaw = (formData.get("items") as string)?.trim() || "";
   const grossAmountRaw = (formData.get("grossAmount") as string)?.replace(/,/g, "").trim();
   const commissionRateRaw = (formData.get("commissionRate") as string)?.trim() || "10";
   const mediaExpenseRaw = (formData.get("mediaExpense") as string)?.replace(/,/g, "").trim() || "0";
   const productionExpenseRaw = (formData.get("productionExpense") as string)?.replace(/,/g, "").trim() || "0";
-  const commissionAmountRaw = (formData.get("commissionAmount") as string)?.replace(/,/g, "").trim();
   const withholdingRaw = (formData.get("withholdingTaxAmount") as string)?.replace(/,/g, "").trim() || "0";
   const nonDeductibleRaw = (formData.get("nonDeductibleTaxAmount") as string)?.replace(/,/g, "").trim() || "0";
-  const netPaymentRaw = (formData.get("netPaymentAmount") as string)?.replace(/,/g, "").trim();
 
   if (!groupCompanyId) return { error: "支払先パートナーを選択してください" };
   if (!title) return { error: "件名を入力してください" };
   if (!grossAmountRaw) return { error: "入金額を入力してください" };
 
-  const grossAmount = parseInt(grossAmountRaw, 10);
   const commissionRate = parseFloat(commissionRateRaw);
-  const commissionAmount = parseInt(commissionAmountRaw || "0", 10);
   const mediaExpense = parseInt(mediaExpenseRaw, 10);
   const productionExpense = parseInt(productionExpenseRaw, 10);
   const withholdingTaxAmount = parseInt(withholdingRaw, 10);
   const nonDeductibleTaxAmount = parseInt(nonDeductibleRaw, 10);
-  const netPaymentAmount = parseInt(netPaymentRaw || "0", 10);
 
-  if (isNaN(grossAmount) || grossAmount <= 0) return { error: "入金額は正の整数で入力してください" };
+  // クライアント別明細行（複数クライアントを1明細にまとめる場合）
+  type ItemInput = { clientName: string; grossAmount: number; note: string | null };
+  let items: ItemInput[] = [];
+  if (itemsRaw) {
+    try {
+      const parsed = JSON.parse(itemsRaw) as Array<{ clientName?: string; grossAmount?: number | string; note?: string }>;
+      items = parsed
+        .map((r) => ({
+          clientName: String(r.clientName ?? "").trim(),
+          grossAmount: parseInt(String(r.grossAmount ?? "0").replace(/,/g, ""), 10) || 0,
+          note: ((r.note ?? "").toString().trim()) || null,
+        }))
+        .filter((r) => r.clientName && r.grossAmount > 0);
+    } catch {
+      return { error: "クライアント明細の形式が不正です" };
+    }
+  }
+
+  // 明細行がある場合は入金額合計を行から算出（整合性のため）。無い場合は単一入金額。
+  const grossAmount = items.length > 0
+    ? items.reduce((sum, r) => sum + r.grossAmount, 0)
+    : parseInt(grossAmountRaw || "0", 10);
+
+  if (isNaN(grossAmount) || grossAmount <= 0) return { error: "入金額を入力してください（クライアント明細を1件以上）" };
+
+  // サーバー側で合計から手数料・差引支払額を再計算（行の合計と必ず整合させる）
+  const commissionAmount = Math.floor((grossAmount * commissionRate) / 100);
+  const netPaymentAmount = grossAmount - commissionAmount - withholdingTaxAmount - nonDeductibleTaxAmount;
 
   let createdId = "";
   try {
@@ -138,6 +162,18 @@ export async function createPaymentStatement(
         nonDeductibleTaxAmount,
         netPaymentAmount,
         createdById: info.userId,
+        ...(items.length > 0
+          ? {
+              items: {
+                create: items.map((r, i) => ({
+                  clientName: r.clientName,
+                  grossAmount: r.grossAmount,
+                  note: r.note,
+                  sortOrder: i,
+                })),
+              },
+            }
+          : {}),
       },
     });
     createdId = created.id;
