@@ -142,8 +142,8 @@ export function PaymentStatementPDFDocument({
   rows.push({ label: "パートナー報酬（税抜）", amount: b.partnerFeeExclTax });
   rows.push({ label: "消費税（10%）", amount: b.partnerTax });
   rows.push({ label: "パートナー報酬（税込）", amount: b.partnerInclTax });
-  if (b.adMediaCost > 0) {
-    rows.push({ label: "広告媒体費（源泉対象外）", amount: -b.adMediaCost, isDeduction: true });
+  if (b.adMediaCostInclTax > 0) {
+    rows.push({ label: "広告媒体費（税込・源泉対象外）", amount: -b.adMediaCostInclTax, isDeduction: true });
   }
   if (b.withholdingTaxAmount > 0) {
     rows.push({ label: `源泉徴収税（制作費 ${fmtMoney(b.productionExclTax)}）`, amount: -b.withholdingTaxAmount, isDeduction: true });

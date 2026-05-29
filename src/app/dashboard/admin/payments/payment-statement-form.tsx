@@ -48,7 +48,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
   const b = computeBreakdown({
     grossInclTax,
     commissionRate,
-    adMediaCost,
+    adMediaCostInclTax: adMediaCost,
     isSoleProprietor: !!isSoleProprietor,
     isInvoiceUnregistered,
   });
@@ -218,9 +218,9 @@ export function PaymentStatementForm({ action, partners }: Props) {
           </div>
         </div>
 
-        {/* 広告媒体費（税抜・源泉対象外・支払から差引） */}
+        {/* 広告媒体費（税込・実際の請求額・源泉対象外・支払から差引） */}
         <div className="pt-3 border-t border-zinc-200 space-y-2">
-          <label className="block text-[11px] text-zinc-500">広告媒体費（税抜・源泉対象外）</label>
+          <label className="block text-[11px] text-zinc-500">広告媒体費（税込・実際の請求額）</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
             <input
@@ -232,7 +232,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
             />
           </div>
           <p className="text-[11px] text-zinc-400">
-            手数料控除後のパートナー報酬から差し引きます。残り（制作費 ¥{fmtNum(b.productionExclTax)}・税抜）が源泉徴収の対象になります。
+            媒体への実際の請求額（税込）を入力してください（例: 媒体費10万なら税込11万）。この税込額をパートナー報酬から差し引きます。残り（制作費 ¥{fmtNum(b.productionExclTax)}・税抜）が源泉徴収の対象です。
           </p>
         </div>
 
@@ -268,10 +268,10 @@ export function PaymentStatementForm({ action, partners }: Props) {
             <span className="font-medium">¥{fmtNum(b.partnerInclTax)}</span>
           </div>
 
-          {b.adMediaCost > 0 && (
+          {b.adMediaCostInclTax > 0 && (
             <div className="flex justify-between text-xs">
-              <span className="text-zinc-600">広告媒体費（源泉対象外）</span>
-              <span className="font-medium text-red-600">-¥{fmtNum(b.adMediaCost)}</span>
+              <span className="text-zinc-600">広告媒体費（税込・源泉対象外）</span>
+              <span className="font-medium text-red-600">-¥{fmtNum(b.adMediaCostInclTax)}</span>
             </div>
           )}
           {isSoleProprietor && b.withholdingTaxAmount > 0 && (

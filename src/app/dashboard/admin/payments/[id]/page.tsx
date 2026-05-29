@@ -161,10 +161,10 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
           <span className="text-zinc-800 font-medium">¥{fmtNum(b.partnerInclTax)}</span>
         </div>
 
-        {b.adMediaCost > 0 && (
+        {b.adMediaCostInclTax > 0 && (
           <div className="flex justify-between text-sm">
-            <span className="text-zinc-500">広告媒体費（源泉対象外）</span>
-            <span className="text-red-600 font-medium">-¥{fmtNum(b.adMediaCost)}</span>
+            <span className="text-zinc-500">広告媒体費（税込・源泉対象外）</span>
+            <span className="text-red-600 font-medium">-¥{fmtNum(b.adMediaCostInclTax)}</span>
           </div>
         )}
         {b.withholdingTaxAmount > 0 && (

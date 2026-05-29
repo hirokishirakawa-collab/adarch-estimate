@@ -35,9 +35,10 @@ export type BreakdownInput = {
   grossInclTax: number;
   /// 本部手数料率（%）
   commissionRate: number;
-  /// 広告媒体費（税抜・源泉対象外）。手数料控除後のパートナー報酬から差し引く。
-  /// 残り（報酬 − 広告媒体費）が源泉対象の制作費になる。
-  adMediaCost: number;
+  /// 広告媒体費（税込・実際の請求額・源泉対象外）。手数料控除後のパートナー報酬（税込）から差し引く。
+  /// 媒体は消費税込みで請求されるため、差引額は税込。源泉対象の制作費は
+  /// 「報酬税抜 − 媒体費税抜」で算出する。
+  adMediaCostInclTax: number;
   /// パートナーが個人事業主か（源泉徴収の対象判定）
   isSoleProprietor: boolean;
   /// パートナーがインボイス未登録か（控除不可消費税の判定）
@@ -56,8 +57,10 @@ export type Breakdown = {
   partnerFeeExclTax: number; // パートナー報酬（税抜）
   partnerTax: number; // パートナー分の消費税
   partnerInclTax: number; // パートナー報酬（税込）
-  adMediaCost: number; // 広告媒体費（税抜・源泉対象外・支払から差引）
-  productionExclTax: number; // 制作費（税抜・源泉対象）= 報酬 − 広告媒体費
+  adMediaCostInclTax: number; // 広告媒体費（税込・源泉対象外・支払から差引）
+  adMediaCostExclTax: number; // 広告媒体費（税抜）
+  adMediaCostTax: number; // 広告媒体費の消費税
+  productionExclTax: number; // 制作費（税抜・源泉対象）= 報酬税抜 − 媒体費税抜
   withholdingTaxAmount: number; // 源泉徴収税
   nonDeductibleTaxAmount: number; // 控除不可消費税
   netPaymentAmount: number; // 差引支払額
@@ -80,17 +83,20 @@ export function computeBreakdown(input: BreakdownInput): Breakdown {
   const partnerTax = grossTax - commissionTax;
   const partnerInclTax = partnerFeeExclTax + partnerTax;
 
-  // 広告媒体費（税抜・源泉対象外）は報酬税抜を上限にクランプ。残りが源泉対象の制作費。
-  const adMediaCost = Math.min(Math.max(0, Math.round(input.adMediaCost || 0)), partnerFeeExclTax);
-  const productionExclTax = partnerFeeExclTax - adMediaCost;
+  // 広告媒体費（税込・実際の請求額）はパートナー報酬税込を上限にクランプ。
+  const adMediaCostInclTax = Math.min(Math.max(0, Math.round(input.adMediaCostInclTax || 0)), partnerInclTax);
+  const adMediaCostExclTax = Math.round(adMediaCostInclTax / (1 + TAX_RATE));
+  const adMediaCostTax = adMediaCostInclTax - adMediaCostExclTax;
+  // 源泉対象の制作費（税抜）= 報酬税抜 − 媒体費税抜。マイナスにならないようクランプ。
+  const productionExclTax = Math.max(0, partnerFeeExclTax - adMediaCostExclTax);
 
   const withholdingTaxAmount = input.isSoleProprietor ? computeWithholding(productionExclTax) : 0;
   const nonDeductibleTaxAmount = input.isInvoiceUnregistered
     ? Math.floor(partnerTax * nonDeductibleRate(input.asOf ?? new Date()))
     : 0;
 
-  // 差引支払額 = パートナー報酬(税込) − 広告媒体費 − 源泉 − 控除不可
-  const netPaymentAmount = partnerInclTax - adMediaCost - withholdingTaxAmount - nonDeductibleTaxAmount;
+  // 差引支払額 = パートナー報酬(税込) − 広告媒体費(税込) − 源泉 − 控除不可
+  const netPaymentAmount = partnerInclTax - adMediaCostInclTax - withholdingTaxAmount - nonDeductibleTaxAmount;
 
   return {
     grossInclTax,
@@ -102,7 +108,9 @@ export function computeBreakdown(input: BreakdownInput): Breakdown {
     partnerFeeExclTax,
     partnerTax,
     partnerInclTax,
-    adMediaCost,
+    adMediaCostInclTax,
+    adMediaCostExclTax,
+    adMediaCostTax,
     productionExclTax,
     withholdingTaxAmount,
     nonDeductibleTaxAmount,
@@ -133,6 +141,9 @@ export function breakdownFromStored(s: StoredStatement): Breakdown {
   const partnerFeeExclTax = grossExclTax - commissionExclTax;
   const partnerTax = grossTax - commissionTax;
   const partnerInclTax = partnerFeeExclTax + partnerTax;
+  // 保存値: mediaExpense は広告媒体費（税込・差引額）
+  const adMediaCostInclTax = Math.round(s.mediaExpense || 0);
+  const adMediaCostExclTax = Math.round(adMediaCostInclTax / (1 + TAX_RATE));
   return {
     grossInclTax,
     grossExclTax,
@@ -143,7 +154,9 @@ export function breakdownFromStored(s: StoredStatement): Breakdown {
     partnerFeeExclTax,
     partnerTax,
     partnerInclTax,
-    adMediaCost: Math.round(s.mediaExpense || 0),
+    adMediaCostInclTax,
+    adMediaCostExclTax,
+    adMediaCostTax: adMediaCostInclTax - adMediaCostExclTax,
     productionExclTax: Math.round(s.productionExpense || 0),
     withholdingTaxAmount: Math.round(s.withholdingTaxAmount || 0),
     nonDeductibleTaxAmount: Math.round(s.nonDeductibleTaxAmount || 0),

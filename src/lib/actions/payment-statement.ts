@@ -145,7 +145,7 @@ export async function createPaymentStatement(
   const b = computeBreakdown({
     grossInclTax,
     commissionRate,
-    adMediaCost: adMediaCostInput,
+    adMediaCostInclTax: adMediaCostInput,
     isSoleProprietor: partner.entityType === "SOLE_PROPRIETOR",
     isInvoiceUnregistered: !partner.invoiceRegistered,
   });
@@ -162,7 +162,7 @@ export async function createPaymentStatement(
         grossAmount: b.grossInclTax,
         commissionRate: b.commissionRate,
         commissionAmount: b.commissionExclTax,
-        mediaExpense: b.adMediaCost,
+        mediaExpense: b.adMediaCostInclTax,
         productionExpense: b.productionExclTax,
         withholdingTaxAmount: b.withholdingTaxAmount,
         nonDeductibleTaxAmount: b.nonDeductibleTaxAmount,
