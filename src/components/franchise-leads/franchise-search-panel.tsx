@@ -237,12 +237,14 @@ export function FranchiseSearchPanel() {
       }
 
       const { scores, analyses } = (await scoreRes.json()) as {
-        scores: ScoreResult[];
-        analyses: Record<string, WebAnalysis>;
+        scores?: ScoreResult[];
+        analyses?: Record<string, WebAnalysis>;
       };
 
+      const scoreList = Array.isArray(scores) ? scores : [];
+
       const merged: ScoredPlace[] = places.map((place) => {
-        const s = findScoreByName(scores, place.name);
+        const s = findScoreByName(scoreList, place.name);
         return {
           ...place,
           score: s ?? {

@@ -114,7 +114,7 @@ ${placeSummary}
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: [
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],
@@ -163,7 +163,7 @@ ${placeSummary}
       return NextResponse.json({ error: "AIレスポンスのパースに失敗しました" }, { status: 500 });
     }
 
-    const scores = (toolBlock.input as { scores: unknown[] }).scores;
+    const scores = (toolBlock.input as { scores?: unknown[] }).scores ?? [];
 
     const analysisMap: Record<string, typeof analyses[number]> = {};
     const youtubeMap: Record<string, YouTubeChannelInfo | null> = {};
