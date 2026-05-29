@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Banknote, Download, AlertTriangle } from "lucide-react";
+import { Banknote, Download, AlertTriangle, Settings2 } from "lucide-react";
+import { auth } from "@/lib/auth";
+import type { UserRole } from "@/types/roles";
 import { getPaymentStatements } from "@/lib/actions/payment-statement";
 import { getMyBillingInfo } from "@/lib/actions/partner-billing";
 
@@ -18,10 +20,12 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 export default async function PaymentsPage() {
-  const [statements, billingInfo] = await Promise.all([
+  const [session, statements, billingInfo] = await Promise.all([
+    auth(),
     getPaymentStatements(),
     getMyBillingInfo(),
   ]);
+  const isAdmin = ((session?.user?.role ?? "USER") as UserRole) === "ADMIN";
 
   const needsSetup = billingInfo && (
     billingInfo.entityType === "UNKNOWN" ||
@@ -31,14 +35,25 @@ export default async function PaymentsPage() {
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
-          <Banknote className="text-emerald-600" style={{ width: "1.125rem", height: "1.125rem" }} />
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
+            <Banknote className="text-emerald-600" style={{ width: "1.125rem", height: "1.125rem" }} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-zinc-900">支払明細</h2>
+            <p className="text-xs text-zinc-500 mt-0.5">本部からの支払明細を確認できます</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-zinc-900">支払明細</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">本部からの支払明細を確認できます</p>
-        </div>
+        {isAdmin && (
+          <Link
+            href="/dashboard/admin/payments"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+            支払明細を作成・管理
+          </Link>
+        )}
       </div>
 
       {needsSetup && (
