@@ -1,5 +1,6 @@
 import { CreditCard } from "lucide-react";
 import { InvoiceRequestForm } from "@/components/billing/invoice-request-form";
+import { db } from "@/lib/db";
 import {
   getInvoiceRequestWithAuth,
   updateInvoiceRequest,
@@ -22,6 +23,13 @@ export default async function EditBillingRequestPage({ params }: Props) {
 
   const action = updateInvoiceRequest.bind(null, id);
 
+  // 複数拠点パートナーの県リスト（作成者の所属から）
+  const owner = await db.invoiceRequest.findUnique({
+    where: { id },
+    select: { branchLabel: true, createdBy: { select: { groupCompany: { select: { branchLabels: true } } } } },
+  });
+  const branchLabels = owner?.createdBy?.groupCompany?.branchLabels ?? [];
+
   return (
     <div className="px-6 py-6 max-w-2xl mx-auto w-full">
       <div className="flex items-center gap-3 mb-6">
@@ -43,6 +51,8 @@ export default async function EditBillingRequestPage({ params }: Props) {
           projects={projects}
           customers={customers}
           submitLabel="更新する"
+          branchLabels={branchLabels}
+          defaultBranchLabel={owner?.branchLabel ?? null}
           defaultValues={{
             subject:          request.subject,
             customerId:       request.customerId,

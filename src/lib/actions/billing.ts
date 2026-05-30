@@ -32,6 +32,7 @@ async function parseFormData(formData: FormData): Promise<
       ok: true;
       data: {
         subject: string;
+        branchLabel: string | null;
         customerId: string | null;
         contactName: string | null;
         contactEmail: string;
@@ -55,6 +56,7 @@ async function parseFormData(formData: FormData): Promise<
   | { ok: false; error: string }
 > {
   const subject        = (formData.get("subject")           as string)?.trim();
+  const branchLabel    = (formData.get("branchLabel")        as string)?.trim() || null;
   const customerId     = (formData.get("customerId")         as string)?.trim() || null;
   const contactName    = (formData.get("contactName")        as string)?.trim() || null;
   const contactEmail   = (formData.get("contactEmail")       as string)?.trim() || "";
@@ -111,7 +113,7 @@ async function parseFormData(formData: FormData): Promise<
   return {
     ok: true,
     data: {
-      subject, customerId, contactName, contactEmail, billingDate, dueDate,
+      subject, branchLabel, customerId, contactName, contactEmail, billingDate, dueDate,
       details, amountExclTax, taxAmount, amountInclTax,
       mediaExpense, productionExpense,
       withholdingTaxAmount, nonDeductibleTaxAmount, netPaymentAmount,
@@ -153,6 +155,7 @@ export async function createInvoiceRequest(
     const created = await db.invoiceRequest.create({
       data: {
         subject:          d.subject,
+        branchLabel:      d.branchLabel,
         customerId:       d.customerId,
         contactName:      d.contactName,
         contactEmail:     d.contactEmail,
@@ -233,6 +236,7 @@ export async function updateInvoiceRequest(
       where: { id: requestId },
       data: {
         subject:          d.subject,
+        branchLabel:      d.branchLabel,
         customerId:       d.customerId,
         contactName:      d.contactName,
         contactEmail:     d.contactEmail,

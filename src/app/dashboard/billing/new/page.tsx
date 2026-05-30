@@ -21,7 +21,7 @@ export default async function NewBillingRequestPage({ searchParams }: PageProps)
         where: { email },
         select: {
           groupCompany: {
-            select: { entityType: true, invoiceRegistered: true },
+            select: { entityType: true, invoiceRegistered: true, branchLabels: true },
           },
         },
       })
@@ -84,6 +84,7 @@ export default async function NewBillingRequestPage({ searchParams }: PageProps)
           defaultValues={defaults as Record<string, string | number | null> | undefined}
           isSoleProprietor={isSoleProprietor}
           isInvoiceUnregistered={isInvoiceUnregistered}
+          branchLabels={gc?.branchLabels ?? []}
         />
       </div>
     </div>

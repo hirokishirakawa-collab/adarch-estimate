@@ -31,6 +31,10 @@ export interface Props {
   isSoleProprietor?: boolean;
   /** パートナーがインボイス未登録かどうか */
   isInvoiceUnregistered?: boolean;
+  /** 複数拠点パートナーの県名（指定があれば県選択を必須表示） */
+  branchLabels?: string[];
+  /** 編集時の既存の県 */
+  defaultBranchLabel?: string | null;
 }
 
 function fmtNum(n: number): string {
@@ -177,8 +181,13 @@ export function InvoiceRequestForm({
   submitLabel = "申請する",
   isSoleProprietor = false,
   isInvoiceUnregistered = false,
+  branchLabels = [],
+  defaultBranchLabel = null,
 }: Props) {
   const [state, formAction, isPending] = useActionState(action, null);
+
+  const multiBranch = branchLabels.length > 1;
+  const [branchLabel, setBranchLabel] = useState(defaultBranchLabel ?? "");
 
   // ── プロジェクト選択
   const [selectedProjectId, setSelectedProjectId] = useState(defaultValues?.projectId ?? "");
@@ -248,6 +257,28 @@ export function InvoiceRequestForm({
       {state?.error && (
         <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
           {state.error}
+        </div>
+      )}
+
+      {/* ── 拠点（県）：複数拠点パートナーのみ。ロイヤリティの県別判定に使用 ── */}
+      {multiBranch && (
+        <div className="p-3 rounded-lg bg-indigo-50 border border-indigo-200">
+          <label className="block text-xs font-semibold text-indigo-800 mb-1.5">
+            拠点（県）<span className="text-red-500 ml-0.5">*</span>
+            <span className="font-normal text-indigo-500 ml-1">この請求がどの県の売上か</span>
+          </label>
+          <select
+            name="branchLabel"
+            value={branchLabel}
+            onChange={(e) => setBranchLabel(e.target.value)}
+            required
+            className={inputCls}
+          >
+            <option value="">県を選択してください</option>
+            {branchLabels.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
         </div>
       )}
 

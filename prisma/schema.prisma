@@ -753,6 +753,7 @@ model InvoiceRequest {
 
   // ── 請求情報
   subject      String // 件名
+  branchLabel  String? // 拠点ラベル（複数拠点パートナーの場合、この請求がどの県の売上か）。県別ロイヤリティ判定に使用
   contactName  String? // 請求先担当者名
   contactEmail String // 請求先担当者メールアドレス（必須）
   billingDate  DateTime // 請求日

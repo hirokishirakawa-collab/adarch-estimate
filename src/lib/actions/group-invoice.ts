@@ -9,7 +9,6 @@ import { createInAppNotification, notifyAdmins } from "@/lib/notifications";
 import {
   evaluatePartnerRoyalty,
   invoiceTotals,
-  monthKeyOf,
   MIN_ROYALTY_EXCL_TAX,
 } from "@/lib/royalty-monthly";
 
@@ -361,26 +360,31 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
     orderBy: { name: "asc" },
   });
 
-  // 確定/支払済みの支払明細（手数料原資）。基準日は入金日優先、なければ作成日。
-  const statements = await db.paymentStatement.findMany({
+  // 相殺の自動集計＝請求申請（提出済み）の税抜金額 × 10%。基準は請求日（billingDate）。
+  const [yy, mm] = month.split("-").map(Number);
+  const monthStart = new Date(yy, mm - 1, 1);
+  const monthEnd = new Date(yy, mm, 1);
+  const requests = await db.invoiceRequest.findMany({
     where: {
-      status: { in: ["CONFIRMED", "PAID"] },
-      ...(limitToGroupCompanyId ? { groupCompanyId: limitToGroupCompanyId } : {}),
+      status: { not: "DRAFT" },
+      billingDate: { gte: monthStart, lt: monthEnd },
+      ...(limitToGroupCompanyId ? { createdBy: { groupCompanyId: limitToGroupCompanyId } } : {}),
     },
-    select: { groupCompanyId: true, commissionAmount: true, branchLabel: true, paidAt: true, createdAt: true },
+    select: { amountExclTax: true, branchLabel: true, createdBy: { select: { groupCompanyId: true } } },
   });
 
-  // パートナー×月で手数料を集計（県別も）
+  const ROYALTY_RATE = 0.1; // 本部手数料率（ロイヤリティ原資）
   const totalByPartner = new Map<string, number>();
   const byPartnerLabel = new Map<string, Record<string, number>>();
-  for (const s of statements) {
-    if (monthKeyOf(s.paidAt ?? s.createdAt) !== month) continue;
-    const amt = Math.max(0, Math.round(Number(s.commissionAmount) || 0));
-    totalByPartner.set(s.groupCompanyId, (totalByPartner.get(s.groupCompanyId) ?? 0) + amt);
-    if (s.branchLabel) {
-      const m = byPartnerLabel.get(s.groupCompanyId) ?? {};
-      m[s.branchLabel] = (m[s.branchLabel] ?? 0) + amt;
-      byPartnerLabel.set(s.groupCompanyId, m);
+  for (const r of requests) {
+    const gc = r.createdBy?.groupCompanyId;
+    if (!gc) continue;
+    const commission = Math.floor(Math.max(0, Number(r.amountExclTax) || 0) * ROYALTY_RATE);
+    totalByPartner.set(gc, (totalByPartner.get(gc) ?? 0) + commission);
+    if (r.branchLabel) {
+      const m = byPartnerLabel.get(gc) ?? {};
+      m[r.branchLabel] = (m[r.branchLabel] ?? 0) + commission;
+      byPartnerLabel.set(gc, m);
     }
   }
 
