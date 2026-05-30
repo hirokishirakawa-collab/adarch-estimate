@@ -13,6 +13,8 @@ interface Company {
   ownerName: string;
   registeredName: string | null;
   branchLabels: string[];
+  royaltyMinExclTax: number | null;
+  royaltyExempt: boolean;
   entityType: EntityType;
   corporateNumber: string | null;
   invoiceNumber: string | null;
@@ -78,6 +80,11 @@ function ViewRow({ company: c, onEdit }: { company: Company; onEdit: () => void 
           {c.branchLabels.length > 1 && c.branchLabels.map((l) => (
             <span key={l} className="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded border bg-indigo-50 text-indigo-700 border-indigo-200">{l}</span>
           ))}
+          {c.royaltyExempt ? (
+            <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded border bg-zinc-100 text-zinc-500 border-zinc-200">R免除</span>
+          ) : c.royaltyMinExclTax != null && c.royaltyMinExclTax !== 50000 ? (
+            <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded border bg-violet-50 text-violet-700 border-violet-200">最低¥{c.royaltyMinExclTax.toLocaleString("ja-JP")}</span>
+          ) : null}
         </div>
         <p className="text-[11px] text-zinc-400">{c.ownerName}</p>
         {c.registeredName && (
@@ -159,6 +166,8 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
   const [isPending, startTransition] = useTransition();
   const [registeredName, setRegisteredName] = useState(c.registeredName ?? "");
   const [branchLabelsText, setBranchLabelsText] = useState((c.branchLabels ?? []).join("、"));
+  const [royaltyMinText, setRoyaltyMinText] = useState(c.royaltyMinExclTax != null ? String(c.royaltyMinExclTax) : "");
+  const [royaltyExempt, setRoyaltyExempt] = useState(c.royaltyExempt);
   const [entityType, setEntityType] = useState<EntityType>(c.entityType);
   const [corporateNumber, setCorporateNumber] = useState(c.corporateNumber ?? "");
   const [isLookingUp, setIsLookingUp] = useState(false);
@@ -196,6 +205,8 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
       await updatePartnerBillingInfo(c.id, {
         registeredName: registeredName || null,
         branchLabels: branchLabelsText.split(/[、,\s]+/).map((s) => s.trim()).filter(Boolean),
+        royaltyMinExclTax: royaltyMinText.trim() === "" ? null : Math.max(0, parseInt(royaltyMinText.replace(/,/g, ""), 10) || 0),
+        royaltyExempt,
         entityType,
         corporateNumber: corporateNumber || null,
         invoiceNumber: invoiceNumber || null,
@@ -237,7 +248,26 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
             placeholder="例: 山口、広島（単一拠点は空欄）"
             className={`${inputCls} mt-0.5`}
           />
-          <span className="text-[10px] text-zinc-400">県ごとに最低5万を独立判定</span>
+          <span className="text-[10px] text-zinc-400">県ごとに最低保証を独立判定</span>
+        </div>
+        <div className="mt-1.5 flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-zinc-500">最低保証¥</span>
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              value={royaltyMinText}
+              onChange={(e) => setRoyaltyMinText(e.target.value)}
+              placeholder="50000"
+              disabled={royaltyExempt}
+              className={`${inputCls} w-20 disabled:opacity-40`}
+            />
+          </div>
+          <label className="flex items-center gap-1 text-[10px] text-zinc-600">
+            <input type="checkbox" checked={royaltyExempt} onChange={(e) => setRoyaltyExempt(e.target.checked)} className="rounded border-zinc-300" />
+            免除
+          </label>
         </div>
       </td>
       <td className="px-4 py-3 space-y-1.5">

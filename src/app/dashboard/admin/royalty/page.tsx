@@ -39,7 +39,8 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
 
   const needBilling = rows.filter((r) => !r.isCovered && !r.invoice);
   const totalShortfall = needBilling.reduce((s, r) => s + r.shortfallExclTax, 0);
-  const coveredCount = rows.filter((r) => r.isCovered).length;
+  const coveredCount = rows.filter((r) => r.isCovered && !r.isExempt).length;
+  const exemptCount = rows.filter((r) => r.isExempt).length;
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
@@ -68,6 +69,7 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
         <div className="bg-emerald-50 border border-zinc-200 rounded-xl px-4 py-3">
           <p className="text-[11px] text-zinc-500 font-semibold">相殺済み（貢献層）</p>
           <p className="text-2xl font-bold text-emerald-700">{coveredCount}<span className="text-sm font-medium text-zinc-400 ml-1">社</span></p>
+          {exemptCount > 0 && <p className="text-[10px] text-zinc-400 mt-0.5">免除 {exemptCount}社（別枠）</p>}
         </div>
         <div className="bg-amber-50 border border-zinc-200 rounded-xl px-4 py-3">
           <p className="text-[11px] text-zinc-500 font-semibold">要請求（未達）</p>
@@ -117,10 +119,12 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
                       <p className="text-[10px] text-red-500 mt-1">⚠ 県未指定 ¥{r.untaggedCommissionExclTax.toLocaleString("ja-JP")}（支払明細に県を割当ててください）</p>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right text-zinc-500">¥{r.minRoyaltyExclTax.toLocaleString("ja-JP")}</td>
+                  <td className="px-4 py-3 text-right text-zinc-500">{r.isExempt ? <span className="text-zinc-300">免除</span> : `¥${r.minRoyaltyExclTax.toLocaleString("ja-JP")}`}</td>
                   <td className="px-4 py-3 text-right text-zinc-700">¥{r.commissionTotalExclTax.toLocaleString("ja-JP")}</td>
                   <td className="px-4 py-3 text-center">
-                    {r.isCovered ? (
+                    {r.isExempt ? (
+                      <span className="inline-block px-2 py-0.5 text-[11px] font-semibold rounded-full border bg-zinc-100 text-zinc-500 border-zinc-200">免除</span>
+                    ) : r.isCovered ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
                         <Sparkles className="w-3 h-3" />相殺済み
                       </span>
@@ -129,7 +133,7 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
                     )}
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-zinc-900">
-                    {r.isCovered ? <span className="text-zinc-300">—</span> : `¥${r.shortfallExclTax.toLocaleString("ja-JP")}`}
+                    {r.isCovered || r.isExempt ? <span className="text-zinc-300">—</span> : `¥${r.shortfallExclTax.toLocaleString("ja-JP")}`}
                   </td>
                   <td className="px-4 py-3 text-center">
                     {r.invoice ? (
@@ -139,6 +143,8 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
                           {(INVOICE_BADGE[r.invoice.status] ?? INVOICE_BADGE.DRAFT).label}
                         </span>
                       </Link>
+                    ) : r.isExempt ? (
+                      <span className="text-[11px] text-zinc-400">不要（免除）</span>
                     ) : r.isCovered ? (
                       <span className="text-[11px] text-zinc-400">不要</span>
                     ) : (

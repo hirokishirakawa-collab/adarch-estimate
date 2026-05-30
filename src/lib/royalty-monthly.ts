@@ -55,33 +55,42 @@ export type BranchRoyalty = {
 export type RoyaltyEvaluation = {
   commissionTotalExclTax: number;    // 当月の手数料(10%)合計（税抜・全県＋未振分）
   units: number;                     // 拠点数
-  minRoyaltyExclTax: number;         // 最低ロイヤリティ合計（税抜）= 5万 × 拠点数
+  perBranchMinExclTax: number;       // 県あたり（or単一）の最低保証（税抜）。免除なら0
+  minRoyaltyExclTax: number;         // 最低ロイヤリティ合計（税抜）= 県あたり最低保証 × 拠点数
   shortfallExclTax: number;          // 請求対象（県別不足の合計。相殺なし）
   isCovered: boolean;                // 全県クリアか
+  isExempt: boolean;                 // ロイヤリティ免除
   branches: BranchRoyalty[];         // 複数拠点のときの県別内訳。単一拠点は空
   untaggedCommissionExclTax: number; // 複数拠点で県未指定の手数料（floorに寄与しない・要再割当）
 };
 
 /// 県別に独立してロイヤリティを判定する（相殺なし）。
-/// - branchLabels が空 or 1件: 従来どおり合計に対して 5万 の最低保証を1回。
-/// - 2件以上: 県ごとに max(5万, その県の手数料) を独立評価し、不足を合算して請求対象とする。
+/// - minExclTax: 県あたり（or単一拠点）の最低保証。省略時は既定5万。代表ごとに個別設定可。
+/// - exempt: 免除なら最低保証0として扱い、請求は発生しない。
+/// - branchLabels が空 or 1件: 合計に対して最低保証を1回。2件以上: 県ごとに max(最低保証, その県の手数料) を独立評価。
 export function evaluatePartnerRoyalty(opts: {
   branchLabels: string[];
   commissionByLabel: Record<string, number>;
   totalCommissionExclTax: number;
+  minExclTax?: number;
+  exempt?: boolean;
 }): RoyaltyEvaluation {
   const labels = (opts.branchLabels ?? []).map((l) => (l ?? "").trim()).filter(Boolean);
   const total = Math.max(0, Math.round(opts.totalCommissionExclTax || 0));
+  const exempt = !!opts.exempt;
+  const perMin = exempt ? 0 : Math.max(0, Math.round(opts.minExclTax ?? MIN_ROYALTY_EXCL_TAX));
 
   // 単一拠点（従来挙動）
   if (labels.length <= 1) {
-    const shortfall = Math.max(0, MIN_ROYALTY_EXCL_TAX - total);
+    const shortfall = Math.max(0, perMin - total);
     return {
       commissionTotalExclTax: total,
       units: 1,
-      minRoyaltyExclTax: MIN_ROYALTY_EXCL_TAX,
+      perBranchMinExclTax: perMin,
+      minRoyaltyExclTax: perMin,
       shortfallExclTax: shortfall,
       isCovered: shortfall === 0,
+      isExempt: exempt,
       branches: [],
       untaggedCommissionExclTax: 0,
     };
@@ -92,16 +101,18 @@ export function evaluatePartnerRoyalty(opts: {
   const branches: BranchRoyalty[] = labels.map((label) => {
     const c = Math.max(0, Math.round(opts.commissionByLabel[label] || 0));
     taggedSum += c;
-    const shortfall = Math.max(0, MIN_ROYALTY_EXCL_TAX - c);
-    return { label, commissionExclTax: c, minExclTax: MIN_ROYALTY_EXCL_TAX, shortfallExclTax: shortfall, isCovered: shortfall === 0 };
+    const shortfall = Math.max(0, perMin - c);
+    return { label, commissionExclTax: c, minExclTax: perMin, shortfallExclTax: shortfall, isCovered: shortfall === 0 };
   });
   const shortfallTotal = branches.reduce((s, b) => s + b.shortfallExclTax, 0);
   return {
     commissionTotalExclTax: total,
     units: labels.length,
-    minRoyaltyExclTax: MIN_ROYALTY_EXCL_TAX * labels.length,
+    perBranchMinExclTax: perMin,
+    minRoyaltyExclTax: perMin * labels.length,
     shortfallExclTax: shortfallTotal,
     isCovered: shortfallTotal === 0,
+    isExempt: exempt,
     branches,
     untaggedCommissionExclTax: Math.max(0, total - taggedSum),
   };

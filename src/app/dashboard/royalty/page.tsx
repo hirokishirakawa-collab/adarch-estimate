@@ -47,13 +47,16 @@ export default async function PartnerRoyaltyPage() {
       {/* 直近3ヶ月のステータスカード */}
       <div className="space-y-3 mb-8">
         {monthRows.map(({ month, row }) => {
+          const exempt = row?.isExempt ?? false;
           const covered = row?.isCovered ?? false;
           const invoice = row?.invoice ?? null;
           return (
-            <div key={month} className={`rounded-xl border px-5 py-4 ${covered ? "bg-gradient-to-r from-emerald-50 to-white border-emerald-200" : "bg-white border-zinc-200"}`}>
+            <div key={month} className={`rounded-xl border px-5 py-4 ${covered && !exempt ? "bg-gradient-to-r from-emerald-50 to-white border-emerald-200" : "bg-white border-zinc-200"}`}>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-sm font-bold text-zinc-800">{fmtMonthLabel(month)}</p>
-                {covered ? (
+                {exempt ? (
+                  <span className="inline-block px-2.5 py-1 text-xs font-semibold rounded-full bg-zinc-100 text-zinc-500">対象外</span>
+                ) : covered ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700">
                     <Sparkles className="w-3.5 h-3.5" />最低保証クリア
                   </span>
@@ -66,7 +69,9 @@ export default async function PartnerRoyaltyPage() {
                 )}
               </div>
 
-              {covered ? (
+              {exempt ? (
+                <p className="text-sm text-zinc-500 mt-2">ロイヤリティのご請求対象外です。</p>
+              ) : covered ? (
                 <p className="text-sm text-emerald-800 mt-2">
                   今月もご貢献いただきありがとうございます。案件のお取り扱いが最低保証に達しているため、<span className="font-semibold">追加のロイヤリティのご請求はありません。</span>
                 </p>

@@ -1561,8 +1561,10 @@ model GroupCompany {
   isActive    Boolean           @default(true)
 
   // ---- 加盟内容 ----
-  membershipCount Int      @default(1) // 加盟拠点数（旧・単純倍率）。branchLabels があればそちらが優先
-  branchLabels    String[] @default([]) // 複数拠点の県名（例: ["山口","広島"]）。県ごとに独立して最低5万を判定。単一拠点は空
+  membershipCount   Int      @default(1) // 加盟拠点数（旧・単純倍率）。branchLabels があればそちらが優先
+  branchLabels      String[] @default([]) // 複数拠点の県名（例: ["山口","広島"]）。県ごとに独立して最低保証を判定。単一拠点は空
+  royaltyMinExclTax Int?     // 月額ロイヤリティ最低保証（税抜）。null=既定5万。複数拠点なら各県にこの額を適用
+  royaltyExempt     Boolean  @default(false) // ロイヤリティ免除（請求しない）
 
   // ---- 法人区分・経理情報 ----
   registeredName    String?         // 登記名（正式な法人名 or 屋号）

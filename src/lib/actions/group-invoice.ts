@@ -335,6 +335,7 @@ export type RoyaltyOverviewRow = {
   commissionTotalExclTax: number; // 当月の手数料(10%)合計（税抜）
   shortfallExclTax: number;       // 請求差額（税抜・県別不足の合計）
   isCovered: boolean;             // 全県クリア（貢献感謝）
+  isExempt: boolean;              // ロイヤリティ免除
   branches: { label: string; commissionExclTax: number; shortfallExclTax: number; isCovered: boolean }[]; // 県別内訳（単一拠点は空）
   untaggedCommissionExclTax: number; // 県未指定の手数料（要再割当）
   invoice: { id: string; invoiceNo: string; status: string; totalInclTax: number } | null;
@@ -354,7 +355,7 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
 
   const partners = await db.groupCompany.findMany({
     where: { isActive: true, ...(limitToGroupCompanyId ? { id: limitToGroupCompanyId } : {}) },
-    select: { id: true, name: true, ownerName: true, branchLabels: true },
+    select: { id: true, name: true, ownerName: true, branchLabels: true, royaltyMinExclTax: true, royaltyExempt: true },
     orderBy: { name: "asc" },
   });
 
@@ -394,6 +395,8 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
       branchLabels: p.branchLabels,
       commissionByLabel: byPartnerLabel.get(p.id) ?? {},
       totalCommissionExclTax: total,
+      minExclTax: p.royaltyMinExclTax ?? undefined,
+      exempt: p.royaltyExempt,
     });
     const inv = invoiceByPartner.get(p.id);
     return {
@@ -405,6 +408,7 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
       commissionTotalExclTax: evald.commissionTotalExclTax,
       shortfallExclTax: evald.shortfallExclTax,
       isCovered: evald.isCovered,
+      isExempt: evald.isExempt,
       branches: evald.branches.map((b) => ({ label: b.label, commissionExclTax: b.commissionExclTax, shortfallExclTax: b.shortfallExclTax, isCovered: b.isCovered })),
       untaggedCommissionExclTax: evald.untaggedCommissionExclTax,
       invoice: inv
@@ -426,6 +430,7 @@ export async function createRoyaltyInvoiceForMonth(
   const row = rows.find((r) => r.groupCompanyId === groupCompanyId);
   if (!row) return { error: "対象パートナーが見つかりません" };
   if (row.invoice) return { error: "当月の請求書は既に存在します", id: row.invoice.id };
+  if (row.isExempt) return { error: "この代表はロイヤリティ免除のため請求書は不要です" };
   if (row.isCovered || row.shortfallExclTax <= 0) {
     return { error: "相殺済み（最低保証クリア）のため請求書は不要です" };
   }

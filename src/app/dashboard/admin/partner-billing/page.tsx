@@ -18,6 +18,8 @@ export default async function AdminPartnerBillingPage() {
       ownerName: true,
       registeredName: true,
       branchLabels: true,
+      royaltyMinExclTax: true,
+      royaltyExempt: true,
       entityType: true,
       corporateNumber: true,
       invoiceNumber: true,

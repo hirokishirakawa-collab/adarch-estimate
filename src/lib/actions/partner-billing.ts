@@ -8,6 +8,8 @@ import { logAudit } from "@/lib/audit";
 interface BillingInfo {
   registeredName?: string | null;
   branchLabels?: string[];
+  royaltyMinExclTax?: number | null;
+  royaltyExempt?: boolean;
   entityType: "CORPORATION" | "SOLE_PROPRIETOR" | "UNKNOWN";
   corporateNumber: string | null;
   invoiceNumber: string | null;
@@ -41,6 +43,10 @@ export async function updatePartnerBillingInfo(
               membershipCount: Math.max(1, data.branchLabels.map((l) => l.trim()).filter(Boolean).length || 1),
             }
           : {}),
+        ...(data.royaltyMinExclTax !== undefined
+          ? { royaltyMinExclTax: data.royaltyMinExclTax == null ? null : Math.max(0, Math.round(data.royaltyMinExclTax)) }
+          : {}),
+        ...(data.royaltyExempt !== undefined ? { royaltyExempt: data.royaltyExempt } : {}),
         entityType: data.entityType,
         corporateNumber: data.corporateNumber,
         invoiceNumber: data.invoiceNumber,
