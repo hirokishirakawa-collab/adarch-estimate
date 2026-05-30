@@ -43,27 +43,67 @@ export function aggregateCommissionByMonth(
   return map;
 }
 
-export type RoyaltyEvaluation = {
-  commissionTotalExclTax: number; // 当月の案件由来 本部手数料(10%) 合計（税抜）
-  units: number;                  // 加盟拠点数
-  minRoyaltyExclTax: number;      // 最低ロイヤリティ（税抜）= 5万 × 拠点数
-  shortfallExclTax: number;       // 差額（税抜）= 請求対象。0 なら相殺済み
-  isCovered: boolean;             // true: 相殺済み（貢献感謝）/ false: 要請求
+/// 県（拠点）ごとのロイヤリティ内訳。
+export type BranchRoyalty = {
+  label: string;             // 県名（例: 山口）
+  commissionExclTax: number; // その県の当月手数料（10%・税抜）
+  minExclTax: number;        // その県の最低保証（5万・税抜）
+  shortfallExclTax: number;  // その県の不足（税抜）
+  isCovered: boolean;        // その県が相殺済みか
 };
 
-/// 当月の手数料合計(税抜)から、相殺済みか／請求差額(税抜)を判定する。
-/// units = 加盟拠点数。最低保証は 5万 × 拠点数（2拠点加盟なら10万）。
-export function evaluateMonthlyRoyalty(commissionTotalExclTax: number, units = 1): RoyaltyEvaluation {
-  const commission = Math.max(0, Math.round(commissionTotalExclTax || 0));
-  const unitCount = Math.max(1, Math.round(units || 1));
-  const minRoyalty = MIN_ROYALTY_EXCL_TAX * unitCount;
-  const shortfall = Math.max(0, minRoyalty - commission);
+export type RoyaltyEvaluation = {
+  commissionTotalExclTax: number;    // 当月の手数料(10%)合計（税抜・全県＋未振分）
+  units: number;                     // 拠点数
+  minRoyaltyExclTax: number;         // 最低ロイヤリティ合計（税抜）= 5万 × 拠点数
+  shortfallExclTax: number;          // 請求対象（県別不足の合計。相殺なし）
+  isCovered: boolean;                // 全県クリアか
+  branches: BranchRoyalty[];         // 複数拠点のときの県別内訳。単一拠点は空
+  untaggedCommissionExclTax: number; // 複数拠点で県未指定の手数料（floorに寄与しない・要再割当）
+};
+
+/// 県別に独立してロイヤリティを判定する（相殺なし）。
+/// - branchLabels が空 or 1件: 従来どおり合計に対して 5万 の最低保証を1回。
+/// - 2件以上: 県ごとに max(5万, その県の手数料) を独立評価し、不足を合算して請求対象とする。
+export function evaluatePartnerRoyalty(opts: {
+  branchLabels: string[];
+  commissionByLabel: Record<string, number>;
+  totalCommissionExclTax: number;
+}): RoyaltyEvaluation {
+  const labels = (opts.branchLabels ?? []).map((l) => (l ?? "").trim()).filter(Boolean);
+  const total = Math.max(0, Math.round(opts.totalCommissionExclTax || 0));
+
+  // 単一拠点（従来挙動）
+  if (labels.length <= 1) {
+    const shortfall = Math.max(0, MIN_ROYALTY_EXCL_TAX - total);
+    return {
+      commissionTotalExclTax: total,
+      units: 1,
+      minRoyaltyExclTax: MIN_ROYALTY_EXCL_TAX,
+      shortfallExclTax: shortfall,
+      isCovered: shortfall === 0,
+      branches: [],
+      untaggedCommissionExclTax: 0,
+    };
+  }
+
+  // 複数拠点：県ごとに独立判定
+  let taggedSum = 0;
+  const branches: BranchRoyalty[] = labels.map((label) => {
+    const c = Math.max(0, Math.round(opts.commissionByLabel[label] || 0));
+    taggedSum += c;
+    const shortfall = Math.max(0, MIN_ROYALTY_EXCL_TAX - c);
+    return { label, commissionExclTax: c, minExclTax: MIN_ROYALTY_EXCL_TAX, shortfallExclTax: shortfall, isCovered: shortfall === 0 };
+  });
+  const shortfallTotal = branches.reduce((s, b) => s + b.shortfallExclTax, 0);
   return {
-    commissionTotalExclTax: commission,
-    units: unitCount,
-    minRoyaltyExclTax: minRoyalty,
-    shortfallExclTax: shortfall,
-    isCovered: shortfall === 0,
+    commissionTotalExclTax: total,
+    units: labels.length,
+    minRoyaltyExclTax: MIN_ROYALTY_EXCL_TAX * labels.length,
+    shortfallExclTax: shortfallTotal,
+    isCovered: shortfallTotal === 0,
+    branches,
+    untaggedCommissionExclTax: Math.max(0, total - taggedSum),
   };
 }
 

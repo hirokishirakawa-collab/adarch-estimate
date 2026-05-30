@@ -97,6 +97,7 @@ export async function createPaymentStatement(
   const groupCompanyId = (formData.get("groupCompanyId") as string)?.trim();
   const title = (formData.get("title") as string)?.trim();
   const clientName = (formData.get("clientName") as string)?.trim() || null;
+  const branchLabel = (formData.get("branchLabel") as string)?.trim() || null;
   const description = (formData.get("description") as string)?.trim() || null;
   const invoiceRequestId = (formData.get("invoiceRequestId") as string)?.trim() || null;
   const itemsRaw = (formData.get("items") as string)?.trim() || "";
@@ -158,6 +159,7 @@ export async function createPaymentStatement(
         invoiceRequestId: invoiceRequestId || null,
         title,
         clientName,
+        branchLabel,
         description,
         grossAmount: b.grossInclTax,
         commissionRate: b.commissionRate,
@@ -347,6 +349,7 @@ export async function getPartnersForSelect() {
       ownerName: true,
       entityType: true,
       invoiceRegistered: true,
+      branchLabels: true,
     },
     orderBy: { name: "asc" },
   });

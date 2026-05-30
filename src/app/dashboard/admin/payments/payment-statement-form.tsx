@@ -11,6 +11,7 @@ type Partner = {
   ownerName: string;
   entityType: string;
   invoiceRegistered: boolean;
+  branchLabels?: string[];
 };
 
 interface Props {
@@ -32,11 +33,13 @@ export function PaymentStatementForm({ action, partners }: Props) {
   const [state, formAction, isPending] = useActionState(action, null);
 
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  const [branchLabel, setBranchLabel] = useState("");
   const [rows, setRows] = useState<ClientRow[]>([{ clientName: "", grossAmount: 0, note: "" }]);
   const [commissionRate, setCommissionRate] = useState(10);
   const [adMediaCost, setAdMediaCost] = useState(0);
 
   const partner = partners.find((p) => p.id === selectedPartnerId);
+  const multiBranch = (partner?.branchLabels?.length ?? 0) > 1;
   const isSoleProprietor = partner?.entityType === "SOLE_PROPRIETOR";
   const isInvoiceUnregistered = partner ? !partner.invoiceRegistered : false;
   const isUnknownEntity = partner?.entityType === "UNKNOWN";
@@ -54,7 +57,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
   });
 
   const validRows = rows.filter((r) => r.clientName.trim() && r.grossAmount > 0);
-  const canSubmit = !!selectedPartnerId && validRows.length > 0;
+  const canSubmit = !!selectedPartnerId && validRows.length > 0 && (!multiBranch || !!branchLabel);
 
   function updateRow(idx: number, patch: Partial<ClientRow>) {
     setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
@@ -82,7 +85,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
         <select
           name="groupCompanyId"
           value={selectedPartnerId}
-          onChange={(e) => setSelectedPartnerId(e.target.value)}
+          onChange={(e) => { setSelectedPartnerId(e.target.value); setBranchLabel(""); }}
           required
           className={inputCls}
         >
@@ -117,6 +120,28 @@ export function PaymentStatementForm({ action, partners }: Props) {
           <div className="flex items-center gap-1.5 mt-2 text-[11px] text-red-600">
             <AlertTriangle className="w-3 h-3" />
             法人区分が未確認です。先にパートナー経理管理で設定してください。
+          </div>
+        )}
+
+        {/* 複数拠点パートナー: この入金がどの県の売上か（県別ロイヤリティ判定に使用） */}
+        {multiBranch && (
+          <div className="mt-3 p-3 rounded-lg bg-indigo-50 border border-indigo-200">
+            <label className="block text-[11px] font-semibold text-indigo-800 mb-1">
+              拠点（県）<span className="text-red-500 ml-0.5">*</span>
+              <span className="font-normal text-indigo-500 ml-1">この入金がどの県の売上か（県別ロイヤリティ判定に使用）</span>
+            </label>
+            <select
+              name="branchLabel"
+              value={branchLabel}
+              onChange={(e) => setBranchLabel(e.target.value)}
+              required
+              className={inputCls}
+            >
+              <option value="">県を選択してください</option>
+              {partner!.branchLabels!.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
           </div>
         )}
       </div>

@@ -104,6 +104,18 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
                       )}
                     </div>
                     <p className="text-[11px] text-zinc-400">{r.ownerName}</p>
+                    {r.branches.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {r.branches.map((b) => (
+                          <span key={b.label} className={`inline-block px-1.5 py-0.5 text-[10px] rounded border ${b.isCovered ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                            {b.label} ¥{b.commissionExclTax.toLocaleString("ja-JP")}{b.isCovered ? " ✓" : ` → 要¥${b.shortfallExclTax.toLocaleString("ja-JP")}`}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {r.untaggedCommissionExclTax > 0 && (
+                      <p className="text-[10px] text-red-500 mt-1">⚠ 県未指定 ¥{r.untaggedCommissionExclTax.toLocaleString("ja-JP")}（支払明細に県を割当ててください）</p>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right text-zinc-500">¥{r.minRoyaltyExclTax.toLocaleString("ja-JP")}</td>
                   <td className="px-4 py-3 text-right text-zinc-700">¥{r.commissionTotalExclTax.toLocaleString("ja-JP")}</td>

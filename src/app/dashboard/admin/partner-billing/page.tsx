@@ -17,7 +17,7 @@ export default async function AdminPartnerBillingPage() {
       name: true,
       ownerName: true,
       registeredName: true,
-      membershipCount: true,
+      branchLabels: true,
       entityType: true,
       corporateNumber: true,
       invoiceNumber: true,

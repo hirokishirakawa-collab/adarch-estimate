@@ -837,6 +837,7 @@ model PaymentStatement {
   // ── 明細情報
   title         String  // 件名（例: ○○案件 支払明細）
   clientName    String? // クライアント名（参照用）
+  branchLabel   String? // 拠点ラベル（複数拠点パートナーの場合、この入金がどの県の売上か）。県別ロイヤリティ判定に使用
   description   String? @db.Text // 備考
 
   // ── 金額
@@ -1560,7 +1561,8 @@ model GroupCompany {
   isActive    Boolean           @default(true)
 
   // ---- 加盟内容 ----
-  membershipCount Int @default(1) // 加盟拠点数（最低ロイヤリティ＝拠点数×5万）
+  membershipCount Int      @default(1) // 加盟拠点数（旧・単純倍率）。branchLabels があればそちらが優先
+  branchLabels    String[] @default([]) // 複数拠点の県名（例: ["山口","広島"]）。県ごとに独立して最低5万を判定。単一拠点は空
 
   // ---- 法人区分・経理情報 ----
   registeredName    String?         // 登記名（正式な法人名 or 屋号）

@@ -12,7 +12,7 @@ interface Company {
   name: string;
   ownerName: string;
   registeredName: string | null;
-  membershipCount: number;
+  branchLabels: string[];
   entityType: EntityType;
   corporateNumber: string | null;
   invoiceNumber: string | null;
@@ -73,11 +73,11 @@ function ViewRow({ company: c, onEdit }: { company: Company; onEdit: () => void 
   return (
     <tr className="hover:bg-zinc-50/50">
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <p className="font-medium text-zinc-900">{c.name}</p>
-          {c.membershipCount > 1 && (
-            <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded border bg-indigo-50 text-indigo-700 border-indigo-200">{c.membershipCount}拠点</span>
-          )}
+          {c.branchLabels.length > 1 && c.branchLabels.map((l) => (
+            <span key={l} className="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded border bg-indigo-50 text-indigo-700 border-indigo-200">{l}</span>
+          ))}
         </div>
         <p className="text-[11px] text-zinc-400">{c.ownerName}</p>
         {c.registeredName && (
@@ -158,7 +158,7 @@ function ViewRow({ company: c, onEdit }: { company: Company; onEdit: () => void 
 function EditRow({ company: c, onDone }: { company: Company; onDone: () => void }) {
   const [isPending, startTransition] = useTransition();
   const [registeredName, setRegisteredName] = useState(c.registeredName ?? "");
-  const [membershipCount, setMembershipCount] = useState(c.membershipCount ?? 1);
+  const [branchLabelsText, setBranchLabelsText] = useState((c.branchLabels ?? []).join("、"));
   const [entityType, setEntityType] = useState<EntityType>(c.entityType);
   const [corporateNumber, setCorporateNumber] = useState(c.corporateNumber ?? "");
   const [isLookingUp, setIsLookingUp] = useState(false);
@@ -195,7 +195,7 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
     startTransition(async () => {
       await updatePartnerBillingInfo(c.id, {
         registeredName: registeredName || null,
-        membershipCount,
+        branchLabels: branchLabelsText.split(/[、,\s]+/).map((s) => s.trim()).filter(Boolean),
         entityType,
         corporateNumber: corporateNumber || null,
         invoiceNumber: invoiceNumber || null,
@@ -228,16 +228,16 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
           className={`${inputCls} mt-1`}
         />
         {isLookingUp && <p className="text-[10px] text-indigo-500">法人名を取得中...</p>}
-        <div className="flex items-center gap-1.5 mt-1.5">
-          <span className="text-[10px] text-zinc-500">加盟拠点数</span>
+        <div className="mt-1.5">
+          <span className="text-[10px] text-zinc-500">拠点（県・複数拠点のみ）</span>
           <input
-            type="number"
-            min={1}
-            value={membershipCount}
-            onChange={(e) => setMembershipCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
-            className={`${inputCls} w-14`}
+            type="text"
+            value={branchLabelsText}
+            onChange={(e) => setBranchLabelsText(e.target.value)}
+            placeholder="例: 山口、広島（単一拠点は空欄）"
+            className={`${inputCls} mt-0.5`}
           />
-          <span className="text-[10px] text-zinc-400">×5万＝最低保証</span>
+          <span className="text-[10px] text-zinc-400">県ごとに最低5万を独立判定</span>
         </div>
       </td>
       <td className="px-4 py-3 space-y-1.5">
