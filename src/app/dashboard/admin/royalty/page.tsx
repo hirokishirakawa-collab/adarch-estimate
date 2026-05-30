@@ -7,6 +7,7 @@ import { getMonthlyRoyaltyOverview } from "@/lib/actions/group-invoice";
 import { MIN_ROYALTY_EXCL_TAX } from "@/lib/royalty-monthly";
 import { CreateRoyaltyInvoiceButton } from "./create-royalty-invoice-button";
 import { RoyaltyAdjust } from "./royalty-adjust";
+import { RoyaltyExemptToggle } from "./royalty-exempt-toggle";
 
 const INVOICE_BADGE: Record<string, { label: string; cls: string }> = {
   DRAFT: { label: "下書き", cls: "bg-zinc-100 text-zinc-600 border-zinc-200" },
@@ -143,19 +144,26 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
                     {r.isCovered || r.isExempt ? <span className="text-zinc-300">—</span> : `¥${r.shortfallExclTax.toLocaleString("ja-JP")}`}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {r.invoice ? (
-                      <Link href={`/dashboard/admin/group-invoices/${r.invoice.id}`} className="inline-flex items-center gap-1.5">
-                        <span className="text-[11px] font-mono text-indigo-600 hover:underline">{r.invoice.invoiceNo}</span>
-                        <span className={`inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded border ${(INVOICE_BADGE[r.invoice.status] ?? INVOICE_BADGE.DRAFT).cls}`}>
-                          {(INVOICE_BADGE[r.invoice.status] ?? INVOICE_BADGE.DRAFT).label}
-                        </span>
-                      </Link>
-                    ) : r.isExempt ? (
-                      <span className="text-[11px] text-zinc-400">不要（免除）</span>
-                    ) : r.isCovered ? (
-                      <span className="text-[11px] text-zinc-400">不要</span>
+                    {r.isExemptPermanent ? (
+                      <span className="text-[11px] text-zinc-400">不要（恒久免除）</span>
                     ) : (
-                      <CreateRoyaltyInvoiceButton groupCompanyId={r.groupCompanyId} month={month} />
+                      <div className="flex flex-col items-center gap-1">
+                        {r.invoice ? (
+                          <Link href={`/dashboard/admin/group-invoices/${r.invoice.id}`} className="inline-flex items-center gap-1.5">
+                            <span className="text-[11px] font-mono text-indigo-600 hover:underline">{r.invoice.invoiceNo}</span>
+                            <span className={`inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded border ${(INVOICE_BADGE[r.invoice.status] ?? INVOICE_BADGE.DRAFT).cls}`}>
+                              {(INVOICE_BADGE[r.invoice.status] ?? INVOICE_BADGE.DRAFT).label}
+                            </span>
+                          </Link>
+                        ) : r.isMonthExempt ? (
+                          <span className="text-[11px] text-zinc-400">今月免除</span>
+                        ) : r.isCovered ? (
+                          <span className="text-[11px] text-zinc-400">不要</span>
+                        ) : (
+                          <CreateRoyaltyInvoiceButton groupCompanyId={r.groupCompanyId} month={month} />
+                        )}
+                        <RoyaltyExemptToggle groupCompanyId={r.groupCompanyId} month={month} isMonthExempt={r.isMonthExempt} />
+                      </div>
                     )}
                   </td>
                 </tr>

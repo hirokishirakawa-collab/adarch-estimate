@@ -981,7 +981,8 @@ model RoyaltyAdjustment {
 
   month       String // 対象月（"2026-05"）
   branchLabel String @default("") // 県名。単一拠点は ""
-  commissionExclTax Int // 手入力の相殺額（手数料相当・税抜）
+  commissionExclTax Int @default(0) // 手入力の相殺額（手数料相当・税抜）
+  exempt      Boolean @default(false) // その月の免除（branchLabel="" の行で月全体を免除）
   note        String?
 
   createdById String // 入力者（監査用・スカラ）

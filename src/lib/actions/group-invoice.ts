@@ -334,7 +334,9 @@ export type RoyaltyOverviewRow = {
   commissionTotalExclTax: number; // 当月の手数料(10%)合計（税抜）
   shortfallExclTax: number;       // 請求差額（税抜・県別不足の合計）
   isCovered: boolean;             // 全県クリア（貢献感謝）
-  isExempt: boolean;              // ロイヤリティ免除
+  isExempt: boolean;              // ロイヤリティ免除（恒久 or 当月）
+  isExemptPermanent: boolean;     // 恒久免除（経理管理設定）
+  isMonthExempt: boolean;         // 当月のみ免除（ワンボタン）
   branches: { label: string; commissionExclTax: number; shortfallExclTax: number; isCovered: boolean }[]; // 県別内訳（単一拠点は空）
   untaggedCommissionExclTax: number; // 県未指定の手数料（要再割当）
   branchLabels: string[];         // 県名（手入力UI用。単一拠点は空）
@@ -398,10 +400,12 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
   // 手入力の相殺調整（自動集計を上書き）
   const adjustments = await db.royaltyAdjustment.findMany({
     where: { month, ...(limitToGroupCompanyId ? { groupCompanyId: limitToGroupCompanyId } : {}) },
-    select: { groupCompanyId: true, branchLabel: true, commissionExclTax: true },
+    select: { groupCompanyId: true, branchLabel: true, commissionExclTax: true, exempt: true },
   });
   const overrideByPartner = new Map<string, Record<string, number>>();
+  const monthExemptByPartner = new Set<string>();
   for (const a of adjustments) {
+    if (a.branchLabel === "" && a.exempt) monthExemptByPartner.add(a.groupCompanyId);
     const m = overrideByPartner.get(a.groupCompanyId) ?? {};
     m[a.branchLabel] = a.commissionExclTax;
     overrideByPartner.set(a.groupCompanyId, m);
@@ -426,12 +430,13 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
       total = ov[""] != null ? ov[""] : autoTotal;
     }
 
+    const monthExempt = monthExemptByPartner.has(p.id);
     const evald = evaluatePartnerRoyalty({
       branchLabels: p.branchLabels,
       commissionByLabel,
       totalCommissionExclTax: total,
       minExclTax: p.royaltyMinExclTax ?? undefined,
-      exempt: p.royaltyExempt,
+      exempt: p.royaltyExempt || monthExempt,
     });
     const inv = invoiceByPartner.get(p.id);
     return {
@@ -444,6 +449,8 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
       shortfallExclTax: evald.shortfallExclTax,
       isCovered: evald.isCovered,
       isExempt: evald.isExempt,
+      isExemptPermanent: p.royaltyExempt,
+      isMonthExempt: monthExempt,
       branches: evald.branches.map((b) => ({ label: b.label, commissionExclTax: b.commissionExclTax, shortfallExclTax: b.shortfallExclTax, isCovered: b.isCovered })),
       untaggedCommissionExclTax: evald.untaggedCommissionExclTax,
       branchLabels: labels,
@@ -563,7 +570,19 @@ export async function setRoyaltyAdjustment(
   const label = (branchLabel ?? "").trim();
   try {
     if (amount == null || amount < 0) {
-      await db.royaltyAdjustment.deleteMany({ where: { groupCompanyId, month, branchLabel: label } });
+      // 免除フラグが立つ行は消さず金額のみ0に。それ以外は行ごと削除（自動集計へ戻す）。
+      const existing = await db.royaltyAdjustment.findUnique({
+        where: { groupCompanyId_month_branchLabel: { groupCompanyId, month, branchLabel: label } },
+        select: { exempt: true },
+      });
+      if (existing?.exempt) {
+        await db.royaltyAdjustment.update({
+          where: { groupCompanyId_month_branchLabel: { groupCompanyId, month, branchLabel: label } },
+          data: { commissionExclTax: 0 },
+        });
+      } else {
+        await db.royaltyAdjustment.deleteMany({ where: { groupCompanyId, month, branchLabel: label } });
+      }
     } else {
       const value = Math.round(amount);
       await db.royaltyAdjustment.upsert({
@@ -582,6 +601,53 @@ export async function setRoyaltyAdjustment(
     });
   } catch (e) {
     console.error("[setRoyaltyAdjustment] DB error:", e instanceof Error ? e.message : e);
+    return { error: "保存に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/admin/royalty");
+  return {};
+}
+
+// ---------------------------------------------------------------
+// ロイヤリティ 当月免除のワンボタン（ADMIN）。事情免除をその月だけ反映。
+// ---------------------------------------------------------------
+export async function toggleRoyaltyMonthExempt(
+  groupCompanyId: string,
+  month: string,
+  exempt: boolean,
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return { error: "権限がありません" };
+  if (!/^\d{4}-\d{2}$/.test(month)) return { error: "対象月が不正です" };
+
+  const key = { groupCompanyId_month_branchLabel: { groupCompanyId, month, branchLabel: "" } };
+  try {
+    if (exempt) {
+      await db.royaltyAdjustment.upsert({
+        where: key,
+        create: { groupCompanyId, month, branchLabel: "", commissionExclTax: 0, exempt: true, createdById: info.userId },
+        update: { exempt: true },
+      });
+    } else {
+      const existing = await db.royaltyAdjustment.findUnique({ where: key, select: { commissionExclTax: true } });
+      if (existing) {
+        if (existing.commissionExclTax > 0) {
+          await db.royaltyAdjustment.update({ where: key, data: { exempt: false } });
+        } else {
+          await db.royaltyAdjustment.deleteMany({ where: { groupCompanyId, month, branchLabel: "" } });
+        }
+      }
+    }
+    logAudit({
+      action: "royalty_month_exempt",
+      email: info.email,
+      name: info.staffName,
+      entity: "royalty_adjustment",
+      entityId: `${groupCompanyId}:${month}`,
+      detail: exempt ? `当月免除ON（${month}）` : `当月免除OFF（${month}）`,
+    });
+  } catch (e) {
+    console.error("[toggleRoyaltyMonthExempt] DB error:", e instanceof Error ? e.message : e);
     return { error: "保存に失敗しました" };
   }
 
