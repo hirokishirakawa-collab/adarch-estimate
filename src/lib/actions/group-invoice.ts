@@ -338,6 +338,8 @@ export type RoyaltyOverviewRow = {
   isExempt: boolean;              // ロイヤリティ免除
   branches: { label: string; commissionExclTax: number; shortfallExclTax: number; isCovered: boolean }[]; // 県別内訳（単一拠点は空）
   untaggedCommissionExclTax: number; // 県未指定の手数料（要再割当）
+  branchLabels: string[];         // 県名（手入力UI用。単一拠点は空）
+  manualOverrides: Record<string, number>; // 手入力の相殺額（key=県名 or "" 単一）
   invoice: { id: string; invoiceNo: string; status: string; totalInclTax: number } | null;
 };
 
@@ -389,11 +391,40 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
   });
   const invoiceByPartner = new Map(invoices.map((i) => [i.groupCompanyId, i]));
 
+  // 手入力の相殺調整（自動集計を上書き）
+  const adjustments = await db.royaltyAdjustment.findMany({
+    where: { month, ...(limitToGroupCompanyId ? { groupCompanyId: limitToGroupCompanyId } : {}) },
+    select: { groupCompanyId: true, branchLabel: true, commissionExclTax: true },
+  });
+  const overrideByPartner = new Map<string, Record<string, number>>();
+  for (const a of adjustments) {
+    const m = overrideByPartner.get(a.groupCompanyId) ?? {};
+    m[a.branchLabel] = a.commissionExclTax;
+    overrideByPartner.set(a.groupCompanyId, m);
+  }
+
   return partners.map((p) => {
-    const total = totalByPartner.get(p.id) ?? 0;
+    const labels = (p.branchLabels ?? []).filter(Boolean);
+    const autoByLabel = byPartnerLabel.get(p.id) ?? {};
+    const autoTotal = totalByPartner.get(p.id) ?? 0;
+    const ov = overrideByPartner.get(p.id) ?? {};
+    const hasOverride = Object.keys(ov).length > 0;
+
+    // 手入力があればそれで上書き（無い県は自動集計）
+    let commissionByLabel: Record<string, number> = autoByLabel;
+    let total = autoTotal;
+    if (labels.length > 1) {
+      const eff: Record<string, number> = {};
+      for (const l of labels) eff[l] = ov[l] ?? autoByLabel[l] ?? 0;
+      commissionByLabel = eff;
+      total = hasOverride ? Object.values(eff).reduce((s, v) => s + v, 0) : autoTotal;
+    } else {
+      total = ov[""] != null ? ov[""] : autoTotal;
+    }
+
     const evald = evaluatePartnerRoyalty({
       branchLabels: p.branchLabels,
-      commissionByLabel: byPartnerLabel.get(p.id) ?? {},
+      commissionByLabel,
       totalCommissionExclTax: total,
       minExclTax: p.royaltyMinExclTax ?? undefined,
       exempt: p.royaltyExempt,
@@ -411,6 +442,8 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
       isExempt: evald.isExempt,
       branches: evald.branches.map((b) => ({ label: b.label, commissionExclTax: b.commissionExclTax, shortfallExclTax: b.shortfallExclTax, isCovered: b.isCovered })),
       untaggedCommissionExclTax: evald.untaggedCommissionExclTax,
+      branchLabels: labels,
+      manualOverrides: ov,
       invoice: inv
         ? { id: inv.id, invoiceNo: inv.invoiceNo, status: inv.status, totalInclTax: Number(inv.totalInclTax) }
         : null,
@@ -507,4 +540,47 @@ export async function createRoyaltyInvoiceForMonth(
   revalidatePath("/dashboard/admin/group-invoices");
   revalidatePath("/dashboard/admin/royalty");
   return { id: createdId };
+}
+
+// ---------------------------------------------------------------
+// ロイヤリティ相殺の手入力調整（ADMIN）。
+//   amount=null/空 → 削除（自動集計に戻す）。branchLabel="" は単一拠点。
+// ---------------------------------------------------------------
+export async function setRoyaltyAdjustment(
+  groupCompanyId: string,
+  month: string,
+  branchLabel: string,
+  amount: number | null,
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return { error: "権限がありません" };
+  if (!/^\d{4}-\d{2}$/.test(month)) return { error: "対象月が不正です" };
+
+  const label = (branchLabel ?? "").trim();
+  try {
+    if (amount == null || amount < 0) {
+      await db.royaltyAdjustment.deleteMany({ where: { groupCompanyId, month, branchLabel: label } });
+    } else {
+      const value = Math.round(amount);
+      await db.royaltyAdjustment.upsert({
+        where: { groupCompanyId_month_branchLabel: { groupCompanyId, month, branchLabel: label } },
+        create: { groupCompanyId, month, branchLabel: label, commissionExclTax: value, createdById: info.userId },
+        update: { commissionExclTax: value, createdById: info.userId },
+      });
+    }
+    logAudit({
+      action: "royalty_adjustment_set",
+      email: info.email,
+      name: info.staffName,
+      entity: "royalty_adjustment",
+      entityId: `${groupCompanyId}:${month}:${label || "(単一)"}`,
+      detail: amount == null ? "相殺手入力を削除（自動集計へ）" : `相殺手入力 ¥${Math.round(amount).toLocaleString()}${label ? `（${label}）` : ""}`,
+    });
+  } catch (e) {
+    console.error("[setRoyaltyAdjustment] DB error:", e instanceof Error ? e.message : e);
+    return { error: "保存に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/admin/royalty");
+  return {};
 }

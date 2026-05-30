@@ -969,6 +969,29 @@ model GroupInvoiceItem {
   @@map("group_invoice_items")
 }
 
+/// ロイヤリティ相殺の手入力調整。
+/// 支払明細の自動集計を上書きする「その月・その県の手数料相当額（相殺額）」。
+/// branchLabel="" は単一拠点（パートナー全体）。複数拠点は県ごとに1行。
+model RoyaltyAdjustment {
+  id String @id @default(cuid())
+
+  groupCompanyId String
+  groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
+
+  month       String // 対象月（"2026-05"）
+  branchLabel String @default("") // 県名。単一拠点は ""
+  commissionExclTax Int // 手入力の相殺額（手数料相当・税抜）
+  note        String?
+
+  createdById String // 入力者（監査用・スカラ）
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([groupCompanyId, month, branchLabel])
+  @@index([groupCompanyId, month])
+  @@map("royalty_adjustments")
+}
+
 // ==============================================================
 // EstimationTemplate（標準単価マスタ）
 // ==============================================================
@@ -1621,6 +1644,7 @@ model GroupCompany {
 
   // ---- グループ請求書（本部→当社への請求） ----
   groupInvoices        GroupInvoice[]
+  royaltyAdjustments   RoyaltyAdjustment[]
 
   @@index([phase])
   @@map("group_companies")

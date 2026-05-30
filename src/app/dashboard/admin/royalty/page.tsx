@@ -6,6 +6,7 @@ import type { UserRole } from "@/types/roles";
 import { getMonthlyRoyaltyOverview } from "@/lib/actions/group-invoice";
 import { MIN_ROYALTY_EXCL_TAX } from "@/lib/royalty-monthly";
 import { CreateRoyaltyInvoiceButton } from "./create-royalty-invoice-button";
+import { RoyaltyAdjust } from "./royalty-adjust";
 
 const INVOICE_BADGE: Record<string, { label: string; cls: string }> = {
   DRAFT: { label: "下書き", cls: "bg-zinc-100 text-zinc-600 border-zinc-200" },
@@ -120,7 +121,13 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
                     )}
                   </td>
                   <td className="px-4 py-3 text-right text-zinc-500">{r.isExempt ? <span className="text-zinc-300">免除</span> : `¥${r.minRoyaltyExclTax.toLocaleString("ja-JP")}`}</td>
-                  <td className="px-4 py-3 text-right text-zinc-700">¥{r.commissionTotalExclTax.toLocaleString("ja-JP")}</td>
+                  <td className="px-4 py-3 text-zinc-700">
+                    {r.isExempt ? (
+                      <span className="block text-right">¥{r.commissionTotalExclTax.toLocaleString("ja-JP")}</span>
+                    ) : (
+                      <RoyaltyAdjust groupCompanyId={r.groupCompanyId} month={month} branchLabels={r.branchLabels} manualOverrides={r.manualOverrides} effectiveTotal={r.commissionTotalExclTax} />
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     {r.isExempt ? (
                       <span className="inline-block px-2 py-0.5 text-[11px] font-semibold rounded-full border bg-zinc-100 text-zinc-500 border-zinc-200">免除</span>
