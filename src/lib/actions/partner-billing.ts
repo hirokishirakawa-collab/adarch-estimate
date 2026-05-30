@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 
 interface BillingInfo {
   registeredName?: string | null;
+  membershipCount?: number;
   entityType: "CORPORATION" | "SOLE_PROPRIETOR" | "UNKNOWN";
   corporateNumber: string | null;
   invoiceNumber: string | null;
@@ -34,6 +35,7 @@ export async function updatePartnerBillingInfo(
       where: { id: companyId },
       data: {
         ...(data.registeredName !== undefined ? { registeredName: data.registeredName } : {}),
+        ...(data.membershipCount !== undefined ? { membershipCount: Math.max(1, Math.round(data.membershipCount || 1)) } : {}),
         entityType: data.entityType,
         corporateNumber: data.corporateNumber,
         invoiceNumber: data.invoiceNumber,

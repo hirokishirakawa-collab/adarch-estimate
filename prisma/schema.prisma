@@ -1559,6 +1559,9 @@ model GroupCompany {
   memo        String?           @db.Text // 本部メモ
   isActive    Boolean           @default(true)
 
+  // ---- 加盟内容 ----
+  membershipCount Int @default(1) // 加盟拠点数（最低ロイヤリティ＝拠点数×5万）
+
   // ---- 法人区分・経理情報 ----
   registeredName    String?         // 登記名（正式な法人名 or 屋号）
   entityType        EntityType      @default(UNKNOWN) // 法人 / 個人事業主 / 未確認

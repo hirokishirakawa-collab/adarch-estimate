@@ -12,6 +12,7 @@ interface Company {
   name: string;
   ownerName: string;
   registeredName: string | null;
+  membershipCount: number;
   entityType: EntityType;
   corporateNumber: string | null;
   invoiceNumber: string | null;
@@ -72,7 +73,12 @@ function ViewRow({ company: c, onEdit }: { company: Company; onEdit: () => void 
   return (
     <tr className="hover:bg-zinc-50/50">
       <td className="px-4 py-3">
-        <p className="font-medium text-zinc-900">{c.name}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="font-medium text-zinc-900">{c.name}</p>
+          {c.membershipCount > 1 && (
+            <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded border bg-indigo-50 text-indigo-700 border-indigo-200">{c.membershipCount}拠点</span>
+          )}
+        </div>
         <p className="text-[11px] text-zinc-400">{c.ownerName}</p>
         {c.registeredName && (
           <p className="text-[11px] text-indigo-500">{c.registeredName}</p>
@@ -152,6 +158,7 @@ function ViewRow({ company: c, onEdit }: { company: Company; onEdit: () => void 
 function EditRow({ company: c, onDone }: { company: Company; onDone: () => void }) {
   const [isPending, startTransition] = useTransition();
   const [registeredName, setRegisteredName] = useState(c.registeredName ?? "");
+  const [membershipCount, setMembershipCount] = useState(c.membershipCount ?? 1);
   const [entityType, setEntityType] = useState<EntityType>(c.entityType);
   const [corporateNumber, setCorporateNumber] = useState(c.corporateNumber ?? "");
   const [isLookingUp, setIsLookingUp] = useState(false);
@@ -188,6 +195,7 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
     startTransition(async () => {
       await updatePartnerBillingInfo(c.id, {
         registeredName: registeredName || null,
+        membershipCount,
         entityType,
         corporateNumber: corporateNumber || null,
         invoiceNumber: invoiceNumber || null,
@@ -220,6 +228,17 @@ function EditRow({ company: c, onDone }: { company: Company; onDone: () => void 
           className={`${inputCls} mt-1`}
         />
         {isLookingUp && <p className="text-[10px] text-indigo-500">法人名を取得中...</p>}
+        <div className="flex items-center gap-1.5 mt-1.5">
+          <span className="text-[10px] text-zinc-500">加盟拠点数</span>
+          <input
+            type="number"
+            min={1}
+            value={membershipCount}
+            onChange={(e) => setMembershipCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            className={`${inputCls} w-14`}
+          />
+          <span className="text-[10px] text-zinc-400">×5万＝最低保証</span>
+        </div>
       </td>
       <td className="px-4 py-3 space-y-1.5">
         <select

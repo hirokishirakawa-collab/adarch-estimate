@@ -86,6 +86,7 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
             <thead>
               <tr className="bg-zinc-50 border-b border-zinc-200">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600">パートナー</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-600">最低保証（税抜）</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-600">当月手数料（10%・税抜）</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-zinc-600">判定</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-600">請求差額（税抜）</th>
@@ -96,9 +97,15 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
               {rows.map((r) => (
                 <tr key={r.groupCompanyId} className="hover:bg-zinc-50/50">
                   <td className="px-4 py-3">
-                    <p className="text-sm text-zinc-800">{r.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm text-zinc-800">{r.name}</p>
+                      {r.units > 1 && (
+                        <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded border bg-indigo-50 text-indigo-700 border-indigo-200">{r.units}拠点</span>
+                      )}
+                    </div>
                     <p className="text-[11px] text-zinc-400">{r.ownerName}</p>
                   </td>
+                  <td className="px-4 py-3 text-right text-zinc-500">¥{r.minRoyaltyExclTax.toLocaleString("ja-JP")}</td>
                   <td className="px-4 py-3 text-right text-zinc-700">¥{r.commissionTotalExclTax.toLocaleString("ja-JP")}</td>
                   <td className="px-4 py-3 text-center">
                     {r.isCovered ? (
@@ -129,7 +136,7 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-zinc-400">対象パートナーがいません</td></tr>
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-zinc-400">対象パートナーがいません</td></tr>
               )}
             </tbody>
           </table>

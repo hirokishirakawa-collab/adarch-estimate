@@ -330,6 +330,8 @@ export type RoyaltyOverviewRow = {
   groupCompanyId: string;
   name: string;
   ownerName: string;
+  units: number;                  // 加盟拠点数
+  minRoyaltyExclTax: number;      // 最低ロイヤリティ（税抜）= 5万 × 拠点数
   commissionTotalExclTax: number; // 当月の手数料(10%)合計（税抜）
   shortfallExclTax: number;       // 請求差額（税抜）
   isCovered: boolean;             // 相殺済み（貢献感謝）
@@ -350,7 +352,7 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
 
   const partners = await db.groupCompany.findMany({
     where: { isActive: true, ...(limitToGroupCompanyId ? { id: limitToGroupCompanyId } : {}) },
-    select: { id: true, name: true, ownerName: true },
+    select: { id: true, name: true, ownerName: true, membershipCount: true },
     orderBy: { name: "asc" },
   });
 
@@ -380,12 +382,14 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
 
   return partners.map((p) => {
     const commission = commissionByPartner.get(p.id) ?? 0;
-    const evald = evaluateMonthlyRoyalty(commission);
+    const evald = evaluateMonthlyRoyalty(commission, p.membershipCount);
     const inv = invoiceByPartner.get(p.id);
     return {
       groupCompanyId: p.id,
       name: p.name,
       ownerName: p.ownerName,
+      units: evald.units,
+      minRoyaltyExclTax: evald.minRoyaltyExclTax,
       commissionTotalExclTax: commission,
       shortfallExclTax: evald.shortfallExclTax,
       isCovered: evald.isCovered,
@@ -414,7 +418,8 @@ export async function createRoyaltyInvoiceForMonth(
 
   const totals = invoiceTotals(row.shortfallExclTax);
   const [y, m] = month.split("-");
-  const title = `${y}年${parseInt(m, 10)}月分 ロイヤリティ`;
+  const unitsSuffix = row.units > 1 ? `（${row.units}拠点）` : "";
+  const title = `${y}年${parseInt(m, 10)}月分 ロイヤリティ${unitsSuffix}`;
 
   let createdId = "";
   const year = new Date().getFullYear();
@@ -427,15 +432,15 @@ export async function createRoyaltyInvoiceForMonth(
           type: "ROYALTY",
           title,
           targetMonth: month,
-          description: `最低保証ロイヤリティ ¥${MIN_ROYALTY_EXCL_TAX.toLocaleString()}（税抜）と当月の案件由来手数料 ¥${row.commissionTotalExclTax.toLocaleString()}（税抜）の差額です。`,
+          description: `最低保証ロイヤリティ ¥${row.minRoyaltyExclTax.toLocaleString()}（税抜${row.units > 1 ? `・${row.units}拠点 × ¥${MIN_ROYALTY_EXCL_TAX.toLocaleString()}` : ""}）と当月の案件由来手数料 ¥${row.commissionTotalExclTax.toLocaleString()}（税抜）の差額です。`,
           subtotalExclTax: totals.subtotalExclTax,
           taxAmount: totals.taxAmount,
           totalInclTax: totals.totalInclTax,
           createdById: info.userId,
           items: {
             create: [{
-              name: `月額ロイヤリティ（最低保証差額・${y}年${parseInt(m, 10)}月分）`,
-              detail: `最低保証 ¥${MIN_ROYALTY_EXCL_TAX.toLocaleString()} − 案件手数料 ¥${row.commissionTotalExclTax.toLocaleString()}`,
+              name: `月額ロイヤリティ（最低保証差額・${y}年${parseInt(m, 10)}月分${unitsSuffix}）`,
+              detail: `最低保証 ¥${row.minRoyaltyExclTax.toLocaleString()} − 案件手数料 ¥${row.commissionTotalExclTax.toLocaleString()}`,
               quantity: 1,
               unitPrice: totals.subtotalExclTax,
               amount: totals.subtotalExclTax,

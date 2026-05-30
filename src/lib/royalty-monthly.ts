@@ -45,18 +45,23 @@ export function aggregateCommissionByMonth(
 
 export type RoyaltyEvaluation = {
   commissionTotalExclTax: number; // 当月の案件由来 本部手数料(10%) 合計（税抜）
-  minRoyaltyExclTax: number;      // 最低ロイヤリティ（税抜）
+  units: number;                  // 加盟拠点数
+  minRoyaltyExclTax: number;      // 最低ロイヤリティ（税抜）= 5万 × 拠点数
   shortfallExclTax: number;       // 差額（税抜）= 請求対象。0 なら相殺済み
   isCovered: boolean;             // true: 相殺済み（貢献感謝）/ false: 要請求
 };
 
 /// 当月の手数料合計(税抜)から、相殺済みか／請求差額(税抜)を判定する。
-export function evaluateMonthlyRoyalty(commissionTotalExclTax: number): RoyaltyEvaluation {
+/// units = 加盟拠点数。最低保証は 5万 × 拠点数（2拠点加盟なら10万）。
+export function evaluateMonthlyRoyalty(commissionTotalExclTax: number, units = 1): RoyaltyEvaluation {
   const commission = Math.max(0, Math.round(commissionTotalExclTax || 0));
-  const shortfall = Math.max(0, MIN_ROYALTY_EXCL_TAX - commission);
+  const unitCount = Math.max(1, Math.round(units || 1));
+  const minRoyalty = MIN_ROYALTY_EXCL_TAX * unitCount;
+  const shortfall = Math.max(0, minRoyalty - commission);
   return {
     commissionTotalExclTax: commission,
-    minRoyaltyExclTax: MIN_ROYALTY_EXCL_TAX,
+    units: unitCount,
+    minRoyaltyExclTax: minRoyalty,
     shortfallExclTax: shortfall,
     isCovered: shortfall === 0,
   };
