@@ -327,6 +327,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "MANAGER",
       },
       {
+        href: "/dashboard/royalty",
+        label: "ロイヤリティ",
+        icon: Sparkles,
+        minRole: "MANAGER",
+      },
+      {
         href: "/dashboard/billing/settings",
         label: "経理情報の登録",
         icon: Building2,
@@ -532,6 +538,18 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/admin/payments",
         label: "支払明細管理",
         icon: Banknote,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/admin/group-invoices",
+        label: "グループ請求書",
+        icon: FileText,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/admin/royalty",
+        label: "ロイヤリティ状況",
+        icon: TrendingUp,
         minRole: "ADMIN",
       },
       {

@@ -135,6 +135,18 @@ enum PaymentStatementStatus {
   PAID      // 支払済み
 }
 
+enum GroupInvoiceType {
+  ROYALTY    // 月額ロイヤリティ（最低保証 max(5万, 案件10%手数料) の差額請求）
+  MEMBERSHIP // 加盟参画費用
+  OTHER      // その他
+}
+
+enum GroupInvoiceStatus {
+  DRAFT  // 下書き
+  ISSUED // 発行済み（パートナーに公開）
+  PAID   // 入金済み
+}
+
 enum EstimationStatus {
   DRAFT // 下書き（未発行・通知なし）
   ISSUED // 発行済み（通知送信済み）
@@ -364,6 +376,7 @@ model User {
   revenueReports              RevenueReport[]
   invoiceRequests             InvoiceRequest[]
   paymentStatements           PaymentStatement[]
+  groupInvoices               GroupInvoice[]
   collaborationRequests       GroupCollaborationRequest[]
   mediaRequests               MediaRequest[]
   createdAdvertiserReviews    AdvertiserReview[]          @relation("CreatedAdvertiserReview")
@@ -880,6 +893,79 @@ model PaymentStatementItem {
 
   @@index([paymentStatementId])
   @@map("payment_statement_items")
+}
+
+// ==============================================================
+// GroupInvoice（グループ請求書：本部 → パートナーへ請求）
+// ==============================================================
+
+/// 本部 → パートナーへ発行する適格請求書。
+/// 月額ロイヤリティは「最低保証型」: 当月の案件由来 本部手数料(10%) 合計が
+/// 最低ロイヤリティ(5万)に満たない場合のみ、その差額を請求する。
+/// 10% が 5万 以上の代表（取扱高 約50万以上）は相殺済みのため請求書を発行しない。
+/// 振込先は Ad Arch 自社口座（theme.ts の BILLING_ACCOUNTS）。
+model GroupInvoice {
+  id String @id @default(cuid())
+
+  // ── 請求先パートナー
+  groupCompanyId String
+  groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
+
+  // ── 請求書番号（人が読む連番。例: AA-2026-0001）
+  invoiceNo String @unique
+
+  // ── 区分・内容
+  type        GroupInvoiceType @default(ROYALTY)
+  title       String           // 件名（例: 2026年5月分 ロイヤリティ）
+  targetMonth String?          // 対象月（ロイヤリティ用・"2026-05"）
+  description String?          @db.Text // 備考
+
+  // ── 金額（税抜本体を起点に消費税10%）
+  subtotalExclTax Decimal @db.Decimal(15, 0) // 小計（税抜）
+  taxAmount       Decimal @db.Decimal(15, 0) // 消費税（10%）
+  totalInclTax    Decimal @db.Decimal(15, 0) // 合計（税込）
+
+  // ── 期日
+  issueDate DateTime  @default(now()) // 請求日
+  dueDate   DateTime?                 // 支払期限
+
+  // ── ステータス
+  status GroupInvoiceStatus @default(DRAFT)
+  paidAt DateTime?
+
+  // ── 作成者
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items GroupInvoiceItem[]
+
+  @@index([groupCompanyId])
+  @@index([status])
+  @@index([targetMonth])
+  @@index([createdAt(sort: Desc)])
+  @@map("group_invoices")
+}
+
+/// グループ請求書の明細行（税抜単価 × 数量）。
+model GroupInvoiceItem {
+  id             String       @id @default(cuid())
+  groupInvoiceId String
+  groupInvoice   GroupInvoice @relation(fields: [groupInvoiceId], references: [id], onDelete: Cascade)
+
+  name      String  // 品目（例: 月額ロイヤリティ、加盟参画費用）
+  detail    String? // 補足
+  quantity  Decimal @default(1) @db.Decimal(10, 2)
+  unitPrice Decimal @db.Decimal(15, 0) // 単価（税抜）
+  amount    Decimal @db.Decimal(15, 0) // 金額（税抜）= quantity × unitPrice
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([groupInvoiceId])
+  @@map("group_invoice_items")
 }
 
 // ==============================================================
@@ -1525,6 +1611,9 @@ model GroupCompany {
 
   // ---- 支払明細 ----
   paymentStatements    PaymentStatement[]
+
+  // ---- グループ請求書（本部→当社への請求） ----
+  groupInvoices        GroupInvoice[]
 
   @@index([phase])
   @@map("group_companies")
