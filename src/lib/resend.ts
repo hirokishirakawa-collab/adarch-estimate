@@ -34,14 +34,17 @@ function getGmailTransport(): nodemailer.Transporter | null {
 const FROM_ADDRESS = "Ad-Arch OS <info@adarch.co.jp>";
 const ADMIN_EMAIL  = "system@adarch.co.jp";
 
-/** Gmail SMTP優先、失敗時Resendフォールバック */
+/** Gmail SMTP優先、失敗時Resendフォールバック。添付・BCC対応。 */
 async function sendMail(params: {
   to: string | string[];
   subject: string;
   html: string;
+  bcc?: string | string[];
+  attachments?: { filename: string; content: Buffer }[];
 }): Promise<void> {
-  const { to, subject, html } = params;
+  const { to, subject, html, bcc, attachments } = params;
   const recipients = Array.isArray(to) ? to : [to];
+  const bccList = bcc ? (Array.isArray(bcc) ? bcc : [bcc]) : [];
 
   // Gmail SMTP を優先
   const gmail = getGmailTransport();
@@ -50,8 +53,10 @@ async function sendMail(params: {
       await gmail.sendMail({
         from: FROM_ADDRESS,
         to: recipients.join(","),
+        ...(bccList.length ? { bcc: bccList.join(",") } : {}),
         subject,
         html,
+        ...(attachments?.length ? { attachments: attachments.map((a) => ({ filename: a.filename, content: a.content })) } : {}),
       });
       console.log(`[gmail] ✅ ${recipients.join(",")} へ送信完了`);
       return;
@@ -64,8 +69,10 @@ async function sendMail(params: {
   const { error } = await resend.emails.send({
     from: FROM_ADDRESS,
     to: recipients,
+    ...(bccList.length ? { bcc: bccList } : {}),
     subject,
     html,
+    ...(attachments?.length ? { attachments: attachments.map((a) => ({ filename: a.filename, content: a.content })) } : {}),
   });
   if (error) {
     console.error("[resend] error:", error);
@@ -517,6 +524,96 @@ export async function sendGroupWeeklyReportEmail(
     summarySnippet,
     `🔗 ${appUrl("/dashboard/group-support")}`,
   ].join("\n")).catch(() => {});
+}
+
+// ---------------------------------------------------------------
+// グループ請求書 メール送付（→ パートナー・PDF添付）
+// ---------------------------------------------------------------
+export type GroupInvoiceEmailPayload = {
+  to: string[];
+  bcc?: string[];
+  partnerName: string;
+  ownerName: string;
+  invoiceNo: string;
+  title: string;
+  totalInclTax: number;
+  dueDate: string | null; // 表示用文字列 or null
+  pdfBuffer: Buffer;
+  pdfFilename: string;
+};
+
+export async function sendGroupInvoiceEmail(payload: GroupInvoiceEmailPayload): Promise<void> {
+  const { to, bcc, partnerName, ownerName, invoiceNo, title, totalInclTax, dueDate, pdfBuffer, pdfFilename } = payload;
+  const subject = `【Ad Arch】請求書のご送付（${title}）`;
+
+  const rows = [
+    ["請求書番号", invoiceNo],
+    ["件名", title],
+    ["ご請求金額（税込）", `¥${totalInclTax.toLocaleString("ja-JP")}`],
+    ["お支払期限", dueDate || "別途ご案内"],
+  ]
+    .map(([label, value]) => `
+      <tr>
+        <th style="${thStyle}">${escHtml(label)}</th>
+        <td style="${tdStyle}">${escHtml(value)}</td>
+      </tr>`)
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+        <tr>
+          <td style="background:#1e3a5f;padding:20px 28px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.3px;">Ad Arch</span>
+            <span style="color:#c4a35a;font-size:13px;margin-left:8px;">請求書のご送付</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 8px;font-size:14px;color:#18181b;font-weight:600;">${escHtml(partnerName)}<br>${escHtml(ownerName)} 様</p>
+            <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;line-height:1.7;">
+              いつもお世話になっております。Ad Arch株式会社です。<br>
+              下記のとおり請求書をお送りいたします。詳細は添付のPDFをご確認ください。
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+              ${rows}
+            </table>
+            <div style="margin-top:20px;padding:12px 16px;background:#f3f5f9;border-radius:8px;">
+              <p style="margin:0;font-size:13px;color:#1e3a5f;">📎 請求書PDF（${escHtml(pdfFilename)}）を添付しています。</p>
+            </div>
+            <hr style="border:none;border-top:1px solid #e4e4e7;margin:24px 0 16px;" />
+            <p style="margin:0;font-size:12px;color:#71717a;line-height:1.7;">
+              Ad Arch株式会社<br>
+              〒107-0062 東京都港区南青山2-15-5 FARO1F<br>
+              info@adarch.co.jp
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f4f4f5;padding:16px 28px;border-top:1px solid #e4e4e7;">
+            <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">
+              このメールは Ad-Arch Group OS から送信されています。
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await sendMail({
+    to,
+    bcc,
+    subject,
+    html,
+    attachments: [{ filename: pdfFilename, content: pdfBuffer }],
+  });
 }
 
 // ---------------------------------------------------------------

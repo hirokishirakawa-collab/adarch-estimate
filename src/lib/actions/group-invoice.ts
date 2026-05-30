@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { createInAppNotification, notifyAdmins } from "@/lib/notifications";
+import { sendGroupInvoiceEmailById } from "@/lib/group-invoice-email";
 import {
   evaluatePartnerRoyalty,
   invoiceTotals,
@@ -261,10 +262,45 @@ export async function updateGroupInvoiceStatus(
     }
   }
 
+  // 発行時はパートナーへ請求書PDFを自動メール送付（失敗してもステータス変更は成功扱い）
+  if (newStatus === "ISSUED") {
+    try {
+      const res = await sendGroupInvoiceEmailById(id);
+      if (!res.ok) console.error("[updateGroupInvoiceStatus] invoice email skipped:", res.error);
+    } catch (e) {
+      console.error("[updateGroupInvoiceStatus] invoice email error:", e instanceof Error ? e.message : e);
+    }
+  }
+
   revalidatePath("/dashboard/admin/group-invoices");
   revalidatePath(`/dashboard/admin/group-invoices/${id}`);
   revalidatePath("/dashboard/royalty");
   return {};
+}
+
+// ---------------------------------------------------------------
+// 請求書をパートナーへメール送付（ADMIN・手動再送）
+// ---------------------------------------------------------------
+export async function emailGroupInvoice(id: string): Promise<{ error?: string; sentTo?: string[] }> {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return { error: "権限がありません" };
+
+  try {
+    const res = await sendGroupInvoiceEmailById(id);
+    if (!res.ok) return { error: res.error };
+    logAudit({
+      action: "group_invoice_emailed",
+      email: info.email,
+      name: info.staffName,
+      entity: "group_invoice",
+      entityId: id,
+      detail: `請求書メール送付: ${res.sentTo?.join(", ")}`,
+    });
+    return { sentTo: res.sentTo };
+  } catch (e) {
+    console.error("[emailGroupInvoice] error:", e instanceof Error ? e.message : e);
+    return { error: "メール送信に失敗しました" };
+  }
 }
 
 // ---------------------------------------------------------------

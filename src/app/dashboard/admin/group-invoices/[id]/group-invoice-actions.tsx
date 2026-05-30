@@ -2,8 +2,8 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Send, CheckCircle2, Trash2 } from "lucide-react";
-import { updateGroupInvoiceStatus, deleteGroupInvoice } from "@/lib/actions/group-invoice";
+import { Loader2, Send, CheckCircle2, Trash2, Mail } from "lucide-react";
+import { updateGroupInvoiceStatus, deleteGroupInvoice, emailGroupInvoice } from "@/lib/actions/group-invoice";
 
 export function GroupInvoiceActions({ id, status }: { id: string; status: string }) {
   const router = useRouter();
@@ -16,6 +16,11 @@ export function GroupInvoiceActions({ id, status }: { id: string; status: string
       router.refresh();
     });
   }
+
+  function onIssue() {
+    if (!confirm("発行して、パートナーへ請求書PDFをメール送付します。よろしいですか？")) return;
+    setStatus("ISSUED");
+  }
   function onDelete() {
     if (!confirm("この下書きを削除します。よろしいですか？")) return;
     startTransition(async () => {
@@ -25,13 +30,23 @@ export function GroupInvoiceActions({ id, status }: { id: string; status: string
     });
   }
 
+  function onEmail() {
+    if (!confirm("この請求書PDFをパートナーへメール送付します。よろしいですか？")) return;
+    startTransition(async () => {
+      const res = await emailGroupInvoice(id);
+      if (res.error) alert(res.error);
+      else alert(`送信しました: ${res.sentTo?.join(", ") ?? ""}`);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {status === "DRAFT" && (
         <>
-          <button onClick={() => setStatus("ISSUED")} disabled={isPending} className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
+          <button onClick={onIssue} disabled={isPending} className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
             {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            発行する（パートナーに公開）
+            発行＋メール送付
           </button>
           <button onClick={onDelete} disabled={isPending} className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-60 transition-colors">
             <Trash2 className="w-4 h-4" />削除
@@ -42,6 +57,11 @@ export function GroupInvoiceActions({ id, status }: { id: string; status: string
         <button onClick={() => setStatus("PAID")} disabled={isPending} className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-60 transition-colors">
           {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
           入金済みにする
+        </button>
+      )}
+      {(status === "ISSUED" || status === "PAID") && (
+        <button onClick={onEmail} disabled={isPending} className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 rounded-lg disabled:opacity-60 transition-colors" title="請求書PDFをパートナーへメール送付">
+          <Mail className="w-4 h-4" />メール送信
         </button>
       )}
     </div>
