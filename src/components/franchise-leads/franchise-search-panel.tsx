@@ -183,6 +183,8 @@ export function FranchiseSearchPanel() {
   const [leads, setLeads] = useState<ScoredPlace[]>([]);
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
   const [savingName, setSavingName] = useState<string | null>(null);
+  const [selectedNames, setSelectedNames] = useState<Set<string>>(new Set());
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [adviceLoading, setAdviceLoading] = useState<string | null>(null);
@@ -263,6 +265,7 @@ export function FranchiseSearchPanel() {
       merged.sort((a, b) => b.score.total - a.score.total);
       setLeads(merged);
       setSavedNames(new Set());
+      setSelectedNames(new Set());
       setPhase("done");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "\u4E88\u671F\u3057\u306A\u3044\u30A8\u30E9\u30FC\u304C\u767A\u751F\u3057\u307E\u3057\u305F");
@@ -304,6 +307,74 @@ export function FranchiseSearchPanel() {
     },
     [savedNames, savingName, businessType]
   );
+
+  // 保存用のリクエストボディに変換（個別・一括で共通）
+  const toLeadBody = useCallback(
+    (lead: ScoredPlace) => ({
+      companyName: lead.name,
+      address: lead.address,
+      phone: lead.phone || null,
+      website: lead.websiteUrl || null,
+      googleMapsUrl: lead.mapsUrl || null,
+      rating: lead.rating,
+      reviewCount: lead.ratingCount,
+      businessType,
+      scoreTotal: lead.score.total,
+      scoreBreakdown: lead.score.breakdown,
+      scoreComment: lead.score.comment,
+      hasWebsite: lead.analysis?.hasWebsite ?? false,
+      hasYoutube: lead.analysis?.hasYoutube ?? false,
+      hasSns: (lead.analysis?.hasSns?.length ?? 0) > 0,
+    }),
+    [businessType]
+  );
+
+  // チェックボックスの選択切り替え（保存済みは選べない）
+  const toggleSelect = useCallback((name: string) => {
+    setSelectedNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+
+  // 未保存リードを全選択 / 全解除
+  const toggleSelectAll = useCallback(() => {
+    setSelectedNames((prev) => {
+      const selectable = leads.filter((l) => !savedNames.has(l.name)).map((l) => l.name);
+      // すでに全選択済みなら解除、そうでなければ全選択
+      const allSelected = selectable.length > 0 && selectable.every((n) => prev.has(n));
+      return allSelected ? new Set() : new Set(selectable);
+    });
+  }, [leads, savedNames]);
+
+  // 選択したリードをまとめて保存（POSTは配列を受け付ける）
+  const handleBulkSave = useCallback(async () => {
+    if (bulkSaving) return;
+    const targets = leads.filter(
+      (l) => selectedNames.has(l.name) && !savedNames.has(l.name)
+    );
+    if (targets.length === 0) return;
+    setBulkSaving(true);
+    try {
+      const res = await fetch("/api/franchise-leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(targets.map(toLeadBody)),
+      });
+      if (res.ok) {
+        setSavedNames((prev) => {
+          const next = new Set(prev);
+          targets.forEach((l) => next.add(l.name));
+          return next;
+        });
+        setSelectedNames(new Set());
+      }
+    } finally {
+      setBulkSaving(false);
+    }
+  }, [bulkSaving, leads, selectedNames, savedNames, toLeadBody]);
 
   const handleGetAdvice = useCallback(
     async (lead: ScoredPlace) => {
@@ -508,10 +579,43 @@ export function FranchiseSearchPanel() {
             )}
           </div>
 
+          {/* \u4E00\u62EC\u4FDD\u5B58\u30D0\u30FC */}
+          <div className="flex items-center justify-between bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-2.5">
+            <label className="flex items-center gap-2 text-xs text-zinc-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                checked={
+                  leads.filter((l) => !savedNames.has(l.name)).length > 0 &&
+                  leads
+                    .filter((l) => !savedNames.has(l.name))
+                    .every((l) => selectedNames.has(l.name))
+                }
+                onChange={toggleSelectAll}
+              />
+              {"\u672A\u4FDD\u5B58\u3092\u3059\u3079\u3066\u9078\u629E"}
+            </label>
+            <div className="flex items-center gap-3">
+              {selectedNames.size > 0 && (
+                <span className="text-xs text-zinc-500">{selectedNames.size}{"\u4EF6\u9078\u629E\u4E2D"}</span>
+              )}
+              <Button
+                size="sm"
+                onClick={handleBulkSave}
+                disabled={selectedNames.size === 0 || bulkSaving}
+                className="gap-1.5"
+              >
+                {bulkSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {"\u9078\u629E\u3057\u305F\u5019\u88DC\u3092\u4E00\u62EC\u4FDD\u5B58"}
+              </Button>
+            </div>
+          </div>
+
           <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-100 bg-zinc-50">
+                  <th className="text-center px-2 py-2.5 text-xs font-medium text-zinc-500 w-10" />
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-zinc-500 w-8" />
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-zinc-500">{"\u4F01\u696D\u540D"}</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-zinc-500 hidden lg:table-cell">{"\u4F4F\u6240"}</th>
@@ -529,11 +633,21 @@ export function FranchiseSearchPanel() {
 
                   return (
                     <tr key={`${lead.name}-${i}`}>
-                      <td colSpan={6} className="p-0">
+                      <td colSpan={7} className="p-0">
                         <div
-                          className="grid grid-cols-[2rem_1fr_5rem_5rem_5rem] lg:grid-cols-[2rem_1fr_1fr_5rem_5rem_5rem] items-center cursor-pointer hover:bg-zinc-50 transition-colors"
+                          className="grid grid-cols-[2.5rem_2rem_1fr_5rem_5rem_5rem] lg:grid-cols-[2.5rem_2rem_1fr_1fr_5rem_5rem_5rem] items-center cursor-pointer hover:bg-zinc-50 transition-colors"
                           onClick={() => setExpandedIdx(isExpanded ? null : i)}
                         >
+                          <div className="px-2 py-3 flex justify-center" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-40"
+                              checked={selectedNames.has(lead.name)}
+                              disabled={isSaved}
+                              onChange={() => toggleSelect(lead.name)}
+                              aria-label={`${lead.name}を選択`}
+                            />
+                          </div>
                           <div className="px-4 py-3">
                             {isExpanded ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
                           </div>
