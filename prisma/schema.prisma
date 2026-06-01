@@ -3418,3 +3418,62 @@ model FranchiseLead {
   @@index([createdAt(sort: Desc)])
   @@map("franchise_leads")
 }
+
+enum CreatorLeadStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  MEETING_SCHEDULED
+  MEETING_DONE
+  NEGOTIATING
+  CONTRACTED
+  REJECTED
+  NOT_FIT
+}
+
+/// クリエイター発掘AI のリード。白川代表（ADMIN）のみアクセス可能。個人クリエイター（クリエイター加盟プラン候補）用。
+/// 既存の FranchiseLead（企業）/ Lead とは完全に分離。
+model CreatorLead {
+  id           String  @id @default(cuid())
+  name         String  // 氏名 or 屋号
+  handle       String? // ハンドル名・通称
+  prefecture   String?
+  genre        String? // 動画 / デザイン / Web / 写真 等
+  skills       String? // スキル・得意領域
+  achievements String? @db.Text // 実績メモ
+
+  // ── リンク（公開連絡先のみ）
+  portfolioUrl String? // Vook / foriio / 個人サイト
+  websiteUrl   String?
+  youtubeUrl   String?
+  instagramUrl String?
+  xUrl         String?
+  tiktokUrl    String?
+  email        String?
+
+  // ── AI分析（クリエイター加盟プラン適合）
+  scoreTotal   Int?
+  scoreComment String? @db.Text
+  fitReason    String? @db.Text // クリエイター加盟プラン適合理由
+  aiAdvice     String? @db.Text // アプローチ提案
+
+  // ── ステータス
+  status         CreatorLeadStatus @default(NEW)
+  priority       String? // S, A, B, C
+  notes          String? @db.Text
+  contactedAt    DateTime?
+  nextAction     String?
+  nextActionDate DateTime?
+
+  ownerEmail String?
+  ownerName  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, portfolioUrl])
+  @@index([status])
+  @@index([prefecture])
+  @@index([createdAt(sort: Desc)])
+  @@map("creator_leads")
+}

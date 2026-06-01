@@ -202,6 +202,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
         requiredFeature: "franchise-leads",
       },
+      {
+        href: "/dashboard/creator-leads",
+        label: "クリエイター発掘AI",
+        icon: Sparkles,
+        minRole: "ADMIN",
+      },
     ],
   },
   {
