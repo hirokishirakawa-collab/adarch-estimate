@@ -45,7 +45,7 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
   const [projects, total, totalByStatus] = await Promise.all([
     db.project.findMany({
       where,
-      include: { customer: { select: { id: true, name: true } } },
+      include: { customer: { select: { id: true, name: true } }, deal: { select: { isRegular: true } } },
       orderBy: { updatedAt: "desc" },
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,

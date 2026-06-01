@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Users,
   TrendingUp,
+  Repeat,
   FolderKanban,
   BookOpen,
   BarChart2,
@@ -138,6 +139,12 @@ const NAV_SECTIONS: NavSection[] = [
         label: "商談管理（SFA）",
         icon: TrendingUp,
         minRole: "USER",
+      },
+      {
+        href: "/dashboard/regulars",
+        label: "レギュラー案件",
+        icon: Repeat,
+        minRole: "MANAGER",
       },
       {
         href: "/dashboard/estimates",

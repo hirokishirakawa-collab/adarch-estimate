@@ -10,6 +10,7 @@ import { DealDeleteButton } from "@/components/deals/deal-delete-button";
 import { DealHearingSection } from "@/components/deals/deal-hearing-section";
 import { DealDecisionSection } from "@/components/deals/deal-decision-section";
 import { DealClosingFactorCard } from "@/components/deals/deal-closing-factor-card";
+import { DealRegularCard } from "./deal-regular-card";
 import { WikiArticleContent } from "@/components/wiki/wiki-article-content";
 import {
   ChevronLeft,
@@ -190,6 +191,22 @@ export default async function DealDetailPage({ params }: PageProps) {
       {/* ─── 受注の決め手（CLOSED_WONのみ） ─── */}
       {deal.status === "CLOSED_WON" && (
         <DealClosingFactorCard dealId={deal.id} initialValue={deal.closingFactor} />
+      )}
+
+      {/* ─── レギュラー（継続）案件 設定 ─── */}
+      {canViewAmount && (
+        <div className="mb-4">
+          <DealRegularCard
+            dealId={deal.id}
+            initial={{
+              isRegular: deal.isRegular,
+              monthlyAmount: deal.regularMonthlyAmount != null ? Number(deal.regularMonthlyAmount) : null,
+              startDate: deal.regularStartDate ? deal.regularStartDate.toISOString().slice(0, 10) : null,
+              renewalDate: deal.regularRenewalDate ? deal.regularRenewalDate.toISOString().slice(0, 10) : null,
+              endedAt: deal.regularEndedAt ? deal.regularEndedAt.toISOString().slice(0, 10) : null,
+            }}
+          />
+        </div>
       )}
 
       {/* ─── 紐づくプロジェクト ─── */}

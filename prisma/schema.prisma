@@ -547,6 +547,13 @@ model Deal {
   // 受注時の決め手（AIアシスタントの成功事例学習に使用）
   closingFactor     String?    @db.Text // 受注の決め手（文面・提案内容・関係性など）
 
+  // ---- レギュラー（継続）案件 ----------------------------------
+  isRegular           Boolean   @default(false) // レギュラー（毎月継続）案件か
+  regularMonthlyAmount Decimal? @db.Decimal(15, 0) // 月額（税抜・固定収入/MRR）
+  regularStartDate    DateTime? // レギュラー開始日
+  regularEndedAt      DateTime? // 解約日（null=継続中）
+  regularRenewalDate  DateTime? // 次回更新日（更新管理・解約リスク検知）
+
   // ---- 担当者 --------------------------------------------------
   assignedToId String? // 主担当営業
   assignedTo   User?   @relation("AssignedTo", fields: [assignedToId], references: [id])

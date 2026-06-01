@@ -3,7 +3,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { BRANCH_MAP } from "@/lib/data/customers";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
-import { ChevronRight, Calendar, User, Building2 } from "lucide-react";
+import { ChevronRight, Calendar, User, Building2, Repeat } from "lucide-react";
 import { DeleteProjectButton } from "./delete-project-button";
 import { BillingBadge } from "./billing-status-button";
 import type { BillingStatus } from "@/generated/prisma/client";
@@ -17,6 +17,7 @@ export type ProjectRow = {
   staffName: string | null;
   branchId: string;
   customer: { id: string; name: string } | null;
+  deal?: { isRegular: boolean } | null;
 };
 
 interface Props {
@@ -158,6 +159,11 @@ export function ProjectTable({ projects, isAdmin = false }: Props) {
                       <td className="pl-8 pr-4 py-3">
                         <p className="font-medium text-zinc-900 leading-snug">
                           {project.title}
+                          {project.deal?.isRegular && (
+                            <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded border bg-violet-50 text-violet-700 border-violet-200 align-middle">
+                              <Repeat className="w-2.5 h-2.5" />レギュラー
+                            </span>
+                          )}
                         </p>
                       </td>
 

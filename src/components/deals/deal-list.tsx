@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import { updateDealNotes } from "@/lib/actions/deal";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
-import { Pencil, Check, Loader2 } from "lucide-react";
+import { Pencil, Check, Loader2, Repeat } from "lucide-react";
 import type { DealStatus } from "@/generated/prisma/client";
 
 type Deal = {
@@ -16,6 +16,7 @@ type Deal = {
   expectedCloseDate: Date | null;
   notes: string | null;
   updatedAt: Date;
+  isRegular?: boolean;
   customer: { id: string; name: string; prefecture: string | null };
   assignedTo: { name: string | null } | null;
 };
@@ -149,6 +150,11 @@ export function DealList({ deals }: { deals: Deal[] }) {
                       >
                         {deal.customer.name}
                       </Link>
+                      {deal.isRegular && (
+                        <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded border bg-violet-50 text-violet-700 border-violet-200 align-middle">
+                          <Repeat className="w-2.5 h-2.5" />レギュラー
+                        </span>
+                      )}
                       {deal.customer.prefecture && (
                         <p className="text-[10px] text-zinc-400 mt-0.5">
                           📍 {deal.customer.prefecture}

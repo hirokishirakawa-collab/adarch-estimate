@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
+import { getMockBranchId } from "@/lib/data/customers";
 import type { DealStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 import { sendDealNotification, notifyAdmins, createInAppNotification } from "@/lib/notifications";
@@ -599,5 +600,62 @@ export async function deleteDeal(dealId: string): Promise<{ error?: string }> {
   }
 
   revalidatePath("/dashboard/deals");
+  return {};
+}
+
+// ---------------------------------------------------------------
+// レギュラー（継続）案件の設定
+// ---------------------------------------------------------------
+export async function setDealRegular(
+  dealId: string,
+  data: {
+    isRegular: boolean;
+    monthlyAmount: number | null;
+    startDate: string | null;
+    renewalDate: string | null;
+    endedAt: string | null;
+  },
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role === "USER") return { error: "権限がありません" };
+
+  // 拠点スコープ: ADMIN以外は自拠点の商談のみ編集可（IDOR防止）
+  const target = await db.deal.findUnique({ where: { id: dealId }, select: { branchId: true } });
+  if (!target) return { error: "商談が見つかりません" };
+  if (info.role !== "ADMIN") {
+    const userBranchId = getMockBranchId(info.email, info.role);
+    if (userBranchId && target.branchId !== userBranchId) return { error: "権限がありません" };
+  }
+
+  try {
+    await db.deal.update({
+      where: { id: dealId },
+      data: {
+        isRegular: data.isRegular,
+        regularMonthlyAmount: data.monthlyAmount != null ? Math.max(0, Math.round(data.monthlyAmount)) : null,
+        regularStartDate: data.startDate ? new Date(data.startDate) : null,
+        regularRenewalDate: data.renewalDate ? new Date(data.renewalDate) : null,
+        regularEndedAt: data.endedAt ? new Date(data.endedAt) : null,
+      },
+    });
+    logAudit({
+      action: "deal_regular_set",
+      email: info.email,
+      name: info.staffName,
+      entity: "deal",
+      entityId: dealId,
+      detail: data.isRegular
+        ? `レギュラー設定 月額¥${(data.monthlyAmount ?? 0).toLocaleString()}${data.endedAt ? "・解約" : "・継続中"}`
+        : "レギュラー解除",
+    });
+  } catch (e) {
+    console.error("[setDealRegular] DB error:", e instanceof Error ? e.message : e);
+    return { error: "保存に失敗しました" };
+  }
+
+  revalidatePath("/dashboard/deals/list");
+  revalidatePath(`/dashboard/deals/${dealId}`);
+  revalidatePath("/dashboard/regulars");
   return {};
 }
