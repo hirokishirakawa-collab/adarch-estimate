@@ -25,14 +25,14 @@ interface AreaDef {
 }
 
 const AREAS: AreaDef[] = [
-  { id: "tokyo",     label: "東京",   prefectures: "東京都（23区）",                   hasHalf: true,  p2nd: { full: 7_300_000, half: 3_650_000 }, p3rd: { full: 3_200_000, half: 1_600_000 }, i2nd: { full: 1_320_000, half: 660_000   }, i3rd: { full: 970_000,  half: 485_000 } },
-  { id: "kanto",     label: "関東",   prefectures: "神奈川県・埼玉県・千葉県",           hasHalf: false, p2nd: { full: 3_600_000, half: 0 },         p3rd: { full: 1_200_000, half: 0 },         i2nd: { full: 900_000,  half: 0 },          i3rd: { full: 485_000,  half: 0 } },
-  { id: "kansai",    label: "関西",   prefectures: "大阪府・京都府・兵庫県",             hasHalf: false, p2nd: { full: 3_600_000, half: 0 },         p3rd: { full: 1_300_000, half: 0 },         i2nd: { full: 900_000,  half: 0 },          i3rd: { full: 520_000,  half: 0 } },
-  { id: "tokai",     label: "東海",   prefectures: "愛知県・岐阜県・三重県",             hasHalf: false, p2nd: { full: 1_320_000, half: 0 },         p3rd: { full: 560_000,  half: 0 },          i2nd: { full: 330_000,  half: 0 },          i3rd: { full: 224_000,  half: 0 } },
-  { id: "kyushu",    label: "九州",   prefectures: "福岡県",                           hasHalf: false, p2nd: { full: 920_000,  half: 0 },          p3rd: { full: 390_000,  half: 0 },          i2nd: { full: 230_000,  half: 0 },          i3rd: { full: 154_000,  half: 0 } },
-  { id: "hokkaido",  label: "北海道", prefectures: "北海道",                           hasHalf: false, p2nd: { full: 640_000,  half: 0 },          p3rd: { full: 450_000,  half: 0 },          i2nd: { full: 160_000,  half: 0 },          i3rd: { full: 180_000,  half: 0 } },
-  { id: "hiroshima", label: "広島",   prefectures: "広島県",                           hasHalf: false, p2nd: { full: 200_000,  half: 0 },          p3rd: { full: 120_000,  half: 0 },          i2nd: { full: 50_000,   half: 0 },          i3rd: { full: 48_000,   half: 0 } },
-  { id: "okinawa",   label: "沖縄",   prefectures: "沖縄県",                           hasHalf: false, p2nd: { full: 240_000,  half: 0 },          p3rd: { full: 200_000,  half: 0 },          i2nd: { full: 60_000,   half: 0 },          i3rd: { full: 80_000,   half: 0 } },
+  { id: "tokyo",     label: "東京",   prefectures: "東京都（23区）",                                 hasHalf: true,  p2nd: { full: 7_600_000, half: 3_800_000 }, p3rd: { full: 3_200_000, half: 1_600_000 }, i2nd: { full: 1_320_000, half: 660_000   }, i3rd: { full: 970_000,  half: 485_000 } },
+  { id: "kanto",     label: "関東",   prefectures: "神奈川県・埼玉県・千葉県・茨城県・栃木県・群馬県", hasHalf: false, p2nd: { full: 3_600_000, half: 0 },         p3rd: { full: 1_200_000, half: 0 },         i2nd: { full: 900_000,  half: 0 },          i3rd: { full: 485_000,  half: 0 } },
+  { id: "kansai",    label: "関西",   prefectures: "大阪府・京都府・兵庫県・滋賀県・奈良県・和歌山県", hasHalf: false, p2nd: { full: 3_600_000, half: 0 },         p3rd: { full: 1_300_000, half: 0 },         i2nd: { full: 900_000,  half: 0 },          i3rd: { full: 520_000,  half: 0 } },
+  { id: "tokai",     label: "東海",   prefectures: "愛知県・岐阜県・静岡県・三重県",                 hasHalf: false, p2nd: { full: 1_320_000, half: 0 },         p3rd: { full: 560_000,  half: 0 },          i2nd: { full: 330_000,  half: 0 },          i3rd: { full: 224_000,  half: 0 } },
+  { id: "kyushu",    label: "九州",   prefectures: "福岡県・佐賀県・長崎県・熊本県",                 hasHalf: false, p2nd: { full: 920_000,  half: 0 },          p3rd: { full: 390_000,  half: 0 },          i2nd: { full: 230_000,  half: 0 },          i3rd: { full: 154_000,  half: 0 } },
+  { id: "hokkaido",  label: "北海道", prefectures: "北海道",                                         hasHalf: false, p2nd: { full: 640_000,  half: 0 },          p3rd: { full: 200_000,  half: 0 },          i2nd: { full: 160_000,  half: 0 },          i3rd: { full: 80_000,   half: 0 } },
+  { id: "hiroshima", label: "広島",   prefectures: "広島県",                                         hasHalf: false, p2nd: { full: 200_000,  half: 0 },          p3rd: { full: 98_000,   half: 0 },          i2nd: { full: 50_000,   half: 0 },          i3rd: { full: 39_000,   half: 0 } },
+  { id: "okinawa",   label: "沖縄",   prefectures: "沖縄県",                                         hasHalf: false, p2nd: { full: 360_000,  half: 0 },          p3rd: { full: 200_000,  half: 0 },          i2nd: { full: 90_000,   half: 0 },          i3rd: { full: 80_000,   half: 0 } },
 ];
 
 interface TargetDef {
@@ -44,22 +44,22 @@ interface TargetDef {
 }
 
 const TARGETING: TargetDef[] = [
-  { id: "male",   label: "男性",           category: "性別",     pricePerWeek: 1_000_000, impressionsPerWeek: 200_000 },
-  { id: "female", label: "女性",           category: "性別",     pricePerWeek: 800_000,   impressionsPerWeek: 160_000 },
-  { id: "age20",  label: "20代（20-29歳）", category: "年代",     pricePerWeek: 500_000,   impressionsPerWeek: 100_000 },
-  { id: "age30",  label: "30代（30-39歳）", category: "年代",     pricePerWeek: 450_000,   impressionsPerWeek: 90_000  },
-  { id: "age40",  label: "40代（40-49歳）", category: "年代",     pricePerWeek: 400_000,   impressionsPerWeek: 80_000  },
-  { id: "age50",  label: "50代以上",        category: "年代",     pricePerWeek: 400_000,   impressionsPerWeek: 80_000  },
-  { id: "ride1",  label: "当該週1回目",     category: "乗車回数", pricePerWeek: 1_400_000, impressionsPerWeek: 280_000 },
-  { id: "ride2",  label: "当該週2回目以降", category: "乗車回数", pricePerWeek: 1_400_000, impressionsPerWeek: 280_000 },
-  { id: "m20",    label: "男性20代",        category: "性別×年代", pricePerWeek: 500_000,  impressionsPerWeek: 50_000  },
-  { id: "m30",    label: "男性30代",        category: "性別×年代", pricePerWeek: 500_000,  impressionsPerWeek: 50_000  },
-  { id: "m40",    label: "男性40代",        category: "性別×年代", pricePerWeek: 400_000,  impressionsPerWeek: 40_000  },
-  { id: "m50",    label: "男性50代以上",    category: "性別×年代", pricePerWeek: 400_000,  impressionsPerWeek: 40_000  },
-  { id: "f20",    label: "女性20代",        category: "性別×年代", pricePerWeek: 500_000,  impressionsPerWeek: 50_000  },
-  { id: "f30",    label: "女性30代",        category: "性別×年代", pricePerWeek: 400_000,  impressionsPerWeek: 40_000  },
-  { id: "f40",    label: "女性40代",        category: "性別×年代", pricePerWeek: 300_000,  impressionsPerWeek: 30_000  },
-  { id: "f50",    label: "女性50代以上",    category: "性別×年代", pricePerWeek: 300_000,  impressionsPerWeek: 30_000  },
+  { id: "male",   label: "男性",           category: "性別",     pricePerWeek: 1_500_000, impressionsPerWeek: 300_000 },
+  { id: "female", label: "女性",           category: "性別",     pricePerWeek: 1_200_000, impressionsPerWeek: 240_000 },
+  { id: "age20",  label: "20代（20-29歳）", category: "年代",     pricePerWeek: 750_000,   impressionsPerWeek: 150_000 },
+  { id: "age30",  label: "30代（30-39歳）", category: "年代",     pricePerWeek: 675_000,   impressionsPerWeek: 135_000 },
+  { id: "age40",  label: "40代（40-49歳）", category: "年代",     pricePerWeek: 600_000,   impressionsPerWeek: 120_000 },
+  { id: "age50",  label: "50代以上",        category: "年代",     pricePerWeek: 600_000,   impressionsPerWeek: 120_000 },
+  { id: "ride1",  label: "当該週1回目",     category: "乗車回数", pricePerWeek: 1_875_000, impressionsPerWeek: 375_000 },
+  { id: "ride2",  label: "当該週2回目以降", category: "乗車回数", pricePerWeek: 2_100_000, impressionsPerWeek: 420_000 },
+  { id: "m20",    label: "男性20代",        category: "性別×年代", pricePerWeek: 1_050_000, impressionsPerWeek: 105_000 },
+  { id: "m30",    label: "男性30代",        category: "性別×年代", pricePerWeek: 1_050_000, impressionsPerWeek: 105_000 },
+  { id: "m40",    label: "男性40代",        category: "性別×年代", pricePerWeek: 750_000,   impressionsPerWeek: 75_000  },
+  { id: "m50",    label: "男性50代以上",    category: "性別×年代", pricePerWeek: 750_000,   impressionsPerWeek: 75_000  },
+  { id: "f20",    label: "女性20代",        category: "性別×年代", pricePerWeek: 1_050_000, impressionsPerWeek: 105_000 },
+  { id: "f30",    label: "女性30代",        category: "性別×年代", pricePerWeek: 750_000,   impressionsPerWeek: 75_000  },
+  { id: "f40",    label: "女性40代",        category: "性別×年代", pricePerWeek: 600_000,   impressionsPerWeek: 60_000  },
+  { id: "f50",    label: "女性50代以上",    category: "性別×年代", pricePerWeek: 600_000,   impressionsPerWeek: 60_000  },
 ];
 
 // ================================================================
@@ -132,6 +132,7 @@ export function TaxiAdsSimulator() {
   const [firstAds, setFirstAds] = useState<FH>("none");
   const [secondAds, setSecondAds] = useState<SecondAds>("none");
   const [thirdAds, setThirdAds] = useState<FH>("none");
+  const [boardingAds, setBoardingAds] = useState<FH>("none");
   const [seatbelt, setSeatbelt] = useState(false);
 
   // 全国メニュー - コンテンツ枠
@@ -186,6 +187,7 @@ export function TaxiAdsSimulator() {
     setFirstAds("none");
     setSecondAds("none");
     setThirdAds("none");
+    setBoardingAds("none");
     setSeatbelt(false);
     setSecondContents("none");
     setThirdContents("none");
@@ -202,8 +204,8 @@ export function TaxiAdsSimulator() {
     ];
     if (firstAds !== "none") {
       base.push(
-        { val: "plus_full", text: "+[FULL]", sub: "+200万/週" },
-        { val: "plus_half", text: "+[HALF]", sub: "+100万/週" },
+        { val: "plus_full", text: "+[FULL]", sub: "+340万/週" },
+        { val: "plus_half", text: "+[HALF]", sub: "+170万/週" },
       );
     }
     base.push(
@@ -236,25 +238,30 @@ export function TaxiAdsSimulator() {
 
     // 全国 広告枠
     if (firstAds !== "none") {
-      const p = firstAds === "full" ? 18_000_000 : 9_000_000;
+      const p = firstAds === "full" ? 20_000_000 : 10_000_000;
       const i = firstAds === "full" ? 5_600_000  : 2_800_000;
       add(`1st Ads [${firstAds.toUpperCase()}]`, p, weeks, i);
     }
     if (secondAds !== "none") {
       const map: Record<SecondAds, { label: string; p: number; i: number } | undefined> = {
         none:      undefined,
-        plus_full: { label: "2nd Ads +[FULL]（1stとのセット）", p: 2_000_000,  i: 5_000_000 },
-        plus_half: { label: "2nd Ads +[HALF]（1stとのセット）", p: 1_000_000,  i: 2_500_000 },
-        full:      { label: "2nd Ads [FULL]（単独）",            p: 12_000_000, i: 3_800_000 },
-        half:      { label: "2nd Ads [HALF]（単独）",            p: 6_000_000,  i: 1_900_000 },
+        plus_full: { label: "2nd Ads +[FULL]（1stとのセット）", p: 3_400_000,  i: 5_000_000 },
+        plus_half: { label: "2nd Ads +[HALF]（1stとのセット）", p: 1_700_000,  i: 2_500_000 },
+        full:      { label: "2nd Ads [FULL]（単独）",            p: 12_000_000, i: 4_000_000 },
+        half:      { label: "2nd Ads [HALF]（単独）",            p: 6_000_000,  i: 2_000_000 },
       };
       const m = map[secondAds];
       if (m) add(m.label, m.p, weeks, m.i);
     }
     if (thirdAds !== "none") {
-      const p = thirdAds === "full" ? 6_000_000 : 3_000_000;
-      const i = thirdAds === "full" ? 1_800_000 : 900_000;
+      const p = thirdAds === "full" ? 6_600_000 : 3_300_000;
+      const i = thirdAds === "full" ? 2_600_000 : 1_300_000;
       add(`3rd Ads [${thirdAds.toUpperCase()}]`, p, weeks, i);
+    }
+    if (boardingAds !== "none") {
+      const p = boardingAds === "full" ? 5_500_000 : 2_750_000;
+      const i = boardingAds === "full" ? 5_200_000 : 2_600_000;
+      add(`Boarding Ads [${boardingAds.toUpperCase()}]`, p, weeks, i);
     }
     if (seatbelt) {
       add("シートベルト着用アナウンス", 2_000_000, weeks, 5_600_000);
@@ -262,13 +269,13 @@ export function TaxiAdsSimulator() {
 
     // 全国 コンテンツ枠
     if (secondContents !== "none") {
-      const p = secondContents === "full" ? 7_200_000 : 3_600_000;
-      const i = secondContents === "full" ? 3_800_000 : 1_900_000;
+      const p = secondContents === "full" ? 8_000_000 : 4_000_000;
+      const i = secondContents === "full" ? 4_000_000 : 2_000_000;
       add(`2nd Contents [${secondContents.toUpperCase()}]`, p, weeks, i);
     }
     if (thirdContents !== "none") {
       const p = thirdContents === "full" ? 3_600_000 : 1_800_000;
-      const i = thirdContents === "full" ? 2_100_000 : 1_050_000;
+      const i = thirdContents === "full" ? 2_600_000 : 1_300_000;
       add(`3rd Contents [${thirdContents.toUpperCase()}]`, p, weeks, i);
     }
 
@@ -299,7 +306,7 @@ export function TaxiAdsSimulator() {
     const totalImpressions = rows.reduce((s, r) => s + r.impressions, 0);
 
     return { rows, mediaCost, totalImpressions };
-  }, [weeks, targetingWeeks, firstAds, secondAds, thirdAds, seatbelt,
+  }, [weeks, targetingWeeks, firstAds, secondAds, thirdAds, boardingAds, seatbelt,
       secondContents, thirdContents, areaSel, targeting, sampling, research]);
 
   // ================================================================
@@ -350,8 +357,8 @@ export function TaxiAdsSimulator() {
               onChange={(v) => handleFirstAdsChange(v as FH)}
               options={[
                 { val: "none", text: "なし",   sub: "" },
-                { val: "full", text: "[FULL]", sub: "1,800万/週" },
-                { val: "half", text: "[HALF]", sub: "900万/週" },
+                { val: "full", text: "[FULL]", sub: "2,000万/週" },
+                { val: "half", text: "[HALF]", sub: "1,000万/週" },
               ]}
             />
             <SlotButtons
@@ -371,8 +378,18 @@ export function TaxiAdsSimulator() {
               onChange={(v) => setThirdAds(v as FH)}
               options={[
                 { val: "none", text: "なし",   sub: "" },
-                { val: "full", text: "[FULL]", sub: "600万/週" },
-                { val: "half", text: "[HALF]", sub: "300万/週" },
+                { val: "full", text: "[FULL]", sub: "660万/週" },
+                { val: "half", text: "[HALF]", sub: "330万/週" },
+              ]}
+            />
+            <SlotButtons
+              label="Boarding Ads"
+              value={boardingAds}
+              onChange={(v) => setBoardingAds(v as FH)}
+              options={[
+                { val: "none", text: "なし",   sub: "" },
+                { val: "full", text: "[FULL]", sub: "550万/週" },
+                { val: "half", text: "[HALF]", sub: "275万/週" },
               ]}
             />
             <label className="flex items-center gap-2 cursor-pointer pl-0.5">
@@ -400,8 +417,8 @@ export function TaxiAdsSimulator() {
               onChange={(v) => setSecondContents(v as FH)}
               options={[
                 { val: "none", text: "なし",   sub: "" },
-                { val: "full", text: "[FULL]", sub: "720万/週" },
-                { val: "half", text: "[HALF]", sub: "360万/週" },
+                { val: "full", text: "[FULL]", sub: "800万/週" },
+                { val: "half", text: "[HALF]", sub: "400万/週" },
               ]}
             />
             <SlotButtons
@@ -698,7 +715,8 @@ export function TaxiAdsSimulator() {
               </div>
 
               <p className="text-[10px] text-zinc-600 text-center">
-                ※ 価格はすべて税抜。インプレッション数は目安値です。
+                ※ 価格はすべて税抜。インプレッション数は目安値です。<br />
+                ※ TOKYO PRIME メディアガイド 2026.10–12 版（2026.06.01 時点）に準拠。
               </p>
             </>
           )}
