@@ -1,9 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { validateBody, franchiseLeadScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
-import type { UserRole } from "@/types/roles";
+import { resolveFranchiseAccess } from "@/lib/franchise-leads/access";
 import { analyzeWebsiteSimple } from "@/lib/leads/analyze-website";
 import { searchYouTubeChannel } from "@/lib/leads/search-youtube";
 import type { YouTubeChannelInfo } from "@/lib/constants/leads";
@@ -14,17 +13,12 @@ import type { YouTubeChannelInfo } from "@/lib/constants/leads";
 // ADMIN限定
 // ----------------------------------------------------------------
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await resolveFranchiseAccess();
+  if (!access) {
+    return NextResponse.json({ error: "この機能の利用権限がありません" }, { status: 403 });
   }
 
-  const role = (session.user.role ?? "USER") as UserRole;
-  if (role !== "ADMIN") {
-    return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 });
-  }
-
-  const limited = checkRateLimit(session.user.email!, "franchise-leads/score", AI_RATE_LIMIT);
+  const limited = checkRateLimit(access.email, "franchise-leads/score", AI_RATE_LIMIT);
   if (limited) return limited;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;

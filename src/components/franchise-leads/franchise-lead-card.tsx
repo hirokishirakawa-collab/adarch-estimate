@@ -176,6 +176,9 @@ export function FranchiseLeadCard({
             {lead.businessType && (
               <p className="text-[10px] text-zinc-400 truncate mt-0.5">{lead.businessType}</p>
             )}
+            <p className="text-[10px] text-emerald-600 truncate mt-0.5">
+              担当: {lead.ownerName || lead.ownerEmail || "本部"}
+            </p>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {priorityBadge && (

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { Users, Search, LayoutGrid } from "lucide-react";
 import { FranchiseLeadTabs } from "@/components/franchise-leads/franchise-lead-tabs";
 import type { UserRole } from "@/types/roles";
+import { FRANCHISE_LEADS_FEATURE } from "@/lib/franchise-leads/access";
 
 export default async function FranchiseLeadsPage() {
   const session = await auth();
@@ -10,8 +11,10 @@ export default async function FranchiseLeadsPage() {
     redirect("/login");
   }
 
+  // ADMIN（本部）または enabledFeatures に franchise-leads を持つ開拓パートナーのみ
   const role = (session.user.role ?? "USER") as UserRole;
-  if (role !== "ADMIN") {
+  const features = session.user.enabledFeatures ?? [];
+  if (role !== "ADMIN" && !features.includes(FRANCHISE_LEADS_FEATURE)) {
     redirect("/dashboard");
   }
 

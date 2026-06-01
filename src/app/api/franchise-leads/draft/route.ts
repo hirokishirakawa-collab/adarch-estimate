@@ -1,10 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { validateBody, franchiseLeadDraftSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
-import type { UserRole } from "@/types/roles";
+import { resolveFranchiseAccess } from "@/lib/franchise-leads/access";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,17 +23,12 @@ HP: https://www.adarch.co.jp
 // 用語規制・価格非開示・媒体起点訴求をシステムプロンプトに焼き込む
 // ----------------------------------------------------------------
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await resolveFranchiseAccess();
+  if (!access) {
+    return NextResponse.json({ error: "この機能の利用権限がありません" }, { status: 403 });
   }
 
-  const role = (session.user.role ?? "USER") as UserRole;
-  if (role !== "ADMIN") {
-    return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 });
-  }
-
-  const limited = checkRateLimit(session.user.email!, "franchise-leads/draft", AI_RATE_LIMIT);
+  const limited = checkRateLimit(access.email, "franchise-leads/draft", AI_RATE_LIMIT);
   if (limited) return limited;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -45,6 +39,20 @@ export async function POST(req: NextRequest) {
   const parsed = await validateBody(req, franchiseLeadDraftSchema);
   if (!parsed.success) return parsed.response;
   const body = parsed.data;
+
+  // 非ADMINは自分が担当のリードにのみ下書きを保存できる
+  if (!access.isAdmin) {
+    const target = await db.franchiseLead.findUnique({
+      where: { id: body.id },
+      select: { ownerEmail: true },
+    });
+    if (!target) {
+      return NextResponse.json({ error: "リードが見つかりません" }, { status: 404 });
+    }
+    if (target.ownerEmail !== access.email) {
+      return NextResponse.json({ error: "この機能の利用権限がありません" }, { status: 403 });
+    }
+  }
 
   const SYSTEM_PROMPT = `あなたはAd Arch株式会社（代表: 白川裕喜）の代表本人として、独立した小規模事業者（1〜2人規模）に「Ad Archグループへのご参画」をご案内する初回コンタクトメールの下書きを作成します。
 

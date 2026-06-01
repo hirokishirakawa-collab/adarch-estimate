@@ -194,6 +194,14 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Eye,
         minRole: "USER",
       },
+      {
+        // 本部は常時表示。開拓パートナー（enabledFeatures に franchise-leads）にのみ追加開放
+        href: "/dashboard/franchise-leads",
+        label: "加盟リード獲得AI",
+        icon: Users,
+        minRole: "USER",
+        requiredFeature: "franchise-leads",
+      },
     ],
   },
   {

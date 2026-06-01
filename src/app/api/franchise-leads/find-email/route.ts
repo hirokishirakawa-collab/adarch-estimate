@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { findEmailFromWebsite } from "@/lib/leads/find-email";
-import type { UserRole } from "@/types/roles";
+import { resolveFranchiseAccess } from "@/lib/franchise-leads/access";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -13,14 +12,9 @@ export const maxDuration = 30;
 // id があれば FranchiseLead.email に保存する
 // ----------------------------------------------------------------
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const role = (session.user.role ?? "USER") as UserRole;
-  if (role !== "ADMIN") {
-    return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 });
+  const access = await resolveFranchiseAccess();
+  if (!access) {
+    return NextResponse.json({ error: "この機能の利用権限がありません" }, { status: 403 });
   }
 
   let body: { id?: string; website?: string };
@@ -49,7 +43,18 @@ export async function POST(req: NextRequest) {
   try {
     const { email, candidates } = await findEmailFromWebsite(website);
     if (email && body.id) {
-      await db.franchiseLead.update({ where: { id: body.id }, data: { email } });
+      // 非ADMINは自分が担当のリードにのみ保存できる
+      if (!access.isAdmin) {
+        const target = await db.franchiseLead.findUnique({
+          where: { id: body.id },
+          select: { ownerEmail: true },
+        });
+        if (target && target.ownerEmail === access.email) {
+          await db.franchiseLead.update({ where: { id: body.id }, data: { email } });
+        }
+      } else {
+        await db.franchiseLead.update({ where: { id: body.id }, data: { email } });
+      }
     }
     return NextResponse.json({ email, candidates });
   } catch (err) {

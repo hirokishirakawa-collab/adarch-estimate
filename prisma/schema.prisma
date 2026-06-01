@@ -3402,6 +3402,11 @@ model FranchiseLead {
   nextAction      String?
   nextActionDate  DateTime?
 
+  // 担当者（誰が拾ったリードか）。null = 本部（既存リード含む）。
+  // 非ADMINは自分が担当のリードのみ閲覧・編集可。emailで識別（session.user.id 非提供のため）。
+  ownerEmail      String?
+  ownerName       String?
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -3409,6 +3414,7 @@ model FranchiseLead {
   @@index([status])
   @@index([prefecture])
   @@index([priority])
+  @@index([ownerEmail])
   @@index([createdAt(sort: Desc)])
   @@map("franchise_leads")
 }

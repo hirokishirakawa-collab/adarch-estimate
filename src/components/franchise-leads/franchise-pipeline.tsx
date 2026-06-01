@@ -37,6 +37,8 @@ export interface FranchiseLeadData {
   contactedAt: string | null;
   nextAction: string | null;
   nextActionDate: string | null;
+  ownerEmail: string | null;
+  ownerName: string | null;
   createdAt: string;
   updatedAt: string;
 }
