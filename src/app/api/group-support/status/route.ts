@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     // アクティブな全企業を取得
     const companies = await db.groupCompany.findMany({
       where: { isActive: true },
-      select: { id: true, chatSpaceId: true, name: true },
+      select: { id: true, chatSpaceId: true, name: true, ownerName: true },
     });
 
     // 今週提出済みの企業IDリスト
@@ -30,11 +30,11 @@ export async function GET(req: NextRequest) {
 
     const submitted = companies
       .filter((c) => submittedIds.has(c.id))
-      .map((c) => ({ chatSpaceId: c.chatSpaceId, name: c.name }));
+      .map((c) => ({ chatSpaceId: c.chatSpaceId, name: c.name, ownerName: c.ownerName }));
 
     const notSubmitted = companies
       .filter((c) => !submittedIds.has(c.id))
-      .map((c) => ({ chatSpaceId: c.chatSpaceId, name: c.name }));
+      .map((c) => ({ chatSpaceId: c.chatSpaceId, name: c.name, ownerName: c.ownerName }));
 
     return NextResponse.json({
       weekId,

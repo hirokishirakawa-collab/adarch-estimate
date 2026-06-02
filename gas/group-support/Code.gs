@@ -12,13 +12,19 @@ function triggerMondayCard() {
   }
   props.setProperty('LAST_MONDAY_CARD', today);
 
+  // 呼びかけ名マップ（spaceId → 「歌丸さん」）と週インデックス（週替わり用）
+  var nameMap = buildCallNameMap_();
+  var weekIndex = getWeekIndex_();
+
   var webhooks = getWebhookUrls_();
   var baseUrl = getConfig().API_BASE_URL + '/group-support/submit';
 
   webhooks.forEach(function (webhookUrl) {
-    var spaceId = extractSpaceId_(webhookUrl);
+    var spaceId = extractSpaceId_(webhookUrl);          // "spaces/XXX"
+    var key = spaceId.replace(/^spaces\//, '');         // "XXX"（DB側はprefix有無が混在するため正規化）
     var submitUrl = baseUrl + '?space=' + encodeURIComponent(spaceId);
-    var card = buildMondayCard(submitUrl);
+    var callName = nameMap[key] || '';
+    var card = buildMondayCard(submitUrl, callName, weekIndex);
     var payload = JSON.stringify({ cardsV2: [{ cardId: 'weekly-card', card: card }] });
 
     try {
@@ -33,8 +39,51 @@ function triggerMondayCard() {
     }
   });
 
-  Logger.log('月曜カード配信完了: ' + webhooks.length + '社');
+  Logger.log('月曜カード配信完了: ' + webhooks.length + '社 (week#' + weekIndex + ')');
   markAllSpacesAsRead();
+}
+
+/**
+ * 週インデックス（週替わりローテーション用）。月曜配信ごとに +1 される。
+ */
+function getWeekIndex_() {
+  var ms = new Date().getTime();
+  return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
+}
+
+/**
+ * 呼びかけ名マップを status API から構築（spaceId → 「歌丸さん」）
+ * 取得失敗時は空マップ＝汎用挨拶で続行（送信は止めない）
+ */
+function buildCallNameMap_() {
+  var map = {};
+  try {
+    var status = getSubmissionStatus();
+    var all = (status.submitted || []).concat(status.notSubmitted || []);
+    all.forEach(function (c) {
+      if (!c.chatSpaceId) return;
+      var key = String(c.chatSpaceId).replace(/^spaces\//, '');
+      map[key] = toCallName_(c.name, c.ownerName);
+    });
+  } catch (e) {
+    Logger.log('呼びかけ名マップ構築失敗（汎用挨拶で続行）: ' + e.message);
+  }
+  return map;
+}
+
+/**
+ * 呼びかけ名を作る。
+ * "姓 名（地域）" → 「姓さん」。法人名(株式会社等)で登録の場合は代表者名(ownerName)で呼びかける。
+ */
+function toCallName_(name, ownerName) {
+  var base = name || '';
+  if (/^(株式会社|有限会社|合同会社)/.test(base) && ownerName) {
+    base = ownerName; // 例: 「株式会社Pleete」→ 代表者「遠藤 創平」
+  }
+  var head = String(base).split(/[\s　（(]/)[0];
+  if (!head) return '';
+  if (/^(株式会社|有限会社|合同会社)/.test(head)) return head;
+  return head + 'さん';
 }
 
 function triggerTuesdayFollowUp() {
@@ -188,9 +237,10 @@ function setupWebhookProperties() {
     "https://chat.googleapis.com/v1/spaces/AAQAoR3gb1M/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=7HcUwZisCB73b3B0uOPip88y8QSxEQRxQZ80OzhXxBs",
     "https://chat.googleapis.com/v1/spaces/AAQAmDz98iM/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=w482FGLLydLrWRDA0-EFwwyeKtUuj5z372RZMXXkjGs",
     "https://chat.googleapis.com/v1/spaces/AAQACGzXMPM/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=71-Juuzn6nN0-t9eKeYmhpCvcsfK4-9eSWcF_KUk21Y",
-    "https://chat.googleapis.com/v1/spaces/AAQAp6XvXqE/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=TVi8nYpewG_pYZcm1yRcp7XNx7qekF_S4jFkhRaWGvc",
     // Rawfeel（台湾/東京）
-    "https://chat.googleapis.com/v1/spaces/AAQAm1b7U3U/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MqF6No4g_p67qJKKX-FsGgKqIsmecp40YkS5qgYwsvM"
+    "https://chat.googleapis.com/v1/spaces/AAQAm1b7U3U/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MqF6No4g_p67qJKKX-FsGgKqIsmecp40YkS5qgYwsvM",
+    // 遠藤 創平（株式会社Pleete・東京港区）2026-06-01加盟
+    "https://chat.googleapis.com/v1/spaces/AAQAvXmjPXY/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=CWylIdnsyZKqdRVjfwbAS70DIjEHvtyinuD06qzG3W4"
   ];
 
   var map = {};
@@ -209,4 +259,14 @@ function setupWebhookProperties() {
   Logger.log("設定完了!");
   Logger.log("WEBHOOK_URLS: " + urls.length + "件");
   Logger.log("WEBHOOK_MAP: " + Object.keys(map).length + "件");
+}
+
+function triggerPartnerStatusCron() {
+  const url = 'https://adarch-estimate-production.up.railway.app/api/cron/partner-status';
+  const secret = 'ここにCRON_SECRETの値';
+
+  UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: { 'Authorization': 'Bearer ' + secret }
+  });
 }

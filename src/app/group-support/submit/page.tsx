@@ -4,9 +4,9 @@ import { SubmitForm } from "./submit-form";
 export default async function SubmitPage({
   searchParams,
 }: {
-  searchParams: Promise<{ space?: string }>;
+  searchParams: Promise<{ space?: string; intent?: string }>;
 }) {
-  const { space } = await searchParams;
+  const { space, intent } = await searchParams;
 
   if (!space) {
     return (
@@ -34,7 +34,11 @@ export default async function SubmitPage({
 
   return (
     <Shell>
-      <SubmitForm chatSpaceId={space} companyName={company.name} />
+      <SubmitForm
+        chatSpaceId={space}
+        companyName={company.name}
+        consultMode={intent === "consult"}
+      />
     </Shell>
   );
 }

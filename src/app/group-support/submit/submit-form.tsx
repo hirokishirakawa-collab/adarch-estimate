@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { submitWeeklyShare, type SubmitState } from "./actions";
+import { submitWeeklyShare, submitConsult, type SubmitState } from "./actions";
 
 const q1Options = [
   { value: "いい感じ", label: "いい感じ 👍" },
@@ -26,6 +26,22 @@ const textareaClass =
   "placeholder:text-zinc-400 transition-colors resize-none";
 
 export function SubmitForm({
+  chatSpaceId,
+  companyName,
+  consultMode = false,
+}: {
+  chatSpaceId: string;
+  companyName: string;
+  consultMode?: boolean;
+}) {
+  if (consultMode) {
+    return <ConsultForm chatSpaceId={chatSpaceId} companyName={companyName} />;
+  }
+
+  return <WeeklyShareForm chatSpaceId={chatSpaceId} companyName={companyName} />;
+}
+
+function WeeklyShareForm({
   chatSpaceId,
   companyName,
 }: {
@@ -158,6 +174,77 @@ export function SubmitForm({
         className="w-full py-3 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
       >
         {isPending ? "送信中..." : "シェアする"}
+      </button>
+    </form>
+  );
+}
+
+function ConsultForm({
+  chatSpaceId,
+  companyName,
+}: {
+  chatSpaceId: string;
+  companyName: string;
+}) {
+  const [state, formAction, isPending] = useActionState<SubmitState, FormData>(
+    submitConsult,
+    null
+  );
+
+  if (state?.success) {
+    return (
+      <div className="text-center space-y-4 py-8">
+        <div className="text-5xl">🙌</div>
+        <h2 className="text-xl font-bold text-zinc-800">
+          受け付けました！
+        </h2>
+        <p className="text-sm text-zinc-500">
+          サポート事務局に届きました。
+          <br />
+          おって、このスペースでご連絡します。
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="space-y-6">
+      <input type="hidden" name="chatSpaceId" value={chatSpaceId} />
+
+      <div className="text-center space-y-1">
+        <p className="text-xs text-zinc-400">サポート事務局</p>
+        <h2 className="text-lg font-bold text-zinc-800">
+          ちょっと相談する
+        </h2>
+        <p className="text-xs text-zinc-500">{companyName}</p>
+      </div>
+
+      {state?.error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
+          {state.error}
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-zinc-700">
+          相談したいこと
+          <span className="ml-1 text-red-500 text-xs">必須</span>
+        </label>
+        <textarea
+          name="content"
+          required
+          rows={5}
+          placeholder="お困りごと・聞いてみたいこと、なんでもどうぞ。週次のシェアは不要です。"
+          className={textareaClass}
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={isPending}
+        className="w-full py-3 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+      >
+        {isPending ? "送信中..." : "相談を送る"}
       </button>
     </form>
   );
