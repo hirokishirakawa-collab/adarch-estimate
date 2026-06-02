@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logApiUsage } from "@/lib/api-usage";
 
 /**
  * レート制限（インメモリ）
@@ -189,5 +190,7 @@ export function checkRateLimit(
     }
   }
 
+  // 通過＝実際にAPIを消費するリクエスト。利用ログを1件記録（fire-and-forget）。
+  logApiUsage(userId, endpoint);
   return null;
 }

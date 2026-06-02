@@ -3477,3 +3477,17 @@ model CreatorLead {
   @@index([createdAt(sort: Desc)])
   @@map("creator_leads")
 }
+
+/// AI/外部API の利用ログ。checkRateLimit 通過時に1件記録（誰が・どの機能を・いつ）。
+/// API消費の多いユーザーを把握するための軽量ログ。
+model ApiUsageLog {
+  id        String   @id @default(cuid())
+  email     String   // 利用者（rate-limit の userId＝メール）
+  feature   String   // エンドポイントキー（例: creator-leads/search）
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([feature])
+  @@index([createdAt(sort: Desc)])
+  @@map("api_usage_logs")
+}
