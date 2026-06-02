@@ -3478,6 +3478,60 @@ model CreatorLead {
   @@map("creator_leads")
 }
 
+enum OutreachStatus {
+  NEW       // 未着手
+  DRAFTED   // 下書き作成済
+  SENT      // 送信済（人が送った）
+  REPLIED   // 返信あり
+  MEETING   // 商談化
+  OPTOUT    // 配信停止
+  DEAD      // 見込みなし
+}
+
+/// 半自動アウトリーチ（TVer/映像制作・一般企業向け）のリード。
+/// AIがパーソナライズ下書きを生成→人がGmailで確認して送信（自動送信はしない）。
+model OutreachLead {
+  id           String  @id @default(cuid())
+  companyName  String
+  contactName  String?
+  email        String?
+  website      String?
+  prefecture   String?
+  businessNote String? @db.Text // パーソナライズ用の事業メモ
+
+  // ── AI下書き
+  draftSubject String?
+  draftBody    String? @db.Text
+  draftedAt    DateTime?
+
+  // ── 進捗
+  status     OutreachStatus @default(NEW)
+  senderEmail String?       // 担当（送る人）
+  sentAt      DateTime?
+  repliedAt   DateTime?
+  notes       String? @db.Text
+
+  ownerEmail String?
+  ownerName  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([ownerEmail])
+  @@index([createdAt(sort: Desc)])
+  @@map("outreach_leads")
+}
+
+/// アウトリーチの配信停止リスト（特電法対応）。ここにあるメールには二度と送らない。
+model OutreachOptOut {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  reason    String?
+  createdAt DateTime @default(now())
+  @@map("outreach_opt_outs")
+}
+
 /// AI/外部API の利用ログ。checkRateLimit 通過時に1件記録（誰が・どの機能を・いつ）。
 /// API消費の多いユーザーを把握するための軽量ログ。
 model ApiUsageLog {

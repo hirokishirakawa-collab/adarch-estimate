@@ -208,6 +208,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Sparkles,
         minRole: "ADMIN",
       },
+      {
+        href: "/dashboard/outreach-pipeline",
+        label: "アウトリーチ",
+        icon: Send,
+        minRole: "MANAGER",
+      },
     ],
   },
   {
