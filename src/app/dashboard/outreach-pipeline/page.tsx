@@ -8,7 +8,7 @@ import { OutreachBoard } from "./outreach-board";
 export default async function OutreachPipelinePage() {
   const session = await auth();
   const role = (session?.user?.role ?? "USER") as UserRole;
-  if (role === "USER") redirect("/dashboard");
+  if (role !== "ADMIN") redirect("/dashboard");
 
   const leads = await getOutreachLeads();
   const rows = leads.map((l) => ({

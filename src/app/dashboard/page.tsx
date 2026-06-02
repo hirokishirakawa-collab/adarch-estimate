@@ -684,16 +684,10 @@ export default async function DashboardPage() {
         <div className="space-y-2.5">
           {[
             {
-              date: "2026.06.02",
-              title: "アウトリーチ・パイプライン",
-              desc: "TVer/映像制作の一般企業向けに、AIが初回コンタクト下書きを生成。Gmailで確認して送信できます",
-              tag: "NEW",
-            },
-            {
               date: "2026.06.01",
               title: "TOKYO PRIMEシミュレーター 新価格対応",
               desc: "最新の媒体料金（2026.10–12版）に更新し、Boarding Adsの追加・対象エリアの拡大に対応しました",
-              tag: "機能追加",
+              tag: "NEW",
             },
             {
               date: "2026.06.01",

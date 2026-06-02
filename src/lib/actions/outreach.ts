@@ -6,15 +6,16 @@ import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import type { OutreachStatus } from "@/generated/prisma/client";
 
-async function requireManager() {
+// 当面は本部（ADMIN）限定。段階公開はPhase0（ドメイン/法務/運用ガイド）整備後に。
+async function requireAdmin() {
   const info = await getSessionInfo();
-  if (!info || info.role === "USER") return null;
+  if (!info || info.role !== "ADMIN") return null;
   return info;
 }
 
 // 一覧（ADMIN: 全件 / その他: 自分の担当のみ）
 export async function getOutreachLeads() {
-  const info = await requireManager();
+  const info = await requireAdmin();
   if (!info) return [];
   return db.outreachLead.findMany({
     where: info.role === "ADMIN" ? {} : { ownerEmail: info.email },
@@ -25,7 +26,7 @@ export async function getOutreachLeads() {
 
 // 貼り付けでリード追加（1行1社・「会社名, メール, 事業メモ」）。配信停止メールはスキップ。
 export async function addOutreachLeads(raw: string): Promise<{ error?: string; added?: number; skipped?: number }> {
-  const info = await requireManager();
+  const info = await requireAdmin();
   if (!info) return { error: "権限がありません" };
 
   const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -73,7 +74,7 @@ export async function addOutreachLeads(raw: string): Promise<{ error?: string; a
 
 // AI生成した下書きを保存
 export async function saveOutreachDraft(id: string, subject: string, body: string): Promise<{ error?: string }> {
-  const info = await requireManager();
+  const info = await requireAdmin();
   if (!info) return { error: "権限がありません" };
   // 担当者スコープ（IDOR防止）: ADMIN以外は自分の担当リードのみ
   const where = info.role === "ADMIN" ? { id } : { id, ownerEmail: info.email };
@@ -93,7 +94,7 @@ export async function saveOutreachDraft(id: string, subject: string, body: strin
 
 // ステータス更新（OPTOUT は配信停止リストにも登録）
 export async function updateOutreachStatus(id: string, status: OutreachStatus): Promise<{ error?: string }> {
-  const info = await requireManager();
+  const info = await requireAdmin();
   if (!info) return { error: "権限がありません" };
   // 担当者スコープ（IDOR防止）
   const where = info.role === "ADMIN" ? { id } : { id, ownerEmail: info.email };
@@ -126,7 +127,7 @@ export async function updateOutreachStatus(id: string, status: OutreachStatus): 
 }
 
 export async function deleteOutreachLead(id: string): Promise<{ error?: string }> {
-  const info = await requireManager();
+  const info = await requireAdmin();
   if (!info) return { error: "権限がありません" };
   // 担当者スコープ（IDOR防止）
   const where = info.role === "ADMIN" ? { id } : { id, ownerEmail: info.email };

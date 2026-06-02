@@ -42,7 +42,7 @@ const OUTPUT_TOOL: Anthropic.Messages.Tool = {
 export async function POST(req: NextRequest) {
   const session = await auth();
   const role = (session?.user?.role ?? "USER") as UserRole;
-  if (!session?.user?.email || role === "USER") {
+  if (!session?.user?.email || role !== "ADMIN") {
     return NextResponse.json({ error: "この機能の利用権限がありません" }, { status: 403 });
   }
 
