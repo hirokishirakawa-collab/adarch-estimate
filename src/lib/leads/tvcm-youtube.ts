@@ -2,6 +2,14 @@
 // YouTube Data API v3 を使った TVCM/動画PR 候補検索
 // ---------------------------------------------------------------
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * YouTube が 429（レート/クォータ上限）を返し、リトライしても回復しなかったときに投げる。
+ * 呼び出し側はこれを捕捉して「YouTube はレート制限中」と判断し、残りのキーワード検索を中断する。
+ */
+export const YOUTUBE_RATE_LIMITED = "YOUTUBE_RATE_LIMITED";
+
 export interface YouTubeVideoCandidate {
   videoId: string;
   videoUrl: string;
@@ -74,12 +82,32 @@ export async function searchTvcmVideos(
   }
   searchUrl.searchParams.set("key", apiKey);
 
-  const searchRes = await fetch(searchUrl.toString());
-  if (!searchRes.ok) {
-    console.error("YouTube search.list failed:", searchRes.status, await searchRes.text());
+  // 429（レート/クォータ上限）は指数バックオフでリトライし、それでも続くなら
+  // 専用エラーを投げて呼び出し側に伝える（残りのキーワード検索を中断させ、無駄打ちを防ぐ）。
+  const MAX_RETRIES = 2;
+  let searchData: { items?: YouTubeSearchItem[] };
+  for (let attempt = 0; ; attempt++) {
+    const searchRes = await fetch(searchUrl.toString());
+    if (searchRes.ok) {
+      searchData = (await searchRes.json()) as { items?: YouTubeSearchItem[] };
+      break;
+    }
+    const status = searchRes.status;
+    const body = await searchRes.text();
+    const rateLimited =
+      status === 429 ||
+      (status === 403 && /quota|rateLimit|userRateLimit/i.test(body));
+    if (rateLimited) {
+      if (attempt < MAX_RETRIES) {
+        await sleep(1000 * 2 ** attempt); // 1s, 2s
+        continue;
+      }
+      console.error("YouTube search.list rate limited:", status, body.slice(0, 200));
+      throw new Error(YOUTUBE_RATE_LIMITED);
+    }
+    console.error("YouTube search.list failed:", status, body.slice(0, 200));
     return [];
   }
-  const searchData = (await searchRes.json()) as { items?: YouTubeSearchItem[] };
   const items = searchData.items ?? [];
   if (items.length === 0) return [];
 

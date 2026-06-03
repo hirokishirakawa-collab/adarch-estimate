@@ -34,8 +34,34 @@ export async function GET(req: NextRequest) {
       { userId: null, staffName: "SYSTEM_CRON" },
     );
 
-    const { newlyCreated, updated, fetched, extracted, excluded, hidden } =
-      outcome.stats;
+    const {
+      newlyCreated,
+      updated,
+      fetched,
+      extracted,
+      excluded,
+      hidden,
+      youtubeRaw,
+      youtubeRateLimited,
+    } = outcome.stats;
+
+    const appUrlBase =
+      process.env.NEXT_PUBLIC_APP_URL ??
+      "https://adarch-estimate-production.up.railway.app";
+
+    // YouTube がレート/クォータ上限で全滅した日は、新規が少なくても代表に通知する。
+    // （YouTubeはプール最大ソース＝沈黙すると「いつのまにかプールが痩せる」原因になる）
+    if (youtubeRateLimited) {
+      await notifyCeo(
+        [
+          `⚠️ TVer広告クロール: YouTubeソースがレート/クォータ上限（429）で取得0件`,
+          `本日の新規はPR TIMES/@Pressのみ（新規 ${newlyCreated}件 / YouTube生取得 ${youtubeRaw}件）。`,
+          ``,
+          `恒久対策はGoogle Cloud ConsoleでYouTube Data APIのクォータ確認・増枠。`,
+          `👉 履歴: ${appUrlBase}/dashboard/leads/tvcm-history?status=CRAWLED`,
+        ].join("\n"),
+      );
+    }
 
     if (newlyCreated > 0) {
       const appUrl =

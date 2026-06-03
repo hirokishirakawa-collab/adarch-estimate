@@ -22,6 +22,7 @@ interface CrawlStats {
   filteredIndividual?: number; // 個人・個人YouTubeとして非表示にした件数
   filteredAlreadyPicked?: number; // 既にピックアップ済として非表示にした件数
   youtubeRaw?: number;
+  youtubeRateLimited?: boolean;
   prTimesRaw?: number;
   atPressRaw?: number;
   aiAttempts?: number;
@@ -376,6 +377,13 @@ export function TvcmSearchPanel() {
       {/* 統計 */}
       {stats && (
         <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
+          {/* YouTube がレート/クォータ上限で落ちた日は明示警告（プールが痩せる主因） */}
+          {stats.youtubeRateLimited && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              ⚠️ YouTubeソースがレート/クォータ上限（429）で取得0件です。今回の候補はPR
+              TIMES/@Pressのみ。恒久対策はGoogle Cloud ConsoleでYouTube Data APIのクォータ増枠。
+            </div>
+          )}
           {/* ソース別の生フェッチ数（切り分け診断用） */}
           {(stats.youtubeRaw !== undefined || stats.prTimesRaw !== undefined || stats.atPressRaw !== undefined) && (
             <div className="grid grid-cols-3 gap-3 text-center pb-3 border-b border-zinc-100">

@@ -18,6 +18,7 @@ import {
 } from "@/lib/leads/tvcm-atpress";
 import {
   searchTvcmVideos,
+  YOUTUBE_RATE_LIMITED,
   type YouTubeVideoCandidate,
 } from "@/lib/leads/tvcm-youtube";
 import { normalizeCompanyName } from "@/lib/leads/match-score";
@@ -54,6 +55,8 @@ export interface TvcmCrawlOutcome {
     filteredAlreadyPicked: number; // 既にピックアップ済（CRAWLED以外のステータス）として非表示にした件数
     // 切り分け用: 各ソースが「生記事を何件拾えたか」（AI判定前）
     youtubeRaw: number;
+    youtubeRateLimited: boolean; // YouTubeが429（レート/クォータ上限）で全滅したか
+    youtubeDroppedPersonal: number; // YouTubeで個人YouTuber/個人発信として保存前に除外した件数
     prTimesRaw: number;
     atPressRaw: number;
     // AI呼び出し診断
@@ -300,6 +303,8 @@ export async function runTvcmCrawl(
 
   // 切り分け診断: 各ソースの「生記事数」（AI判定前）を記録
   let youtubeRaw = 0;
+  let youtubeRateLimited = false;
+  let youtubeDroppedPersonal = 0; // YouTubeで個人YouTuber/個人発信として保存前に弾いた件数
   let prTimesRaw = 0;
   let atPressRaw = 0;
   // AI呼び出し診断: 試行回数 / API成功 / API失敗 / 空のcompanyName で除外
@@ -318,16 +323,32 @@ export async function runTvcmCrawl(
     const publishedAfter = new Date();
     publishedAfter.setDate(publishedAfter.getDate() - options.publishedWithinDays);
 
-    const searches = await Promise.all(
-      keywords.map((kw) =>
-        searchTvcmVideos(youtubeApiKey, {
+    // YouTube の 429（rateLimitExceeded）は 12キーワードの「同時一括発射」が主因。
+    // 逐次実行＋各検索間に小休止を挟んでバースト上限を回避する。
+    // いったんレート制限に当たったら残りのキーワードは打たずに中断する（無駄なクォータ消費を防ぐ）。
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const searches: YouTubeVideoCandidate[][] = [];
+    for (const kw of keywords) {
+      try {
+        const list = await searchTvcmVideos(youtubeApiKey, {
           query: kw,
           publishedAfter: publishedAfter.toISOString(),
           maxResults: options.maxPerKeyword,
           maxSubscribers: options.maxSubscribers,
-        }),
-      ),
-    );
+        });
+        searches.push(list);
+      } catch (err) {
+        if (err instanceof Error && err.message === YOUTUBE_RATE_LIMITED) {
+          youtubeRateLimited = true;
+          console.error(
+            `[tvcm-crawler] YouTube レート制限を検知（キーワード「${kw}」）。残りの検索を中断します。`,
+          );
+          break;
+        }
+        console.error(`[tvcm-crawler] YouTube 検索エラー（「${kw}」）:`, err);
+      }
+      await sleep(400); // バースト回避の小休止
+    }
 
     const videoMap = new Map<string, YouTubeVideoCandidate>();
     const seenChannels = new Set<string>();
@@ -410,6 +431,15 @@ ${v.channelDescription.slice(0, 3000)}
           isProductionCompany: !!raw.isProductionCompany,
           isIndividualCreator: !!raw.isIndividualCreator,
         };
+        // YouTubeソースは個人YouTuber・個人発信をプールに入れない（保存前にドロップ）。
+        // - isIndividualCreator: 法人化していない個人YouTuber/インフルエンサー
+        // - aiSuspectsNoise: AIが「企業の動画発表ではない」と判定＝個人投稿Vlog/MV/個人名チャンネル等
+        // PR TIMES/@Press は企業プレスリリース起点なので対象外＝この除外はYouTubeのみ。
+        if (candidate.isIndividualCreator || candidate.aiSuspectsNoise) {
+          youtubeDroppedPersonal++;
+          console.log(`[tvcm-crawler] YouTube 個人発信を除外: ${candidate.companyName}`);
+          return null;
+        }
         return applyFilters(candidate);
       } catch (err) {
         aiApiErrors++;
@@ -844,6 +874,8 @@ ${article.bodyText}`;
       filteredIndividual,
       filteredAlreadyPicked,
       youtubeRaw,
+      youtubeRateLimited,
+      youtubeDroppedPersonal,
       prTimesRaw,
       atPressRaw,
       aiAttempts,
