@@ -1004,7 +1004,14 @@ export async function bulkTransitionTvcmLeads(
         id: { in: leadIds },
         source: "PR_TIMES_TVCM",
       },
-      select: { id: true, name: true, prefecture: true, industry: true, status: true },
+      select: {
+        id: true,
+        name: true,
+        prefecture: true,
+        industry: true,
+        status: true,
+        scoreComment: true,
+      },
     });
 
     const newStatus: LeadStatus = decision === "pool" ? "UNTOUCHED" : "SKIPPED";
@@ -1046,11 +1053,29 @@ export async function bulkTransitionTvcmLeads(
         .map(([pref, n]) => `${pref} ${n}件`)
         .join("・");
 
+      // 会社名＋業種＋内容（AIサマリー）の一覧。多すぎる時は先頭のみ表示して残数を添える。
+      const MAX_LISTED = 15;
+      const companyLines = newlyPooled.slice(0, MAX_LISTED).map((t) => {
+        const meta = [t.prefecture?.trim(), t.industry?.trim()]
+          .filter(Boolean)
+          .join("・");
+        const head = `・${t.name}${meta ? `（${meta}）` : ""}`;
+        const summary = t.scoreComment?.trim().replace(/\s+/g, " ");
+        return summary
+          ? `${head}\n　${summary.length > 70 ? `${summary.slice(0, 70)}…` : summary}`
+          : head;
+      });
+      if (newlyPooled.length > MAX_LISTED) {
+        companyLines.push(`…他 ${newlyPooled.length - MAX_LISTED}件`);
+      }
+
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
       const poolUrl = `${appUrl}/dashboard/leads/tvcm-pool`;
       const message = [
         `📢 TVer広告 案件プールに ${newlyPooled.length}件 を一括投入しました`,
         `地域内訳: ${prefSummary}`,
+        ``,
+        ...companyLines,
         ``,
         `👉 先着順！「私がやります」でclaim:`,
         poolUrl,
