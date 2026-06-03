@@ -21,6 +21,11 @@ import {
   YOUTUBE_RATE_LIMITED,
   type YouTubeVideoCandidate,
 } from "@/lib/leads/tvcm-youtube";
+import {
+  canQueryYoutube,
+  addYoutubeUsage,
+  YOUTUBE_SEARCH_UNIT_COST,
+} from "@/lib/leads/youtube-quota";
 import { normalizeCompanyName } from "@/lib/leads/match-score";
 
 export interface TvcmCrawlOptions {
@@ -56,6 +61,7 @@ export interface TvcmCrawlOutcome {
     // 切り分け用: 各ソースが「生記事を何件拾えたか」（AI判定前）
     youtubeRaw: number;
     youtubeRateLimited: boolean; // YouTubeが429（レート/クォータ上限）で全滅したか
+    youtubeSkippedQuota: boolean; // 日次クォータガードでYouTube検索を見送ったか
     youtubeDroppedPersonal: number; // YouTubeで個人YouTuber/個人発信として保存前に除外した件数
     prTimesRaw: number;
     atPressRaw: number;
@@ -271,7 +277,7 @@ function applyFilters(c: TvcmLeadCandidate): TvcmLeadResult {
  */
 export async function runTvcmCrawl(
   options: TvcmCrawlOptions,
-  context: { userId: string | null; staffName: string },
+  context: { userId: string | null; staffName: string; isCron?: boolean },
 ): Promise<TvcmCrawlOutcome> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -304,6 +310,7 @@ export async function runTvcmCrawl(
   // 切り分け診断: 各ソースの「生記事数」（AI判定前）を記録
   let youtubeRaw = 0;
   let youtubeRateLimited = false;
+  let youtubeSkippedQuota = false; // 日次クォータガードでYouTube検索を見送ったか
   let youtubeDroppedPersonal = 0; // YouTubeで個人YouTuber/個人発信として保存前に弾いた件数
   let prTimesRaw = 0;
   let atPressRaw = 0;
@@ -320,6 +327,21 @@ export async function runTvcmCrawl(
       return [];
     }
 
+    // 日次クォータガード: その日の消費が上限に達していれば YouTube は見送る。
+    // 手動クロールは cron 予約枠を残す上限、cron は予約枠まで使える（朝の自動分を温存）。
+    const estimatedUnits = keywords.length * YOUTUBE_SEARCH_UNIT_COST;
+    const quota = await canQueryYoutube({
+      isCron: context.isCron ?? false,
+      estimatedUnits,
+    });
+    if (!quota.ok) {
+      youtubeSkippedQuota = true;
+      console.warn(
+        `[tvcm-crawler] YouTube 日次クォータガード作動: 当日消費 ${quota.usedToday}/${quota.ceiling}ユニット（必要 ${estimatedUnits}）→ YouTube検索を見送り`,
+      );
+      return [];
+    }
+
     const publishedAfter = new Date();
     publishedAfter.setDate(publishedAfter.getDate() - options.publishedWithinDays);
 
@@ -328,6 +350,7 @@ export async function runTvcmCrawl(
     // いったんレート制限に当たったら残りのキーワードは打たずに中断する（無駄なクォータ消費を防ぐ）。
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const searches: YouTubeVideoCandidate[][] = [];
+    let successfulSearches = 0;
     for (const kw of keywords) {
       try {
         const list = await searchTvcmVideos(youtubeApiKey, {
@@ -337,6 +360,7 @@ export async function runTvcmCrawl(
           maxSubscribers: options.maxSubscribers,
         });
         searches.push(list);
+        successfulSearches++;
       } catch (err) {
         if (err instanceof Error && err.message === YOUTUBE_RATE_LIMITED) {
           youtubeRateLimited = true;
@@ -349,6 +373,8 @@ export async function runTvcmCrawl(
       }
       await sleep(400); // バースト回避の小休止
     }
+    // 実際に成功した search.list 回数分のユニットを当日消費に記録
+    await addYoutubeUsage(successfulSearches * YOUTUBE_SEARCH_UNIT_COST);
 
     const videoMap = new Map<string, YouTubeVideoCandidate>();
     const seenChannels = new Set<string>();
@@ -875,6 +901,7 @@ ${article.bodyText}`;
       filteredAlreadyPicked,
       youtubeRaw,
       youtubeRateLimited,
+      youtubeSkippedQuota,
       youtubeDroppedPersonal,
       prTimesRaw,
       atPressRaw,

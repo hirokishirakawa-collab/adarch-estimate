@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
         publishedWithinDays: 7,
         hideRecentlyDecidedDays: 30,
       },
-      { userId: null, staffName: "SYSTEM_CRON" },
+      { userId: null, staffName: "SYSTEM_CRON", isCron: true },
     );
 
     const {
@@ -43,21 +43,27 @@ export async function GET(req: NextRequest) {
       hidden,
       youtubeRaw,
       youtubeRateLimited,
+      youtubeSkippedQuota,
     } = outcome.stats;
 
     const appUrlBase =
       process.env.NEXT_PUBLIC_APP_URL ??
       "https://adarch-estimate-production.up.railway.app";
 
-    // YouTube がレート/クォータ上限で全滅した日は、新規が少なくても代表に通知する。
+    // YouTube がレート/クォータ上限(429)で全滅、または日次クォータガードで見送った日は、
+    // 新規が少なくても代表に通知する。
     // （YouTubeはプール最大ソース＝沈黙すると「いつのまにかプールが痩せる」原因になる）
-    if (youtubeRateLimited) {
+    if (youtubeRateLimited || youtubeSkippedQuota) {
+      const reason = youtubeSkippedQuota
+        ? `日次クォータガード作動（当日枠を使い切ったため見送り）`
+        : `レート/クォータ上限（429）で取得0件`;
       await notifyCeo(
         [
-          `⚠️ TVer広告クロール: YouTubeソースがレート/クォータ上限（429）で取得0件`,
+          `⚠️ TVer広告クロール: YouTubeソースが${reason}`,
           `本日の新規はPR TIMES/@Pressのみ（新規 ${newlyCreated}件 / YouTube生取得 ${youtubeRaw}件）。`,
           ``,
-          `恒久対策はGoogle Cloud ConsoleでYouTube Data APIのクォータ確認・増枠。`,
+          `恒久対策はGoogle Cloud ConsoleでYouTube Data APIのクォータ確認・増枠、`,
+          `または手動クロールの実行回数を抑える（1回 約1,200ユニット消費）。`,
           `👉 履歴: ${appUrlBase}/dashboard/leads/tvcm-history?status=CRAWLED`,
         ].join("\n"),
       );

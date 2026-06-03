@@ -23,6 +23,7 @@ interface CrawlStats {
   filteredAlreadyPicked?: number; // 既にピックアップ済として非表示にした件数
   youtubeRaw?: number;
   youtubeRateLimited?: boolean;
+  youtubeSkippedQuota?: boolean;
   prTimesRaw?: number;
   atPressRaw?: number;
   aiAttempts?: number;
@@ -382,6 +383,13 @@ export function TvcmSearchPanel() {
             <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               ⚠️ YouTubeソースがレート/クォータ上限（429）で取得0件です。今回の候補はPR
               TIMES/@Pressのみ。恒久対策はGoogle Cloud ConsoleでYouTube Data APIのクォータ増枠。
+            </div>
+          )}
+          {/* 日次クォータガードでYouTubeを見送った場合（手動連打で朝のcron枠を守るため） */}
+          {stats.youtubeSkippedQuota && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              ⚠️ YouTubeは本日の手動クロール枠を使い切ったため見送りました（毎朝の自動クロール用に枠を温存）。
+              今回の候補はPR TIMES/@Pressのみ。翌日（太平洋時間リセット後）に再開します。
             </div>
           )}
           {/* ソース別の生フェッチ数（切り分け診断用） */}
