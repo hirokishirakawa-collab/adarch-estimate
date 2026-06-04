@@ -398,6 +398,7 @@ model User {
   // ---- リード管理 ----
   assignedLeads Lead[] @relation("LeadAssignee")
   createdLeads  Lead[] @relation("LeadCreatedBy")
+  outreachSamples OutreachSample[] @relation("UserOutreachSamples")
 
   // ---- 提案書AI ----
   salesActivities SalesActivity[] @relation("SalesActivities")
@@ -1883,6 +1884,25 @@ model LeadLog {
   @@index([leadId])
   @@index([createdAt])
   @@map("lead_logs")
+}
+
+// ==============================================================
+// OutreachSample（営業フォームのマイサンプル＝自作営業文）
+// ==============================================================
+
+/// 各ユーザーが営業フォームで使う自作の営業文サンプル。アカウントに紐づきDB保持。
+model OutreachSample {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("UserOutreachSamples", fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  text      String   @db.Text
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("outreach_samples")
 }
 
 // ==============================================================

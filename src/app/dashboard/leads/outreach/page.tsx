@@ -126,10 +126,16 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
       orderBy: { createdAt: "desc" },
       take: 80,
     }),
-    // ログイン中ユーザーの加盟会社（差出人の会社名の既定に使う）
+    // ログイン中ユーザーの加盟会社（差出人の会社名の既定）＋マイサンプル
     db.user.findUnique({
       where: { email: session.user.email },
-      select: { groupCompany: { select: { name: true } } },
+      select: {
+        groupCompany: { select: { name: true } },
+        outreachSamples: {
+          orderBy: { sortOrder: "asc" },
+          select: { id: true, name: true, text: true },
+        },
+      },
     }),
   ]);
 
@@ -209,6 +215,7 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
         senderName={session.user.name ?? "白川 裕喜"}
         senderEmail={session.user.email}
         senderCompany={me?.groupCompany?.name ?? "Ad Arch株式会社"}
+        initialSamples={me?.outreachSamples ?? []}
       />
     </div>
   );

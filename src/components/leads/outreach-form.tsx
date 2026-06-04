@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Copy, Check, MapPin, Sparkles, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
 // ---------------------------------------------------------------
@@ -29,6 +29,7 @@ interface Props {
   senderName: string;
   senderEmail: string;
   senderCompany: string;
+  initialSamples: MySample[];
 }
 
 // ---------------------------------------------------------------
@@ -110,7 +111,6 @@ function buildBody(lead: OutreachLead, appeal: string, proximity: boolean, c: Co
 
 const SKIP_KEY = "skip_os_outreach_page"; // 送付見送り（端末ローカル）
 const PROFILE_KEY = "profile_os_outreach_form"; // 共通項目（差出人）の記憶
-const SAMPLES_KEY = "samples_os_outreach_form"; // 自作サンプル（端末ローカル）
 
 // ---------------------------------------------------------------
 // カードの状態
@@ -124,14 +124,15 @@ interface CardState {
   busy: boolean;
 }
 
-export function OutreachForm({ leads, provenCopies, senderName, senderEmail, senderCompany }: Props) {
+export function OutreachForm({ leads, provenCopies, senderName, senderEmail, senderCompany, initialSamples }: Props) {
   const [common, setCommon] = useState<Common>({
     name: senderName,
     company: senderCompany,
     email: senderEmail,
   });
   const [subject, setSubject] = useState("広告媒体・動画制作のご案内");
-  const [mySamples, setMySamples] = useState<MySample[]>([]);
+  const [mySamples, setMySamples] = useState<MySample[]>(initialSamples);
+  const samplesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 初期カード状態
   const [cards, setCards] = useState<Record<string, CardState>>(() => {
@@ -162,31 +163,29 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
     }
   }, []);
 
-  // 自作サンプルの変更 → 保持（端末ローカル）
+  // 自作サンプルの変更 → アカウントに保存（DB・デバウンスPUT）
   const onSamplesChange = useCallback((next: MySample[]) => {
     setMySamples(next);
-    try {
-      localStorage.setItem(SAMPLES_KEY, JSON.stringify(next));
-    } catch {
-      /* noop */
-    }
+    if (samplesSaveTimer.current) clearTimeout(samplesSaveTimer.current);
+    samplesSaveTimer.current = setTimeout(() => {
+      fetch("/api/leads/outreach/samples", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ samples: next }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          // サーバー採番のIDに同期（新規作成分のID確定）
+          if (data?.samples && Array.isArray(data.samples)) setMySamples(data.samples);
+        })
+        .catch(() => {
+          /* noop（次回保存で再送される） */
+        });
+    }, 800);
   }, []);
 
-  // マウント時: 送付見送り＋共通項目＋自作サンプルの記憶を読み込む
+  // マウント時: 送付見送り＋共通項目の記憶を読み込む
   useEffect(() => {
-    // 自作サンプル（端末ローカル）
-    let loadedSamples: MySample[] = [];
-    try {
-      const arr = JSON.parse(localStorage.getItem(SAMPLES_KEY) || "[]");
-      if (Array.isArray(arr)) {
-        loadedSamples = arr.filter(
-          (x): x is MySample => x && typeof x.id === "string" && typeof x.name === "string" && typeof x.text === "string",
-        );
-        setMySamples(loadedSamples);
-      }
-    } catch {
-      /* noop */
-    }
     // 送付見送り（端末ローカル）
     try {
       const raw = JSON.parse(localStorage.getItem(SKIP_KEY) || "{}") as Record<string, boolean>;
@@ -217,7 +216,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
           const out: Record<string, CardState> = {};
           for (const [id, c] of Object.entries(prev)) {
             const lead = leadById[id];
-            out[id] = lead ? { ...c, body: buildBody(lead, c.appeal, c.proximity, merged, loadedSamples) } : c;
+            out[id] = lead ? { ...c, body: buildBody(lead, c.appeal, c.proximity, merged, initialSamples) } : c;
           }
           return out;
         });
@@ -225,7 +224,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
     } catch {
       /* noop */
     }
-  }, [leadById, senderName, senderEmail, senderCompany]);
+  }, [leadById, senderName, senderEmail, senderCompany, initialSamples]);
 
   const persistNg = useCallback((map: Record<string, CardState>) => {
     const ng: Record<string, boolean> = {};
