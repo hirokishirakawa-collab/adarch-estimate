@@ -118,10 +118,6 @@ const PAGE_SUGGESTIONS: Record<string, string[]> = {
     "インサイトの投稿方法は？",
     "他拠点の営業情報を見たい",
   ],
-  "/dashboard/cutsheet": [
-    "カット表の作り方は？",
-    "動画URLから自動生成できる？",
-  ],
   "/dashboard/strategy-advisor": [
     "AIに広告戦略を相談したい",
     "予算の入れ方は？",
@@ -161,7 +157,6 @@ function getPageLabel(pathname: string): string {
     "/dashboard/leads/list": "リード管理",
     "/dashboard/wiki": "社内Wiki",
     "/dashboard/sales-insights": "営業インサイト共有",
-    "/dashboard/cutsheet": "動画カット表AI",
     "/dashboard/strategy-advisor": "提案戦略アドバイザー",
     "/dashboard/video-achievements": "競合実績スクレイピング",
     "/dashboard/project-matching": "案件マッチング",
