@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { Suspense } from "react";
-import { ListChecks, Upload, Download } from "lucide-react";
+import { ListChecks, Upload, Download, PenLine } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import type { LeadStatus, LeadSource } from "@/generated/prisma/client";
@@ -154,6 +154,17 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   const totalPages = Math.ceil(total / PER_PAGE);
   const hasFilter = !!(q || statusParam || assigneeIdParam);
 
+  // 営業フォームへ現在の絞り込みを引き継ぐ
+  const outreachQuery = [
+    statusParam ? `status=${statusParam}` : "",
+    industryParam ? `industry=${encodeURIComponent(industryParam)}` : "",
+    areaParam ? `area=${encodeURIComponent(areaParam)}` : "",
+    q ? `q=${encodeURIComponent(q)}` : "",
+  ]
+    .filter(Boolean)
+    .join("&");
+  const outreachHref = `/dashboard/leads/outreach${outreachQuery ? `?${outreachQuery}` : ""}`;
+
   const statusCounts = {
     UNTOUCHED: untouchedCount,
     CALLED: calledCount,
@@ -186,6 +197,13 @@ export default async function LeadListPage({ searchParams }: PageProps) {
           </div>
         </div>
         <div data-tour="lead-list-import" className="flex items-center gap-3">
+          <Link
+            href={outreachHref}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#1F3A5F] rounded-lg hover:bg-[#16304f] transition-colors"
+          >
+            <PenLine className="w-3.5 h-3.5" />
+            営業フォーム
+          </Link>
           <LeadExportButtons />
           {isAdmin && <LeadDeleteAllButton totalCount={totalAll} />}
         </div>

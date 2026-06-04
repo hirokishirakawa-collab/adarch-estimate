@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { FileSpreadsheet, FileText } from "lucide-react";
+import { FileSpreadsheet, FileText, FilePen } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 export function LeadExportButtons() {
   const searchParams = useSearchParams();
-  const [loading, setLoading] = useState<"csv" | "pdf" | null>(null);
+  const [loading, setLoading] = useState<"csv" | "pdf" | "form" | null>(null);
 
-  async function handleExport(format: "csv" | "pdf") {
+  async function handleExport(format: "csv" | "pdf" | "form") {
     setLoading(format);
     try {
       // 現在のフィルター条件を引き継ぐ
@@ -59,6 +59,14 @@ export function LeadExportButtons() {
       >
         <FileText className="w-3.5 h-3.5" />
         {loading === "pdf" ? "出力中..." : "PDF"}
+      </button>
+      <button
+        onClick={() => handleExport("form")}
+        disabled={loading !== null}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#1F3A5F] border border-[#1F3A5F] rounded-lg hover:bg-[#16304f] disabled:opacity-50 transition-colors"
+      >
+        <FilePen className="w-3.5 h-3.5" />
+        {loading === "form" ? "出力中..." : "営業フォームHTML"}
       </button>
     </div>
   );
