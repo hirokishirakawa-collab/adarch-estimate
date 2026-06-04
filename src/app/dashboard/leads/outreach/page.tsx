@@ -34,6 +34,7 @@ function detectPref(text: string): string | null {
 
 interface PageProps {
   searchParams: Promise<{
+    ids?: string;
     q?: string;
     status?: string;
     industry?: string;
@@ -46,6 +47,14 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
   if (!session?.user?.email) return null;
 
   const params = await searchParams;
+  // リード管理で「指定（チェック選択）した会社」が渡された場合はそれを最優先
+  const idList = (params.ids ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 300);
+  const hasIds = idList.length > 0;
+
   const q = params.q?.trim() ?? "";
   const statusParam = params.status ?? "UNTOUCHED"; // 既定は未対応リードを対象
   const industryParam = params.industry ?? "";
@@ -53,27 +62,34 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
 
   // リード管理と同じベース除外（SKIPPED・未claimのPR_TIMESは出さない）
   type WhereInput = {
+    id?: { in: string[] };
     OR?: Array<Record<string, unknown>>;
     status?: LeadStatus | { not: LeadStatus };
     industry?: string;
     area?: { contains: string; mode: "insensitive" };
     NOT?: { source: LeadSource; assigneeId: null };
   };
-  const where: WhereInput = {
-    status: { not: "SKIPPED" as LeadStatus },
-    NOT: { source: "PR_TIMES_TVCM" as LeadSource, assigneeId: null },
-  };
-  if (statusParam && statusParam !== "all" && statusParam !== "SKIPPED") {
-    where.status = statusParam as LeadStatus;
+  // ids 指定時は、指定された会社だけを（ステータス等の絞り込みを無視して）対象にする
+  let where: WhereInput;
+  if (hasIds) {
+    where = { id: { in: idList } };
+  } else {
+    where = {
+      status: { not: "SKIPPED" as LeadStatus },
+      NOT: { source: "PR_TIMES_TVCM" as LeadSource, assigneeId: null },
+    };
+    if (statusParam && statusParam !== "all" && statusParam !== "SKIPPED") {
+      where.status = statusParam as LeadStatus;
+    }
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { address: { contains: q, mode: "insensitive" } },
+      ];
+    }
+    if (industryParam) where.industry = industryParam;
+    if (areaParam) where.area = { contains: areaParam, mode: "insensitive" };
   }
-  if (q) {
-    where.OR = [
-      { name: { contains: q, mode: "insensitive" } },
-      { address: { contains: q, mode: "insensitive" } },
-    ];
-  }
-  if (industryParam) where.industry = industryParam;
-  if (areaParam) where.area = { contains: areaParam, mode: "insensitive" };
 
   const [leads, activeCompanies, provenRaw] = await Promise.all([
     db.lead.findMany({
@@ -91,7 +107,7 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
         status: true,
       },
       orderBy: [{ scoreTotal: "desc" }, { createdAt: "desc" }],
-      take: MAX_LEADS,
+      take: hasIds ? idList.length : MAX_LEADS,
     }),
     // 稼働中の代表の所在県（近接判定用）
     db.groupCompany.findMany({

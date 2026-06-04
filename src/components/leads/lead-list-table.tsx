@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText, Film, Globe } from "lucide-react";
+import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText, Film, Globe, PenLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel, getLeadSourceOption } from "@/lib/constants/leads";
 import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads, bulkUpdateLeadStatus, bulkAssignLeads } from "@/lib/actions/lead";
@@ -64,6 +64,7 @@ interface Props {
 }
 
 export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, startDeleting] = useTransition();
@@ -266,6 +267,17 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
                 ))}
               </select>
             </div>
+
+            {/* 営業フォームへ（選択した会社を営業フォームに投入） */}
+            <button
+              onClick={() =>
+                router.push(`/dashboard/leads/outreach?ids=${Array.from(selectedIds).join(",")}`)
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#1F3A5F] rounded-lg hover:bg-[#16304f] transition-colors"
+            >
+              <PenLine className="w-3.5 h-3.5" />
+              営業フォームへ
+            </button>
 
             {/* エクスポート */}
             <button
