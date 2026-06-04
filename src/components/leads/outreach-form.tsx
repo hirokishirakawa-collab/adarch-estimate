@@ -28,14 +28,14 @@ interface Props {
   provenCopies: ProvenCopy[];
   senderName: string;
   senderEmail: string;
+  senderCompany: string;
 }
 
 // ---------------------------------------------------------------
 // 営業文テンプレート（用語規制遵守・価格非開示・媒体起点）
 // ---------------------------------------------------------------
-const TIMEREX = "https://timerex.net/s/hiroki.shirakawa_717d/0c3db524";
-
 // 加盟募集の文言は入れない。広告媒体営業／動画制作営業の単純なご提案文。
+// グループ加盟者（各社）が自分の見込み客に送る前提。差出人は共通項目で各社が設定。
 const APPEALS: { value: string; label: string; text: string }[] = [
   {
     value: "media",
@@ -82,13 +82,10 @@ function buildBody(lead: OutreachLead, appeal: string, proximity: boolean, c: Co
   }
   lines.push(
     "",
-    "よろしければ、事例を含めた詳しいご案内をお送りいたします。",
-    `■ ご相談・お打ち合わせのご予約：${TIMEREX}`,
-    "",
-    "ご興味をお持ちいただけましたら、ご返信または上記よりご連絡いただけますと幸いです。",
+    "よろしければ、事例を含めた詳しいご案内をお送りいたします。ご興味をお持ちいただけましたら、本メールにご返信いただけますと幸いです。",
     "",
     `${c.company}　${c.name}`,
-    `${c.email} / https://adarch.co.jp`,
+    c.email,
   );
   return lines.join("\n");
 }
@@ -108,10 +105,10 @@ interface CardState {
   busy: boolean;
 }
 
-export function OutreachForm({ leads, provenCopies, senderName, senderEmail }: Props) {
+export function OutreachForm({ leads, provenCopies, senderName, senderEmail, senderCompany }: Props) {
   const [common, setCommon] = useState<Common>({
     name: senderName,
-    company: "Ad Arch株式会社",
+    company: senderCompany,
     email: senderEmail,
   });
   const [subject, setSubject] = useState("広告媒体・動画制作のご案内");
@@ -125,7 +122,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail }: P
       init[l.id] = {
         appeal,
         proximity,
-        body: buildBody(l, appeal, proximity, { name: senderName, company: "Ad Arch株式会社", email: senderEmail }),
+        body: buildBody(l, appeal, proximity, { name: senderName, company: senderCompany, email: senderEmail }),
         sent: l.alreadySent,
         ng: false,
         busy: false,
@@ -168,7 +165,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail }: P
       if (saved) {
         const merged: Common = {
           name: saved.name || senderName,
-          company: saved.company || "Ad Arch株式会社",
+          company: saved.company || senderCompany,
           email: saved.email || senderEmail,
         };
         setCommon(merged);
@@ -185,7 +182,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail }: P
     } catch {
       /* noop */
     }
-  }, [leadById, senderName, senderEmail]);
+  }, [leadById, senderName, senderEmail, senderCompany]);
 
   const persistNg = useCallback((map: Record<string, CardState>) => {
     const ng: Record<string, boolean> = {};
@@ -298,10 +295,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail }: P
           <LabeledInput label="メール" value={common.email} onChange={(v) => onCommonChange({ ...common, email: v })} />
           <LabeledInput label="件名" value={subject} onChange={onSubjectChange} />
         </div>
-        <div className="flex flex-wrap gap-2 mt-3">
-          <a href={TIMEREX} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700">📅 予約ページ</a>
-        </div>
-        <p className="text-[11px] text-zinc-400 mt-2">※ 共通項目はこの端末に記憶され、次回も保持されます。共通項目・訴求・近接を変えると本文が再生成されるので、手直しは最後に行ってからコピーしてください。</p>
+        <p className="text-[11px] text-zinc-400 mt-2">※ 共通項目（差出人）はこの端末に記憶され、次回も保持されます。共通項目・訴求・近接を変えると本文が再生成されるので、手直しは最後に行ってからコピーしてください。</p>
       </div>
 
       {leads.length === 0 && (

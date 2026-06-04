@@ -91,7 +91,7 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
     if (areaParam) where.area = { contains: areaParam, mode: "insensitive" };
   }
 
-  const [leads, activeCompanies, provenRaw] = await Promise.all([
+  const [leads, activeCompanies, provenRaw, me] = await Promise.all([
     db.lead.findMany({
       where,
       select: {
@@ -125,6 +125,11 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
       },
       orderBy: { createdAt: "desc" },
       take: 80,
+    }),
+    // ログイン中ユーザーの加盟会社（差出人の会社名の既定に使う）
+    db.user.findUnique({
+      where: { email: session.user.email },
+      select: { groupCompany: { select: { name: true } } },
     }),
   ]);
 
@@ -203,6 +208,7 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
         provenCopies={provenCopies}
         senderName={session.user.name ?? "白川 裕喜"}
         senderEmail={session.user.email}
+        senderCompany={me?.groupCompany?.name ?? "Ad Arch株式会社"}
       />
     </div>
   );
