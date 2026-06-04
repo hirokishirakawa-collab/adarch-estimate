@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Copy, Check, MapPin, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Copy, Check, MapPin, Sparkles, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
 // ---------------------------------------------------------------
 // 型
@@ -55,6 +55,14 @@ const APPEALS: { value: string; label: string; text: string }[] = [
 ];
 const APPEAL_MAP = Object.fromEntries(APPEALS.map((a) => [a.value, a]));
 
+// 自作サンプル（各社が共通項目で作成・端末に保持）。訴求セレクトに value="my:<id>" で並ぶ。
+interface MySample {
+  id: string;
+  name: string;
+  text: string;
+}
+const MY_PREFIX = "my:";
+
 function clause(area: string, ind: string): string {
   if (area && ind) return `${area}で、${ind}を手がけられていることを拝見し`;
   if (ind) return `${ind}を手がけられていることを拝見し`;
@@ -67,8 +75,18 @@ interface Common {
   company: string;
   email: string;
 }
-function buildBody(lead: OutreachLead, appeal: string, proximity: boolean, c: Common): string {
-  const para = (APPEAL_MAP[appeal] ?? APPEALS[0]).text.replace(/\{name\}/g, lead.name);
+
+// 訴求キー → 本文中段のテンプレート文を解決（自作サンプル対応）
+function resolveAppealText(appeal: string, samples: MySample[]): string {
+  if (appeal.startsWith(MY_PREFIX)) {
+    const s = samples.find((x) => MY_PREFIX + x.id === appeal);
+    if (s) return s.text;
+  }
+  return (APPEAL_MAP[appeal] ?? APPEALS[0]).text;
+}
+
+function buildBody(lead: OutreachLead, appeal: string, proximity: boolean, c: Common, samples: MySample[]): string {
+  const para = resolveAppealText(appeal, samples).replace(/\{name\}/g, lead.name);
   const lines = [
     `突然のご連絡失礼いたします。${c.company}の${c.name}と申します。${clause(lead.area, lead.industry)}、ご提案がありご連絡しました。`,
     "",
@@ -92,6 +110,7 @@ function buildBody(lead: OutreachLead, appeal: string, proximity: boolean, c: Co
 
 const SKIP_KEY = "skip_os_outreach_page"; // 送付見送り（端末ローカル）
 const PROFILE_KEY = "profile_os_outreach_form"; // 共通項目（差出人）の記憶
+const SAMPLES_KEY = "samples_os_outreach_form"; // 自作サンプル（端末ローカル）
 
 // ---------------------------------------------------------------
 // カードの状態
@@ -112,6 +131,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
     email: senderEmail,
   });
   const [subject, setSubject] = useState("広告媒体・動画制作のご案内");
+  const [mySamples, setMySamples] = useState<MySample[]>([]);
 
   // 初期カード状態
   const [cards, setCards] = useState<Record<string, CardState>>(() => {
@@ -122,7 +142,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
       init[l.id] = {
         appeal,
         proximity,
-        body: buildBody(l, appeal, proximity, { name: senderName, company: senderCompany, email: senderEmail }),
+        body: buildBody(l, appeal, proximity, { name: senderName, company: senderCompany, email: senderEmail }, []),
         sent: l.alreadySent,
         ng: false,
         busy: false,
@@ -142,8 +162,31 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
     }
   }, []);
 
-  // マウント時: 送付見送り＋共通項目の記憶を読み込む
+  // 自作サンプルの変更 → 保持（端末ローカル）
+  const onSamplesChange = useCallback((next: MySample[]) => {
+    setMySamples(next);
+    try {
+      localStorage.setItem(SAMPLES_KEY, JSON.stringify(next));
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  // マウント時: 送付見送り＋共通項目＋自作サンプルの記憶を読み込む
   useEffect(() => {
+    // 自作サンプル（端末ローカル）
+    let loadedSamples: MySample[] = [];
+    try {
+      const arr = JSON.parse(localStorage.getItem(SAMPLES_KEY) || "[]");
+      if (Array.isArray(arr)) {
+        loadedSamples = arr.filter(
+          (x): x is MySample => x && typeof x.id === "string" && typeof x.name === "string" && typeof x.text === "string",
+        );
+        setMySamples(loadedSamples);
+      }
+    } catch {
+      /* noop */
+    }
     // 送付見送り（端末ローカル）
     try {
       const raw = JSON.parse(localStorage.getItem(SKIP_KEY) || "{}") as Record<string, boolean>;
@@ -174,7 +217,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
           const out: Record<string, CardState> = {};
           for (const [id, c] of Object.entries(prev)) {
             const lead = leadById[id];
-            out[id] = lead ? { ...c, body: buildBody(lead, c.appeal, c.proximity, merged) } : c;
+            out[id] = lead ? { ...c, body: buildBody(lead, c.appeal, c.proximity, merged, loadedSamples) } : c;
           }
           return out;
         });
@@ -205,11 +248,11 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
         const proximity = patch.proximity ?? cur.proximity;
         return {
           ...prev,
-          [id]: { ...cur, appeal, proximity, body: buildBody(lead, appeal, proximity, c) },
+          [id]: { ...cur, appeal, proximity, body: buildBody(lead, appeal, proximity, c, mySamples) },
         };
       });
     },
-    [leadById],
+    [leadById, mySamples],
   );
 
   // 共通項目の変更 → 全カードの本文を再生成（手入力は上書きされます）＋記憶
@@ -221,12 +264,12 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
         const out: Record<string, CardState> = {};
         for (const [id, c] of Object.entries(prev)) {
           const lead = leadById[id];
-          out[id] = lead ? { ...c, body: buildBody(lead, c.appeal, c.proximity, next) } : c;
+          out[id] = lead ? { ...c, body: buildBody(lead, c.appeal, c.proximity, next, mySamples) } : c;
         }
         return out;
       });
     },
-    [leadById, saveProfile, subject],
+    [leadById, saveProfile, subject, mySamples],
   );
 
   // 件名の変更 → 記憶（件名は本文には差し込まない）
@@ -296,6 +339,9 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
           <LabeledInput label="件名" value={subject} onChange={onSubjectChange} />
         </div>
         <p className="text-[11px] text-zinc-400 mt-2">※ 共通項目（差出人）はこの端末に記憶され、次回も保持されます。共通項目・訴求・近接を変えると本文が再生成されるので、手直しは最後に行ってからコピーしてください。</p>
+
+        {/* マイサンプル（自作の営業文） */}
+        <MySamplesEditor samples={mySamples} onChange={onSamplesChange} />
       </div>
 
       {leads.length === 0 && (
@@ -315,6 +361,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
             lead={lead}
             state={c}
             provenCopies={provenCopies}
+            samples={mySamples}
             onAppeal={(v) => regen(lead.id, { appeal: v }, common)}
             onProximity={(v) => regen(lead.id, { proximity: v }, common)}
             onBody={(v) => setBody(lead.id, v)}
@@ -351,6 +398,7 @@ function OutreachCard({
   lead,
   state,
   provenCopies,
+  samples,
   onAppeal,
   onProximity,
   onBody,
@@ -361,6 +409,7 @@ function OutreachCard({
   lead: OutreachLead;
   state: CardState;
   provenCopies: ProvenCopy[];
+  samples: MySample[];
   onAppeal: (v: string) => void;
   onProximity: (v: boolean) => void;
   onBody: (v: string) => void;
@@ -455,6 +504,13 @@ function OutreachCard({
             {APPEALS.map((a) => (
               <option key={a.value} value={a.value}>{a.label}</option>
             ))}
+            {samples.length > 0 && (
+              <optgroup label="マイサンプル">
+                {samples.map((s) => (
+                  <option key={s.id} value={MY_PREFIX + s.id}>{s.name || "（無題）"}</option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </label>
         {lead.nearbyPref && (
@@ -528,6 +584,77 @@ function ProvenItem({ item, onAdopt }: { item: ProvenCopy; onAdopt: () => void }
         </div>
       </div>
       <p className={`text-[12px] text-zinc-700 mt-1 whitespace-pre-wrap ${open ? "" : "line-clamp-2"}`}>{item.body}</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// マイサンプル（自作の営業文）— 共通項目内で作成・端末ローカルに保持
+// ---------------------------------------------------------------
+function makeSampleId(): string {
+  try {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  } catch {
+    /* noop */
+  }
+  return "s" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+}
+
+function MySamplesEditor({ samples, onChange }: { samples: MySample[]; onChange: (next: MySample[]) => void }) {
+  const [open, setOpen] = useState(false);
+
+  function add() {
+    onChange([...samples, { id: makeSampleId(), name: "", text: "" }]);
+    setOpen(true);
+  }
+  function update(id: string, patch: Partial<MySample>) {
+    onChange(samples.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  }
+  function remove(id: string) {
+    onChange(samples.filter((s) => s.id !== id));
+  }
+
+  return (
+    <div className="mt-3 border-t border-zinc-100 pt-3">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1 text-xs font-bold text-[#1F3A5F] hover:opacity-80"
+      >
+        マイサンプル（自分の営業文）{samples.length > 0 ? `（${samples.length}）` : ""}
+        {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-3">
+          <p className="text-[11px] text-zinc-400 leading-relaxed">
+            作成したサンプルは各社カードの「訴求」セレクトに表示され、選ぶと本文の中段に入ります。本文中の <code className="bg-zinc-100 px-1 rounded">{"{name}"}</code> は相手の会社名に自動で置き換わります。この端末に保存され、次回も保持されます。
+          </p>
+          {samples.map((s) => (
+            <div key={s.id} className="rounded-lg border border-zinc-200 p-2.5">
+              <div className="flex items-center gap-2 mb-1.5">
+                <input
+                  value={s.name}
+                  onChange={(e) => update(s.id, { name: e.target.value })}
+                  placeholder="サンプル名（例: 美容室向け 広告媒体）"
+                  className="flex-1 text-xs px-2 py-1.5 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+                <button onClick={() => remove(s.id)} className="text-rose-500 hover:text-rose-700 p-1" title="削除">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <textarea
+                value={s.text}
+                onChange={(e) => update(s.id, { text: e.target.value })}
+                rows={4}
+                placeholder="営業文の本文（中段の一段落）。{name} で相手の会社名を差し込めます。"
+                className="w-full text-[12.5px] leading-relaxed p-2 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+          ))}
+          <button onClick={add} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">
+            <Plus className="w-3.5 h-3.5" /> 新しいサンプルを追加
+          </button>
+        </div>
+      )}
     </div>
   );
 }
