@@ -33,29 +33,24 @@ interface Props {
 // ---------------------------------------------------------------
 // 営業文テンプレート（用語規制遵守・価格非開示・媒体起点）
 // ---------------------------------------------------------------
-const DROPBOX = "https://www.dropbox.com/t/Hp7OcKDNSft3EigA";
 const TIMEREX = "https://timerex.net/s/hiroki.shirakawa_717d/0c3db524";
 
+// 加盟募集の文言は入れない。広告媒体営業／動画制作営業の単純なご提案文。
 const APPEALS: { value: string; label: string; text: string }[] = [
   {
     value: "media",
-    label: "媒体提案（標準・既存事業×広告）",
-    text: "{name}様はすでにお客様の制作・集客に携わっておられます。そこに「広告」という選択肢が加わると、お客様のお役に立てる場面が増えるかもしれません。広告の手配・制作・効果測定はグループでお手伝いしますので、本業はそのままに、無理のない範囲で始めていただけます（資本関係や買収ではありません）。",
+    label: "広告媒体のご提案（TVer等）",
+    text: "{name}様の集客のお手伝いとして、広告媒体のご提案ができればと考えております。TVer・イオンシネマ・タクシー広告など、通常は個社では取り扱いにくい媒体も、当社でまとめて手配・制作・効果測定まで対応いたします。御社の商圏やご予算に合わせてご提案しますので、小さくお試しいただくことも可能です。",
   },
   {
-    value: "crosssell",
-    label: "クライアントへのクロスセル",
-    text: "{name}様の既存のお客様に対して、「広告」という新しいご提案ができるようになります。広告の手配・制作・効果測定はグループでお手伝いしますので、本業はそのままに、お客様一社あたりのお取引の幅を広げていただけます（資本関係や買収ではありません）。",
+    value: "video",
+    label: "動画・映像制作のご提案",
+    text: "{name}様の商品・サービスを伝える動画・映像制作のご提案ができればと考えております。撮影・編集から、SNS・Web・店頭サイネージなど配信先に合わせた制作まで一貫して対応いたします。ご用途に合わせてご提案しますので、まずは一本からでもご相談いただけます。",
   },
   {
-    value: "production",
-    label: "制作案件の拡大（動画・映像）",
-    text: "{name}様の制作のお仕事に、動画・映像という受け皿が加わります。撮影・編集・配信先の手配はグループでお手伝いしますので、本業はそのままに、対応できる案件の幅を広げていただけます（資本関係や買収ではありません）。",
-  },
-  {
-    value: "bigmedia",
-    label: "TVer等の大型媒体の取扱",
-    text: "TVerやイオンシネマなど、通常は個社では扱いにくい媒体を、{name}様からお客様にご提案いただけるようになります。媒体の手配・制作・効果測定はグループでお手伝いしますので、本業はそのままに始めていただけます（資本関係や買収ではありません）。",
+    value: "both",
+    label: "広告媒体＋動画制作",
+    text: "{name}様の集客に向けて、広告媒体の出稿と動画・映像制作の両面でお手伝いできればと考えております。媒体の手配から動画の制作・効果測定まで一貫して対応し、御社の商圏・ご予算に合わせてご提案いたします。",
   },
 ];
 const APPEAL_MAP = Object.fromEntries(APPEALS.map((a) => [a.value, a]));
@@ -75,33 +70,31 @@ interface Common {
 function buildBody(lead: OutreachLead, appeal: string, proximity: boolean, c: Common): string {
   const para = (APPEAL_MAP[appeal] ?? APPEALS[0]).text.replace(/\{name\}/g, lead.name);
   const lines = [
-    `突然のご連絡失礼いたします。${c.company} 代表の${c.name}と申します。${clause(lead.area, lead.industry)}、一つご提案がありご連絡しました。`,
-    "",
-    "ご提案を一言で申し上げると、Ad Archグループに「代表」の一人として加わっていただけないか、というお誘いです。弊社は全国で27名の代表が、フランチャイズのような形で、それぞれ独立した事業として運営するグループで、TVer・イオンシネマ・タクシー広告など、通常はなかなか取得できない広告媒体の正規代理店権をグループとして保有しています。",
+    `突然のご連絡失礼いたします。${c.company}の${c.name}と申します。${clause(lead.area, lead.industry)}、ご提案がありご連絡しました。`,
     "",
     para,
   ];
   if (proximity && lead.nearbyPref) {
     lines.push(
       "",
-      `なお、お近くの${lead.nearbyPref}にも弊社の代表がおりますので、ご希望でしたら対面でのご説明も可能です。`,
+      `なお、${lead.nearbyPref}にも当社の担当がおりますので、ご希望でしたら対面でのご説明も可能です。`,
     );
   }
   lines.push(
     "",
-    "まずは全体像が分かる資料をご用意しています。",
-    `■ 説明資料：${DROPBOX}`,
-    `■ 個別説明会のご予約：${TIMEREX}`,
+    "よろしければ、事例を含めた詳しいご案内をお送りいたします。",
+    `■ ご相談・お打ち合わせのご予約：${TIMEREX}`,
     "",
-    "ご関心をお持ちいただけましたら、ご返信または上記よりご連絡いただけますと幸いです。",
+    "ご興味をお持ちいただけましたら、ご返信または上記よりご連絡いただけますと幸いです。",
     "",
-    `${c.company} 代表取締役 ${c.name}`,
+    `${c.company}　${c.name}`,
     `${c.email} / https://adarch.co.jp`,
   );
   return lines.join("\n");
 }
 
-const NG_KEY = "ng_os_outreach_page";
+const SKIP_KEY = "skip_os_outreach_page"; // 送付見送り（端末ローカル）
+const PROFILE_KEY = "profile_os_outreach_form"; // 共通項目（差出人）の記憶
 
 // ---------------------------------------------------------------
 // カードの状態
@@ -121,7 +114,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail }: P
     company: "Ad Arch株式会社",
     email: senderEmail,
   });
-  const [subject, setSubject] = useState("広告事業のご提案（Ad Archグループ 加盟のお誘い）");
+  const [subject, setSubject] = useState("広告媒体・動画制作のご案内");
 
   // 初期カード状態
   const [cards, setCards] = useState<Record<string, CardState>>(() => {
@@ -141,10 +134,22 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail }: P
     return init;
   });
 
-  // NG は端末ローカルに保存（OS項目を持たないため）
-  useEffect(() => {
+  const leadById = useMemo(() => Object.fromEntries(leads.map((l) => [l.id, l])), [leads]);
+
+  // 共通項目（差出人）の記憶を保存
+  const saveProfile = useCallback((c: Common, subj: string) => {
     try {
-      const raw = JSON.parse(localStorage.getItem(NG_KEY) || "{}") as Record<string, boolean>;
+      localStorage.setItem(PROFILE_KEY, JSON.stringify({ ...c, subject: subj }));
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  // マウント時: 送付見送り＋共通項目の記憶を読み込む
+  useEffect(() => {
+    // 送付見送り（端末ローカル）
+    try {
+      const raw = JSON.parse(localStorage.getItem(SKIP_KEY) || "{}") as Record<string, boolean>;
       setCards((prev) => {
         const next = { ...prev };
         for (const id of Object.keys(next)) {
@@ -155,19 +160,42 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail }: P
     } catch {
       /* noop */
     }
-  }, []);
+    // 共通項目（差出人）の記憶 → あれば適用して全本文を再生成
+    try {
+      const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null") as
+        | { name?: string; company?: string; email?: string; subject?: string }
+        | null;
+      if (saved) {
+        const merged: Common = {
+          name: saved.name || senderName,
+          company: saved.company || "Ad Arch株式会社",
+          email: saved.email || senderEmail,
+        };
+        setCommon(merged);
+        if (saved.subject) setSubject(saved.subject);
+        setCards((prev) => {
+          const out: Record<string, CardState> = {};
+          for (const [id, c] of Object.entries(prev)) {
+            const lead = leadById[id];
+            out[id] = lead ? { ...c, body: buildBody(lead, c.appeal, c.proximity, merged) } : c;
+          }
+          return out;
+        });
+      }
+    } catch {
+      /* noop */
+    }
+  }, [leadById, senderName, senderEmail]);
 
   const persistNg = useCallback((map: Record<string, CardState>) => {
     const ng: Record<string, boolean> = {};
     for (const [id, c] of Object.entries(map)) if (c.ng) ng[id] = true;
     try {
-      localStorage.setItem(NG_KEY, JSON.stringify(ng));
+      localStorage.setItem(SKIP_KEY, JSON.stringify(ng));
     } catch {
       /* noop */
     }
   }, []);
-
-  const leadById = useMemo(() => Object.fromEntries(leads.map((l) => [l.id, l])), [leads]);
 
   // 訴求・近接の変更 → そのカードの本文を再生成
   const regen = useCallback(
@@ -187,10 +215,11 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail }: P
     [leadById],
   );
 
-  // 共通項目の変更 → 全カードの本文を再生成（手入力は上書きされます）
+  // 共通項目の変更 → 全カードの本文を再生成（手入力は上書きされます）＋記憶
   const onCommonChange = useCallback(
     (next: Common) => {
       setCommon(next);
+      saveProfile(next, subject);
       setCards((prev) => {
         const out: Record<string, CardState> = {};
         for (const [id, c] of Object.entries(prev)) {
@@ -200,7 +229,16 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail }: P
         return out;
       });
     },
-    [leadById],
+    [leadById, saveProfile, subject],
+  );
+
+  // 件名の変更 → 記憶（件名は本文には差し込まない）
+  const onSubjectChange = useCallback(
+    (v: string) => {
+      setSubject(v);
+      saveProfile(common, v);
+    },
+    [saveProfile, common],
   );
 
   // 送付済みトグル → OSへ反映
@@ -251,20 +289,19 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail }: P
           <h3 className="text-sm font-bold text-[#1F3A5F]">① 共通項目（差出人。フォームに貼る項目。直接編集可）</h3>
           <div className="flex items-center gap-3 text-xs font-bold">
             <span className="text-blue-700">送付済 {sentCount}</span>
-            <span className="text-rose-600">NG {ngCount}</span>
+            <span className="text-zinc-500">見送り {ngCount}</span>
           </div>
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
           <LabeledInput label="お名前" value={common.name} onChange={(v) => onCommonChange({ ...common, name: v })} />
           <LabeledInput label="会社名" value={common.company} onChange={(v) => onCommonChange({ ...common, company: v })} />
           <LabeledInput label="メール" value={common.email} onChange={(v) => onCommonChange({ ...common, email: v })} />
-          <LabeledInput label="件名" value={subject} onChange={setSubject} />
+          <LabeledInput label="件名" value={subject} onChange={onSubjectChange} />
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
-          <a href={DROPBOX} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-emerald-500 rounded-lg hover:bg-emerald-600">📄 説明資料</a>
           <a href={TIMEREX} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700">📅 予約ページ</a>
         </div>
-        <p className="text-[11px] text-zinc-400 mt-2">※ 共通項目・訴求・近接を変えると本文が再生成されます。手直しは最後に行ってからコピーしてください。</p>
+        <p className="text-[11px] text-zinc-400 mt-2">※ 共通項目はこの端末に記憶され、次回も保持されます。共通項目・訴求・近接を変えると本文が再生成されるので、手直しは最後に行ってからコピーしてください。</p>
       </div>
 
       {leads.length === 0 && (
@@ -363,7 +400,7 @@ function OutreachCard({
   return (
     <div
       className={`bg-white rounded-xl border p-4 transition-colors ${
-        state.ng ? "border-rose-200 bg-rose-50/40" : state.sent ? "border-blue-300 bg-blue-50/40" : "border-zinc-200"
+        state.ng ? "border-zinc-300 bg-zinc-50" : state.sent ? "border-blue-300 bg-blue-50/40" : "border-zinc-200"
       }`}
     >
       {/* ヘッダー */}
@@ -375,7 +412,7 @@ function OutreachCard({
             {state.sent && <span className="text-[11px] font-bold text-blue-600">✓ 送付済（OS反映済）</span>}
             {lead.nearbyPref && (
               <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 rounded px-1.5 py-0.5">
-                <MapPin className="w-3 h-3" /> 近くに代表（{lead.nearbyPref}）
+                <MapPin className="w-3 h-3" /> 近くに担当（{lead.nearbyPref}）
               </span>
             )}
           </div>
@@ -393,9 +430,9 @@ function OutreachCard({
           </button>
           <button
             onClick={onToggleNg}
-            className={`text-xs font-bold rounded-lg px-2.5 py-1.5 ${state.ng ? "bg-zinc-500 text-white" : "bg-rose-500 text-white hover:bg-rose-600"}`}
+            className={`text-xs font-bold rounded-lg px-2.5 py-1.5 ${state.ng ? "bg-zinc-600 text-white" : "bg-zinc-400 text-white hover:bg-zinc-500"}`}
           >
-            {state.ng ? "NG解除" : "NG"}
+            {state.ng ? "見送り解除" : "送付見送り"}
           </button>
         </div>
       </div>
@@ -429,7 +466,7 @@ function OutreachCard({
         {lead.nearbyPref && (
           <label className="flex items-center gap-1.5 text-xs text-emerald-700">
             <input type="checkbox" checked={state.proximity} onChange={(e) => onProximity(e.target.checked)} />
-            最寄り代表（{lead.nearbyPref}）を本文に入れる
+            最寄りの担当（{lead.nearbyPref}）を本文に入れる
           </label>
         )}
         <button
