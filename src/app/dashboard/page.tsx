@@ -23,7 +23,6 @@ import {
   ContactRound,
   Handshake,
   Megaphone,
-  Palette,
   CalendarCheck,
   Target,
   Eye,
@@ -813,7 +812,6 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {[
               { href: "/dashboard/projects", label: "プロジェクト一覧", icon: FolderKanban },
-              { href: "/dashboard/cutsheet", label: "動画カット表AI", icon: Film },
               { href: "/dashboard/project-matching", label: "案件マッチング", icon: Handshake },
               { href: "/dashboard/group-profiles", label: "メンバー紹介", icon: Users },
             ].map((link) => (
@@ -823,30 +821,6 @@ export default async function DashboardPage() {
                 className="group flex items-center gap-2.5 px-3 py-2.5 bg-white border border-zinc-200 rounded-lg hover:border-violet-300 hover:bg-violet-50/50 transition-all"
               >
                 <link.icon className="w-4 h-4 flex-shrink-0 text-violet-500" />
-                <span className="text-[11px] font-medium text-zinc-700 group-hover:text-zinc-900 truncate">{link.label}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* SNS簡易制作（Studio） */}
-        <div>
-          <p className="text-[10px] font-semibold text-fuchsia-500 uppercase tracking-widest mb-2">SNS簡易制作（Studio）</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-            {[
-              { href: "/dashboard/studio", label: "Studio ホーム", icon: Palette },
-              { href: "/dashboard/studio/clients", label: "クライアント管理", icon: Users },
-              { href: "/dashboard/studio/generate", label: "SNSプラン生成", icon: Sparkles },
-              { href: "/dashboard/studio/caption", label: "キャプション生成", icon: PenLine },
-              { href: "/dashboard/studio/results", label: "成果ダッシュボード", icon: BarChart2 },
-              { href: "/dashboard/studio/library", label: "制作ライブラリ", icon: HardDrive },
-            ].map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="group flex items-center gap-2.5 px-3 py-2.5 bg-white border border-zinc-200 rounded-lg hover:border-fuchsia-300 hover:bg-fuchsia-50/50 transition-all"
-              >
-                <link.icon className="w-4 h-4 flex-shrink-0 text-fuchsia-500" />
                 <span className="text-[11px] font-medium text-zinc-700 group-hover:text-zinc-900 truncate">{link.label}</span>
               </Link>
             ))}
