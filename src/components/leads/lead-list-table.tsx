@@ -57,6 +57,21 @@ function safeHttpUrl(url: string | null | undefined): string | undefined {
   }
 }
 
+// 現在のステータスから「次に進める」ワンタップ候補。
+// ドロップダウンは戻し用に残しつつ、日々一番多い前進操作を1タップに。
+const QUICK_ADVANCE: Record<string, { to: string; label: string; cls: string }[]> = {
+  UNTOUCHED: [
+    { to: "CALLED", label: "📞 連絡した", cls: "bg-blue-600 text-white hover:bg-blue-700 border-blue-600" },
+  ],
+  CALLED: [
+    { to: "APPOINTMENT", label: "📅 アポ", cls: "bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500" },
+    { to: "DEAL_CONVERTED", label: "🎉 商談化", cls: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-600" },
+  ],
+  APPOINTMENT: [
+    { to: "DEAL_CONVERTED", label: "🎉 商談化", cls: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-600" },
+  ],
+};
+
 interface Props {
   leads: LeadRow[];
   users: Array<{ id: string; name: string | null; email: string }>;
@@ -618,23 +633,45 @@ function LeadRow({
       </td>
 
       {/* ステータス */}
-      <td className="px-3 py-3 text-center">
-        <select
-          value={lead.status}
-          onChange={(e) => handleStatusChange(e.target.value)}
-          disabled={isPending || lead.status === "DEAL_CONVERTED"}
-          className={cn(
-            "text-[11px] font-medium border rounded px-1.5 py-0.5 cursor-pointer focus:outline-none",
-            statusOpt.className,
-            (isPending || lead.status === "DEAL_CONVERTED") && "opacity-60 cursor-not-allowed"
+      <td className="px-3 py-3">
+        <div className="flex flex-col items-stretch gap-1 min-w-[120px]">
+          {/* ワンタップで次へ進める（前進操作） */}
+          {(QUICK_ADVANCE[lead.status] ?? []).length > 0 && (
+            <div className="flex gap-1">
+              {QUICK_ADVANCE[lead.status].map((a) => (
+                <button
+                  key={a.to}
+                  onClick={() => handleStatusChange(a.to)}
+                  disabled={isPending}
+                  className={cn(
+                    "flex-1 text-[11px] font-bold border rounded px-2 py-1 transition-colors disabled:opacity-50 whitespace-nowrap",
+                    a.cls
+                  )}
+                  title={`このリードを「${getLeadStatusOption(a.to).label}」にする`}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
           )}
-        >
-          {LEAD_STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.icon} {opt.label}
-            </option>
-          ))}
-        </select>
+          {/* 戻し・スキップ用ドロップダウン */}
+          <select
+            value={lead.status}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            disabled={isPending || lead.status === "DEAL_CONVERTED"}
+            className={cn(
+              "text-[11px] font-medium border rounded px-1.5 py-0.5 cursor-pointer focus:outline-none text-center",
+              statusOpt.className,
+              (isPending || lead.status === "DEAL_CONVERTED") && "opacity-60 cursor-not-allowed"
+            )}
+          >
+            {LEAD_STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.icon} {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </td>
 
       {/* 担当者 */}
