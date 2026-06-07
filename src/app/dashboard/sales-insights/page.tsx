@@ -55,6 +55,10 @@ interface Summary {
   totalSent: number;
   totalReplied: number;
   replyRate: number;
+  rollingReplyRate: number;
+  rollingSent: number;
+  rollingReplied: number;
+  monthly: { month: string; sent: number; replied: number }[];
 }
 
 // ---- Temperature badge ----
@@ -131,14 +135,29 @@ export default function SalesInsightsPage() {
       {/* Summary Cards */}
       {summary && (
         <div data-tour="insight-summary" className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <SummaryCard label="レポート数" value={summary.totalReports} />
-          <SummaryCard label="総送信数" value={summary.totalSent} />
-          <SummaryCard label="総返信数" value={summary.totalReplied} />
+          <SummaryCard label="総送信数（累計）" value={summary.totalSent} />
+          <SummaryCard label="総返信数（累計）" value={summary.totalReplied} />
           <SummaryCard
-            label="返信率"
-            value={`${summary.replyRate}%`}
+            label="返信率（直近3ヶ月）"
+            value={`${summary.rollingReplyRate}%`}
+            sub={`${summary.rollingReplied}返信 / ${summary.rollingSent}送信`}
             highlight
           />
+          <SummaryCard label="レポート数" value={summary.totalReports} />
+        </div>
+      )}
+
+      {/* 月次の活動量（件数）— ％は母数が小さく乱高下するため月次は実数で見る */}
+      {summary && summary.monthly.length > 0 && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+          <div className="flex items-baseline justify-between mb-3">
+            <p className="text-sm font-semibold text-zinc-200">月次の活動量</p>
+            <p className="text-[11px] text-zinc-500">送信数・返信数（直近6ヶ月）</p>
+          </div>
+          <MonthlyBars monthly={summary.monthly} />
+          <p className="text-[11px] text-zinc-500 mt-3">
+            ※ 返信率は月ごとだと返信0〜1件で乱高下するため、月次は実数で表示し、％は上の「直近3ヶ月」でまとめて見ます。
+          </p>
         </div>
       )}
 
@@ -247,10 +266,12 @@ function SummaryCard({
   label,
   value,
   highlight,
+  sub,
 }: {
   label: string;
   value: string | number;
   highlight?: boolean;
+  sub?: string;
 }) {
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
@@ -262,6 +283,40 @@ function SummaryCard({
       >
         {value}
       </p>
+      {sub && <p className="text-[11px] text-zinc-500 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+// ---- Monthly bars ----
+function MonthlyBars({
+  monthly,
+}: {
+  monthly: { month: string; sent: number; replied: number }[];
+}) {
+  const rows = [...monthly].reverse(); // 古い→新しい（左→右の時系列感）
+  const maxSent = Math.max(1, ...rows.map((m) => m.sent));
+  return (
+    <div className="space-y-2">
+      {rows.map((m) => (
+        <div key={m.month} className="flex items-center gap-3">
+          <span className="text-[11px] text-zinc-400 w-16 shrink-0 tabular-nums">
+            {m.month}
+          </span>
+          <div className="flex-1 h-5 bg-zinc-800 rounded overflow-hidden relative">
+            <div
+              className="h-full bg-blue-500/40"
+              style={{ width: `${(m.sent / maxSent) * 100}%` }}
+            />
+          </div>
+          <span className="text-xs text-zinc-300 w-28 shrink-0 text-right tabular-nums">
+            送信 {m.sent} / 返信{" "}
+            <span className={m.replied > 0 ? "text-emerald-400 font-semibold" : "text-zinc-500"}>
+              {m.replied}
+            </span>
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

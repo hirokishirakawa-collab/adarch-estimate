@@ -123,6 +123,43 @@ export async function GET(req: NextRequest) {
       _count: true,
     });
 
+    // ── 月次集計（createdAt 基準）と直近3ヶ月のローリング返信率 ──
+    // period 文字列は表記が不揃い（W表記/月表記混在）のため、実時刻 createdAt で月バケットに正規化する。
+    // 返信率は月次の小さな母数だと0〜1件で乱高下するため、％は直近3ヶ月のローリングのみで出す。
+    const statRows = await db.salesInsight.findMany({
+      select: { createdAt: true, totalSent: true, totalReplied: true },
+    });
+    const ym = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const monthMap = new Map<string, { sent: number; replied: number }>();
+    for (const r of statRows) {
+      const key = ym(new Date(r.createdAt));
+      const cur = monthMap.get(key) ?? { sent: 0, replied: 0 };
+      cur.sent += r.totalSent;
+      cur.replied += r.totalReplied;
+      monthMap.set(key, cur);
+    }
+    // 直近6ヶ月（データの無い月も0で埋める）を新しい順で
+    const now = new Date();
+    const monthly: { month: string; sent: number; replied: number }[] = [];
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = ym(d);
+      const v = monthMap.get(key) ?? { sent: 0, replied: 0 };
+      monthly.push({ month: key, sent: v.sent, replied: v.replied });
+    }
+    // 直近3ヶ月のローリング返信率（母数を十分に取るため）
+    const rollingStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    let rSent = 0;
+    let rReplied = 0;
+    for (const r of statRows) {
+      if (new Date(r.createdAt) >= rollingStart) {
+        rSent += r.totalSent;
+        rReplied += r.totalReplied;
+      }
+    }
+    const rollingReplyRate = rSent > 0 ? Math.round((rReplied / rSent) * 100) : 0;
+
     return NextResponse.json({
       insights,
       summary: {
@@ -137,6 +174,10 @@ export async function GET(req: NextRequest) {
                   100
               )
             : 0,
+        rollingReplyRate,
+        rollingSent: rSent,
+        rollingReplied: rReplied,
+        monthly,
       },
     });
   } catch (e) {
