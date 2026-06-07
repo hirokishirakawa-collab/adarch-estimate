@@ -15,6 +15,7 @@ import type { UserRole } from "@/types/roles";
 import { FavoriteButton } from "@/components/layout/favorite-button";
 import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
 import { getActivityKpi } from "@/lib/kpis/activity";
+import { releaseStaleAssignedLeads, RELEASE_AFTER_DAYS } from "@/lib/leads/release-stale";
 
 const PER_PAGE = 20;
 
@@ -102,6 +103,10 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   if (sortParam === "industry") orderBy = { industry: "asc" };
   if (sortParam === "newest") orderBy = { createdAt: "desc" };
   if (sortParam === "oldest") orderBy = { createdAt: "asc" };
+
+  // 声かけ解放: 連絡済みのまま動きのないリードの担当を自動で外し、
+  // 別の代表が声かけできる状態に戻す（一覧表示のたびにルールを適用）。
+  await releaseStaleAssignedLeads();
 
   // ---------------------------------------------------------------
   // 顧客側（商談・制作）の進行中件数のスコープ
@@ -426,6 +431,11 @@ export default async function LeadListPage({ searchParams }: PageProps) {
           />
         </Suspense>
       </div>
+
+      {/* 声かけ解放ルールの注釈 */}
+      <p className="text-[11px] text-zinc-400 px-1">
+        ※ 声かけ（連絡済み）後、何も動きがなかったリードは{RELEASE_AFTER_DAYS}日で声かけ解放され、担当が外れて別の代表が声かけ可能になります。
+      </p>
 
       {/* ===== テーブル ===== */}
       <div data-tour="lead-list-table">

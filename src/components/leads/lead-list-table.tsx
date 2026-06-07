@@ -36,6 +36,7 @@ interface LeadRow {
   youtubeSubscribers: number | null;
   assignee: { id: string; name: string | null; email: string } | null;
   convertedCustomer: { id: string; name: string } | null;
+  releasedFromName: string | null;
   createdAt: string | Date;
 }
 
@@ -651,6 +652,14 @@ function LeadRow({
             </option>
           ))}
         </select>
+        {!lead.assignee && lead.releasedFromName && (
+          <span
+            className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-medium"
+            title={`過去に ${lead.releasedFromName} さんが声かけ → 動きがなく解放されました`}
+          >
+            過去: {lead.releasedFromName}
+          </span>
+        )}
       </td>
 
       {/* 電話 */}

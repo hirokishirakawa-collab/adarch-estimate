@@ -128,8 +128,10 @@ export function FranchisePipeline() {
     const stageLabel = (key: string) =>
       PIPELINE_STAGES.find((s) => s.key === key)?.label ?? key;
     const esc = (v: unknown) => {
-      const s = v === null || v === undefined ? "" : String(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      let s = v === null || v === undefined ? "" : String(v);
+      // CSVフォーミュラインジェクション対策: 数式起点文字で始まる値は先頭に ' を付けて無害化
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const fmtDate = (s: string | null) =>
       s ? new Date(s).toLocaleDateString("ja-JP") : "";

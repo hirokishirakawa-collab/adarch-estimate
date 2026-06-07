@@ -1851,6 +1851,9 @@ model Lead {
   createdBy           User?         @relation("LeadCreatedBy", fields: [createdById], references: [id])
   convertedCustomerId String?       @unique
   convertedCustomer   Customer?     @relation("LeadConvertedCustomer", fields: [convertedCustomerId], references: [id])
+  // 声かけ解放: 解放時に直前の担当者名を記録（次の代表が「過去に誰が声かけ済みか」を把握するタグ）
+  releasedFromName    String?
+  releasedAt          DateTime?
   logs                LeadLog[]
   hearingSheet        HearingSheet?
   createdAt           DateTime      @default(now())
