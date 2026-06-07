@@ -144,6 +144,8 @@ export async function POST(req: NextRequest) {
             source: "CSV_IMPORT",
             status: "UNTOUCHED",
             createdById: user.id,
+            // 取り込んだ代表を担当として自動反映（検索保存と同じ挙動に揃える）
+            assigneeId: user.id,
           },
         });
 
