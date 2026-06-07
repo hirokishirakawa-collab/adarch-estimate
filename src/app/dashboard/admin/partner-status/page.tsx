@@ -125,6 +125,66 @@ export default async function AdminPartnerStatusPage() {
     })
   );
 
+  // ── メンバー別 今月の活動（声かけ→商談→受注）──────────────────
+  // 声かけ = LeadLog(FORM_SENT or 連絡済み化) を staffName で集計
+  // 商談/受注 = Deal を assignedToId で集計
+  const monthStart = new Date(year, month - 1, 1);
+  const [koeGroups, dealGroups, wonGroups, partnerUsers] = await Promise.all([
+    db.leadLog.groupBy({
+      by: ["staffName"],
+      where: {
+        createdAt: { gte: monthStart },
+        OR: [
+          { action: "FORM_SENT" },
+          { action: "STATUS_CHANGED", detail: { contains: "「連絡済み」に変更" } },
+        ],
+      },
+      _count: true,
+    }),
+    db.deal.groupBy({
+      by: ["assignedToId"],
+      where: { createdAt: { gte: monthStart } },
+      _count: true,
+    }),
+    db.deal.groupBy({
+      by: ["assignedToId"],
+      where: { status: "CLOSED_WON", updatedAt: { gte: monthStart } },
+      _count: true,
+    }),
+    db.user.findMany({
+      where: { isActive: true, groupCompanyId: { not: null } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        groupCompany: { select: { name: true } },
+      },
+    }),
+  ]);
+  // 声かけは staffName(文字列)で集計されるため、users.name と表記ゆれ（空白の有無）で
+  // 不一致になる。半角/全角スペースを除いて照合する。
+  const normName = (s: string | null | undefined) => (s ?? "").replace(/[\s　]/g, "");
+  const koeByName = new Map<string, number>();
+  for (const g of koeGroups) {
+    const k = normName(g.staffName);
+    koeByName.set(k, (koeByName.get(k) ?? 0) + g._count);
+  }
+  const dealById = new Map(
+    dealGroups.filter((g) => g.assignedToId).map((g) => [g.assignedToId as string, g._count])
+  );
+  const wonById = new Map(
+    wonGroups.filter((g) => g.assignedToId).map((g) => [g.assignedToId as string, g._count])
+  );
+  const memberActivity = partnerUsers
+    .map((u) => ({
+      name: u.name ?? u.email,
+      company: u.groupCompany?.name ?? null,
+      koe: koeByName.get(normName(u.name ?? u.email)) ?? 0,
+      shodan: dealById.get(u.id) ?? 0,
+      juchu: wonById.get(u.id) ?? 0,
+    }))
+    .sort((a, b) => b.koe - a.koe || b.shodan - a.shodan || b.juchu - a.juchu);
+
   // ── サマリー集計 ────────────────────────────────────────────
   const counts = {
     ACTIVE: statuses.filter((s) => s.status === "ACTIVE").length,
@@ -246,6 +306,56 @@ export default async function AdminPartnerStatusPage() {
 
       {/* テーブル（クライアントコンポーネント） */}
       <PartnerStatusTable partners={statuses} alerts={alerts} />
+
+      {/* ── メンバー別 今月の活動 ─────────────────────────────── */}
+      <div className="mt-8">
+        <div className="flex items-center gap-2 mb-3">
+          <h3 className="text-base font-bold text-zinc-900">メンバー別 今月の活動</h3>
+          <span className="text-[11px] text-zinc-400">
+            声かけ → 商談 → 受注（{year}年{month}月・声かけの多い順・本部のみ表示）
+          </span>
+        </div>
+        <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 text-zinc-400 text-xs">
+              <tr>
+                <th className="px-4 py-2.5 text-left font-medium">メンバー</th>
+                <th className="px-4 py-2.5 text-left font-medium">拠点/会社</th>
+                <th className="px-4 py-2.5 text-right font-medium">声かけ</th>
+                <th className="px-4 py-2.5 text-right font-medium">商談</th>
+                <th className="px-4 py-2.5 text-right font-medium">受注</th>
+              </tr>
+            </thead>
+            <tbody>
+              {memberActivity.map((m, i) => {
+                const idle = m.koe === 0 && m.shodan === 0 && m.juchu === 0;
+                return (
+                  <tr
+                    key={`${m.name}-${i}`}
+                    className={`border-t border-zinc-100 ${idle ? "bg-red-50/40" : "hover:bg-zinc-50"}`}
+                  >
+                    <td className="px-4 py-2.5 font-medium text-zinc-800">{m.name}</td>
+                    <td className="px-4 py-2.5 text-zinc-500 text-xs">{m.company ?? "—"}</td>
+                    <td className={`px-4 py-2.5 text-right font-bold ${m.koe > 0 ? "text-blue-600" : "text-red-400"}`}>{m.koe}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-indigo-600">{m.shodan}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-emerald-600">{m.juchu}</td>
+                  </tr>
+                );
+              })}
+              {memberActivity.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-zinc-400">
+                    対象メンバーがいません
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[11px] text-zinc-400 mt-2">
+          ※ 赤い行＝今月まだ声かけ・商談・受注のいずれも0件のメンバー。声かけ＝連絡済み化＋営業フォーム送付。商談＝今月作成、受注＝今月受注。
+        </p>
+      </div>
     </div>
   );
 }
