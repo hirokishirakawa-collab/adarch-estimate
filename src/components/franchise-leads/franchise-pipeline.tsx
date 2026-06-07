@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FranchiseLeadCard } from "./franchise-lead-card";
 
@@ -122,6 +122,38 @@ export function FranchisePipeline() {
     []
   );
 
+  // CSV書き出し（画面に読み込み済み＝アクセス権限内のリードのみ出力）
+  const handleExportCsv = useCallback(() => {
+    if (leads.length === 0) return;
+    const stageLabel = (key: string) =>
+      PIPELINE_STAGES.find((s) => s.key === key)?.label ?? key;
+    const esc = (v: unknown) => {
+      const s = v === null || v === undefined ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const fmtDate = (s: string | null) =>
+      s ? new Date(s).toLocaleDateString("ja-JP") : "";
+    const header = [
+      "会社名", "都道府県", "住所", "電話", "メール", "Webサイト", "業種",
+      "スコア", "優先度", "ステータス", "次アクション", "次アクション予定日",
+      "メモ", "担当者", "登録日",
+    ];
+    const rows = leads.map((l) => [
+      l.companyName, l.prefecture, l.address, l.phone, l.email, l.website,
+      l.businessType, l.scoreTotal, l.priority, stageLabel(l.status),
+      l.nextAction, fmtDate(l.nextActionDate), l.notes, l.ownerName,
+      fmtDate(l.createdAt),
+    ]);
+    const csv = [header, ...rows].map((r) => r.map(esc).join(",")).join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `加盟リード_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [leads]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -156,10 +188,22 @@ export function FranchisePipeline() {
             {showClosed ? "クローズを非表示" : "クローズを表示"}
           </Button>
         </div>
-        <Button size="xs" variant="outline" onClick={fetchLeads} className="gap-1">
-          <RefreshCw className="w-3 h-3" />
-          更新
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={handleExportCsv}
+            disabled={leads.length === 0}
+            className="gap-1"
+          >
+            <Download className="w-3 h-3" />
+            CSV書き出し
+          </Button>
+          <Button size="xs" variant="outline" onClick={fetchLeads} className="gap-1">
+            <RefreshCw className="w-3 h-3" />
+            更新
+          </Button>
+        </div>
       </div>
 
       {/* パイプライン（カンバン） */}
