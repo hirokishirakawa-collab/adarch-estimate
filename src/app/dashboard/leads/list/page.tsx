@@ -115,15 +115,10 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   const branchScope = isAdmin
     ? {}
     : { branchId: currentUser?.branchId ?? "__no_branch__" };
-  // 商談「進行中」= 受注・失注を除く（商談ダッシュボードと同定義）
-  const DEAL_OPEN: DealStatus[] = [
-    "PROSPECTING",
-    "QUALIFYING",
-    "PROPOSAL",
-    "NEGOTIATION",
-    "DORMANT",
-    "DEFERRED",
-  ];
+  // 商談「進行中」= 実商談ステージのみ（初期声掛け/初回商談/提案中）。
+  // NEGOTIATION はこのアプリでは「休眠/先送り」列のため、停滞を休眠へ送ると
+  // この数が実態どおり減るよう、進行中からは除外する。
+  const DEAL_OPEN: DealStatus[] = ["PROSPECTING", "QUALIFYING", "PROPOSAL"];
   // 制作「進行中」= 受注済み・進行中
   const PROJECT_ACTIVE: ProjectStatus[] = ["ORDERED", "IN_PROGRESS"];
 

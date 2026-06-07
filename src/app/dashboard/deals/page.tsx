@@ -6,6 +6,7 @@ import { DealKanban } from "@/components/deals/deal-kanban";
 import { DealSearch } from "@/components/deals/deal-search";
 import { ArchiveToggle } from "@/components/deals/archive-toggle";
 import { DealViewTabs } from "@/components/deals/deal-view-tabs";
+import { StalledDealsPanel } from "@/components/deals/stalled-deals-panel";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 import { TrendingUp, Plus } from "lucide-react";
 import { FavoriteButton } from "@/components/layout/favorite-button";
@@ -80,6 +81,33 @@ export default async function DealsPage({ searchParams }: PageProps) {
       ? Math.round((allWonCount / (allWonCount + allLostCount)) * 100)
       : null;
 
+  // ---------------------------------------------------------------
+  // 停滞商談: 実商談ステージ(初期声掛け/初回商談/提案中)で
+  // 一定日数 更新がないもの。NEGOTIATION(=休眠/先送り)・受注/失注は対象外。
+  // ---------------------------------------------------------------
+  const STALL_DAYS = 60;
+  const now = sevenDaysAgo.getTime() + 7 * 24 * 60 * 60 * 1000; // 既存の基準時刻を再利用（追加のDate呼び出しを避ける）
+  const stallThreshold = new Date(now - STALL_DAYS * 24 * 60 * 60 * 1000);
+  const ACTIVE_SELLING: DealStatus[] = ["PROSPECTING", "QUALIFYING", "PROPOSAL"];
+  const stalledRaw = await db.deal.findMany({
+    where: {
+      ...whereBase,
+      status: { in: ACTIVE_SELLING },
+      updatedAt: { lt: stallThreshold },
+    },
+    include: { customer: { select: { name: true } } },
+    orderBy: { updatedAt: "asc" },
+    take: 500,
+  });
+  const stalledDeals = stalledRaw.map((d) => ({
+    id: d.id,
+    title: d.title,
+    customerName: d.customer.name,
+    status: d.status as string,
+    daysStale: Math.floor((now - d.updatedAt.getTime()) / (24 * 60 * 60 * 1000)),
+    overdue: d.expectedCloseDate ? d.expectedCloseDate.getTime() < now : false,
+  }));
+
   return (
     <div className="px-6 py-6 max-w-screen-2xl mx-auto w-full">
       {/* ヘッダー */}
@@ -145,6 +173,9 @@ export default async function DealsPage({ searchParams }: PageProps) {
           </p>
         </div>
       </div>
+
+      {/* 停滞商談パネル（要対応） */}
+      <StalledDealsPanel deals={stalledDeals} thresholdDays={STALL_DAYS} />
 
       {/* カンバンボード */}
       <div data-tour="deal-kanban" className="bg-white rounded-xl border border-zinc-200 p-4">

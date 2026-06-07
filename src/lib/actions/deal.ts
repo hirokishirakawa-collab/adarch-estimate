@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db } from "@/lib/db";
-import { getSessionInfo } from "@/lib/session";
+import { getSessionInfo, getBranchFilter } from "@/lib/session";
 import { getMockBranchId } from "@/lib/data/customers";
 import type { DealStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
@@ -314,6 +314,47 @@ export async function updateDealStatus(
 
   revalidatePath("/dashboard/deals");
   return {};
+}
+
+// ---------------------------------------------------------------
+// 商談ステータスを一括更新する（停滞商談の休眠移行など）
+// 拠点スコープ厳守（非ADMINは自拠点の商談のみ更新可）。
+// 受注(CLOSED_WON)への一括変更はプロジェクト自動作成などの副作用が
+// 大きいため許可しない。通知も出さない（一括の仕分け作業のため静かに処理）。
+// ---------------------------------------------------------------
+export async function bulkUpdateDealStatus(
+  dealIds: string[],
+  status: DealStatus
+): Promise<{ error?: string; updated?: number }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role === "USER") return { error: "権限がありません" };
+  if (dealIds.length === 0) return { updated: 0 };
+  if (status === "CLOSED_WON") {
+    return { error: "受注への一括変更はできません（個別に処理してください）" };
+  }
+
+  const branchFilter = getBranchFilter(info);
+  try {
+    const result = await db.deal.updateMany({
+      where: { id: { in: dealIds }, ...branchFilter },
+      data: { status },
+    });
+    logAudit({
+      action: "deal_status_bulk_updated",
+      email: info.email,
+      name: info.staffName,
+      entity: "deal",
+      entityId: dealIds.slice(0, 50).join(","),
+      detail: `${result.count}件を${status}へ一括変更`,
+    });
+    revalidatePath("/dashboard/deals");
+    return { updated: result.count };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[bulkUpdateDealStatus] DB error:", msg);
+    return { error: "一括更新に失敗しました" };
+  }
 }
 
 // ---------------------------------------------------------------
