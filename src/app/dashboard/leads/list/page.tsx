@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { Suspense } from "react";
-import { ListChecks, Upload, Download, PenLine, MessagesSquare, Clapperboard, ArrowRight } from "lucide-react";
+import { ListChecks, Upload, Download, PenLine, MessagesSquare, Clapperboard, ArrowRight, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import type { LeadStatus, LeadSource, DealStatus, ProjectStatus } from "@/generated/prisma/client";
@@ -49,6 +49,13 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   const sourceParam = params.source ?? "";
   const sortParam = params.sort ?? "";
   const page = Math.max(1, parseInt(params.page ?? "1") || 1);
+
+  // 「自分のリード」ボタン用: 自分のユーザーIDを解決
+  const me = await db.user.findUnique({
+    where: { email: session.user.email ?? "" },
+    select: { id: true },
+  });
+  const isMine = !!me && assigneeIdParam === me.id;
 
   // ---------------------------------------------------------------
   // WHERE 条件を構築
@@ -235,6 +242,19 @@ export default async function LeadListPage({ searchParams }: PageProps) {
           </div>
         </div>
         <div data-tour="lead-list-import" className="flex items-center gap-3">
+          {me && (
+            <Link
+              href={isMine ? "/dashboard/leads/list" : `/dashboard/leads/list?assigneeId=${me.id}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border ${
+                isMine
+                  ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                  : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50"
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              {isMine ? "自分のリードのみ" : "自分のリード"}
+            </Link>
+          )}
           <Link
             href={outreachHref}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#1F3A5F] rounded-lg hover:bg-[#16304f] transition-colors"

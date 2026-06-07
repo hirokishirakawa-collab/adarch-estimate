@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import Link from "next/link";
 import { Suspense } from "react";
-import { Plus, Users } from "lucide-react";
+import { Plus, Users, UserCheck } from "lucide-react";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
@@ -22,6 +22,7 @@ interface PageProps {
     prefecture?: string;
     status?: string;
     locked?: string;
+    mine?: string;
     page?: string;
   }>;
 }
@@ -38,7 +39,11 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const prefecture = params.prefecture ?? "";
   const status     = params.status ?? "";
   const locked     = params.locked ?? "";
+  const mine       = params.mine ?? "";
   const page       = Math.max(1, parseInt(params.page ?? "1") || 1);
+
+  // 「自分の顧客」= 登録者(staffName)が自分。staffName は登録時に name ?? email で記録される。
+  const myStaffName = session?.user?.name ?? email;
 
   // ---------------------------------------------------------------
   // Prisma WHERE 条件を構築
@@ -52,9 +57,11 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     rank?: CustomerRank;
     prefecture?: string;
     status?: CustomerStatus;
+    staffName?: string;
   };
 
   const where: WhereInput = {};
+  if (mine === "1") where.staffName = myStaffName;
   if (q) {
     where.OR = [
       { name:        { contains: q, mode: "insensitive" } },
@@ -98,7 +105,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     ]);
 
   const totalPages = Math.ceil(total / PER_PAGE);
-  const hasFilter  = !!(q || rankParam || prefecture || status || locked);
+  const hasFilter  = !!(q || rankParam || prefecture || status || locked || mine);
 
   return (
     <div className="px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
@@ -123,12 +130,24 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             <WikiHelpLink query="顧客管理" />
           </div>
         </div>
-        <Link data-tour="customer-new" href="/dashboard/customers/new">
-          <Button size="sm" className="gap-1.5">
-            <Plus className="w-3.5 h-3.5" />
-            ＋新規顧客を追加
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={mine === "1" ? "/dashboard/customers" : "/dashboard/customers?mine=1"}>
+            <Button
+              size="sm"
+              variant={mine === "1" ? "default" : "outline"}
+              className="gap-1.5"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              {mine === "1" ? "自分の顧客のみ" : "自分の顧客"}
+            </Button>
+          </Link>
+          <Link data-tour="customer-new" href="/dashboard/customers/new">
+            <Button size="sm" className="gap-1.5">
+              <Plus className="w-3.5 h-3.5" />
+              ＋新規顧客を追加
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* ===== サマリーカード（クリックでフィルタ） ===== */}

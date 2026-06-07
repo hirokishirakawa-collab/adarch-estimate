@@ -10,20 +10,21 @@ import { StalledDealsPanel } from "@/components/deals/stalled-deals-panel";
 import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
 import { getActivityKpi } from "@/lib/kpis/activity";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
-import { TrendingUp, Plus } from "lucide-react";
+import { TrendingUp, Plus, UserCheck } from "lucide-react";
 import { FavoriteButton } from "@/components/layout/favorite-button";
 import type { Prisma, DealStatus } from "@/generated/prisma/client";
 
 interface PageProps {
-  searchParams: Promise<{ showArchived?: string }>;
+  searchParams: Promise<{ showArchived?: string; mine?: string }>;
 }
 
 // アーカイブ対象（受注・失注のみ）— 休眠・先送りはカンバンに常時表示
 const CLOSED_STATUSES: DealStatus[] = ["CLOSED_WON", "CLOSED_LOST"];
 
 export default async function DealsPage({ searchParams }: PageProps) {
-  const { showArchived: showArchivedParam } = await searchParams;
+  const { showArchived: showArchivedParam, mine: mineParam } = await searchParams;
   const showArchived = showArchivedParam === "true";
+  const mine = mineParam === "1";
 
   const session = await auth();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -32,9 +33,11 @@ export default async function DealsPage({ searchParams }: PageProps) {
   const role = (session?.user?.role ?? "USER") as string;
   const currentUser = await db.user.findUnique({
     where: { email: session?.user?.email ?? "" },
-    select: { branchId: true },
+    select: { id: true, branchId: true },
   });
   const whereBase: Prisma.DealWhereInput = role === "ADMIN" ? {} : { branchId: currentUser?.branchId ?? undefined };
+  // 「自分の商談」= 自分が主担当(assignedToId)。サマリー・カンバンとも自分のものに絞る。
+  if (mine && currentUser?.id) whereBase.assignedToId = currentUser.id;
 
   // アーカイブ数 (7日以上前にクローズした案件)
   const archivedCount = await db.deal.count({
@@ -137,6 +140,17 @@ export default async function DealsPage({ searchParams }: PageProps) {
             statusLabels={Object.fromEntries(DEAL_STATUS_OPTIONS.map((o) => [o.value, o.label]))}
           />
           <ArchiveToggle showArchived={showArchived} archivedCount={archivedCount} />
+          <Link
+            href={mine ? "/dashboard/deals" : "/dashboard/deals?mine=1"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors border ${
+              mine
+                ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50"
+            }`}
+          >
+            <UserCheck className="w-3.5 h-3.5" />
+            {mine ? "自分の商談のみ" : "自分の商談"}
+          </Link>
           <Link
             data-tour="deal-new"
             href="/dashboard/deals/new"
