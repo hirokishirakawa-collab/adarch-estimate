@@ -15,7 +15,7 @@ import type { UserRole } from "@/types/roles";
 import { FavoriteButton } from "@/components/layout/favorite-button";
 import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
 import { getActivityKpi } from "@/lib/kpis/activity";
-import { releaseStaleAssignedLeads, RELEASE_AFTER_DAYS } from "@/lib/leads/release-stale";
+import { releaseStaleAssignedLeads, RELEASE_AFTER_DAYS, RELEASE_UNTOUCHED_AFTER_DAYS } from "@/lib/leads/release-stale";
 
 const PER_PAGE = 20;
 
@@ -434,7 +434,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
 
       {/* 声かけ解放ルールの注釈 */}
       <p className="text-[11px] text-zinc-400 px-1">
-        ※ 声かけ（連絡済み）後、何も動きがなかったリードは{RELEASE_AFTER_DAYS}日で声かけ解放され、担当が外れて別の代表が声かけ可能になります。
+        ※ 担当を取って{RELEASE_UNTOUCHED_AFTER_DAYS}日 声かけがない、または声かけ（連絡済み）後{RELEASE_AFTER_DAYS}日 動きがないリードは自動で解放され、担当が外れて別の代表が声かけ可能になります（直前の担当は「過去:◯◯」タグで表示）。
       </p>
 
       {/* ===== テーブル ===== */}

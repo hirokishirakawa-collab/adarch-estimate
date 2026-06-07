@@ -655,7 +655,7 @@ function LeadRow({
         {!lead.assignee && lead.releasedFromName && (
           <span
             className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-medium"
-            title={`過去に ${lead.releasedFromName} さんが声かけ → 動きがなく解放されました`}
+            title={`過去に ${lead.releasedFromName} さんが担当 → 動きがなく解放されました（現在のステータスで声かけ済みか未着手かが分かります）`}
           >
             過去: {lead.releasedFromName}
           </span>
