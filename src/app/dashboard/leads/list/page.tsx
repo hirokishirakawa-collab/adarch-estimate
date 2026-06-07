@@ -4,7 +4,6 @@ import { ListChecks, Upload, Download, PenLine } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import type { LeadStatus, LeadSource } from "@/generated/prisma/client";
-import { LEAD_STATUS_OPTIONS } from "@/lib/constants/leads";
 import { LeadListTable } from "@/components/leads/lead-list-table";
 import { LeadListFilters } from "@/components/leads/lead-list-filters";
 import { LeadActivityFeed } from "@/components/leads/lead-activity-feed";
@@ -165,16 +164,6 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     .join("&");
   const outreachHref = `/dashboard/leads/outreach${outreachQuery ? `?${outreachQuery}` : ""}`;
 
-  const statusCounts = {
-    UNTOUCHED: untouchedCount,
-    CALLED: calledCount,
-    APPOINTMENT: appointmentCount,
-    DEAL_CONVERTED: dealConvertedCount,
-  };
-
-  // SKIPPED はリード管理から不可視化のため、サマリーカード／フィルターから除外する
-  const visibleStatusOptions = LEAD_STATUS_OPTIONS.filter((o) => o.value !== "SKIPPED");
-
   return (
     <div className="px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
       {/* ===== ヘッダー ===== */}
@@ -239,37 +228,88 @@ export default async function LeadListPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* ===== サマリーカード ===== */}
-      <div data-tour="lead-list-summary" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Link
-          href="/dashboard/leads/list"
-          className={`rounded-lg border px-4 py-3 transition-all hover:shadow-md ${
-            !statusParam
-              ? "bg-white border-blue-400 ring-2 ring-blue-200"
-              : "bg-white border-zinc-200 hover:border-zinc-300"
-          }`}
-        >
-          <p className="text-[11px] text-zinc-500">総リード数</p>
-          <p className="text-xl font-bold text-zinc-900 mt-0.5">
-            {totalAll.toLocaleString()}
-          </p>
-        </Link>
-        {visibleStatusOptions.map((opt) => {
-          const count = statusCounts[opt.value as keyof typeof statusCounts];
-          const isActive = statusParam === opt.value;
-          return (
-            <Link
-              key={opt.value}
-              href={`/dashboard/leads/list?status=${opt.value}`}
-              className={`rounded-lg border px-4 py-3 transition-all hover:shadow-md ${opt.className} ${
-                isActive ? "ring-2 ring-offset-1 ring-current" : ""
-              }`}
-            >
-              <p className="text-[11px] opacity-80">{opt.icon} {opt.label}</p>
-              <p className="text-xl font-bold mt-0.5">{count}</p>
-            </Link>
-          );
-        })}
+      {/* ===== サマリー ===== */}
+      {/* 在庫（総リード数）は“倉庫”の数字。主役は「今動かすべき2バケツ」。
+          成果（アポ・商談化）は前向きに、総リード数は控えめに添える。 */}
+      <div data-tour="lead-list-summary" className="space-y-3">
+        {/* 主役: いま動かすべき2バケツ */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Link
+            href="/dashboard/leads/list?status=UNTOUCHED"
+            className={`rounded-xl border px-5 py-4 transition-all hover:shadow-md ${
+              statusParam === "UNTOUCHED"
+                ? "bg-amber-50 border-amber-400 ring-2 ring-amber-200"
+                : "bg-white border-amber-200 hover:border-amber-300"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-amber-700">⚪ 今やるべき（未対応）</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">まだ一度も接触していないリード</p>
+              </div>
+              <p className="text-3xl font-black text-amber-600 leading-none flex-shrink-0">
+                {untouchedCount.toLocaleString()}
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/dashboard/leads/list?status=CALLED"
+            className={`rounded-xl border px-5 py-4 transition-all hover:shadow-md ${
+              statusParam === "CALLED"
+                ? "bg-blue-50 border-blue-400 ring-2 ring-blue-200"
+                : "bg-white border-blue-200 hover:border-blue-300"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-blue-700">📞 フォロー待ち（連絡済み）</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">接触済み。次の一手でアポへ</p>
+              </div>
+              <p className="text-3xl font-black text-blue-600 leading-none flex-shrink-0">
+                {calledCount.toLocaleString()}
+              </p>
+            </div>
+          </Link>
+        </div>
+
+        {/* 成果（アポ・商談化）＋ 在庫（控えめ） */}
+        <div className="grid grid-cols-3 gap-3">
+          <Link
+            href="/dashboard/leads/list?status=APPOINTMENT"
+            className={`rounded-lg border px-4 py-3 transition-all hover:shadow-sm ${
+              statusParam === "APPOINTMENT"
+                ? "bg-yellow-50 border-yellow-400 ring-2 ring-yellow-200"
+                : "bg-white border-zinc-200 hover:border-zinc-300"
+            }`}
+          >
+            <p className="text-[11px] text-zinc-500">📅 アポ獲得</p>
+            <p className="text-xl font-bold text-yellow-700 mt-0.5">{appointmentCount}</p>
+          </Link>
+          <Link
+            href="/dashboard/leads/list?status=DEAL_CONVERTED"
+            className={`rounded-lg border px-4 py-3 transition-all hover:shadow-sm ${
+              statusParam === "DEAL_CONVERTED"
+                ? "bg-emerald-50 border-emerald-400 ring-2 ring-emerald-200"
+                : "bg-white border-zinc-200 hover:border-zinc-300"
+            }`}
+          >
+            <p className="text-[11px] text-zinc-500">🎉 商談化（成果）</p>
+            <p className="text-xl font-bold text-emerald-700 mt-0.5">{dealConvertedCount}</p>
+          </Link>
+          <Link
+            href="/dashboard/leads/list"
+            className={`rounded-lg border px-4 py-3 transition-all hover:shadow-sm flex flex-col justify-center ${
+              !statusParam
+                ? "bg-zinc-50 border-zinc-300 ring-1 ring-zinc-200"
+                : "bg-zinc-50/60 border-zinc-200 hover:border-zinc-300"
+            }`}
+          >
+            <p className="text-[11px] text-zinc-400">総リード数（在庫）</p>
+            <p className="text-sm font-semibold text-zinc-500 mt-0.5">
+              {totalAll.toLocaleString()}件
+            </p>
+          </Link>
+        </div>
       </div>
 
       {/* ===== フィルター ===== */}
