@@ -1,9 +1,9 @@
 import { auth } from "@/lib/auth";
 import { Suspense } from "react";
-import { ListChecks, Upload, Download, PenLine } from "lucide-react";
+import { ListChecks, Upload, Download, PenLine, MessagesSquare, Clapperboard, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import type { LeadStatus, LeadSource } from "@/generated/prisma/client";
+import type { LeadStatus, LeadSource, DealStatus, ProjectStatus } from "@/generated/prisma/client";
 import { LeadListTable } from "@/components/leads/lead-list-table";
 import { LeadListFilters } from "@/components/leads/lead-list-filters";
 import { LeadActivityFeed } from "@/components/leads/lead-activity-feed";
@@ -102,6 +102,32 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   if (sortParam === "oldest") orderBy = { createdAt: "asc" };
 
   // ---------------------------------------------------------------
+  // 顧客側（商談・制作）の進行中件数のスコープ
+  // ADMIN は全拠点、それ以外は自拠点のみ。表示は件数のみで個人名は出さない。
+  // ---------------------------------------------------------------
+  const currentUser = isAdmin
+    ? null
+    : await db.user.findUnique({
+        where: { email: session.user.email ?? "" },
+        select: { branchId: true },
+      });
+  // 非ADMINで拠点未設定の場合は誤って全件カウントしないようダミーIDで0件に倒す
+  const branchScope = isAdmin
+    ? {}
+    : { branchId: currentUser?.branchId ?? "__no_branch__" };
+  // 商談「進行中」= 受注・失注を除く（商談ダッシュボードと同定義）
+  const DEAL_OPEN: DealStatus[] = [
+    "PROSPECTING",
+    "QUALIFYING",
+    "PROPOSAL",
+    "NEGOTIATION",
+    "DORMANT",
+    "DEFERRED",
+  ];
+  // 制作「進行中」= 受注済み・進行中
+  const PROJECT_ACTIVE: ProjectStatus[] = ["ORDERED", "IN_PROGRESS"];
+
+  // ---------------------------------------------------------------
   // データ取得
   // ---------------------------------------------------------------
   const [
@@ -110,8 +136,11 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     totalAll,
     untouchedCount,
     calledCount,
+    calledCsvCount,
     appointmentCount,
     dealConvertedCount,
+    activeDealCount,
+    activeProjectCount,
     users,
     recentLogs,
     industries,
@@ -131,8 +160,13 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     db.lead.count({ where: baseExclude }),
     db.lead.count({ where: { ...baseExclude, status: "UNTOUCHED" } }),
     db.lead.count({ where: { ...baseExclude, status: "CALLED" } }),
+    // 「連絡済み」のうちCSV一括取込分（外部営業の報告。その後の前進が紐づかず分母を膨らませる）
+    db.lead.count({ where: { ...baseExclude, status: "CALLED", source: "CSV_IMPORT" } }),
     db.lead.count({ where: { ...baseExclude, status: "APPOINTMENT" } }),
     db.lead.count({ where: { ...baseExclude, status: "DEAL_CONVERTED" } }),
+    // 顧客側: 進行中の商談・制作（拠点スコープ済み・件数のみ）
+    db.deal.count({ where: { ...branchScope, status: { in: DEAL_OPEN } } }),
+    db.project.count({ where: { ...branchScope, status: { in: PROJECT_ACTIVE } } }),
     db.user.findMany({
       where: { isActive: true },
       select: { id: true, name: true, email: true },
@@ -152,6 +186,9 @@ export default async function LeadListPage({ searchParams }: PageProps) {
 
   const totalPages = Math.ceil(total / PER_PAGE);
   const hasFilter = !!(q || statusParam || assigneeIdParam);
+
+  // 「連絡済み」の内訳: CSV一括取込 と 自社接触（OS上での架電・接触）
+  const calledOwnCount = Math.max(0, calledCount - calledCsvCount);
 
   // 営業フォームへ現在の絞り込みを引き継ぐ
   const outreachQuery = [
@@ -181,7 +218,14 @@ export default async function LeadListPage({ searchParams }: PageProps) {
               <FavoriteButton path="/dashboard/leads/list" label="リード管理" />
             </div>
             <p className="text-xs text-zinc-500 mt-0.5">
-              リード獲得AIで取得した営業候補のステータス管理
+              新規開拓リードの管理。商談化した本命案件は
+              <Link
+                href="/dashboard/customers"
+                className="text-blue-600 hover:underline font-medium mx-0.5"
+              >
+                顧客管理
+              </Link>
+              で進行します
             </p>
           </div>
         </div>
@@ -269,6 +313,13 @@ export default async function LeadListPage({ searchParams }: PageProps) {
                 {calledCount.toLocaleString()}
               </p>
             </div>
+            {calledCsvCount > 0 && (
+              <div className="mt-2 pt-2 border-t border-blue-100 flex items-center gap-3 text-[11px] text-zinc-400">
+                <span>うちCSV取込 {calledCsvCount.toLocaleString()}件</span>
+                <span className="text-zinc-300">/</span>
+                <span>自社接触 {calledOwnCount.toLocaleString()}件</span>
+              </div>
+            )}
           </Link>
         </div>
 
@@ -309,6 +360,57 @@ export default async function LeadListPage({ searchParams }: PageProps) {
               {totalAll.toLocaleString()}件
             </p>
           </Link>
+        </div>
+
+        {/* この先の本命パイプライン（顧客側）。件数のみ・担当者名は出さない。 */}
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 px-4 py-3">
+          <div className="flex items-center gap-1.5 mb-2">
+            <ArrowRight className="w-3 h-3 text-zinc-400" />
+            <p className="text-[11px] font-semibold text-zinc-500">
+              この先の進行（顧客側）
+            </p>
+            <span className="text-[10px] text-zinc-400">
+              {isAdmin ? "全拠点・件数のみ" : "自拠点・件数のみ"}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href="/dashboard/deals"
+              className="group flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 transition-all hover:shadow-sm hover:border-indigo-300"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                  <MessagesSquare className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-zinc-700">商談中</p>
+                  <p className="text-[10px] text-zinc-400">提案〜交渉中の進行案件</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xl font-bold text-indigo-600">{activeDealCount}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all" />
+              </div>
+            </Link>
+            <Link
+              href="/dashboard/projects"
+              className="group flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 transition-all hover:shadow-sm hover:border-rose-300"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center flex-shrink-0">
+                  <Clapperboard className="w-4 h-4 text-rose-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-zinc-700">制作中</p>
+                  <p className="text-[10px] text-zinc-400">受注済み・制作進行中の案件</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xl font-bold text-rose-600">{activeProjectCount}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all" />
+              </div>
+            </Link>
+          </div>
         </div>
       </div>
 
