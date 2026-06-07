@@ -4,6 +4,8 @@ import { getOrGenerateDigest } from "@/lib/digest";
 import { db } from "@/lib/db";
 import { hasMinRole, type UserRole } from "@/types/roles";
 import { ForcedInactiveModal } from "@/components/partner-status/forced-inactive-modal";
+import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
+import { getActivityKpi } from "@/lib/kpis/activity";
 import {
   Users,
   FolderKanban,
@@ -168,6 +170,9 @@ export default async function DashboardPage() {
     hour < 12 ? "おはようございます" : hour < 18 ? "こんにちは" : "お疲れ様です";
   const firstName = name?.split(/[\s　]/)[0] ?? null;
 
+  // 今月の活動KPI（声かけ→商談→受注）
+  const activityKpi = await getActivityKpi();
+
   return (
     <>
       {/* FORCED_INACTIVE モーダル */}
@@ -199,6 +204,8 @@ export default async function DashboardPage() {
           </span>
         )}
       </div>
+
+      <ActivityKpiBar kpi={activityKpi} />
 
       {/* ── パートナー稼働ステータス（ADMIN） ── */}
       {role === "ADMIN" && adminStatusCounts && (

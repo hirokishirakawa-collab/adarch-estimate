@@ -6,6 +6,8 @@ import type { LeadStatus, LeadSource } from "@/generated/prisma/client";
 import { PREFECTURES } from "@/lib/constants/crm";
 import { OutreachForm } from "@/components/leads/outreach-form";
 import { FavoriteButton } from "@/components/layout/favorite-button";
+import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
+import { getActivityKpi } from "@/lib/kpis/activity";
 
 const MAX_LEADS = 120;
 
@@ -208,6 +210,8 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
           リード管理へ戻る
         </Link>
       </div>
+
+      <ActivityKpiBar kpi={await getActivityKpi()} />
 
       <OutreachForm
         leads={formLeads}

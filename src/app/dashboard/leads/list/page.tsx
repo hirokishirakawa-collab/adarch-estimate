@@ -13,6 +13,8 @@ import { LeadExportButtons } from "@/components/leads/lead-export-buttons";
 import { LeadCsvImport } from "@/components/leads/lead-csv-import";
 import type { UserRole } from "@/types/roles";
 import { FavoriteButton } from "@/components/layout/favorite-button";
+import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
+import { getActivityKpi } from "@/lib/kpis/activity";
 
 const PER_PAGE = 20;
 
@@ -185,6 +187,9 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   // 「連絡済み」の内訳: CSV一括取込 と 自社接触（OS上での架電・接触）
   const calledOwnCount = Math.max(0, calledCount - calledCsvCount);
 
+  // 今月の活動KPI（声かけ→商談→受注）
+  const activityKpi = await getActivityKpi();
+
   // 営業フォームへ現在の絞り込みを引き継ぐ
   const outreachQuery = [
     statusParam ? `status=${statusParam}` : "",
@@ -236,6 +241,8 @@ export default async function LeadListPage({ searchParams }: PageProps) {
           {isAdmin && <LeadDeleteAllButton totalCount={totalAll} />}
         </div>
       </div>
+
+      <ActivityKpiBar kpi={activityKpi} />
 
       {/* ===== 営業報告インポートバナー ===== */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl px-5 py-4">

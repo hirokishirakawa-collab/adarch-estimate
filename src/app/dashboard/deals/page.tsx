@@ -7,6 +7,8 @@ import { DealSearch } from "@/components/deals/deal-search";
 import { ArchiveToggle } from "@/components/deals/archive-toggle";
 import { DealViewTabs } from "@/components/deals/deal-view-tabs";
 import { StalledDealsPanel } from "@/components/deals/stalled-deals-panel";
+import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
+import { getActivityKpi } from "@/lib/kpis/activity";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 import { TrendingUp, Plus } from "lucide-react";
 import { FavoriteButton } from "@/components/layout/favorite-button";
@@ -108,6 +110,9 @@ export default async function DealsPage({ searchParams }: PageProps) {
     overdue: d.expectedCloseDate ? d.expectedCloseDate.getTime() < now : false,
   }));
 
+  // 今月の活動KPI（声かけ→商談→受注）
+  const activityKpi = await getActivityKpi();
+
   return (
     <div className="px-6 py-6 max-w-screen-2xl mx-auto w-full">
       {/* ヘッダー */}
@@ -141,6 +146,11 @@ export default async function DealsPage({ searchParams }: PageProps) {
             新規商談
           </Link>
         </div>
+      </div>
+
+      {/* 今月の活動KPI */}
+      <div className="mb-6">
+        <ActivityKpiBar kpi={activityKpi} />
       </div>
 
       {/* サマリーカード */}
