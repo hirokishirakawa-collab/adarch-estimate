@@ -61,7 +61,7 @@ function safeHttpUrl(url: string | null | undefined): string | undefined {
 // ドロップダウンは戻し用に残しつつ、日々一番多い前進操作を1タップに。
 const QUICK_ADVANCE: Record<string, { to: string; label: string; cls: string }[]> = {
   UNTOUCHED: [
-    { to: "CALLED", label: "📞 連絡した", cls: "bg-blue-600 text-white hover:bg-blue-700 border-blue-600" },
+    { to: "CALLED", label: "📞 連絡済", cls: "bg-blue-600 text-white hover:bg-blue-700 border-blue-600" },
   ],
   CALLED: [
     { to: "APPOINTMENT", label: "📅 アポ", cls: "bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500" },
