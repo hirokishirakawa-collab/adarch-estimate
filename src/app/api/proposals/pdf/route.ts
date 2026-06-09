@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -6,6 +7,12 @@ export const maxDuration = 60;
 // POST /api/proposals/pdf
 // Body: ProposalContent JSON → PDF バイナリを返す
 export async function POST(req: NextRequest) {
+  // 認証必須（社内ユーザーのみ。外部からの無認証PDF生成・リソース枯渇を防止）
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const content = await req.json();
 

@@ -98,6 +98,7 @@ export default async function EstimatesPage() {
             };
           })}
           projects={projects}
+          isAdmin={role === "ADMIN"}
         />
       </div>
     </div>

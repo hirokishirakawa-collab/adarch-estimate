@@ -34,7 +34,7 @@ function cleanupConversations() {
 
 /** 許可ユーザーチェック */
 function isAllowedUser(userId: number): boolean {
-  if (!TELEGRAM_ALLOWED_USERS) return true; // 未設定なら全員許可
+  if (!TELEGRAM_ALLOWED_USERS) return false; // 未設定ならデフォルト拒否（fail-closed）
   const allowed = TELEGRAM_ALLOWED_USERS.split(",").map((s) => s.trim());
   return allowed.includes(String(userId));
 }

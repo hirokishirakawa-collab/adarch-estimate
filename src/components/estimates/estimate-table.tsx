@@ -1,7 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ESTIMATION_STATUS_OPTIONS } from "@/lib/constants/estimates";
-import { ChevronRight, User, Building2 } from "lucide-react";
+import { ChevronRight, User, Building2, ChevronUp, ChevronDown } from "lucide-react";
 import { BRANCH_MAP } from "@/lib/data/customers";
 
 export type EstimationRow = {
@@ -16,8 +18,20 @@ export type EstimationRow = {
   items: { amount: number }[];
 };
 
+export type SortKey = "title" | "status" | "amount" | "estimateDate";
+export type SortDir = "asc" | "desc";
+
 interface Props {
   estimations: EstimationRow[];
+  isAdmin: boolean;
+  selectedIds: Set<string>;
+  onToggle: (id: string) => void;
+  onToggleAll: () => void;
+  allSelected: boolean;
+  someSelected: boolean;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -30,7 +44,50 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function EstimateTable({ estimations }: Props) {
+function SortHeader({
+  label,
+  sortKey,
+  activeKey,
+  dir,
+  onSort,
+  className,
+  align = "left",
+}: {
+  label: string;
+  sortKey: SortKey;
+  activeKey: SortKey;
+  dir: SortDir;
+  onSort: (key: SortKey) => void;
+  className?: string;
+  align?: "left" | "right";
+}) {
+  const active = activeKey === sortKey;
+  return (
+    <th className={cn("px-4 py-3 text-xs font-semibold text-zinc-500", align === "right" ? "text-right" : "text-left", className)}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn("inline-flex items-center gap-1 hover:text-zinc-800 transition-colors", align === "right" && "flex-row-reverse")}
+      >
+        {label}
+        {active && (dir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+      </button>
+    </th>
+  );
+}
+
+export function EstimateTable({
+  estimations,
+  isAdmin,
+  selectedIds,
+  onToggle,
+  onToggleAll,
+  allSelected,
+  someSelected,
+  sortKey,
+  sortDir,
+  onSort,
+}: Props) {
   if (estimations.length === 0) {
     return (
       <div className="py-16 text-center">
@@ -46,11 +103,23 @@ export function EstimateTable({ estimations }: Props) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-zinc-100 bg-zinc-50">
-            <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 min-w-[200px]">タイトル</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-24">ステータス</th>
+            {isAdmin && (
+              <th className="w-10 px-4 py-3">
+                <input
+                  type="checkbox"
+                  aria-label="すべて選択"
+                  checked={allSelected}
+                  ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                  onChange={onToggleAll}
+                  className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600 focus:ring-blue-500/30 cursor-pointer"
+                />
+              </th>
+            )}
+            <SortHeader label="タイトル" sortKey="title" activeKey={sortKey} dir={sortDir} onSort={onSort} className="min-w-[200px]" />
+            <SortHeader label="ステータス" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={onSort} className="w-24" />
             <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-32">顧客</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-zinc-500 w-32">合計（税抜）</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-28">見積日</th>
+            <SortHeader label="合計（税抜）" sortKey="amount" activeKey={sortKey} dir={sortDir} onSort={onSort} className="w-32" align="right" />
+            <SortHeader label="見積日" sortKey="estimateDate" activeKey={sortKey} dir={sortDir} onSort={onSort} className="w-28" />
             <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-24">担当者</th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-24">拠点</th>
             <th className="w-10" />
@@ -63,9 +132,21 @@ export function EstimateTable({ estimations }: Props) {
             const dateStr = new Intl.DateTimeFormat("ja-JP", {
               year: "numeric", month: "short", day: "numeric",
             }).format(new Date(est.estimateDate));
+            const isSelected = selectedIds.has(est.id);
 
             return (
-              <tr key={est.id} className="hover:bg-zinc-50 transition-colors">
+              <tr key={est.id} className={cn("hover:bg-zinc-50 transition-colors", isSelected && "bg-blue-50/50")}>
+                {isAdmin && (
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label={`${est.title} を選択`}
+                      checked={isSelected}
+                      onChange={() => onToggle(est.id)}
+                      className="w-3.5 h-3.5 rounded border-zinc-300 text-blue-600 focus:ring-blue-500/30 cursor-pointer"
+                    />
+                  </td>
+                )}
                 <td className="px-4 py-3">
                   <p className="font-medium text-zinc-900 leading-snug">{est.title}</p>
                 </td>

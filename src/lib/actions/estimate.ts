@@ -256,6 +256,29 @@ export async function deleteEstimation(id: string): Promise<{ error?: string }> 
 }
 
 // ---------------------------------------------------------------
+// 見積書の一括削除（ADMIN のみ）
+// EstimationItem は onDelete: Cascade のため明細も同時に削除される
+// ---------------------------------------------------------------
+export async function deleteEstimations(
+  ids: string[]
+): Promise<{ error?: string; deleted?: number }> {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" };
+  if (info.role !== "ADMIN") return { error: "管理者のみ削除できます" };
+  if (!ids.length) return { deleted: 0 };
+
+  try {
+    const result = await db.estimation.deleteMany({ where: { id: { in: ids } } });
+    logAudit({ action: "estimation_deleted", email: info.email, name: info.staffName, entity: "estimation", detail: `${result.count}件削除` });
+    revalidatePath("/dashboard/estimates");
+    return { deleted: result.count };
+  } catch (e) {
+    console.error("[deleteEstimations]", e);
+    return { error: "削除に失敗しました" };
+  }
+}
+
+// ---------------------------------------------------------------
 // 見積書のステータス更新
 // ---------------------------------------------------------------
 export async function updateEstimationStatus(
