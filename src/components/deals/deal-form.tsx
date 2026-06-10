@@ -1,12 +1,12 @@
 "use client";
 
-import { useActionState, useState, useEffect, useCallback } from "react";
+import { useActionState, useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { createDeal } from "@/lib/actions/deal";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 import {
   AlertTriangle, Building2, BarChart3, Target, UserCheck, Thermometer, Video,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, Search, X,
 } from "lucide-react";
 import {
   TARGET_CUSTOMER_OPTIONS,
@@ -52,6 +52,14 @@ export function DealForm({ customers, users, preselectedCustomerId }: Props) {
   const [existingDeals, setExistingDeals] = useState<{ id: string; title: string; status: string }[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState(preselectedCustomerId ?? "");
 
+  // 顧客検索コンボボックス
+  const prefillCustomerName = preselectedCustomerId
+    ? customers.find((c) => c.id === preselectedCustomerId)?.name ?? ""
+    : "";
+  const [customerQuery, setCustomerQuery] = useState(prefillCustomerName);
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const customerComboboxRef = useRef<HTMLDivElement>(null);
+
   const checkDuplicate = useCallback(async (customerId: string) => {
     setSelectedCustomerId(customerId);
     if (!customerId) { setExistingDeals([]); return; }
@@ -65,6 +73,40 @@ export function DealForm({ customers, users, preselectedCustomerId }: Props) {
   useEffect(() => {
     if (preselectedCustomerId) checkDuplicate(preselectedCustomerId);
   }, [preselectedCustomerId, checkDuplicate]);
+
+  // 外側クリックでドロップダウンを閉じる
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (customerComboboxRef.current && !customerComboboxRef.current.contains(e.target as Node)) {
+        setIsCustomerDropdownOpen(false);
+        // 未選択のまま閉じたら、選択済みの会社名に戻す（無ければ空に）
+        if (!selectedCustomerId) {
+          setCustomerQuery("");
+        } else {
+          const c = customers.find((x) => x.id === selectedCustomerId);
+          if (c) setCustomerQuery(c.name);
+        }
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [selectedCustomerId, customers]);
+
+  const filteredCustomers = customerQuery
+    ? customers.filter((c) => c.name.toLowerCase().includes(customerQuery.toLowerCase()))
+    : customers;
+
+  function handleSelectCustomer(c: { id: string; name: string }) {
+    setCustomerQuery(c.name);
+    setIsCustomerDropdownOpen(false);
+    checkDuplicate(c.id);
+  }
+
+  function handleClearCustomer() {
+    setCustomerQuery("");
+    setIsCustomerDropdownOpen(false);
+    checkDuplicate("");
+  }
 
   return (
     <form action={action} className="space-y-6">
@@ -115,16 +157,53 @@ export function DealForm({ customers, users, preselectedCustomerId }: Props) {
           <label className="block text-xs font-medium text-zinc-700 mb-1">
             顧客 <span className="text-red-500">*</span>
           </label>
-          <select
-            name="customerId"
-            required
-            defaultValue={preselectedCustomerId ?? ""}
-            onChange={(e) => checkDuplicate(e.target.value)}
-            className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            <option value="">-- 選択してください --</option>
-            {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-          </select>
+          <input type="hidden" name="customerId" value={selectedCustomerId} required />
+          <div className="relative" ref={customerComboboxRef}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+            <input
+              type="text"
+              value={customerQuery}
+              onChange={(e) => {
+                setCustomerQuery(e.target.value);
+                // 文字を変更したら選択状態を一旦解除（ドロップダウンから再選択）
+                if (selectedCustomerId) checkDuplicate("");
+                setIsCustomerDropdownOpen(true);
+              }}
+              onFocus={() => setIsCustomerDropdownOpen(true)}
+              placeholder="会社名で検索..."
+              className="w-full text-sm border border-zinc-200 rounded-lg pl-8 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+            {customerQuery && (
+              <button
+                type="button"
+                onClick={handleClearCustomer}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {isCustomerDropdownOpen && (
+              <ul className="absolute z-20 mt-1 w-full bg-white border border-zinc-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {filteredCustomers.length === 0 ? (
+                  <li className="px-3 py-2 text-xs text-zinc-400">該当なし</li>
+                ) : (
+                  filteredCustomers.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectCustomer(c)}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition-colors ${
+                          c.id === selectedCustomerId ? "bg-blue-50 text-blue-700 font-medium" : ""
+                        }`}
+                      >
+                        {c.name}
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
+          </div>
           {existingDeals.length > 0 && (
             <div className="mt-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
               <div className="flex items-center gap-1.5 font-medium mb-1.5">
