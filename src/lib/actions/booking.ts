@@ -37,7 +37,7 @@ export async function createBookingHost(input: {
     return { ok: false, error: "名前とメールアドレスを正しく入力してください" };
   }
   try {
-    await db.bookingHost.create({
+    const host = await db.bookingHost.create({
       data: {
         name,
         email,
@@ -45,6 +45,14 @@ export async function createBookingHost(input: {
         connectToken: crypto.randomBytes(24).toString("hex"),
       },
     });
+    // 既存の全予約タイプに自動で紐付ける（後からホスト追加しても枠に反映されるように）
+    const types = await db.bookingType.findMany({ select: { id: true } });
+    if (types.length > 0) {
+      await db.bookingTypeHost.createMany({
+        data: types.map((t) => ({ bookingTypeId: t.id, hostId: host.id })),
+        skipDuplicates: true,
+      });
+    }
     revalidatePath(ADMIN_PATH);
     return { ok: true };
   } catch (e) {
