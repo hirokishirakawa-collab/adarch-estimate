@@ -35,7 +35,7 @@ const FROM_ADDRESS = "Ad-Arch OS <info@adarch.co.jp>";
 const ADMIN_EMAIL  = "system@adarch.co.jp";
 
 /** Gmail SMTP優先、失敗時Resendフォールバック。添付・BCC対応。 */
-async function sendMail(params: {
+export async function sendMail(params: {
   to: string | string[];
   subject: string;
   html: string;

@@ -250,6 +250,13 @@ export default auth((req: NextAuthRequest) => {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
+  // 0d. 商談予約システムの公開ページ・API（認証不要）
+  //     IP/UA/不正パスのブロック(0a〜0c)は通過済み。各APIは内部で
+  //     IPレートリミット＋トークン認可（connectToken/cancelToken）を行う
+  if (pathname === "/book" || pathname.startsWith("/book/") || pathname.startsWith("/api/book/")) {
+    return NextResponse.next();
+  }
+
   // 0. creators.adarch.co.jp → /creators 配下にリライト
   if (hostname.startsWith("creators.adarch.co.jp")) {
     if (pathname.startsWith("/creators")) {

@@ -42,6 +42,7 @@ import {
   Handshake,
   ListChecks,
   Activity,
+  CalendarClock,
   Film,
   Eye,
   ChevronDown,
@@ -474,6 +475,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/admin/partner-status",
         label: "パートナー稼働管理",
         icon: Activity,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/admin/bookings",
+        label: "面談予約管理",
+        icon: CalendarClock,
         minRole: "ADMIN",
       },
       {
