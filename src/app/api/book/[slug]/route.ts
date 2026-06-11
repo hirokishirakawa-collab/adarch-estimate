@@ -7,7 +7,6 @@ import {
   getBookingTypeBySlug,
   parseQuestions,
 } from "@/lib/booking/service";
-import { formatJst } from "@/lib/booking/slots";
 import {
   sendBookingConfirmedToApplicant,
   sendBookingConfirmedToHost,
@@ -215,39 +214,10 @@ export async function POST(
       },
     });
 
-    // ---- Lead + LeadLog 連携（失敗しても予約は成立させる） ----
-    try {
-      const lead = await db.lead.create({
-        data: {
-          name: company || name,
-          representativeName: name,
-          phone: phone || null,
-          status: "APPOINTMENT",
-          source: "MANUAL",
-          memo: `面談予約システム経由（${bt.title}） ${formatJst(startDate)} / 担当: ${assigned.name}`,
-        },
-      });
-      await db.leadLog.create({
-        data: {
-          action: "BOOKING_CONFIRMED",
-          detail: [
-            `予約ID: ${booking.id}`,
-            `日時: ${formatJst(startDate)}`,
-            `担当: ${assigned.name}`,
-            `メール: ${email}`,
-            ...answers.map((a) => `${a.label}: ${a.value}`),
-          ].join("\n"),
-          staffName: "予約システム",
-          leadId: lead.id,
-        },
-      });
-      await db.booking.update({
-        where: { id: booking.id },
-        data: { leadId: lead.id },
-      });
-    } catch (e) {
-      console.error("[book] Lead連携失敗:", e instanceof Error ? e.message : e);
-    }
+    // ※ Lead連携は意図的に行わない（2026-06-11代表判断）。
+    //   リード管理は全代表が閲覧できるため、加盟面談の申込情報を流すと
+    //   本部＋一村さん以外にも見えてしまう。予約データの正本は
+    //   ADMIN専用の /dashboard/admin/bookings のみとする。
 
     // ---- 確認メール（失敗しても予約は成立。カレンダー招待は別途届いている） ----
     const mailPayload: BookingMailPayload = {

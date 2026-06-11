@@ -98,13 +98,13 @@ export async function ensureFranchiseBookingType(): Promise<{
   await requireAdmin();
   try {
     const existing = await db.bookingType.findUnique({
-      where: { slug: "franchise" },
+      where: { slug: "group" },
     });
     let typeId = existing?.id;
     if (!existing) {
       const created = await db.bookingType.create({
         data: {
-          slug: "franchise",
+          slug: "group",
           title: "加盟に関する個別面談（60分）",
           description:
             "Ad Archグループへの加盟をご検討中の方向けの個別面談です。\n事業内容やご状況を伺いながら、グループの仕組み・展開メニューをご説明します。\nオンライン（Google Meet）で実施します。",
@@ -159,7 +159,7 @@ export async function ensureFranchiseBookingType(): Promise<{
       });
     }
     revalidatePath(ADMIN_PATH);
-    return { ok: true, slug: "franchise" };
+    return { ok: true, slug: "group" };
   } catch (e) {
     console.error("[ensureFranchiseBookingType]", e instanceof Error ? e.message : e);
     return { ok: false, error: "作成に失敗しました" };

@@ -92,20 +92,6 @@ export async function POST(
       data: { status: "CANCELLED", cancelledAt: new Date() },
     });
 
-    // Lead側にもキャンセル履歴を残す
-    if (booking.leadId) {
-      await db.leadLog
-        .create({
-          data: {
-            action: "BOOKING_CANCELLED",
-            detail: `予約ID: ${booking.id}`,
-            staffName: "予約システム",
-            leadId: booking.leadId,
-          },
-        })
-        .catch(() => {});
-    }
-
     await sendBookingCancelledEmails({
       bookingTitle: booking.bookingType.title,
       startAt: booking.startAt,
