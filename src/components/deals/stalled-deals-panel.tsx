@@ -18,6 +18,7 @@ export interface StalledDeal {
   id: string;
   title: string;
   customerName: string;
+  assigneeName: string | null;
   status: string;
   daysStale: number;
   overdue: boolean;
@@ -149,6 +150,7 @@ export function StalledDealsPanel({
                   <th className="w-9 px-3 py-2"></th>
                   <th className="px-3 py-2 text-left font-medium">顧客</th>
                   <th className="px-3 py-2 text-left font-medium">商談</th>
+                  <th className="px-3 py-2 text-left font-medium">担当</th>
                   <th className="px-3 py-2 text-left font-medium">状態</th>
                   <th className="px-3 py-2 text-right font-medium">停滞</th>
                   <th className="px-3 py-2 text-center font-medium">受注予定</th>
@@ -184,6 +186,9 @@ export function StalledDealsPanel({
                         >
                           {d.title}
                         </Link>
+                      </td>
+                      <td className="px-3 py-2 text-zinc-500 whitespace-nowrap">
+                        {d.assigneeName ?? <span className="text-zinc-300">未割当</span>}
                       </td>
                       <td className="px-3 py-2">
                         <span

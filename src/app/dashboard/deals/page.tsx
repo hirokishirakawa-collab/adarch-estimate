@@ -100,7 +100,10 @@ export default async function DealsPage({ searchParams }: PageProps) {
       status: { in: ACTIVE_SELLING },
       updatedAt: { lt: stallThreshold },
     },
-    include: { customer: { select: { name: true } } },
+    include: {
+      customer: { select: { name: true } },
+      assignedTo: { select: { name: true } },
+    },
     orderBy: { updatedAt: "asc" },
     take: 500,
   });
@@ -108,6 +111,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
     id: d.id,
     title: d.title,
     customerName: d.customer.name,
+    assigneeName: d.assignedTo?.name ?? null,
     status: d.status as string,
     daysStale: Math.floor((now - d.updatedAt.getTime()) / (24 * 60 * 60 * 1000)),
     overdue: d.expectedCloseDate ? d.expectedCloseDate.getTime() < now : false,
