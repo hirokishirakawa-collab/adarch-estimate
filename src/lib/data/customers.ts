@@ -95,7 +95,6 @@ const EMAIL_TO_BRANCH: Record<string, string> = {
   "tokushima@adarch.co.jp": "branch_tks",
   "ibaraki@adarch.co.jp": "branch_ibk",
   "hamaguchi@adarch.co.jp": "branch_fku",
-  "fujiwara@adarch.co.jp": "branch_knw",
 };
 
 // ---------------------------------------------------------------
