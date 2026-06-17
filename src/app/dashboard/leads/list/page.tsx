@@ -70,7 +70,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       address?: { contains: string; mode: "insensitive" };
       memo?: { contains: string; mode: "insensitive" };
     }>;
-    status?: LeadStatus | { not: LeadStatus };
+    status?: LeadStatus | { not: LeadStatus } | { notIn: LeadStatus[] };
     assigneeId?: string | null;
     industry?: string;
     area?: { contains: string; mode: "insensitive" };
@@ -79,7 +79,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   };
 
   const baseExclude = {
-    status: { not: "SKIPPED" as LeadStatus },
+    status: { notIn: ["SKIPPED", "ARCHIVED"] as LeadStatus[] },
     NOT: { source: "PR_TIMES_TVCM" as LeadSource, assigneeId: null },
   };
 
@@ -150,6 +150,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     dealConvertedCount,
     activeDealCount,
     activeProjectCount,
+    archivedCount,
     users,
     recentLogs,
     industries,
@@ -176,6 +177,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     // 顧客側: 進行中の商談・制作（拠点スコープ済み・件数のみ）
     db.deal.count({ where: { ...branchScope, status: { in: DEAL_OPEN } } }),
     db.project.count({ where: { ...branchScope, status: { in: PROJECT_ACTIVE } } }),
+    db.lead.count({ where: { status: "ARCHIVED" } }),
     db.user.findMany({
       where: { isActive: true },
       select: { id: true, name: true, email: true },
@@ -388,6 +390,21 @@ export default async function LeadListPage({ searchParams }: PageProps) {
             </p>
           </Link>
         </div>
+
+        {/* アーカイブ（30日以上動きなしのフォロー待ちを自動移動） */}
+        {archivedCount > 0 && (
+          <Link
+            href="/dashboard/leads/list?status=ARCHIVED"
+            className={`rounded-lg border px-4 py-3 transition-all hover:shadow-sm flex items-center justify-between ${
+              statusParam === "ARCHIVED"
+                ? "bg-zinc-100 border-zinc-400 ring-1 ring-zinc-300"
+                : "bg-zinc-50/60 border-zinc-200 hover:border-zinc-300"
+            }`}
+          >
+            <p className="text-[11px] text-zinc-400">🗂 アーカイブ（30日以上動きなし）</p>
+            <p className="text-sm font-semibold text-zinc-400">{archivedCount.toLocaleString()}件</p>
+          </Link>
+        )}
 
         {/* この先の本命パイプライン（顧客側）。件数のみ・担当者名は出さない。 */}
         <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 px-4 py-3">

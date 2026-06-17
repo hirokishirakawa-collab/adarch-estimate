@@ -94,6 +94,7 @@ enum LeadStatus {
   DEAL_CONVERTED // 商談化
   SKIPPED // スキップ
   CRAWLED // クロール済（未判定。TVCM/動画PR専用）
+  ARCHIVED // アーカイブ（30日以上動きなしのフォロー待ちを自動移動）
 }
 
 enum BillingStatus {
