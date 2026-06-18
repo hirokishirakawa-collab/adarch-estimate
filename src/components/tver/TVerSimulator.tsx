@@ -211,6 +211,10 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
   const [includeCreativeReview, setIncludeCreativeReview] = useState(true);
   const [creativeCount, setCreativeCount] = useState(1);
 
+  // 卸値×3モード
+  const [wholesaleMode, setWholesaleMode] = useState(false);
+  const [wholesaleCpmInput, setWholesaleCpmInput] = useState<Partial<Record<AdSeconds, number>>>({});
+
   // 入力モード（再生回数保証がデフォルト）
   const [inputMode, setInputMode] = useState<"plays" | "budget">(initialBudget ? "budget" : "plays");
   const [budget, setBudget] = useState<number>(initialBudget ?? 500000);
@@ -268,12 +272,18 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
     let totalWeight = 0;
     for (const seconds of selectedFormats) {
       const ratio = (formatRatios[seconds] ?? 0) / 100;
-      const cpm = customCpm[seconds] ?? AD_FORMATS.find((f) => f.seconds === seconds)!.cpm;
+      let cpm: number;
+      if (wholesaleMode) {
+        const defaultWs = AD_FORMATS.find((f) => f.seconds === seconds)!.cpm / 2;
+        cpm = (wholesaleCpmInput[seconds] ?? defaultWs) * 3;
+      } else {
+        cpm = customCpm[seconds] ?? AD_FORMATS.find((f) => f.seconds === seconds)!.cpm;
+      }
       weightedSum += cpm * ratio;
       totalWeight += ratio;
     }
     return totalWeight > 0 ? weightedSum / totalWeight : 0;
-  }, [selectedFormats, formatRatios, customCpm]);
+  }, [selectedFormats, formatRatios, customCpm, wholesaleMode, wholesaleCpmInput]);
 
   // エリア人口合計
   const totalPop = useMemo(() => {
@@ -297,7 +307,13 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
     // フォーマット別内訳
     const formatBreakdown = [...selectedFormats].map((seconds) => {
       const ratio = (formatRatios[seconds] ?? 0) / 100;
-      const cpm = customCpm[seconds] ?? AD_FORMATS.find((f) => f.seconds === seconds)!.cpm;
+      let cpm: number;
+      if (wholesaleMode) {
+        const defaultWs = AD_FORMATS.find((f) => f.seconds === seconds)!.cpm / 2;
+        cpm = (wholesaleCpmInput[seconds] ?? defaultWs) * 3;
+      } else {
+        cpm = customCpm[seconds] ?? AD_FORMATS.find((f) => f.seconds === seconds)!.cpm;
+      }
       const formatPlays = Math.round(effectivePlays * ratio);
       const formatBudget = formatPlays * (cpm / 1000);
       const label = AD_FORMATS.find((f) => f.seconds === seconds)!.label;
@@ -322,7 +338,7 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
       fillRate,
       tverAudience: Math.floor(totalPop * TVER_PENETRATION),
     };
-  }, [inputMode, budget, plays, blendedCpm, selectedFormats, formatRatios, customCpm, totalPop, frequency]);
+  }, [inputMode, budget, plays, blendedCpm, selectedFormats, formatRatios, customCpm, totalPop, frequency, wholesaleMode, wholesaleCpmInput]);
 
   // エリア操作
   const toggleMuni = useCallback((code: string) => {
@@ -350,6 +366,15 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
     [calcResult.budget, isFirstTransaction, includeCreativeReview, creativeCount]
   );
 
+  const wholesaleProfit = useMemo(() => {
+    if (!wholesaleMode || calcResult.budget === 0) return null;
+    const wholesaleCost = calcResult.budget / 3;
+    const totalMargin = calcResult.budget - wholesaleCost;
+    const honbuShare = totalMargin / 2;
+    const partnerShare = totalMargin / 2;
+    return { wholesaleCost, totalMargin, honbuShare, partnerShare };
+  }, [wholesaleMode, calcResult.budget]);
+
   const resetAll = () => {
     setSelected(new Set());
     setBudget(500000);
@@ -361,6 +386,8 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
     setIsFirstTransaction(false);
     setIncludeCreativeReview(true);
     setCreativeCount(1);
+    setWholesaleMode(false);
+    setWholesaleCpmInput({});
   };
 
   return (
@@ -425,6 +452,24 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
           </div>
           <p className="text-[10px] text-zinc-400">※ 複数選択でミックス配信</p>
 
+          {/* 卸値×3モード */}
+          <div className="flex items-center gap-2 pt-0.5">
+            <button
+              onClick={() => setWholesaleMode((v) => !v)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors",
+                wholesaleMode
+                  ? "bg-amber-500 border-amber-500 text-white"
+                  : "border-zinc-200 text-zinc-500 hover:border-amber-300 hover:text-amber-600"
+              )}
+            >
+              卸値×3モード {wholesaleMode ? "ON" : "OFF"}
+            </button>
+            {wholesaleMode && (
+              <span className="text-[10px] text-amber-600">クライアント請求 = 卸値 × 3</span>
+            )}
+          </div>
+
           {/* 配分スライダー（2つ以上選択時） */}
           {selectedFormats.size > 1 && (
             <div className="space-y-2 pt-1">
@@ -462,6 +507,42 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
             <div className="mt-2 pl-4 border-l-2 border-zinc-100 space-y-3">
               {[...selectedFormats].map((seconds) => {
                 const fmt = AD_FORMATS.find((f) => f.seconds === seconds)!;
+
+                if (wholesaleMode) {
+                  const defaultWs = fmt.cpm / 2;
+                  const wsVal = wholesaleCpmInput[seconds] ?? defaultWs;
+                  const clientCpm = wsVal * 3;
+                  return (
+                    <div key={seconds}>
+                      <label className="flex items-center justify-between text-[11px] text-zinc-500 mb-1">
+                        <span>卸値CPM（{fmt.label}）</span>
+                        <button
+                          onClick={() => setWholesaleCpmInput((p) => { const n = {...p}; delete n[seconds]; return n; })}
+                          className="text-zinc-400 hover:text-zinc-600 text-[10px]"
+                        >
+                          デフォルトに戻す
+                        </button>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-400 text-xs">¥</span>
+                        <input
+                          type="number"
+                          value={wsVal}
+                          min={100}
+                          max={99999}
+                          step={100}
+                          onChange={(e) => setWholesaleCpmInput((p) => ({ ...p, [seconds]: Number(e.target.value) }))}
+                          className="flex-1 px-3 py-1.5 text-xs border border-amber-200 rounded-lg outline-none focus:border-amber-400 bg-amber-50"
+                        />
+                        <span className="text-zinc-400 text-[11px]">/ 1,000回</span>
+                      </div>
+                      <p className="text-[10px] text-amber-600 mt-1">
+                        クライアント請求CPM: ¥{clientCpm.toLocaleString()}（×3）
+                      </p>
+                    </div>
+                  );
+                }
+
                 const cpmVal = customCpm[seconds] ?? fmt.cpm;
                 return (
                   <div key={seconds}>
@@ -827,6 +908,31 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                 <p className="text-[10px] text-zinc-600 text-center">
                   ※ 手数料はすべてネット価格を基準に算出しています
                 </p>
+
+                {/* 卸値×3 利益内訳 */}
+                {wholesaleProfit && (
+                  <div className="border-t border-zinc-700 pt-3 space-y-2">
+                    <p className="text-[11px] font-bold text-amber-400">卸値×3 利益内訳</p>
+                    <div className="bg-zinc-800 rounded-lg overflow-hidden text-[11px]">
+                      {[
+                        { label: "クライアント請求（媒体費）", note: "（卸値×3）", value: calcResult.budget, color: "text-zinc-200" },
+                        { label: "卸値コスト", note: "（TVer仕入れ）", value: wholesaleProfit.wholesaleCost, color: "text-zinc-400" },
+                        { label: "本部取り分", note: "（差額の50%）", value: wholesaleProfit.honbuShare, color: "text-amber-300" },
+                        { label: "加盟店取り分", note: "（差額の50%）", value: wholesaleProfit.partnerShare, color: "text-emerald-400" },
+                      ].map((row) => (
+                        <div key={row.label} className="flex items-center justify-between px-3 py-2 border-b border-zinc-700 last:border-0">
+                          <span className="text-zinc-400">
+                            {row.label}
+                            <span className="ml-1 text-zinc-600">{row.note}</span>
+                          </span>
+                          <span className={cn("font-semibold tabular-nums", row.color)}>
+                            {formatYen(row.value)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}

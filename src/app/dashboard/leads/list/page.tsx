@@ -204,6 +204,20 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   // 今月の活動KPI（声かけ→商談→受注）
   const activityKpi = await getActivityKpi();
 
+  // 稼働中の人の数（担当付きリードを持つユーザー別件数）
+  const activeAssigneeGroups = await db.lead.groupBy({
+    by: ["assigneeId"],
+    where: { ...baseExclude, assigneeId: { not: null } },
+    _count: { _all: true },
+    orderBy: { _count: { assigneeId: "desc" } },
+  });
+  const activeAssigneeCount = activeAssigneeGroups.length;
+  const activeAssigneeDetails = activeAssigneeGroups.map((g) => ({
+    userId: g.assigneeId!,
+    count: g._count._all,
+    name: users.find((u) => u.id === g.assigneeId)?.name ?? "不明",
+  }));
+
   // 営業フォームへ現在の絞り込みを引き継ぐ
   const outreachQuery = [
     statusParam ? `status=${statusParam}` : "",
@@ -390,6 +404,34 @@ export default async function LeadListPage({ searchParams }: PageProps) {
             </p>
           </Link>
         </div>
+
+        {/* 稼働中の人数 */}
+        {activeAssigneeCount > 0 && (
+          <details className="group rounded-lg border border-zinc-200 bg-white overflow-hidden">
+            <summary className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-zinc-50 transition-colors select-none list-none">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-zinc-500">👤 稼働中の人数（担当付きリード保有）</span>
+                <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                  {activeAssigneeCount}名
+                </span>
+              </div>
+              <span className="text-[10px] text-zinc-400 group-open:hidden">▼ 内訳を見る</span>
+              <span className="text-[10px] text-zinc-400 hidden group-open:block">▲ 閉じる</span>
+            </summary>
+            <div className="border-t border-zinc-100 divide-y divide-zinc-100">
+              {activeAssigneeDetails.map((d) => (
+                <Link
+                  key={d.userId}
+                  href={`/dashboard/leads/list?assigneeId=${d.userId}`}
+                  className="flex items-center justify-between px-4 py-2.5 hover:bg-zinc-50 transition-colors"
+                >
+                  <span className="text-xs text-zinc-700">{d.name}</span>
+                  <span className="text-xs font-bold text-zinc-900">{d.count}件</span>
+                </Link>
+              ))}
+            </div>
+          </details>
+        )}
 
         {/* アーカイブ（30日以上動きなしのフォロー待ちを自動移動） */}
         {archivedCount > 0 && (
