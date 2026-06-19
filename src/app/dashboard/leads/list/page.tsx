@@ -211,12 +211,14 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     _count: { _all: true },
     orderBy: { _count: { assigneeId: "desc" } },
   });
-  const activeAssigneeCount = activeAssigneeGroups.length;
-  const activeAssigneeDetails = activeAssigneeGroups.map((g) => ({
-    userId: g.assigneeId!,
-    count: g._count._all,
-    name: users.find((u) => u.id === g.assigneeId)?.name ?? "不明",
-  }));
+  // 稼働ユーザーに該当しない担当（退会・非アクティブ等＝「不明」）は除外する
+  const activeAssigneeDetails = activeAssigneeGroups
+    .map((g) => {
+      const user = users.find((u) => u.id === g.assigneeId);
+      return user ? { userId: g.assigneeId!, count: g._count._all, name: user.name ?? user.email ?? "" } : null;
+    })
+    .filter((d): d is { userId: string; count: number; name: string } => d !== null);
+  const activeAssigneeCount = activeAssigneeDetails.length;
 
   // 営業フォームへ現在の絞り込みを引き継ぐ
   const outreachQuery = [
