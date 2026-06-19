@@ -126,8 +126,10 @@ export async function POST(req: NextRequest) {
 
       imported++;
     } catch (dbError) {
+      // 生のDBエラーは外部に返さず、サーバー側ログにのみ記録する
       const msg = dbError instanceof Error ? dbError.message : String(dbError);
-      errors.push(`${rowNum}行目(${name}): ${msg}`);
+      console.error(`[customers/import] row ${rowNum} (${name}) DB error:`, msg);
+      errors.push(`${rowNum}行目(${name}): 登録に失敗しました`);
     }
   }
 
