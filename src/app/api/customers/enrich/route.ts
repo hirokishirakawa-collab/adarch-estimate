@@ -6,6 +6,7 @@ import * as cheerio from "cheerio";
 import Anthropic from "@anthropic-ai/sdk";
 import { auth } from "@/lib/auth";
 import { checkRateLimit, SCRAPE_RATE_LIMIT } from "@/lib/rate-limit";
+import { safeFetch, SsrfError } from "@/lib/security/ssrf-guard";
 
 // ---------------------------------------------------------------
 // POST /api/customers/enrich
@@ -48,10 +49,11 @@ export async function POST(req: NextRequest) {
   if (!url) return NextResponse.json({ error: "URLを入力してください" }, { status: 400 });
   if (!/^https?:\/\//i.test(url)) url = "https://" + url;
 
-  // URLフェッチ
+  // URLフェッチ（SSRFガード＝内部/プライベートIP・メタデータへの到達を遮断。
+  // リダイレクトも手動追跡して各ホップを再検証）
   let html: string;
   try {
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; AdArchBot/1.0; +https://ad-arch.net)" },
       signal: AbortSignal.timeout(15_000),
     });
@@ -69,6 +71,10 @@ export async function POST(req: NextRequest) {
     }
     html = await res.text();
   } catch (e) {
+    // SSRFガードによる拒否は安全なメッセージをそのまま返す
+    if (e instanceof SsrfError) {
+      return NextResponse.json({ error: e.message }, { status: 422 });
+    }
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("timeout") || msg.includes("TimeoutError")) {
       return NextResponse.json(
@@ -76,7 +82,9 @@ export async function POST(req: NextRequest) {
         { status: 422 }
       );
     }
-    return NextResponse.json({ error: `サイトへのアクセスに失敗しました: ${msg}` }, { status: 422 });
+    // 生のfetchエラーは外部に出さない（内部情報の漏えい防止）
+    console.error("[customers/enrich] fetch error:", msg);
+    return NextResponse.json({ error: "サイトへのアクセスに失敗しました。URLをご確認ください。" }, { status: 422 });
   }
 
   // Cheerio でテキスト抽出
