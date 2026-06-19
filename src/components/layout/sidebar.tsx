@@ -448,6 +448,12 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-zinc-600",
     items: [
       {
+        href: "/dashboard/admin/sales-overview",
+        label: "代表別 営業ダッシュボード",
+        icon: TrendingUp,
+        minRole: "ADMIN",
+      },
+      {
         href: "/dashboard/group-profiles/highlights",
         label: "連携案件ハイライト",
         icon: Sparkles,
