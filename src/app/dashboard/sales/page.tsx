@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import type { LeadStatus, LeadSource, DealStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 import { FavoriteButton } from "@/components/layout/favorite-button";
+import { MySalesPanel } from "@/components/dashboard/my-sales-panel";
 import {
   Workflow,
   PhoneCall,
@@ -73,13 +74,9 @@ export default async function SalesFlowPage({ searchParams }: PageProps) {
 
   const role = (session.user.role ?? "USER") as UserRole;
   const isAdmin = role === "ADMIN";
-  const email = session.user.email ?? "";
 
   const { stage: stageParam } = await searchParams;
   const stage: Stage = stageParam === "deal" ? "deal" : "outreach";
-
-  // ログイン中の代表本人を解決（自分の数字の集計に使う）
-  const me = await db.user.findUnique({ where: { email }, select: { id: true } });
 
   // リード（声かけ）側のベース除外。リード管理ページと同じ作法。
   const baseExclude = {
@@ -116,38 +113,6 @@ export default async function SalesFlowPage({ searchParams }: PageProps) {
   const outreachTotal = untouched + called + appointment;
   const dealTotal = openDeals;
 
-  // -------------------------------------------------------------
-  // 自分の営業数字（探客 → アプローチ → 受注）＋ エリア攻略率
-  // -------------------------------------------------------------
-  const APPROACHED: LeadStatus[] = ["CALLED", "APPOINTMENT", "DEAL_CONVERTED"];
-  let myProspecting = 0; // 探客中（自分の持ちリードで未対応）
-  let myApproached = 0; // アプローチ済み（架電以降）
-  let myWon = 0; // 受注（自分の主担当商談で受注）
-  let areaTotal = 0; // 担当エリアに存在する企業（リード）総数
-  let myAreas: string[] = [];
-
-  if (me) {
-    // 自分が担当しているリードのエリア（重複なし）＝「担当エリア」とみなす
-    const myAreaRows = await db.lead.findMany({
-      where: { assigneeId: me.id, area: { not: null } },
-      select: { area: true },
-      distinct: ["area"],
-    });
-    myAreas = myAreaRows.map((r) => r.area!).filter(Boolean);
-
-    [myProspecting, myApproached, myWon, areaTotal] = await Promise.all([
-      db.lead.count({ where: { assigneeId: me.id, status: "UNTOUCHED" } }),
-      db.lead.count({ where: { assigneeId: me.id, status: { in: APPROACHED } } }),
-      db.deal.count({ where: { assignedToId: me.id, status: "CLOSED_WON" } }),
-      myAreas.length > 0
-        ? db.lead.count({ where: { area: { in: myAreas }, status: { notIn: ["SKIPPED", "ARCHIVED"] as LeadStatus[] } } })
-        : Promise.resolve(0),
-    ]);
-  }
-
-  // エリア攻略率 = 自分がアプローチした数 ÷ 担当エリアの企業総数
-  const coverage = areaTotal > 0 ? Math.round((myApproached / areaTotal) * 1000) / 10 : null;
-
   const outreachFunnel = [
     { label: "未対応", value: untouched, tone: "text-zinc-900" },
     { label: "架電・連絡済み", value: called, tone: "text-blue-700" },
@@ -178,39 +143,8 @@ export default async function SalesFlowPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* あなたの営業数字 */}
-      <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 rounded-xl px-5 py-4 text-white">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold text-white/70">あなたの営業（累計）</p>
-          {coverage !== null && (
-            <p className="text-[11px] text-white/60">
-              担当エリア：{myAreas.slice(0, 3).join("・")}
-              {myAreas.length > 3 ? ` 他${myAreas.length - 3}` : ""}
-            </p>
-          )}
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <MyStat label="探客中" sub="これから当たる" value={myProspecting} tone="text-sky-300" />
-          <MyStat label="アプローチ済み" sub="架電・連絡した" value={myApproached} tone="text-amber-300" />
-          <MyStat label="受注" sub="決まった件数" value={myWon} tone="text-emerald-300" />
-          <div className="bg-white/5 rounded-lg px-4 py-3">
-            <p className="text-[11px] text-white/60">エリア攻略率</p>
-            {coverage !== null ? (
-              <>
-                <p className="text-xl font-bold text-violet-300 mt-0.5">{coverage}%</p>
-                <p className="text-[10px] text-white/40 mt-0.5">
-                  {myApproached} / エリア{areaTotal.toLocaleString()}社
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-xl font-bold text-white/40 mt-0.5">—</p>
-                <p className="text-[10px] text-white/40 mt-0.5">担当リードを持つと表示</p>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* あなたの営業数字（共有パネル） */}
+      <MySalesPanel />
 
       {/* 段階タブ */}
       <div className="flex items-center gap-2">
@@ -262,26 +196,6 @@ export default async function SalesFlowPage({ searchParams }: PageProps) {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function MyStat({
-  label,
-  sub,
-  value,
-  tone,
-}: {
-  label: string;
-  sub: string;
-  value: number;
-  tone: string;
-}) {
-  return (
-    <div className="bg-white/5 rounded-lg px-4 py-3">
-      <p className="text-[11px] text-white/60">{label}</p>
-      <p className={`text-xl font-bold mt-0.5 ${tone}`}>{value.toLocaleString()}</p>
-      <p className="text-[10px] text-white/40 mt-0.5">{sub}</p>
     </div>
   );
 }

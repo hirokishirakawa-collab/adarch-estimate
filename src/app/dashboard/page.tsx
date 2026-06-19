@@ -6,6 +6,7 @@ import { hasMinRole, type UserRole } from "@/types/roles";
 import { ForcedInactiveModal } from "@/components/partner-status/forced-inactive-modal";
 import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
 import { getActivityKpi } from "@/lib/kpis/activity";
+import { MySalesPanel } from "@/components/dashboard/my-sales-panel";
 import {
   Users,
   FolderKanban,
@@ -205,6 +206,9 @@ export default async function DashboardPage() {
       </div>
 
       <ActivityKpiBar kpi={activityKpi} />
+
+      {/* ── あなたの営業数値（本人のみ・営業フローへ誘導） ── */}
+      <MySalesPanel showLink />
 
       {/* ── パートナー稼働ステータス（ADMIN） ── */}
       {role === "ADMIN" && adminStatusCounts && (
