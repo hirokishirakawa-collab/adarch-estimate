@@ -196,6 +196,18 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Send,
         minRole: "ADMIN",
       },
+      {
+        href: "/dashboard/projects",
+        label: "プロジェクト一覧",
+        icon: FolderKanban,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/group-profiles",
+        label: "メンバー紹介",
+        icon: Users2,
+        minRole: "USER",
+      },
     ],
   },
   {
@@ -248,24 +260,6 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/omochannel-simulator",
         label: "おもチャンネル（アパホテル）",
         icon: Tv2,
-        minRole: "USER",
-      },
-    ],
-  },
-    {
-    section: "制作・プロジェクト",
-    color: "text-violet-500/80",
-    items: [
-      {
-        href: "/dashboard/projects",
-        label: "プロジェクト一覧",
-        icon: FolderKanban,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/group-profiles",
-        label: "メンバー紹介",
-        icon: Users2,
         minRole: "USER",
       },
     ],
@@ -613,12 +607,6 @@ const SALES_TAB_ITEMS: NavItem[] = [
       { href: "/dashboard/omochannel-simulator", label: "おもチャンネル", icon: Tv2, minRole: "USER" },
     ],
   },
-];
-
-// ----------------------------------------------------------------
-// 制作タブ
-// ----------------------------------------------------------------
-const PRODUCTION_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/projects", label: "プロジェクト一覧", icon: FolderKanban, minRole: "USER" },
   { href: "/dashboard/tver-review", label: "TVer業態考査申請", icon: Tv2, minRole: "USER" },
   { href: "/dashboard/tver-campaign", label: "TVer配信申請", icon: Tv2, minRole: "USER" },
@@ -642,7 +630,7 @@ const ADMIN_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/partner-status", label: "稼働ステータス申告", icon: Activity, minRole: "MANAGER" },
 ];
 
-type SidebarTab = "sales" | "production" | "admin" | "all";
+type SidebarTab = "sales" | "admin" | "all";
 
 export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: SidebarProps) {
   const pathname = usePathname();
@@ -845,10 +833,9 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
         )}
 
         {/* タブ切り替え */}
-        <div className="relative mx-3 mt-2 mb-1 grid grid-cols-4 rounded-[10px] bg-black/[0.03] p-[3px] gap-0.5">
+        <div className="relative mx-3 mt-2 mb-1 grid grid-cols-3 rounded-[10px] bg-black/[0.03] p-[3px] gap-0.5">
           {([
             { key: "sales", label: "営業" },
-            { key: "production", label: "制作" },
             { key: "admin", label: "管理" },
             { key: "all", label: "全て" },
           ] as const).map((tab) => (
@@ -963,39 +950,6 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
                 // 通常アイテム
                 const isActive =
                   pathname === item.href || pathname.startsWith(item.href + "/");
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] transition-all duration-150 group",
-                        isActive
-                          ? "bg-indigo-50 text-indigo-600 font-medium"
-                          : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
-                      )}
-                    >
-                      {isActive && (
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-sm bg-gradient-to-b from-indigo-500 to-cyan-500" />
-                      )}
-                      <item.icon
-                        className={cn(
-                          "w-4 h-4 flex-shrink-0 transition-colors",
-                          isActive ? "text-indigo-500" : "text-slate-400 group-hover:text-indigo-500/70"
-                        )}
-                      />
-                      <span className="truncate flex-1">{item.label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          {/* ===== 制作タブ ===== */}
-          {activeTab === "production" && (
-            <ul className="space-y-0.5">
-              {PRODUCTION_TAB_ITEMS.filter((item) => hasMinRole(user.role, item.minRole)).map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                 return (
                   <li key={item.href}>
                     <Link
