@@ -55,6 +55,7 @@ import {
   Paintbrush,
   Briefcase,
   Banknote,
+  Workflow,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -116,6 +117,12 @@ const NAV_SECTIONS: NavSection[] = [
     section: "営業",
     color: "text-blue-500/80",
     items: [
+      {
+        href: "/dashboard/sales",
+        label: "営業フロー",
+        icon: Workflow,
+        minRole: "USER",
+      },
       {
         href: "/dashboard/customers",
         label: "顧客管理",
