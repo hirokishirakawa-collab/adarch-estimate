@@ -11,6 +11,7 @@ import type { CustomerRank, CustomerStatus } from "@/generated/prisma/client";
 import { CustomerSearch } from "@/components/customers/customer-search";
 import { CustomerTable } from "@/components/customers/customer-table";
 import { CustomerPagination } from "@/components/customers/customer-pagination";
+import { BulkCustomerImport } from "@/components/customers/bulk-customer-import";
 import { FavoriteButton } from "@/components/layout/favorite-button";
 
 const PER_PAGE = 20;
@@ -141,6 +142,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
               {mine === "1" ? "自分の顧客のみ" : "自分の顧客"}
             </Button>
           </Link>
+          <BulkCustomerImport />
           <Link data-tour="customer-new" href="/dashboard/customers/new">
             <Button size="sm" className="gap-1.5">
               <Plus className="w-3.5 h-3.5" />
