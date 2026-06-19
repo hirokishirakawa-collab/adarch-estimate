@@ -105,7 +105,7 @@ function extractKeywords(query: string): string[] {
 // ==============================================================
 
 export interface InternalSource {
-  type: "sales_approach" | "highlight" | "deal" | "deal_log" | "customer" | "sales_activity" | "proposal";
+  type: "sales_approach" | "highlight" | "deal" | "deal_log" | "customer" | "sales_activity";
   title: string;
   content: string;
   meta: Record<string, string>;
@@ -266,37 +266,6 @@ export async function searchInternalKnowledge(
     });
   }
 
-  // --- Proposal（生成済み提案書の業種・課題データ） ---
-  const proposals = await db.proposal.findMany({
-    where: {
-      OR: [
-        ...keywords.map((k) => ({ industry: { contains: k, mode: "insensitive" as const } })),
-        ...keywords.map((k) => ({ challenge: { contains: k, mode: "insensitive" as const } })),
-        ...keywords.map((k) => ({ companyName: { contains: k, mode: "insensitive" as const } })),
-      ],
-    },
-    orderBy: { createdAt: "desc" },
-    take: 3,
-    select: {
-      companyName: true,
-      industry: true,
-      challenge: true,
-      createdAt: true,
-      user: { select: { name: true } },
-    },
-  });
-  for (const p of proposals) {
-    results.push({
-      type: "proposal",
-      title: `【提案書】${p.companyName}（${p.industry}）`,
-      content: `課題: ${p.challenge.slice(0, 250)}`,
-      meta: {
-        作成者: p.user.name || "—",
-        作成日: p.createdAt.toISOString().slice(0, 10),
-      },
-    });
-  }
-
   // --- Customer（業種マッチで拾う参考情報） ---
   const customers = await db.customer.findMany({
     where: {
@@ -340,7 +309,6 @@ export function formatInternalSourcesForPrompt(sources: InternalSource[]): strin
     deal: "商談・受注実績",
     deal_log: "商談活動ログ",
     sales_activity: "営業活動記録",
-    proposal: "過去の提案書（業種・課題）",
     customer: "優良顧客情報",
   };
 

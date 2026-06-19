@@ -27,7 +27,6 @@ import {
   Megaphone,
   CalendarCheck,
   Target,
-  Eye,
   Film,
   BarChart2,
   HardDrive,
@@ -708,12 +707,6 @@ export default async function DashboardPage() {
               tag: "機能追加",
             },
             {
-              date: "2026.03.22",
-              title: "提案書AI — 閲覧トラッキング",
-              desc: "Web提案書の閲覧状況をリアルタイムで分析できるようになりました",
-              tag: "機能追加",
-            },
-            {
               date: "2026.03.18",
               title: "案件マッチング機能",
               desc: "グループ内のスキル・実績に基づく案件マッチングを開始しました",
@@ -770,8 +763,6 @@ export default async function DashboardPage() {
               { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, iconClass: "text-violet-500", minRole: "USER" as UserRole },
               { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Search, iconClass: "text-teal-500", minRole: "USER" as UserRole },
               { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, iconClass: "text-rose-500", minRole: "USER" as UserRole },
-              { href: "/dashboard/proposals", label: "提案書AI", icon: Sparkles, iconClass: "text-amber-500", minRole: "USER" as UserRole },
-              { href: "/dashboard/proposals/analytics", label: "提案書 閲覧分析", icon: Eye, iconClass: "text-amber-500", minRole: "USER" as UserRole },
             ])
               .filter((link) => hasMinRole(role, link.minRole))
               .map((link) => (

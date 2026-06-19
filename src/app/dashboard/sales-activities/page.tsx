@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Activity, ArrowRight } from "lucide-react";
-import Link from "next/link";
-import { ActivityForm } from "@/components/proposals/activity-form";
-import { ActivityList } from "@/components/proposals/activity-list";
+import { Activity } from "lucide-react";
+import { ActivityForm } from "@/components/sales-activities/activity-form";
+import { ActivityList } from "@/components/sales-activities/activity-list";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 interface ActivityData {
@@ -69,12 +68,6 @@ export default function SalesActivitiesPage() {
             </div>
           </div>
         </div>
-        <Link
-          href="/dashboard/proposals"
-          className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-        >
-          提案書AIへ <ArrowRight className="w-3 h-3" />
-        </Link>
       </div>
 
       <ActivityForm onSuccess={fetchData} />

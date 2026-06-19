@@ -349,31 +349,6 @@ const TOURS: Record<string, TourStep[]> = {
       },
     },
   ],
-  "/dashboard/proposals": [
-    {
-      popover: {
-        title: "提案書AI",
-        description: "企業情報を入力するだけで、AIが提案書を自動生成します。",
-      },
-    },
-    {
-      element: "[data-tour='proposal-form']",
-      popover: {
-        title: "提案書生成フォーム",
-        description: "企業名・業種・課題を入力して生成ボタンを押すだけ。AIが最適な提案書を作成します。",
-        side: "bottom",
-      },
-    },
-    {
-      element: "[data-tour='proposal-list']",
-      popover: {
-        title: "生成済み提案書一覧",
-        description: "過去に生成した提案書を確認・再利用できます。Web公開リンクの共有も可能。",
-        side: "top",
-      },
-    },
-  ],
-
   "/dashboard/leads/btob": [
     {
       popover: {

@@ -44,7 +44,6 @@ import {
   Activity,
   CalendarClock,
   Film,
-  Eye,
   ChevronDown,
   ChevronRight,
   MessageCircle,
@@ -175,18 +174,6 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/video-achievements",
         label: "競合実績スクレイピング（自動収集）",
         icon: Target,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/proposals",
-        label: "提案書AI",
-        icon: Sparkles,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/proposals/analytics",
-        label: "提案書 閲覧分析",
-        icon: Eye,
         minRole: "USER",
       },
       {

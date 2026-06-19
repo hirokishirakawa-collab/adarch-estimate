@@ -7,7 +7,6 @@ import path from "path";
 import { EstimatePDFDocument, type EstimateForPDF } from "@/components/estimates/estimate-pdf";
 import { PaymentStatementPDFDocument, type PaymentStatementForPDF } from "@/components/payments/payment-statement-pdf";
 import { SimulatorPDFDocument, type SimulatorPDFData } from "@/components/simulator/simulator-pdf";
-import { ProposalPdfDocument } from "@/components/proposals/proposal-pdf";
 
 const OUT = path.join(os.homedir(), "Desktop");
 
@@ -87,46 +86,6 @@ const simulator: SimulatorPDFData = {
   ],
 };
 
-const proposal = {
-  cover: {
-    title: "TVer広告 ご提案書",
-    subtitle: "コネクテッドTVで実現する、地域最適リーチ",
-    date: "2026年5月24日",
-    to: "株式会社サンプル商事 御中",
-  },
-  companyIntro: {
-    heading: "私たちについて",
-    description:
-      "Ad Arch Groupは全国26拠点のネットワークを基盤に、動画制作から媒体運用までを一気通貫で提供するクリエイティブ・グループです。地域に根ざした担当者が、企画から効果検証まで伴走します。",
-    strengths: ["全国26拠点", "制作〜運用一気通貫", "TVer正規取扱"],
-  },
-  proposal: {
-    heading: "ご提案",
-    challenge: "全国CMは予算規模が大きく、地域ターゲットの商材には過剰になりがちです。",
-    solutions: [
-      { title: "TVerによる地域最適配信", description: "都道府県・市区町村単位で配信エリアを設計し、無駄打ちを抑えながら必要な層に届けます。" },
-      { title: "最寄り拠点による伴走支援", description: "全国26拠点の担当が訪問対応。制作から効果検証まで地元目線でサポートします。" },
-    ],
-  },
-  cases: {
-    heading: "実績",
-    items: [
-      { title: "飲食チェーン A社", description: "神奈川エリア配信で来店数 前年比118%を達成。" },
-      { title: "小売 B社", description: "15秒素材2本の出し分けで認知率を大幅に改善。" },
-    ],
-  },
-  nextSteps: {
-    heading: "今後の進め方",
-    steps: [
-      "ヒアリング（目的・予算・配信エリアの確認）",
-      "配信プラン・お見積もりのご提示",
-      "クリエイティブ制作",
-      "配信開始・効果レポート",
-    ],
-    contact: "ご不明点は info@adarch.co.jp までお気軽にお問い合わせください。",
-  },
-};
-
 // react-pdf の renderToFile は ReactElement<DocumentProps> を要求するが、
 // 各コンポーネントは Document を返すため実行時は安全。型の都合で as never を挟む。
 const doc = (el: React.ReactElement) => el as never;
@@ -138,8 +97,6 @@ async function main() {
   console.log("✓ 見本_支払明細書.pdf");
   await renderToFile(doc(React.createElement(SimulatorPDFDocument, { data: simulator })), path.join(OUT, "見本_概算見積.pdf"));
   console.log("✓ 見本_概算見積.pdf");
-  await renderToFile(doc(React.createElement(ProposalPdfDocument, { content: proposal as never })), path.join(OUT, "見本_提案書.pdf"));
-  console.log("✓ 見本_提案書.pdf");
   console.log("→ 出力先:", OUT);
 }
 

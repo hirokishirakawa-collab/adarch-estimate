@@ -1,7 +1,14 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { ACTIVITY_TYPE_LABELS } from "@/lib/constants/proposals";
+
+const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  CALL: "電話",
+  EMAIL: "メール",
+  VISIT: "訪問",
+  MEETING: "Web会議",
+  OTHER: "その他",
+};
 
 interface Activity {
   id: string;

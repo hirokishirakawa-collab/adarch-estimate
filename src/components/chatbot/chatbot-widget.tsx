@@ -69,11 +69,6 @@ const PAGE_SUGGESTIONS: Record<string, string[]> = {
     "PDFで出力するには？",
     "テンプレートの使い方は？",
   ],
-  "/dashboard/proposals": [
-    "提案書をAIで作るには？",
-    "提案書をWeb公開したい",
-    "閲覧分析はどこで見る？",
-  ],
   "/dashboard/customers": [
     "新規顧客の登録方法は？",
     "先着ロックって何？",
@@ -144,8 +139,6 @@ function getPageLabel(pathname: string): string {
   const map: Record<string, string> = {
     "/dashboard": "ダッシュボード",
     "/dashboard/estimates": "公式見積もり",
-    "/dashboard/proposals": "提案書AI",
-    "/dashboard/proposals/analytics": "提案書 閲覧分析",
     "/dashboard/customers": "顧客管理",
     "/dashboard/deals": "商談管理",
     "/dashboard/billing": "請求依頼",
