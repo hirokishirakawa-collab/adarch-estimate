@@ -592,25 +592,33 @@ interface SidebarProps {
 // Sidebar コンポーネント
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
-// 営業タブ: 最優先の7項目（フラット表示）
+// タブ別ナビ: 営業の流れ（声かけ→提案→制作→経理）に沿って整理。
+// 全項目は常に「全て」タブにも出るため、ここは"よく使う動線"に絞る。
 // ----------------------------------------------------------------
-const SALES_TAB_ITEMS: NavItem[] = [
-  { href: "/dashboard/customers", label: "顧客管理", icon: Users, minRole: "USER" },
+
+// ① 営業: 声かけ〜商談化まで
+const SELL_TAB_ITEMS: NavItem[] = [
+  { href: "/dashboard/sales", label: "営業フロー", icon: Workflow, minRole: "USER" },
   { href: "/dashboard/leads/list", label: "リード管理", icon: ListChecks, minRole: "USER" },
-  { href: "/dashboard/deals", label: "商談管理（SFA）", icon: TrendingUp, minRole: "USER" },
   { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, minRole: "USER" },
   { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, minRole: "USER" },
-  { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
-  { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
-  { href: "/dashboard/playbook", label: "営業プレイブック", icon: BookOpen, minRole: "MANAGER" },
-  { href: "/dashboard/leads/list", label: "営業報告", icon: ClipboardList, minRole: "USER" },
+  { href: "/dashboard/outreach-pipeline", label: "アウトリーチ", icon: Send, minRole: "ADMIN" },
+  { href: "/dashboard/customers", label: "顧客管理", icon: Users, minRole: "USER" },
+  { href: "/dashboard/deals", label: "商談管理（SFA）", icon: TrendingUp, minRole: "USER" },
+  { href: "/dashboard/regulars", label: "レギュラー案件", icon: Repeat, minRole: "MANAGER" },
+  { href: "/dashboard/group-profiles", label: "メンバー紹介", icon: Users2, minRole: "USER" },
+];
+
+// ② 提案: 提案・見積・媒体シミュレーター
+const PROPOSE_TAB_ITEMS: NavItem[] = [
+  { href: "/dashboard/strategy-advisor", label: "提案戦略アドバイザー（AI）", icon: Sparkles, minRole: "USER" },
+  { href: "/dashboard/estimates", label: "公式見積もり", icon: FileText, minRole: "USER" },
   {
     href: "#media-simulators",
     label: "広告媒体シミュレーター",
     icon: Megaphone,
     minRole: "USER",
     children: [
-      { href: "/dashboard/strategy-advisor", label: "提案戦略アドバイザー（AI）", icon: Sparkles, minRole: "USER" },
       { href: "/dashboard/tver-simulator", label: "TVer広告", icon: Tv2, minRole: "USER" },
       { href: "/dashboard/taxi-ads-simulator", label: "タクシー広告", icon: Car, minRole: "USER" },
       { href: "/dashboard/skylark-simulator", label: "すかいらーくインストア", icon: UtensilsCrossed, minRole: "USER" },
@@ -620,19 +628,42 @@ const SALES_TAB_ITEMS: NavItem[] = [
       { href: "/dashboard/omochannel-simulator", label: "おもチャンネル", icon: Tv2, minRole: "USER" },
     ],
   },
+  { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
+  { href: "/dashboard/playbook", label: "営業プレイブック", icon: BookOpen, minRole: "USER" },
+  { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
+  { href: "/dashboard/project-matching", label: "案件マッチング", icon: Handshake, minRole: "USER" },
+];
+
+// ③ 制作・申請: 受注後の進行と媒体・考査申請
+const DELIVER_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/projects", label: "プロジェクト一覧", icon: FolderKanban, minRole: "USER" },
+  { href: "/dashboard/media", label: "媒体依頼", icon: Megaphone, minRole: "USER" },
+  { href: "/dashboard/leads/tvcm-pool", label: "TVer広告 案件プール", icon: Film, minRole: "USER" },
   { href: "/dashboard/tver-review", label: "TVer業態考査申請", icon: Tv2, minRole: "USER" },
   { href: "/dashboard/tver-campaign", label: "TVer配信申請", icon: Tv2, minRole: "USER" },
   { href: "/dashboard/tver-creative-review", label: "TVer クリエイティブ考査申請", icon: Tv2, minRole: "USER" },
-  { href: "/dashboard/media", label: "媒体依頼", icon: Megaphone, minRole: "USER" },
 ];
 
-// ----------------------------------------------------------------
-// 管理タブ
-// ----------------------------------------------------------------
-const ADMIN_TAB_ITEMS: NavItem[] = [
+// ④ 経理: 請求・支払・ロイヤリティ・月次報告
+const MONEY_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/billing", label: "請求依頼", icon: CreditCard, minRole: "USER" },
+  { href: "/dashboard/payments", label: "支払明細", icon: Banknote, minRole: "MANAGER" },
+  { href: "/dashboard/royalty", label: "ロイヤリティ", icon: Sparkles, minRole: "MANAGER" },
+  { href: "/dashboard/billing/settings", label: "経理情報の登録", icon: Building2, minRole: "MANAGER" },
   { href: "/dashboard/sales-report", label: "月次報告", icon: BarChart2, minRole: "MANAGER" },
+];
+
+// 営業の流れに沿った内容タブ（グループ対応の共通レンダラで描画）
+const CONTENT_TAB_ITEMS: Record<string, NavItem[]> = {
+  sell: SELL_TAB_ITEMS,
+  propose: PROPOSE_TAB_ITEMS,
+  deliver: DELIVER_TAB_ITEMS,
+  money: MONEY_TAB_ITEMS,
+};
+
+// ⑤ 管理: 申告・連絡・参照（外部リンク対応の別レンダラ）
+const ADMIN_TAB_ITEMS: NavItem[] = [
+  { href: "/dashboard/partner-status", label: "稼働ステータス申告", icon: Activity, minRole: "MANAGER" },
   {
     href: "https://calendar.app.google/DvCvNkUvw91Ytq9u8",
     label: "本部打ち合わせ予約",
@@ -640,10 +671,13 @@ const ADMIN_TAB_ITEMS: NavItem[] = [
     minRole: "USER",
     external: true,
   },
-  { href: "/dashboard/partner-status", label: "稼働ステータス申告", icon: Activity, minRole: "MANAGER" },
+  { href: "/dashboard/violation-report", label: "コンプライアンス相談", icon: AlertTriangle, minRole: "MANAGER" },
+  { href: "/dashboard/business-cards", label: "名刺管理", icon: ContactRound, minRole: "USER" },
+  { href: "/dashboard/wiki", label: "社内Wiki", icon: BookOpen, minRole: "USER" },
+  { href: "/dashboard/learning", label: "ラーニング", icon: GraduationCap, minRole: "USER" },
 ];
 
-type SidebarTab = "sales" | "admin" | "all";
+type SidebarTab = "sell" | "propose" | "deliver" | "money" | "admin" | "all";
 
 export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: SidebarProps) {
   const pathname = usePathname();
@@ -651,7 +685,7 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
-  const [activeTab, setActiveTab] = useState<SidebarTab>("sales");
+  const [activeTab, setActiveTab] = useState<SidebarTab>("sell");
 
   useEffect(() => {
     fetch("/api/favorites")
@@ -848,7 +882,10 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
         {/* タブ切り替え */}
         <div className="relative mx-3 mt-2 mb-1 grid grid-cols-3 rounded-[10px] bg-black/[0.03] p-[3px] gap-0.5">
           {([
-            { key: "sales", label: "営業" },
+            { key: "sell", label: "営業" },
+            { key: "propose", label: "提案" },
+            { key: "deliver", label: "制作" },
+            { key: "money", label: "経理" },
             { key: "admin", label: "管理" },
             { key: "all", label: "全て" },
           ] as const).map((tab) => (
@@ -882,10 +919,10 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
             nav[data-tour="sidebar"]::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.06); border-radius: 3px; }
           `}</style>
 
-          {/* ===== 営業タブ ===== */}
-          {activeTab === "sales" && (
+          {/* ===== 内容タブ（営業/提案/制作/経理）共通レンダラ ===== */}
+          {CONTENT_TAB_ITEMS[activeTab] && (
             <ul className="space-y-0.5">
-              {SALES_TAB_ITEMS.filter((item) => hasMinRole(user.role, item.minRole)).map((item) => {
+              {CONTENT_TAB_ITEMS[activeTab].filter((item) => hasMinRole(user.role, item.minRole)).map((item) => {
                 // 折りたたみグループ（リード獲得AI）
                 if (item.children && item.children.length > 0) {
                   const groupActive = item.children.some(
