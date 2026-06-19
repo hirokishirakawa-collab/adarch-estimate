@@ -164,6 +164,7 @@ ${bodyText}`;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[customers/enrich] Error:", msg, e);
-    return NextResponse.json({ error: `AI処理に失敗しました: ${msg}` }, { status: 500 });
+    // 生のエラー内容は外部に返さない（内部情報の漏えい防止）
+    return NextResponse.json({ error: "AI処理に失敗しました。時間をおいてお試しください。" }, { status: 500 });
   }
 }

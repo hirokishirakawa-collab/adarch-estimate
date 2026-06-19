@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
   }
 
-  const role = (session.user.role ?? "MANAGER") as UserRole;
+  // ロール未設定は最小権限(USER)に倒す。MANAGER等を既定にしない（権限昇格の防止）
+  const role = (session.user.role ?? "USER") as UserRole;
   const email = session.user.email ?? "";
   const staffName = session.user.name ?? email ?? "不明";
   const branchId = getMockBranchId(email, role);
