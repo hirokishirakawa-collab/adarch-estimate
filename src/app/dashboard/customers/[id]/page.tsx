@@ -444,6 +444,21 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         </div>
       )}
 
+      {/* ===== 備考 ===== */}
+      {dbCustomer.notes && (
+        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+          <SectionHeader
+            icon={<FileText className="w-3.5 h-3.5" />}
+            title="備考"
+          />
+          <div className="px-5 py-4">
+            <p className="text-sm text-zinc-700 whitespace-pre-wrap leading-relaxed">
+              {dbCustomer.notes}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ===== プロジェクト・見積 俯瞰 ===== */}
       <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/60">
