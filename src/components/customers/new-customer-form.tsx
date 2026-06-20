@@ -370,13 +370,13 @@ export function NewCustomerForm({ userName, userEmail }: Props) {
         </Field>
       </div>
 
-      {/* ===== 初回商談（自動作成案内） ===== */}
+      {/* ===== 商談作成の案内 ===== */}
       <div className="flex items-start gap-2 px-4 py-3 bg-blue-50 rounded-lg border border-blue-100">
         <Info className="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" />
         <p className="text-xs text-blue-700">
-          顧客を保存すると、ステータス「見込み」の
-          <span className="font-semibold">初回商談</span>
-          が自動作成されます。商談の詳細は顧客詳細ページから編集できます。
+          顧客を保存したあと、顧客詳細ページの
+          <span className="font-semibold">「新規商談」</span>
+          から、商談の内容（用件）を入力して商談を作成できます。最初の商談には自動で「初回」タグが付きます。
         </p>
       </div>
 

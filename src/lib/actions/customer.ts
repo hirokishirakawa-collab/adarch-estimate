@@ -75,42 +75,28 @@ export async function createCustomer(
 
   let customerId: string;
   try {
-    // ---- 顧客を作成 + 初回商談を自動作成（トランザクション） ----
-    const customer = await db.$transaction(async (tx) => {
-      const c = await tx.customer.create({
-        data: {
-          name,
-          nameKana,
-          corporateNumber,
-          contactName,
-          email: emailField,
-          phone,
-          website,
-          industry: industry || null,
-          source: source || null,
-          rank: (rank || "B") as CustomerRank,
-          status: (status || "PROSPECT") as CustomerStatus,
-          postalCode,
-          prefecture: prefecture || null,
-          address,
-          building,
-          notes,
-          branchId: effectiveBranchId,
-          staffName,
-        },
-      });
-
-      await tx.deal.create({
-        data: {
-          title: `${name} 初回商談`,
-          status: "PROSPECTING" as DealStatus,
-          amount: null,
-          customerId: c.id,
-          branchId: effectiveBranchId,
-        },
-      });
-
-      return c;
+    // ---- 顧客を作成（商談は手動で内容を入力して作成する） ----
+    const customer = await db.customer.create({
+      data: {
+        name,
+        nameKana,
+        corporateNumber,
+        contactName,
+        email: emailField,
+        phone,
+        website,
+        industry: industry || null,
+        source: source || null,
+        rank: (rank || "B") as CustomerRank,
+        status: (status || "PROSPECT") as CustomerStatus,
+        postalCode,
+        prefecture: prefecture || null,
+        address,
+        building,
+        notes,
+        branchId: effectiveBranchId,
+        staffName,
+      },
     });
 
     customerId = customer.id;

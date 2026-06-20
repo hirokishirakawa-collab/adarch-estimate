@@ -119,6 +119,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   if (!dbCustomer) notFound();
 
+  // 「初回」タグ用：この顧客の一番最初に作成された商談を特定
+  const firstDealId = dbDeals.length
+    ? dbDeals.reduce((a, b) => (a.createdAt <= b.createdAt ? a : b)).id
+    : null;
+
   // 拠点表示情報（BRANCH_MAP から）
   const branchDisplay =
     BRANCH_MAP[dbCustomer.branchId as keyof typeof BRANCH_MAP] ?? null;
@@ -667,6 +672,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     <div className="px-4 py-3 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
+                          {deal.id === firstDealId && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-sky-100 text-sky-700 border-sky-200">
+                              初回
+                            </span>
+                          )}
                           {statusOpt && (
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${statusOpt.color}`}>
                               {statusOpt.label}

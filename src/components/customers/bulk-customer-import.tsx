@@ -203,7 +203,7 @@ export function BulkCustomerImport() {
                   <h3 className="text-base font-bold text-zinc-900">既存顧客をまとめて登録</h3>
                 </div>
                 <p className="text-xs text-zinc-500 mt-1">
-                  今のお客様を一度に取り込めます。登録すると、そのまま広告のご提案（商談）に進めます。
+                  今のお客様を一度に取り込めます。取り込み後、各顧客の詳細ページから商談の内容を入力して、広告のご提案（商談）に進めます。
                 </p>
               </div>
               <button onClick={close} className="p-1 rounded-lg hover:bg-zinc-100">

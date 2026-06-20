@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import { logAudit } from "@/lib/audit";
 import type { UserRole } from "@/types/roles";
-import type { CustomerStatus, DealStatus } from "@/generated/prisma/client";
+import type { CustomerStatus } from "@/generated/prisma/client";
 
 // ---------------------------------------------------------------
 // POST /api/customers/import
@@ -93,35 +93,23 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      await db.$transaction(async (tx) => {
-        const c = await tx.customer.create({
-          data: {
-            name,
-            contactName: (rows[i].contactName ?? "").trim() || null,
-            phone,
-            email: (rows[i].email ?? "").trim() || null,
-            website: (rows[i].website ?? "").trim() || null,
-            industry: (rows[i].industry ?? "").trim() || null,
-            prefecture: (rows[i].prefecture ?? "").trim() || null,
-            address: ((rows[i].address ?? "").trim() || null)?.slice(0, 256) ?? null,
-            notes: ((rows[i].notes ?? "").trim() || null)?.slice(0, 1000) ?? null,
-            source: "既存顧客の一括登録",
-            status: "PROSPECT" as CustomerStatus,
-            branchId: effectiveBranchId,
-            staffName,
-          },
-        });
-
-        // 初回商談を自動作成（そのまま商談・提案タブで広告提案へ進める）
-        await tx.deal.create({
-          data: {
-            title: `${name} 初回商談`,
-            status: "PROSPECTING" as DealStatus,
-            amount: null,
-            customerId: c.id,
-            branchId: effectiveBranchId,
-          },
-        });
+      // 顧客のみ登録（商談は顧客詳細から内容を入力して手動で作成する）
+      await db.customer.create({
+        data: {
+          name,
+          contactName: (rows[i].contactName ?? "").trim() || null,
+          phone,
+          email: (rows[i].email ?? "").trim() || null,
+          website: (rows[i].website ?? "").trim() || null,
+          industry: (rows[i].industry ?? "").trim() || null,
+          prefecture: (rows[i].prefecture ?? "").trim() || null,
+          address: ((rows[i].address ?? "").trim() || null)?.slice(0, 256) ?? null,
+          notes: ((rows[i].notes ?? "").trim() || null)?.slice(0, 1000) ?? null,
+          source: "既存顧客の一括登録",
+          status: "PROSPECT" as CustomerStatus,
+          branchId: effectiveBranchId,
+          staffName,
+        },
       });
 
       imported++;
