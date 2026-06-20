@@ -24,6 +24,29 @@ const CinemaMap = dynamic(
 
 type Phase = "form" | "searching" | "scoring" | "done" | "error";
 
+// レスポンスからエラーメッセージを安全に取り出す。
+// Railwayプロキシのタイムアウト時などは JSON ではなく "upstream error" 等の
+// プレーンテキストが返るため、JSON パース失敗でクラッシュしないようにする。
+async function readErrorMessage(res: Response, fallback: string): Promise<string> {
+  let text = "";
+  try {
+    text = await res.text();
+  } catch {
+    return `${fallback}（HTTP ${res.status}）`;
+  }
+  try {
+    const json = JSON.parse(text);
+    if (json && typeof json.error === "string") return json.error;
+  } catch {
+    // JSON ではない（プロキシのプレーンテキスト等）
+  }
+  const snippet = text.trim().slice(0, 120);
+  if (/upstream error/i.test(snippet) || res.status === 502 || res.status === 503 || res.status === 504) {
+    return `サーバーが時間内に応答しませんでした（HTTP ${res.status}）。件数や半径を減らして再度お試しください。`;
+  }
+  return snippet ? `${fallback}: ${snippet}` : `${fallback}（HTTP ${res.status}）`;
+}
+
 interface TheaterLocation {
   name: string;
   lat: number;
@@ -74,8 +97,7 @@ export function CinemaSearchPanel() {
         });
 
         if (!searchRes.ok) {
-          const err = await searchRes.json();
-          throw new Error(err.error || "企業検索に失敗しました");
+          throw new Error(await readErrorMessage(searchRes, "企業検索に失敗しました"));
         }
 
         const { places, theater: theaterData } = (await searchRes.json()) as {
@@ -105,8 +127,7 @@ export function CinemaSearchPanel() {
         });
 
         if (!scoreRes.ok) {
-          const err = await scoreRes.json();
-          throw new Error(err.error || "スコアリングに失敗しました");
+          throw new Error(await readErrorMessage(scoreRes, "スコアリングに失敗しました"));
         }
 
         const { scores, analyses, successProfile, groupProfile } = (await scoreRes.json()) as {

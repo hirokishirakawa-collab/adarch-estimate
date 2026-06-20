@@ -221,9 +221,14 @@ ${batchSummary}
       return (toolBlock.input as { scores: unknown[] }).scores;
     }
 
-    // 並列実行してマージ
+    // 並列実行してマージ（AIが null や name 欠落の要素を返すことがあるため除外）
     const batchResults = await Promise.all(batches.map(scoreBatch));
-    const scores = batchResults.flat();
+    const scores = batchResults
+      .flat()
+      .filter(
+        (s): s is { name: string } & Record<string, unknown> =>
+          !!s && typeof s === "object" && typeof (s as { name?: unknown }).name === "string"
+      );
 
     const analysisMap: Record<string, WebsiteAnalysis> = {};
     body.places.forEach((p, i) => {

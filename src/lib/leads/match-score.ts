@@ -26,18 +26,23 @@ export function findScoreByName<T extends { name: string }>(
   scores: T[],
   targetName: string,
 ): T | undefined {
+  // AI出力には null や name 欠落の要素が混ざりうるため、有効な要素だけに絞る
+  const valid = (scores ?? []).filter(
+    (s): s is T => !!s && typeof s.name === "string",
+  );
+
   // 1) 完全一致
-  const exact = scores.find((s) => s.name === targetName);
+  const exact = valid.find((s) => s.name === targetName);
   if (exact) return exact;
 
   // 2) 正規化マッチング
   const nt = normalize(targetName);
-  const normed = scores.find((s) => normalize(s.name) === nt);
+  const normed = valid.find((s) => normalize(s.name) === nt);
   if (normed) return normed;
 
   // 3) 部分一致（一方が他方を含む — 短すぎる名前の誤マッチ防止）
   if (nt.length >= 4) {
-    return scores.find((s) => {
+    return valid.find((s) => {
       const ns = normalize(s.name);
       if (ns.length < 4) return false;
       return ns.includes(nt) || nt.includes(ns);
