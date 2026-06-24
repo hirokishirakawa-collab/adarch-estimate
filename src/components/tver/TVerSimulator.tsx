@@ -23,8 +23,10 @@ const AD_FORMATS: { seconds: AdSeconds; label: string; cpm: number; note?: strin
   { seconds: 60, label: "60秒", cpm: 7400 },
 ];
 
-// TVer再生単価（統一）/ 全フォーマット一律 ¥6,600 / 1,000回
-const UNIT_CPM = 6600;
+// TVer再生単価 = フロア価格 × 1.5（卸値×3）/ 秒数別
+const SELL_MULTIPLIER = 1.5;
+const sellCpm = (seconds: AdSeconds) =>
+  (AD_FORMATS.find((f) => f.seconds === seconds)?.cpm ?? 0) * SELL_MULTIPLIER;
 
 // ----------------------------------------------------------------
 // アドアーチ手数料ルール
@@ -264,8 +266,17 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
     });
   }, [selectedFormats]);
 
-  // 再生単価は全フォーマット一律 ¥6,600 / 1,000回 に統一
-  const blendedCpm = UNIT_CPM;
+  // 加重平均CPM（複数フォーマット対応）/ 各フォーマット = フロア価格 × 1.5
+  const blendedCpm = useMemo(() => {
+    let weightedSum = 0;
+    let totalWeight = 0;
+    for (const seconds of selectedFormats) {
+      const ratio = (formatRatios[seconds] ?? 0) / 100;
+      weightedSum += sellCpm(seconds) * ratio;
+      totalWeight += ratio;
+    }
+    return totalWeight > 0 ? weightedSum / totalWeight : 0;
+  }, [selectedFormats, formatRatios]);
 
   // エリア人口合計
   const totalPop = useMemo(() => {
@@ -289,7 +300,7 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
     // フォーマット別内訳
     const formatBreakdown = [...selectedFormats].map((seconds) => {
       const ratio = (formatRatios[seconds] ?? 0) / 100;
-      const cpm = UNIT_CPM;
+      const cpm = sellCpm(seconds);
       const formatPlays = Math.round(effectivePlays * ratio);
       const formatBudget = formatPlays * (cpm / 1000);
       const label = AD_FORMATS.find((f) => f.seconds === seconds)!.label;
@@ -416,9 +427,14 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
           </div>
           <p className="text-[10px] text-zinc-400">※ 複数選択でミックス配信</p>
 
-          {/* 再生単価（全フォーマット一律） */}
+          {/* 再生単価（フォーマット別） */}
           <p className="text-[11px] font-semibold text-zinc-600">
-            再生単価: ¥6,600 <span className="font-normal text-zinc-400">/ 1,000回（全フォーマット一律）</span>
+            再生単価:{" "}
+            {[...selectedFormats].map((s) => {
+              const fmt = AD_FORMATS.find((f) => f.seconds === s)!;
+              return `${fmt.label} ¥${sellCpm(s).toLocaleString()}`;
+            }).join(" / ")}
+            <span className="font-normal text-zinc-400"> / 1,000回</span>
           </p>
 
           {/* 配分スライダー（2つ以上選択時） */}
