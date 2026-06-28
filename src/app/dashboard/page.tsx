@@ -693,6 +693,12 @@ export default async function DashboardPage() {
         <div className="space-y-2.5">
           {[
             {
+              date: "2026.06.24",
+              title: "TVer広告シミュレーター 単価更新",
+              desc: "TVer広告の提案シミュレーターを最新の料金体系に更新。秒数別の単価でより正確なお見積り提案ができます",
+              tag: "機能追加",
+            },
+            {
               date: "2026.06.19",
               title: "営業フロー画面",
               desc: "「声かけ → 提案 → 受注」を2タブで一本道に。提案で使う広告媒体シミュレーターもこの中に集約しました",
@@ -721,24 +727,6 @@ export default async function DashboardPage() {
               title: "TOKYO PRIMEシミュレーター 新価格対応",
               desc: "最新の媒体料金（2026.10–12版）に更新し、Boarding Adsの追加・対象エリアの拡大に対応しました",
               tag: "NEW",
-            },
-            {
-              date: "2026.06.01",
-              title: "レギュラー案件管理",
-              desc: "継続案件の管理と、固定収入（MRR）・更新日の可視化に対応しました",
-              tag: "リリース",
-            },
-            {
-              date: "2026.05.31",
-              title: "ロイヤリティ・請求書のOS閲覧",
-              desc: "毎月のロイヤリティ状況と請求書をOS上で確認・PDF取得できるようになりました",
-              tag: "機能追加",
-            },
-            {
-              date: "2026.03.18",
-              title: "案件マッチング機能",
-              desc: "グループ内のスキル・実績に基づく案件マッチングを開始しました",
-              tag: "機能追加",
             },
           ].map((item) => (
             <div
