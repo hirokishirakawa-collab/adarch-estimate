@@ -39,8 +39,39 @@ export interface FranchiseLeadData {
   nextActionDate: string | null;
   ownerEmail: string | null;
   ownerName: string | null;
+  source: string;
+  revenueRange: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// SLA判定（/api/cron/franchise-sla と同一ルール）。対象はインバウンドリードのみ。
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+
+function evaluateSla(lead: FranchiseLeadData, now: number): string | null {
+  if (lead.source === "OUTBOUND") return null;
+  const age = now - new Date(lead.createdAt).getTime();
+  const sinceContact =
+    now - new Date(lead.contactedAt ?? lead.updatedAt).getTime();
+  const sinceUpdate = now - new Date(lead.updatedAt).getTime();
+
+  switch (lead.status) {
+    case "NEW":
+      return age >= 24 * HOUR ? "🔴 24時間以内の初回返信が未了" : null;
+    case "CONTACTED":
+      if (sinceContact >= 4 * DAY) return "🔴 4日経過 — 電話フェーズへ";
+      if (sinceContact >= 3 * DAY) return "🟡 3日経過 — リマインド送付期限";
+      return null;
+    case "INTERESTED":
+      return sinceUpdate >= 4 * DAY ? "🔴 4日更新なし — 電話フェーズへ" : null;
+    case "MEETING_DONE":
+      return sinceUpdate >= 48 * HOUR
+        ? "🔴 面談後48時間 — クロージング期限超過"
+        : null;
+    default:
+      return null;
+  }
 }
 
 // パイプラインのステージ定義
@@ -177,8 +208,35 @@ export function FranchisePipeline() {
     0
   );
 
+  const now = Date.now();
+  const slaViolations = leads
+    .map((l) => ({ lead: l, sla: evaluateSla(l, now) }))
+    .filter((v): v is { lead: FranchiseLeadData; sla: string } => v.sla !== null);
+
   return (
     <div className="space-y-5">
+      {/* SLA超過アラート（インバウンドリード） */}
+      {slaViolations.length > 0 && (
+        <div className="bg-red-50 border-2 border-red-300 rounded-xl px-4 py-3">
+          <p className="text-xs font-bold text-red-700 mb-2">
+            ⏰ SLA超過 {slaViolations.length}件 — 今すぐ対応
+          </p>
+          <div className="space-y-1">
+            {slaViolations.map(({ lead, sla }) => (
+              <p key={lead.id} className="text-xs text-red-800">
+                <span className="font-semibold">{lead.companyName}</span>
+                <span className="text-red-500">
+                  （{lead.prefecture ?? "県不明"}
+                  {lead.revenueRange ? ` / ${lead.revenueRange}` : ""}）
+                </span>
+                {" — "}
+                {sla}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* サマリー */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

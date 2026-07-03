@@ -3426,6 +3426,16 @@ model FranchiseLead {
   nextAction     String?
   nextActionDate DateTime?
 
+  // インバウンド管理（LP問い合わせフォーム等からの自動起票）
+  // OUTBOUND=発掘リード（既存） / LP_FORM=加盟LPフォーム / WINDOW=フランチャイズの窓口
+  // LP_FORM は個人の問い合わせのため companyName=氏名, address=メールアドレス（@@unique の重複防止キーとして流用）
+  source       String  @default("OUTBOUND")
+  revenueRange String? // 年商規模（LPフォーム回答。経済力判定をリード化段階で行うため独立カラム）
+
+  // SLA監視（/api/cron/franchise-sla が更新。同一ステージの通知は24hに1回まで）
+  slaAlertStage  String?
+  slaLastAlertAt DateTime?
+
   // 担当者（誰が拾ったリードか）。null = 本部（既存リード含む）。
   // 非ADMINは自分が担当のリードのみ閲覧・編集可。emailで識別（session.user.id 非提供のため）。
   ownerEmail String?
@@ -3439,6 +3449,7 @@ model FranchiseLead {
   @@index([prefecture])
   @@index([priority])
   @@index([ownerEmail])
+  @@index([source])
   @@index([createdAt(sort: Desc)])
   @@map("franchise_leads")
 }

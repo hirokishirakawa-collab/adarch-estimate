@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendContactInquiryEmail } from "@/lib/resend";
+import { db } from "@/lib/db";
+import { notifyCeo } from "@/lib/google-chat";
 
 export const runtime = "nodejs";
 
@@ -23,6 +25,82 @@ function isRateLimited(ip: string): boolean {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// LPフォームは message 内に【都道府県】【事業内容・業種】等の構造化ブロックで送信してくる
+function parseBlock(message: string, label: string): string | null {
+  const m = message.match(new RegExp(`【${label}】([^【]*)`));
+  const v = m?.[1]?.trim();
+  return v || null;
+}
+
+// 加盟問い合わせ（inquiry_type=partnership）を FranchiseLead に自動起票し、CEO通知スペースへ即時通知。
+// メール通知（Resend）とは独立して実行し、片方が失敗しても問い合わせが消失しないようにする。
+async function registerFranchiseInquiry(input: {
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+}): Promise<boolean> {
+  const { name, email, phone, message } = input;
+  const prefecture = parseBlock(message, "都道府県");
+  const business = parseBlock(message, "事業内容・業種");
+  const revenue = parseBlock(message, "直近の年商規模");
+
+  try {
+    // companyName=氏名 / address=メールアドレスを @@unique キーとして流用（同一人物の再問い合わせは追記に集約）
+    const existing = await db.franchiseLead.findUnique({
+      where: { companyName_address: { companyName: name, address: email } },
+    });
+
+    if (existing) {
+      const stamp = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+      await db.franchiseLead.update({
+        where: { id: existing.id },
+        data: {
+          notes: `${existing.notes ?? ""}\n\n―― 再問い合わせ（${stamp}）――\n${message}`.trim(),
+        },
+      });
+    } else {
+      await db.franchiseLead.create({
+        data: {
+          companyName: name,
+          address: email,
+          prefecture,
+          phone: phone || null,
+          email,
+          businessType: business,
+          revenueRange: revenue,
+          notes: message,
+          source: "LP_FORM",
+          status: "NEW",
+          // ownerEmail=null は本部扱い
+        },
+      });
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    await notifyCeo(
+      [
+        existing ? "🔁 加盟お問い合わせ【再】（LPフォーム）" : "🆕 加盟お問い合わせ（LPフォーム）",
+        `氏名: ${name}`,
+        `都道府県: ${prefecture ?? "未回答"}`,
+        `事業内容: ${business ?? "未回答"}`,
+        `年商規模: ${revenue ?? "未回答"}`,
+        `連絡先: ${email}${phone ? ` / ${phone}` : ""}`,
+        "",
+        "⏰ SLA: 24時間以内に初回返信",
+        appUrl ? `${appUrl}/dashboard/franchise-leads` : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    );
+
+    return true;
+  } catch (e) {
+    console.error("[contact] franchise lead registration error:", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
 
 export async function POST(req: NextRequest) {
   // CORS — adarch.co.jp からのリクエストを許可
@@ -83,17 +161,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await sendContactInquiryEmail({
-      company: company || "",
-      name,
-      email,
-      phone: phone || "",
-      inquiryType: inquiry_type || "other",
-      message,
-    });
+    // 加盟問い合わせは FranchiseLead に起票（メール通知とは独立に実行）
+    let leadRegistered = false;
+    if ((inquiry_type || "") === "partnership") {
+      leadRegistered = await registerFranchiseInquiry({
+        name,
+        email,
+        phone: phone ? String(phone) : "",
+        message,
+      });
+    }
+
+    let emailSent = true;
+    try {
+      await sendContactInquiryEmail({
+        company: company || "",
+        name,
+        email,
+        phone: phone || "",
+        inquiryType: inquiry_type || "other",
+        message,
+      });
+    } catch (e) {
+      emailSent = false;
+      console.error("[contact] email error:", e instanceof Error ? e.message : e);
+      // 起票済みなら問い合わせは失われていないため成功として返す
+      if (!leadRegistered) throw e;
+    }
 
     return NextResponse.json(
-      { ok: true },
+      { ok: true, emailSent },
       { status: 200, headers: corsHeaders }
     );
   } catch (e) {
