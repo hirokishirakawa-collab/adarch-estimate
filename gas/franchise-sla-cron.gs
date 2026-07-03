@@ -4,12 +4,15 @@
  * OSの /api/cron/franchise-sla を1日2回（JST 9時・17時）叩き、
  * SLA超過があればCEO通知スペースにアラートが飛ぶ（通知はOS側が送信）。
  *
- * ── セットアップ手順（5分）──
- * 1. script.google.com で新規プロジェクト作成（または既存 group-support プロジェクトに追加）
+ * ── セットアップ手順（5分・2026-07-03 設定済み）──
+ * 1. script.google.com の既存 group-support プロジェクトにスクリプトとして追加
  * 2. このファイルの内容を貼り付け
  * 3. プロジェクトの設定 → スクリプト プロパティ に CRON_SECRET を追加
  *    （値は Railway の環境変数 CRON_SECRET と同じもの）
- * 4. setupFranchiseSlaTriggers() を一度実行 → トリガーが2本作成される
+ * 4. トリガー画面から手動で2本作成:
+ *    関数=checkFranchiseSla / 時間主導型 / 日付ベース / 午前9〜10時 と 午後5〜6時
+ *    ※ setupFranchiseSlaTriggers() でのコード作成は、Chatアドオン付き既存プロジェクトでは
+ *      script.scriptapp スコープの再承認が走らず権限エラーになるため使わない
  * 5. checkFranchiseSla() を手動実行して Logger に {"checked":N,"alerted":N} が出れば完了
  */
 
