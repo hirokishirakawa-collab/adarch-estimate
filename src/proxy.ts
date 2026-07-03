@@ -353,6 +353,8 @@ export default auth((req: NextAuthRequest) => {
 // ----------------------------------------------------------------
 export const config = {
   matcher: [
-    "/((?!api/auth|api/cron|api/contact|api/group-support|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|test-form|p/|partner|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
+    // api/franchise-leads/intake・booking-signal はGAS(Bearer CRON_SECRET)からのPOSTを受けるため除外
+    // （両ルートはハンドラ内でセッション or Bearer を自前検証する）
+    "/((?!api/auth|api/cron|api/contact|api/franchise-leads/intake|api/franchise-leads/booking-signal|api/group-support|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|test-form|p/|partner|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
   ],
 };

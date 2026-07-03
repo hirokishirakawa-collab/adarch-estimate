@@ -4,15 +4,26 @@ import { db } from "@/lib/db";
 import { validateBody, franchiseLeadIntakeSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { resolveFranchiseAccess } from "@/lib/franchise-leads/access";
+import { notifyCeo } from "@/lib/google-chat";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // ----------------------------------------------------------------
 // POST /api/franchise-leads/intake
-// 窓口メール等の問い合わせ原文をコピペ→AIが項目抽出→FranchiseLeadに起票
-// ADMIN限定（インバウンド起票は本部業務。担当=null=本部で登録し、SLA監視対象になる）
+// 窓口メール等の問い合わせ原文→AIが項目抽出→FranchiseLeadに起票
+// 認証は2系統:
+//   1. ADMINセッション（ダッシュボードのコピペ起票）
+//   2. Bearer CRON_SECRET（GASの窓口メール自動起票。サーバー間）
+// どちらも担当=null=本部で登録し、SLA監視対象になる
 // ----------------------------------------------------------------
+
+const CRON_SECRET = process.env.CRON_SECRET ?? "";
+
+function isSystemCall(req: NextRequest): boolean {
+  const auth = req.headers.get("authorization") ?? "";
+  return Boolean(CRON_SECRET) && auth === `Bearer ${CRON_SECRET}`;
+}
 
 const SYSTEM_PROMPT = `あなたはAd Arch株式会社の加盟問い合わせ管理アシスタントです。
 貼り付けられたテキスト（フランチャイズの窓口の通知メール・紹介メール等）から、加盟検討者の情報を抽出してください。
@@ -30,13 +41,15 @@ const SYSTEM_PROMPT = `あなたはAd Arch株式会社の加盟問い合わせ�
 }`;
 
 export async function POST(req: NextRequest) {
-  const access = await resolveFranchiseAccess();
-  if (!access?.isAdmin) {
-    return NextResponse.json({ error: "この機能の利用権限がありません" }, { status: 403 });
+  const system = isSystemCall(req);
+  if (!system) {
+    const access = await resolveFranchiseAccess();
+    if (!access?.isAdmin) {
+      return NextResponse.json({ error: "この機能の利用権限がありません" }, { status: 403 });
+    }
+    const limited = checkRateLimit(access.email, "franchise-leads/intake", AI_RATE_LIMIT);
+    if (limited) return limited;
   }
-
-  const limited = checkRateLimit(access.email, "franchise-leads/intake", AI_RATE_LIMIT);
-  if (limited) return limited;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -80,8 +93,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // LP_FORM起票と同じ規約: companyName=氏名(or会社名), address=メール（@@uniqueの重複防止キーとして流用）
-    const companyName = info.company ?? info.name!;
+    // 起票規約: companyName=「法人名（氏名）」or 氏名, address=メール（@@uniqueの重複防止キーとして流用）
+    // ※7/3バックフィル分と同一形式（変更すると同一人物の重複起票になるため維持すること）
+    const companyName =
+      info.company && info.name
+        ? `${info.company}（${info.name}）`
+        : (info.company ?? info.name!);
     const address = info.email ?? info.phone ?? `WINDOW:${companyName}`;
     const notes = [info.summary ? `【要約】${info.summary}` : null, "―― 原文 ――", text]
       .filter(Boolean)
@@ -118,6 +135,25 @@ export async function POST(req: NextRequest) {
           // ownerEmail=null＝本部（インバウンドは本部担当。SLA監視対象）
         },
       });
+    }
+
+    // 自動起票（GAS経由）のときは代表へ即時Chat通知（手動コピペ時は画面で見えているため不要）
+    if (system) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+      await notifyCeo(
+        [
+          duplicated ? "🔁 窓口 再問い合わせ（自動起票）" : "🆕 窓口リード（自動起票）",
+          `氏名: ${info.name ?? companyName}`,
+          `都道府県: ${info.prefecture ?? "不明"}`,
+          `事業内容: ${info.businessType ?? "不明"}`,
+          `連絡先: ${info.email ?? ""}${info.phone ? ` / ${info.phone}` : ""}`,
+          "",
+          "⏰ SLA: 24時間以内に初回返信（v4下書き→PDF添付済ストックを使用）",
+          appUrl ? `${appUrl}/dashboard/franchise-leads` : "",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      );
     }
 
     return NextResponse.json({ lead, parsed: info, duplicated });

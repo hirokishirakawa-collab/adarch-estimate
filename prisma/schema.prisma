@@ -1613,8 +1613,9 @@ model GroupCompany {
   bankAccountHolder String? // 口座名義
 
   // ---- 契約管理 ----
-  contractEndDate DateTime? // 契約満了日
-  contractRenewed Boolean   @default(false) // 次期更新確認済みか
+  contractEndDate   DateTime? // 契約満了日
+  contractRenewed   Boolean   @default(false) // 次期更新確認済みか
+  renewalAlertStage String? // /api/cron/contract-renewal の通知済みステージ（同一ステージは一度だけ通知）
 
   // ---- プロフィール情報 ----
   emoji        String? // プロフィールアイコン（絵文字）

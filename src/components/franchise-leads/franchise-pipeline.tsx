@@ -253,6 +253,37 @@ export function FranchisePipeline({ isAdmin = false }: { isAdmin?: boolean }) {
     0
   );
 
+  // 週別漏斗（インバウンドのみ・起票週コホート）: v4テンプレ等の施策効果を返信率・予約率で測る
+  const REPLIED_STATUSES = ["CONTACTED", "INTERESTED", "MEETING_SCHEDULED", "MEETING_DONE", "NEGOTIATING", "CONTRACTED"];
+  const BOOKED_STATUSES = ["MEETING_SCHEDULED", "MEETING_DONE", "NEGOTIATING", "CONTRACTED"];
+  const mondayOf = (d: Date) => {
+    const m = new Date(d);
+    m.setHours(0, 0, 0, 0);
+    m.setDate(m.getDate() - ((m.getDay() + 6) % 7));
+    return m;
+  };
+  const funnelWeeks = (() => {
+    const inbound = leads.filter((l) => l.source !== "OUTBOUND");
+    if (inbound.length === 0) return [];
+    const byWeek = new Map<number, { total: number; replied: number; booked: number; contracted: number }>();
+    for (const l of inbound) {
+      const wk = mondayOf(new Date(l.createdAt)).getTime();
+      const row = byWeek.get(wk) ?? { total: 0, replied: 0, booked: 0, contracted: 0 };
+      row.total++;
+      if (REPLIED_STATUSES.includes(l.status)) row.replied++;
+      if (BOOKED_STATUSES.includes(l.status)) row.booked++;
+      if (l.status === "CONTRACTED") row.contracted++;
+      byWeek.set(wk, row);
+    }
+    return [...byWeek.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .slice(0, 6)
+      .map(([wk, row]) => ({
+        label: new Date(wk).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }) + "週",
+        ...row,
+      }));
+  })();
+
   const now = Date.now();
   const slaViolations = leads
     .map((l) => ({ lead: l, sla: evaluateSla(l, now) }))
@@ -281,6 +312,44 @@ export function FranchisePipeline({ isAdmin = false }: { isAdmin?: boolean }) {
                 {sla.label}
               </p>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 週別漏斗（インバウンド） */}
+      {funnelWeeks.length > 0 && (
+        <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
+          <p className="text-xs font-semibold text-zinc-700 mb-2">
+            問い合わせ漏斗（週別・窓口/LP経由）
+            <span className="font-normal text-zinc-400 ml-2">起票された週ごとの現在の到達状況</span>
+          </p>
+          <div className="overflow-x-auto">
+            <table className="text-xs w-full min-w-[420px]">
+              <thead>
+                <tr className="text-zinc-400 text-left">
+                  <th className="py-1 pr-4 font-medium">週</th>
+                  <th className="py-1 pr-4 font-medium text-right">問い合わせ</th>
+                  <th className="py-1 pr-4 font-medium text-right">返信済み</th>
+                  <th className="py-1 pr-4 font-medium text-right">予約以降</th>
+                  <th className="py-1 pr-4 font-medium text-right">予約率</th>
+                  <th className="py-1 font-medium text-right">契約</th>
+                </tr>
+              </thead>
+              <tbody>
+                {funnelWeeks.map((w) => (
+                  <tr key={w.label} className="border-t border-zinc-100 text-zinc-700">
+                    <td className="py-1.5 pr-4 font-medium">{w.label}</td>
+                    <td className="py-1.5 pr-4 text-right">{w.total}</td>
+                    <td className="py-1.5 pr-4 text-right">{w.replied}</td>
+                    <td className="py-1.5 pr-4 text-right font-semibold">{w.booked}</td>
+                    <td className={`py-1.5 pr-4 text-right ${w.booked > 0 ? "text-emerald-600 font-semibold" : "text-zinc-400"}`}>
+                      {w.total > 0 ? Math.round((w.booked / w.total) * 100) : 0}%
+                    </td>
+                    <td className="py-1.5 text-right">{w.contracted > 0 ? `🎉${w.contracted}` : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

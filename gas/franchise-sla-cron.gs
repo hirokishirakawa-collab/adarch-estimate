@@ -19,18 +19,26 @@
 var FRANCHISE_SLA_URL =
   "https://adarch-estimate-production.up.railway.app/api/cron/franchise-sla";
 
+var CONTRACT_RENEWAL_URL =
+  "https://adarch-estimate-production.up.railway.app/api/cron/contract-renewal";
+
 function checkFranchiseSla() {
   var secret = PropertiesService.getScriptProperties().getProperty("CRON_SECRET");
   if (!secret) {
     Logger.log("CRON_SECRET がスクリプトプロパティに未設定です");
     return;
   }
-  var res = UrlFetchApp.fetch(FRANCHISE_SLA_URL, {
+  var opts = {
     method: "get",
     headers: { Authorization: "Bearer " + secret },
     muteHttpExceptions: true,
-  });
+  };
+  var res = UrlFetchApp.fetch(FRANCHISE_SLA_URL, opts);
   Logger.log("franchise-sla: " + res.getResponseCode() + " " + res.getContentText());
+
+  // 契約更新期限の監視も同じトリガーに同乗（通知は同一ステージにつき1回なので毎回叩いて安全）
+  var res2 = UrlFetchApp.fetch(CONTRACT_RENEWAL_URL, opts);
+  Logger.log("contract-renewal: " + res2.getResponseCode() + " " + res2.getContentText());
 }
 
 /** 初回のみ実行: JST 9時・17時の時間トリガーを作成（既存の同名トリガーは張り替え） */
