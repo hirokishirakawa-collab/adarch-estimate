@@ -41,15 +41,20 @@ export interface FranchiseLeadData {
   ownerName: string | null;
   source: string;
   revenueRange: string | null;
+  slaAlertStage: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 // SLA判定（/api/cron/franchise-sla と同一ルール）。対象はインバウンドリードのみ。
+// slaAlertStage が現在のステージと一致するリード（通知済み・掘り起こしプール等）は表示しない。
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
-function evaluateSla(lead: FranchiseLeadData, now: number): string | null {
+function evaluateSla(
+  lead: FranchiseLeadData,
+  now: number
+): { stage: string; label: string } | null {
   if (lead.source === "OUTBOUND") return null;
   const age = now - new Date(lead.createdAt).getTime();
   const sinceContact =
@@ -58,16 +63,22 @@ function evaluateSla(lead: FranchiseLeadData, now: number): string | null {
 
   switch (lead.status) {
     case "NEW":
-      return age >= 24 * HOUR ? "🔴 24時間以内の初回返信が未了" : null;
+      return age >= 24 * HOUR
+        ? { stage: "REPLY_OVERDUE", label: "🔴 24時間以内の初回返信が未了" }
+        : null;
     case "CONTACTED":
-      if (sinceContact >= 4 * DAY) return "🔴 4日経過 — 電話フェーズへ";
-      if (sinceContact >= 3 * DAY) return "🟡 3日経過 — リマインド送付期限";
+      if (sinceContact >= 4 * DAY)
+        return { stage: "CALL_DUE", label: "🔴 4日経過 — 電話フェーズへ" };
+      if (sinceContact >= 3 * DAY)
+        return { stage: "REMIND_DUE", label: "🟡 3日経過 — リマインド送付期限" };
       return null;
     case "INTERESTED":
-      return sinceUpdate >= 4 * DAY ? "🔴 4日更新なし — 電話フェーズへ" : null;
+      return sinceUpdate >= 4 * DAY
+        ? { stage: "CALL_DUE", label: "🔴 4日更新なし — 電話フェーズへ" }
+        : null;
     case "MEETING_DONE":
       return sinceUpdate >= 48 * HOUR
-        ? "🔴 面談後48時間 — クロージング期限超過"
+        ? { stage: "CLOSING_OVERDUE", label: "🔴 面談後48時間 — クロージング期限超過" }
         : null;
     default:
       return null;
@@ -245,7 +256,10 @@ export function FranchisePipeline({ isAdmin = false }: { isAdmin?: boolean }) {
   const now = Date.now();
   const slaViolations = leads
     .map((l) => ({ lead: l, sla: evaluateSla(l, now) }))
-    .filter((v): v is { lead: FranchiseLeadData; sla: string } => v.sla !== null);
+    .filter(
+      (v): v is { lead: FranchiseLeadData; sla: { stage: string; label: string } } =>
+        v.sla !== null && v.lead.slaAlertStage !== v.sla.stage
+    );
 
   return (
     <div className="space-y-5">
@@ -264,7 +278,7 @@ export function FranchisePipeline({ isAdmin = false }: { isAdmin?: boolean }) {
                   {lead.revenueRange ? ` / ${lead.revenueRange}` : ""}）
                 </span>
                 {" — "}
-                {sla}
+                {sla.label}
               </p>
             ))}
           </div>

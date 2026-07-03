@@ -108,12 +108,10 @@ export async function GET(req: NextRequest) {
       const rule = evaluateSla(lead, now);
       if (!rule) continue;
 
-      // 同一ステージのアラートは24時間に1回まで
-      const alreadyAlerted =
-        lead.slaAlertStage === rule.stage &&
-        lead.slaLastAlertAt !== null &&
-        now - lead.slaLastAlertAt.getTime() < 24 * HOUR;
-      if (alreadyAlerted) continue;
+      // 同一ステージは一度だけ通知（毎日再通知するとアラート慣れで死ぬ。
+      // ステージが進んだら（REMIND_DUE→CALL_DUE等）改めて通知される。
+      // 過去リードの一括登録時は slaAlertStage を事前セットして通知対象から外す運用）
+      if (lead.slaAlertStage === rule.stage) continue;
 
       alerts.push({
         id: lead.id,
