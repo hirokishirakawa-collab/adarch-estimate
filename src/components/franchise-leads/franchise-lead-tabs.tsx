@@ -7,7 +7,7 @@ import { FranchisePipeline } from "./franchise-pipeline";
 
 type TabKey = "search" | "pipeline";
 
-export function FranchiseLeadTabs() {
+export function FranchiseLeadTabs({ isAdmin = false }: { isAdmin?: boolean }) {
   const [activeTab, setActiveTab] = useState<TabKey>("search");
 
   return (
@@ -40,7 +40,7 @@ export function FranchiseLeadTabs() {
 
       {/* タブコンテンツ */}
       {activeTab === "search" && <FranchiseSearchPanel />}
-      {activeTab === "pipeline" && <FranchisePipeline />}
+      {activeTab === "pipeline" && <FranchisePipeline isAdmin={isAdmin} />}
     </div>
   );
 }

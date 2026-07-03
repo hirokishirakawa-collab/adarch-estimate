@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, RefreshCw, Download } from "lucide-react";
+import { Loader2, RefreshCw, Download, ClipboardPaste } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FranchiseLeadCard } from "./franchise-lead-card";
 
@@ -98,10 +98,14 @@ const CLOSED_STAGES = PIPELINE_STAGES.filter(
 // ----------------------------------------------------------------
 // コンポーネント
 // ----------------------------------------------------------------
-export function FranchisePipeline() {
+export function FranchisePipeline({ isAdmin = false }: { isAdmin?: boolean }) {
   const [leads, setLeads] = useState<FranchiseLeadData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showClosed, setShowClosed] = useState(false);
+  const [showIntake, setShowIntake] = useState(false);
+  const [intakeText, setIntakeText] = useState("");
+  const [intakeBusy, setIntakeBusy] = useState(false);
+  const [intakeResult, setIntakeResult] = useState<string | null>(null);
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -152,6 +156,36 @@ export function FranchisePipeline() {
     },
     []
   );
+
+  // コピペ起票: 窓口メール等の原文をAI解析→WINDOWリードとして起票（ADMIN限定）
+  const handleIntake = useCallback(async () => {
+    if (intakeText.trim().length < 10) return;
+    setIntakeBusy(true);
+    setIntakeResult(null);
+    try {
+      const res = await fetch("/api/franchise-leads/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: intakeText }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIntakeResult(
+          data.duplicated
+            ? `既存リード「${data.lead.companyName}」に再問い合わせとして追記しました`
+            : `「${data.lead.companyName}」を起票しました（SLA監視対象）`
+        );
+        setIntakeText("");
+        fetchLeads();
+      } else {
+        setIntakeResult(`エラー: ${data.error ?? "起票に失敗しました"}`);
+      }
+    } catch {
+      setIntakeResult("エラー: 通信に失敗しました");
+    } finally {
+      setIntakeBusy(false);
+    }
+  }, [intakeText, fetchLeads]);
 
   // CSV書き出し（画面に読み込み済み＝アクセス権限内のリードのみ出力）
   const handleExportCsv = useCallback(() => {
@@ -249,6 +283,17 @@ export function FranchisePipeline() {
           </Button>
         </div>
         <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => setShowIntake(!showIntake)}
+              className="gap-1"
+            >
+              <ClipboardPaste className="w-3 h-3" />
+              コピペ起票
+            </Button>
+          )}
           <Button
             size="xs"
             variant="outline"
@@ -265,6 +310,51 @@ export function FranchisePipeline() {
           </Button>
         </div>
       </div>
+
+      {/* コピペ起票パネル（ADMIN限定） */}
+      {isAdmin && showIntake && (
+        <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
+          <div>
+            <p className="text-xs font-semibold text-zinc-700">問い合わせメールをコピペ起票</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">
+              フランチャイズの窓口の通知メール・紹介メール等の原文を貼り付けると、AIが氏名・連絡先・年商規模を読み取ってパイプラインに起票します（SLA監視対象になります）
+            </p>
+          </div>
+          <textarea
+            value={intakeText}
+            onChange={(e) => setIntakeText(e.target.value)}
+            placeholder="ここにメール原文を貼り付け"
+            rows={6}
+            className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-y"
+          />
+          <div className="flex items-center gap-3">
+            <Button
+              size="xs"
+              onClick={handleIntake}
+              disabled={intakeBusy || intakeText.trim().length < 10}
+              className="gap-1"
+            >
+              {intakeBusy ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  解析中...
+                </>
+              ) : (
+                "AI解析して起票"
+              )}
+            </Button>
+            {intakeResult && (
+              <p
+                className={`text-[11px] ${
+                  intakeResult.startsWith("エラー") ? "text-red-600" : "text-emerald-700"
+                }`}
+              >
+                {intakeResult}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* パイプライン（カンバン） */}
       <div className="overflow-x-auto pb-2">

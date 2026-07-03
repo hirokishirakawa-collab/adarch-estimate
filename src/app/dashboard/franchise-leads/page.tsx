@@ -87,7 +87,7 @@ export default async function FranchiseLeadsPage() {
       </div>
 
       {/* タブ */}
-      <FranchiseLeadTabs />
+      <FranchiseLeadTabs isAdmin={role === "ADMIN"} />
     </div>
   );
 }

@@ -274,3 +274,8 @@ export const franchiseLeadDraftSchema = z.object({
   scoreComment: z.string().optional(),
   scoreTotal: z.number().optional(),
 });
+
+// POST /api/franchise-leads/intake
+export const franchiseLeadIntakeSchema = z.object({
+  text: z.string().min(10).max(8000),
+});
