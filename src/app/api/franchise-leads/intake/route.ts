@@ -104,9 +104,19 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join("\n");
 
-    const existing = await db.franchiseLead.findUnique({
-      where: { companyName_address: { companyName, address } },
-    });
+    // 複合キー完全一致に加え、companyNameの表記ゆれ（例:「法人名」vs「法人名（氏名）」）で
+    // キーをすり抜ける二重起票を防ぐため、同一メール/電話（=address）のインバウンド既存行も重複とみなす
+    const existing =
+      (await db.franchiseLead.findUnique({
+        where: { companyName_address: { companyName, address } },
+      })) ??
+      (await db.franchiseLead.findFirst({
+        where: {
+          source: { not: "OUTBOUND" },
+          OR: [{ address }, ...(info.email ? [{ email: info.email }] : [])],
+        },
+        orderBy: { createdAt: "desc" },
+      }));
 
     let lead;
     let duplicated = false;
