@@ -238,6 +238,51 @@ export function getLeadStatusOption(value: string) {
 }
 
 // ---------------------------------------------------------------
+// 却下理由（選定時に本部が外した理由）
+// AI判定の学習データになる。ここを増やしすぎると押されなくなるので5択に固定。
+// aiHint は次回スコアリング/クロールのプロンプトに注入される説明文。
+// ---------------------------------------------------------------
+export const LEAD_REJECT_REASONS = [
+  {
+    value: "SAME_INDUSTRY",
+    label: "同業（動画制作会社）",
+    icon: "🎬",
+    aiHint: "発信元自体が動画制作会社・映像プロダクション（＝同業・競合）",
+  },
+  {
+    value: "AGENCY_ATTACHED",
+    label: "大手代理店が入っている",
+    icon: "🏢",
+    aiHint: "電通・博報堂等の大手代理店が既に入っており、参入余地がない",
+  },
+  {
+    value: "TOO_BIG",
+    label: "規模が大きすぎる",
+    icon: "🐘",
+    aiHint: "上場・大企業で、地域拠点の営業では決裁に届かない規模",
+  },
+  {
+    value: "TOO_SMALL",
+    label: "規模が小さすぎる・予算なし",
+    icon: "🐜",
+    aiHint: "広告予算を出せる事業規模に達していない",
+  },
+  {
+    value: "OUT_OF_AREA",
+    label: "エリア外・その他",
+    icon: "📍",
+    aiHint: "対象エリア外、または上記以外の理由で対象外",
+  },
+] as const;
+
+export type LeadRejectReasonValue = (typeof LEAD_REJECT_REASONS)[number]["value"];
+
+export function getLeadRejectReason(value: string | null | undefined) {
+  if (!value) return null;
+  return LEAD_REJECT_REASONS.find((r) => r.value === value) ?? null;
+}
+
+// ---------------------------------------------------------------
 // 獲得元（リード獲得AIのどの機能で取得したか）
 // ---------------------------------------------------------------
 export const LEAD_SOURCE_OPTIONS = [

@@ -7,6 +7,7 @@ import {
   type TvcmLeadCandidate,
   type TvcmLeadResult,
 } from "@/lib/constants/tvcm-leads";
+import type { LeadRejectReasonValue } from "@/lib/constants/leads";
 import { TvcmResultsTable } from "./tvcm-results-table";
 import { saveTvcmLeadsFromSearch } from "@/lib/actions/lead";
 
@@ -142,10 +143,10 @@ export function TvcmSearchPanel() {
     }
   }, []);
 
-  const handleReject = useCallback(async (c: TvcmLeadCandidate) => {
+  const handleReject = useCallback(async (c: TvcmLeadCandidate, reason: LeadRejectReasonValue) => {
     setDecidingName(c.companyName);
     try {
-      const result = await saveTvcmLeadsFromSearch([c], "reject");
+      const result = await saveTvcmLeadsFromSearch([c], "reject", reason);
       if (result.error) {
         alert(result.error);
       } else {

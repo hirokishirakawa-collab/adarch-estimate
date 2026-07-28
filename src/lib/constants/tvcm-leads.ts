@@ -87,7 +87,7 @@ export interface TvcmLeadResult extends TvcmLeadCandidate {
   exclusionReason: string | null; // 警告理由（大手代理店/上場 等）
   // クロール時に自動保存されたDB状態（auto-save後にAPI側で付与）
   leadId?: string;
-  currentStatus?: "CRAWLED" | "UNTOUCHED" | "CALLED" | "APPOINTMENT" | "DEAL_CONVERTED" | "SKIPPED";
+  currentStatus?: "CRAWLED" | "UNTOUCHED" | "CALLED" | "APPOINTMENT" | "DEAL_CONVERTED" | "SKIPPED" | "ARCHIVED";
   currentAssigneeName?: string | null;
 }
 

@@ -22,6 +22,7 @@ import {
   Newspaper,
   Globe,
 } from "lucide-react";
+import { useState } from "react";
 import {
   detectTvcmSourcePlatform,
   TVCM_SOURCE_LABEL,
@@ -29,6 +30,8 @@ import {
   type TvcmLeadResult,
   type TvcmSourcePlatform,
 } from "@/lib/constants/tvcm-leads";
+import type { LeadRejectReasonValue } from "@/lib/constants/leads";
+import { RejectReasonPicker } from "./reject-reason-picker";
 
 const SOURCE_VISUAL: Record<
   TvcmSourcePlatform,
@@ -45,7 +48,7 @@ interface Props {
   decidedMap: Map<string, "pool" | "reject">; // companyName → 決定（このセッション中の操作）
   decidingName: string | null;
   onPool: (c: TvcmLeadCandidate) => void;
-  onReject: (c: TvcmLeadCandidate) => void;
+  onReject: (c: TvcmLeadCandidate, reason: LeadRejectReasonValue) => void;
   onPoolAll: () => void;
 }
 
@@ -67,6 +70,7 @@ function StatusBadge({
     APPOINTMENT: { label: "アポ獲得", bg: "bg-amber-50", text: "text-amber-700", icon: Calendar },
     DEAL_CONVERTED: { label: "受注済", bg: "bg-emerald-50", text: "text-emerald-700", icon: Trophy },
     SKIPPED: { label: "却下済", bg: "bg-red-50", text: "text-red-700", icon: XCircle },
+    ARCHIVED: { label: "アーカイブ", bg: "bg-zinc-100", text: "text-zinc-500", icon: Database },
   };
   const c = config[status];
   if (!c) return null;
@@ -96,6 +100,9 @@ export function TvcmResultsTable({
   onReject,
   onPoolAll,
 }: Props) {
+  // 却下理由の選択中の企業名（1件ずつしか開かない）
+  const [reasonOpenFor, setReasonOpenFor] = useState<string | null>(null);
+
   if (candidates.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center">
@@ -248,6 +255,15 @@ export function TvcmResultsTable({
                       <X className="w-3 h-3" />
                       却下済
                     </span>
+                  ) : reasonOpenFor === c.companyName ? (
+                    <RejectReasonPicker
+                      disabled={deciding}
+                      onPick={(reason) => {
+                        setReasonOpenFor(null);
+                        onReject(c, reason);
+                      }}
+                      onCancel={() => setReasonOpenFor(null)}
+                    />
                   ) : (
                     <>
                       <button
@@ -265,7 +281,7 @@ export function TvcmResultsTable({
                         )}
                       </button>
                       <button
-                        onClick={() => onReject(c)}
+                        onClick={() => setReasonOpenFor(c.companyName)}
                         disabled={deciding}
                         className="text-xs font-medium text-zinc-600 bg-white border border-zinc-300 hover:bg-zinc-50 px-3 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-50"
                       >

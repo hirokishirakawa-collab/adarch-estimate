@@ -3,6 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import { CheckSquare, Square, Loader2, Plus, X, CheckCircle2 } from "lucide-react";
 import { TvcmHistoryCard, type TvcmHistoryLead } from "./tvcm-history-card";
+import { RejectReasonPicker } from "./reject-reason-picker";
+import type { LeadRejectReasonValue } from "@/lib/constants/leads";
 import { bulkTransitionTvcmLeads } from "@/lib/actions/lead";
 
 interface Props {
@@ -13,6 +15,7 @@ export function TvcmHistoryList({ leads }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const [resultMsg, setResultMsg] = useState<string | null>(null);
+  const [reasonOpen, setReasonOpen] = useState(false);
 
   // 一括選択対象は CRAWLED のみ（既にプール中/却下済みは一括対象外）
   const selectableIds = useMemo(
@@ -40,21 +43,16 @@ export function TvcmHistoryList({ leads }: Props) {
     }
   };
 
-  const handleBulk = (decision: "pool" | "reject") => {
+  const runBulk = (
+    decision: "pool" | "reject",
+    reason?: LeadRejectReasonValue,
+  ) => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     const verb = decision === "pool" ? "プール投入" : "却下";
-    if (
-      !confirm(
-        decision === "pool"
-          ? `選択した ${ids.length}件 を一括でプールに投入します。Google Chatに都道府県内訳付きで通知されます。よろしいですか？`
-          : `選択した ${ids.length}件 を一括で却下します。よろしいですか？`,
-      )
-    )
-      return;
 
     startTransition(async () => {
-      const res = await bulkTransitionTvcmLeads(ids, decision);
+      const res = await bulkTransitionTvcmLeads(ids, decision, reason ?? null);
       if (res.success) {
         setResultMsg(`${verb}しました（${res.updated}件）`);
         setSelectedIds(new Set());
@@ -62,6 +60,24 @@ export function TvcmHistoryList({ leads }: Props) {
         setResultMsg(res.error ?? `${verb}に失敗しました`);
       }
     });
+  };
+
+  const handleBulkPool = () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (
+      !confirm(
+        `選択した ${ids.length}件 を一括でプールに投入します。Google Chatに都道府県内訳付きで通知されます。よろしいですか？`,
+      )
+    )
+      return;
+    runBulk("pool");
+  };
+
+  // 一括却下も理由を必須にする（選択した全件に同じ理由が付く）
+  const handleBulkReject = (reason: LeadRejectReasonValue) => {
+    setReasonOpen(false);
+    runBulk("reject", reason);
   };
 
   const selectedCount = selectedIds.size;
@@ -91,7 +107,7 @@ export function TvcmHistoryList({ leads }: Props) {
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              onClick={() => handleBulk("pool")}
+              onClick={handleBulkPool}
               disabled={isPending || selectedCount === 0}
               className="inline-flex items-center gap-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg"
             >
@@ -104,7 +120,7 @@ export function TvcmHistoryList({ leads }: Props) {
             </button>
             <button
               type="button"
-              onClick={() => handleBulk("reject")}
+              onClick={() => setReasonOpen((v) => !v)}
               disabled={isPending || selectedCount === 0}
               className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 bg-white border border-zinc-300 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg"
             >
@@ -121,6 +137,18 @@ export function TvcmHistoryList({ leads }: Props) {
               </button>
             )}
           </div>
+
+          {reasonOpen && selectedCount > 0 && (
+            <div className="basis-full mt-1">
+              <RejectReasonPicker
+                layout="horizontal"
+                disabled={isPending}
+                title={`選択した ${selectedCount}件 を却下する理由は？（1タップで確定）`}
+                onPick={handleBulkReject}
+                onCancel={() => setReasonOpen(false)}
+              />
+            </div>
+          )}
 
           {resultMsg && (
             <div className="basis-full text-[11px] flex items-center gap-1 text-emerald-700 mt-1">

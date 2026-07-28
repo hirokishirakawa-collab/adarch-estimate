@@ -5,7 +5,8 @@ import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendChatMessage } from "@/lib/google-chat";
-import { getLeadStatusOption } from "@/lib/constants/leads";
+import { getLeadStatusOption, getLeadRejectReason } from "@/lib/constants/leads";
+import type { LeadRejectReasonValue } from "@/lib/constants/leads";
 import type { ScoredLead, ScoredBtoBLead, ScoredRecruitLead } from "@/lib/constants/leads";
 import type { ScoredCinemaLead } from "@/lib/constants/cinema-leads";
 import type { TvcmLeadCandidate } from "@/lib/constants/tvcm-leads";
@@ -910,6 +911,7 @@ export async function getSearchSuggestions(): Promise<SearchSuggestion[]> {
 export async function transitionTvcmLeadStatus(
   leadId: string,
   decision: "pool" | "reject",
+  rejectReason?: LeadRejectReasonValue | null,
 ): Promise<{ success: boolean; error?: string }> {
   const session = await auth();
   if (!session?.user?.email) return { success: false, error: "ログインが必要です" };
@@ -932,17 +934,23 @@ export async function transitionTvcmLeadStatus(
   }
 
   const newStatus: LeadStatus = decision === "pool" ? "UNTOUCHED" : "SKIPPED";
+  // 却下理由は却下時のみ保持。プール投入時は過去の却下理由をクリアする
+  const reasonValue = decision === "reject" ? (rejectReason ?? null) : null;
+  const reasonLabel = getLeadRejectReason(reasonValue)?.label ?? null;
 
   try {
     await db.lead.update({
       where: { id: leadId },
-      data: { status: newStatus, assigneeId: null },
+      data: { status: newStatus, assigneeId: null, rejectReason: reasonValue },
     });
     await db.leadLog.create({
       data: {
         leadId,
         action: decision === "pool" ? "POOLED" : "REJECTED",
-        detail: decision === "pool" ? "履歴画面からプール投入" : "履歴画面から却下",
+        detail:
+          decision === "pool"
+            ? "履歴画面からプール投入"
+            : `履歴画面から却下${reasonLabel ? `［${reasonLabel}］` : ""}`,
         staffName,
       },
     });
@@ -980,6 +988,7 @@ export async function transitionTvcmLeadStatus(
 export async function bulkTransitionTvcmLeads(
   leadIds: string[],
   decision: "pool" | "reject",
+  rejectReason?: LeadRejectReasonValue | null,
 ): Promise<{ success: boolean; updated: number; error?: string }> {
   const session = await auth();
   if (!session?.user?.email) return { success: false, updated: 0, error: "ログインが必要です" };
@@ -1016,9 +1025,12 @@ export async function bulkTransitionTvcmLeads(
 
     const newStatus: LeadStatus = decision === "pool" ? "UNTOUCHED" : "SKIPPED";
     const logAction = decision === "pool" ? "POOLED" : "REJECTED";
+    // 却下理由は却下時のみ保持。プール投入時は過去の却下理由をクリアする
+    const reasonValue = decision === "reject" ? (rejectReason ?? null) : null;
+    const reasonLabel = getLeadRejectReason(reasonValue)?.label ?? null;
     const logDetail = decision === "pool"
       ? "履歴画面から一括プール投入"
-      : "履歴画面から一括却下";
+      : `履歴画面から一括却下${reasonLabel ? `［${reasonLabel}］` : ""}`;
 
     // プール投入: 既に UNTOUCHED のものは Chat 通知に含めない（重複通知防止）
     const newlyPooled = decision === "pool"
@@ -1028,7 +1040,7 @@ export async function bulkTransitionTvcmLeads(
     // 一括更新
     await db.lead.updateMany({
       where: { id: { in: targets.map((t) => t.id) } },
-      data: { status: newStatus, assigneeId: null },
+      data: { status: newStatus, assigneeId: null, rejectReason: reasonValue },
     });
 
     // ログを一括作成
@@ -1279,6 +1291,7 @@ export async function bulkClaimTvcmLeads(
 export async function saveTvcmLeadsFromSearch(
   candidates: TvcmLeadCandidate[],
   decision: "pool" | "reject" = "pool",
+  rejectReason?: LeadRejectReasonValue | null,
 ): Promise<{ saved: number; error?: string }> {
   const session = await auth();
   if (!session?.user?.email) return { saved: 0, error: "ログインが必要です" };
@@ -1296,7 +1309,13 @@ export async function saveTvcmLeadsFromSearch(
 
   const targetStatus: LeadStatus = decision === "reject" ? "SKIPPED" : "UNTOUCHED";
   const logAction = decision === "reject" ? "REJECTED" : "POOLED";
-  const logDetailPrefix = decision === "reject" ? "TVer広告案件 却下記録" : "TVer広告 案件プール投入";
+  // 却下理由は却下時のみ保持。プール投入時は過去の却下理由をクリアする
+  const reasonValue = decision === "reject" ? (rejectReason ?? null) : null;
+  const reasonLabel = getLeadRejectReason(reasonValue)?.label ?? null;
+  const logDetailPrefix =
+    decision === "reject"
+      ? `TVer広告案件 却下記録${reasonLabel ? `［${reasonLabel}］` : ""}`
+      : "TVer広告 案件プール投入";
 
   let savedCount = 0;
   const savedPrefectures: string[] = [];
@@ -1314,6 +1333,7 @@ export async function saveTvcmLeadsFromSearch(
           data: {
             source: "PR_TIMES_TVCM",
             status: targetStatus,
+            rejectReason: reasonValue,
             pressReleaseUrl: c.pressReleaseUrl,
             pressReleaseTitle: c.pressReleaseTitle,
             videoUrl: c.videoUrl,
@@ -1328,6 +1348,16 @@ export async function saveTvcmLeadsFromSearch(
             area: c.prefecture,
             scoreComment: c.summary,
             websiteUrl: c.companyWebsite,
+          },
+        });
+
+        // 既存リードへの判断もログに残す（学習データ＆「判断済みは再表示しない」の材料になる）
+        await db.leadLog.create({
+          data: {
+            leadId: existing.id,
+            action: logAction,
+            detail: `${logDetailPrefix}（${c.prefecture ?? "地域不明"}・${c.industryGuess ?? "業種不明"}）`,
+            staffName,
           },
         });
       } else {
@@ -1352,6 +1382,7 @@ export async function saveTvcmLeadsFromSearch(
             prefecture: c.prefecture,
             agencyDetected: c.agencyDetected,
             isListed: c.isListed,
+            rejectReason: reasonValue,
             createdById: user.id,
             assigneeId: null,
           },

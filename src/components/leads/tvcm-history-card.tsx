@@ -25,6 +25,8 @@ import {
   Square,
 } from "lucide-react";
 import { transitionTvcmLeadStatus } from "@/lib/actions/lead";
+import { getLeadRejectReason, type LeadRejectReasonValue } from "@/lib/constants/leads";
+import { RejectReasonPicker } from "./reject-reason-picker";
 import {
   detectTvcmSourcePlatform,
   TVCM_SOURCE_LABEL,
@@ -41,7 +43,7 @@ const SOURCE_VISUAL: Record<
   unknown: { icon: Globe, bg: "bg-zinc-50", text: "text-zinc-600" },
 };
 
-type Status = "CRAWLED" | "UNTOUCHED" | "CALLED" | "APPOINTMENT" | "DEAL_CONVERTED" | "SKIPPED";
+type Status = "CRAWLED" | "UNTOUCHED" | "CALLED" | "APPOINTMENT" | "DEAL_CONVERTED" | "SKIPPED" | "ARCHIVED";
 
 export interface TvcmHistoryLead {
   id: string;
@@ -74,6 +76,7 @@ const STATUS_CONFIG: Record<
   APPOINTMENT: { label: "アポ獲得", bg: "bg-amber-50", text: "text-amber-700", icon: Calendar },
   DEAL_CONVERTED: { label: "受注済", bg: "bg-emerald-50", text: "text-emerald-700", icon: Trophy },
   SKIPPED: { label: "却下済", bg: "bg-red-50", text: "text-red-700", icon: XCircle },
+  ARCHIVED: { label: "アーカイブ", bg: "bg-zinc-100", text: "text-zinc-500", icon: Database },
 };
 
 interface CardProps {
@@ -92,15 +95,29 @@ export function TvcmHistoryCard({
   const [isPending, startTransition] = useTransition();
   const [currentStatus, setCurrentStatus] = useState<Status>(lead.status);
   const [resultMsg, setResultMsg] = useState<string | null>(null);
+  const [reasonOpen, setReasonOpen] = useState(false);
 
-  const handleDecide = (decision: "pool" | "reject") => {
-    const verb = decision === "pool" ? "プール投入" : "却下";
-    if (!confirm(`${lead.name} を ${verb} にします。よろしいですか？`)) return;
+  const handlePool = () => {
+    if (!confirm(`${lead.name} を プール投入 にします。よろしいですか？`)) return;
     startTransition(async () => {
-      const res = await transitionTvcmLeadStatus(lead.id, decision);
+      const res = await transitionTvcmLeadStatus(lead.id, "pool");
       if (res.success) {
-        setCurrentStatus(decision === "pool" ? "UNTOUCHED" : "SKIPPED");
-        setResultMsg(`${verb}しました`);
+        setCurrentStatus("UNTOUCHED");
+        setResultMsg("プール投入しました");
+      } else {
+        setResultMsg(res.error ?? "失敗");
+      }
+    });
+  };
+
+  // 却下は理由の1タップで確定（確認ダイアログは挟まない＝理由選択が確認を兼ねる）
+  const handleReject = (reason: LeadRejectReasonValue) => {
+    setReasonOpen(false);
+    startTransition(async () => {
+      const res = await transitionTvcmLeadStatus(lead.id, "reject", reason);
+      if (res.success) {
+        setCurrentStatus("SKIPPED");
+        setResultMsg(`却下しました［${getLeadRejectReason(reason)?.label}］`);
       } else {
         setResultMsg(res.error ?? "失敗");
       }
@@ -245,22 +262,32 @@ export function TvcmHistoryCard({
         {/* 決定ボタン (CRAWLED の場合のみ表示) */}
         {canDecide && (
           <div className="shrink-0 flex flex-col gap-1.5">
-            <button
-              onClick={() => handleDecide("pool")}
-              disabled={isPending}
-              className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-50"
-            >
-              {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-              プールへ
-            </button>
-            <button
-              onClick={() => handleDecide("reject")}
-              disabled={isPending}
-              className="text-xs font-medium text-zinc-600 bg-white border border-zinc-300 hover:bg-zinc-50 px-3 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-50"
-            >
-              <X className="w-3 h-3" />
-              却下
-            </button>
+            {reasonOpen ? (
+              <RejectReasonPicker
+                disabled={isPending}
+                onPick={handleReject}
+                onCancel={() => setReasonOpen(false)}
+              />
+            ) : (
+              <>
+                <button
+                  onClick={handlePool}
+                  disabled={isPending}
+                  className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-50"
+                >
+                  {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                  プールへ
+                </button>
+                <button
+                  onClick={() => setReasonOpen(true)}
+                  disabled={isPending}
+                  className="text-xs font-medium text-zinc-600 bg-white border border-zinc-300 hover:bg-zinc-50 px-3 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-50"
+                >
+                  <X className="w-3 h-3" />
+                  却下
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
