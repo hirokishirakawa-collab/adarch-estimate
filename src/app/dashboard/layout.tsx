@@ -47,7 +47,8 @@ export default async function DashboardLayout({
         select: { groupCompany: { select: { contractEndDate: true, contractRenewed: true } } },
       });
       const gc = userGc?.groupCompany;
-      if (gc?.contractEndDate) {
+      // 次期更新確認済み（contractRenewed）なら満了バナー・強制リダイレクトの対象外
+      if (gc?.contractEndDate && !gc.contractRenewed) {
         const now = new Date();
         const diff = gc.contractEndDate.getTime() - now.getTime();
         contractDaysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
