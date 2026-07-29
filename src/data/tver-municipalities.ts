@@ -1915,6 +1915,20 @@ export const MUNICIPALITIES: Municipality[] = [
   {prefCode:"47",prefName:"沖縄県",code:"47382",name:"八重山郡与那国町",population:1689},
 ];
 
+/**
+ * 2024年の区再編で廃止された浜松市の旧7区。
+ * TVer正本には行が残っているためコード対応を保つ目的で MUNICIPALITIES には含めるが、
+ * 住民は新3区（22138 中央区 / 22139 浜名区 / 22140 天竜区）に計上されており
+ * 人口は0のため、エリア選択の対象からは除外する。
+ */
+export const DEFUNCT_CODES: ReadonlySet<string> = new Set([
+  "22131", "22132", "22133", "22134", "22135", "22136", "22137",
+]);
+
+/** エリア選択で利用する市区町村（廃止済みの区を除いたもの） */
+export const SELECTABLE_MUNICIPALITIES: Municipality[] =
+  MUNICIPALITIES.filter((m) => !DEFUNCT_CODES.has(m.code));
+
 export const PREFECTURES = [
   {code:"01",name:"北海道"},
   {code:"02",name:"青森県"},

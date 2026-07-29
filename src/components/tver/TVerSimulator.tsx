@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { ChevronDown, ChevronRight, Search, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MUNICIPALITIES, PREFECTURES } from "@/data/tver-municipalities";
+import { SELECTABLE_MUNICIPALITIES, PREFECTURES } from "@/data/tver-municipalities";
 import { SimulatorPDFButton } from "@/components/simulator/simulator-pdf-button";
 
 // ----------------------------------------------------------------
@@ -82,16 +82,16 @@ function AreaSelector({
 
   // 検索フィルタ
   const filtered = useMemo(() => {
-    if (!searchQuery) return MUNICIPALITIES;
+    if (!searchQuery) return SELECTABLE_MUNICIPALITIES;
     const q = searchQuery.toLowerCase();
-    return MUNICIPALITIES.filter(
+    return SELECTABLE_MUNICIPALITIES.filter(
       (m) => m.name.includes(q) || m.prefName.includes(q)
     );
   }, [searchQuery]);
 
   // 都道府県ごとにグループ化
   const grouped = useMemo(() => {
-    const map = new Map<string, typeof MUNICIPALITIES>();
+    const map = new Map<string, typeof SELECTABLE_MUNICIPALITIES>();
     for (const m of filtered) {
       if (!map.has(m.prefCode)) map.set(m.prefCode, []);
       map.get(m.prefCode)!.push(m);
@@ -282,7 +282,7 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
   const totalPop = useMemo(() => {
     let sum = 0;
     for (const code of selected) {
-      const m = MUNICIPALITIES.find((m) => m.code === code);
+      const m = SELECTABLE_MUNICIPALITIES.find((m) => m.code === code);
       if (m) sum += m.population;
     }
     return sum;
@@ -339,7 +339,7 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
   const togglePref = useCallback((prefCode: string, checked: boolean) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      for (const m of MUNICIPALITIES) {
+      for (const m of SELECTABLE_MUNICIPALITIES) {
         if (m.prefCode === prefCode) {
           checked ? next.add(m.code) : next.delete(m.code);
         }
