@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { HardDriveDownload, ShieldCheck, Apple, Monitor, CircleCheck, TriangleAlert } from "lucide-react";
+import { HardDriveDownload, ShieldCheck, Apple, Monitor, CircleCheck, TriangleAlert, Info } from "lucide-react";
 
 export const metadata = {
   title: "AdArch Vault | Ad Arch OS",
@@ -94,6 +94,19 @@ export default async function VaultPage() {
           <HardDriveDownload className="w-4 h-4 text-zinc-500" />
           ダウンロード
         </h3>
+        {/* ブラウザのダウンロード警告について。
+            これは Chrome 等の Safe Browsing によるもので、Apple の公証とは別物。
+            公証は「Mac でアプリを開くとき」に効くもので、この警告は消さない。 */}
+        <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+          <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+          <p className="text-[11px] text-blue-900 leading-relaxed">
+            <strong>ダウンロード時に「不審なダウンロードをブロックしました」と出た場合</strong>
+            <br />
+            ファイルに問題があるわけではなく、配布を始めたばかりで実績が少ないためにブラウザが警告を出しています。
+            ダウンロード欄の<strong>「保存」または「継続」</strong>を選んでください。ご利用が進むにつれて表示されなくなります。
+          </p>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-3">
           {downloads.map((d) => (
             <div
