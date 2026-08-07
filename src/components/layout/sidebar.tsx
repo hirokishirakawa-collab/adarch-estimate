@@ -414,6 +414,19 @@ const NAV_SECTIONS: NavSection[] = [
   },
 
   {
+    section: "制作",
+    color: "text-amber-500/80",
+    items: [
+      {
+        href: "/dashboard/vault",
+        label: "AdArch Vault（素材コピー）",
+        icon: ShieldCheck,
+        minRole: "USER",
+      },
+    ],
+  },
+
+  {
     section: "サポート・研修",
     color: "text-teal-500/80",
     items: [
@@ -428,12 +441,6 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/learning",
         label: "ラーニング",
         icon: GraduationCap,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/vault",
-        label: "AdArch Vault（素材コピー）",
-        icon: ShieldCheck,
         minRole: "USER",
       },
     ],

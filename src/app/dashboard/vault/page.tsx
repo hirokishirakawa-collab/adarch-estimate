@@ -13,25 +13,32 @@ const downloads = [
     os: "macOS",
     icon: Apple,
     file: "/downloads/vault/AdArch-Vault-macos.zip",
-    label: "AdArch Vault（Mac 版）",
     note: "Apple Silicon / Intel 共通",
     size: "2.9 MB",
+    // Mac は最も使われるので、いちばん目に入る配色にする
+    button: "bg-zinc-900 hover:bg-zinc-800",
+    ring: "hover:border-zinc-400",
+    badge: "bg-zinc-100 text-zinc-700",
   },
   {
     os: "Windows",
     icon: Monitor,
     file: "/downloads/vault/vault-windows-x64.exe",
-    label: "AdArch Vault（Windows 版）",
     note: "通常はこちら（Intel / AMD）",
     size: "6.5 MB",
+    button: "bg-blue-600 hover:bg-blue-700",
+    ring: "hover:border-blue-400",
+    badge: "bg-blue-50 text-blue-700",
   },
   {
     os: "Windows (ARM)",
     icon: Monitor,
     file: "/downloads/vault/vault-windows-arm64.exe",
-    label: "AdArch Vault（Windows ARM 版）",
     note: "Snapdragon 搭載機など",
     size: "5.8 MB",
+    button: "bg-blue-500 hover:bg-blue-600",
+    ring: "hover:border-blue-300",
+    badge: "bg-blue-50 text-blue-600",
   },
 ];
 
@@ -89,20 +96,29 @@ export default async function VaultPage() {
         </h3>
         <div className="grid gap-3 sm:grid-cols-3">
           {downloads.map((d) => (
-            <a
+            <div
               key={d.file}
-              href={d.file}
-              download
-              className="block bg-white border border-zinc-200 rounded-xl p-4 hover:border-amber-400 hover:shadow-sm transition-all"
+              className={`flex flex-col bg-white border border-zinc-200 rounded-xl p-4 transition-all hover:shadow-md ${d.ring}`}
             >
-              <div className="flex items-center gap-2">
-                <d.icon className="w-4 h-4 text-zinc-500" />
-                <span className="text-xs font-semibold text-zinc-800">{d.os}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <d.icon className="w-4 h-4 text-zinc-600" />
+                  <span className="text-sm font-bold text-zinc-900">{d.os}</span>
+                </div>
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${d.badge}`}>
+                  {d.size}
+                </span>
               </div>
-              <p className="text-sm font-semibold text-zinc-900 mt-2">{d.label}</p>
-              <p className="text-xs text-zinc-500 mt-0.5">{d.note}</p>
-              <p className="text-[11px] text-zinc-400 mt-2">{d.size}</p>
-            </a>
+              <p className="text-xs text-zinc-500 mt-1.5 mb-3 flex-1">{d.note}</p>
+              <a
+                href={d.file}
+                download
+                className={`flex items-center justify-center gap-1.5 w-full ${d.button} text-white text-sm font-bold rounded-lg py-2.5 transition-colors shadow-sm`}
+              >
+                <HardDriveDownload className="w-4 h-4" />
+                ダウンロード
+              </a>
+            </div>
           ))}
         </div>
       </div>
