@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useRef, useEffect } from "react";
 import { Loader2, Upload, X, FileText, Search, ChevronDown } from "lucide-react";
+import { HQ_COMMISSION_RATE, commissionOf } from "@/lib/royalty-monthly";
 
 type Project  = { id: string; title: string; customerId: string | null };
 type Customer = { id: string; name: string; email: string | null; contactName: string | null };
@@ -229,10 +230,16 @@ export function InvoiceRequestForm({
   const [mediaExpense, setMediaExpense] = useState(defaultValues?.mediaExpense ?? 0);
   const [productionExpense, setProductionExpense] = useState(defaultValues?.productionExpense ?? 0);
 
+  // ── 本部手数料（10%）。ロイヤリティ相殺の原資になる。
+  const commissionExclTax = commissionOf(amountExclTax);
+  const commissionTax     = Math.floor(commissionExclTax * 0.1);
+
   // ── 源泉徴収・控除不可消費税の自動計算
   const withholdingTaxAmount = isSoleProprietor ? calcWithholding(productionExpense) : 0;
   const nonDeductibleTaxAmount = isInvoiceUnregistered ? calcNonDeductible(amountExclTax) : 0;
-  const netPaymentAmount = amountInclTax - withholdingTaxAmount - nonDeductibleTaxAmount;
+  // 差引支払額は支払明細と同じ式（本部手数料＋その消費税も控除する）
+  const netPaymentAmount =
+    amountInclTax - commissionExclTax - commissionTax - withholdingTaxAmount - nonDeductibleTaxAmount;
 
   // ── ファイル選択
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -458,10 +465,23 @@ export function InvoiceRequestForm({
           </div>
         </div>
 
-        {/* ── 源泉徴収・インボイス自動計算 ── */}
-        {(isSoleProprietor || isInvoiceUnregistered) && (
+        {/* ── 控除・差引支払額（自動計算） ── */}
+        {amountExclTax > 0 && (
           <div className="pt-3 border-t border-zinc-200 space-y-2">
-            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">税額調整（自動計算）</p>
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">控除（自動計算）</p>
+            <div className="flex justify-between text-xs">
+              <span className="text-zinc-600">本部手数料（{HQ_COMMISSION_RATE}%・税抜）</span>
+              <span className="font-bold text-red-600">-¥{fmtNum(commissionExclTax)}</span>
+            </div>
+            {commissionTax > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-zinc-600">本部手数料の消費税</span>
+                <span className="font-bold text-red-600">-¥{fmtNum(commissionTax)}</span>
+              </div>
+            )}
+            <p className="text-[11px] text-zinc-400">
+              本部手数料はロイヤリティの相殺に充当されます（月合計が最低保証に達すると、その月のロイヤリティ請求はありません）。
+            </p>
             {isSoleProprietor && withholdingTaxAmount > 0 && (
               <div className="flex justify-between text-xs">
                 <span className="text-zinc-600">源泉徴収税（制作費 ¥{fmtNum(productionExpense)} に対して）</span>
@@ -475,7 +495,7 @@ export function InvoiceRequestForm({
               </div>
             )}
             <div className="flex justify-between text-sm pt-1 border-t border-amber-200">
-              <span className="font-semibold text-zinc-700">差引支払額</span>
+              <span className="font-semibold text-zinc-700">差引支払額（お受け取り予定額）</span>
               <span className="font-bold text-indigo-700">¥{fmtNum(netPaymentAmount)}</span>
             </div>
           </div>

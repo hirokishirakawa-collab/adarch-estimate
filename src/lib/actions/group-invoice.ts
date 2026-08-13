@@ -8,6 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { createInAppNotification, notifyAdmins } from "@/lib/notifications";
 import { sendGroupInvoiceEmailById } from "@/lib/group-invoice-email";
 import {
+  commissionOf,
   evaluatePartnerRoyalty,
   invoiceTotals,
   MIN_ROYALTY_EXCL_TAX,
@@ -34,7 +35,8 @@ export async function getGroupInvoices() {
     });
     if (!user?.groupCompanyId) return [];
     return db.groupInvoice.findMany({
-      where: { groupCompanyId: user.groupCompanyId, status: { in: ["ISSUED", "PAID"] } },
+      // 取消済みも見せる。発行時にPDFがメール送付されているため、黙って消えると却って分かりにくい。
+      where: { groupCompanyId: user.groupCompanyId, status: { in: ["ISSUED", "PAID", "CANCELLED"] } },
       orderBy: { createdAt: "desc" },
       include: { groupCompany: { select: { name: true, ownerName: true } } },
     });
@@ -304,6 +306,89 @@ export async function emailGroupInvoice(id: string): Promise<{ error?: string; s
 }
 
 // ---------------------------------------------------------------
+// 取消（誤発行の取り消し・ISSUED / PAID のみ）
+//
+// 発行済・入金済は削除できない（発行した記録を残す必要があるため）。
+// 誤って発行した請求書はこのアクションで取り消し、理由と日時を残す。
+// 取り消した月は請求書なし扱いに戻るので、正しい内容で再発行できる。
+// ---------------------------------------------------------------
+export async function cancelGroupInvoice(id: string, reason: string): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return { error: "権限がありません" };
+
+  const trimmedReason = (reason ?? "").trim();
+  if (!trimmedReason) return { error: "取消理由を入力してください" };
+
+  const existing = await db.groupInvoice.findUnique({
+    where: { id },
+    select: {
+      status: true,
+      title: true,
+      invoiceNo: true,
+      totalInclTax: true,
+      groupCompanyId: true,
+      targetMonth: true,
+      groupCompany: { select: { name: true } },
+    },
+  });
+  if (!existing) return { error: "請求書が見つかりません" };
+  if (existing.status === "CANCELLED") return { error: "すでに取消済みです" };
+  if (existing.status === "DRAFT") return { error: "下書きは取消ではなく削除してください" };
+
+  try {
+    await db.groupInvoice.update({
+      where: { id },
+      data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: trimmedReason },
+    });
+    logAudit({
+      action: "group_invoice_cancelled",
+      email: info.email,
+      name: info.staffName,
+      entity: "group_invoice",
+      entityId: id,
+      detail: `${existing.invoiceNo} ${existing.title}（¥${Number(existing.totalInclTax).toLocaleString("ja-JP")}）を取消 / 理由: ${trimmedReason}`,
+    });
+  } catch (e) {
+    console.error("[cancelGroupInvoice] DB error:", e instanceof Error ? e.message : e);
+    return { error: "取消に失敗しました" };
+  }
+
+  // 発行済みの請求書はパートナーへメール送付済みのため、取消も必ず知らせる。
+  try {
+    const total = Number(existing.totalInclTax).toLocaleString("ja-JP");
+    const partnerUsers = await db.user.findMany({
+      where: { groupCompanyId: existing.groupCompanyId },
+      select: { id: true },
+    });
+    await Promise.all(
+      partnerUsers.map((u) =>
+        createInAppNotification({
+          userId: u.id,
+          type: "SYSTEM",
+          title: "請求書を取り消しました",
+          message: `「${existing.title}」（¥${total}）は取り消しとなりました。お支払いは不要です。`,
+          linkUrl: "/dashboard/royalty",
+        }),
+      ),
+    );
+    await notifyAdmins({
+      type: "SYSTEM",
+      title: "請求書を取り消しました",
+      message: `${existing.groupCompany?.name ?? ""}：${existing.invoiceNo}「${existing.title}」（¥${total}）を取消。理由: ${trimmedReason}`,
+      linkUrl: `/dashboard/admin/group-invoices/${id}`,
+    });
+  } catch (e) {
+    console.error("[cancelGroupInvoice] notify error:", e instanceof Error ? e.message : e);
+  }
+
+  revalidatePath("/dashboard/admin/group-invoices");
+  revalidatePath(`/dashboard/admin/group-invoices/${id}`);
+  revalidatePath("/dashboard/admin/royalty");
+  revalidatePath("/dashboard/royalty");
+  return {};
+}
+
+// ---------------------------------------------------------------
 // 削除（DRAFT のみ）— 単件・一括
 // ---------------------------------------------------------------
 export async function deleteGroupInvoice(id: string): Promise<{ error?: string }> {
@@ -312,7 +397,7 @@ export async function deleteGroupInvoice(id: string): Promise<{ error?: string }
 
   const existing = await db.groupInvoice.findUnique({ where: { id }, select: { status: true, title: true } });
   if (!existing) return { error: "請求書が見つかりません" };
-  if (existing.status !== "DRAFT") return { error: "発行済・入金済の請求書は削除できません" };
+  if (existing.status !== "DRAFT") return { error: "発行済・入金済の請求書は削除できません。誤発行の場合は「取消」をお使いください" };
 
   try {
     await db.groupInvoice.delete({ where: { id } });
@@ -398,7 +483,8 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
     orderBy: { name: "asc" },
   });
 
-  // 相殺の自動集計＝請求申請（提出済み）の税抜金額 × 10%。基準は請求日（billingDate）。
+  // 相殺の自動集計＝請求申請（提出済み）に保存された本部手数料。基準は請求日（billingDate）。
+  // commissionExclTax が null の行はフィールド追加前の既存データ＝税抜金額×既定率にフォールバック。
   const [yy, mm] = month.split("-").map(Number);
   const monthStart = new Date(yy, mm - 1, 1);
   const monthEnd = new Date(yy, mm, 1);
@@ -408,16 +494,24 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
       billingDate: { gte: monthStart, lt: monthEnd },
       ...(limitToGroupCompanyId ? { createdBy: { groupCompanyId: limitToGroupCompanyId } } : {}),
     },
-    select: { amountExclTax: true, branchLabel: true, createdBy: { select: { groupCompanyId: true } } },
+    select: {
+      amountExclTax: true,
+      commissionRate: true,
+      commissionExclTax: true,
+      branchLabel: true,
+      createdBy: { select: { groupCompanyId: true } },
+    },
   });
 
-  const ROYALTY_RATE = 0.1; // 本部手数料率（ロイヤリティ原資）
   const totalByPartner = new Map<string, number>();
   const byPartnerLabel = new Map<string, Record<string, number>>();
   for (const r of requests) {
     const gc = r.createdBy?.groupCompanyId;
     if (!gc) continue;
-    const commission = Math.floor(Math.max(0, Number(r.amountExclTax) || 0) * ROYALTY_RATE);
+    const commission =
+      r.commissionExclTax != null
+        ? Math.max(0, Number(r.commissionExclTax))
+        : commissionOf(Number(r.amountExclTax), Number(r.commissionRate));
     totalByPartner.set(gc, (totalByPartner.get(gc) ?? 0) + commission);
     if (r.branchLabel) {
       const m = byPartnerLabel.get(gc) ?? {};
@@ -426,9 +520,15 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
     }
   }
 
-  // 既存のロイヤリティ請求書（当月分）
+  // 既存のロイヤリティ請求書（当月分）。
+  // 取消済みは「請求書なし」として扱い、正しい内容で再発行できるようにする。
   const invoices = await db.groupInvoice.findMany({
-    where: { type: "ROYALTY", targetMonth: month, ...(limitToGroupCompanyId ? { groupCompanyId: limitToGroupCompanyId } : {}) },
+    where: {
+      type: "ROYALTY",
+      targetMonth: month,
+      status: { not: "CANCELLED" },
+      ...(limitToGroupCompanyId ? { groupCompanyId: limitToGroupCompanyId } : {}),
+    },
     select: { id: true, groupCompanyId: true, invoiceNo: true, status: true, totalInclTax: true },
   });
   const invoiceByPartner = new Map(invoices.map((i) => [i.groupCompanyId, i]));

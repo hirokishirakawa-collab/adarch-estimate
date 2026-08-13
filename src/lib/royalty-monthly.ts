@@ -7,7 +7,10 @@
 //   - 10% の合計が 5万 以上 → 相殺済み（追加請求なし＝「貢献感謝」表示）
 //   - 10% の合計が 5万 未満 → 差額(税抜)を請求書で請求（消費税10%を別途加算）
 //
-//   本部手数料(10%)の原資は PaymentStatement.commissionAmount（税抜）。
+//   本部手数料(10%)の原資は InvoiceRequest.commissionExclTax（税抜）。
+//   本部がクライアントへ代理請求した金額(税抜)に対して発生し、請求日(billingDate)の月に帰属する。
+//   支払明細(PaymentStatement.commissionAmount)は同じ手数料を「実際に控除した額」として持つ。
+//   両者は同一案件なら一致する想定で、ズレは突き合わせ対象。
 //   取扱高(税抜)50万 × 10% = 5万 がちょうど最低保証ライン。
 //
 // ※ 5万は「税抜」の最低保証として扱う（commissionAmount が税抜のため揃える）。
@@ -18,6 +21,17 @@ import { TAX_RATE } from "./payment-statement-calc";
 
 /// 最低ロイヤリティ（税抜）
 export const MIN_ROYALTY_EXCL_TAX = 50_000;
+
+/// 本部手数料率（%）。ロイヤリティ相殺の原資＝請求額(税抜) × この率。
+export const HQ_COMMISSION_RATE = 10;
+
+/// 請求額(税抜)から本部手数料(税抜)を求める。
+/// 支払明細の computeBreakdown と同じ切り捨てで、同一案件なら両者が一致する。
+export function commissionOf(amountExclTax: number, ratePercent: number = HQ_COMMISSION_RATE): number {
+  const base = Math.max(0, Math.round(amountExclTax || 0));
+  const rate = Math.max(0, ratePercent || 0);
+  return Math.floor((base * rate) / 100);
+}
 
 /// この取扱高(税抜)で 10% = 5万 に達する（相殺ライン）
 export const ROYALTY_COVER_REVENUE_EXCL_TAX = 500_000;

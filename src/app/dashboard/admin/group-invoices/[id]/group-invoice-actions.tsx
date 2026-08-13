@@ -2,8 +2,13 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Send, CheckCircle2, Trash2, Mail } from "lucide-react";
-import { updateGroupInvoiceStatus, deleteGroupInvoice, emailGroupInvoice } from "@/lib/actions/group-invoice";
+import { Loader2, Send, CheckCircle2, Trash2, Mail, Ban } from "lucide-react";
+import {
+  updateGroupInvoiceStatus,
+  deleteGroupInvoice,
+  emailGroupInvoice,
+  cancelGroupInvoice,
+} from "@/lib/actions/group-invoice";
 
 export function GroupInvoiceActions({ id, status }: { id: string; status: string }) {
   const router = useRouter();
@@ -27,6 +32,23 @@ export function GroupInvoiceActions({ id, status }: { id: string; status: string
       const res = await deleteGroupInvoice(id);
       if (res?.error) alert(res.error);
       // 成功時はサーバー側 redirect で一覧へ遷移
+    });
+  }
+
+  function onCancel() {
+    const reason = prompt(
+      "この請求書を取り消します。取消理由を入力してください（記録に残ります）。\n例: 金額誤り / 対象月誤り / 相殺済みのため発行不要",
+    );
+    if (reason === null) return;
+    if (!reason.trim()) {
+      alert("取消理由を入力してください");
+      return;
+    }
+    if (!confirm("取り消すと、パートナーにも取消のお知らせが届きます。よろしいですか？")) return;
+    startTransition(async () => {
+      const res = await cancelGroupInvoice(id, reason);
+      if (res.error) alert(res.error);
+      router.refresh();
     });
   }
 
@@ -60,9 +82,17 @@ export function GroupInvoiceActions({ id, status }: { id: string; status: string
         </button>
       )}
       {(status === "ISSUED" || status === "PAID") && (
-        <button onClick={onEmail} disabled={isPending} className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 rounded-lg disabled:opacity-60 transition-colors" title="請求書PDFをパートナーへメール送付">
-          <Mail className="w-4 h-4" />メール送信
-        </button>
+        <>
+          <button onClick={onEmail} disabled={isPending} className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 rounded-lg disabled:opacity-60 transition-colors" title="請求書PDFをパートナーへメール送付">
+            <Mail className="w-4 h-4" />メール送信
+          </button>
+          <button onClick={onCancel} disabled={isPending} className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-60 transition-colors ml-auto" title="誤発行した請求書を取り消す">
+            <Ban className="w-4 h-4" />取消
+          </button>
+        </>
+      )}
+      {status === "CANCELLED" && (
+        <p className="text-xs text-zinc-500">この請求書は取消済みです。対象月は請求書なしの扱いに戻っています。</p>
       )}
     </div>
   );

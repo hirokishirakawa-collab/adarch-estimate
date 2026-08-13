@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CreditCard, Pencil, ArrowLeft, FileText, ExternalLink } from "lucide-react";
 import { getInvoiceRequestWithAuth, submitInvoiceRequest } from "@/lib/actions/billing";
+import { commissionOf } from "@/lib/royalty-monthly";
 
 const STATUS_CONFIG = {
   DRAFT:     { label: "未提出",  className: "bg-amber-50 text-amber-700 border-amber-200" },
@@ -23,6 +24,20 @@ export default async function BillingDetailPage({ params }: Props) {
     d
       ? new Intl.DateTimeFormat("ja-JP", { dateStyle: "long" }).format(new Date(d))
       : "—";
+
+  // 本部手数料。フィールド追加前の既存データは税抜金額から再計算して表示する。
+  const commissionExclTax =
+    request.commissionExclTax != null
+      ? Number(request.commissionExclTax)
+      : commissionOf(Number(request.amountExclTax), Number(request.commissionRate));
+  const commissionTax = Math.floor(commissionExclTax * 0.1);
+
+  // 差引支払額は保存値を使わず表示時に再計算する。
+  // 手数料フィールド追加前に保存された netPaymentAmount は手数料を引いていないため。
+  const netPaymentAmount =
+    Number(request.amountInclTax) - commissionExclTax - commissionTax
+    - Number(request.withholdingTaxAmount ?? 0)
+    - Number(request.nonDeductibleTaxAmount ?? 0);
 
   const submitAction = submitInvoiceRequest.bind(null, id);
 
@@ -109,6 +124,38 @@ export default async function BillingDetailPage({ params }: Props) {
             </p>
           </div>
         ))}
+      </div>
+
+      {/* 控除・お受け取り予定額 */}
+      <div className="bg-white border border-zinc-200 rounded-xl px-5 py-4 mb-5 space-y-2">
+        <div className="flex justify-between text-xs">
+          <span className="text-zinc-600">
+            本部手数料（{Number(request.commissionRate)}%・税抜）
+          </span>
+          <span className="font-bold text-red-600">-{fmtAmt(commissionExclTax)}</span>
+        </div>
+        {request.withholdingTaxAmount != null && Number(request.withholdingTaxAmount) > 0 && (
+          <div className="flex justify-between text-xs">
+            <span className="text-zinc-600">源泉徴収税</span>
+            <span className="font-bold text-red-600">-{fmtAmt(request.withholdingTaxAmount)}</span>
+          </div>
+        )}
+        {request.nonDeductibleTaxAmount != null && Number(request.nonDeductibleTaxAmount) > 0 && (
+          <div className="flex justify-between text-xs">
+            <span className="text-zinc-600">控除不可消費税（インボイス未登録）</span>
+            <span className="font-bold text-red-600">-{fmtAmt(request.nonDeductibleTaxAmount)}</span>
+          </div>
+        )}
+        <div className="flex justify-between text-sm pt-2 border-t border-zinc-100">
+          <span className="font-semibold text-zinc-700">差引支払額（お受け取り予定額）</span>
+          <span className="font-bold text-indigo-700">{fmtAmt(netPaymentAmount)}</span>
+        </div>
+        <p className="text-[11px] text-zinc-400 pt-1">
+          本部手数料はロイヤリティの相殺に充当されます。
+          <Link href="/dashboard/royalty" className="ml-1 text-indigo-600 hover:underline">
+            今月のロイヤリティ状況を見る →
+          </Link>
+        </p>
       </div>
 
       {/* プロジェクト */}

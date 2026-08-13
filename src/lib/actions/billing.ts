@@ -10,6 +10,7 @@ import { uploadBillingFile } from "@/lib/storage";
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
 import { logAudit } from "@/lib/audit";
+import { HQ_COMMISSION_RATE, commissionOf } from "@/lib/royalty-monthly";
 
 // ---------------------------------------------------------------
 // 閲覧権限スコープ
@@ -42,6 +43,8 @@ async function parseFormData(formData: FormData): Promise<
         amountExclTax: number;
         taxAmount: number;
         amountInclTax: number;
+        commissionRate: number;
+        commissionExclTax: number;
         mediaExpense: number | null;
         productionExpense: number | null;
         withholdingTaxAmount: number | null;
@@ -95,13 +98,21 @@ async function parseFormData(formData: FormData): Promise<
   const mediaExpense      = mediaExpenseRaw ? parseInt(mediaExpenseRaw, 10) : null;
   const productionExpense = productionExpenseRaw ? parseInt(productionExpenseRaw, 10) : null;
 
+  // ── 本部手数料（ロイヤリティ相殺の原資）。クライアント送信値は使わずサーバーで計算する。
+  const commissionRate    = HQ_COMMISSION_RATE;
+  const commissionExclTax = commissionOf(amountExclTax, commissionRate);
+  const commissionTax     = Math.floor(commissionExclTax * 0.1);
+
   // ── 源泉徴収・控除不可消費税（hidden fields）
   const withholdingRaw       = (formData.get("withholdingTaxAmount")   as string)?.trim() || null;
   const nonDeductibleRaw     = (formData.get("nonDeductibleTaxAmount") as string)?.trim() || null;
-  const netPaymentRaw        = (formData.get("netPaymentAmount")       as string)?.trim() || null;
   const withholdingTaxAmount   = withholdingRaw ? parseInt(withholdingRaw, 10) : null;
   const nonDeductibleTaxAmount = nonDeductibleRaw ? parseInt(nonDeductibleRaw, 10) : null;
-  const netPaymentAmount       = netPaymentRaw ? parseInt(netPaymentRaw, 10) : null;
+
+  // 差引支払額は支払明細と同じ式で再計算する（本部手数料＋その消費税も控除）。
+  const netPaymentAmount =
+    amountInclTax - commissionExclTax - commissionTax
+    - (withholdingTaxAmount ?? 0) - (nonDeductibleTaxAmount ?? 0);
 
   // ファイルアップロード（あれば）
   let fileUrl = fileUrlInput;
@@ -115,6 +126,7 @@ async function parseFormData(formData: FormData): Promise<
     data: {
       subject, branchLabel, customerId, contactName, contactEmail, billingDate, dueDate,
       details, amountExclTax, taxAmount, amountInclTax,
+      commissionRate, commissionExclTax,
       mediaExpense, productionExpense,
       withholdingTaxAmount, nonDeductibleTaxAmount, netPaymentAmount,
       inspectionStatus, fileUrl, notes,
@@ -165,6 +177,8 @@ export async function createInvoiceRequest(
         amountExclTax:          d.amountExclTax,
         taxAmount:              d.taxAmount,
         amountInclTax:          d.amountInclTax,
+        commissionRate:         d.commissionRate,
+        commissionExclTax:      d.commissionExclTax,
         mediaExpense:           d.mediaExpense,
         productionExpense:      d.productionExpense,
         withholdingTaxAmount:   d.withholdingTaxAmount,
@@ -246,6 +260,8 @@ export async function updateInvoiceRequest(
         amountExclTax:          d.amountExclTax,
         taxAmount:              d.taxAmount,
         amountInclTax:          d.amountInclTax,
+        commissionRate:         d.commissionRate,
+        commissionExclTax:      d.commissionExclTax,
         mediaExpense:           d.mediaExpense,
         productionExpense:      d.productionExpense,
         withholdingTaxAmount:   d.withholdingTaxAmount,

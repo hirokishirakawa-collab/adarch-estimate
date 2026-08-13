@@ -17,6 +17,7 @@ function fmtMonthLabel(month: string): string {
 const INVOICE_BADGE: Record<string, { label: string; cls: string }> = {
   ISSUED: { label: "お支払い前", cls: "bg-blue-50 text-blue-700 border-blue-200" },
   PAID: { label: "入金確認済", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  CANCELLED: { label: "取消済", cls: "bg-red-50 text-red-700 border-red-200" },
 };
 
 export default async function PartnerRoyaltyPage() {
@@ -29,8 +30,10 @@ export default async function PartnerRoyaltyPage() {
   const overviews = await Promise.all(months.map((m) => getMonthlyRoyaltyOverview(m)));
   const monthRows = months.map((m, i) => ({ month: m, row: overviews[i][0] ?? null }));
 
-  // 自社の発行済・入金済 請求書
-  const invoices = (await getGroupInvoices()).filter((inv) => inv.status === "ISSUED" || inv.status === "PAID");
+  // 自社の請求書。取消済みも残す（発行時にメールが届いているため、消えると却って分かりにくい）
+  const invoices = (await getGroupInvoices()).filter(
+    (inv) => inv.status === "ISSUED" || inv.status === "PAID" || inv.status === "CANCELLED",
+  );
 
   return (
     <div className="px-6 py-6 max-w-3xl mx-auto w-full">
@@ -106,13 +109,19 @@ export default async function PartnerRoyaltyPage() {
                   <p className="text-[11px] text-zinc-400 font-mono">{inv.invoiceNo}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-zinc-900">¥{Number(inv.totalInclTax).toLocaleString("ja-JP")}</span>
+                  <span className={`text-sm font-bold ${inv.status === "CANCELLED" ? "text-zinc-400 line-through" : "text-zinc-900"}`}>
+                    ¥{Number(inv.totalInclTax).toLocaleString("ja-JP")}
+                  </span>
                   <span className={`inline-block px-2 py-0.5 text-[11px] font-semibold rounded-full border ${(INVOICE_BADGE[inv.status] ?? INVOICE_BADGE.ISSUED).cls}`}>
                     {(INVOICE_BADGE[inv.status] ?? INVOICE_BADGE.ISSUED).label}
                   </span>
-                  <a href={`/api/group-invoices/${inv.id}/pdf`} className="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-100 text-zinc-700 text-xs font-medium rounded-lg hover:bg-zinc-200 transition-colors">
-                    <Download className="w-3.5 h-3.5" />PDF
-                  </a>
+                  {inv.status === "CANCELLED" ? (
+                    <span className="text-[11px] text-zinc-400">お支払い不要</span>
+                  ) : (
+                    <a href={`/api/group-invoices/${inv.id}/pdf`} className="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-100 text-zinc-700 text-xs font-medium rounded-lg hover:bg-zinc-200 transition-colors">
+                      <Download className="w-3.5 h-3.5" />PDF
+                    </a>
+                  )}
                 </div>
               </div>
             ))}

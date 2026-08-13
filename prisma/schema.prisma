@@ -146,6 +146,7 @@ enum GroupInvoiceStatus {
   DRAFT // 下書き
   ISSUED // 発行済み（パートナーに公開）
   PAID // 入金済み
+  CANCELLED // 取消（誤発行の取り消し）。発行済・入金済からのみ遷移し、記録は消さずに残す
 }
 
 enum EstimationStatus {
@@ -719,20 +720,34 @@ model ProjectLog {
 // RevenueReport（売上報告）
 // ==============================================================
 
+/// 請求元の区分。売上を「誰がクライアントに請求したか」で分ける。
+enum RevenueBilledBy {
+  SELF // 自拠点がクライアントへ直接請求
+  HQ // 本部（Ad Arch）がクライアントへ請求
+}
+
 /// 月次売上報告。MANAGER 以上が自拠点のデータのみ登録・閲覧できる。
-/// amount は税抜金額。targetMonth は計上月の月初日（YYYY-MM-01）で保存。
+/// amount は税抜金額（明細 items の合計）。targetMonth は計上月の月初日（YYYY-MM-01）で保存。
 model RevenueReport {
   id          String   @id @default(cuid())
-  amount      Decimal  @db.Decimal(15, 0) // 売上金額（税抜）
+  amount      Decimal  @db.Decimal(15, 0) // 売上金額（税抜・明細合計）
   targetMonth DateTime // 計上月（月初日 YYYY-MM-01 で保存）
   memo        String?  @db.Text // 備考
 
+  // ---- 請求元別の小計（税抜）----------------------------------
+  // amount = selfAmount + hqAmount（明細導入前の旧データは両方 0 のまま＝区分なし）
+  selfAmount Decimal @default(0) @db.Decimal(15, 0) // 自拠点が請求した売上
+  hqAmount   Decimal @default(0) @db.Decimal(15, 0) // 本部が請求した売上
+
   // ---- 月次報告フィールド ------------------------------------
-  projectName       String? // 関連プロジェクト名（自由入力）
+  projectName       String? // 関連プロジェクト名（明細の案件名から自動生成）
   staffName         String? // 今の状況（選択値）
   currentProjects   Int? // 今月の案件数
   nextMonthProjects Int? // 来月の見込み案件数
   supportRequest    String? // 本部に相談したいこと（選択値）
+
+  // ---- 明細 ---------------------------------------------------
+  items RevenueReportItem[]
 
   // ---- 作成者（データ保護の軸）--------------------------------
   createdById String
@@ -749,6 +764,30 @@ model RevenueReport {
   @@index([targetMonth])
   @@index([createdById])
   @@map("revenue_reports")
+}
+
+/// 月次売上報告の明細行。1行 = 1案件。
+/// 税額は登録時に 10% で計算して保存する（InvoiceRequest と同じ方式）。
+model RevenueReportItem {
+  id       String        @id @default(cuid())
+  reportId String
+  report   RevenueReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  billedBy    RevenueBilledBy @default(SELF) // 請求元（自拠点 / 本部）
+  clientName  String // クライアント名
+  projectName String // 案件名
+
+  amountExclTax Decimal @db.Decimal(15, 0) // 税抜金額（入力値）
+  taxAmount     Decimal @db.Decimal(15, 0) // 消費税額（10%）
+  amountInclTax Decimal @db.Decimal(15, 0) // 税込金額（自動計算）
+
+  memo      String? @db.Text // 備考
+  sortOrder Int     @default(0) // 表示順（フォームの行順）
+
+  createdAt DateTime @default(now())
+
+  @@index([reportId])
+  @@map("revenue_report_items")
 }
 
 // ==============================================================
@@ -778,6 +817,13 @@ model InvoiceRequest {
   inspectionStatus String? // 検収状況
   fileUrl          String? // 請求書PDF URL
   notes            String? @db.Text // 備考
+
+  // ── 本部手数料（ロイヤリティ相殺の原資）
+  // 本部がクライアントへ代理請求した税抜金額に対する手数料。請求日(billingDate)の月に帰属する。
+  // 支払明細(PaymentStatement.commissionAmount)＝実際に控除した額 と突き合わせる。
+  // null は本フィールド追加前の既存データ（集計側で amountExclTax × 既定率にフォールバック）。
+  commissionRate    Decimal  @default(10) @db.Decimal(5, 2) // 本部手数料率（%）。固定型プランは0
+  commissionExclTax Decimal? @db.Decimal(15, 0) // 本部手数料額（税抜）
 
   // ── 内訳（媒体費 / 制作費）
   mediaExpense      Decimal? @db.Decimal(15, 0) // 媒体費（税抜・源泉対象外）
@@ -888,7 +934,8 @@ model PaymentStatement {
 
 /// 1枚の支払明細に複数クライアント分の入金をまとめる際の明細行。
 /// 手数料率・媒体費・制作費・各種税は親 PaymentStatement 側で合計管理し、
-/// この行はクライアントごとの入金額（税込）の内訳を保持する。
+/// この行はクライアントごとの入金額（税込）と、その入金がどの県の売上かを保持する。
+/// 親の branchLabel は行の prefecture から自動導出（全行同一県ならその県、混在なら空）。
 /// 行が無い明細は従来どおり親の clientName / grossAmount を単一クライアントとして扱う。
 model PaymentStatementItem {
   id                 String           @id @default(cuid())
@@ -896,6 +943,7 @@ model PaymentStatementItem {
   paymentStatement   PaymentStatement @relation(fields: [paymentStatementId], references: [id], onDelete: Cascade)
 
   clientName  String // クライアント名
+  prefecture  String? // 都道府県（この入金がどの県の売上か）。フル名で保持（例: 山口県）
   grossAmount Decimal @db.Decimal(15, 0) // そのクライアントからの入金額（税込）
   note        String? // 補足（案件名など）
   sortOrder   Int     @default(0)
@@ -943,6 +991,12 @@ model GroupInvoice {
   // ── ステータス
   status GroupInvoiceStatus @default(DRAFT)
   paidAt DateTime?
+
+  // ── 取消（誤発行の取り消し）
+  // 発行済・入金済は削除できない（記録を残す必要があるため）。誤発行はここで取り消す。
+  // 実行者は監査ログ（audit_logs）に記録されるため、ここでは日時と理由のみ保持する。
+  cancelledAt  DateTime?
+  cancelReason String?   @db.Text
 
   // ── 作成者
   createdById String

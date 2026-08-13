@@ -23,6 +23,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   DRAFT: { label: "下書き", cls: "bg-zinc-100 text-zinc-600 border-zinc-200" },
   ISSUED: { label: "発行済", cls: "bg-blue-50 text-blue-700 border-blue-200" },
   PAID: { label: "入金済", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  CANCELLED: { label: "取消済", cls: "bg-red-50 text-red-700 border-red-200" },
 };
 const TYPE_LABEL: Record<string, string> = { ROYALTY: "ロイヤリティ", MEMBERSHIP: "加盟参画費用", OTHER: "その他" };
 
