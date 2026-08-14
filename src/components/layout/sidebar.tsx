@@ -119,27 +119,33 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-blue-500/80",
     items: [
       {
-        href: "/dashboard/sales",
-        label: "営業フロー",
-        icon: Workflow,
-        minRole: "USER",
-      },
-      {
         href: "/dashboard/customers",
-        label: "顧客管理",
+        label: "顧客管理（起点）",
         icon: Users,
         minRole: "USER",
       },
       {
         href: "/dashboard/leads/list",
-        label: "リード管理",
+        label: "① リード管理",
         icon: ListChecks,
         minRole: "USER",
       },
       {
         href: "/dashboard/deals",
-        label: "商談管理（SFA）",
+        label: "② 商談管理（SFA）",
         icon: TrendingUp,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/projects/new",
+        label: "③ プロジェクト登録",
+        icon: FolderKanban,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/sales",
+        label: "営業フロー",
+        icon: Workflow,
         minRole: "USER",
       },
       {
@@ -610,15 +616,17 @@ interface SidebarProps {
 // 全項目は常に「全て」タブにも出るため、ここは"よく使う動線"に絞る。
 // ----------------------------------------------------------------
 
-// ① 営業: 声かけ〜商談化まで
+// ① 営業: 顧客管理を起点に、声かけ（リード）→ 商談 → 受注（プロジェクト登録）まで
+// 並び順そのものが導線。上から順に辿れば案件が前に進むように配置する。
 const SELL_TAB_ITEMS: NavItem[] = [
+  { href: "/dashboard/customers", label: "顧客管理（起点）", icon: Users, minRole: "USER" },
+  { href: "/dashboard/leads/list", label: "① リード管理", icon: ListChecks, minRole: "USER" },
+  { href: "/dashboard/deals", label: "② 商談管理（SFA）", icon: TrendingUp, minRole: "USER" },
+  { href: "/dashboard/projects/new", label: "③ プロジェクト登録", icon: FolderKanban, minRole: "USER" },
   { href: "/dashboard/sales", label: "営業フロー", icon: Workflow, minRole: "USER" },
-  { href: "/dashboard/leads/list", label: "リード管理", icon: ListChecks, minRole: "USER" },
   { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, minRole: "USER" },
   { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, minRole: "USER" },
   { href: "/dashboard/outreach-pipeline", label: "アウトリーチ", icon: Send, minRole: "ADMIN" },
-  { href: "/dashboard/customers", label: "顧客管理", icon: Users, minRole: "USER" },
-  { href: "/dashboard/deals", label: "商談管理（SFA）", icon: TrendingUp, minRole: "USER" },
   { href: "/dashboard/regulars", label: "レギュラー案件", icon: Repeat, minRole: "MANAGER" },
   { href: "/dashboard/group-profiles", label: "メンバー紹介", icon: Users2, minRole: "USER" },
 ];

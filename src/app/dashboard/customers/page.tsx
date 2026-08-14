@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import Link from "next/link";
 import { Suspense } from "react";
-import { Plus, Users, UserCheck } from "lucide-react";
+import { Plus, Users, UserCheck, ListChecks, FolderKanban, ArrowRight } from "lucide-react";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
@@ -152,6 +152,39 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         </div>
       </div>
 
+      {/* ===== 導線ガイド: リード → 顧客 → プロジェクト ===== */}
+      {/* 顧客管理は営業の起点。ここから前後（リード・プロジェクト）へ迷わず動けるようにする。 */}
+      <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
+        <p className="text-[11px] font-semibold text-zinc-500 mb-3">
+          案件が前に進む順番 — 顧客管理はこの真ん中にあります
+        </p>
+        <div className="flex flex-col sm:flex-row sm:items-stretch gap-2">
+          <FlowStep
+            href="/dashboard/leads/list"
+            icon={ListChecks}
+            step="①"
+            label="リード管理"
+            desc="声かけ先を集めて連絡する。手応えのある先は「顧客に転換」を押す"
+          />
+          <FlowArrow />
+          <FlowStep
+            icon={Users}
+            step="②"
+            label="顧客管理（この画面）"
+            desc="転換した顧客を登録し、商談管理（SFA）で提案・見積を進める"
+            current
+          />
+          <FlowArrow />
+          <FlowStep
+            href="/dashboard/projects/new"
+            icon={FolderKanban}
+            step="③"
+            label="プロジェクト登録"
+            desc="受注したら登録して制作へ。顧客詳細の「プロジェクト作成」からも登録できる"
+          />
+        </div>
+      </div>
+
       {/* ===== サマリーカード（クリックでフィルタ） ===== */}
       <div data-tour="customer-summary" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Link href="/dashboard/customers" className={`bg-white rounded-lg border px-4 py-3 transition-all hover:shadow-md hover:-translate-y-0.5 ${!hasFilter ? "border-blue-300 ring-1 ring-blue-100" : "border-zinc-200"}`}>
@@ -212,6 +245,75 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           />
         </Suspense>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// 導線ガイドの部品
+// ---------------------------------------------------------------
+function FlowStep({
+  href,
+  icon: Icon,
+  step,
+  label,
+  desc,
+  current = false,
+}: {
+  href?: string;
+  icon: React.ElementType;
+  step: string;
+  label: string;
+  desc: string;
+  current?: boolean;
+}) {
+  const body = (
+    <>
+      <div className="flex items-center gap-2">
+        <span
+          className={`text-xs font-bold ${current ? "text-blue-600" : "text-zinc-400"}`}
+        >
+          {step}
+        </span>
+        <Icon
+          className={`w-4 h-4 shrink-0 ${
+            current ? "text-blue-600" : "text-zinc-400 group-hover:text-blue-600"
+          } transition-colors`}
+        />
+        <p
+          className={`text-sm font-semibold ${
+            current ? "text-blue-700" : "text-zinc-900 group-hover:text-blue-700"
+          } transition-colors`}
+        >
+          {label}
+        </p>
+      </div>
+      <p className="text-[11px] text-zinc-500 mt-1 leading-snug">{desc}</p>
+    </>
+  );
+
+  if (!href) {
+    return (
+      <div className="flex-1 rounded-lg border border-blue-300 bg-blue-50/60 px-4 py-3 ring-1 ring-blue-100">
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className="group flex-1 rounded-lg border border-zinc-200 bg-white px-4 py-3 transition-all hover:border-blue-300 hover:shadow-sm"
+    >
+      {body}
+    </Link>
+  );
+}
+
+function FlowArrow() {
+  return (
+    <div className="flex items-center justify-center shrink-0 rotate-90 sm:rotate-0">
+      <ArrowRight className="w-4 h-4 text-zinc-300" />
     </div>
   );
 }
