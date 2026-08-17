@@ -60,31 +60,78 @@ export function detectNoSolicitation(text: string): string | null {
 // サイトを取得して判定する
 // ────────────────────────────────────────────
 
+import { lookup } from "node:dns/promises";
+
 const FETCH_TIMEOUT_MS = 8000;
 const MAX_BYTES = 1_500_000;
+const MAX_REDIRECTS = 3;
 
-/** 社内ネットワークや自分自身を叩かせないための宛先チェック（SSRF対策） */
-function isPubliclyRoutable(u: URL): boolean {
-  if (u.protocol !== "http:" && u.protocol !== "https:") return false;
-  const h = u.hostname.toLowerCase();
-  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".internal") || h.endsWith(".local")) return false;
-  if (h === "metadata.google.internal") return false;
-
-  // IPv4 直指定
-  const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (v4) {
-    const [a, b] = [Number(v4[1]), Number(v4[2])];
-    if (a === 10 || a === 127 || a === 0) return false;
-    if (a === 172 && b >= 16 && b <= 31) return false;
-    if (a === 192 && b === 168) return false;
-    if (a === 169 && b === 254) return false; // クラウドのメタデータ
-    if (a >= 224) return false;
-    return true;
+/** 到達してはいけないIPか。IPv4/IPv6の両方を見る。 */
+function isPrivateAddress(ip: string, family: number): boolean {
+  if (family === 4) {
+    const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!m) return true; // 判別できないものは通さない
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    if (a === 0 || a === 10 || a === 127) return true;          // このホスト / プライベート / ループバック
+    if (a === 172 && b >= 16 && b <= 31) return true;           // プライベート
+    if (a === 192 && b === 168) return true;                    // プライベート
+    if (a === 169 && b === 254) return true;                    // リンクローカル＝クラウドのメタデータ
+    if (a === 100 && b >= 64 && b <= 127) return true;          // CGNAT
+    if (a === 192 && b === 0) return true;                      // 192.0.0.0/24, 192.0.2.0/24
+    if (a === 198 && (b === 18 || b === 19)) return true;        // ベンチマーク
+    if (a >= 224) return true;                                   // マルチキャスト・予約
+    return false;
   }
-  // IPv6 直指定はまとめて拒否（営業先サイトが素のIPv6で来ることはない）
-  if (h.includes(":") || h.startsWith("[")) return false;
-  if (!h.includes(".")) return false; // ホスト名にドットが無い＝社内名の可能性
-  return true;
+
+  const h = ip.toLowerCase();
+  if (h === "::" || h === "::1") return true;                    // 未指定 / ループバック
+  // IPv4射影アドレス（::ffff:10.0.0.1 など）は中のv4で判定する
+  const mapped = h.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+  if (mapped) return isPrivateAddress(mapped[1], 4);
+  if (/^f[cd]/.test(h)) return true;                             // fc00::/7 ユニークローカル
+  if (/^fe[89ab]/.test(h)) return true;                          // fe80::/10 リンクローカル
+  if (h.startsWith("ff")) return true;                           // マルチキャスト
+  return false;
+}
+
+/** ホスト名の見た目で明らかに社内向けのものを先に落とす */
+function looksInternal(h: string): boolean {
+  if (h === "localhost" || h.endsWith(".localhost")) return true;
+  if (h.endsWith(".internal") || h.endsWith(".local") || h.endsWith(".lan") || h.endsWith(".home.arpa")) return true;
+  if (h === "metadata.google.internal") return true;
+  if (!h.includes(".")) return true; // ドットが無い＝社内名の可能性
+  return false;
+}
+
+/**
+ * 宛先が外部の公開ホストか確認する（SSRF対策）。
+ *
+ * ホスト名の文字列だけを見ても足りない。公開ドメインのDNSが 127.0.0.1 や
+ * 169.254.169.254（クラウドのメタデータ）を指しているケースを止められないため、
+ * **実際にDNSを引いて、返ってきた全アドレスを検査する**。
+ *
+ * 残存リスク: 検査から接続までの間にDNSの応答が変わる（DNSリバインディング）攻撃は
+ * これだけでは完全には塞げない。宛先はOSにログインした加盟代表が入力したURLに限られ、
+ * 完全な遮断にはIP直結+Hostヘッダ（HTTPSの証明書検証と両立しない）か
+ * 送信専用プロキシが要るため、ここまでを実装上の線としている。
+ */
+async function assertSafeUrl(u: URL): Promise<boolean> {
+  if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+  const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (looksInternal(h)) return false;
+
+  // IP直指定はそのまま判定
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h)) return !isPrivateAddress(h, 4);
+  if (h.includes(":")) return !isPrivateAddress(h, 6);
+
+  try {
+    const addrs = await lookup(h, { all: true });
+    if (addrs.length === 0) return false;
+    // 1つでも内部アドレスを含むなら接続しない
+    return !addrs.some((a) => isPrivateAddress(a.address, a.family));
+  } catch {
+    return false;
+  }
 }
 
 /** HTMLから本文テキストを取り出す。script/style は落とす。 */
@@ -107,30 +154,46 @@ async function fetchText(url: string): Promise<string | null> {
   } catch {
     return null;
   }
-  if (!isPubliclyRoutable(u)) return null;
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(u.toString(), {
-      signal: ctrl.signal,
-      redirect: "follow",
-      headers: {
-        // ブラウザ以外を弾くサイトがあるため
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-        "Accept-Language": "ja,en;q=0.8",
-      },
-    });
-    if (!res.ok) return null;
-    const type = res.headers.get("content-type") ?? "";
-    if (!type.includes("text/html") && !type.includes("text/plain")) return null;
-    // 実際に飛んだ先も検証する（リダイレクトで社内へ回されないように）
-    if (!isPubliclyRoutable(new URL(res.url))) return null;
+    // リダイレクトは自動で追わない。追ってから検査したのでは、
+    // 内部アドレスへのリクエストが既に飛んだ後になるため。1ホップずつ検査する。
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      if (!(await assertSafeUrl(u))) return null;
 
-    const buf = await res.arrayBuffer();
-    const slice = buf.byteLength > MAX_BYTES ? buf.slice(0, MAX_BYTES) : buf;
-    return new TextDecoder("utf-8", { fatal: false }).decode(slice);
+      const res = await fetch(u.toString(), {
+        signal: ctrl.signal,
+        redirect: "manual",
+        headers: {
+          // ブラウザ以外を弾くサイトがあるため
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+          "Accept-Language": "ja,en;q=0.8",
+        },
+      });
+
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get("location");
+        if (!loc) return null;
+        try {
+          u = new URL(loc, u); // 相対Locationにも対応。次のループ頭で再検査される
+        } catch {
+          return null;
+        }
+        continue;
+      }
+
+      if (!res.ok) return null;
+      const type = res.headers.get("content-type") ?? "";
+      if (!type.includes("text/html") && !type.includes("text/plain")) return null;
+
+      const buf = await res.arrayBuffer();
+      const slice = buf.byteLength > MAX_BYTES ? buf.slice(0, MAX_BYTES) : buf;
+      return new TextDecoder("utf-8", { fatal: false }).decode(slice);
+    }
+    return null; // リダイレクトが多すぎる
   } catch {
     return null;
   } finally {
@@ -146,7 +209,10 @@ function findContactLink(html: string, base: URL): string | null {
     if (!hint.test(h)) continue;
     try {
       const abs = new URL(h, base);
-      if (isPubliclyRoutable(abs) && abs.hostname === base.hostname) return abs.toString();
+      // 同一ホストに限る。宛先の安全確認は fetchText 側で毎回やり直す
+      if ((abs.protocol === "http:" || abs.protocol === "https:") && abs.hostname === base.hostname) {
+        return abs.toString();
+      }
     } catch {
       /* 壊れたhrefは無視 */
     }
