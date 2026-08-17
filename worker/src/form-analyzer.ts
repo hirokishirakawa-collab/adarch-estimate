@@ -140,11 +140,11 @@ export async function analyzeForm(
     senderName: string;
     phone: string | null;
     email: string | null;
+    subject: string | null;
     body: string;
   },
   targetIndustry: string | null,
-  targetArea: string | null = null,
-  companyInsight: string | null = null
+  targetArea: string | null = null
 ): Promise<AnalysisResult> {
   const { formHtml, captchaType, siteKey } = extractFormHtml(pageHtml);
 
@@ -153,12 +153,17 @@ export async function analyzeForm(
   const replyEmail =
     template.email?.trim() || process.env.AUTO_SALES_REPLY_EMAIL || "media@adarch.co.jp";
 
-  // テンプレート本文の変数を置換
-  const bodyText = template.body
-    .replace(/\{industry\}/g, targetIndustry ?? "御社の事業")
-    .replace(/\{area\}/g, targetArea ?? "地域")
-    .replace(/\{companyName\}/g, template.companyName ?? "御社")
-    .replace(/\{companyInsight\}/g, companyInsight ?? `${targetIndustry ?? "御社の事業"}について拝見し`);
+  // 差し込み変数の置換。事実を差し替えるだけで、文章はAIに書かせない。
+  // かつて {companyInsight} でAIに「御社の○○を拝見し」を1社ずつ書かせていたが、
+  // この型が受け手から見て機械送信の目印になるため廃止した。
+  const fill = (s: string) =>
+    s
+      .replace(/\{industry\}/g, targetIndustry ?? "")
+      .replace(/\{area\}/g, targetArea ?? "")
+      .replace(/\{companyName\}/g, template.companyName ?? "");
+
+  const bodyText = fill(template.body);
+  const subjectText = fill(template.subject ?? "");
 
   if (!formHtml) {
     return { fields: [], captchaType: "none", siteKey: null, submitSelector: null, resolvedBody: bodyText, replyEmail };
@@ -177,6 +182,9 @@ export async function analyzeForm(
 - 氏名: "${template.senderName}"
 - 電話番号: "${template.phone ?? ""}"
 - メールアドレス: "${replyEmail}"
+- 件名: """
+${subjectText}
+"""
 - お問い合わせ内容: """
 ${bodyText}
 """
@@ -198,7 +206,10 @@ ${formHtml}
 - 該当するフィールドがなければスキップ
 - selectの場合、最も適切なoption valueを選ぶ
 - radioの場合、valueも指定する
-- 「個人情報の取り扱い」同意チェックボックスがあれば checked: true にする`,
+- 「個人情報の取り扱い」同意チェックボックスがあれば checked: true にする
+- 件名・タイトル・題名にあたる入力欄があれば、上の「件名」をそのまま入れる
+- **値は上に与えられたものだけを使う。文章を要約・言い換え・新規作成しない。**
+  お問い合わせ内容の欄には本文を一字一句そのまま入れる`,
       },
     ],
   });

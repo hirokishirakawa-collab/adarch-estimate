@@ -2951,9 +2951,13 @@ model AutoSalesTemplate {
 
   // 営業設定（パートナーが入力）
   targetType   AutoSalesTargetType // BtoB / BtoC
-  serviceTypes AutoSalesServiceType[] // 訴求カテゴリ（複数選択可）
-  pitchText    String                 @db.Text // パートナーが書いた訴求文（自由記述）
-  body         String                 @db.Text // 最終的なフォーム送信用本文（pitchTextをベースに生成）
+  serviceTypes AutoSalesServiceType[] // 訴求カテゴリ（分類用。本文には差し込まない）
+  /// 件名。フォームに件名欄があればここが入る。人が書く。
+  subject      String?
+  pitchText    String                 @db.Text // 本文と同じ内容（プレイブック/成功例の分析が参照する）
+  /// フォームに送る本文。人が書いたものをそのまま送る（署名も本人が書く）。
+  /// AIによる自動生成・自動組み立ては行わない。
+  body         String                 @db.Text
 
   // スケジュール
   scheduledStartDate DateTime? // 営業開始日（nullなら承認後すぐ開始）

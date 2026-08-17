@@ -50,6 +50,7 @@ interface Template {
   targetType: string;
   serviceTypes: string[];
   pitchText: string;
+  subject: string | null;
   body: string;
   email: string | null;
   isApproved: boolean;
@@ -1168,17 +1169,14 @@ function TemplateCard({ template: t, index, total, readOnly, isAdmin }: { templa
               </span>
             ))}
           </div>
-          <div className="bg-zinc-50 rounded-xl p-4 mb-3">
-            <p className="text-xs font-medium text-zinc-500 mb-2">訴求文</p>
-            <p className="text-sm text-zinc-700 whitespace-pre-wrap leading-relaxed">{t.pitchText}</p>
-          </div>
-
           {/* 実際にフォームへ送られる本文。本部が承認前に中身を確認するための表示。 */}
           <div className="bg-white border border-zinc-200 rounded-xl p-4 mb-3">
-            <p className="text-xs font-medium text-zinc-500 mb-2">送信される本文（署名込み・そのまま送られます）</p>
+            <p className="text-xs font-medium text-zinc-500 mb-1">件名</p>
+            <p className="text-sm text-zinc-800 mb-3">{t.subject ?? <span className="text-amber-600">未設定</span>}</p>
+            <p className="text-xs font-medium text-zinc-500 mb-2">本文（このまま送られます）</p>
             <p className="text-sm text-zinc-700 whitespace-pre-wrap leading-relaxed font-mono text-[13px]">{t.body}</p>
             <p className="text-[11px] text-zinc-400 mt-3 leading-relaxed">
-              {"{companyInsight} は送信時にAIが相手サイトを読んで置き換えます。{industry} {area} {companyName} も送信先ごとに埋まります。"}
+              {"{companyName} {industry} {area} だけが送信先ごとに置き換わります。文章はこのまま送られます。"}
             </p>
           </div>
 
@@ -1341,48 +1339,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
     { id: string; branchName: string; targetType: string; serviceTypes: string[]; pitchText: string; responseCount: number }[]
   >([]);
   const [showExamples, setShowExamples] = useState(false);
-  const [generating, setGenerating] = useState(false);
-
-  async function generatePitch(e: React.MouseEvent) {
-    e.preventDefault();
-    const form = (e.target as HTMLElement).closest("form");
-    if (!form) return;
-    const fd = new FormData(form);
-    const companyName = (fd.get("companyName") as string)?.trim();
-    const senderName = (fd.get("senderName") as string)?.trim();
-    if (!companyName || !senderName) {
-      setError("AIで生成するには、送信元会社名と送信者名を先に入力してください");
-      return;
-    }
-    if (selectedServices.length === 0) {
-      setError("訴求カテゴリを1つ以上選択してください");
-      return;
-    }
-    setGenerating(true);
-    setError("");
-    try {
-      const res = await fetch("/api/auto-sales/generate-pitch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyName,
-          senderName,
-          targetType: selectedTargetType,
-          serviceTypes: selectedServices,
-        }),
-      });
-      if (!res.ok) {
-        setError("生成に失敗しました");
-        return;
-      }
-      const data = await res.json();
-      setPitchTextValue(data.pitchText);
-    } catch {
-      setError("通信エラーが発生しました");
-    } finally {
-      setGenerating(false);
-    }
-  }
+  // AIによる訴求文の自動生成は廃止した（文面は人が書く）
 
   function toggleService(id: string) {
     setSelectedServices((prev) =>
@@ -1431,7 +1388,8 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
       additionalInfo: fd.get("additionalInfo"),
       targetType: selectedTargetType,
       serviceTypes: selectedServices,
-      pitchText: pitchTextValue || fd.get("pitchText"),
+      subject: fd.get("subject"),
+      messageBody: pitchTextValue || fd.get("messageBody"),
       scheduledStartDate: startDate || undefined,
     };
 
@@ -1645,31 +1603,38 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {/* 訴求文 */}
+      {/* 件名 */}
+      <div>
+        <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 mb-2">
+          <MessageSquare className="w-4 h-4 text-zinc-400" />
+          件名 <span className="text-red-500">*</span>
+        </label>
+        <input
+          name="subject"
+          required
+          maxLength={120}
+          className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-300 outline-none transition-all placeholder:text-zinc-300"
+          placeholder="例: 動画制作のご相談について"
+        />
+        <p className="text-xs text-zinc-400 mt-1.5">
+          問い合わせフォームに件名欄がある場合、ここがそのまま入ります。
+        </p>
+      </div>
+
+      {/* 本文 */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700">
             <MessageSquare className="w-4 h-4 text-zinc-400" />
-            訴求文 <span className="text-red-500">*</span>
+            本文 <span className="text-red-500">*</span>
           </label>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={generatePitch}
-              disabled={generating}
-              className="inline-flex items-center gap-1 text-xs bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1 rounded-lg hover:from-purple-700 hover:to-blue-700 font-bold disabled:opacity-50 shadow-sm"
-            >
-              <Sparkles className="w-3 h-3" />
-              {generating ? "生成中..." : "AIで自動生成"}
-            </button>
-            <button
-              type="button"
-              onClick={loadSuccessExamples}
-              className="text-xs text-purple-600 hover:text-purple-800 font-bold"
-            >
-              {showExamples ? "閉じる" : "成功実績を参考にする"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={loadSuccessExamples}
+            className="text-xs text-zinc-500 hover:text-zinc-900 underline underline-offset-2"
+          >
+            {showExamples ? "閉じる" : "反響のあった文面を見る"}
+          </button>
         </div>
 
         {showExamples && (
@@ -1702,17 +1667,27 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
         )}
 
         <textarea
-          name="pitchText"
+          name="messageBody"
           required
-          rows={8}
+          rows={14}
           value={pitchTextValue}
           onChange={(e) => setPitchTextValue(e.target.value)}
-          className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all resize-none placeholder:text-zinc-300"
-          placeholder={`突然のご連絡失礼いたします。\n○○エリアで映像制作・広告プロモーションを手がけております○○と申します。\n\n貴社の○○に大変興味を持ち、ご連絡させていただきました。`}
+          className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm leading-relaxed focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-300 outline-none transition-all resize-y placeholder:text-zinc-300"
+          placeholder={`ここに書いた文章が、そのまま相手のフォームに入ります。\n署名も最後にご自身で書いてください。`}
         />
-        <p className="text-xs text-zinc-400 mt-1.5">
-          {"{industry}"}=業種名、{"{area}"}=エリア名、{"{companyInsight}"}=相手サイト分析結果 に自動置換
-        </p>
+
+        <div className="mt-2 rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
+          <p className="text-xs font-medium text-zinc-700 mb-2">書いた文章がそのまま送られます</p>
+          <ul className="text-[11px] text-zinc-500 space-y-1 leading-relaxed">
+            <li>・AIによる自動生成や、定型文の自動追加はしません。署名もご自身で書いてください。</li>
+            <li>・差し込みは事実の置換だけです：
+              <code className="mx-1 px-1 py-0.5 bg-white border border-zinc-200 rounded text-zinc-600">{"{companyName}"}</code>=自社名、
+              <code className="mx-1 px-1 py-0.5 bg-white border border-zinc-200 rounded text-zinc-600">{"{industry}"}</code>=相手の業種、
+              <code className="mx-1 px-1 py-0.5 bg-white border border-zinc-200 rounded text-zinc-600">{"{area}"}</code>=相手のエリア
+            </li>
+            <li>・相手のサイトを読んで一言を差し込む機能は廃止しました。同じ型の文章が大量に届くと、受け取る側にはすぐ分かるためです。</li>
+          </ul>
+        </div>
       </div>
 
       {/* 開始日 */}

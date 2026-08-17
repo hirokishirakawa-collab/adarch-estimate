@@ -72,7 +72,8 @@ export async function POST(req: NextRequest) {
     additionalInfo,
     targetType,
     serviceTypes,
-    pitchText,
+    subject,
+    messageBody,
     scheduledStartDate,
   } = body as {
     name: string;
@@ -87,14 +88,31 @@ export async function POST(req: NextRequest) {
     additionalInfo?: string;
     targetType: AutoSalesTargetType;
     serviceTypes: AutoSalesServiceType[];
-    pitchText: string;
+    subject: string;
+    messageBody: string;
     scheduledStartDate?: string;
   };
 
   // バリデーション
-  if (!name || !companyName || !senderName || !pitchText || !targetType || !serviceTypes?.length) {
+  if (!name || !companyName || !senderName || !targetType || !serviceTypes?.length) {
     return NextResponse.json(
-      { error: "必須項目を入力してください（名前、会社名、送信者名、訴求文、ターゲット種別、訴求カテゴリ）" },
+      { error: "必須項目を入力してください（名前、会社名、送信者名、ターゲット種別、訴求カテゴリ）" },
+      { status: 400 }
+    );
+  }
+
+  // 件名と本文は人が書く。ここでAIが生成したり、定型を自動で足したりしない。
+  const finalSubject = subject?.trim() ?? "";
+  const finalBody = messageBody?.trim() ?? "";
+  if (!finalSubject) {
+    return NextResponse.json({ error: "件名を入力してください" }, { status: 400 });
+  }
+  if (!finalBody) {
+    return NextResponse.json({ error: "本文を入力してください" }, { status: 400 });
+  }
+  if (finalBody.length < 30) {
+    return NextResponse.json(
+      { error: "本文が短すぎます。相手に届く文章として成立しているか確認してください。" },
       { status: 400 }
     );
   }
@@ -122,32 +140,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "無効な訴求カテゴリです" }, { status: 400 });
   }
 
-  // 訴求カテゴリのラベル
-  const serviceLabels: Record<AutoSalesServiceType, string> = {
-    VIDEO_PRODUCTION: "動画制作",
-    SNS_MANAGEMENT: "SNS運用",
-    AD_MEDIA: "広告媒体提案",
-    FIRST_MEETING: "初回商談",
-  };
-
-  // pitchTextをベースにフォーム送信用本文を生成
-  const serviceText = serviceTypes.map((s: AutoSalesServiceType) => serviceLabels[s]).join("・");
-
-  // 署名ブロックを組み立て
-  const signatureLines: string[] = [];
-  signatureLines.push(companyName);
-  if (department) signatureLines.push(department);
-  if (position) signatureLines.push(`${position} ${senderName}`.trim());
-  else signatureLines.push(senderName);
-  if (address) signatureLines.push(address);
-  if (phone) signatureLines.push(`TEL: ${phone}`);
-  signatureLines.push(`Mail: ${replyEmail}`);
-  if (websiteUrl) signatureLines.push(`Web: ${websiteUrl}`);
-
-  const additionalBlock = additionalInfo ? `\n\n${additionalInfo}` : "";
-
-  const generatedBody = `${pitchText}\n\n【ご提案可能なサービス】\n${serviceText}\n\nご興味がございましたら、お気軽にご返信ください。${additionalBlock}\n\n---\n${signatureLines.join("\n")}`;
-
+  // 本文は組み立てない。書かれたものをそのまま送る。
+  //
+  // 以前はここで「【ご提案可能なサービス】＋サービス名の羅列」「ご興味がございましたら〜」
+  // 「--- 区切りの署名」を自動で足していた。この定型構造自体が受け手から見て
+  // 機械送信の目印になるため廃止した。署名も本人が本文に書く。
+  //
+  // pitchText には本文と同じものを入れる。プレイブックと成功例の分析が
+  // この列を読んでいるので、列自体は残す（分析対象が実際に送った文章になる）。
   const template = await db.autoSalesTemplate.create({
     data: {
       branchId: user.branchId,
@@ -163,8 +163,9 @@ export async function POST(req: NextRequest) {
       additionalInfo: additionalInfo || null,
       targetType,
       serviceTypes,
-      pitchText,
-      body: generatedBody,
+      subject: finalSubject,
+      pitchText: finalBody,
+      body: finalBody,
       scheduledStartDate: scheduledStartDate ? new Date(scheduledStartDate) : null,
       // 申請制：登録＝本部への申請。承認されるまで送信は始まらない。
       isApproved: false,

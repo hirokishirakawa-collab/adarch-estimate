@@ -4,7 +4,6 @@ import { analyzeForm } from "./form-analyzer.js";
 import { fillForm, clickSubmit, clickConfirmButton } from "./form-filler.js";
 import { findContactFormUrl } from "./form-finder.js";
 import { solveCaptcha } from "./captcha-solver.js";
-import { generateCompanyInsight } from "./site-analyzer.js";
 import { normalizeDomain } from "./domain.js";
 
 const DRY_RUN = process.env.DRY_RUN === "true";
@@ -374,12 +373,10 @@ export async function processNextJob(): Promise<boolean> {
       return true;
     }
 
-    // 相手企業サイトを解析して営業文をカスタマイズ
-    console.log(`[job-runner] サイト解析中（Claude Haiku）...`);
-    const companyInsight = await generateCompanyInsight(
-      pageText, job.target.companyName, job.target.industry
-    );
-    console.log(`[job-runner] サイト解析完了: ${companyInsight}`);
+    // 相手サイトを読んで営業文に一言を差し込む処理は廃止した。
+    // 1社ごとに「御社の○○を拝見し」を自動生成する型そのものが、
+    // 受け手から見て機械送信の目印になるため。文面は人が書いたものをそのまま送る。
+    // （Claude呼び出しが1回減るので、1件あたりのコストと所要時間も下がる）
 
     // フォームURL自動検出: トップページ等の場合、お問い合わせフォームを探す
     console.log(`[job-runner] フォーム検出開始...`);
@@ -442,8 +439,9 @@ export async function processNextJob(): Promise<boolean> {
       senderName: job.template.senderName,
       phone: job.template.phone,
       email: job.template.email,
+      subject: job.template.subject,
       body: job.template.body,
-    }, job.target.industry, job.target.area, companyInsight);
+    }, job.target.industry, job.target.area);
 
     // フォーム入力
     console.log(`[job-runner] フォーム解析完了: ${analysis.fields.length}フィールド, CAPTCHA: ${analysis.captchaType}`);
@@ -469,7 +467,6 @@ export async function processNextJob(): Promise<boolean> {
           completedAt: new Date(),
           filledData: filled,
           sentBody: analysis.resolvedBody,
-          companyInsight,
           sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: errors.length > 0 ? `入力エラー: ${errors.join("; ")}` : null,
@@ -488,7 +485,6 @@ export async function processNextJob(): Promise<boolean> {
           completedAt: new Date(),
           filledData: filled,
           sentBody: analysis.resolvedBody,
-          companyInsight,
           sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: `CAPTCHAサイトのため手動対応が必要（${analysis.captchaType}）`,
@@ -545,7 +541,6 @@ export async function processNextJob(): Promise<boolean> {
             completedAt: new Date(),
             filledData: filled,
             sentBody: analysis.resolvedBody,
-            companyInsight,
             sentFromEmail: analysis.replyEmail,
             screenshotUrl,
           },
@@ -566,7 +561,6 @@ export async function processNextJob(): Promise<boolean> {
             completedAt: new Date(),
             filledData: filled,
             sentBody: analysis.resolvedBody,
-            companyInsight,
             sentFromEmail: analysis.replyEmail,
             screenshotUrl,
             errorMessage: `CF7送信拒否: ${cf7Status ?? cf7Error ?? "unknown"} - ${cf7Message}`,
@@ -589,7 +583,6 @@ export async function processNextJob(): Promise<boolean> {
           completedAt: new Date(),
           filledData: filled,
           sentBody: analysis.resolvedBody,
-          companyInsight,
           sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: "送信ボタンが見つからないか、クリックできませんでした",
@@ -634,7 +627,6 @@ export async function processNextJob(): Promise<boolean> {
           completedAt: new Date(),
           filledData: filled,
           sentBody: analysis.resolvedBody,
-          companyInsight,
           sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: `フォーム送信拒否: ${pageResponse?.substring(0, 200) ?? "不明"}`,
@@ -697,7 +689,6 @@ export async function processNextJob(): Promise<boolean> {
           completedAt: new Date(),
           filledData: filled,
           sentBody: analysis.resolvedBody,
-          companyInsight,
           sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: errors.length > 0 ? `入力警告: ${errors.join("; ")}` : null,
@@ -718,7 +709,6 @@ export async function processNextJob(): Promise<boolean> {
           completedAt: new Date(),
           filledData: filled,
           sentBody: analysis.resolvedBody,
-          companyInsight,
           sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: "送信完了ページが確認できませんでした（未送信の可能性あり）",
