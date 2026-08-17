@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   }
 
   const isAdmin = user.role === "ADMIN";
-  if (!isAdmin && !user.enabledFeatures.includes("auto-sales")) {
+  if (!isAdmin && user.role !== "MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const branchFilter = isAdmin ? {} : { branchId: user.branchId! };
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   if (!user || !user.branchId) {
     return NextResponse.json({ error: "Branch not assigned" }, { status: 400 });
   }
-  if (user.role !== "ADMIN" && !user.enabledFeatures.includes("auto-sales")) {
+  if (user.role !== "ADMIN" && user.role !== "MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

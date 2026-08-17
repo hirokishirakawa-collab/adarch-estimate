@@ -20,7 +20,7 @@ export default async function AutoSalesRequestPage({
   if (!user) redirect("/");
 
   const isAdmin = user.role === "ADMIN";
-  if (!isAdmin && !user.enabledFeatures.includes("auto-sales")) {
+  if (!isAdmin && user.role !== "MANAGER") {
     redirect("/dashboard");
   }
 

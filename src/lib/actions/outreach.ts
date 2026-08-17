@@ -6,16 +6,21 @@ import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import type { OutreachStatus } from "@/generated/prisma/client";
 
-// 当面は本部（ADMIN）限定。段階公開はPhase0（ドメイン/法務/運用ガイド）整備後に。
-async function requireAdmin() {
+/// 加盟している段階で全員が使える。本部が個別に許可を出す運用はやめた。
+/// データの見える範囲は下の ownerEmail スコープで担保する（ADMINだけが全件を編集できる）。
+async function requireOutreach() {
   const info = await getSessionInfo();
-  if (!info || info.role !== "ADMIN") return null;
+  if (!info) return null;
+  if (info.role !== "ADMIN" && info.role !== "MANAGER") return null;
   return info;
 }
 
-// 一覧（ADMIN: 全件 / その他: 自分の担当のみ）
+/// 送信後のステータス。ここから先は全社に公開する。
+const SHARED_STATUSES = ["SENT", "REPLIED", "MEETING"] as const;
+
+// 自分のアウトリーチ（ADMIN: 全件 / 代表: 自分の担当のみ）
 export async function getOutreachLeads() {
-  const info = await requireAdmin();
+  const info = await requireOutreach();
   if (!info) return [];
   return db.outreachLead.findMany({
     where: info.role === "ADMIN" ? {} : { ownerEmail: info.email },
@@ -24,9 +29,34 @@ export async function getOutreachLeads() {
   });
 }
 
+/// 全社の送付状況。送信済み以降だけを、誰でも読み取り専用で見られる。
+/// 「どこに誰が当たったか」を共有するのが目的なので、下書き本文と連絡先は返さない。
+/// 通常のリード管理（Lead モデル）とは別系統。混ぜない。
+export async function getSharedOutreachActivity() {
+  const info = await requireOutreach();
+  if (!info) return [];
+  return db.outreachLead.findMany({
+    where: { status: { in: [...SHARED_STATUSES] } },
+    select: {
+      id: true,
+      companyName: true,
+      website: true,
+      prefecture: true,
+      status: true,
+      ownerName: true,
+      ownerEmail: true,
+      sentAt: true,
+      repliedAt: true,
+      createdAt: true,
+    },
+    orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
+    take: 500,
+  });
+}
+
 // 貼り付けでリード追加（1行1社・「会社名, メール, 事業メモ」）。配信停止メールはスキップ。
 export async function addOutreachLeads(raw: string): Promise<{ error?: string; added?: number; skipped?: number }> {
-  const info = await requireAdmin();
+  const info = await requireOutreach();
   if (!info) return { error: "権限がありません" };
 
   const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -74,7 +104,7 @@ export async function addOutreachLeads(raw: string): Promise<{ error?: string; a
 
 // AI生成した下書きを保存
 export async function saveOutreachDraft(id: string, subject: string, body: string): Promise<{ error?: string }> {
-  const info = await requireAdmin();
+  const info = await requireOutreach();
   if (!info) return { error: "権限がありません" };
   // 担当者スコープ（IDOR防止）: ADMIN以外は自分の担当リードのみ
   const where = info.role === "ADMIN" ? { id } : { id, ownerEmail: info.email };
@@ -94,7 +124,7 @@ export async function saveOutreachDraft(id: string, subject: string, body: strin
 
 // ステータス更新（OPTOUT は配信停止リストにも登録）
 export async function updateOutreachStatus(id: string, status: OutreachStatus): Promise<{ error?: string }> {
-  const info = await requireAdmin();
+  const info = await requireOutreach();
   if (!info) return { error: "権限がありません" };
   // 担当者スコープ（IDOR防止）
   const where = info.role === "ADMIN" ? { id } : { id, ownerEmail: info.email };
@@ -127,7 +157,7 @@ export async function updateOutreachStatus(id: string, status: OutreachStatus): 
 }
 
 export async function deleteOutreachLead(id: string): Promise<{ error?: string }> {
-  const info = await requireAdmin();
+  const info = await requireOutreach();
   if (!info) return { error: "権限がありません" };
   // 担当者スコープ（IDOR防止）
   const where = info.role === "ADMIN" ? { id } : { id, ownerEmail: info.email };
@@ -140,4 +170,59 @@ export async function deleteOutreachLead(id: string): Promise<{ error?: string }
   }
   revalidatePath("/dashboard/outreach-pipeline");
   return {};
+}
+
+/// 一括削除。担当者スコープを効かせるので、他人のリードが混ざっていても消えない。
+export async function deleteOutreachLeads(ids: string[]): Promise<{ error?: string; deleted?: number }> {
+  const info = await requireOutreach();
+  if (!info) return { error: "権限がありません" };
+  if (!ids.length) return { deleted: 0 };
+  const where =
+    info.role === "ADMIN" ? { id: { in: ids } } : { id: { in: ids }, ownerEmail: info.email };
+  try {
+    const res = await db.outreachLead.deleteMany({ where });
+    logAudit({
+      action: "outreach_leads_deleted",
+      email: info.email,
+      name: info.staffName,
+      entity: "outreach_lead",
+      entityId: `${res.count}件`,
+      detail: `アウトリーチ一括削除 ${res.count}件`,
+    });
+    revalidatePath("/dashboard/outreach-pipeline");
+    return { deleted: res.count };
+  } catch (e) {
+    console.error("[deleteOutreachLeads] DB error:", e instanceof Error ? e.message : e);
+    return { error: "削除に失敗しました" };
+  }
+}
+
+/// 一括ステータス更新。配信停止は1件ずつの経路（updateOutreachStatus）に寄せる。
+export async function updateOutreachStatuses(
+  ids: string[],
+  status: OutreachStatus
+): Promise<{ error?: string; updated?: number }> {
+  const info = await requireOutreach();
+  if (!info) return { error: "権限がありません" };
+  if (!ids.length) return { updated: 0 };
+  if (status === "OPTOUT") {
+    return { error: "配信停止は1件ずつ設定してください（停止リストへの登録が伴うため）" };
+  }
+  const where =
+    info.role === "ADMIN" ? { id: { in: ids } } : { id: { in: ids }, ownerEmail: info.email };
+  try {
+    const res = await db.outreachLead.updateMany({
+      where,
+      data: {
+        status,
+        ...(status === "SENT" ? { sentAt: new Date() } : {}),
+        ...(status === "REPLIED" ? { repliedAt: new Date() } : {}),
+      },
+    });
+    revalidatePath("/dashboard/outreach-pipeline");
+    return { updated: res.count };
+  } catch (e) {
+    console.error("[updateOutreachStatuses] DB error:", e instanceof Error ? e.message : e);
+    return { error: "更新に失敗しました" };
+  }
 }

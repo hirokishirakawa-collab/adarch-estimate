@@ -41,9 +41,9 @@ const SUSPEND_REASON_COLOR: Record<Exclude<SuspendReasonValue, null>, string> = 
   OTHER: "bg-zinc-50 text-zinc-600 border-zinc-200",
 };
 
+// 自動営業は個別許可をやめ、加盟代表（MANAGER）なら全員使える運用に変えたのでここには出さない
 const OPTIONAL_FEATURES = [
   { id: "cutsheet", label: "カット表AI" },
-  { id: "auto-sales", label: "自動営業" },
   { id: "playbook", label: "プレイブック" },
 ] as const;
 

@@ -208,7 +208,8 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/outreach-pipeline",
         label: "アウトリーチ",
         icon: Send,
-        minRole: "ADMIN",
+        // 加盟している段階で使える。本部の個別許可は不要
+        minRole: "MANAGER",
       },
       {
         href: "/dashboard/projects",
@@ -233,28 +234,24 @@ const NAV_SECTIONS: NavSection[] = [
         label: "営業依頼",
         icon: Rocket,
         minRole: "MANAGER",
-        requiredFeature: "auto-sales",
       },
       {
         href: "/dashboard/auto-sales",
         label: "モニター",
         icon: Bot,
         minRole: "MANAGER",
-        requiredFeature: "auto-sales",
       },
       {
         href: "/dashboard/auto-sales/history",
         label: "送付履歴（全社）",
         icon: Users2,
         minRole: "MANAGER",
-        requiredFeature: "auto-sales",
       },
       {
         href: "/dashboard/auto-sales/analytics",
         label: "分析",
         icon: BarChart2,
         minRole: "MANAGER",
-        requiredFeature: "auto-sales",
       },
     ],
   },

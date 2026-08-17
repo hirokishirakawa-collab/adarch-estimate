@@ -16,7 +16,7 @@ export async function GET() {
   }
 
   const isAdmin = user.role === "ADMIN";
-  if (!isAdmin && !user.enabledFeatures.includes("auto-sales")) {
+  if (!isAdmin && user.role !== "MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const branchFilter = isAdmin ? {} : { branchId: user.branchId! };

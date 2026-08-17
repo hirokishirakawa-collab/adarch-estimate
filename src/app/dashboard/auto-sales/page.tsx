@@ -17,7 +17,7 @@ export default async function AutoSalesPage() {
   const isAdmin = user.role === "ADMIN";
 
   // auto-sales 機能へのアクセス制御: ADMINは常にOK、それ以外はenabledFeaturesで許可された人のみ
-  if (!isAdmin && !user.enabledFeatures.includes("auto-sales")) {
+  if (!isAdmin && user.role !== "MANAGER") {
     redirect("/dashboard");
   }
 
