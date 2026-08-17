@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2, Plus, Sparkles, Mail, Trash2, Search, ChevronDown, ChevronUp,
-  ArrowUpDown, X, Users2, UserRound, ExternalLink, Info, Upload, Ban, ShieldAlert,
+  ArrowUpDown, X, Users2, UserRound, ExternalLink, Info, Upload, Ban, ShieldAlert, FileText, Save,
 } from "lucide-react";
 import {
   addOutreachLeads, saveOutreachDraft, updateOutreachStatus,
@@ -17,6 +17,9 @@ import {
 import {
   checkNoSolicitation, getBlockedDomains, addBlockedDomain,
 } from "@/lib/actions/no-solicitation";
+import {
+  getMyTemplate, saveMyTemplate, applyMyTemplate,
+} from "@/lib/actions/outreach-template";
 import type { OutreachStatus } from "@/generated/prisma/client";
 
 /** 訴求の方向性。api/outreach/draft の DIRECTIONS と対応させる。 */
@@ -148,8 +151,8 @@ function Guide() {
   const steps = [
     { n: "1", t: "リードを追加", d: "リード獲得AIで書き出したCSV・Excelをそのまま取り込めます。貼り付けでも追加できます。配信停止のメールと重複は自動で除外。" },
     { n: "2", t: "営業お断りを確認", d: "赤いバーの確認ボタンで、相手のサイトとお問い合わせページに断りの記載がないか調べます。見つけたら全拠点に共有され、以後どこからも送れなくなります。" },
-    { n: "3", t: "方向性を選んでAI下書き", d: "TVer・広告媒体／動画制作／SNS運用などから選ぶと、その切り口で件名と本文を生成します。会社ごとに変えられます。" },
-    { n: "4", t: "送って進捗を更新", d: "「Gmailで開く」で宛先・件名・本文が入った状態で開くので、確認して署名を付けて送信。送ったら「送信済」に。ここから先は全社に共有されます。" },
+    { n: "3", t: "文面を用意する", d: "方向性（TVer・広告媒体／動画制作／SNS運用など）を選んでAI下書き。そのまま使わず手直しできます。自分の定型文を保存して、まとめて反映することもできます。" },
+    { n: "4", t: "Gmailで開いて送る", d: "宛先・件名・本文が入った状態で開きます。押した時点で「送信済」になり全社に共有されます。結局送らなかった場合は進捗を「下書き済」に戻してください。" },
   ];
   return (
     <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-5 mb-6">
@@ -458,6 +461,22 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
   const [editingEmail, setEditingEmail] = useState<string | null>(null);
   const [emailDraft, setEmailDraft] = useState("");
 
+  // 下書きの手直し（会社ごと）
+  const [editBody, setEditBody] = useState<Record<string, { subject: string; body: string }>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  // 自分の定型文
+  const [showTpl, setShowTpl] = useState(false);
+  const [tplSubject, setTplSubject] = useState("");
+  const [tplBody, setTplBody] = useState("");
+  const [tplMsg, setTplMsg] = useState("");
+
+  useEffect(() => {
+    getMyTemplate().then((t) => {
+      if (t) { setTplSubject(t.subject); setTplBody(t.body); }
+    }).catch(() => {});
+  }, []);
+
   // 営業お断り。domain → 理由。ここに載っている会社には送らせない
   const [blocked, setBlocked] = useState<Record<string, string>>({});
   const [checking, setChecking] = useState(false);
@@ -567,11 +586,25 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
   }
 
   function openGmail(r: Row) {
+    const edited = editBody[r.id];
+    const subject = edited?.subject ?? r.draftSubject ?? "";
+    const body = edited?.body ?? r.draftBody ?? "";
+
     const params = new URLSearchParams({ view: "cm", fs: "1" });
     if (r.email) params.set("to", r.email);
-    if (r.draftSubject) params.set("su", r.draftSubject);
-    if (r.draftBody) params.set("body", r.draftBody);
+    if (subject) params.set("su", subject);
+    if (body) params.set("body", body);
     window.open(`https://mail.google.com/mail/?${params.toString()}`, "_blank", "noopener,noreferrer");
+
+    // Gmailを開いた時点で送付済みとして扱う（代表判断）。
+    // 全社台帳にも載るので、他の拠点が同じ会社に当たらなくなる。
+    // 結局送らなかった場合は、進捗を「下書き済」に戻せば台帳からも外れる。
+    if (r.status === "NEW" || r.status === "DRAFTED") {
+      startTransition(async () => {
+        await updateOutreachStatus(r.id, "SENT");
+        router.refresh();
+      });
+    }
   }
 
   const setStatus = (id: string, status: OutreachStatus) =>
@@ -597,6 +630,36 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
       if (res.error) alert(res.error);
       setSelected(new Set()); router.refresh();
     });
+
+  const saveTpl = () =>
+    startTransition(async () => {
+      const res = await saveMyTemplate(tplSubject, tplBody);
+      setTplMsg(res.error ?? "保存しました");
+    });
+
+  const applyTpl = (overwrite: boolean) => {
+    const ids = selected.size > 0 ? [...selected] : view.map((r) => r.id);
+    if (overwrite && !confirm(`${ids.length}件の下書きを、自分の定型文で上書きします。よろしいですか。`)) return;
+    startTransition(async () => {
+      const res = await applyMyTemplate(ids, { overwrite });
+      if (res.error) { setTplMsg(res.error); return; }
+      setTplMsg(`${res.applied ?? 0}件に反映しました` + (res.skipped ? `（対象外 ${res.skipped}件）` : ""));
+      router.refresh();
+    });
+  };
+
+  const saveDraft = (r: Row) => {
+    const e = editBody[r.id];
+    if (!e) return;
+    setSavingId(r.id);
+    startTransition(async () => {
+      const res = await saveOutreachDraft(r.id, e.subject, e.body);
+      if (res.error) alert(res.error);
+      setSavingId(null);
+      setEditBody((p) => { const n = { ...p }; delete n[r.id]; return n; });
+      router.refresh();
+    });
+  };
 
   const saveEmail = (id: string) =>
     startTransition(async () => {
@@ -753,6 +816,66 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
         <p className="text-[11px] text-zinc-400 mt-2 leading-relaxed">
           ここで選んだ方向で本文が書かれます。会社ごとに変えたいときは、各行の「AI下書き」の左のセレクトで上書きできます。
         </p>
+
+        <div className="border-t border-zinc-100 mt-3 pt-3">
+          <button
+            onClick={() => setShowTpl((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-900 transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            自分の定型文
+            {showTpl ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+
+          {showTpl && (
+            <div className="mt-3">
+              <p className="text-[11px] text-zinc-500 leading-relaxed mb-2">
+                自分の言い回しを1つ保存しておき、まとめて反映できます。AIに頼らず自分の文章で送りたいときに使ってください。
+                <br />
+                <code className="px-1 py-0.5 bg-zinc-100 rounded text-zinc-600">{"{会社名}"}</code>
+                <code className="ml-1 px-1 py-0.5 bg-zinc-100 rounded text-zinc-600">{"{担当者}"}</code>
+                が送信先ごとに置き換わります。
+              </p>
+              <input
+                value={tplSubject}
+                onChange={(e) => setTplSubject(e.target.value)}
+                placeholder="件名"
+                className="w-full text-xs border border-zinc-200 rounded-lg px-2.5 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+              />
+              <textarea
+                rows={8}
+                value={tplBody}
+                onChange={(e) => setTplBody(e.target.value)}
+                placeholder={"{会社名} ご担当者さま\n\nはじめまして。..."}
+                className="w-full text-xs leading-relaxed border border-zinc-200 rounded-lg px-2.5 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+              />
+              <div className="flex items-center gap-2 flex-wrap mt-2">
+                <button
+                  onClick={saveTpl} disabled={isPending || !tplBody.trim()}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-white bg-zinc-900 hover:bg-zinc-800 disabled:opacity-30 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <Save className="w-3 h-3" />保存
+                </button>
+                <button
+                  onClick={() => applyTpl(false)} disabled={isPending || !tplBody.trim()}
+                  className="text-[11px] font-medium text-zinc-700 border border-zinc-200 hover:bg-zinc-50 disabled:opacity-30 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  {selected.size > 0 ? `選択した${selected.size}件に反映` : "下書きが無い会社に反映"}
+                </button>
+                <button
+                  onClick={() => applyTpl(true)} disabled={isPending || !tplBody.trim()}
+                  className="text-[11px] text-zinc-500 border border-zinc-200 hover:bg-zinc-50 disabled:opacity-30 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  既存の下書きも上書きして反映
+                </button>
+                {tplMsg && <span className="text-[11px] text-zinc-600">{tplMsg}</span>}
+              </div>
+              <p className="text-[10px] text-zinc-400 mt-2">
+                送信済み以降の会社には反映しません（既に出した文面は書き換えても意味がないため）。
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <Toolbar
@@ -917,11 +1040,44 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
 
                   {isOpen && r.draftBody && (
                     <div className="mt-3 ml-6 rounded-lg border border-zinc-200 bg-white p-3">
-                      <p className="text-xs font-medium text-zinc-700">件名: {r.draftSubject}</p>
-                      <p className="text-xs text-zinc-600 whitespace-pre-wrap mt-2 leading-relaxed">{r.draftBody}</p>
-                      <p className="text-[10px] text-zinc-400 mt-3 pt-2 border-t border-zinc-100">
-                        「Gmailで開く」→ 内容を確認し署名を付けて送信 → 進捗を「送信済」に
-                      </p>
+                      <p className="text-[11px] font-medium text-zinc-500 mb-1">件名</p>
+                      <input
+                        value={editBody[r.id]?.subject ?? r.draftSubject ?? ""}
+                        onChange={(e) => setEditBody((p) => ({
+                          ...p, [r.id]: { subject: e.target.value, body: p[r.id]?.body ?? r.draftBody ?? "" },
+                        }))}
+                        className="w-full text-xs border border-zinc-200 rounded-lg px-2.5 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                      />
+                      <p className="text-[11px] font-medium text-zinc-500 mb-1">本文</p>
+                      <textarea
+                        rows={10}
+                        value={editBody[r.id]?.body ?? r.draftBody ?? ""}
+                        onChange={(e) => setEditBody((p) => ({
+                          ...p, [r.id]: { subject: p[r.id]?.subject ?? r.draftSubject ?? "", body: e.target.value },
+                        }))}
+                        className="w-full text-xs leading-relaxed border border-zinc-200 rounded-lg px-2.5 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                      />
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => saveDraft(r)}
+                          disabled={savingId === r.id || !editBody[r.id]}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-white bg-zinc-900 hover:bg-zinc-800 disabled:opacity-30 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          {savingId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                          保存
+                        </button>
+                        {editBody[r.id] && (
+                          <button
+                            onClick={() => setEditBody((p) => { const n = { ...p }; delete n[r.id]; return n; })}
+                            className="text-[11px] text-zinc-400 hover:text-zinc-700 px-2 py-1.5"
+                          >
+                            変更を取り消す
+                          </button>
+                        )}
+                        <span className="text-[10px] text-zinc-400">
+                          そのまま「Gmailで開く」と、ここで直した内容が入ります
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>

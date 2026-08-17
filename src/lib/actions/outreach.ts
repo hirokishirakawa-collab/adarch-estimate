@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
-import { recordSent } from "@/lib/actions/no-solicitation";
+import { recordSent, unrecordSent } from "@/lib/actions/no-solicitation";
 import type { OutreachStatus } from "@/generated/prisma/client";
 
 /// 加盟している段階で全員が使える。本部が個別に許可を出す運用はやめた。
@@ -140,8 +140,9 @@ export async function updateOutreachStatus(id: string, status: OutreachStatus): 
     });
     if (res.count === 0) return { error: "権限がありません" };
 
-    // 送信済みにしたら全社の台帳に載せる。他の拠点が同じ会社に当たらないように。
-    if (status === "SENT") {
+    // 送信済み以降は全社の台帳に載せる。他の拠点が同じ会社に当たらないように。
+    // REPLIED / MEETING は送信の後なので、同じく載せたままにする。
+    if (status === "SENT" || status === "REPLIED" || status === "MEETING") {
       const lead = await db.outreachLead.findUnique({
         where: { id },
         select: { companyName: true, website: true },
@@ -154,6 +155,16 @@ export async function updateOutreachStatus(id: string, status: OutreachStatus): 
           sourceId: id,
         });
       }
+    }
+
+    // 未送信の状態に戻したら台帳からも外す（誤って送信済みにした場合の取り消し）。
+    // 他の拠点が同じ会社に当たれるよう解放する。
+    if (status === "NEW" || status === "DRAFTED") {
+      const lead = await db.outreachLead.findUnique({
+        where: { id },
+        select: { website: true },
+      });
+      if (lead) await unrecordSent(lead.website, id);
     }
     if (status === "OPTOUT") {
       const lead = await db.outreachLead.findUnique({ where: { id }, select: { email: true } });
