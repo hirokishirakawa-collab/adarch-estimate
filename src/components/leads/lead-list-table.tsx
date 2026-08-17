@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ExternalLink, Phone, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText, Film, Globe, PenLine } from "lucide-react";
+import { ExternalLink, Phone, Mail, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText, Film, Globe, PenLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel, getLeadSourceOption } from "@/lib/constants/leads";
 import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads, bulkUpdateLeadStatus, bulkAssignLeads } from "@/lib/actions/lead";
+import { findEmailsForLeads } from "@/lib/actions/lead-email";
 import { getHearingSheet } from "@/lib/actions/hearing";
 import { HearingSheetForm } from "./hearing-sheet-form";
 import { Trash2, RefreshCw, UserPlus } from "lucide-react";
@@ -16,6 +17,9 @@ interface LeadRow {
   name: string;
   address: string | null;
   phone: string | null;
+  email: string | null;
+  /** メール取得を試した時刻。値があって email が null なら「探したが記載なし」 */
+  emailCheckedAt: string | Date | null;
   rating: number;
   ratingCount: number;
   types: string[];
@@ -85,6 +89,7 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, startDeleting] = useTransition();
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
+  const [findingEmails, setFindingEmails] = useState(false);
 
   const handleExport = async (format: "csv" | "pdf") => {
     setExporting(format);
@@ -167,6 +172,37 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
     });
   };
 
+  /**
+   * 選択した会社のサイトを見に行き、記載されているメールアドレスを取り込む。
+   * ついでに「営業お断り」も判定し、見つかった会社は全社の送付禁止リストに載せる。
+   */
+  const handleFindEmails = () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    setFindingEmails(true);
+    (async () => {
+      try {
+        const r = await findEmailsForLeads(ids);
+        if (r.error) { alert(r.error); return; }
+
+        const lines = [
+          `${r.checked}社のサイトを確認しました。`,
+          "",
+          `✅ メールが見つかった: ${r.found}社`,
+          `⛔ 営業お断り（送付禁止リストに登録）: ${r.blocked}社`,
+          `— サイトに記載なし: ${r.notFound}社`,
+          `— サイトを開けず: ${r.unreachable}社`,
+        ];
+        if (r.skipped) lines.push(`— 対象外（サイト未登録・取得済み）: ${r.skipped}社`);
+        if (r.remaining) lines.push("", `⚠️ 残り${r.remaining}社は上限のため未処理です。もう一度実行してください。`);
+        alert(lines.join("\n"));
+        router.refresh();
+      } finally {
+        setFindingEmails(false);
+      }
+    })();
+  };
+
   const handleBulkAssign = (assigneeId: string) => {
     const ids = Array.from(selectedIds);
     startDeleting(async () => {
@@ -238,6 +274,21 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
             </button>
           </p>
           <div className="flex items-center gap-2">
+            {/* メール一括取得（相手サイトから拾う。推測はしない） */}
+            <button
+              onClick={handleFindEmails}
+              disabled={isDeleting || findingEmails}
+              title="選択した会社のサイトを見に行き、記載されているメールアドレスを取り込みます"
+              className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-blue-200 bg-white text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+            >
+              {findingEmails ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Mail className="w-3.5 h-3.5" />
+              )}
+              メールを取得
+            </button>
+
             {/* ステータス一括変更 */}
             <div className="flex items-center gap-1">
               <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
@@ -363,8 +414,8 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
               <th className="text-left px-3 py-2.5 text-xs font-medium text-zinc-500 w-32">
                 担当者
               </th>
-              <th className="text-left px-3 py-2.5 text-xs font-medium text-zinc-500 w-28 hidden md:table-cell">
-                電話
+              <th className="text-left px-3 py-2.5 text-xs font-medium text-zinc-500 w-44 hidden md:table-cell">
+                連絡先
               </th>
               <th className="text-left px-3 py-2.5 text-xs font-medium text-zinc-500 w-24 hidden lg:table-cell">
                 登録日
@@ -699,19 +750,37 @@ function LeadRow({
         )}
       </td>
 
-      {/* 電話 */}
+      {/* 連絡先（電話・メール） */}
       <td className="px-3 py-3 hidden md:table-cell">
-        {lead.phone ? (
-          <a
-            href={`tel:${lead.phone}`}
-            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-          >
-            <Phone className="w-3 h-3" />
-            {lead.phone}
-          </a>
-        ) : (
-          <span className="text-xs text-zinc-300">-</span>
-        )}
+        <div className="flex flex-col gap-0.5">
+          {lead.phone ? (
+            <a
+              href={`tel:${lead.phone}`}
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+            >
+              <Phone className="w-3 h-3 shrink-0" />
+              {lead.phone}
+            </a>
+          ) : (
+            <span className="text-xs text-zinc-300">-</span>
+          )}
+
+          {/* メール: 取得済み / 探したが記載なし / 未取得 の3状態を出し分ける */}
+          {lead.email ? (
+            <span
+              title={lead.email}
+              className="inline-flex items-center gap-1 text-[11px] text-zinc-600 max-w-[170px]"
+            >
+              <Mail className="w-3 h-3 shrink-0 text-zinc-400" />
+              <span className="truncate">{lead.email}</span>
+            </span>
+          ) : lead.emailCheckedAt ? (
+            <span className="inline-flex items-center gap-1 text-[11px] text-zinc-300">
+              <Mail className="w-3 h-3 shrink-0" />
+              記載なし
+            </span>
+          ) : null}
+        </div>
       </td>
 
       {/* 登録日 */}

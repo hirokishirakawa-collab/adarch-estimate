@@ -211,12 +211,30 @@ export async function unrecordSent(url: string | null, sourceId: string): Promis
  */
 export async function findEmailForLead(
   url: string
-): Promise<{ error?: string; emails?: string[]; where?: string | null }> {
+): Promise<{ error?: string; emails?: string[]; where?: string | null; blocked?: string }> {
   const info = await requireUser();
   if (!info) return { error: "権限がありません" };
   if (!url?.trim()) return { error: "Webサイトが登録されていません" };
 
-  const { findEmailsOnSite } = await import("@/lib/no-solicitation");
-  const res = await findEmailsOnSite(url);
-  return { emails: res.emails, where: res.where };
+  const { scanSite } = await import("@/lib/no-solicitation");
+  const scan = await scanSite(url);
+
+  // 営業お断りが見つかったら宛先は返さない。共通リストにも載せて全社で止める。
+  if (scan.blocked) {
+    const domain = normalizeDomain(url);
+    if (domain) {
+      await db.autoSalesBlacklist.upsert({
+        where: { domain },
+        create: {
+          domain,
+          companyName: null,
+          reason: `営業お断りの記載を検出（${scan.blocked.where}）: 「${scan.blocked.phrase}」`,
+        },
+        update: {},
+      });
+    }
+    return { blocked: `${scan.blocked.where}に「${scan.blocked.phrase}」の記載があります` };
+  }
+
+  return { emails: scan.emails, where: scan.where };
 }

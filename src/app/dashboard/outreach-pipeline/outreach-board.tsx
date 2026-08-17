@@ -652,6 +652,12 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
     try {
       const res = await findEmailForLead(r.website);
       if (res.error) { alert(res.error); return; }
+      // 巡回中に営業お断りが見つかった場合は宛先を出さない（共通リストにも登録済み）
+      if (res.blocked) {
+        alert(`${r.companyName}\n\n⛔ 営業お断りです\n${res.blocked}\n\nこの会社は全社の送付禁止リストに登録しました。フォーム・メールとも送らないでください。`);
+        router.refresh();
+        return;
+      }
       const list = res.emails ?? [];
       if (list.length === 0) {
         alert(`${r.companyName}\n\nサイトにメールアドレスの記載が見つかりませんでした。\nフォームからの送付をご検討ください。`);

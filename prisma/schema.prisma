@@ -1887,6 +1887,13 @@ model Lead {
   capital             BigInt?
   employeeCount       Int?
   representativeName  String?
+  // ---- 連絡先メール ----
+  // Google Places はメールを返さないので、相手サイトから拾ったものを入れる。
+  // 推測で組み立てたアドレスは入れない（宛先不明が増えると自社ドメインの到達率が落ちるため）。
+  email               String?
+  // 取得を試した時刻。null = 未確認、値あり & email が null = 「探したが記載なし」。
+  // 同じ会社を何度も巡回しないための印。
+  emailCheckedAt      DateTime?
   youtubeChannelUrl   String?
   youtubeSubscribers  Int?
   youtubeLastUpload   DateTime?

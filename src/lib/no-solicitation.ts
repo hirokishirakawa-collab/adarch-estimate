@@ -300,33 +300,58 @@ function collectEmails(html: string): string[] {
   return cleaned.slice(0, 5);
 }
 
-export type EmailFind = { emails: string[]; where: string } | { emails: []; where: null };
+export type SiteScan = {
+  /** サイトを開けたか */
+  reachable: boolean;
+  /** 営業お断りの記載。あれば emails は返さない */
+  blocked: { phrase: string; where: string } | null;
+  emails: string[];
+  where: string | null;
+};
 
 /**
- * トップページとお問い合わせページから、記載されているメールアドレスを探す。
- * 見つからなければ空で返す。存在しないアドレスを組み立てて返すことはしない。
+ * サイトを1回巡回して「営業お断り」と「メールアドレス」を同時に判定する。
+ *
+ * 別々に呼ぶと同じページを2回取りに行くことになるので、1本にまとめた。
+ * 断り文言が見つかった時点でメールは返さない。断っている会社の宛先を
+ * 画面に出してしまうと、うっかり送れてしまうため。
  */
-export async function findEmailsOnSite(url: string): Promise<EmailFind> {
+export async function scanSite(url: string): Promise<SiteScan> {
   const top = await fetchText(url);
-  if (top === null) return { emails: [], where: null };
+  if (top === null) return { reachable: false, blocked: null, emails: [], where: null };
 
-  const fromTop = collectEmails(top);
-  if (fromTop.length > 0) return { emails: fromTop, where: "トップページ" };
+  const hitTop = detectNoSolicitation(htmlToText(top));
+  if (hitTop) {
+    return { reachable: true, blocked: { phrase: hitTop, where: "トップページ" }, emails: [], where: null };
+  }
+
+  let emails = collectEmails(top);
+  let where: string | null = emails.length > 0 ? "トップページ" : null;
+  const partial = () => ({ reachable: true, blocked: null, emails, where });
 
   let base: URL;
   try {
     base = new URL(url.startsWith("http") ? url : `https://${url}`);
   } catch {
-    return { emails: [], where: null };
+    return partial();
   }
+
+  // メールがトップで見つかっていても問い合わせページは見る。
+  // 断り文言はそちらに書かれていることが多く、見落とすと送ってしまうため。
   const contactUrl = findContactLink(top, base);
-  if (!contactUrl) return { emails: [], where: null };
+  if (!contactUrl) return partial();
 
   const contact = await fetchText(contactUrl);
-  if (contact === null) return { emails: [], where: null };
+  if (contact === null) return partial();
 
-  const fromContact = collectEmails(contact);
-  return fromContact.length > 0
-    ? { emails: fromContact, where: "お問い合わせページ" }
-    : { emails: [], where: null };
+  const hit = detectNoSolicitation(htmlToText(contact));
+  if (hit) {
+    return { reachable: true, blocked: { phrase: hit, where: "お問い合わせページ" }, emails: [], where: null };
+  }
+
+  if (emails.length === 0) {
+    emails = collectEmails(contact);
+    where = emails.length > 0 ? "お問い合わせページ" : null;
+  }
+  return partial();
 }
