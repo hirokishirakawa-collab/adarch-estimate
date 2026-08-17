@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { Copy, Check, MapPin, Sparkles, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { Copy, Check, MapPin, Sparkles, ChevronDown, ChevronUp, Plus, Trash2, Ban, ShieldAlert, Loader2 } from "lucide-react";
+import { checkNoSolicitation, getBlockedDomains, addBlockedDomain } from "@/lib/actions/no-solicitation";
 
 // ---------------------------------------------------------------
 // 型
@@ -153,6 +154,65 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
   });
 
   const leadById = useMemo(() => Object.fromEntries(leads.map((l) => [l.id, l])), [leads]);
+
+  // ── 営業お断り。domain → 理由。載っている会社には送らせない
+  const [blocked, setBlocked] = useState<Record<string, string>>({});
+  const [checking, setChecking] = useState(false);
+  const [checkMsg, setCheckMsg] = useState("");
+
+  const domainOf = (url: string | null) => {
+    if (!url) return null;
+    try {
+      const h = new URL(url.startsWith("http") ? url : `https://${url}`).hostname.toLowerCase();
+      return h.startsWith("www.") ? h.slice(4) : h;
+    } catch { return null; }
+  };
+  const blockReasonOf = (url: string | null) => {
+    const d = domainOf(url);
+    return d ? blocked[d] : undefined;
+  };
+
+  useEffect(() => {
+    const urls = leads.map((l) => l.websiteUrl).filter((u): u is string => !!u);
+    if (urls.length === 0) return;
+    getBlockedDomains(urls).then(setBlocked).catch(() => {});
+  }, [leads]);
+
+  async function runSolicitationCheck() {
+    const targets = leads
+      .filter((l) => l.websiteUrl && !blockReasonOf(l.websiteUrl))
+      .slice(0, 30);
+    if (targets.length === 0) { setCheckMsg("確認できるWebサイトがありません"); return; }
+    setChecking(true);
+    setCheckMsg(`${targets.length}件を確認しています...`);
+    try {
+      const res = await checkNoSolicitation(targets.map((l) => ({ url: l.websiteUrl!, companyName: l.name })));
+      if (res.error) { setCheckMsg(res.error); return; }
+      const hits = (res.results ?? []).filter((x) => x.status === "blocked" || x.status === "already");
+      const unreachable = (res.results ?? []).filter((x) => x.status === "unreachable").length;
+      const next = { ...blocked };
+      for (const h of hits) if (h.domain) next[h.domain] = h.phrase ?? "営業お断りの記載あり";
+      setBlocked(next);
+      setCheckMsg(
+        hits.length > 0
+          ? `営業お断り ${hits.length}件を検出しました。全社共通リストに登録済みです（他の拠点からも送れなくなります）`
+            + (unreachable ? ` / サイトを開けず未確認 ${unreachable}件` : "")
+          : "お断りの記載は見つかりませんでした" + (unreachable ? `（サイトを開けず未確認 ${unreachable}件）` : "")
+      );
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function markBlocked(leadId: string) {
+    const lead = leadById[leadId];
+    if (!lead?.websiteUrl) { alert("Webサイトが登録されていないため、ドメインを特定できません"); return; }
+    const reason = prompt(`${lead.name} を全社の営業お断りリストに登録します。\n理由（任意）:`, "サイトに営業お断りの記載");
+    if (reason === null) return;
+    const res = await addBlockedDomain(lead.websiteUrl, lead.name, reason);
+    if (res.error) { alert(res.error); return; }
+    if (res.domain) setBlocked((p) => ({ ...p, [res.domain!]: reason || "営業お断り" }));
+  }
 
   // 共通項目（差出人）の記憶を保存
   const saveProfile = useCallback((c: Common, subj: string) => {
@@ -343,6 +403,32 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
         <MySamplesEditor samples={mySamples} onChange={onSamplesChange} />
       </div>
 
+      {/* 営業お断りの注意喚起（常設） */}
+      <div className="rounded-xl border border-red-200 bg-red-50/70 px-4 py-3">
+        <div className="flex items-start gap-2.5">
+          <Ban className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-red-800">「営業お断り」の記載がある企業には送らないでください</p>
+            <p className="text-[11px] text-red-700 mt-1 leading-relaxed">
+              フォームから送る前に、相手のサイトとお問い合わせページを必ず確認してください。
+              下のボタンで自動確認もできますが、<span className="font-bold">検出できない書き方もあるため最終確認はご自身で</span>お願いします。
+              見つけた場合は各社の「お断り登録」を押してください。全拠点に共有され、以後どこからも送られなくなります。
+            </p>
+            <div className="flex items-center gap-2 flex-wrap mt-2.5">
+              <button
+                onClick={runSolicitationCheck}
+                disabled={checking}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 px-3 py-1.5 rounded-lg"
+              >
+                {checking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+                表示中の企業を確認（最大30件）
+              </button>
+              {checkMsg && <span className="text-[11px] text-red-800">{checkMsg}</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {leads.length === 0 && (
         <div className="bg-white rounded-xl border border-zinc-200 p-8 text-center text-sm text-zinc-500">
           対象のリードがありません。リード管理で絞り込んでから再度開いてください。
@@ -366,6 +452,8 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
             onBody={(v) => setBody(lead.id, v)}
             onToggleSent={() => toggleSent(lead.id)}
             onToggleNg={() => toggleNg(lead.id)}
+            blockedReason={blockReasonOf(lead.websiteUrl)}
+            onMarkBlocked={() => markBlocked(lead.id)}
           />
         );
       })}
@@ -403,6 +491,8 @@ function OutreachCard({
   onBody,
   onToggleSent,
   onToggleNg,
+  blockedReason,
+  onMarkBlocked,
 }: {
   no: number;
   lead: OutreachLead;
@@ -414,6 +504,9 @@ function OutreachCard({
   onBody: (v: string) => void;
   onToggleSent: () => void;
   onToggleNg: () => void;
+  /** 営業お断りの記載がある場合の理由。あるときは送信操作を止める */
+  blockedReason?: string;
+  onMarkBlocked: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [showProven, setShowProven] = useState(false);
@@ -457,19 +550,37 @@ function OutreachCard({
                 <MapPin className="w-3 h-3" /> 近くに担当（{lead.nearbyPref}）
               </span>
             )}
+            {blockedReason && (
+              <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-red-700 bg-red-100 rounded px-1.5 py-0.5 ring-1 ring-inset ring-red-200">
+                <Ban className="w-3 h-3" /> 営業お断り
+              </span>
+            )}
           </div>
           <div className="text-xs text-zinc-500 mt-0.5">{meta}</div>
+          {blockedReason && (
+            <p className="text-[11px] text-red-700 mt-1 leading-relaxed">{blockedReason}／この会社へは送らないでください</p>
+          )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={onToggleSent}
-            disabled={state.busy}
-            className={`text-xs font-bold rounded-lg px-2.5 py-1.5 disabled:opacity-50 ${
+            disabled={state.busy || (!!blockedReason && !state.sent)}
+            title={blockedReason ? "営業お断りの記載があるため送付できません" : undefined}
+            className={`text-xs font-bold rounded-lg px-2.5 py-1.5 disabled:opacity-30 disabled:cursor-not-allowed ${
               state.sent ? "bg-emerald-600 text-white" : "bg-blue-600 text-white hover:bg-blue-700"
             }`}
           >
             {state.busy ? "…" : state.sent ? "送付済み解除" : "送付済み"}
           </button>
+          {!blockedReason && (
+            <button
+              onClick={onMarkBlocked}
+              title="このサイトに営業お断りの記載を見つけたら押してください（全社に共有されます）"
+              className="inline-flex items-center gap-1 text-xs font-bold rounded-lg px-2 py-1.5 text-zinc-400 border border-zinc-200 hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+            >
+              <Ban className="w-3.5 h-3.5" />お断り登録
+            </button>
+          )}
           <button
             onClick={onToggleNg}
             className={`text-xs font-bold rounded-lg px-2.5 py-1.5 ${state.ng ? "bg-zinc-600 text-white" : "bg-zinc-400 text-white hover:bg-zinc-500"}`}
