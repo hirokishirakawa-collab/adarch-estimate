@@ -203,3 +203,20 @@ export async function unrecordSent(url: string | null, sourceId: string): Promis
     where: { domain, sourceId, sentBy: info.email },
   });
 }
+
+/**
+ * サイトに書かれているメールアドレスを探す。
+ * リード獲得AIの書き出しにメール列が無いので、送る前にここで補える。
+ * 推測は一切しない（info@ を勝手に組み立てない）。
+ */
+export async function findEmailForLead(
+  url: string
+): Promise<{ error?: string; emails?: string[]; where?: string | null }> {
+  const info = await requireUser();
+  if (!info) return { error: "権限がありません" };
+  if (!url?.trim()) return { error: "Webサイトが登録されていません" };
+
+  const { findEmailsOnSite } = await import("@/lib/no-solicitation");
+  const res = await findEmailsOnSite(url);
+  return { emails: res.emails, where: res.where };
+}

@@ -252,3 +252,81 @@ export async function checkSiteForNoSolicitation(url: string): Promise<SiteCheck
   const hit = detectNoSolicitation(htmlToText(contact));
   return hit ? { status: "blocked", phrase: hit, where: "お問い合わせページ" } : { status: "ok" };
 }
+
+// ────────────────────────────────────────────
+// 問い合わせ先メールアドレスの抽出
+//
+// リード獲得AI（Google Places）はメールアドレスを持たない。
+// 営業お断りの確認で既に相手サイトを取得しているので、同じHTMLから拾う。
+// ⚠️ 推測はしない。ページに書かれているものだけを返す。
+// ────────────────────────────────────────────
+
+/** 明らかに営業先の窓口ではないもの */
+const EMAIL_NOISE = [
+  "example.com", "example.co.jp", "sample.", "test.", "yourdomain",
+  "sentry.io", "wixpress.com", "wordpress.", "godaddy", "cloudflare",
+  "noreply", "no-reply", "donotreply", "postmaster", "abuse@",
+  "@2x.png", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".css", ".js",
+];
+
+/** 窓口として優先度が高いもの（前に出す） */
+const EMAIL_PREFERRED = ["info@", "contact@", "inquiry@", "office@", "mail@", "support@", "otoiawase@"];
+
+function collectEmails(html: string): string[] {
+  const found = new Set<string>();
+
+  // mailto: を最優先で拾う（サイトが明示している窓口）
+  for (const m of html.matchAll(/mailto:([^"'?>\s]+)/gi)) {
+    const e = decodeURIComponent(m[1]).trim().toLowerCase();
+    if (e.includes("@")) found.add(e);
+  }
+  // 本文に書かれているアドレス
+  const text = htmlToText(html);
+  for (const m of text.matchAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)) {
+    found.add(m[0].trim().toLowerCase());
+  }
+
+  const cleaned = [...found].filter((e) => {
+    if (e.length > 100) return false;
+    return !EMAIL_NOISE.some((n) => e.includes(n));
+  });
+
+  // 窓口らしいものを先に
+  cleaned.sort((a, b) => {
+    const pa = EMAIL_PREFERRED.findIndex((p) => a.startsWith(p));
+    const pb = EMAIL_PREFERRED.findIndex((p) => b.startsWith(p));
+    return (pa === -1 ? 99 : pa) - (pb === -1 ? 99 : pb);
+  });
+  return cleaned.slice(0, 5);
+}
+
+export type EmailFind = { emails: string[]; where: string } | { emails: []; where: null };
+
+/**
+ * トップページとお問い合わせページから、記載されているメールアドレスを探す。
+ * 見つからなければ空で返す。存在しないアドレスを組み立てて返すことはしない。
+ */
+export async function findEmailsOnSite(url: string): Promise<EmailFind> {
+  const top = await fetchText(url);
+  if (top === null) return { emails: [], where: null };
+
+  const fromTop = collectEmails(top);
+  if (fromTop.length > 0) return { emails: fromTop, where: "トップページ" };
+
+  let base: URL;
+  try {
+    base = new URL(url.startsWith("http") ? url : `https://${url}`);
+  } catch {
+    return { emails: [], where: null };
+  }
+  const contactUrl = findContactLink(top, base);
+  if (!contactUrl) return { emails: [], where: null };
+
+  const contact = await fetchText(contactUrl);
+  if (contact === null) return { emails: [], where: null };
+
+  const fromContact = collectEmails(contact);
+  return fromContact.length > 0
+    ? { emails: fromContact, where: "お問い合わせページ" }
+    : { emails: [], where: null };
+}

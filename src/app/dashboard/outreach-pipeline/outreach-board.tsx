@@ -15,7 +15,7 @@ import {
   type ImportRow,
 } from "@/lib/actions/outreach-import";
 import {
-  checkNoSolicitation, getBlockedDomains, addBlockedDomain,
+  checkNoSolicitation, getBlockedDomains, addBlockedDomain, findEmailForLead,
 } from "@/lib/actions/no-solicitation";
 import {
   getMyTemplate, saveMyTemplate, applyMyTemplate,
@@ -284,6 +284,7 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
   const [alreadySent, setAlreadySent] = useState<Record<string, { companyName: string; branchName: string; sentAt: string }>>({});
   const [headers, setHeaders] = useState<string[]>([]);
   const [dropped, setDropped] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
@@ -338,14 +339,24 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
         CSV・Excel（.xlsx）のどちらでも読めます。列は見出し名で判別するので、列の順番が違っても大丈夫です。
       </p>
 
-      <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-zinc-200 rounded-xl py-8 cursor-pointer hover:border-zinc-300 hover:bg-zinc-50/50 transition-colors">
-        <Upload className="w-5 h-5 text-zinc-400" />
-        <span className="text-sm text-zinc-600">ファイルを選ぶ</span>
+      <label
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); pick(e.dataTransfer.files?.[0] ?? null); }}
+        className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-xl py-10 cursor-pointer transition-colors ${
+          dragging ? "border-zinc-900 bg-zinc-50" : "border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50/50"
+        }`}
+      >
+        <Upload className="w-6 h-6 text-zinc-400" />
+        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-white bg-zinc-900 px-4 py-2 rounded-lg">
+          ファイルを選ぶ
+        </span>
+        <span className="text-xs text-zinc-500">ここにドラッグ＆ドロップでも取り込めます</span>
         <span className="text-[11px] text-zinc-400">.csv / .xlsx（10MBまで・2000行まで）</span>
         <input
           type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="hidden" disabled={isPending}
-          onChange={(e) => pick(e.target.files?.[0] ?? null)}
+          onChange={(e) => { pick(e.target.files?.[0] ?? null); e.currentTarget.value = ""; }}
         />
       </label>
 
@@ -460,6 +471,9 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
   // 取り込み後にメールを補うための編集状態
   const [editingEmail, setEditingEmail] = useState<string | null>(null);
   const [emailDraft, setEmailDraft] = useState("");
+
+  // メール自動取得
+  const [findingId, setFindingId] = useState<string | null>(null);
 
   // 下書きの手直し（会社ごと）
   const [editBody, setEditBody] = useState<Record<string, { subject: string; body: string }>>({});
@@ -631,6 +645,32 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
       setSelected(new Set()); router.refresh();
     });
 
+  /** サイトに書かれているメールを探して、見つかれば入力欄に入れる */
+  async function findEmail(r: Row) {
+    if (!r.website) { alert("Webサイトが登録されていないため探せません"); return; }
+    setFindingId(r.id);
+    try {
+      const res = await findEmailForLead(r.website);
+      if (res.error) { alert(res.error); return; }
+      const list = res.emails ?? [];
+      if (list.length === 0) {
+        alert(`${r.companyName}\n\nサイトにメールアドレスの記載が見つかりませんでした。\nフォームからの送付をご検討ください。`);
+        return;
+      }
+      const chosen = list.length === 1
+        ? list[0]
+        : prompt(`${r.companyName}（${res.where}に記載）\n\n使うアドレスを選んでください:\n${list.map((e, i) => `${i + 1}. ${e}`).join("\n")}\n\n番号かアドレスを入力:`, "1");
+      if (!chosen) return;
+      const idx = Number(chosen);
+      const email = Number.isInteger(idx) && idx >= 1 && idx <= list.length ? list[idx - 1] : chosen.trim();
+      const save = await updateOutreachLeadEmail(r.id, email);
+      if (save.error) { alert(save.error); return; }
+      router.refresh();
+    } finally {
+      setFindingId(null);
+    }
+  }
+
   const saveTpl = () =>
     startTransition(async () => {
       const res = await saveMyTemplate(tplSubject, tplBody);
@@ -739,7 +779,7 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
                       addMode === m ? "bg-zinc-900 text-white font-medium" : "text-zinc-500 hover:bg-zinc-100"
                     }`}
                   >
-                    {m === "file" ? "ファイルから取り込む" : "貼り付けて追加"}
+                    {m === "file" ? "ファイル" : "貼り付け"}
                   </button>
                 ))}
               </div>
@@ -976,6 +1016,17 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
                             title="クリックしてメールを入力"
                           >
                             {r.email ?? "メール未設定"}
+                          </button>
+                        )}
+                        {!r.email && editingEmail !== r.id && r.website && (
+                          <button
+                            onClick={() => findEmail(r)}
+                            disabled={findingId === r.id}
+                            title="サイトに書かれているメールアドレスを探します（推測はしません）"
+                            className="inline-flex items-center gap-1 text-[11px] text-zinc-500 border border-zinc-200 rounded px-1.5 py-0.5 hover:bg-zinc-100 disabled:opacity-40 transition-colors"
+                          >
+                            {findingId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                            サイトから探す
                           </button>
                         )}
                         {r.businessNote && (
