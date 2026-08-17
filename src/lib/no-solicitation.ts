@@ -272,6 +272,13 @@ const EMAIL_NOISE = [
 /** 窓口として優先度が高いもの（前に出す） */
 const EMAIL_PREFERRED = ["info@", "contact@", "inquiry@", "office@", "mail@", "support@", "otoiawase@"];
 
+/**
+ * メールアドレスとして通す形。これ以外は保存しない。
+ * 先頭は英数字に限る。= + - @ で始まるものを通すと、CSVに書き出したときに
+ * Excelが数式として解釈する。実在する窓口アドレスがこれらで始まることはない。
+ */
+const STRICT_EMAIL = /^[a-zA-Z0-9][a-zA-Z0-9._%+-]*@[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$/;
+
 function collectEmails(html: string): string[] {
   const found = new Set<string>();
 
@@ -288,6 +295,10 @@ function collectEmails(html: string): string[] {
 
   const cleaned = [...found].filter((e) => {
     if (e.length > 100) return false;
+    // 形の検査は最後に全候補へかける。mailto: は相手のHTMLに書かれた文字列を
+    // そのまま読むので、「@ を含む」だけでは = や + で始まる細工を通してしまう
+    // （保存された値がCSVに出て、Excelで数式として実行されうる）。
+    if (!STRICT_EMAIL.test(e)) return false;
     return !EMAIL_NOISE.some((n) => e.includes(n));
   });
 

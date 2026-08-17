@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSessionInfo } from "@/lib/session";
 import { scanSite } from "@/lib/no-solicitation";
 import { normalizeDomain } from "@/lib/auto-sales-domain";
 
@@ -43,6 +43,20 @@ export type LeadEmailResult = {
   remaining?: number;
 };
 
+/**
+ * 相手サイトへ外向きの通信を出し、全社共通の送付禁止リストにも書き込む操作なので、
+ * 加盟代表（MANAGER）と本部（ADMIN）に限る。lib/actions/no-solicitation.ts と同じ線。
+ *
+ * 拠点での絞り込みはしない。リードはグループ共通の母集団で、声かけ解放で
+ * よその代表が引き取る前提のため（一覧のクエリにも拠点フィルタは無い）。
+ */
+async function requireUser() {
+  const info = await getSessionInfo();
+  if (!info) return null;
+  if (info.role !== "ADMIN" && info.role !== "MANAGER") return null;
+  return info;
+}
+
 /** 配列を n 件ずつ並行で処理する（Promise.all で一気に開かないための簡易プール） */
 async function pool<T>(items: T[], n: number, fn: (item: T) => Promise<void>): Promise<void> {
   let i = 0;
@@ -59,8 +73,8 @@ export async function findEmailsForLeads(
   ids: string[],
   opts?: { recheck?: boolean }
 ): Promise<LeadEmailResult> {
-  const session = await auth();
-  if (!session?.user) return { error: "ログインが必要です" };
+  const info = await requireUser();
+  if (!info) return { error: "権限がありません" };
   if (!ids.length) return { checked: 0 };
 
   const recheck = opts?.recheck === true;
@@ -136,25 +150,4 @@ export async function findEmailsForLeads(
 
   revalidatePath("/dashboard/leads/list");
   return { checked: batch.length, found, blocked, notFound, unreachable, skipped, remaining };
-}
-
-/** 手で直したいとき用。画面から直接入れ替える。 */
-export async function updateLeadEmail(
-  id: string,
-  email: string
-): Promise<{ error?: string }> {
-  const session = await auth();
-  if (!session?.user) return { error: "ログインが必要です" };
-
-  const v = email.trim();
-  if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
-    return { error: "メールアドレスの形式が正しくありません" };
-  }
-
-  await db.lead.update({
-    where: { id },
-    data: { email: v || null, emailCheckedAt: new Date() },
-  });
-  revalidatePath("/dashboard/leads/list");
-  return {};
 }
