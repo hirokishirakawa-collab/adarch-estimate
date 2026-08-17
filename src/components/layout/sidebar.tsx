@@ -212,6 +212,13 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "MANAGER",
       },
       {
+        // 廃止した自動営業が過去に送った企業の記録。重複を避けるための参照用
+        href: "/dashboard/auto-sales/history",
+        label: "過去の送付先（参照）",
+        icon: Users2,
+        minRole: "MANAGER",
+      },
+      {
         href: "/dashboard/projects",
         label: "プロジェクト一覧",
         icon: FolderKanban,
@@ -225,36 +232,9 @@ const NAV_SECTIONS: NavSection[] = [
       },
     ],
   },
-  {
-    section: "自動営業",
-    color: "text-emerald-500/80",
-    items: [
-      {
-        href: "/dashboard/auto-sales/request",
-        label: "営業依頼",
-        icon: Rocket,
-        minRole: "MANAGER",
-      },
-      {
-        href: "/dashboard/auto-sales",
-        label: "モニター",
-        icon: Bot,
-        minRole: "MANAGER",
-      },
-      {
-        href: "/dashboard/auto-sales/history",
-        label: "送付履歴（全社）",
-        icon: Users2,
-        minRole: "MANAGER",
-      },
-      {
-        href: "/dashboard/auto-sales/analytics",
-        label: "分析",
-        icon: BarChart2,
-        minRole: "MANAGER",
-      },
-    ],
-  },
+  // 自動営業（ロボットによるフォーム自動送信）は2026-08-17に廃止。
+  // 送信は人が行う運用に一本化した（アウトリーチ／営業フォーム）。
+  // 過去の送信記録だけ参照用に残している。
   {
     section: "広告媒体シミュレーター",
     color: "text-indigo-500/80",
