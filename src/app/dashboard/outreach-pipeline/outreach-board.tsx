@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2, Plus, Sparkles, Mail, Trash2, Search, ChevronDown, ChevronUp,
-  ArrowUpDown, X, Users2, UserRound, ExternalLink, Info, Upload,
+  ArrowUpDown, X, Users2, UserRound, ExternalLink, Info, Upload, Ban, ShieldAlert,
 } from "lucide-react";
 import {
   addOutreachLeads, saveOutreachDraft, updateOutreachStatus,
@@ -14,6 +14,9 @@ import {
   parseOutreachImportFile, addOutreachLeadsFromRows, updateOutreachLeadEmail,
   type ImportRow,
 } from "@/lib/actions/outreach-import";
+import {
+  checkNoSolicitation, getBlockedDomains, addBlockedDomain,
+} from "@/lib/actions/no-solicitation";
 import type { OutreachStatus } from "@/generated/prisma/client";
 
 /** 訴求の方向性。api/outreach/draft の DIRECTIONS と対応させる。 */
@@ -144,9 +147,9 @@ function Tab({ active, onClick, label, count, icon }: {
 function Guide() {
   const steps = [
     { n: "1", t: "リードを追加", d: "リード獲得AIで書き出したCSV・Excelをそのまま取り込めます。貼り付けでも追加できます。配信停止のメールと重複は自動で除外。" },
-    { n: "2", t: "方向性を選んでAI下書き", d: "TVer・広告媒体／動画制作／SNS運用などから選ぶと、その切り口で件名と本文を生成します。会社ごとに変えられます。" },
-    { n: "3", t: "Gmailで送信", d: "「Gmailで開く」で宛先・件名・本文が入った状態で開きます。内容を確認し、署名を付けてご自身で送信。" },
-    { n: "4", t: "進捗を更新", d: "送信したら「送信済」に。ここから先は全社に共有されます。返信・商談も同じように進めます。" },
+    { n: "2", t: "営業お断りを確認", d: "赤いバーの確認ボタンで、相手のサイトとお問い合わせページに断りの記載がないか調べます。見つけたら全拠点に共有され、以後どこからも送れなくなります。" },
+    { n: "3", t: "方向性を選んでAI下書き", d: "TVer・広告媒体／動画制作／SNS運用などから選ぶと、その切り口で件名と本文を生成します。会社ごとに変えられます。" },
+    { n: "4", t: "送って進捗を更新", d: "「Gmailで開く」で宛先・件名・本文が入った状態で開くので、確認して署名を付けて送信。送ったら「送信済」に。ここから先は全社に共有されます。" },
   ];
   return (
     <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-5 mb-6">
@@ -427,6 +430,30 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
   const [editingEmail, setEditingEmail] = useState<string | null>(null);
   const [emailDraft, setEmailDraft] = useState("");
 
+  // 営業お断り。domain → 理由。ここに載っている会社には送らせない
+  const [blocked, setBlocked] = useState<Record<string, string>>({});
+  const [checking, setChecking] = useState(false);
+  const [checkMsg, setCheckMsg] = useState("");
+
+  const domainOf = (url: string | null) => {
+    if (!url) return null;
+    try {
+      const h = new URL(url.startsWith("http") ? url : `https://${url}`).hostname.toLowerCase();
+      return h.startsWith("www.") ? h.slice(4) : h;
+    } catch { return null; }
+  };
+  const blockReason = (r: Row) => {
+    const d = domainOf(r.website);
+    return d ? blocked[d] : undefined;
+  };
+
+  // 画面を開いた時点で、登録済みのお断りドメインを引いておく
+  useEffect(() => {
+    const urls = rows.map((r) => r.website).filter((u): u is string => !!u);
+    if (urls.length === 0) return;
+    getBlockedDomains(urls).then(setBlocked).catch(() => {});
+  }, [rows]);
+
   const [q, setQ] = useState("");
   const [range, setRange] = useState<RangeKey>("all");
   const [statusFilter, setStatusFilter] = useState<OutreachStatus | "ALL">("ALL");
@@ -550,6 +577,53 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
       setEditingEmail(null); router.refresh();
     });
 
+  /** 選択した会社のサイトを見に行き、営業お断りの記載を探す */
+  async function runSolicitationCheck() {
+    const targets = view
+      .filter((r) => selected.size === 0 || selected.has(r.id))
+      .filter((r) => r.website && !blockReason(r))
+      .slice(0, 30);
+    if (targets.length === 0) { setCheckMsg("確認できるWebサイトがありません"); return; }
+
+    setChecking(true);
+    setCheckMsg(`${targets.length}件を確認しています...`);
+    try {
+      const res = await checkNoSolicitation(
+        targets.map((r) => ({ url: r.website!, companyName: r.companyName }))
+      );
+      if (res.error) { setCheckMsg(res.error); return; }
+      const hits = (res.results ?? []).filter((x) => x.status === "blocked" || x.status === "already");
+      const unreachable = (res.results ?? []).filter((x) => x.status === "unreachable").length;
+
+      const next = { ...blocked };
+      for (const h of hits) if (h.domain) next[h.domain] = h.phrase ?? "営業お断りの記載あり";
+      setBlocked(next);
+
+      setCheckMsg(
+        hits.length > 0
+          ? `営業お断り ${hits.length}件を検出しました。全社共通リストに登録済みです（他の拠点からも送れなくなります）` +
+            (unreachable ? ` / サイトを開けず未確認 ${unreachable}件` : "")
+          : `お断りの記載は見つかりませんでした` + (unreachable ? `（サイトを開けず未確認 ${unreachable}件）` : "")
+      );
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  /** 目視で見つけたときに手で登録する */
+  const markBlocked = (r: Row) => {
+    if (!r.website) { alert("Webサイトが登録されていないため、ドメインを特定できません"); return; }
+    const reason = prompt(`${r.companyName} を全社の営業お断りリストに登録します。\n理由（任意）:`, "サイトに営業お断りの記載");
+    if (reason === null) return;
+    startTransition(async () => {
+      const res = await addBlockedDomain(r.website!, r.companyName, reason);
+      if (res.error) { alert(res.error); return; }
+      if (res.domain) setBlocked((p) => ({ ...p, [res.domain!]: reason || "営業お断り" }));
+      await updateOutreachStatus(r.id, "DEAD");
+      router.refresh();
+    });
+  };
+
   return (
     <div>
       <Funnel counts={counts} />
@@ -604,6 +678,31 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
             )}
           </div>
         )}
+      </div>
+
+      {/* 営業お断りの注意喚起（常設） */}
+      <div className="rounded-xl border border-red-200 bg-red-50/70 px-4 py-3 mb-4">
+        <div className="flex items-start gap-2.5">
+          <Ban className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-red-800">「営業お断り」の記載がある企業には送らないでください</p>
+            <p className="text-[11px] text-red-700 mt-1 leading-relaxed">
+              フォーム・メールのどちらも同じです。送る前に相手のサイトとお問い合わせページを必ず確認してください。
+              下のボタンで自動確認もできますが、<span className="font-medium">検出できない書き方もあるため最終確認はご自身で</span>お願いします。
+              見つけた場合は行の「お断り登録」を押してください。全拠点に共有され、以後どこからも送られなくなります。
+            </p>
+            <div className="flex items-center gap-2 flex-wrap mt-2.5">
+              <button
+                onClick={runSolicitationCheck} disabled={checking}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                {checking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+                {selected.size > 0 ? `選択した${selected.size}件を確認` : "表示中の企業を確認（最大30件）"}
+              </button>
+              {checkMsg && <span className="text-[11px] text-red-800">{checkMsg}</span>}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 訴求の方向性 */}
@@ -676,8 +775,11 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
             {view.map((r) => {
               const m = meta(r.status);
               const isOpen = expanded.has(r.id);
+              const banned = blockReason(r);
               return (
-                <div key={r.id} className={`px-4 py-3 transition-colors ${selected.has(r.id) ? "bg-zinc-50" : "hover:bg-zinc-50/50"}`}>
+                <div key={r.id} className={`px-4 py-3 transition-colors ${
+                  banned ? "bg-red-50/60" : selected.has(r.id) ? "bg-zinc-50" : "hover:bg-zinc-50/50"
+                }`}>
                   <div className="flex items-start gap-3">
                     <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)}
                       className="w-3.5 h-3.5 mt-1 rounded border-zinc-300 accent-zinc-900 cursor-pointer shrink-0" />
@@ -693,7 +795,15 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
                             className="text-zinc-300 hover:text-zinc-600 transition-colors"><ExternalLink className="w-3 h-3" /></a>
                         )}
                         {isAdmin && r.ownerName && <span className="text-[10px] text-zinc-400">{r.ownerName}</span>}
+                        {banned && (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 ring-1 ring-inset ring-red-200 font-medium">
+                            <Ban className="w-2.5 h-2.5" />営業お断り
+                          </span>
+                        )}
                       </div>
+                      {banned && (
+                        <p className="text-[11px] text-red-700 mt-1 leading-relaxed">{banned}</p>
+                      )}
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {editingEmail === r.id ? (
                           <>
@@ -738,16 +848,26 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
                         {DIRECTIONS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
                       </select>
                       <button
-                        onClick={() => genDraft(r)} disabled={draftingId === r.id}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-zinc-700 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-40 transition-colors"
+                        onClick={() => genDraft(r)} disabled={draftingId === r.id || !!banned}
+                        title={banned ? "営業お断りの記載があるため作成できません" : undefined}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-zinc-700 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                       >
                         {draftingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                         {r.draftBody ? "作り直す" : "AI下書き"}
                       </button>
-                      {r.draftBody && (
+                      {r.draftBody && !banned && (
                         <button onClick={() => openGmail(r)}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-white bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors">
                           <Mail className="w-3.5 h-3.5" />Gmailで開く
+                        </button>
+                      )}
+                      {!banned && (
+                        <button
+                          onClick={() => markBlocked(r)}
+                          title="このサイトに営業お断りの記載を見つけたら押してください（全社に共有されます）"
+                          className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] text-zinc-400 border border-zinc-200 rounded-lg hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
+                        >
+                          <Ban className="w-3.5 h-3.5" />お断り登録
                         </button>
                       )}
                       <select
