@@ -59,10 +59,11 @@ export function SentHistory({
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-zinc-900">過去の送付先（参照）</h1>
+          <h1 className="text-2xl font-bold text-zinc-900">送付済み企業（全社）</h1>
         </div>
         <p className="text-sm text-zinc-500 mt-1 leading-relaxed">
-          廃止した自動営業が過去に送信した企業の記録です。<span className="text-zinc-700">重複して当たらないための参照用</span>で、新しく追加されることはありません。
+          グループの誰かが既に当たった企業です。<span className="text-zinc-700">送る前にここで重複を確認できます。</span>
+          アウトリーチと営業フォームで「送付済み」にすると自動で載ります。
         </p>
       </div>
 
@@ -210,7 +211,7 @@ export function SentHistory({
 
       <p className="text-xs text-zinc-400 flex items-center gap-1.5 leading-relaxed">
         <Users2 className="w-3.5 h-3.5 shrink-0" />
-        自動営業は2026-08-17に廃止しました。送信は人が行う運用（アウトリーチ／営業フォーム）に一本化しています。
+        Webサイトが登録されていない会社は、会社を特定できないため台帳に載りません。
       </p>
     </div>
   );

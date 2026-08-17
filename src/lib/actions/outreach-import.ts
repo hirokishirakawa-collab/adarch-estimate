@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
+import { getAlreadySent } from "@/lib/actions/no-solicitation";
+import { normalizeDomain } from "@/lib/auto-sales-domain";
 
 /**
  * リード獲得AI（/dashboard/leads）の書き出しを、そのままアウトリーチに取り込む。
@@ -26,6 +28,8 @@ export type ImportRow = {
 export type ParseResult = {
   error?: string;
   rows?: ImportRow[];
+  /** 既にグループの誰かが送っている会社（ドメイン → 誰がいつ） */
+  alreadySent?: Record<string, { companyName: string; branchName: string; sentAt: string }>;
   /** 会社名が無くて捨てた行数 */
   dropped?: number;
   /** ファイルから読めた見出し（何が拾えたかを画面で示すため） */
@@ -192,7 +196,11 @@ export async function parseOutreachImportFile(formData: FormData): Promise<Parse
   }
 
   if (rows.length === 0) return { error: "取り込める行がありませんでした" };
-  return { rows, dropped, headers: headers.filter(Boolean) };
+
+  // 既に全社の誰かが当たっている会社を知らせる（取り込み自体は止めない。判断は人がする）
+  const alreadySent = await getAlreadySent(rows.map((r) => r.website ?? "").filter(Boolean));
+
+  return { rows, dropped, headers: headers.filter(Boolean), alreadySent };
 }
 
 /** 画面で確認した行をDBへ入れる。配信停止のメールは弾く。 */

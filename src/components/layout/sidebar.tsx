@@ -212,9 +212,9 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "MANAGER",
       },
       {
-        // 廃止した自動営業が過去に送った企業の記録。重複を避けるための参照用
+        // アウトリーチ・営業フォームの両方から集まる、全社共通の送付済み台帳
         href: "/dashboard/auto-sales/history",
-        label: "過去の送付先（参照）",
+        label: "送付済み企業（全社）",
         icon: Users2,
         minRole: "MANAGER",
       },

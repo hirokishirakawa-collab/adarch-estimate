@@ -166,7 +166,8 @@ function Guide() {
       </div>
       <p className="text-[11px] text-zinc-400 mt-4 pt-4 border-t border-zinc-200 leading-relaxed">
         このページは通常のリード管理（ダッシュボード → リード）とは別系統です。ここのリードはリード一覧には出ません。
-        自動でフォーム送信する「自動営業」とも別で、こちらは<span className="text-zinc-600">メールを人が送る</span>仕組みです。
+        <span className="text-zinc-600">メールを人が送る</span>ための画面で、フォームから送る場合は「営業フォーム」を使ってください。
+        どちらで送っても、送信済みは「送付済み企業（全社）」に集約されます。
       </p>
     </div>
   );
@@ -277,6 +278,7 @@ function Toolbar({
 function ImportPanel({ onDone }: { onDone: () => void }) {
   const [isPending, startTransition] = useTransition();
   const [rows, setRows] = useState<ImportRow[] | null>(null);
+  const [alreadySent, setAlreadySent] = useState<Record<string, { companyName: string; branchName: string; sentAt: string }>>({});
   const [headers, setHeaders] = useState<string[]>([]);
   const [dropped, setDropped] = useState(0);
   const [msg, setMsg] = useState("");
@@ -291,6 +293,7 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
       const res = await parseOutreachImportFile(fd);
       if (res.error) { setErr(res.error); return; }
       setRows(res.rows ?? []);
+      setAlreadySent(res.alreadySent ?? {});
       setHeaders(res.headers ?? []);
       setDropped(res.dropped ?? 0);
     });
@@ -312,6 +315,18 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
 
   const withEmail = rows?.filter((r) => r.email).length ?? 0;
   const withoutEmail = (rows?.length ?? 0) - withEmail;
+
+  const domainOfRow = (u: string | null) => {
+    if (!u) return null;
+    try {
+      const h = new URL(u.startsWith("http") ? u : `https://${u}`).hostname.toLowerCase();
+      return h.startsWith("www.") ? h.slice(4) : h;
+    } catch { return null; }
+  };
+  const dupCount = (rows ?? []).filter((r) => {
+    const d = domainOfRow(r.website);
+    return d ? !!alreadySent[d] : false;
+  }).length;
 
   return (
     <div>
@@ -346,6 +361,15 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
             {dropped > 0 && <span className="text-[11px] text-zinc-400">会社名なしで除外 {dropped}件</span>}
           </div>
 
+          {dupCount > 0 && (
+            <div className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5 mb-3">
+              <p className="text-xs text-orange-900 leading-relaxed">
+                <span className="font-medium">{dupCount}件は既にグループの誰かが送っています。</span>
+                {" "}取り込み自体は止めませんが、二重に当たらないよう送る前に「送付済み企業（全社）」で確認してください。
+              </p>
+            </div>
+          )}
+
           {withoutEmail > 0 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 mb-3">
               <p className="text-xs text-amber-800 leading-relaxed">
@@ -370,7 +394,11 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
                 <tbody>
                   {rows.slice(0, 50).map((r, i) => (
                     <tr key={i} className="border-b border-zinc-50 last:border-0">
-                      <td className="px-3 py-1.5 text-zinc-800">{r.companyName}</td>
+                      <td className="px-3 py-1.5 text-zinc-800">
+                        {r.companyName}
+                        {(() => { const d = domainOfRow(r.website); const s = d ? alreadySent[d] : null;
+                          return s ? <span className="ml-1.5 text-[10px] text-orange-700 bg-orange-100 rounded px-1.5 py-0.5">{s.branchName}が送信済</span> : null; })()}
+                      </td>
                       <td className="px-3 py-1.5 text-zinc-500">{r.email ?? <span className="text-amber-500">—</span>}</td>
                       <td className="px-3 py-1.5 text-zinc-400 truncate max-w-[180px]">{r.website ?? "—"}</td>
                       <td className="px-3 py-1.5 text-zinc-500">{r.prefecture ?? "—"}</td>

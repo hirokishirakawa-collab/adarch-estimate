@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
+import { recordSent } from "@/lib/actions/no-solicitation";
 import type { OutreachStatus } from "@/generated/prisma/client";
 
 /// 加盟している段階で全員が使える。本部が個別に許可を出す運用はやめた。
@@ -138,6 +139,22 @@ export async function updateOutreachStatus(id: string, status: OutreachStatus): 
       },
     });
     if (res.count === 0) return { error: "権限がありません" };
+
+    // 送信済みにしたら全社の台帳に載せる。他の拠点が同じ会社に当たらないように。
+    if (status === "SENT") {
+      const lead = await db.outreachLead.findUnique({
+        where: { id },
+        select: { companyName: true, website: true },
+      });
+      if (lead) {
+        await recordSent({
+          url: lead.website,
+          companyName: lead.companyName,
+          source: "OUTREACH",
+          sourceId: id,
+        });
+      }
+    }
     if (status === "OPTOUT") {
       const lead = await db.outreachLead.findUnique({ where: { id }, select: { email: true } });
       if (lead?.email) {

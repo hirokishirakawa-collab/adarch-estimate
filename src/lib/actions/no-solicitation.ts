@@ -123,3 +123,83 @@ export async function addBlockedDomain(
   });
   return { domain };
 }
+
+// ────────────────────────────────────────────
+// グループ全社の「送付済み」台帳
+// 同じ会社に複数の拠点から当たらないようにするための共通の記録。
+// 自動営業を廃止したので、人が送ったときにここへ書く。
+// ────────────────────────────────────────────
+
+export type SentLookup = Record<string, { companyName: string; branchName: string; sentAt: string }>;
+
+/** 渡したURL群のうち、既にグループの誰かが送っている会社を返す */
+export async function getAlreadySent(urls: string[]): Promise<SentLookup> {
+  const info = await requireUser();
+  if (!info) return {};
+  const domains = [...new Set(urls.map((u) => normalizeDomain(u)).filter((d): d is string => !!d))];
+  if (domains.length === 0) return {};
+
+  const rows = await db.autoSalesSentDomain.findMany({
+    where: { domain: { in: domains } },
+    select: {
+      domain: true, companyName: true, sentAt: true,
+      branch: { select: { name: true } },
+    },
+  });
+  return Object.fromEntries(
+    rows.map((r) => [
+      r.domain,
+      {
+        companyName: r.companyName,
+        branchName: r.branch.name,
+        sentAt: r.sentAt.toISOString().slice(0, 10),
+      },
+    ])
+  );
+}
+
+/**
+ * 送ったことを台帳に記録する。domain に UNIQUE があるので、
+ * 先に誰かが登録していればそのまま（先に当たった拠点を正とする）。
+ */
+export async function recordSent(args: {
+  url: string | null;
+  companyName: string;
+  source: "OUTREACH" | "LEAD_FORM";
+  sourceId: string;
+}): Promise<{ error?: string; recorded?: boolean }> {
+  const info = await requireUser();
+  if (!info) return { error: "権限がありません" };
+  if (!info.branchId) return { recorded: false }; // 拠点未割当のユーザーは記録しない
+
+  const domain = normalizeDomain(args.url ?? "");
+  if (!domain) return { recorded: false }; // URLが無ければ会社を特定できない
+
+  try {
+    await db.autoSalesSentDomain.create({
+      data: {
+        domain,
+        companyName: args.companyName,
+        branchId: info.branchId,
+        source: args.source,
+        sourceId: args.sourceId,
+        sentBy: info.email,
+      },
+    });
+    return { recorded: true };
+  } catch {
+    // UNIQUE違反＝既に他の拠点が登録済み。送信自体は済んでいるので成功扱い
+    return { recorded: false };
+  }
+}
+
+/** 送付済みを取り消したときに台帳から外す（自分の拠点の記録のみ） */
+export async function unrecordSent(url: string | null, sourceId: string): Promise<void> {
+  const info = await requireUser();
+  if (!info) return;
+  const domain = normalizeDomain(url ?? "");
+  if (!domain) return;
+  await db.autoSalesSentDomain.deleteMany({
+    where: { domain, sourceId, sentBy: info.email },
+  });
+}

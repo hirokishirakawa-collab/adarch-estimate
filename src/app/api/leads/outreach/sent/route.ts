@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { recordSent, unrecordSent } from "@/lib/actions/no-solicitation";
 
 // ---------------------------------------------------------------
 // POST /api/leads/outreach/sent
@@ -47,6 +48,8 @@ export async function POST(req: NextRequest) {
     if (last) {
       await db.leadLog.delete({ where: { id: last.id } });
     }
+    // 全社の送付済み台帳からも外す（自分が登録した分のみ）
+    await unrecordSent(lead.websiteUrl, leadId);
     return NextResponse.json({ ok: true, status: lead.status });
   }
 
@@ -55,6 +58,14 @@ export async function POST(req: NextRequest) {
   const appealText = typeof appeal === "string" ? appeal : "";
   const bodyText = typeof body === "string" ? body : "";
   const detail = `【訴求】${appealText}\n${bodyText}`.slice(0, 8000);
+
+  // 全社の送付済み台帳に載せる。他の拠点が同じ会社に当たらないように。
+  await recordSent({
+    url: lead.websiteUrl,
+    companyName: lead.name,
+    source: "LEAD_FORM",
+    sourceId: leadId,
+  });
 
   await db.leadLog.create({
     data: { action: FORM_SENT, detail, staffName, leadId },

@@ -3029,10 +3029,16 @@ model AutoSalesSentDomain {
   companyName String // 送信時点の企業名
   branchId    String // 送信した拠点
   branch      Branch @relation(fields: [branchId], references: [id])
-  jobId       String // 送信したジョブ（本文・スクショはここから辿る）
+  jobId       String? // 廃止した自動営業のジョブID（過去分のみ）
+
+  /// どの経路で送ったか。OUTREACH=アウトリーチ(メール) / LEAD_FORM=営業フォーム
+  /// AUTO_SALES=廃止した自動営業
+  source   String? @default("OUTREACH")
+  sourceId String? // 経路側のレコードID（OutreachLead.id / Lead.id）
+  sentBy   String? // 送った人のメールアドレス
 
   sentAt      DateTime @default(now())
-  hasResponse Boolean  @default(false) // 反響があったか（check-replies が更新）
+  hasResponse Boolean  @default(false) // 反響があったか
 
   @@index([branchId])
   @@index([sentAt])
