@@ -4,13 +4,27 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2, Plus, Sparkles, Mail, Trash2, Search, ChevronDown, ChevronUp,
-  ArrowUpDown, X, Users2, UserRound, ExternalLink, Info,
+  ArrowUpDown, X, Users2, UserRound, ExternalLink, Info, Upload,
 } from "lucide-react";
 import {
   addOutreachLeads, saveOutreachDraft, updateOutreachStatus,
   deleteOutreachLead, deleteOutreachLeads, updateOutreachStatuses,
 } from "@/lib/actions/outreach";
+import {
+  parseOutreachImportFile, addOutreachLeadsFromRows, updateOutreachLeadEmail,
+  type ImportRow,
+} from "@/lib/actions/outreach-import";
 import type { OutreachStatus } from "@/generated/prisma/client";
+
+/** 訴求の方向性。api/outreach/draft の DIRECTIONS と対応させる。 */
+const DIRECTIONS = [
+  { key: "AD_MEDIA", label: "TVer・広告媒体" },
+  { key: "VIDEO_PRODUCTION", label: "動画・映像制作" },
+  { key: "SNS_MANAGEMENT", label: "SNS運用" },
+  { key: "AD_AND_VIDEO", label: "広告媒体＋動画" },
+  { key: "FIRST_MEETING", label: "情報交換・ご挨拶" },
+] as const;
+type DirectionKey = (typeof DIRECTIONS)[number]["key"];
 
 type Row = {
   id: string; companyName: string; contactName: string | null; email: string | null; website: string | null;
@@ -129,8 +143,8 @@ function Tab({ active, onClick, label, count, icon }: {
 
 function Guide() {
   const steps = [
-    { n: "1", t: "リードを追加", d: "1行1社で貼り付け。「会社名, メール, 事業メモ」。配信停止リストのメールは自動で除外されます。" },
-    { n: "2", t: "AI下書き", d: "会社ごとに件名と本文を生成。何度でも作り直せます。" },
+    { n: "1", t: "リードを追加", d: "リード獲得AIで書き出したCSV・Excelをそのまま取り込めます。貼り付けでも追加できます。配信停止のメールと重複は自動で除外。" },
+    { n: "2", t: "方向性を選んでAI下書き", d: "TVer・広告媒体／動画制作／SNS運用などから選ぶと、その切り口で件名と本文を生成します。会社ごとに変えられます。" },
     { n: "3", t: "Gmailで送信", d: "「Gmailで開く」で宛先・件名・本文が入った状態で開きます。内容を確認し、署名を付けてご自身で送信。" },
     { n: "4", t: "進捗を更新", d: "送信したら「送信済」に。ここから先は全社に共有されます。返信・商談も同じように進めます。" },
   ];
@@ -256,15 +270,162 @@ function Toolbar({
   );
 }
 
+// ─── リード獲得AIの書き出しを取り込む ─────────
+function ImportPanel({ onDone }: { onDone: () => void }) {
+  const [isPending, startTransition] = useTransition();
+  const [rows, setRows] = useState<ImportRow[] | null>(null);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [dropped, setDropped] = useState(0);
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  function pick(file: File | null) {
+    if (!file) return;
+    setErr(""); setMsg(""); setRows(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    startTransition(async () => {
+      const res = await parseOutreachImportFile(fd);
+      if (res.error) { setErr(res.error); return; }
+      setRows(res.rows ?? []);
+      setHeaders(res.headers ?? []);
+      setDropped(res.dropped ?? 0);
+    });
+  }
+
+  function commit() {
+    if (!rows?.length) return;
+    startTransition(async () => {
+      const res = await addOutreachLeadsFromRows(rows);
+      if (res.error) { setErr(res.error); return; }
+      const parts = [`${res.added ?? 0}件を取り込みました`];
+      if (res.skippedDup) parts.push(`重複${res.skippedDup}件`);
+      if (res.skippedOptOut) parts.push(`配信停止${res.skippedOptOut}件`);
+      setMsg(parts.join(" / "));
+      setRows(null);
+      onDone();
+    });
+  }
+
+  const withEmail = rows?.filter((r) => r.email).length ?? 0;
+  const withoutEmail = (rows?.length ?? 0) - withEmail;
+
+  return (
+    <div>
+      <p className="text-xs text-zinc-500 mb-3 leading-relaxed">
+        リード獲得AI（ダッシュボード → リード獲得AI）で書き出したファイルをそのまま選べます。
+        CSV・Excel（.xlsx）のどちらでも読めます。列は見出し名で判別するので、列の順番が違っても大丈夫です。
+      </p>
+
+      <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-zinc-200 rounded-xl py-8 cursor-pointer hover:border-zinc-300 hover:bg-zinc-50/50 transition-colors">
+        <Upload className="w-5 h-5 text-zinc-400" />
+        <span className="text-sm text-zinc-600">ファイルを選ぶ</span>
+        <span className="text-[11px] text-zinc-400">.csv / .xlsx（10MBまで・2000行まで）</span>
+        <input
+          type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          className="hidden" disabled={isPending}
+          onChange={(e) => pick(e.target.files?.[0] ?? null)}
+        />
+      </label>
+
+      {isPending && !rows && (
+        <p className="text-xs text-zinc-500 mt-3 inline-flex items-center gap-1.5">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />読み取り中...
+        </p>
+      )}
+      {err && <p className="text-xs text-red-600 mt-3 leading-relaxed">{err}</p>}
+      {msg && <p className="text-xs text-emerald-700 mt-3">{msg}</p>}
+
+      {rows && (
+        <div className="mt-4">
+          <div className="flex items-center gap-3 flex-wrap mb-2">
+            <span className="text-sm font-medium text-zinc-900 tabular-nums">{rows.length}件 読み取りました</span>
+            {dropped > 0 && <span className="text-[11px] text-zinc-400">会社名なしで除外 {dropped}件</span>}
+          </div>
+
+          {withoutEmail > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 mb-3">
+              <p className="text-xs text-amber-800 leading-relaxed">
+                <span className="font-medium">{withoutEmail}件はメールアドレスがありません。</span>
+                {" "}リード獲得AIの書き出しにメール列がないためです（Google Places由来のデータに含まれないため）。
+                取り込んだあと一覧からメールを直接入力できます。Webサイトは入るので、そこから調べる形になります。
+              </p>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-zinc-200 overflow-hidden mb-3">
+            <div className="max-h-56 overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-zinc-50 border-b border-zinc-100">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 font-medium text-zinc-500">企業名</th>
+                    <th className="px-3 py-2 font-medium text-zinc-500">メール</th>
+                    <th className="px-3 py-2 font-medium text-zinc-500">Web</th>
+                    <th className="px-3 py-2 font-medium text-zinc-500">エリア</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.slice(0, 50).map((r, i) => (
+                    <tr key={i} className="border-b border-zinc-50 last:border-0">
+                      <td className="px-3 py-1.5 text-zinc-800">{r.companyName}</td>
+                      <td className="px-3 py-1.5 text-zinc-500">{r.email ?? <span className="text-amber-500">—</span>}</td>
+                      <td className="px-3 py-1.5 text-zinc-400 truncate max-w-[180px]">{r.website ?? "—"}</td>
+                      <td className="px-3 py-1.5 text-zinc-500">{r.prefecture ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {rows.length > 50 && (
+              <p className="text-[11px] text-zinc-400 px-3 py-2 border-t border-zinc-100">
+                先頭50件を表示（取り込みは{rows.length}件すべて）
+              </p>
+            )}
+          </div>
+
+          {headers.length > 0 && (
+            <p className="text-[11px] text-zinc-400 mb-3 leading-relaxed">
+              読み取れた見出し: {headers.slice(0, 14).join(" / ")}{headers.length > 14 ? " ..." : ""}
+            </p>
+          )}
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={commit} disabled={isPending}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 disabled:opacity-40 transition-colors"
+            >
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              {rows.length}件を取り込む
+            </button>
+            <button onClick={() => setRows(null)} className="text-xs text-zinc-500 px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors">
+              やめる
+            </button>
+            <span className="text-[11px] text-zinc-400">同じ会社名が既にある行と、配信停止のメールは自動で除きます</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── 自分のアウトリーチ ───────────────────────
 function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [paste, setPaste] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [addMode, setAddMode] = useState<"file" | "paste">("file");
   const [draftingId, setDraftingId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // 訴求の方向性。AI下書きに渡す。全体の既定を持ち、行ごとに上書きできる。
+  const [direction, setDirection] = useState<DirectionKey>("AD_MEDIA");
+  const [rowDirection, setRowDirection] = useState<Record<string, DirectionKey>>({});
+
+  // 取り込み後にメールを補うための編集状態
+  const [editingEmail, setEditingEmail] = useState<string | null>(null);
+  const [emailDraft, setEmailDraft] = useState("");
 
   const [q, setQ] = useState("");
   const [range, setRange] = useState<RangeKey>("all");
@@ -332,7 +493,11 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
     try {
       const res = await fetch("/api/outreach/draft", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: r.companyName, contactName: r.contactName, businessNote: r.businessNote, website: r.website }),
+        body: JSON.stringify({
+          companyName: r.companyName, contactName: r.contactName,
+          businessNote: r.businessNote, website: r.website,
+          direction: rowDirection[r.id] ?? direction,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { alert(data.error ?? "下書き生成に失敗しました"); return; }
@@ -378,6 +543,13 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
       setSelected(new Set()); router.refresh();
     });
 
+  const saveEmail = (id: string) =>
+    startTransition(async () => {
+      const res = await updateOutreachLeadEmail(id, emailDraft);
+      if (res.error) { alert(res.error); return; }
+      setEditingEmail(null); router.refresh();
+    });
+
   return (
     <div>
       <Funnel counts={counts} />
@@ -393,27 +565,67 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
           </button>
         ) : (
           <div className="rounded-xl border border-zinc-200 bg-white p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-zinc-900">リードを追加</p>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1">
+                {(["file", "paste"] as const).map((m) => (
+                  <button
+                    key={m} onClick={() => setAddMode(m)}
+                    className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
+                      addMode === m ? "bg-zinc-900 text-white font-medium" : "text-zinc-500 hover:bg-zinc-100"
+                    }`}
+                  >
+                    {m === "file" ? "ファイルから取り込む" : "貼り付けて追加"}
+                  </button>
+                ))}
+              </div>
               <button onClick={() => setShowAdd(false)} className="text-zinc-300 hover:text-zinc-600"><X className="w-4 h-4" /></button>
             </div>
-            <p className="text-xs text-zinc-500 mb-2">1行1社。「会社名, メール, 事業メモ」の順（カンマかタブ区切り）。</p>
-            <textarea
-              value={paste} onChange={(e) => setPaste(e.target.value)} rows={4} autoFocus
-              placeholder={"株式会社サンプル, info@sample.co.jp, 地元スーパー3店舗運営\n○○工務店, , 注文住宅・リフォーム"}
-              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white font-mono placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
-            />
-            <div className="flex items-center gap-3 mt-3">
-              <button
-                onClick={addLeads} disabled={isPending || !paste.trim()}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 disabled:opacity-40 transition-colors"
-              >
-                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}追加
-              </button>
-              <span className="text-[11px] text-zinc-400">配信停止リストのメールは自動でスキップされます</span>
-            </div>
+
+            {addMode === "file" ? (
+              <ImportPanel onDone={() => { setShowAdd(false); router.refresh(); }} />
+            ) : (
+              <>
+                <p className="text-xs text-zinc-500 mb-2">1行1社。「会社名, メール, 事業メモ」の順（カンマかタブ区切り）。</p>
+                <textarea
+                  value={paste} onChange={(e) => setPaste(e.target.value)} rows={4} autoFocus
+                  placeholder={"株式会社サンプル, info@sample.co.jp, 地元スーパー3店舗運営\n○○工務店, , 注文住宅・リフォーム"}
+                  className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white font-mono placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                />
+                <div className="flex items-center gap-3 mt-3">
+                  <button
+                    onClick={addLeads} disabled={isPending || !paste.trim()}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 disabled:opacity-40 transition-colors"
+                  >
+                    {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}追加
+                  </button>
+                  <span className="text-[11px] text-zinc-400">配信停止リストのメールは自動でスキップされます</span>
+                </div>
+              </>
+            )}
           </div>
         )}
+      </div>
+
+      {/* 訴求の方向性 */}
+      <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 mb-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-medium text-zinc-700 shrink-0">AI下書きの方向性</span>
+          <div className="inline-flex items-center rounded-lg border border-zinc-200 overflow-hidden">
+            {DIRECTIONS.map((d) => (
+              <button
+                key={d.key} onClick={() => setDirection(d.key)}
+                className={`text-xs px-3 py-1.5 transition-colors ${
+                  direction === d.key ? "bg-zinc-900 text-white" : "text-zinc-500 hover:bg-zinc-50"
+                }`}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="text-[11px] text-zinc-400 mt-2 leading-relaxed">
+          ここで選んだ方向で本文が書かれます。会社ごとに変えたいときは、各行の「AI下書き」の左のセレクトで上書きできます。
+        </p>
       </div>
 
       <Toolbar
@@ -482,9 +694,33 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
                         )}
                         {isAdmin && r.ownerName && <span className="text-[10px] text-zinc-400">{r.ownerName}</span>}
                       </div>
-                      <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
-                        {[r.email, r.businessNote].filter(Boolean).join(" · ") || "—"}
-                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {editingEmail === r.id ? (
+                          <>
+                            <input
+                              value={emailDraft} onChange={(e) => setEmailDraft(e.target.value)} autoFocus
+                              placeholder="info@example.co.jp"
+                              onKeyDown={(e) => { if (e.key === "Enter") saveEmail(r.id); if (e.key === "Escape") setEditingEmail(null); }}
+                              className="text-[11px] border border-zinc-300 rounded px-2 py-1 w-56 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                            />
+                            <button onClick={() => saveEmail(r.id)} className="text-[11px] text-white bg-zinc-900 px-2 py-1 rounded">保存</button>
+                            <button onClick={() => setEditingEmail(null)} className="text-[11px] text-zinc-400 px-1">取消</button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => { setEditingEmail(r.id); setEmailDraft(r.email ?? ""); }}
+                            className={`text-[11px] rounded px-1.5 py-0.5 transition-colors ${
+                              r.email ? "text-zinc-500 hover:bg-zinc-100" : "text-amber-700 bg-amber-50 hover:bg-amber-100"
+                            }`}
+                            title="クリックしてメールを入力"
+                          >
+                            {r.email ?? "メール未設定"}
+                          </button>
+                        )}
+                        {r.businessNote && (
+                          <span className="text-[11px] text-zinc-400 truncate">· {r.businessNote}</span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-zinc-300 mt-1 tabular-nums">
                         追加 {fmt(r.createdAt)}
                         {r.sentAt && <> · 送信 {fmt(r.sentAt)}</>}
@@ -493,6 +729,14 @@ function MineView({ rows, isAdmin }: { rows: Row[]; isAdmin: boolean }) {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
+                      <select
+                        value={rowDirection[r.id] ?? direction}
+                        onChange={(e) => setRowDirection((p) => ({ ...p, [r.id]: e.target.value as DirectionKey }))}
+                        title="この会社への訴求の方向性"
+                        className="text-[11px] border border-zinc-200 rounded-lg px-2 py-1.5 bg-white text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                      >
+                        {DIRECTIONS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+                      </select>
                       <button
                         onClick={() => genDraft(r)} disabled={draftingId === r.id}
                         className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-zinc-700 border border-zinc-200 rounded-lg hover:bg-zinc-50 disabled:opacity-40 transition-colors"

@@ -12,19 +12,58 @@ export const runtime = "nodejs";
 // （送信はしない。人がGmailで確認して送る前提）
 // ----------------------------------------------------------------
 
-const SYSTEM_PROMPT = `あなたはAd Arch株式会社の営業文面アシスタントです。
-TVer広告／映像制作の提案として、一般企業への「初回コンタクトメール」の下書きを作成してください。
+/// 訴求の方向性。画面のセレクトと1対1で対応させる。
+const DIRECTIONS = {
+  AD_MEDIA: {
+    label: "TVer・広告媒体のご提案",
+    brief:
+      "TVer（民放公式テレビ配信サービス）をはじめとする広告媒体の出稿提案。テレビCMより小さい予算で始められ、地域・年齢などを絞って配信できる点が軸。",
+  },
+  VIDEO_PRODUCTION: {
+    label: "動画・映像制作のご提案",
+    brief:
+      "会社紹介・商品紹介・採用・店舗紹介などの映像制作提案。企画から撮影・編集まで一貫して対応できる点が軸。",
+  },
+  SNS_MANAGEMENT: {
+    label: "SNS運用のご提案",
+    brief:
+      "Instagram・TikTok・YouTube等の運用代行と、そこに載せる縦型動画の制作提案。継続的な発信の体制づくりが軸。",
+  },
+  AD_AND_VIDEO: {
+    label: "広告媒体＋動画制作（両方）",
+    brief:
+      "広告媒体の出稿と、そこに流す映像の制作をまとめて引き受けられる点が軸。媒体だけ・制作だけの会社との違いを出す。",
+  },
+  FIRST_MEETING: {
+    label: "まずは情報交換・ご挨拶",
+    brief:
+      "具体的な商材を押さずに、地域の企業として一度話す機会をもらうことが目的。売り込み色を最も薄くする。",
+  },
+} as const;
+
+type DirectionKey = keyof typeof DIRECTIONS;
+
+function buildSystemPrompt(direction: DirectionKey): string {
+  const d = DIRECTIONS[direction];
+  return `あなたはAd Arch株式会社の営業文面アシスタントです。
+一般企業への「初回コンタクトメール」の下書きを作成してください。
+
+【今回の提案の方向性】${d.label}
+${d.brief}
+この方向性から外れた商材の話は入れないでください。
 
 【方針】
-- 1社ごとにパーソナライズ。相手の事業内容に1文触れた上で、TVer広告/映像制作が役立つ切り口を提示。
+- 1社ごとにパーソナライズ。相手の事業内容に1文触れた上で、上記の方向性が役立つ切り口を提示。
 - 価値訴求が主役。相手を過剰に褒めない（上から目線NG）。事実として触れる程度。
-- 全国26拠点のネットワークで「最寄りの担当が直接訪問・サポート可能」である点を必ず一言入れる（東京一極の代理店との差別化）。
+- 全国に拠点があり「最寄りの担当が直接訪問・サポートできる」点を必ず一言入れる（東京一極の代理店との差別化）。
+  ただし拠点数・社数などの具体的な数字は書かない。
 - 押し売りでなく、柔らかいCTA（「一度オンラインで15分ほどお話しできれば」程度）。
 - 価格は本文に書かない（面談で）。誇大表現・絵文字・記号の乱用はしない。ビジネスメールとして自然に。
 - 署名は入れない（送信者が自分の署名で送るため、本文は結びの挨拶までで終える）。
 - 長すぎない（本文250〜400字程度）。
 
 output_email ツールで subject と body を返してください。`;
+}
 
 const OUTPUT_TOOL: Anthropic.Messages.Tool = {
   name: "output_email",
@@ -42,7 +81,8 @@ const OUTPUT_TOOL: Anthropic.Messages.Tool = {
 export async function POST(req: NextRequest) {
   const session = await auth();
   const role = (session?.user?.role ?? "USER") as UserRole;
-  if (!session?.user?.email || role !== "ADMIN") {
+  // 加盟している段階で使える（アウトリーチ画面と同じ範囲）
+  if (!session?.user?.email || (role !== "ADMIN" && role !== "MANAGER")) {
     return NextResponse.json({ error: "この機能の利用権限がありません" }, { status: 403 });
   }
 
@@ -52,7 +92,10 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY が設定されていません" }, { status: 500 });
 
-  let body: { companyName?: string; contactName?: string; businessNote?: string; website?: string };
+  let body: {
+    companyName?: string; contactName?: string; businessNote?: string;
+    website?: string; direction?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -61,7 +104,12 @@ export async function POST(req: NextRequest) {
   const companyName = (body.companyName ?? "").trim();
   if (!companyName) return NextResponse.json({ error: "会社名が必要です" }, { status: 400 });
 
-  const userMessage = `以下の企業へのTVer広告/映像制作の初回コンタクトメール下書きを作成してください。
+  const direction = (body.direction ?? "AD_MEDIA") as DirectionKey;
+  if (!(direction in DIRECTIONS)) {
+    return NextResponse.json({ error: "訴求の方向性が不正です" }, { status: 400 });
+  }
+
+  const userMessage = `以下の企業への初回コンタクトメール下書きを作成してください。
 【会社名】${companyName}
 【担当者】${body.contactName?.trim() || "（不明・部署宛 or ご担当者様）"}
 【事業メモ】${body.businessNote?.trim() || "（情報なし。一般的な切り口で）"}
@@ -72,7 +120,7 @@ export async function POST(req: NextRequest) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1500,
-      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: buildSystemPrompt(direction), cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: userMessage }],
       tools: [OUTPUT_TOOL],
       tool_choice: { type: "tool", name: "output_email" },
