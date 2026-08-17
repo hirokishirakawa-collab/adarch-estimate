@@ -5,6 +5,7 @@ import { fillForm, clickSubmit, clickConfirmButton } from "./form-filler.js";
 import { findContactFormUrl } from "./form-finder.js";
 import { solveCaptcha } from "./captcha-solver.js";
 import { generateCompanyInsight } from "./site-analyzer.js";
+import { normalizeDomain } from "./domain.js";
 
 const DRY_RUN = process.env.DRY_RUN === "true";
 const PAGE_TIMEOUT = 60_000;
@@ -45,16 +46,104 @@ async function getBrowser(): Promise<Browser> {
 }
 
 /**
+ * 現在このプロセスが処理中のドメイン。
+ * 並列実行時に同じサイトへ同時アクセスしないようにする（相手側から見て連打にならないように）。
+ */
+const inFlightDomains = new Set<string>();
+
+function hostOf(url: string): string | null {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * QUEUEDのジョブを1件取得して処理する
  * 戻り値: ジョブがあればtrue、なければfalse
  */
+/**
+ * 本日の上限に達したテンプレートのIDを返す。
+ * 上限は本部が承認時に決める（dailyLimit）。null のテンプレートは無制限。
+ */
+async function templatesOverDailyLimit(): Promise<string[]> {
+  const capped = (await db.autoSalesTemplate.findMany({
+    where: { isApproved: true, isActive: true, dailyLimit: { not: null } },
+    select: { id: true, dailyLimit: true },
+  })) as Array<{ id: string; dailyLimit: number | null }>;
+  if (capped.length === 0) return [];
+
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+
+  const sentToday = (await db.autoSalesJob.groupBy({
+    by: ["templateId"],
+    where: {
+      templateId: { in: capped.map((t) => t.id) },
+      // 上限は「実際に送った件数」で数える。失敗・スキップは消費しない。
+      status: { in: ["COMPLETED", "PROCESSING"] },
+      createdAt: { gte: dayStart },
+    },
+    _count: { _all: true },
+  })) as Array<{ templateId: string; _count: { _all: number } }>;
+
+  const countById = new Map<string, number>(
+    sentToday.map((row) => [row.templateId, row._count._all])
+  );
+  return capped
+    .filter((t) => (countById.get(t.id) ?? 0) >= (t.dailyLimit ?? Infinity))
+    .map((t) => t.id);
+}
+
+/**
+ * 送信に成功したら全社共有の台帳へ載せる。
+ * domain に UNIQUE が張ってあるので、ここが二重送信の最終ガードになる。
+ * 既に他拠点が載せていた場合は握りつぶす（送信自体は完了しているため）。
+ */
+async function recordSentDomain(args: {
+  url: string;
+  companyName: string;
+  branchId: string;
+  jobId: string;
+}): Promise<void> {
+  const domain = normalizeDomain(args.url);
+  if (!domain) return;
+  try {
+    await db.autoSalesSentDomain.create({
+      data: {
+        domain,
+        companyName: args.companyName,
+        branchId: args.branchId,
+        jobId: args.jobId,
+      },
+    });
+  } catch (err) {
+    // UNIQUE 違反＝他拠点が先に載せた。送信済みという結論は同じなので進める。
+    console.warn(
+      `[job-runner] 送信済み台帳への登録をスキップ (${domain}):`,
+      err instanceof Error ? err.message : err
+    );
+  }
+}
+
 export async function processNextJob(): Promise<boolean> {
-  // QUEUEDのジョブを1件取得（開始日を過ぎたもののみ）
+  // QUEUEDのジョブを取得（開始日を過ぎたもののみ）。
+  // 並列実行では他ワーカーが処理中のドメインを避けたいので、候補を数件まとめて引く。
   const now = new Date();
-  const job = await db.autoSalesJob.findFirst({
+  const cappedTemplateIds = await templatesOverDailyLimit();
+
+  const candidates = await db.autoSalesJob.findMany({
     where: {
       status: "QUEUED",
+      ...(cappedTemplateIds.length > 0
+        ? { templateId: { notIn: cappedTemplateIds } }
+        : {}),
       template: {
+        // 本部が承認したテンプレートのジョブしか動かさない。
+        // 承認取消（revoke）を受けたら、キューに残っているジョブも自動的に止まる。
+        isApproved: true,
+        isActive: true,
         OR: [
           { scheduledStartDate: null },
           { scheduledStartDate: { lte: now } },
@@ -62,19 +151,47 @@ export async function processNextJob(): Promise<boolean> {
       },
     },
     orderBy: { createdAt: "asc" },
-    include: {
-      target: true,
-      template: true,
-    },
+    take: 20,
+    select: { id: true, target: { select: { url: true } } },
   });
 
-  if (!job) return false;
+  let pickedId: string | null = null;
+  let jobDomain = "";
+  for (const c of candidates as Array<{ id: string; target: { url: string } }>) {
+    const host = hostOf(c.target.url);
+    if (host && !inFlightDomains.has(host)) {
+      pickedId = c.id;
+      jobDomain = host;
+      break;
+    }
+  }
 
-  // PROCESSINGに更新
-  await db.autoSalesJob.update({
-    where: { id: job.id },
+  if (!pickedId) return false;
+
+  // ドメインの確保は await をまたぐ前に済ませる。
+  // await を挟んでから add すると、その隙に別レーンが同じドメインを拾ってしまう。
+  inFlightDomains.add(jobDomain);
+
+  const job = await db.autoSalesJob.findUnique({
+    where: { id: pickedId },
+    include: { target: true, template: true },
+  });
+  if (!job) {
+    inFlightDomains.delete(jobDomain);
+    return false;
+  }
+
+  // PROCESSINGに更新。status=QUEUED を条件に入れることで、
+  // 他ワーカーが同じジョブを先に取っていた場合は count=0 になり、二重送信を防げる。
+  const claimed = await db.autoSalesJob.updateMany({
+    where: { id: job.id, status: "QUEUED" },
     data: { status: "PROCESSING", startedAt: new Date() },
   });
+  if (claimed.count === 0) {
+    // 別のワーカーが先に確保した。呼び出し元にはすぐ次を探させる。
+    inFlightDomains.delete(jobDomain);
+    return true;
+  }
 
   console.log(`[job-runner] 処理開始: ${job.target.companyName} (${job.target.url})`);
   console.log(`[job-runner] ブラウザ起動中...`);
@@ -92,10 +209,27 @@ export async function processNextJob(): Promise<boolean> {
   let page: Page | null = null;
 
   try {
+    // 返信先が未設定のテンプレートは送らない。
+    // 本部の media@ に相手の返信が集まってしまい、拠点が反響に気づけないため。
+    if (!job.template.email?.trim()) {
+      await db.autoSalesJob.update({
+        where: { id: job.id },
+        data: {
+          status: "FAILED",
+          completedAt: new Date(),
+          errorMessage:
+            "テンプレートに返信先アドレスが未設定です。拠点の @adarch.co.jp アドレスを設定してください。",
+        },
+      });
+      console.log(`[job-runner] 中止（返信先未設定）: ${job.template.name}`);
+      return true;
+    }
+
     // ブラックリストチェック
     const domain = new URL(job.target.url).hostname;
-    const blacklisted = await db.autoSalesBlacklist.findUnique({
-      where: { domain },
+    const normalized = normalizeDomain(job.target.url);
+    const blacklisted = await db.autoSalesBlacklist.findFirst({
+      where: { domain: { in: normalized ? [domain, normalized] : [domain] } },
     });
     if (blacklisted) {
       await db.autoSalesJob.update({
@@ -108,6 +242,26 @@ export async function processNextJob(): Promise<boolean> {
       });
       console.log(`[job-runner] スキップ（ブラックリスト）: ${domain}`);
       return true;
+    }
+
+    // 全社の送信済み台帳と突き合わせ。
+    // 営業先の登録時にも見ているが、その後に他拠点が送っている可能性があるので送信直前に再確認する。
+    if (normalized) {
+      const alreadySent = await db.autoSalesSentDomain.findUnique({
+        where: { domain: normalized },
+      });
+      if (alreadySent) {
+        await db.autoSalesJob.update({
+          where: { id: job.id },
+          data: {
+            status: "SKIPPED",
+            completedAt: new Date(),
+            errorMessage: `二重送信の防止: ${alreadySent.companyName} には既に送信済み（${alreadySent.sentAt.toISOString().slice(0, 10)}）`,
+          },
+        });
+        console.log(`[job-runner] スキップ（送信済み）: ${normalized}`);
+        return true;
+      }
     }
 
     // ブラウザでページを開く
@@ -314,6 +468,9 @@ export async function processNextJob(): Promise<boolean> {
           status: "DRY_RUN",
           completedAt: new Date(),
           filledData: filled,
+          sentBody: analysis.resolvedBody,
+          companyInsight,
+          sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: errors.length > 0 ? `入力エラー: ${errors.join("; ")}` : null,
         },
@@ -330,6 +487,9 @@ export async function processNextJob(): Promise<boolean> {
           status: "SKIPPED",
           completedAt: new Date(),
           filledData: filled,
+          sentBody: analysis.resolvedBody,
+          companyInsight,
+          sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: `CAPTCHAサイトのため手動対応が必要（${analysis.captchaType}）`,
         },
@@ -384,8 +544,17 @@ export async function processNextJob(): Promise<boolean> {
             status: "COMPLETED",
             completedAt: new Date(),
             filledData: filled,
+            sentBody: analysis.resolvedBody,
+            companyInsight,
+            sentFromEmail: analysis.replyEmail,
             screenshotUrl,
           },
+        });
+        await recordSentDomain({
+          url: job.target.url,
+          companyName: job.target.companyName,
+          branchId: job.target.branchId,
+          jobId: job.id,
         });
         console.log(`[job-runner] 送信完了（CF7 API）: ${job.target.companyName}`);
         return true;
@@ -396,6 +565,9 @@ export async function processNextJob(): Promise<boolean> {
             status: "FAILED",
             completedAt: new Date(),
             filledData: filled,
+            sentBody: analysis.resolvedBody,
+            companyInsight,
+            sentFromEmail: analysis.replyEmail,
             screenshotUrl,
             errorMessage: `CF7送信拒否: ${cf7Status ?? cf7Error ?? "unknown"} - ${cf7Message}`,
           },
@@ -416,6 +588,9 @@ export async function processNextJob(): Promise<boolean> {
           status: "FAILED",
           completedAt: new Date(),
           filledData: filled,
+          sentBody: analysis.resolvedBody,
+          companyInsight,
+          sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: "送信ボタンが見つからないか、クリックできませんでした",
         },
@@ -458,6 +633,9 @@ export async function processNextJob(): Promise<boolean> {
           status: "FAILED",
           completedAt: new Date(),
           filledData: filled,
+          sentBody: analysis.resolvedBody,
+          companyInsight,
+          sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: `フォーム送信拒否: ${pageResponse?.substring(0, 200) ?? "不明"}`,
         },
@@ -518,9 +696,18 @@ export async function processNextJob(): Promise<boolean> {
           status: "COMPLETED",
           completedAt: new Date(),
           filledData: filled,
+          sentBody: analysis.resolvedBody,
+          companyInsight,
+          sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: errors.length > 0 ? `入力警告: ${errors.join("; ")}` : null,
         },
+      });
+      await recordSentDomain({
+        url: job.target.url,
+        companyName: job.target.companyName,
+        branchId: job.target.branchId,
+        jobId: job.id,
       });
       console.log(`[job-runner] 送信完了: ${job.target.companyName} (${thanksCheck.detail})`);
     } else {
@@ -530,6 +717,9 @@ export async function processNextJob(): Promise<boolean> {
           status: "FAILED",
           completedAt: new Date(),
           filledData: filled,
+          sentBody: analysis.resolvedBody,
+          companyInsight,
+          sentFromEmail: analysis.replyEmail,
           screenshotUrl,
           errorMessage: "送信完了ページが確認できませんでした（未送信の可能性あり）",
         },
@@ -551,6 +741,7 @@ export async function processNextJob(): Promise<boolean> {
     return true;
   } finally {
     clearTimeout(jobTimer);
+    inFlightDomains.delete(jobDomain);
     if (page) {
       try {
         await page.close();

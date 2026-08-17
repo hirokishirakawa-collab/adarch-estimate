@@ -310,6 +310,8 @@ model Branch {
   tverCampaigns         TverCampaign[]
   tverCreativeReviews   TverCreativeReview[]
 
+  autoSalesSentDomains  AutoSalesSentDomain[]
+
   // Studio
   studioClients       StudioClient[]       @relation("StudioClients")
   studioProductions   Production[]         @relation("StudioProductions")
@@ -2956,9 +2958,15 @@ model AutoSalesTemplate {
   // スケジュール
   scheduledStartDate DateTime? // 営業開始日（nullなら承認後すぐ開始）
 
+  // 申請制（本部承認がないと送信されない）
   isApproved Boolean   @default(false) // 本部承認済み
   approvedAt DateTime?
   approvedBy String? // ADMIN User.id
+  submittedAt DateTime? // 拠点が申請した日時（null=下書き）
+  rejectedAt  DateTime? // 本部が差し戻した日時
+  reviewNote  String?   @db.Text // 本部コメント（差戻し理由・承認時の条件など）
+  /// このアカウントの1日の送信上限。無制限は認めない（1社の暴走がグループ全体の毀損になるため）。
+  dailyLimit  Int       @default(200)
 
   isFavorite Boolean @default(false) // お気に入り
   isActive   Boolean @default(true) // false=アーカイブ
@@ -2981,6 +2989,10 @@ model AutoSalesTarget {
 
   companyName String // 営業先企業名
   url         String // 問い合わせフォームURL
+  /// url から取り出した正規化ホスト名（www. を落として小文字化）。
+  /// 「同じ会社に二重に送らない」の判定キー。URLのパスは拠点ごとに違っても会社は同じなので、
+  /// 重複判定は必ずこの列で行う。
+  domain      String?
   industry    String? // 業種
   area        String? // エリア
   phone       String? // 電話番号（公開情報）
@@ -2999,7 +3011,28 @@ model AutoSalesTarget {
   @@unique([branchId, url]) // 同一拠点から同一URLへの重複防止
   @@index([branchId])
   @@index([createdById])
+  @@index([domain])
   @@map("auto_sales_targets")
+}
+
+/// グループ全社で共有する「送信済み企業」の台帳。
+/// ドメインに UNIQUE を張ることで、どの拠点からでも同じ会社への二重送信を構造的に防ぐ。
+/// 全社の送付履歴としてもこのテーブルを見る。
+model AutoSalesSentDomain {
+  id     String @id @default(cuid())
+  domain String @unique // 正規化ホスト名
+
+  companyName String // 送信時点の企業名
+  branchId    String // 送信した拠点
+  branch      Branch @relation(fields: [branchId], references: [id])
+  jobId       String // 送信したジョブ（本文・スクショはここから辿る）
+
+  sentAt      DateTime @default(now())
+  hasResponse Boolean  @default(false) // 反響があったか（check-replies が更新）
+
+  @@index([branchId])
+  @@index([sentAt])
+  @@map("auto_sales_sent_domains")
 }
 
 /// 自動営業の実行ジョブ。1件 = 1フォーム送信。
@@ -3016,6 +3049,11 @@ model AutoSalesJob {
   screenshotUrl String? // 送信前スクリーンショットURL
   filledData    Json? // 実際に入力したフィールド名→値のマップ
   errorMessage  String? @db.Text // エラー時のメッセージ
+
+  // 送信内容の記録（本部が「何を送ったか」を後から確認するため）
+  sentBody       String? @db.Text // 変数置換後の実際の送信本文
+  companyInsight String? @db.Text // AIが相手サイトから読み取った一言
+  sentFromEmail  String? // フォームに入れた返信先アドレス。反響はこの受信箱に届く
 
   // 反響トラッキング
   hasResponse        Boolean   @default(false) // 反響があったか
@@ -3040,6 +3078,7 @@ model AutoSalesJob {
   @@index([templateId])
   @@index([createdAt])
   @@index([hasResponse])
+  @@index([sentFromEmail])
   @@map("auto_sales_jobs")
 }
 

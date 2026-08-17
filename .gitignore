@@ -43,4 +43,6 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+# ワーカーのローカル実行用シンボリックリンク（Dockerfile はビルド時に自前でコピーする）
+/worker/src/generated
 .env*.localcustomer-db/customers.db

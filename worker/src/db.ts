@@ -8,9 +8,13 @@ if (!rawUrl) {
 
 const connectionString = rawUrl.trim().replace(/[?&]pgbouncer=true/i, "");
 
+// 並列レーン数ぶんの接続に、ジョブ取得・集計用の余裕を1つ足す。
+// レーンを増やしたのに接続が足りないと、クエリ待ちで並列化の意味がなくなる。
+const concurrency = Math.max(1, Number(process.env.CONCURRENCY ?? "3"));
+
 const adapter = new PrismaPg({
   connectionString,
-  max: 2, // ワーカーは逐次処理なので2接続で十分
+  max: concurrency + 1,
   idleTimeoutMillis: 30_000, // アイドル30秒で切断（先手を打って切る）
   keepAlive: true, // TCP keepaliveで接続断を防ぐ
   keepAliveInitialDelayMillis: 10_000,

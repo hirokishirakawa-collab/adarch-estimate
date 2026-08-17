@@ -16,6 +16,10 @@ export interface AnalysisResult {
   captchaType: CaptchaType;
   siteKey: string | null;
   submitSelector: string | null;
+  /** 変数置換後の本文。何を送ったかを本部が後から読むために保存する。 */
+  resolvedBody: string;
+  /** フォームに入れた返信先アドレス。反響はこの受信箱に届く。 */
+  replyEmail: string;
 }
 
 /**
@@ -144,9 +148,10 @@ export async function analyzeForm(
 ): Promise<AnalysisResult> {
   const { formHtml, captchaType, siteKey } = extractFormHtml(pageHtml);
 
-  if (!formHtml) {
-    return { fields: [], captchaType: "none", siteKey: null, submitSelector: null };
-  }
+  // フォームに入れる返信先。拠点が自分の @adarch.co.jp アドレスを登録していればそれを使う。
+  // 署名の「Mail:」と食い違わないよう、必ずテンプレートの値を優先する。
+  const replyEmail =
+    template.email?.trim() || process.env.AUTO_SALES_REPLY_EMAIL || "media@adarch.co.jp";
 
   // テンプレート本文の変数を置換
   const bodyText = template.body
@@ -154,6 +159,10 @@ export async function analyzeForm(
     .replace(/\{area\}/g, targetArea ?? "地域")
     .replace(/\{companyName\}/g, template.companyName ?? "御社")
     .replace(/\{companyInsight\}/g, companyInsight ?? `${targetIndustry ?? "御社の事業"}について拝見し`);
+
+  if (!formHtml) {
+    return { fields: [], captchaType: "none", siteKey: null, submitSelector: null, resolvedBody: bodyText, replyEmail };
+  }
 
   const response = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
@@ -167,7 +176,7 @@ export async function analyzeForm(
 - 会社名: "${template.companyName}"
 - 氏名: "${template.senderName}"
 - 電話番号: "${template.phone ?? ""}"
-- メールアドレス: "${process.env.AUTO_SALES_REPLY_EMAIL ?? "media@adarch.co.jp"}"
+- メールアドレス: "${replyEmail}"
 - お問い合わせ内容: """
 ${bodyText}
 """
@@ -200,7 +209,7 @@ ${formHtml}
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error("[form-analyzer] Claude応答からJSONを抽出できませんでした:", text);
-      return { fields: [], captchaType, siteKey, submitSelector: null };
+      return { fields: [], captchaType, siteKey, submitSelector: null, resolvedBody: bodyText, replyEmail };
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
@@ -209,9 +218,11 @@ ${formHtml}
       captchaType,
       siteKey,
       submitSelector: parsed.submitSelector ?? null,
+      resolvedBody: bodyText,
+      replyEmail,
     };
   } catch (err) {
     console.error("[form-analyzer] JSONパースエラー:", err);
-    return { fields: [], captchaType, siteKey, submitSelector: null };
+    return { fields: [], captchaType, siteKey, submitSelector: null, resolvedBody: bodyText, replyEmail };
   }
 }
