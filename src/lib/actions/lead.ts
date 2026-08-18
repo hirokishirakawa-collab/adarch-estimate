@@ -12,6 +12,12 @@ import type { ScoredCinemaLead } from "@/lib/constants/cinema-leads";
 import type { TvcmLeadCandidate } from "@/lib/constants/tvcm-leads";
 import type { LeadStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
+import {
+  buildPlaceLeadMemo,
+  buildCinemaLeadMemo,
+  buildRecruitLeadMemo,
+  buildBtoBLeadMemo,
+} from "@/lib/leads/company-memo";
 
 // Chat通知先スペースID
 const LEAD_CHAT_SPACE_ID = process.env.DEAL_CHAT_SPACE_ID ?? "AAQAp6XvXqE";
@@ -45,8 +51,11 @@ export async function saveLeadsFromSearch(
         where: { name_address: { name: lead.name, address: lead.address ?? "" } },
       });
 
+      // 会社内容（Google概要・口コミ要約・企業タイプ等）。声かけ時の材料になるのでメモに残す
+      const companyMemo = buildPlaceLeadMemo(lead);
+
       if (existing) {
-        // 既存: スコアのみ更新
+        // 既存: スコアのみ更新。メモは手入力を潰さないよう空のときだけ補う
         await db.lead.update({
           where: { id: existing.id },
           data: {
@@ -56,6 +65,8 @@ export async function saveLeadsFromSearch(
             rating: lead.rating,
             ratingCount: lead.ratingCount,
             businessStatus: lead.businessStatus,
+            ...(existing.memo || !companyMemo ? {} : { memo: companyMemo }),
+            ...(existing.assigneeId || !user ? {} : { assigneeId: user.id }),
           },
         });
       } else {
@@ -74,6 +85,7 @@ export async function saveLeadsFromSearch(
             scoreTotal: lead.score.total,
             scoreBreakdown: lead.score.breakdown as Record<string, number>,
             scoreComment: lead.score.comment,
+            memo: companyMemo || null,
             industry,
             area,
             createdById: user?.id ?? null,
@@ -140,6 +152,50 @@ export async function checkExistingLeads(
 }
 
 // ---------------------------------------------------------------
+// 担当の自動決定（ログインユーザーを担当にする）
+//
+// 声かけ解放ルールで担当が外れたリードや、担当が付かないまま残った
+// リードを、実際に動かした人の担当に自動で寄せる。担当プルダウンを
+// 手で選ぶ手間をなくすのが目的。
+//   - 既に担当がいるリードは触らない（他拠点の担当を奪わない）
+//   - TVer案件プールは先着claim（「私がやります」）が唯一の入口なので対象外
+// 呼び出し側の update に混ぜる差分を返す。ログは更新が通ってから
+// autoAssignLog() で残す。
+// ---------------------------------------------------------------
+async function autoAssignPatch(
+  lead: { assigneeId: string | null; source: string },
+  sessionEmail: string
+): Promise<{ assigneeId?: string }> {
+  if (lead.assigneeId) return {};
+  if (lead.source === "PR_TIMES_TVCM") return {};
+
+  const me = await db.user.findUnique({
+    where: { email: sessionEmail },
+    select: { id: true },
+  });
+  if (!me) return {};
+
+  return { assigneeId: me.id };
+}
+
+/** autoAssignPatch で担当が付いたときだけログを残す */
+async function autoAssignLog(
+  patch: { assigneeId?: string },
+  leadId: string,
+  staffName: string
+): Promise<void> {
+  if (!patch.assigneeId) return;
+  await db.leadLog.create({
+    data: {
+      leadId,
+      action: "ASSIGNED",
+      detail: `担当を ${staffName} さんに自動設定（未アサインのリードを操作したため）`,
+      staffName,
+    },
+  });
+}
+
+// ---------------------------------------------------------------
 // リードのステータスを更新する
 // ---------------------------------------------------------------
 export async function updateLeadStatus(
@@ -158,10 +214,15 @@ export async function updateLeadStatus(
     const oldOption = getLeadStatusOption(lead.status);
     const newOption = getLeadStatusOption(status);
 
+    // 未アサインのリードを動かした人をそのまま担当にする
+    const assignPatch = await autoAssignPatch(lead, session.user.email ?? "");
+
     await db.lead.update({
       where: { id: leadId },
-      data: { status: status as LeadStatus },
+      data: { status: status as LeadStatus, ...assignPatch },
     });
+
+    await autoAssignLog(assignPatch, leadId, staffName);
 
     await db.leadLog.create({
       data: {
@@ -193,11 +254,24 @@ export async function updateLeadMemo(
   const session = await auth();
   if (!session?.user) return { error: "ログインが必要です" };
 
+  const staffName = session.user.name ?? session.user.email ?? "不明";
+
   try {
+    const lead = await db.lead.findUnique({
+      where: { id: leadId },
+      select: { assigneeId: true, source: true },
+    });
+    if (!lead) return { error: "リードが見つかりません" };
+
+    // 未アサインのリードにメモを書いた人をそのまま担当にする
+    const assignPatch = await autoAssignPatch(lead, session.user.email ?? "");
+
     await db.lead.update({
       where: { id: leadId },
-      data: { memo: memo || null },
+      data: { memo: memo || null, ...assignPatch },
     });
+
+    await autoAssignLog(assignPatch, leadId, staffName);
 
     revalidatePath("/dashboard/leads/list");
     return {};
@@ -522,6 +596,9 @@ export async function saveBtoBLeadsFromSearch(
       const address = lead.address || "";
       const capitalBigint = safeBigInt(lead.capital);
 
+      // 会社内容（事業内容・規模・補助金）をメモに残す
+      const companyMemo = buildBtoBLeadMemo(lead);
+
       const existing = await db.lead.findUnique({
         where: { name_address: { name: lead.name, address } },
       });
@@ -530,6 +607,8 @@ export async function saveBtoBLeadsFromSearch(
         await db.lead.update({
           where: { id: existing.id },
           data: {
+            ...(existing.memo || !companyMemo ? {} : { memo: companyMemo }),
+            ...(existing.assigneeId || !user ? {} : { assigneeId: user.id }),
             scoreTotal: lead.score?.total ?? 0,
             scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
             scoreComment: lead.score?.comment ?? null,
@@ -552,6 +631,7 @@ export async function saveBtoBLeadsFromSearch(
             scoreTotal: lead.score?.total ?? 0,
             scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
             scoreComment: lead.score?.comment ?? null,
+            memo: companyMemo || null,
             industry,
             area,
             source: "GBIZINFO",
@@ -612,6 +692,8 @@ export async function saveCinemaLeadsFromSearch(
   try {
     for (const lead of leads) {
       const address = lead.address || "";
+      // 会社内容（Google概要・口コミ要約・企業タイプ等）をメモに残す
+      const companyMemo = buildCinemaLeadMemo(lead);
       const existing = await db.lead.findUnique({
         where: { name_address: { name: lead.name, address } },
       });
@@ -626,6 +708,8 @@ export async function saveCinemaLeadsFromSearch(
             source: "CINEMA_AD",
             distanceKm: lead.distanceKm ?? null,
             cinemaTheaterName: area,
+            ...(existing.memo || !companyMemo ? {} : { memo: companyMemo }),
+            ...(existing.assigneeId || !user ? {} : { assigneeId: user.id }),
           },
         });
       } else {
@@ -643,6 +727,7 @@ export async function saveCinemaLeadsFromSearch(
             scoreTotal: lead.score?.total ?? 0,
             scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
             scoreComment: lead.score?.comment ?? null,
+            memo: companyMemo || null,
             industry,
             area,
             source: "CINEMA_AD",
@@ -706,6 +791,9 @@ export async function saveRecruitLeadsFromSearch(
         ? `（${lead.recruitAnalysis.recruitType === "both" ? "中途+新卒" : lead.recruitAnalysis.recruitType === "midcareer" ? "中途" : lead.recruitAnalysis.recruitType === "newgrad" ? "新卒" : ""}）`
         : "";
 
+      // 会社内容（Google概要・口コミ要約・採用状況）をメモに残す
+      const companyMemo = buildRecruitLeadMemo(lead);
+
       if (existing) {
         await db.lead.update({
           where: { id: existing.id },
@@ -716,6 +804,8 @@ export async function saveRecruitLeadsFromSearch(
             source: "RECRUIT_SEARCH",
             youtubeChannelUrl: lead.youtubeChannel?.url ?? null,
             youtubeSubscribers: lead.youtubeChannel?.subscribers ?? null,
+            ...(existing.memo || !companyMemo ? {} : { memo: companyMemo }),
+            ...(existing.assigneeId || !user ? {} : { assigneeId: user.id }),
           },
         });
       } else {
@@ -733,6 +823,7 @@ export async function saveRecruitLeadsFromSearch(
             scoreTotal: lead.score?.total ?? 0,
             scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
             scoreComment: lead.score?.comment ?? null,
+            memo: companyMemo || null,
             industry,
             area,
             source: "RECRUIT_SEARCH",
