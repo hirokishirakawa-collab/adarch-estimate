@@ -25,7 +25,7 @@ export type PaymentStatementForPDF = {
   status: string;
   paidAt: Date | string | null;
   createdAt: Date | string;
-  items?: { clientName: string; grossAmount: number; note: string | null }[];
+  items?: { clientName: string; prefecture?: string | null; grossAmount: number; note: string | null }[];
   groupCompany: {
     name: string;
     ownerName: string;
@@ -126,7 +126,8 @@ export function PaymentStatementPDFDocument({
   const rows: { label: string; amount: number; isDeduction?: boolean; isSub?: boolean }[] = [];
   if (hasItems) {
     statement.items!.forEach((it) => {
-      rows.push({ label: `入金 — ${it.clientName}${it.note ? `（${it.note}）` : ""}`, amount: it.grossAmount });
+      const pref = it.prefecture ? `［${it.prefecture}］` : "";
+      rows.push({ label: `入金 — ${pref}${it.clientName}${it.note ? `（${it.note}）` : ""}`, amount: it.grossAmount });
     });
     rows.push({ label: "入金額合計（税込）", amount: b.grossInclTax });
   } else {

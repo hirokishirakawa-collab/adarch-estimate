@@ -7,6 +7,7 @@ import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { computeBreakdown } from "@/lib/payment-statement-calc";
 import { createInAppNotification, notifyAdmins } from "@/lib/notifications";
+import { PREFECTURES, toBranchLabel } from "@/lib/constants/crm";
 
 // ---------------------------------------------------------------
 // ADMIN: 支払明細一覧
@@ -97,7 +98,6 @@ export async function createPaymentStatement(
   const groupCompanyId = (formData.get("groupCompanyId") as string)?.trim();
   const title = (formData.get("title") as string)?.trim();
   const clientName = (formData.get("clientName") as string)?.trim() || null;
-  const branchLabel = (formData.get("branchLabel") as string)?.trim() || null;
   const description = (formData.get("description") as string)?.trim() || null;
   const invoiceRequestId = (formData.get("invoiceRequestId") as string)?.trim() || null;
   const itemsRaw = (formData.get("items") as string)?.trim() || "";
@@ -112,17 +112,23 @@ export async function createPaymentStatement(
   const adMediaCostInput = parseInt(adMediaCostRaw, 10) || 0;
 
   // クライアント別明細行（複数クライアントを1明細にまとめる場合）
-  type ItemInput = { clientName: string; grossAmount: number; note: string | null };
+  type ItemInput = { clientName: string; prefecture: string | null; grossAmount: number; note: string | null };
   let items: ItemInput[] = [];
   if (itemsRaw) {
     try {
-      const parsed = JSON.parse(itemsRaw) as Array<{ clientName?: string; grossAmount?: number | string; note?: string }>;
+      const parsed = JSON.parse(itemsRaw) as Array<{ clientName?: string; prefecture?: string; grossAmount?: number | string; note?: string }>;
       items = parsed
-        .map((r) => ({
-          clientName: String(r.clientName ?? "").trim(),
-          grossAmount: parseInt(String(r.grossAmount ?? "0").replace(/,/g, ""), 10) || 0,
-          note: ((r.note ?? "").toString().trim()) || null,
-        }))
+        .map((r) => {
+          // 都道府県はマスタに存在する値だけを受け付ける（クライアント送信値は信用しない）
+          const prefRaw = String(r.prefecture ?? "").trim();
+          const pref = prefRaw ? (PREFECTURES as readonly string[]).find((p) => p === prefRaw) ?? null : null;
+          return {
+            clientName: String(r.clientName ?? "").trim(),
+            prefecture: pref,
+            grossAmount: parseInt(String(r.grossAmount ?? "0").replace(/,/g, ""), 10) || 0,
+            note: ((r.note ?? "").toString().trim()) || null,
+          };
+        })
         .filter((r) => r.clientName && r.grossAmount > 0);
     } catch {
       return { error: "クライアント明細の形式が不正です" };
@@ -139,9 +145,22 @@ export async function createPaymentStatement(
   // パートナーの税区分を取得し、税抜ベースでサーバー側計算（クライアント送信値は信用しない）
   const partner = await db.groupCompany.findUnique({
     where: { id: groupCompanyId },
-    select: { entityType: true, invoiceRegistered: true },
+    select: { entityType: true, invoiceRegistered: true, branchLabels: true },
   });
   if (!partner) return { error: "支払先パートナーが見つかりません" };
+
+  // 複数拠点パートナーは、どの県の売上かを行ごとに必須（県別ロイヤリティ判定に使用）
+  const isMultiBranch = (partner.branchLabels ?? []).filter(Boolean).length > 1;
+  if (isMultiBranch && items.some((r) => !r.prefecture)) {
+    return { error: "複数拠点パートナーです。クライアント明細の各行で都道府県を選択してください" };
+  }
+
+  // 親の branchLabel は行の県から導出（全行同一県ならその県、混在・未指定なら空）。
+  // 拠点ラベル形式（サフィックス無し）で保存し、GroupCompany.branchLabels と揃える。
+  const rowLabels = Array.from(
+    new Set(items.map((r) => (r.prefecture ? toBranchLabel(r.prefecture) : "")).filter(Boolean))
+  );
+  const branchLabel = rowLabels.length === 1 ? rowLabels[0] : null;
 
   const b = computeBreakdown({
     grossInclTax,
@@ -175,6 +194,7 @@ export async function createPaymentStatement(
               items: {
                 create: items.map((r, i) => ({
                   clientName: r.clientName,
+                  prefecture: r.prefecture,
                   grossAmount: r.grossAmount,
                   note: r.note,
                   sortOrder: i,
@@ -349,6 +369,7 @@ export async function getPartnersForSelect() {
       ownerName: true,
       entityType: true,
       invoiceRegistered: true,
+      prefecture: true,
       branchLabels: true,
     },
     orderBy: { name: "asc" },

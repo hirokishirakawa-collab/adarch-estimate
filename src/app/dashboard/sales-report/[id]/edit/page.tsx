@@ -29,13 +29,14 @@ export default async function EditSalesReportPage({ params }: Props) {
 
   const report = await db.revenueReport.findFirst({
     where: { id, ...(user ? { createdById: user.id } : { createdById: "__none__" }) },
+    include: { items: { orderBy: { sortOrder: "asc" } } },
   });
   if (!report) notFound();
 
   const action = updateRevenueReport.bind(null, id);
 
   return (
-    <div className="px-6 py-6 max-w-2xl mx-auto w-full">
+    <div className="px-6 py-6 max-w-3xl mx-auto w-full">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
           <BarChart2 className="text-amber-600" style={{ width: "1.125rem", height: "1.125rem" }} />
@@ -50,14 +51,19 @@ export default async function EditSalesReportPage({ params }: Props) {
         <RevenueReportForm
           action={action}
           defaultValues={{
-            amount: Number(report.amount),
             targetMonth: new Date(report.targetMonth).toISOString().slice(0, 7),
-            projectName: report.projectName,
             staffName: report.staffName,
             memo: report.memo,
             currentProjects: report.currentProjects,
             nextMonthProjects: report.nextMonthProjects,
             supportRequest: report.supportRequest,
+            items: report.items.map((it) => ({
+              billedBy: it.billedBy,
+              clientName: it.clientName,
+              projectName: it.projectName,
+              amountExclTax: Number(it.amountExclTax),
+              memo: it.memo,
+            })),
           }}
         />
       </div>

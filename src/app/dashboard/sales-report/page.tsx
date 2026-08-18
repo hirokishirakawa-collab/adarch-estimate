@@ -33,12 +33,16 @@ export default async function SalesReportPage() {
   const [reports, adminReports] = await Promise.all([
     db.revenueReport.findMany({
       where,
+      include: { items: { orderBy: { sortOrder: "asc" } } },
       orderBy: { targetMonth: "desc" },
     }),
     // Admin のみ全件取得（集計用＋詳細一覧用）
     role === "ADMIN"
       ? db.revenueReport.findMany({
-          include: { createdBy: { select: { name: true, email: true } } },
+          include: {
+            createdBy: { select: { name: true, email: true } },
+            items: { orderBy: { sortOrder: "asc" } },
+          },
           orderBy: { targetMonth: "desc" },
         })
       : Promise.resolve(null),

@@ -35,6 +35,15 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
   const gc = s.groupCompany;
   const hasBank = gc.bankName && gc.bankAccountNumber;
 
+  // 県別の入金集計（複数県にまたがる明細の確認用）
+  const prefTotals = Object.entries(
+    (s.items ?? []).reduce<Record<string, number>>((acc, it) => {
+      const key = it.prefecture || "県未指定";
+      acc[key] = (acc[key] ?? 0) + Number(it.grossAmount);
+      return acc;
+    }, {})
+  ).map(([label, amount]) => ({ label, amount }));
+
   const b = breakdownFromStored({
     grossAmount: Number(s.grossAmount),
     commissionRate: Number(s.commissionRate),
@@ -114,11 +123,32 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
                     {it.clientName}
                     {it.note && <span className="text-[11px] text-zinc-400 ml-2">{it.note}</span>}
                   </td>
+                  <td className="px-2 py-2.5 whitespace-nowrap">
+                    {it.prefecture ? (
+                      <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        {it.prefecture}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-zinc-300">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 text-right font-medium text-zinc-800">¥{fmtNum(it.grossAmount)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {/* 県別 集計（複数県にまたがる場合のみ） */}
+          {prefTotals.length > 1 && (
+            <div className="px-4 py-2.5 bg-zinc-50 border-t border-zinc-200 space-y-1">
+              <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">県別 集計</p>
+              {prefTotals.map((p) => (
+                <div key={p.label} className="flex justify-between text-[11px] text-zinc-600">
+                  <span>{p.label}</span>
+                  <span className="font-medium">¥{fmtNum(p.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

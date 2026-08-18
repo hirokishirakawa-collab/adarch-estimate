@@ -8,10 +8,33 @@ import { getSessionInfo } from "@/lib/session";
 import { sendRevenueNotification, notifyAdmins } from "@/lib/notifications";
 import type { UserRole } from "@/types/roles";
 import { logAudit } from "@/lib/audit";
+import {
+  calcInclTax,
+  calcTax,
+  parseItemsJson,
+  sumByBilledBy,
+  sumExclTax,
+  summarizeProjectNames,
+  type RevenueItemInput,
+} from "@/lib/constants/sales-report";
 
 /** MANAGER 以上のみ許可 */
 function isForbidden(role: UserRole): boolean {
   return role === "USER";
+}
+
+/** 明細行 → Prisma の createMany 用データ */
+function toItemRows(items: RevenueItemInput[]) {
+  return items.map((item, index) => ({
+    billedBy: item.billedBy,
+    clientName: item.clientName,
+    projectName: item.projectName,
+    amountExclTax: item.amountExclTax,
+    taxAmount: calcTax(item.amountExclTax),
+    amountInclTax: calcInclTax(item.amountExclTax),
+    memo: item.memo || null,
+    sortOrder: index,
+  }));
 }
 
 // ---------------------------------------------------------------
@@ -27,10 +50,13 @@ export async function createRevenueReport(
   if (!info.branchId) return { error: "拠点が割り当てられていません。管理者にお問い合わせください。" };
   // userId は getSessionInfo() の upsert により必ず存在する
 
-  const amountRaw = (formData.get("amount") as string)?.replace(/,/g, "").trim();
-  const amount = amountRaw ? parseInt(amountRaw, 10) : NaN;
-  if (!amountRaw || isNaN(amount) || amount < 0)
-    return { error: "金額（税抜）は0以上の整数で入力してください" };
+  const parsed = parseItemsJson(formData.get("items") as string | null);
+  if (!parsed.ok) return { error: parsed.error };
+  const items = parsed.items;
+
+  const amount     = sumExclTax(items);
+  const selfAmount = sumByBilledBy(items, "SELF");
+  const hqAmount   = sumByBilledBy(items, "HQ");
 
   const targetMonthRaw = (formData.get("targetMonth") as string)?.trim();
   if (!targetMonthRaw) return { error: "計上月を選択してください" };
@@ -38,7 +64,7 @@ export async function createRevenueReport(
   const targetMonth = new Date(`${targetMonthRaw}-01T00:00:00.000Z`);
   if (isNaN(targetMonth.getTime())) return { error: "計上月の形式が正しくありません" };
 
-  const projectName       = (formData.get("projectName") as string)?.trim() || null;
+  const projectName       = summarizeProjectNames(items);
   const staffName         = (formData.get("staffName") as string)?.trim() || null;
   const memo              = (formData.get("memo") as string)?.trim() || null;
   const currentProjectsRaw  = (formData.get("currentProjects") as string)?.trim();
@@ -52,6 +78,8 @@ export async function createRevenueReport(
       db.revenueReport.create({
         data: {
           amount,
+          selfAmount,
+          hqAmount,
           targetMonth,
           projectName,
           staffName,
@@ -61,6 +89,7 @@ export async function createRevenueReport(
           supportRequest,
           branchId: info.branchId,
           createdById: info.userId,
+          items: { create: toItemRows(items) },
         },
       }),
       // 月次報告提出でアカウント自動復帰（ロイヤリティ未払い停止中は復帰しない）
@@ -120,17 +149,20 @@ export async function updateRevenueReport(
   });
   if (!existing) return { error: "対象の売上報告が見つかりません" };
 
-  const amountRaw = (formData.get("amount") as string)?.replace(/,/g, "").trim();
-  const amount = amountRaw ? parseInt(amountRaw, 10) : NaN;
-  if (!amountRaw || isNaN(amount) || amount < 0)
-    return { error: "金額（税抜）は0以上の整数で入力してください" };
+  const parsed = parseItemsJson(formData.get("items") as string | null);
+  if (!parsed.ok) return { error: parsed.error };
+  const items = parsed.items;
+
+  const amount     = sumExclTax(items);
+  const selfAmount = sumByBilledBy(items, "SELF");
+  const hqAmount   = sumByBilledBy(items, "HQ");
 
   const targetMonthRaw = (formData.get("targetMonth") as string)?.trim();
   if (!targetMonthRaw) return { error: "計上月を選択してください" };
   const targetMonth = new Date(`${targetMonthRaw}-01T00:00:00.000Z`);
   if (isNaN(targetMonth.getTime())) return { error: "計上月の形式が正しくありません" };
 
-  const projectName       = (formData.get("projectName") as string)?.trim() || null;
+  const projectName       = summarizeProjectNames(items);
   const staffName         = (formData.get("staffName") as string)?.trim() || null;
   const memo              = (formData.get("memo") as string)?.trim() || null;
   const currentProjectsRaw  = (formData.get("currentProjects") as string)?.trim();
@@ -140,10 +172,18 @@ export async function updateRevenueReport(
   const supportRequest    = (formData.get("supportRequest") as string)?.trim() || null;
 
   try {
-    await db.revenueReport.update({
-      where: { id: reportId },
-      data: { amount, targetMonth, projectName, staffName, memo, currentProjects, nextMonthProjects, supportRequest },
-    });
+    // 明細は全入れ替え（差分更新より単純で、行の増減・並び替えに強い）
+    await db.$transaction([
+      db.revenueReportItem.deleteMany({ where: { reportId } }),
+      db.revenueReport.update({
+        where: { id: reportId },
+        data: {
+          amount, selfAmount, hqAmount, targetMonth, projectName, staffName, memo,
+          currentProjects, nextMonthProjects, supportRequest,
+          items: { create: toItemRows(items) },
+        },
+      }),
+    ]);
     logAudit({ action: "revenue_report_updated", email: info.email, name: info.staffName, entity: "revenue_report", entityId: reportId, detail: `${targetMonthRaw} ${amount.toLocaleString()}円` });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

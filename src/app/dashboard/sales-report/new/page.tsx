@@ -32,7 +32,7 @@ export default async function NewSalesReportPage({
   }
 
   return (
-    <div className="px-6 py-6 max-w-2xl mx-auto w-full">
+    <div className="px-6 py-6 max-w-3xl mx-auto w-full">
       {/* 停止中バナー */}
       {isSuspended && (
         <div className="mb-6 rounded-xl border border-red-300 bg-red-50 px-5 py-4">
