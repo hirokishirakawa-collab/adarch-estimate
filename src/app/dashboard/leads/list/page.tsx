@@ -102,8 +102,20 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   if (sourceParam) where.source = sourceParam as LeadSource;
 
   // ソート
-  type OrderBy = { createdAt?: "asc" | "desc"; scoreTotal?: "asc" | "desc"; area?: "asc" | "desc"; industry?: "asc" | "desc" };
-  let orderBy: OrderBy = { createdAt: "desc" };
+  // 既定は「シグナル順」。買う気配が立った日が新しいものから当たる。
+  // 鮮度が同じなら既存のAIスコア（質の判定）で並べる＝2軸。
+  type OrderByItem = {
+    createdAt?: "asc" | "desc";
+    scoreTotal?: "asc" | "desc";
+    area?: "asc" | "desc";
+    industry?: "asc" | "desc";
+    signalAt?: { sort: "asc" | "desc"; nulls: "first" | "last" };
+  };
+  const SIGNAL_ORDER: OrderByItem[] = [
+    { signalAt: { sort: "desc", nulls: "last" } },
+    { scoreTotal: "desc" },
+  ];
+  let orderBy: OrderByItem | OrderByItem[] = SIGNAL_ORDER;
   if (sortParam === "score_desc") orderBy = { scoreTotal: "desc" };
   if (sortParam === "score_asc") orderBy = { scoreTotal: "asc" };
   if (sortParam === "area") orderBy = { area: "asc" };

@@ -49,6 +49,37 @@ async function searchCompanies(params: URLSearchParams): Promise<{ corporateNumb
   };
 }
 
+// 補助金情報は詳細エンドポイントに含まれない。専用の /subsidy を叩く必要がある。
+// 認定日（date_of_approval）は「予算がついた直後」を捉えるシグナルになるので日付も持ち帰る。
+async function getSubsidies(
+  corporateNumber: string
+): Promise<{ titles: string[]; latestApprovalDate: string | null }> {
+  const empty = { titles: [] as string[], latestApprovalDate: null };
+  try {
+    const res = await fetch(`${GBIZ_BASE}/${corporateNumber}/subsidy`, { headers: gbizHeaders() });
+    // 補助金の実績がない企業は 404 を返す。エラーではないので静かに空を返す。
+    if (!res.ok) return empty;
+
+    const data = await res.json();
+    const list: Record<string, unknown>[] = data["hojin-infos"]?.[0]?.subsidy ?? [];
+    if (!Array.isArray(list) || list.length === 0) return empty;
+
+    const titles = list
+      .map((x) => String(x.title ?? "").trim())
+      .filter(Boolean);
+
+    // 認定日は "YYYY-MM-DD" 形式で返る。解釈できないものは捨てる。
+    const dates = list
+      .map((x) => String(x.date_of_approval ?? "").trim())
+      .filter((d) => /^\d{4}-\d{2}-\d{2}/.test(d))
+      .sort();
+
+    return { titles, latestApprovalDate: dates.length > 0 ? dates[dates.length - 1] : null };
+  } catch {
+    return empty;
+  }
+}
+
 // Step 2: Get detail for a single company (returns full info)
 async function getCompanyDetail(corporateNumber: string): Promise<BtoBCompanyLead | null> {
   try {
@@ -60,6 +91,8 @@ async function getCompanyDetail(corporateNumber: string): Promise<BtoBCompanyLea
     const h = data["hojin-infos"]?.[0];
     if (!h) return null;
 
+    const subsidy = await getSubsidies(corporateNumber);
+
     return {
       name: h.name ?? "",
       address: h.location ?? "",
@@ -69,9 +102,8 @@ async function getCompanyDetail(corporateNumber: string): Promise<BtoBCompanyLea
       representativeName: h.representative_name?.replace(/\s+/g, " ").trim() ?? undefined,
       websiteUrl: h.company_url ?? undefined,
       businessItems: h.business_summary ? [h.business_summary] : [],
-      subsidies: Array.isArray(h.subsidies)
-        ? h.subsidies.map((s: any) => typeof s === "string" ? s : (s.title ?? "")).filter(Boolean)
-        : [],
+      subsidies: subsidy.titles,
+      latestSubsidyDate: subsidy.latestApprovalDate ?? undefined,
     };
   } catch {
     return null;

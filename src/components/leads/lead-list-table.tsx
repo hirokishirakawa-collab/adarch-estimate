@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel, getLeadSourceOption } from "@/lib/constants/leads";
 import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads, bulkUpdateLeadStatus, bulkAssignLeads } from "@/lib/actions/lead";
 import { findEmailsForLeads } from "@/lib/actions/lead-email";
+import { getFreshness, SIGNAL_KIND_LABEL, type SignalKind } from "@/lib/leads/signal";
 import { getHearingSheet } from "@/lib/actions/hearing";
 import { HearingSheetForm } from "./hearing-sheet-form";
 import { Trash2, RefreshCw, UserPlus } from "lucide-react";
@@ -41,8 +42,18 @@ interface LeadRow {
   assignee: { id: string; name: string | null; email: string } | null;
   convertedCustomer: { id: string; name: string } | null;
   releasedFromName: string | null;
+  signalAt: string | Date | null;
+  signalKind: string | null;
   createdAt: string | Date;
 }
+
+/** シグナル鮮度の帯ごとの見た目。新しいほど強い色にして、上から当たる順が目で分かるようにする */
+const FRESHNESS_CLASS: Record<string, string> = {
+  hot:  "bg-rose-50 text-rose-700 border-rose-200",
+  warm: "bg-amber-50 text-amber-700 border-amber-200",
+  cool: "bg-zinc-50 text-zinc-500 border-zinc-200",
+  cold: "bg-transparent text-zinc-300 border-transparent",
+};
 
 /** 登録日を YYYY/MM/DD 形式で表示 */
 function formatRegisteredDate(value: string | Date): string {
@@ -408,6 +419,9 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
               <th className="text-center px-3 py-2.5 text-xs font-medium text-zinc-500 w-16">
                 スコア
               </th>
+              <th className="text-center px-3 py-2.5 text-xs font-medium text-zinc-500 w-24">
+                シグナル
+              </th>
               <th className="text-center px-3 py-2.5 text-xs font-medium text-zinc-500 w-28">
                 ステータス
               </th>
@@ -475,6 +489,9 @@ function LeadRow({
 
   const statusOpt = getLeadStatusOption(lead.status);
   const priority = getPriorityLabel(lead.scoreTotal);
+  const freshness = getFreshness(lead.signalAt);
+  const signalLabel =
+    SIGNAL_KIND_LABEL[(lead.signalKind ?? "FOUND") as SignalKind] ?? "発掘";
 
   const handleAdvice = async () => {
     if (advice) {
@@ -680,6 +697,23 @@ function LeadRow({
           >
             {priority.emoji} {lead.scoreTotal}
           </span>
+        )}
+      </td>
+
+      {/* シグナル鮮度（買う気配が立ってからの日数） */}
+      <td className="px-3 py-3 text-center">
+        {freshness ? (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border whitespace-nowrap",
+              FRESHNESS_CLASS[freshness.key]
+            )}
+            title={`${signalLabel}（${freshness.days}日前）`}
+          >
+            {freshness.icon} {freshness.days}日
+          </span>
+        ) : (
+          <span className="text-[11px] text-zinc-300">—</span>
         )}
       </td>
 
@@ -902,7 +936,7 @@ function LeadRow({
     </tr>
     {hearingOpen && (
       <tr>
-        <td colSpan={canSelect ? 9 : 8} className="px-0 py-0">
+        <td colSpan={canSelect ? 10 : 9} className="px-0 py-0">
           <HearingSheetForm
             leadId={lead.id}
             leadName={lead.name}
@@ -914,7 +948,7 @@ function LeadRow({
     )}
     {adviceOpen && (
       <tr>
-        <td colSpan={canSelect ? 9 : 8} className="px-0 py-0">
+        <td colSpan={canSelect ? 10 : 9} className="px-0 py-0">
           <div className="bg-purple-50 border-t border-b border-purple-100 px-5 py-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">

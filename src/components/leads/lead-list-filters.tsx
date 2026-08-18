@@ -135,8 +135,9 @@ export function LeadListFilters({ users, industries, areas }: Props) {
         onChange={(e) => updateParam("sort", e.target.value)}
         className="text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
       >
-        <option value="">新しい順</option>
-        <option value="oldest">古い順</option>
+        <option value="">シグナル順（買う気配が新しい順）</option>
+        <option value="newest">登録が新しい順</option>
+        <option value="oldest">登録が古い順</option>
         <option value="score_desc">スコア高い順</option>
         <option value="score_asc">スコア低い順</option>
         <option value="area">エリア順</option>

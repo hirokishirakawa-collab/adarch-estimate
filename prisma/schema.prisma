@@ -1898,6 +1898,14 @@ model Lead {
   youtubeSubscribers  Int?
   youtubeLastUpload   DateTime?
   subsidies           String[]      @default([])
+  // ---- 購買シグナル ----
+  // 「買う気配」が立った日。スコア順ではなくこの新しさで当たる順を決める。
+  //   SUBSIDY  補助金の認定日（予算がついた）
+  //   TVCM     CM発表のプレスリリース日（広告に金を使う）
+  //   RECRUIT  求人の確認日（採用に金をかける）
+  //   FOUND    シグナルなし＝発掘した日（フォールバック）
+  signalAt            DateTime?
+  signalKind          String?
   cinemaTheaterId     Int?
   cinemaTheaterName   String?
   distanceKm          Float?
@@ -1934,6 +1942,7 @@ model Lead {
   @@index([assigneeId])
   @@index([createdAt])
   @@index([source])
+  @@index([signalAt])
   @@map("leads")
 }
 

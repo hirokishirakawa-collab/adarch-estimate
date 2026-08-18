@@ -364,6 +364,8 @@ export interface BtoBCompanyLead {
   websiteUrl?: string;
   businessItems: string[];
   subsidies: string[];
+  /** 補助金の認定日のうち最新のもの（YYYY-MM-DD）。「予算がついた直後」を捉えるシグナル */
+  latestSubsidyDate?: string;
 }
 
 /** BtoB スコアリング結果の型 */

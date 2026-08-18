@@ -12,6 +12,7 @@ import type { ScoredCinemaLead } from "@/lib/constants/cinema-leads";
 import type { TvcmLeadCandidate } from "@/lib/constants/tvcm-leads";
 import type { LeadStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
+import { parseSignalDate, resolveSignal, shouldReplaceSignal } from "@/lib/leads/signal";
 import {
   buildPlaceLeadMemo,
   buildCinemaLeadMemo,
@@ -53,6 +54,8 @@ export async function saveLeadsFromSearch(
 
       // 会社内容（Google概要・口コミ要約・企業タイプ等）。声かけ時の材料になるのでメモに残す
       const companyMemo = buildPlaceLeadMemo(lead);
+      // Google Places は日付を持つシグナルを返さないので発掘日に倒す
+      const signal = resolveSignal("FOUND", null);
 
       if (existing) {
         // 既存: スコアのみ更新。メモは手入力を潰さないよう空のときだけ補う
@@ -67,6 +70,7 @@ export async function saveLeadsFromSearch(
             businessStatus: lead.businessStatus,
             ...(existing.memo || !companyMemo ? {} : { memo: companyMemo }),
             ...(existing.assigneeId || !user ? {} : { assigneeId: user.id }),
+            ...(shouldReplaceSignal(existing, signal) ? signal : {}),
           },
         });
       } else {
@@ -86,6 +90,7 @@ export async function saveLeadsFromSearch(
             scoreBreakdown: lead.score.breakdown as Record<string, number>,
             scoreComment: lead.score.comment,
             memo: companyMemo || null,
+            ...signal,
             industry,
             area,
             createdById: user?.id ?? null,
@@ -598,6 +603,8 @@ export async function saveBtoBLeadsFromSearch(
 
       // 会社内容（事業内容・規模・補助金）をメモに残す
       const companyMemo = buildBtoBLeadMemo(lead);
+      // 補助金の認定日＝予算がついた日。これが今いちばん強いシグナル
+      const signal = resolveSignal("SUBSIDY", parseSignalDate(lead.latestSubsidyDate));
 
       const existing = await db.lead.findUnique({
         where: { name_address: { name: lead.name, address } },
@@ -609,6 +616,7 @@ export async function saveBtoBLeadsFromSearch(
           data: {
             ...(existing.memo || !companyMemo ? {} : { memo: companyMemo }),
             ...(existing.assigneeId || !user ? {} : { assigneeId: user.id }),
+            ...(shouldReplaceSignal(existing, signal) ? signal : {}),
             scoreTotal: lead.score?.total ?? 0,
             scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
             scoreComment: lead.score?.comment ?? null,
@@ -632,6 +640,7 @@ export async function saveBtoBLeadsFromSearch(
             scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
             scoreComment: lead.score?.comment ?? null,
             memo: companyMemo || null,
+            ...signal,
             industry,
             area,
             source: "GBIZINFO",
@@ -694,6 +703,7 @@ export async function saveCinemaLeadsFromSearch(
       const address = lead.address || "";
       // 会社内容（Google概要・口コミ要約・企業タイプ等）をメモに残す
       const companyMemo = buildCinemaLeadMemo(lead);
+      const signal = resolveSignal("FOUND", null);
       const existing = await db.lead.findUnique({
         where: { name_address: { name: lead.name, address } },
       });
@@ -710,6 +720,7 @@ export async function saveCinemaLeadsFromSearch(
             cinemaTheaterName: area,
             ...(existing.memo || !companyMemo ? {} : { memo: companyMemo }),
             ...(existing.assigneeId || !user ? {} : { assigneeId: user.id }),
+            ...(shouldReplaceSignal(existing, signal) ? signal : {}),
           },
         });
       } else {
@@ -728,6 +739,7 @@ export async function saveCinemaLeadsFromSearch(
             scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
             scoreComment: lead.score?.comment ?? null,
             memo: companyMemo || null,
+            ...signal,
             industry,
             area,
             source: "CINEMA_AD",
@@ -793,6 +805,11 @@ export async function saveRecruitLeadsFromSearch(
 
       // 会社内容（Google概要・口コミ要約・採用状況）をメモに残す
       const companyMemo = buildRecruitLeadMemo(lead);
+      // 採用ページを今この瞬間に確認できた＝求人が生きている。確認日をシグナルにする
+      const signal = resolveSignal(
+        lead.recruitAnalysis?.recruitPageUrl ? "RECRUIT" : "FOUND",
+        null
+      );
 
       if (existing) {
         await db.lead.update({
@@ -806,6 +823,7 @@ export async function saveRecruitLeadsFromSearch(
             youtubeSubscribers: lead.youtubeChannel?.subscribers ?? null,
             ...(existing.memo || !companyMemo ? {} : { memo: companyMemo }),
             ...(existing.assigneeId || !user ? {} : { assigneeId: user.id }),
+            ...(shouldReplaceSignal(existing, signal) ? signal : {}),
           },
         });
       } else {
@@ -824,6 +842,7 @@ export async function saveRecruitLeadsFromSearch(
             scoreBreakdown: (lead.score?.breakdown ?? {}) as Record<string, number>,
             scoreComment: lead.score?.comment ?? null,
             memo: companyMemo || null,
+            ...signal,
             industry,
             area,
             source: "RECRUIT_SEARCH",
@@ -1414,6 +1433,8 @@ export async function saveTvcmLeadsFromSearch(
   try {
     for (const c of candidates) {
       const address = c.address ?? "";
+      // CM発表のプレスリリース日＝広告に金を使うと決めた日
+      const signal = resolveSignal("TVCM", parseSignalDate(c.announcedDate));
       const existing = await db.lead.findUnique({
         where: { name_address: { name: c.companyName, address } },
       });
@@ -1439,6 +1460,7 @@ export async function saveTvcmLeadsFromSearch(
             area: c.prefecture,
             scoreComment: c.summary,
             websiteUrl: c.companyWebsite,
+            ...(shouldReplaceSignal(existing, signal) ? signal : {}),
           },
         });
 
@@ -1463,6 +1485,7 @@ export async function saveTvcmLeadsFromSearch(
             source: "PR_TIMES_TVCM",
             status: targetStatus,
             scoreComment: c.summary,
+            ...signal,
             capital: c.capital !== null ? BigInt(c.capital) : null,
             employeeCount: c.employeeCount,
             pressReleaseUrl: c.pressReleaseUrl,
