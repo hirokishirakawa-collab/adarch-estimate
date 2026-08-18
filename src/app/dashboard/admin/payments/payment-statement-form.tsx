@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Loader2, AlertTriangle, Plus, Trash2 } from "lucide-react";
 import { computeBreakdown } from "@/lib/payment-statement-calc";
+import { PREFECTURES, toFullPrefecture } from "@/lib/constants/crm";
 
 type Partner = {
   id: string;
@@ -11,6 +12,7 @@ type Partner = {
   ownerName: string;
   entityType: string;
   invoiceRegistered: boolean;
+  prefecture?: string | null;
   branchLabels?: string[];
 };
 
@@ -19,7 +21,7 @@ interface Props {
   partners: Partner[];
 }
 
-type ClientRow = { clientName: string; grossAmount: number; note: string };
+type ClientRow = { clientName: string; prefecture: string; grossAmount: number; note: string };
 
 function fmtNum(n: number): string {
   return n.toLocaleString("ja-JP");
@@ -33,8 +35,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
   const [state, formAction, isPending] = useActionState(action, null);
 
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
-  const [branchLabel, setBranchLabel] = useState("");
-  const [rows, setRows] = useState<ClientRow[]>([{ clientName: "", grossAmount: 0, note: "" }]);
+  const [rows, setRows] = useState<ClientRow[]>([{ clientName: "", prefecture: "", grossAmount: 0, note: "" }]);
   const [commissionRate, setCommissionRate] = useState(10);
   const [adMediaCost, setAdMediaCost] = useState(0);
 
@@ -43,6 +44,16 @@ export function PaymentStatementForm({ action, partners }: Props) {
   const isSoleProprietor = partner?.entityType === "SOLE_PROPRIETOR";
   const isInvoiceUnregistered = partner ? !partner.invoiceRegistered : false;
   const isUnknownEntity = partner?.entityType === "UNKNOWN";
+
+  // 県セレクトの選択肢: そのパートナーの拠点県を先頭グループ、残りを全国グループに
+  const branchPrefs = Array.from(
+    new Set(
+      [...(partner?.branchLabels ?? []), ...(partner?.prefecture ? [partner.prefecture] : [])]
+        .map((l) => toFullPrefecture(l))
+        .filter(Boolean)
+    )
+  );
+  const otherPrefs = PREFECTURES.filter((p) => !branchPrefs.includes(p));
 
   // 入金額（税込）合計
   const grossInclTax = rows.reduce((sum, r) => sum + (r.grossAmount || 0), 0);
@@ -57,20 +68,35 @@ export function PaymentStatementForm({ action, partners }: Props) {
   });
 
   const validRows = rows.filter((r) => r.clientName.trim() && r.grossAmount > 0);
-  const canSubmit = !!selectedPartnerId && validRows.length > 0 && (!multiBranch || !!branchLabel);
+  // 複数拠点パートナーは、どの県の売上かを行ごとに必ず指定させる（県別ロイヤリティ判定に使用）
+  const missingPref = multiBranch && validRows.some((r) => !r.prefecture);
+
+  // 県別の入金内訳（複数県にまたがるときだけ表示）
+  const prefSummary = Object.entries(
+    validRows.reduce<Record<string, number>>((acc, r) => {
+      const key = r.prefecture || "未選択";
+      acc[key] = (acc[key] ?? 0) + r.grossAmount;
+      return acc;
+    }, {})
+  ).map(([label, amount]) => ({ label, amount }));
+  const canSubmit = !!selectedPartnerId && validRows.length > 0 && !missingPref;
 
   function updateRow(idx: number, patch: Partial<ClientRow>) {
     setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
   function addRow() {
-    setRows((prev) => [...prev, { clientName: "", grossAmount: 0, note: "" }]);
+    setRows((prev) => [
+      ...prev,
+      // 直前の行の県を引き継ぐ（同一県の連続入力が大半のため）
+      { clientName: "", prefecture: prev[prev.length - 1]?.prefecture ?? "", grossAmount: 0, note: "" },
+    ]);
   }
   function removeRow(idx: number) {
     setRows((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
   }
 
   return (
-    <form action={formAction} className="space-y-5 max-w-xl">
+    <form action={formAction} className="space-y-5 max-w-2xl">
       {state?.error && (
         <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
           {state.error}
@@ -85,7 +111,11 @@ export function PaymentStatementForm({ action, partners }: Props) {
         <select
           name="groupCompanyId"
           value={selectedPartnerId}
-          onChange={(e) => { setSelectedPartnerId(e.target.value); setBranchLabel(""); }}
+          onChange={(e) => {
+            setSelectedPartnerId(e.target.value);
+            // 拠点が変わると県の選択肢が変わるため、入力済みの県はクリアする
+            setRows((prev) => prev.map((r) => ({ ...r, prefecture: "" })));
+          }}
           required
           className={inputCls}
         >
@@ -123,25 +153,11 @@ export function PaymentStatementForm({ action, partners }: Props) {
           </div>
         )}
 
-        {/* 複数拠点パートナー: この入金がどの県の売上か（県別ロイヤリティ判定に使用） */}
+        {/* 複数拠点パートナー: 県は下の明細行ごとに指定する */}
         {multiBranch && (
-          <div className="mt-3 p-3 rounded-lg bg-indigo-50 border border-indigo-200">
-            <label className="block text-[11px] font-semibold text-indigo-800 mb-1">
-              拠点（県）<span className="text-red-500 ml-0.5">*</span>
-              <span className="font-normal text-indigo-500 ml-1">この入金がどの県の売上か（県別ロイヤリティ判定に使用）</span>
-            </label>
-            <select
-              name="branchLabel"
-              value={branchLabel}
-              onChange={(e) => setBranchLabel(e.target.value)}
-              required
-              className={inputCls}
-            >
-              <option value="">県を選択してください</option>
-              {partner!.branchLabels!.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
+          <div className="mt-3 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 text-[11px] text-indigo-700">
+            複数拠点パートナー（{partner!.branchLabels!.join("・")}）です。
+            下のクライアント別内訳で、<span className="font-semibold">行ごとにどの県の売上か</span>を指定してください（県別ロイヤリティ判定に使用）。
           </div>
         )}
       </div>
@@ -168,43 +184,94 @@ export function PaymentStatementForm({ action, partners }: Props) {
           </button>
         </div>
 
+        <div className="flex gap-2 px-0.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+          <span className="flex-1">クライアント名</span>
+          <span className="w-28">都道府県{multiBranch && <span className="text-red-500 ml-0.5">*</span>}</span>
+          <span className="w-32">入金額（税込）</span>
+          <span className="w-4" />
+        </div>
+
         <div className="space-y-2">
-          {rows.map((row, i) => (
-            <div key={i} className="flex gap-2 items-start">
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={row.clientName}
-                  onChange={(e) => updateRow(i, { clientName: e.target.value })}
-                  maxLength={200}
-                  placeholder={`クライアント名${rows.length > 1 ? ` ${i + 1}` : ""}`}
-                  className={`${inputCls} text-xs`}
-                />
-              </div>
-              <div className="w-36">
-                <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 text-xs">¥</span>
+          {rows.map((row, i) => {
+            const prefMissing = multiBranch && !row.prefecture && !!row.clientName.trim();
+            return (
+              <div key={i} className="flex gap-2 items-start">
+                <div className="flex-1">
                   <input
-                    type="number" min={0} step={1}
-                    value={row.grossAmount === 0 ? "" : row.grossAmount}
-                    onChange={(e) => updateRow(i, { grossAmount: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                    placeholder="入金額(税込)"
-                    className={`${inputCls} pl-6 text-xs`}
+                    type="text"
+                    value={row.clientName}
+                    onChange={(e) => updateRow(i, { clientName: e.target.value })}
+                    maxLength={200}
+                    placeholder={`クライアント名${rows.length > 1 ? ` ${i + 1}` : ""}`}
+                    className={`${inputCls} text-xs`}
                   />
                 </div>
+                <div className="w-28">
+                  <select
+                    value={row.prefecture}
+                    onChange={(e) => updateRow(i, { prefecture: e.target.value })}
+                    className={`${inputCls} text-xs px-2 ${prefMissing ? "border-red-300 bg-red-50" : ""}`}
+                  >
+                    <option value="">未選択</option>
+                    {branchPrefs.length > 0 && (
+                      <optgroup label="拠点">
+                        {branchPrefs.map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="全国">
+                      {otherPrefs.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+                <div className="w-32">
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 text-xs">¥</span>
+                    <input
+                      type="number" min={0} step={1}
+                      value={row.grossAmount === 0 ? "" : row.grossAmount}
+                      onChange={(e) => updateRow(i, { grossAmount: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                      placeholder="入金額(税込)"
+                      className={`${inputCls} pl-6 text-xs`}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeRow(i)}
+                  disabled={rows.length <= 1}
+                  className="mt-1.5 text-zinc-300 hover:text-red-500 disabled:opacity-30 disabled:hover:text-zinc-300 transition-colors"
+                  aria-label="行を削除"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => removeRow(i)}
-                disabled={rows.length <= 1}
-                className="mt-1.5 text-zinc-300 hover:text-red-500 disabled:opacity-30 disabled:hover:text-zinc-300 transition-colors"
-                aria-label="行を削除"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
+
+        {missingPref && (
+          <div className="flex items-center gap-1.5 text-[11px] text-red-600">
+            <AlertTriangle className="w-3 h-3" />
+            複数拠点パートナーです。各行の都道府県を選択してください。
+          </div>
+        )}
+
+        {/* 県別 入金内訳（複数県にまたがる場合の確認用） */}
+        {prefSummary.length > 1 && (
+          <div className="pt-2 border-t border-zinc-200 space-y-1">
+            <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">県別 内訳</p>
+            {prefSummary.map((p) => (
+              <div key={p.label} className="flex justify-between text-[11px] text-zinc-500">
+                <span>{p.label}</span>
+                <span>¥{fmtNum(p.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex justify-between text-xs pt-2 border-t border-zinc-200">
           <span className="text-zinc-600 font-semibold">入金額合計（税込）</span>

@@ -121,3 +121,20 @@ export const PREFECTURES = [
   "沖縄県",
   "海外",
 ] as const;
+
+/// 拠点ラベル形式（サフィックス無し。例: 山口）へ寄せる。
+/// GroupCompany.branchLabels は「山口」「広島」形式で保存されているため、照合はこの形で行う。
+export function toBranchLabel(s: string): string {
+  const t = (s ?? "").trim();
+  if (!t) return "";
+  if (t.startsWith("北海道")) return "北海道";
+  return t.replace(/[都府県]$/, "");
+}
+
+/// 拠点ラベル（例: 山口）を都道府県フル名（例: 山口県）へ寄せる。該当が無ければ元の文字列を返す。
+export function toFullPrefecture(s: string): string {
+  const t = (s ?? "").trim();
+  if (!t) return "";
+  const key = toBranchLabel(t);
+  return PREFECTURES.find((p) => toBranchLabel(p) === key) ?? t;
+}

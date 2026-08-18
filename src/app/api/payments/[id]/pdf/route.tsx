@@ -74,6 +74,7 @@ export async function GET(
       netPaymentAmount: Number(statement.netPaymentAmount),
       items: statement.items.map((it) => ({
         clientName: it.clientName,
+        prefecture: it.prefecture,
         grossAmount: Number(it.grossAmount),
         note: it.note,
       })),

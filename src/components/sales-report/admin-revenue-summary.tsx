@@ -3,6 +3,8 @@ import { BarChart2 } from "lucide-react";
 type ReportWithUser = {
   id: string;
   amount: { toString(): string };
+  selfAmount: { toString(): string };
+  hqAmount: { toString(): string };
   targetMonth: Date;
   createdBy: { name: string | null; email: string };
 };
@@ -24,13 +26,16 @@ export function AdminRevenueSummary({ reports }: Props) {
   const thisYear  = now.getFullYear();
   const thisMonth = now.getMonth();
 
-  // 今月の全体合計
-  const thisMonthTotal = reports
-    .filter((r) => {
-      const d = new Date(r.targetMonth);
-      return d.getFullYear() === thisYear && d.getMonth() === thisMonth;
-    })
-    .reduce((sum, r) => sum + Number(r.amount), 0);
+  // 今月の全体合計（請求元別の内訳つき）
+  const thisMonthReports = reports.filter((r) => {
+    const d = new Date(r.targetMonth);
+    return d.getFullYear() === thisYear && d.getMonth() === thisMonth;
+  });
+  const thisMonthTotal = thisMonthReports.reduce((sum, r) => sum + Number(r.amount), 0);
+  const thisMonthSelf  = thisMonthReports.reduce((sum, r) => sum + Number(r.selfAmount), 0);
+  const thisMonthHq    = thisMonthReports.reduce((sum, r) => sum + Number(r.hqAmount), 0);
+  // 明細導入前の報告は請求元の区分を持たない
+  const thisMonthOther = Math.max(0, thisMonthTotal - thisMonthSelf - thisMonthHq);
 
   // 今年度の全体合計（4月始まり）
   const fiscalStart = thisMonth >= 3 ? thisYear : thisYear - 1;
@@ -112,6 +117,24 @@ export function AdminRevenueSummary({ reports }: Props) {
           <p className="text-[11px] text-zinc-500 font-semibold mb-1">総報告件数</p>
           <p className="text-2xl font-bold text-zinc-800">{reports.length}<span className="text-sm font-normal ml-1">件</span></p>
         </div>
+      </div>
+
+      {/* 今月の請求元別 内訳 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="bg-white border border-blue-100 rounded-xl px-5 py-4">
+          <p className="text-[11px] text-blue-600 font-semibold mb-1">{thisMonthLabel}／自分で請求</p>
+          <p className="text-xl font-bold text-blue-900 tabular-nums">{fmtAmount(thisMonthSelf)}</p>
+        </div>
+        <div className="bg-white border border-violet-100 rounded-xl px-5 py-4">
+          <p className="text-[11px] text-violet-600 font-semibold mb-1">{thisMonthLabel}／本部から請求</p>
+          <p className="text-xl font-bold text-violet-900 tabular-nums">{fmtAmount(thisMonthHq)}</p>
+        </div>
+        {thisMonthOther > 0 && (
+          <div className="bg-white border border-zinc-200 rounded-xl px-5 py-4">
+            <p className="text-[11px] text-zinc-500 font-semibold mb-1">{thisMonthLabel}／区分なし（旧データ）</p>
+            <p className="text-xl font-bold text-zinc-700 tabular-nums">{fmtAmount(thisMonthOther)}</p>
+          </div>
+        )}
       </div>
 
       {/* メンバー別 + 月別グラフ */}
