@@ -3952,3 +3952,24 @@ model Tender {
   @@index([fitCheckedAt])
   @@map("tenders")
 }
+
+/// 加盟開発LP（/intro/）の流入・コンバージョン記録。
+/// 広告の効果を毎朝のブリーフィングで出すために、GA4やMeta APIを経由せず自社DBへ直接記録する。
+model LpView {
+  id          String   @id @default(cuid())
+  path        String
+  event       String // view / doc_request_click / form_start / lead / book_click
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  referrer    String?
+  visitorId   String? // LP側で発行する匿名ID（UU集計用）
+  isMobile    Boolean?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([event])
+  @@index([visitorId])
+  @@map("lp_views")
+}
