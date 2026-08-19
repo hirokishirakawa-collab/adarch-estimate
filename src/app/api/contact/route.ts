@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendContactInquiryEmail } from "@/lib/resend";
+import { sendContactInquiryEmail, sendPartnershipAutoReply } from "@/lib/resend";
 import { db } from "@/lib/db";
 import { notifyCeo } from "@/lib/google-chat";
 
@@ -170,6 +170,16 @@ export async function POST(req: NextRequest) {
         phone: phone ? String(phone) : "",
         message,
       });
+    }
+
+    // 加盟の資料請求・お問い合わせには即時で自動返信（代表名義）。
+    // 広告経由の請求は深夜・休日にも入るため、人手を待たせない。失敗しても本体は落とさない。
+    if ((inquiry_type || "") === "partnership") {
+      try {
+        await sendPartnershipAutoReply({ name, email });
+      } catch (e) {
+        console.error("[contact] auto-reply error:", e instanceof Error ? e.message : e);
+      }
     }
 
     let emailSent = true;

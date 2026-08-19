@@ -41,8 +41,13 @@ export async function sendMail(params: {
   html: string;
   bcc?: string | string[];
   attachments?: { filename: string; content: Buffer }[];
+  /** 差出人の上書き（未指定なら Ad-Arch OS）。加盟希望者への返信など、代表名義で出したい時に使う。 */
+  from?: string;
+  /** 返信先の指定 */
+  replyTo?: string;
 }): Promise<void> {
-  const { to, subject, html, bcc, attachments } = params;
+  const { to, subject, html, bcc, attachments, from, replyTo } = params;
+  const fromAddress = from || FROM_ADDRESS;
   const recipients = Array.isArray(to) ? to : [to];
   const bccList = bcc ? (Array.isArray(bcc) ? bcc : [bcc]) : [];
 
@@ -51,9 +56,10 @@ export async function sendMail(params: {
   if (gmail) {
     try {
       await gmail.sendMail({
-        from: FROM_ADDRESS,
+        from: fromAddress,
         to: recipients.join(","),
         ...(bccList.length ? { bcc: bccList.join(",") } : {}),
+        ...(replyTo ? { replyTo } : {}),
         subject,
         html,
         ...(attachments?.length ? { attachments: attachments.map((a) => ({ filename: a.filename, content: a.content })) } : {}),
@@ -67,9 +73,10 @@ export async function sendMail(params: {
 
   // Resend フォールバック
   const { error } = await resend.emails.send({
-    from: FROM_ADDRESS,
+    from: fromAddress,
     to: recipients,
     ...(bccList.length ? { bcc: bccList } : {}),
+    ...(replyTo ? { replyTo } : {}),
     subject,
     html,
     ...(attachments?.length ? { attachments: attachments.map((a) => ({ filename: a.filename, content: a.content })) } : {}),
@@ -878,4 +885,116 @@ export async function sendCreatorRegistrationNotifyEmail(payload: {
   } catch (e) {
     console.error("[resend:creator-notify] error:", e instanceof Error ? e.message : e);
   }
+}
+
+// ---------------------------------------------------------------
+// 加盟の資料請求・お問い合わせへの自動返信（代表名義）
+// LP（adarch.co.jp/intro/, partner.html）からの inquiry_type=partnership に対して即時返信する。
+// 広告経由の請求は深夜・休日にも入るため、人手を待たずに資料を届けるのが目的。
+// ---------------------------------------------------------------
+const DOC_PDF_URL = "https://adarch.co.jp/intro/AdArch-overview.pdf";
+const BOOKING_URL = "https://timerex.net/s/AdArch/b42bc7ae";
+
+export async function sendPartnershipAutoReply(params: {
+  name: string;
+  email: string;
+}): Promise<void> {
+  const { name, email } = params;
+  const subject = "資料をお送りします｜アドアーチグループ";
+
+  const linkBtn = (href: string, label: string, primary: boolean) => `
+    <a href="${href}" target="_blank"
+       style="display:inline-block;padding:14px 30px;border-radius:6px;text-decoration:none;
+              font-size:15px;font-weight:700;letter-spacing:.02em;
+              ${primary
+                ? "background:#C9A227;color:#10203a;"
+                : "background:#ffffff;color:#1F3A5F;border:1px solid #1F3A5F;"}">
+      ${label}
+    </a>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#f6f5f1;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f6f5f1;padding:28px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e8e4da;">
+        <tr>
+          <td style="border-top:3px solid #C9A227;padding:32px 34px 28px;
+                     font-family:'Hiragino Sans','Noto Sans JP',sans-serif;
+                     font-size:15px;line-height:2;color:#2b3646;">
+
+            <p style="margin:0 0 20px;">${escHtml(name)} 様</p>
+
+            <p style="margin:0 0 20px;">
+              はじめまして。<br />
+              Ad Arch株式会社の白川です。
+            </p>
+
+            <p style="margin:0 0 20px;">
+              この度は資料をご請求いただき、ありがとうございます！
+            </p>
+
+            <p style="margin:0 0 10px;">
+              下記より、事前説明資料（PDF・全15ページ）をご覧いただけます。
+            </p>
+
+            <p style="margin:0 0 24px;text-align:center;">
+              ${linkBtn(DOC_PDF_URL, "▶ 資料を見る（PDF）", true)}
+            </p>
+
+            <p style="margin:0 0 24px;">
+              会社概要・これまでの実績・事業の仕組みをまとめております。<br />
+              お目通しいただいて、気になる点がございましたら、このメールにそのままご返信ください。
+            </p>
+
+            <div style="border-top:1px dashed #e8e4da;padding-top:22px;margin-bottom:10px;">
+              <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#1F3A5F;">
+                【個別面談をご希望の場合】
+              </p>
+              <p style="margin:0 0 16px;font-size:14px;">
+                オンライン・約30分で、私から直接ご説明いたします。<br />
+                ご都合のよい日時をお選びください。
+              </p>
+              <p style="margin:0 0 18px;text-align:center;">
+                ${linkBtn(BOOKING_URL, "▶ 日程を選ぶ", false)}
+              </p>
+            </div>
+
+            <p style="margin:0 0 22px;font-size:14px;">
+              無理な勧誘はいたしませんので、まずは話を聞いてみたい、それだけでも構いません。
+            </p>
+
+            <p style="margin:0 0 22px;">
+              引き続きどうぞよろしくお願いいたします。
+            </p>
+
+            <p style="margin:0;">白川</p>
+
+            <div style="margin-top:26px;padding-top:18px;border-top:1px solid #e8e4da;
+                        font-size:12px;line-height:1.9;color:#6b7888;">
+              Ad Arch株式会社<br />
+              代表取締役/Producer 白川 裕喜 (Hiroki Shirakawa)<br />
+              〒107-0062 東京都港区南青山2-15-5 FARO1F<br />
+              HP: <a href="https://www.adarch.co.jp" style="color:#9c7d12;">https://www.adarch.co.jp</a>
+            </div>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:14px 0 0;font-size:11px;color:#a1a1aa;font-family:'Hiragino Sans',sans-serif;">
+        このメールは資料請求をいただいた方へ自動でお送りしています。
+      </p>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await sendMail({
+    to: [email],
+    subject,
+    html,
+    from: "白川 裕喜（Ad Arch株式会社） <info@adarch.co.jp>",
+    replyTo: "hiroki.shirakawa@adarch.co.jp",
+  });
 }
