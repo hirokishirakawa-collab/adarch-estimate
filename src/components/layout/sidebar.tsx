@@ -56,6 +56,7 @@ import {
   Paintbrush,
   Briefcase,
   Banknote,
+  Gavel,
   Workflow,
 } from "lucide-react";
 
@@ -243,6 +244,18 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/strategy-advisor",
         label: "提案戦略アドバイザー（AI）",
         icon: Sparkles,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/subsidy-finder",
+        label: "補助金ファインダー（広告費の財源）",
+        icon: Banknote,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/tender-finder",
+        label: "入札ファインダー（自治体の案件）",
+        icon: Gavel,
         minRole: "USER",
       },
       {
@@ -645,6 +658,8 @@ const SELL_TAB_ITEMS: NavItem[] = [
 // ② 提案: 提案・見積・媒体シミュレーター
 const PROPOSE_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/strategy-advisor", label: "提案戦略アドバイザー（AI）", icon: Sparkles, minRole: "USER" },
+  { href: "/dashboard/subsidy-finder", label: "補助金ファインダー", icon: Banknote, minRole: "USER" },
+  { href: "/dashboard/tender-finder", label: "入札ファインダー", icon: Gavel, minRole: "USER" },
   { href: "/dashboard/estimates", label: "公式見積もり", icon: FileText, minRole: "USER" },
   {
     href: "#media-simulators",

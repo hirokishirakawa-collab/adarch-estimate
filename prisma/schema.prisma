@@ -310,7 +310,7 @@ model Branch {
   tverCampaigns         TverCampaign[]
   tverCreativeReviews   TverCreativeReview[]
 
-  autoSalesSentDomains  AutoSalesSentDomain[]
+  autoSalesSentDomains AutoSalesSentDomain[]
 
   // Studio
   studioClients       StudioClient[]       @relation("StudioClients")
@@ -2979,9 +2979,9 @@ model AutoSalesTemplate {
   scheduledStartDate DateTime? // 営業開始日（nullなら承認後すぐ開始）
 
   // 申請制（本部承認がないと送信されない）
-  isApproved Boolean   @default(false) // 本部承認済み
-  approvedAt DateTime?
-  approvedBy String? // ADMIN User.id
+  isApproved  Boolean   @default(false) // 本部承認済み
+  approvedAt  DateTime?
+  approvedBy  String? // ADMIN User.id
   submittedAt DateTime? // 拠点が申請した日時（null=下書き）
   rejectedAt  DateTime? // 本部が差し戻した日時
   reviewNote  String?   @db.Text // 本部コメント（差戻し理由・承認時の条件など）
@@ -3044,7 +3044,7 @@ model AutoSalesSentDomain {
 
   companyName String // 送信時点の企業名
   branchId    String // 送信した拠点
-  branch      Branch @relation(fields: [branchId], references: [id])
+  branch      Branch  @relation(fields: [branchId], references: [id])
   jobId       String? // 廃止した自動営業のジョブID（過去分のみ）
 
   /// どの経路で送ったか。OUTREACH=アウトリーチ(メール) / LEAD_FORM=営業フォーム
@@ -3798,4 +3798,155 @@ model Booking {
   @@index([startAt])
   @@index([hostId, status])
   @@map("bookings")
+}
+
+// ==============================================================
+// 補助金ファインダー（広告費の財源探し）
+//
+// 出典 = デジタル庁 jGrants 公開API（認証不要）
+//   一覧: GET https://api.jgrants-portal.go.jp/exp/v1/public/subsidies
+//   詳細: GET https://api.jgrants-portal.go.jp/exp/v2/public/subsidies/id/{id}
+//
+// 【重要な設計上の制約】
+//   jGrants の本文には「対象経費」が載っていない。
+//   よって「広告費が対象」と断言できるのは、人が公募要領を読んだ制度（CONFIRMED）だけ。
+//   AI 判定は LIKELY / UNKNOWN / EXCLUDED までしか出さない（CONFIRMED は付けない）。
+//   客先で断言に使う道具なので、この線を越えないこと。
+// ==============================================================
+
+/// 広告費が補助対象になるかの確からしさ
+enum AdCostFit {
+  CONFIRMED // ◎ 公募要領を人が確認し、広告費・広報費が対象と分かっている
+  LIKELY // ○ 販路開拓・広報・PR系＝対象になる可能性が高い（要領で要確認）
+  UNKNOWN // △ 判断材料が足りない
+  EXCLUDED // × 設備・研究開発など、広告費が対象外と読める
+}
+
+/// jGrants から取り込んだ補助金制度のキャッシュ＋広告費適合度の判定結果。
+/// 日次 cron（/api/cron/subsidy-sync）が更新する。画面はこのテーブルだけを読む。
+model Subsidy {
+  id        String @id @default(cuid())
+  jgrantsId String @unique // jGrants の補助金ID
+  name      String // jGrants の管理番号（S-00009432 等）
+  title     String
+
+  catchPhrase     String?
+  institutionName String?
+  detailText      String?  @db.Text // HTMLを除去した本文
+  usePurpose      String? // 利用目的（" / " 区切り）
+  industry        String? // 対象業種（" / " 区切り）
+  targetEmployees String? // 従業員数の条件
+  targetAreas     String[] @default([]) // 対象地域（都道府県 or 全国）
+  subsidyRate     String?
+  maxLimit        BigInt? // 補助上限額（円）。175億円の制度があり Int(約21億) に収まらない
+
+  acceptanceStart DateTime?
+  acceptanceEnd   DateTime?
+  detailUrl       String? // jGrants の詳細ページ
+
+  // ── 広告費適合度の判定
+  adCostFit    AdCostFit @default(UNKNOWN)
+  fitReason    String?   @db.Text // 1行の根拠（画面にそのまま出す）
+  fitEvidence  String?   @db.Text // 判断の元になった本文の抜粋
+  fitSource    String? // "curated"（人が要領を確認）/ "ai"（本文からの推定）
+  fitCheckedAt DateTime?
+  guidelineUrl String? // 公募要領のURL（curated層のみ）
+
+  contentHash  String? // 本文の変更検知用。変わった時だけ再判定する
+  isActive     Boolean   @default(true) // 募集終了したら false
+  lastSyncedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([adCostFit])
+  @@index([acceptanceEnd])
+  @@index([isActive, acceptanceEnd])
+  @@map("subsidies")
+}
+
+// ==============================================================
+// 入札ファインダー（官公需情報ポータル）
+// ==============================================================
+
+/// 入札案件がグループの仕事になるか。AI 判定のみ（人の確認層は持たない）。
+enum TenderFit {
+  MATCH // ○ 広告・映像・印刷・イベントの発注＝グループが取れる
+  MAYBE // △ 周辺業務。読み方次第で取れる可能性がある
+  MISMATCH // × 機材購入・システム・工事など、制作の仕事ではない
+}
+
+/// 発注者の区分。
+/// 官公需ポータルの CityName は「機関の所在地」なので、これだけでは市区町村発注と判定できない
+/// （例: 機関名「国土交通省北海道開発局」でも CityName に札幌市が入る）。
+/// 機関名が市区町村名で終わるか（例:「岩手県盛岡市」）で見分ける。
+enum TenderOrdererType {
+  MUNICIPAL // 市区町村
+  PREFECTURAL // 都道府県
+  OTHER // 国・独立行政法人・その他
+}
+
+/// 案件の仕事の種類。画面のバッジと絞り込みに使う。
+enum TenderWorkType {
+  VIDEO // 動画・映像制作
+  AD // 広告出稿・媒体（新聞/TV/交通/看板/Web広告）
+  PRINT // 印刷物（チラシ・パンフ・ポスター・冊子）
+  WEB // Webサイト・SNS運用
+  EVENT // イベント・展示・式典の企画運営
+  DESIGN // デザイン・ロゴ・写真
+  OTHER // 上記に当てはまらない
+}
+
+/// 官公需情報ポータルサイト（中小企業庁）の検索APIから取り込んだ入札公告。
+/// 日次 cron（/api/cron/tender-sync）が更新する。画面はこのテーブルだけを読む。
+/// 件名に広告系の語を含むものだけを取り込み、そのうえで AI が「うちの仕事か」を判定する。
+model Tender {
+  id     String @id @default(cuid())
+  kkjKey String @unique // 官公需ポータルの Key（システム内で一意）
+
+  projectName      String            @db.Text // 公告の件名
+  organizationName String? // 機関名（例: 山梨県北杜市）
+  prefectureName   String? // 都道府県名
+  cityName         String? // 市区町村名（国の機関では入らない）
+  lgCode           String? // 都道府県コード（JIS X0401・2桁ゼロ埋め）
+  cityCode         String? // 市区町村コード（JIS X0402）
+  ordererType      TenderOrdererType @default(OTHER) // 発注者の区分（市区町村 / 都道府県 / その他）
+
+  category      String? // 物品 / 工事 / 役務
+  procedureType String? // 一般競争入札 / 公募型プロポーザル 等
+  certification String? // 入札資格（A〜D）
+  location      String? // 履行場所
+
+  documentUrl    String?  @db.Text // 公告のURL（PDF or HTML）
+  fileType       String? // pdf / html
+  description    String?  @db.Text // 公告文
+  attachmentUrls String[] @default([]) // 添付ファイルのURL
+
+  cftIssueDate   DateTime? // 公告日
+  submissionDate DateTime? // 入札開始日
+  openingDate    DateTime? // 開札日
+  periodEndTime  DateTime? // 納入期限日
+  /// 一覧から落とす基準日。開札日→入札開始日→納入期限→（無ければ）公告日+45日。
+  /// 公告データに日付が入らない自治体が多いため、あくまで推定値。
+  expiresAt      DateTime?
+
+  // ── AI 判定
+  fit                TenderFit       @default(MAYBE)
+  workType           TenderWorkType?
+  fitReason          String?         @db.Text // 営業担当が読む1行
+  fitEvidence        String?         @db.Text // 判断の元になった原文の抜粋
+  needsQualification Boolean         @default(false) // 入札参加資格（名簿登録）が要ると読めるか
+  fitCheckedAt       DateTime?
+
+  contentHash  String? // 本文の変更検知用。変わった時だけ再判定する
+  lastSyncedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fit, cftIssueDate])
+  @@index([prefectureName, fit])
+  @@index([expiresAt])
+  @@index([fitCheckedAt])
+  @@map("tenders")
 }
