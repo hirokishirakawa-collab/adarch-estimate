@@ -831,6 +831,13 @@ model InvoiceRequest {
   mediaExpense      Decimal? @db.Decimal(15, 0) // 媒体費（税抜・源泉対象外）
   productionExpense Decimal? @db.Decimal(15, 0) // 制作費（税抜・源泉対象）
 
+  // ── 立替実費（本部手数料の対象外）
+  // 交通費・宿泊費・外注実費など、実費相当額をそのまま請求先に請求した分。
+  // 契約 別紙2-4「対象売上に算入しない項目」に対応し、本部手数料の計算基礎から除外する。
+  // 手数料等を上乗せして請求した場合、その上乗せ分はここに入れない（通常の売上として算入する）。
+  // null / 0 は実費なし（本フィールド追加前の既存データを含む）。
+  reimbursementExclTax Decimal? @db.Decimal(15, 0)
+
   // ── 源泉徴収・インボイス
   withholdingTaxAmount   Decimal? @db.Decimal(15, 0) // 源泉徴収税額
   nonDeductibleTaxAmount Decimal? @db.Decimal(15, 0) // 控除不可消費税額
@@ -904,6 +911,10 @@ model PaymentStatement {
   commissionAmount  Decimal @db.Decimal(15, 0) // 本部手数料額
   mediaExpense      Decimal @default(0) @db.Decimal(15, 0) // 媒体費（税抜・パススルー）
   productionExpense Decimal @default(0) @db.Decimal(15, 0) // 制作費（税抜）
+
+  // 立替実費（税込・本部手数料の対象外）。交通費・宿泊費・外注実費など実費をそのまま請求した分。
+  // 手数料の計算基礎（税抜本体）から差し引く。パートナーへは満額支払うため差引支払額は減らさない。
+  reimbursementInclTax Decimal @default(0) @db.Decimal(15, 0)
 
   // ── 税額調整
   withholdingTaxAmount   Decimal @default(0) @db.Decimal(15, 0) // 源泉徴収税額

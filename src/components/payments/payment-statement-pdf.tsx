@@ -19,6 +19,7 @@ export type PaymentStatementForPDF = {
   commissionAmount: number;
   mediaExpense: number;
   productionExpense: number;
+  reimbursementInclTax: number;
   withholdingTaxAmount: number;
   nonDeductibleTaxAmount: number;
   netPaymentAmount: number;
@@ -118,6 +119,7 @@ export function PaymentStatementPDFDocument({
     commissionAmount: statement.commissionAmount,
     mediaExpense: statement.mediaExpense,
     productionExpense: statement.productionExpense,
+    reimbursementInclTax: statement.reimbursementInclTax,
     withholdingTaxAmount: statement.withholdingTaxAmount,
     nonDeductibleTaxAmount: statement.nonDeductibleTaxAmount,
     netPaymentAmount: statement.netPaymentAmount,
@@ -135,6 +137,10 @@ export function PaymentStatementPDFDocument({
   }
   rows.push({ label: "　本体（税抜）", amount: b.grossExclTax, isSub: true });
   rows.push({ label: "　消費税（10%）", amount: b.grossTax, isSub: true });
+  if (b.reimbursementInclTax > 0) {
+    rows.push({ label: "　立替実費（税抜・手数料対象外）", amount: b.reimbursementExclTax, isSub: true });
+    rows.push({ label: "　手数料の対象（税抜）", amount: b.commissionBaseExclTax, isSub: true });
+  }
   rows.push({
     label: `本部手数料（${statement.commissionRate}%・税抜）`,
     amount: -b.commissionExclTax,

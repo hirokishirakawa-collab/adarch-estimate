@@ -25,7 +25,18 @@ export const MIN_ROYALTY_EXCL_TAX = 50_000;
 /// 本部手数料率（%）。ロイヤリティ相殺の原資＝請求額(税抜) × この率。
 export const HQ_COMMISSION_RATE = 10;
 
-/// 請求額(税抜)から本部手数料(税抜)を求める。
+/// 手数料の計算基礎(税抜)＝請求額(税抜) − 立替実費(税抜)。
+/// 交通費・宿泊費・外注実費など、実費相当額をそのまま請求先に請求した分は
+/// 契約 別紙2-4 により対象売上に算入しないため、10%の基礎から外す。
+/// 上乗せして請求した分は実費に含めない（通常の売上として基礎に残る）。
+export function commissionBaseOf(amountExclTax: number, reimbursementExclTax: number = 0): number {
+  const amount = Math.max(0, Math.round(amountExclTax || 0));
+  const reimbursement = Math.max(0, Math.round(reimbursementExclTax || 0));
+  return Math.max(0, amount - reimbursement);
+}
+
+/// 計算基礎(税抜)から本部手数料(税抜)を求める。立替実費がある場合は
+/// commissionBaseOf() を通した額を渡すこと。
 /// 支払明細の computeBreakdown と同じ切り捨てで、同一案件なら両者が一致する。
 export function commissionOf(amountExclTax: number, ratePercent: number = HQ_COMMISSION_RATE): number {
   const base = Math.max(0, Math.round(amountExclTax || 0));

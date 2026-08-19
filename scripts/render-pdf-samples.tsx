@@ -41,6 +41,7 @@ const payment: PaymentStatementForPDF = {
   commissionAmount: 165000,
   mediaExpense: 400000,
   productionExpense: 500000,
+  reimbursementInclTax: 0,
   withholdingTaxAmount: 51050,
   nonDeductibleTaxAmount: 0,
   netPaymentAmount: 883950,

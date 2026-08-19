@@ -10,7 +10,7 @@ import { uploadBillingFile } from "@/lib/storage";
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
 import { logAudit } from "@/lib/audit";
-import { HQ_COMMISSION_RATE, commissionOf } from "@/lib/royalty-monthly";
+import { HQ_COMMISSION_RATE, commissionBaseOf, commissionOf } from "@/lib/royalty-monthly";
 
 // ---------------------------------------------------------------
 // 閲覧権限スコープ
@@ -47,6 +47,7 @@ async function parseFormData(formData: FormData): Promise<
         commissionExclTax: number;
         mediaExpense: number | null;
         productionExpense: number | null;
+        reimbursementExclTax: number | null;
         withholdingTaxAmount: number | null;
         nonDeductibleTaxAmount: number | null;
         netPaymentAmount: number | null;
@@ -98,9 +99,22 @@ async function parseFormData(formData: FormData): Promise<
   const mediaExpense      = mediaExpenseRaw ? parseInt(mediaExpenseRaw, 10) : null;
   const productionExpense = productionExpenseRaw ? parseInt(productionExpenseRaw, 10) : null;
 
+  // ── 立替実費（税抜・本部手数料の対象外）。税抜金額を上限にクランプする。
+  const reimbursementRaw = (formData.get("reimbursementExclTax") as string)?.replace(/,/g, "").trim() || null;
+  const reimbursementInput = reimbursementRaw ? parseInt(reimbursementRaw, 10) : NaN;
+  if (reimbursementRaw && (isNaN(reimbursementInput) || reimbursementInput < 0))
+    return { ok: false, error: "立替実費は0以上の整数で入力してください" };
+  const reimbursementExclTax = reimbursementRaw
+    ? Math.min(Math.max(0, reimbursementInput), amountExclTax)
+    : null;
+
   // ── 本部手数料（ロイヤリティ相殺の原資）。クライアント送信値は使わずサーバーで計算する。
+  // 計算基礎は「税抜金額 − 立替実費」（契約 別紙2-4）。
   const commissionRate    = HQ_COMMISSION_RATE;
-  const commissionExclTax = commissionOf(amountExclTax, commissionRate);
+  const commissionExclTax = commissionOf(
+    commissionBaseOf(amountExclTax, reimbursementExclTax ?? 0),
+    commissionRate,
+  );
   const commissionTax     = Math.floor(commissionExclTax * 0.1);
 
   // ── 源泉徴収・控除不可消費税（hidden fields）
@@ -127,7 +141,7 @@ async function parseFormData(formData: FormData): Promise<
       subject, branchLabel, customerId, contactName, contactEmail, billingDate, dueDate,
       details, amountExclTax, taxAmount, amountInclTax,
       commissionRate, commissionExclTax,
-      mediaExpense, productionExpense,
+      mediaExpense, productionExpense, reimbursementExclTax,
       withholdingTaxAmount, nonDeductibleTaxAmount, netPaymentAmount,
       inspectionStatus, fileUrl, notes,
       projectId: projectId || null,
@@ -181,6 +195,7 @@ export async function createInvoiceRequest(
         commissionExclTax:      d.commissionExclTax,
         mediaExpense:           d.mediaExpense,
         productionExpense:      d.productionExpense,
+        reimbursementExclTax:   d.reimbursementExclTax,
         withholdingTaxAmount:   d.withholdingTaxAmount,
         nonDeductibleTaxAmount: d.nonDeductibleTaxAmount,
         netPaymentAmount:       d.netPaymentAmount,
@@ -264,6 +279,7 @@ export async function updateInvoiceRequest(
         commissionExclTax:      d.commissionExclTax,
         mediaExpense:           d.mediaExpense,
         productionExpense:      d.productionExpense,
+        reimbursementExclTax:   d.reimbursementExclTax,
         withholdingTaxAmount:   d.withholdingTaxAmount,
         nonDeductibleTaxAmount: d.nonDeductibleTaxAmount,
         netPaymentAmount:       d.netPaymentAmount,

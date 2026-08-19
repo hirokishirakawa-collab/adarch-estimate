@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useRef, useEffect } from "react";
 import { Loader2, Upload, X, FileText, Search, ChevronDown } from "lucide-react";
-import { HQ_COMMISSION_RATE, commissionOf } from "@/lib/royalty-monthly";
+import { HQ_COMMISSION_RATE, commissionBaseOf, commissionOf } from "@/lib/royalty-monthly";
 
 type Project  = { id: string; title: string; customerId: string | null };
 type Customer = { id: string; name: string; email: string | null; contactName: string | null };
@@ -22,6 +22,7 @@ export interface Props {
     amountExclTax?: number;
     mediaExpense?: number;
     productionExpense?: number;
+    reimbursementExclTax?: number;
     inspectionStatus?: string | null;
     fileUrl?: string | null;
     notes?: string | null;
@@ -230,8 +231,13 @@ export function InvoiceRequestForm({
   const [mediaExpense, setMediaExpense] = useState(defaultValues?.mediaExpense ?? 0);
   const [productionExpense, setProductionExpense] = useState(defaultValues?.productionExpense ?? 0);
 
+  // ── 立替実費（本部手数料の対象外）。税抜金額を超える入力はサーバー側でクランプされる。
+  const [reimbursementExclTax, setReimbursementExclTax] = useState(defaultValues?.reimbursementExclTax ?? 0);
+
   // ── 本部手数料（10%）。ロイヤリティ相殺の原資になる。
-  const commissionExclTax = commissionOf(amountExclTax);
+  // 計算基礎は「税抜金額 − 立替実費」（契約 別紙2-4）。
+  const commissionBaseExclTax = commissionBaseOf(amountExclTax, reimbursementExclTax);
+  const commissionExclTax = commissionOf(commissionBaseExclTax);
   const commissionTax     = Math.floor(commissionExclTax * 0.1);
 
   // ── 源泉徴収・控除不可消費税の自動計算
@@ -465,6 +471,29 @@ export function InvoiceRequestForm({
           </div>
         </div>
 
+        {/* ── 立替実費（本部手数料の対象外） ── */}
+        <div className="pt-3 border-t border-zinc-200 space-y-2">
+          <label className="block text-xs font-semibold text-zinc-700">
+            立替実費（税抜・手数料対象外）
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
+            <input
+              type="number" name="reimbursementExclTax"
+              min={0} step={1}
+              value={reimbursementExclTax === 0 ? "" : reimbursementExclTax}
+              onChange={(e) => setReimbursementExclTax(Math.max(0, parseInt(e.target.value, 10) || 0))}
+              placeholder="0"
+              className={`${inputCls} pl-7 text-xs`}
+            />
+          </div>
+          <p className="text-[11px] text-zinc-400">
+            交通費・宿泊費・外注実費など、<span className="font-semibold text-zinc-500">実費をそのまま請求先に請求した分</span>を上の税抜金額の内数として入力してください。
+            この分には本部手数料10%がかかりません。手数料等を上乗せして請求した場合、その上乗せ分はここに含めないでください。
+            領収書は下のファイル欄に添付してください。
+          </p>
+        </div>
+
         {/* ── 控除・差引支払額（自動計算） ── */}
         {amountExclTax > 0 && (
           <div className="pt-3 border-t border-zinc-200 space-y-2">
@@ -473,6 +502,11 @@ export function InvoiceRequestForm({
               <span className="text-zinc-600">本部手数料（{HQ_COMMISSION_RATE}%・税抜）</span>
               <span className="font-bold text-red-600">-¥{fmtNum(commissionExclTax)}</span>
             </div>
+            {reimbursementExclTax > 0 && (
+              <div className="flex justify-between text-[11px] text-zinc-400">
+                <span className="pl-3">手数料の対象 ¥{fmtNum(commissionBaseExclTax)}（立替実費 ¥{fmtNum(Math.min(reimbursementExclTax, amountExclTax))} を除く）</span>
+              </div>
+            )}
             {commissionTax > 0 && (
               <div className="flex justify-between text-xs">
                 <span className="text-zinc-600">本部手数料の消費税</span>

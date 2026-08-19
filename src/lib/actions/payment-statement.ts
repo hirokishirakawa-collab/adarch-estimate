@@ -104,12 +104,15 @@ export async function createPaymentStatement(
   const grossAmountRaw = (formData.get("grossAmount") as string)?.replace(/,/g, "").trim() || "";
   const commissionRateRaw = (formData.get("commissionRate") as string)?.trim() || "10";
   const adMediaCostRaw = (formData.get("adMediaCost") as string)?.replace(/,/g, "").trim() || "0";
+  const reimbursementRaw = (formData.get("reimbursement") as string)?.replace(/,/g, "").trim() || "0";
 
   if (!groupCompanyId) return { error: "支払先パートナーを選択してください" };
   if (!title) return { error: "件名を入力してください" };
 
   const commissionRate = parseFloat(commissionRateRaw) || 0;
   const adMediaCostInput = parseInt(adMediaCostRaw, 10) || 0;
+  // 立替実費（税込）＝本部手数料の対象外（契約 別紙2-4）
+  const reimbursementInput = parseInt(reimbursementRaw, 10) || 0;
 
   // クライアント別明細行（複数クライアントを1明細にまとめる場合）
   type ItemInput = { clientName: string; prefecture: string | null; grossAmount: number; note: string | null };
@@ -166,6 +169,7 @@ export async function createPaymentStatement(
     grossInclTax,
     commissionRate,
     adMediaCostInclTax: adMediaCostInput,
+    reimbursementInclTax: reimbursementInput,
     isSoleProprietor: partner.entityType === "SOLE_PROPRIETOR",
     isInvoiceUnregistered: !partner.invoiceRegistered,
   });
@@ -185,6 +189,7 @@ export async function createPaymentStatement(
         commissionAmount: b.commissionExclTax,
         mediaExpense: b.adMediaCostInclTax,
         productionExpense: b.productionExclTax,
+        reimbursementInclTax: b.reimbursementInclTax,
         withholdingTaxAmount: b.withholdingTaxAmount,
         nonDeductibleTaxAmount: b.nonDeductibleTaxAmount,
         netPaymentAmount: b.netPaymentAmount,

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CreditCard, Pencil, ArrowLeft, FileText, ExternalLink } from "lucide-react";
 import { getInvoiceRequestWithAuth, submitInvoiceRequest } from "@/lib/actions/billing";
-import { commissionOf } from "@/lib/royalty-monthly";
+import { commissionBaseOf, commissionOf } from "@/lib/royalty-monthly";
 
 const STATUS_CONFIG = {
   DRAFT:     { label: "未提出",  className: "bg-amber-50 text-amber-700 border-amber-200" },
@@ -25,11 +25,17 @@ export default async function BillingDetailPage({ params }: Props) {
       ? new Intl.DateTimeFormat("ja-JP", { dateStyle: "long" }).format(new Date(d))
       : "—";
 
-  // 本部手数料。フィールド追加前の既存データは税抜金額から再計算して表示する。
+  // 立替実費（本部手数料の対象外）。未設定は0。
+  const reimbursementExclTax = Number(request.reimbursementExclTax ?? 0);
+
+  // 本部手数料。フィールド追加前の既存データは「税抜金額 − 立替実費」から再計算して表示する。
   const commissionExclTax =
     request.commissionExclTax != null
       ? Number(request.commissionExclTax)
-      : commissionOf(Number(request.amountExclTax), Number(request.commissionRate));
+      : commissionOf(
+          commissionBaseOf(Number(request.amountExclTax), reimbursementExclTax),
+          Number(request.commissionRate),
+        );
   const commissionTax = Math.floor(commissionExclTax * 0.1);
 
   // 差引支払額は保存値を使わず表示時に再計算する。
@@ -134,6 +140,14 @@ export default async function BillingDetailPage({ params }: Props) {
           </span>
           <span className="font-bold text-red-600">-{fmtAmt(commissionExclTax)}</span>
         </div>
+        {reimbursementExclTax > 0 && (
+          <div className="flex justify-between text-[11px] text-zinc-400">
+            <span className="pl-3">
+              手数料の対象 {fmtAmt(commissionBaseOf(Number(request.amountExclTax), reimbursementExclTax))}
+              （立替実費 {fmtAmt(reimbursementExclTax)} を除く）
+            </span>
+          </div>
+        )}
         {request.withholdingTaxAmount != null && Number(request.withholdingTaxAmount) > 0 && (
           <div className="flex justify-between text-xs">
             <span className="text-zinc-600">源泉徴収税</span>

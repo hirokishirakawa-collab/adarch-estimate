@@ -50,6 +50,7 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
     commissionAmount: Number(s.commissionAmount),
     mediaExpense: Number(s.mediaExpense),
     productionExpense: Number(s.productionExpense),
+    reimbursementInclTax: Number(s.reimbursementInclTax),
     withholdingTaxAmount: Number(s.withholdingTaxAmount),
     nonDeductibleTaxAmount: Number(s.nonDeductibleTaxAmount),
     netPaymentAmount: Number(s.netPaymentAmount),
@@ -173,10 +174,23 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
           <span>¥{fmtNum(b.grossTax)}</span>
         </div>
 
+        {b.reimbursementInclTax > 0 && (
+          <div className="flex justify-between text-xs text-zinc-400">
+            <span className="pl-3">立替実費（税抜・手数料対象外）</span>
+            <span>¥{fmtNum(b.reimbursementExclTax)}</span>
+          </div>
+        )}
+
         <div className="flex justify-between text-sm pt-1">
           <span className="text-zinc-500">本部手数料（{b.commissionRate}%・税抜）</span>
           <span className="text-red-600 font-medium">-¥{fmtNum(b.commissionExclTax)}</span>
         </div>
+        {b.reimbursementInclTax > 0 && (
+          <div className="flex justify-between text-xs text-zinc-400">
+            <span className="pl-3">手数料の対象（税抜）</span>
+            <span>¥{fmtNum(b.commissionBaseExclTax)}</span>
+          </div>
+        )}
 
         <div className="flex justify-between text-sm pt-1 border-t border-zinc-100">
           <span className="text-zinc-500">パートナー報酬（税抜）</span>

@@ -69,6 +69,7 @@ export async function GET(
       commissionAmount: Number(statement.commissionAmount),
       mediaExpense: Number(statement.mediaExpense),
       productionExpense: Number(statement.productionExpense),
+      reimbursementInclTax: Number(statement.reimbursementInclTax),
       withholdingTaxAmount: Number(statement.withholdingTaxAmount),
       nonDeductibleTaxAmount: Number(statement.nonDeductibleTaxAmount),
       netPaymentAmount: Number(statement.netPaymentAmount),

@@ -39,6 +39,10 @@ export type BreakdownInput = {
   /// 媒体は消費税込みで請求されるため、差引額は税込。源泉対象の制作費は
   /// 「報酬税抜 − 媒体費税抜」で算出する。
   adMediaCostInclTax: number;
+  /// 立替実費（税込・本部手数料の対象外）。交通費・宿泊費・外注実費など、実費相当額を
+  /// そのまま請求先に請求した分（契約 別紙2-4）。手数料の計算基礎から除外し、
+  /// 源泉対象の制作費からも除外する。パートナーには満額渡すため支払額からは差し引かない。
+  reimbursementInclTax?: number;
   /// パートナーが個人事業主か（源泉徴収の対象判定）
   isSoleProprietor: boolean;
   /// パートナーがインボイス未登録か（控除不可消費税の判定）
@@ -52,6 +56,9 @@ export type Breakdown = {
   grossExclTax: number; // 本体（税抜）
   grossTax: number; // 消費税
   commissionRate: number;
+  reimbursementInclTax: number; // 立替実費（税込・手数料対象外）
+  reimbursementExclTax: number; // 立替実費（税抜）
+  commissionBaseExclTax: number; // 手数料の計算基礎（税抜）= 本体 − 立替実費
   commissionExclTax: number; // 本部手数料（税抜）
   commissionTax: number; // 手数料分の消費税（本部が保持）
   partnerFeeExclTax: number; // パートナー報酬（税抜）
@@ -74,8 +81,13 @@ export function computeBreakdown(input: BreakdownInput): Breakdown {
   const grossExclTax = Math.round(grossInclTax / (1 + TAX_RATE));
   const grossTax = grossInclTax - grossExclTax;
 
-  // 手数料は税抜本体に対して
-  const commissionExclTax = Math.floor((grossExclTax * commissionRate) / 100);
+  // 立替実費（税込）は入金額を上限にクランプ。手数料の計算基礎から外す。
+  const reimbursementInclTax = Math.min(Math.max(0, Math.round(input.reimbursementInclTax || 0)), grossInclTax);
+  const reimbursementExclTax = Math.round(reimbursementInclTax / (1 + TAX_RATE));
+
+  // 手数料は「税抜本体 − 立替実費」に対して
+  const commissionBaseExclTax = Math.max(0, grossExclTax - reimbursementExclTax);
+  const commissionExclTax = Math.floor((commissionBaseExclTax * commissionRate) / 100);
   const commissionTax = Math.floor(commissionExclTax * TAX_RATE);
 
   // パートナー報酬（税抜）と消費税。消費税は残差で割り当て、合計が必ず入金額と一致する。
@@ -87,8 +99,9 @@ export function computeBreakdown(input: BreakdownInput): Breakdown {
   const adMediaCostInclTax = Math.min(Math.max(0, Math.round(input.adMediaCostInclTax || 0)), partnerInclTax);
   const adMediaCostExclTax = Math.round(adMediaCostInclTax / (1 + TAX_RATE));
   const adMediaCostTax = adMediaCostInclTax - adMediaCostExclTax;
-  // 源泉対象の制作費（税抜）= 報酬税抜 − 媒体費税抜。マイナスにならないようクランプ。
-  const productionExclTax = Math.max(0, partnerFeeExclTax - adMediaCostExclTax);
+  // 源泉対象の制作費（税抜）= 報酬税抜 − 媒体費税抜 − 立替実費税抜。
+  // 立替実費は役務の対価ではないため源泉徴収の対象にしない。マイナスにならないようクランプ。
+  const productionExclTax = Math.max(0, partnerFeeExclTax - adMediaCostExclTax - reimbursementExclTax);
 
   const withholdingTaxAmount = input.isSoleProprietor ? computeWithholding(productionExclTax) : 0;
   const nonDeductibleTaxAmount = input.isInvoiceUnregistered
@@ -103,6 +116,9 @@ export function computeBreakdown(input: BreakdownInput): Breakdown {
     grossExclTax,
     grossTax,
     commissionRate,
+    reimbursementInclTax,
+    reimbursementExclTax,
+    commissionBaseExclTax,
     commissionExclTax,
     commissionTax,
     partnerFeeExclTax,
@@ -127,6 +143,7 @@ export type StoredStatement = {
   commissionAmount: number; // 本部手数料（税抜）
   mediaExpense: number;
   productionExpense: number;
+  reimbursementInclTax?: number; // 立替実費（税込・手数料対象外）。追加前の既存データは 0。
   withholdingTaxAmount: number;
   nonDeductibleTaxAmount: number;
   netPaymentAmount: number;
@@ -144,11 +161,16 @@ export function breakdownFromStored(s: StoredStatement): Breakdown {
   // 保存値: mediaExpense は広告媒体費（税込・差引額）
   const adMediaCostInclTax = Math.round(s.mediaExpense || 0);
   const adMediaCostExclTax = Math.round(adMediaCostInclTax / (1 + TAX_RATE));
+  const reimbursementInclTax = Math.min(Math.max(0, Math.round(s.reimbursementInclTax || 0)), grossInclTax);
+  const reimbursementExclTax = Math.round(reimbursementInclTax / (1 + TAX_RATE));
   return {
     grossInclTax,
     grossExclTax,
     grossTax,
     commissionRate: s.commissionRate || 0,
+    reimbursementInclTax,
+    reimbursementExclTax,
+    commissionBaseExclTax: Math.max(0, grossExclTax - reimbursementExclTax),
     commissionExclTax,
     commissionTax,
     partnerFeeExclTax,

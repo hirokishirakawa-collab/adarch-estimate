@@ -62,6 +62,8 @@ export default async function EditBillingRequestPage({ params }: Props) {
             dueDate:          request.dueDate?.toISOString().slice(0, 10) ?? null,
             details:          request.details,
             amountExclTax:    Number(request.amountExclTax),
+            // 立替実費は再送しないと更新時に0へ戻ってしまうため必ず渡す
+            reimbursementExclTax: Number(request.reimbursementExclTax ?? 0),
             inspectionStatus: request.inspectionStatus,
             fileUrl:          request.fileUrl,
             notes:            request.notes,

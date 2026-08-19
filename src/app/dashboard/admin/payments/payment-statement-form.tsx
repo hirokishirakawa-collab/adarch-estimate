@@ -38,6 +38,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
   const [rows, setRows] = useState<ClientRow[]>([{ clientName: "", prefecture: "", grossAmount: 0, note: "" }]);
   const [commissionRate, setCommissionRate] = useState(10);
   const [adMediaCost, setAdMediaCost] = useState(0);
+  const [reimbursement, setReimbursement] = useState(0);
 
   const partner = partners.find((p) => p.id === selectedPartnerId);
   const multiBranch = (partner?.branchLabels?.length ?? 0) > 1;
@@ -63,6 +64,7 @@ export function PaymentStatementForm({ action, partners }: Props) {
     grossInclTax,
     commissionRate,
     adMediaCostInclTax: adMediaCost,
+    reimbursementInclTax: reimbursement,
     isSoleProprietor: !!isSoleProprietor,
     isInvoiceUnregistered,
   });
@@ -328,6 +330,26 @@ export function PaymentStatementForm({ action, partners }: Props) {
           </p>
         </div>
 
+        {/* 立替実費（税込・手数料の対象外・支払からは差し引かない） */}
+        <div className="pt-3 border-t border-zinc-200 space-y-2">
+          <label className="block text-[11px] text-zinc-500">立替実費（税込・手数料対象外）</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
+            <input
+              type="number" name="reimbursement" min={0} step={1}
+              value={reimbursement === 0 ? "" : reimbursement}
+              onChange={(e) => setReimbursement(Math.max(0, parseInt(e.target.value, 10) || 0))}
+              placeholder="0"
+              className={`${inputCls} pl-7 text-xs`}
+            />
+          </div>
+          <p className="text-[11px] text-zinc-400">
+            交通費・宿泊費・外注実費など、パートナーが実費をそのまま請求した分（入金額の内数）。
+            この分は本部手数料の計算基礎から外れ、源泉徴収の対象にもなりません。パートナーへは満額お支払いします。
+            {reimbursement > 0 && ` 手数料の対象は ¥${fmtNum(b.commissionBaseExclTax)}（税抜）です。`}
+          </p>
+        </div>
+
         {/* 計算結果（税抜ベース） */}
         <div className="pt-3 border-t border-zinc-200 space-y-2">
           <div className="flex justify-between text-xs">
@@ -342,10 +364,22 @@ export function PaymentStatementForm({ action, partners }: Props) {
             <span className="pl-3">消費税（10%）</span>
             <span>¥{fmtNum(b.grossTax)}</span>
           </div>
+          {b.reimbursementInclTax > 0 && (
+            <div className="flex justify-between text-[11px] text-zinc-400">
+              <span className="pl-3">立替実費（税抜・手数料対象外）</span>
+              <span>¥{fmtNum(b.reimbursementExclTax)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-xs pt-1">
             <span className="text-zinc-600">本部手数料（{commissionRate}%・税抜）</span>
             <span className="font-medium text-red-600">-¥{fmtNum(b.commissionExclTax)}</span>
           </div>
+          {b.reimbursementInclTax > 0 && (
+            <div className="flex justify-between text-[11px] text-zinc-400">
+              <span className="pl-3">手数料の対象（税抜）</span>
+              <span>¥{fmtNum(b.commissionBaseExclTax)}</span>
+            </div>
+          )}
 
           <div className="flex justify-between text-xs pt-1 border-t border-zinc-100">
             <span className="text-zinc-600">パートナー報酬（税抜）</span>
