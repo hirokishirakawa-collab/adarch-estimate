@@ -18,11 +18,16 @@ import { classifyTenders, type ClassifyInput } from "./classify";
 export const DEFAULT_SINCE_DAYS = 14;
 
 /**
- * 1回の実行で AI 判定に回す上限。
- * 初回の遡り取り込みで数百件を一度に回すと maxDuration(300秒) を超えるため、
- * 溢れた分は次回の実行に持ち越す（未判定として残る）。
+ * 実行時間の予算。エンドポイントは300秒で切られる（超えると 502 になり、
+ * それまでの判定も返せない）ので、240秒で新しい判定バッチを始めるのをやめる。
  */
-const MAX_CLASSIFY_PER_RUN = 120;
+const RUN_BUDGET_MS = 240_000;
+
+/** 1回の実行で AI 判定に回す上限。実際には RUN_BUDGET_MS の方が先に効くことが多い */
+const MAX_CLASSIFY_PER_RUN = 400;
+
+/** DB書き込みの同時実行数。数百件を1件ずつ待つと取得より時間がかかる */
+const DB_CONCURRENCY = 10;
 
 /** 開札日等が入っていない公告を、いつまで一覧に出すか */
 const FALLBACK_VALID_DAYS = 45;
@@ -103,6 +108,8 @@ function toRecord(t: KkjTender) {
 export async function runTenderSync(
   sinceDays: number = DEFAULT_SINCE_DAYS,
 ): Promise<TenderSyncStats> {
+  // 予算は取得も含めた実行全体で測る（取得だけで数十秒かかることがある）
+  const startedAt = Date.now();
   const stats: TenderSyncStats = {
     fetched: 0,
     hits: 0,
@@ -134,18 +141,24 @@ export async function runTenderSync(
 
   const needsAi: ClassifyInput[] = [];
 
-  // ── 2. upsert
+  // ── 2. upsert（DB往復が数百回になるので、まとめて流す）
+  for (let i = 0; i < items.length; i += DB_CONCURRENCY) {
+    await Promise.all(
+      items.slice(i, i + DB_CONCURRENCY).map(async (item) => {
+        const record = toRecord(item);
+        const data = { ...record, lastSyncedAt: new Date() };
+        await db.tender.upsert({
+          where: { kkjKey: item.key },
+          create: data,
+          update: data,
+        });
+      }),
+    );
+  }
+
   for (const item of items) {
     const record = toRecord(item);
     const prev = existingByKey.get(item.key);
-    const data = { ...record, lastSyncedAt: new Date() };
-
-    await db.tender.upsert({
-      where: { kkjKey: item.key },
-      create: data,
-      update: data,
-    });
-
     if (prev) stats.updated++;
     else stats.created++;
 
@@ -171,23 +184,31 @@ export async function runTenderSync(
   stats.pending = needsAi.length - target.length;
 
   if (target.length > 0) {
-    const { results, failedBatches } = await classifyTenders(target);
+    const { classified, failedBatches, notStarted } = await classifyTenders(target, {
+      deadline: startedAt + RUN_BUDGET_MS,
+      // バッチごとに保存する。まとめて保存すると時間切れで全部失う
+      onResults: async (results) => {
+        await Promise.all(
+          results.map((r) =>
+            db.tender.update({
+              where: { kkjKey: r.kkjKey },
+              data: {
+                fit: r.fit,
+                workType: r.workType,
+                fitReason: r.reason,
+                fitEvidence: r.evidence,
+                needsQualification: r.needsQualification,
+                fitCheckedAt: new Date(),
+              },
+            }),
+          ),
+        );
+        stats.matched += results.filter((r) => r.fit === "MATCH").length;
+      },
+    });
+    stats.classified = classified;
     stats.failedBatches = failedBatches;
-    for (const r of results) {
-      await db.tender.update({
-        where: { kkjKey: r.kkjKey },
-        data: {
-          fit: r.fit,
-          workType: r.workType,
-          fitReason: r.reason,
-          fitEvidence: r.evidence,
-          needsQualification: r.needsQualification,
-          fitCheckedAt: new Date(),
-        },
-      });
-      stats.classified++;
-      if (r.fit === "MATCH") stats.matched++;
-    }
+    stats.pending += notStarted;
   }
 
   return stats;

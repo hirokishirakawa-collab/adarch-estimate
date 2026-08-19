@@ -4,7 +4,7 @@ config({ path: ".env" });
 config({ path: ".env.local" });
 
 import { fetchRecentTenders } from "@/lib/tender/kkj";
-import { classifyTenders } from "@/lib/tender/classify";
+import { classifyTenders, type ClassifyResult } from "@/lib/tender/classify";
 import { resolveOrdererType } from "@/lib/tender/sync";
 
 async function main() {
@@ -30,7 +30,8 @@ async function main() {
   if (fetchOnly) return;
 
   const sample = items.slice(0, 24);
-  const { results, failedBatches } = await classifyTenders(
+  const results: ClassifyResult[] = [];
+  const { classified, failedBatches } = await classifyTenders(
     sample.map((i) => ({
       kkjKey: i.key,
       projectName: i.projectName,
@@ -39,8 +40,9 @@ async function main() {
       procedureType: i.procedureType,
       description: i.description,
     })),
+    { onResults: async (rs) => { results.push(...rs); } },
   );
-  console.log(`判定: ${results.length}/${sample.length}件 失敗バッチ=${failedBatches}\n`);
+  console.log(`判定: ${classified}/${sample.length}件 失敗バッチ=${failedBatches}\n`);
 
   const byKey = new Map(sample.map((s) => [s.key, s]));
   const order = { MATCH: 0, MAYBE: 1, MISMATCH: 2 } as const;

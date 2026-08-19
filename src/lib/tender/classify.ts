@@ -15,6 +15,8 @@ const MODEL = "claude-sonnet-4-6";
 
 /** 1回のAPI呼び出しで判定する件数 */
 const BATCH_SIZE = 8;
+/** 同時に走らせるバッチ数。実行時間の上限（5分）に収めるため直列にはしない */
+const CONCURRENCY = 5;
 /** 公告文はこの文字数で切る（入札心得・様式の説明が長く、判断には効かない） */
 const DESCRIPTION_MAX_CHARS = 2000;
 
@@ -163,29 +165,62 @@ async function classifyBatch(
     }));
 }
 
+export interface ClassifyOptions {
+  /** この時刻（Date.now() 基準のミリ秒）を過ぎたら新しいバッチを始めない */
+  deadline?: number;
+  /**
+   * バッチが1つ終わるたびに呼ばれる。ここで保存すること。
+   * 全バッチの完了を待ってから保存すると、実行時間の上限で切られたときに
+   * それまでの判定が丸ごと捨てられる（実際に683件を取りこぼした）。
+   */
+  onResults?: (results: ClassifyResult[]) => Promise<void>;
+}
+
 /**
  * 案件をまとめて判定する。
  * 1バッチが失敗しても他のバッチは続行する（全滅を避ける）。
+ * 締切を過ぎた分は手つかずのまま残し、次回の実行に持ち越す。
  */
 export async function classifyTenders(
   items: ClassifyInput[],
-): Promise<{ results: ClassifyResult[]; failedBatches: number }> {
+  options: ClassifyOptions = {},
+): Promise<{ classified: number; failedBatches: number; notStarted: number }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("[tender] ANTHROPIC_API_KEY が設定されていません");
 
   const client = new Anthropic({ apiKey });
-  const results: ClassifyResult[] = [];
-  let failedBatches = 0;
-
+  const batches: ClassifyInput[][] = [];
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
-    const batch = items.slice(i, i + BATCH_SIZE);
-    try {
-      results.push(...(await classifyBatch(client, batch)));
-    } catch (e) {
-      console.error(`[tender] 判定失敗 batch=${i / BATCH_SIZE}`, e);
-      failedBatches++;
-    }
+    batches.push(items.slice(i, i + BATCH_SIZE));
   }
 
-  return { results, failedBatches };
+  let next = 0;
+  let classified = 0;
+  let failedBatches = 0;
+  let started = 0;
+
+  const worker = async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= batches.length) return;
+      if (options.deadline && Date.now() > options.deadline) return;
+      started++;
+      try {
+        const results = await classifyBatch(client, batches[i]);
+        if (options.onResults) await options.onResults(results);
+        classified += results.length;
+      } catch (e) {
+        console.error(`[tender] 判定失敗 batch=${i}`, e);
+        failedBatches++;
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+  return {
+    classified,
+    failedBatches,
+    notStarted: (batches.length - started) * BATCH_SIZE,
+  };
 }
