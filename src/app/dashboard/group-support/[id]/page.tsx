@@ -9,6 +9,7 @@ import {
 } from "@/lib/constants/group-support";
 import type { WeeklyStatus, ContactType } from "@/generated/prisma/client";
 import { GroupCompanyEditForm } from "./edit-form";
+import { WeeklyReplyForm } from "./reply-form";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -19,6 +20,7 @@ const CONTACT_TYPE_LABEL: Record<ContactType, string> = {
   FOLLOW_UP: "声かけ",
   CEO_COMMENT: "社長コメント",
   MANUAL_NOTE: "メモ",
+  PARTNER_REPLY: "代表からの返信",
 };
 
 const STATUS_LIGHT: Record<
@@ -112,6 +114,14 @@ export default async function GroupCompanyDetailPage({
         ) : (
           <p className="text-xs text-zinc-400">まだ共有されていません</p>
         )}
+
+        <div className="pt-3 border-t border-zinc-100">
+          <WeeklyReplyForm
+            groupCompanyId={company.id}
+            weekId={weekId}
+            ownerName={company.ownerName}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

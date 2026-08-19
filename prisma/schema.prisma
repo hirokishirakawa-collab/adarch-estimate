@@ -1638,6 +1638,7 @@ enum ContactType {
   FOLLOW_UP // 声かけ（Bot自動）
   CEO_COMMENT // 社長コメント
   MANUAL_NOTE // 手動メモ（ダッシュボード）
+  PARTNER_REPLY // 加盟代表からの返信（OS内・本部⇄加盟者の往復）
 }
 
 /// グループ加盟企業マスタ。Google Chat スペースと1対1で紐づく。
@@ -2710,6 +2711,7 @@ enum NotificationType {
   REVIEW_ALL_CHECKED // 全チェック項目完了
   REVIEW_APPROVED // レビューが承認された
   REVIEW_REJECTED // レビューが差し戻された
+  GROUP_REPLY // グループサポートの返信（本部⇄加盟代表）
   SYSTEM
 }
 

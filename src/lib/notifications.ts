@@ -1728,6 +1728,8 @@ export async function createInAppNotification(params: {
   title: string;
   message?: string;
   linkUrl?: string;
+  /** true のとき notifyViaEmail の設定に関係なくメールを送る（見落としてはいけない通知用） */
+  forceEmail?: boolean;
 }) {
   try {
     // 1. アプリ内通知を作成
@@ -1765,8 +1767,8 @@ export async function createInAppNotification(params: {
       );
     }
 
-    // 4. メール転送
-    if (user.notifyViaEmail && user.email) {
+    // 4. メール転送（forceEmail のときは本人設定を問わず送る）
+    if ((user.notifyViaEmail || params.forceEmail) && user.email) {
       const html = `
         <div style="font-family: sans-serif; max-width: 480px;">
           <h3 style="margin: 0 0 8px; color: #333;">${escapeHtml(params.title)}</h3>

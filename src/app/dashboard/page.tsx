@@ -7,6 +7,8 @@ import { ForcedInactiveModal } from "@/components/partner-status/forced-inactive
 import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
 import { getActivityKpi } from "@/lib/kpis/activity";
 import { MySalesPanel } from "@/components/dashboard/my-sales-panel";
+import { GroupThreadCard } from "@/components/dashboard/group-thread-card";
+import { getMyGroupThread } from "@/lib/actions/group-support";
 import {
   Users,
   FolderKanban,
@@ -164,6 +166,16 @@ export default async function DashboardPage() {
     }
   }
 
+  // ── 本部とのやり取り（ADMIN以外・加盟企業に紐づくユーザーのみ） ──
+  let groupThread: Awaited<ReturnType<typeof getMyGroupThread>> = null;
+  if (role !== "ADMIN") {
+    try {
+      groupThread = await getMyGroupThread();
+    } catch (e) {
+      console.error("[dashboard] Group thread fetch failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
   // ── 挨拶 ──
   const hour = now.getHours();
   const timeGreeting =
@@ -283,6 +295,20 @@ export default async function DashboardPage() {
           </div>
           <span className={`text-xs font-semibold group-hover:translate-x-0.5 transition-transform flex-shrink-0 ${reportUrgent ? "text-red-600" : "text-amber-600"}`}>提出する →</span>
         </Link>
+      )}
+
+      {/* ── 本部とのやり取り（週次共有への返信） ── */}
+      {groupThread && (
+        <GroupThreadCard
+          messages={groupThread.messages.map((m) => ({
+            id: m.id,
+            type: m.type as "CEO_COMMENT" | "PARTNER_REPLY",
+            content: m.content,
+            actorName: m.actorName,
+            createdAt: m.createdAt.toISOString(),
+          }))}
+          unreadCount={groupThread.unreadCount}
+        />
       )}
 
       {/* ── 稼働ステータス申告（ADMIN以外、未選択時に表示） ── */}

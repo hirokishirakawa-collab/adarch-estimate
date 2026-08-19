@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { getWeekId } from "@/lib/constants/group-support";
+import { createInAppNotification } from "@/lib/notifications";
+import { notifyUser } from "@/lib/push-notification";
 import type { GroupCompanyPhase } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 
@@ -198,5 +200,215 @@ export async function updateGroupCompany(
   } catch (e) {
     console.error("[group-support] Update error:", e);
     return { error: "更新に失敗しました" };
+  }
+}
+
+// ----------------------------------------------------------------
+// 週次共有への返信（本部 → 加盟代表）
+//
+// Google Chat のスペースには本文を流さない。「返信が届いた」ことだけを
+// 知らせて、中身は OS にログインしないと読めない状態にする。
+// スペース上でやり取りが公開されている見え方を避けるための設計。
+// ----------------------------------------------------------------
+export type ReplyState = { error?: string; success?: boolean } | null;
+
+export async function replyToWeeklySubmission(
+  _prev: ReplyState,
+  formData: FormData
+): Promise<ReplyState> {
+  try {
+    const admin = await requireAdmin();
+    const groupCompanyId = formData.get("groupCompanyId") as string;
+    const weekId = ((formData.get("weekId") as string) || "").trim() || null;
+    const content = ((formData.get("content") as string) || "").trim();
+
+    if (!groupCompanyId) return { error: "企業IDが必要です" };
+    if (!content) return { error: "返信内容を入力してください" };
+
+    const company = await db.groupCompany.findUnique({
+      where: { id: groupCompanyId },
+      select: { id: true, name: true },
+    });
+    if (!company) return { error: "企業が見つかりません" };
+
+    await db.contactHistory.create({
+      data: {
+        groupCompanyId: company.id,
+        type: "CEO_COMMENT",
+        content,
+        actorName: admin.name || "本部",
+        weekId,
+      },
+    });
+
+    // 加盟代表へ通知。本文は入れない（OS でだけ読める状態にする）
+    const partners = await db.user.findMany({
+      where: { groupCompanyId: company.id, isActive: true },
+      select: { id: true, email: true },
+    });
+    for (const p of partners) {
+      await createInAppNotification({
+        userId: p.id,
+        type: "GROUP_REPLY",
+        title: "本部から返信が届きました",
+        message: weekId ? `${weekId} の共有について` : undefined,
+        linkUrl: "/dashboard",
+        // 見落とすと往復が途切れるので、本人の通知設定に関係なくメールを送る
+        forceEmail: true,
+      });
+      if (p.email) {
+        notifyUser(
+          p.email,
+          "本部から返信が届きました",
+          "OS を開いて内容をご確認ください"
+        ).catch((e) => console.error("[group-support:push]", e));
+      }
+    }
+
+    logAudit({
+      action: "group_support_replied",
+      email: admin.email,
+      name: admin.name,
+      entity: "contact_history",
+      entityId: company.id,
+      detail: content.slice(0, 80),
+    });
+
+    revalidatePath(`/dashboard/group-support/${company.id}`);
+    return { success: true };
+  } catch (e) {
+    console.error("[group-support] Reply error:", e);
+    return { error: "返信の送信に失敗しました" };
+  }
+}
+
+// ----------------------------------------------------------------
+// 加盟代表 → 本部への返し書き
+// ----------------------------------------------------------------
+export async function replyAsPartner(
+  _prev: ReplyState,
+  formData: FormData
+): Promise<ReplyState> {
+  try {
+    const session = await auth();
+    const email = session?.user?.email ?? "";
+    if (!email) return { error: "ログインが必要です" };
+
+    const me = await db.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        name: true,
+        groupCompanyId: true,
+        groupCompany: { select: { id: true, name: true } },
+      },
+    });
+    if (!me?.groupCompanyId || !me.groupCompany) {
+      return { error: "加盟企業に紐づいたアカウントではありません" };
+    }
+
+    const content = ((formData.get("content") as string) || "").trim();
+    if (!content) return { error: "内容を入力してください" };
+
+    await db.contactHistory.create({
+      data: {
+        groupCompanyId: me.groupCompanyId,
+        type: "PARTNER_REPLY",
+        content,
+        actorName: me.name || me.groupCompany.name,
+        weekId: getWeekId(),
+      },
+    });
+
+    const admins = await db.user.findMany({
+      where: { role: "ADMIN", isActive: true },
+      select: { id: true },
+    });
+    for (const a of admins) {
+      await createInAppNotification({
+        userId: a.id,
+        type: "GROUP_REPLY",
+        title: `${me.groupCompany.name} から返信が届きました`,
+        linkUrl: `/dashboard/group-support/${me.groupCompanyId}`,
+        forceEmail: true,
+      });
+    }
+
+    logAudit({
+      action: "group_support_partner_replied",
+      email,
+      name: me.name ?? "",
+      entity: "contact_history",
+      entityId: me.groupCompanyId,
+      detail: content.slice(0, 80),
+    });
+
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (e) {
+    console.error("[group-support] Partner reply error:", e);
+    return { error: "送信に失敗しました" };
+  }
+}
+
+// ----------------------------------------------------------------
+// ダッシュボード用: 自社の本部やり取り（直近5件）と未読件数
+// ADMIN 以外・加盟企業に紐づくユーザーだけが対象。
+// ----------------------------------------------------------------
+export async function getMyGroupThread() {
+  const session = await auth();
+  const email = session?.user?.email ?? "";
+  if (!email) return null;
+
+  const me = await db.user.findUnique({
+    where: { email },
+    select: { id: true, groupCompanyId: true },
+  });
+  if (!me?.groupCompanyId) return null;
+
+  const [messages, unreadCount] = await Promise.all([
+    db.contactHistory.findMany({
+      where: {
+        groupCompanyId: me.groupCompanyId,
+        type: { in: ["CEO_COMMENT", "PARTNER_REPLY"] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        type: true,
+        content: true,
+        actorName: true,
+        createdAt: true,
+      },
+    }),
+    db.notification.count({
+      where: { userId: me.id, type: "GROUP_REPLY", isRead: false },
+    }),
+  ]);
+
+  if (messages.length === 0) return null;
+  return { messages, unreadCount };
+}
+
+// ----------------------------------------------------------------
+// 本部からの返信通知を既読にする（ダッシュボードで開いた時点で既読）
+// ----------------------------------------------------------------
+export async function markGroupRepliesRead(): Promise<void> {
+  try {
+    const session = await auth();
+    const email = session?.user?.email ?? "";
+    if (!email) return;
+    const me = await db.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (!me) return;
+    await db.notification.updateMany({
+      where: { userId: me.id, type: "GROUP_REPLY", isRead: false },
+      data: { isRead: true },
+    });
+  } catch (e) {
+    console.error("[group-support] markGroupRepliesRead error:", e);
   }
 }
