@@ -168,6 +168,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/subsidy-finder",
+        label: "補助金ファインダー（広告費の財源）",
+        icon: Banknote,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/leads/tvcm-pool",
         label: "TVer広告 案件プール",
         icon: Film,
@@ -244,12 +250,6 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/strategy-advisor",
         label: "提案戦略アドバイザー（AI）",
         icon: Sparkles,
-        minRole: "USER",
-      },
-      {
-        href: "/dashboard/subsidy-finder",
-        label: "補助金ファインダー（広告費の財源）",
-        icon: Banknote,
         minRole: "USER",
       },
       {
@@ -649,6 +649,7 @@ const SELL_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/projects/new", label: "③ プロジェクト登録", icon: FolderKanban, minRole: "USER" },
   { href: "/dashboard/sales", label: "営業フロー", icon: Workflow, minRole: "USER" },
   { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, minRole: "USER" },
+  { href: "/dashboard/subsidy-finder", label: "補助金ファインダー", icon: Banknote, minRole: "USER" },
   { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, minRole: "USER" },
   { href: "/dashboard/outreach-pipeline", label: "アウトリーチ", icon: Send, minRole: "ADMIN" },
   { href: "/dashboard/regulars", label: "レギュラー案件", icon: Repeat, minRole: "MANAGER" },
@@ -658,7 +659,6 @@ const SELL_TAB_ITEMS: NavItem[] = [
 // ② 提案: 提案・見積・媒体シミュレーター
 const PROPOSE_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/strategy-advisor", label: "提案戦略アドバイザー（AI）", icon: Sparkles, minRole: "USER" },
-  { href: "/dashboard/subsidy-finder", label: "補助金ファインダー", icon: Banknote, minRole: "USER" },
   { href: "/dashboard/tender-finder", label: "入札ファインダー", icon: Gavel, minRole: "USER" },
   { href: "/dashboard/estimates", label: "公式見積もり", icon: FileText, minRole: "USER" },
   {
