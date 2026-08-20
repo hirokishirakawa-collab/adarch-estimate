@@ -121,6 +121,8 @@ export type ContactInquiryPayload = {
   phone: string;
   inquiryType: string;
   message: string;
+  /** 営業・相互リンク依頼の疑い。捨てずに件名で仕分けられるようにする */
+  suspectedSales?: boolean;
 };
 
 const INQUIRY_LABELS: Record<string, string> = {
@@ -133,9 +135,11 @@ const INQUIRY_LABELS: Record<string, string> = {
 export async function sendContactInquiryEmail(
   payload: ContactInquiryPayload
 ): Promise<void> {
-  const { company, name, email, phone, inquiryType, message } = payload;
+  const { company, name, email, phone, inquiryType, message, suspectedSales } = payload;
   const typeLabel = INQUIRY_LABELS[inquiryType] ?? inquiryType;
-  const subject = `【お問い合わせ】${typeLabel} — ${company || name}`;
+  const subject = suspectedSales
+    ? `【営業の疑い】${typeLabel} — ${company || name}`
+    : `【お問い合わせ】${typeLabel} — ${company || name}`;
 
   const rows = [
     ["会社名", company || "（未入力）"],

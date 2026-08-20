@@ -26,6 +26,23 @@ function isRateLimited(ip: string): boolean {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// 営業・相互リンク依頼の判定。捨てずに件名へ印を付けるだけにする（本物を取りこぼさないため）。
+const SALES_SIGNALS = [
+  "相互リンク",
+  "被リンク",
+  "配信停止",
+  "管理番号",
+  "突然のご連絡",
+  "無料でご提供",
+  "ご案内いたします",
+];
+
+function looksLikeSales(message: string): boolean {
+  const hits = SALES_SIGNALS.filter((w) => message.includes(w)).length;
+  const urls = (message.match(/https?:\/\//g) ?? []).length;
+  return hits >= 2 || (hits >= 1 && urls >= 2);
+}
+
 // LPフォームは message 内に【都道府県】【事業内容・業種】等の構造化ブロックで送信してくる
 function parseBlock(message: string, label: string): string | null {
   const m = message.match(new RegExp(`【${label}】([^【]*)`));
@@ -133,7 +150,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { company, name, email, phone, inquiry_type, message } = body;
+    const { company, name, email, phone, inquiry_type, message, website } = body;
+
+    // ハニーポット。website は画面に出ない欄なので、人が送れば必ず空になる。
+    // 埋まっていれば自動送信と判断し、200を返して静かに捨てる（弾いたと分かると手口を変えられるため）。
+    if (typeof website === "string" && website.trim() !== "") {
+      return NextResponse.json({ ok: true }, { status: 200, headers: corsHeaders });
+    }
 
     if (!name || !email || !message) {
       return NextResponse.json(
@@ -191,6 +214,7 @@ export async function POST(req: NextRequest) {
         phone: phone || "",
         inquiryType: inquiry_type || "other",
         message,
+        suspectedSales: looksLikeSales(message),
       });
     } catch (e) {
       emailSent = false;
