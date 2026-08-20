@@ -9,6 +9,9 @@ export const DEAL_STATUS_OPTIONS = [
   { value: "CLOSED_WON",  label: "受注",         color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   { value: "NEGOTIATION", label: "休眠/先送り",  color: "bg-amber-100 text-amber-700 border-amber-200" },
   { value: "CLOSED_LOST", label: "失注",         color: "bg-red-100 text-red-600 border-red-200" },
+  // 関係先: 商談ではないが繋がっている相手（協力体制の会社・やり取りだけの相手）を置く列。
+  // DB の DealStatus は既存の未使用値 DEFERRED を流用（マイグレーション不要）。
+  { value: "DEFERRED",    label: "関係先",       color: "bg-teal-100 text-teal-700 border-teal-200" },
 ] as const;
 
 export type DealStatusValue = (typeof DEAL_STATUS_OPTIONS)[number]["value"];

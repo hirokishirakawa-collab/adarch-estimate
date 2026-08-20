@@ -20,6 +20,8 @@ interface PageProps {
 
 // アーカイブ対象（受注・失注のみ）— 休眠・先送りはカンバンに常時表示
 const CLOSED_STATUSES: DealStatus[] = ["CLOSED_WON", "CLOSED_LOST"];
+// 「関係先」列（DEFERRED）は商談ではないため、件数サマリーの母数から除く
+const NON_DEAL_STATUSES: DealStatus[] = ["DEFERRED"];
 
 export default async function DealsPage({ searchParams }: PageProps) {
   const { showArchived: showArchivedParam, mine: mineParam } = await searchParams;
@@ -73,13 +75,15 @@ export default async function DealsPage({ searchParams }: PageProps) {
   });
 
   const wonCount = deals.filter((d) => d.status === "CLOSED_WON").length;
-  const activeCount = deals.filter((d) => !CLOSED_STATUSES.includes(d.status)).length;
+  const activeCount = deals.filter(
+    (d) => !CLOSED_STATUSES.includes(d.status) && !NON_DEAL_STATUSES.includes(d.status)
+  ).length;
 
   // 受注率・商談総数（全期間・アーカイブ含む）
   const [allWonCount, allLostCount, totalDealCount] = await Promise.all([
     db.deal.count({ where: { ...whereBase, status: "CLOSED_WON" as DealStatus } }),
     db.deal.count({ where: { ...whereBase, status: "CLOSED_LOST" as DealStatus } }),
-    db.deal.count({ where: whereBase }),
+    db.deal.count({ where: { ...whereBase, status: { notIn: NON_DEAL_STATUSES } } }),
   ]);
   const winRate =
     allWonCount + allLostCount > 0

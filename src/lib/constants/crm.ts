@@ -57,6 +57,8 @@ export const DEAL_STATUS_OPTIONS = [
   { value: "NEGOTIATION", label: "交渉中",  className: "bg-orange-100 text-orange-700 border-orange-200" },
   { value: "CLOSED_WON",  label: "受注 🎉", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   { value: "CLOSED_LOST", label: "失注",    className: "bg-red-100 text-red-600 border-red-200" },
+  // 関係先（DB は未使用値 DEFERRED を流用）。商談管理カンバンの「関係先」列と同一。
+  { value: "DEFERRED",    label: "関係先",  className: "bg-teal-100 text-teal-700 border-teal-200" },
 ] as const;
 
 export type DealStatusValue =

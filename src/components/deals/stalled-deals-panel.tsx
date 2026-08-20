@@ -25,7 +25,7 @@ export interface StalledDeal {
 }
 
 // 停滞商談の「休眠/先送り」への移動先。このアプリでは NEGOTIATION 列が
-// 「休眠/先送り」として運用されている（DORMANT/DEFERRED は未使用）。
+// 「休眠/先送り」として運用されている（DEFERRED は「関係先」列に流用済み・DORMANT は未使用）。
 const PARK_STATUS = "NEGOTIATION";
 
 function statusMeta(value: string) {
