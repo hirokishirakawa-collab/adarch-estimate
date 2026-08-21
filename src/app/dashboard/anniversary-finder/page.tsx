@@ -17,6 +17,21 @@ const WINDOWS = [
   { value: "next", label: "来年まで", months: 24, needsMonth: false },
 ] as const;
 
+/**
+ * 表示用の地域。prefecture が空のリードは住所から都道府県だけ拾う。
+ * Google Places 由来の住所は「日本、〒524-0102 滋賀県…」の形で入っており、
+ * 頭から切ると「日本、〒524-01」になって読めないため。
+ */
+function areaLabel(prefecture: string | null, address: string | null): string | null {
+  if (prefecture) return prefecture;
+  if (!address) return null;
+  const hit = (PREFECTURES as readonly string[]).find((p) => address.includes(p));
+  if (hit) return hit;
+  // 都道府県が見当たらない住所は、郵便番号と「日本、」を落としてから出す
+  const cleaned = address.replace(/^日本[、,]?\s*/, "").replace(/〒\s*\d{3}-?\d{0,4}\s*/, "").trim();
+  return cleaned ? cleaned.slice(0, 16) : null;
+}
+
 export default async function AnniversaryFinderPage({
   searchParams,
 }: {
@@ -203,7 +218,7 @@ export default async function AnniversaryFinderPage({
 
                   <p className="mt-1 text-xs text-zinc-500">
                     {[
-                      lead.prefecture ?? lead.address ?? null,
+                      areaLabel(lead.prefecture, lead.address),
                       lead.industry,
                       lead.employeeCount ? `従業員${lead.employeeCount}名` : null,
                     ]
