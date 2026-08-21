@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { Suspense } from "react";
-import { ListChecks, Upload, Download, PenLine, MessagesSquare, Clapperboard, ArrowRight, UserCheck } from "lucide-react";
+import { ListChecks, Upload, Download, PenLine, MessagesSquare, Clapperboard, ArrowRight, UserCheck, MailQuestion } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import type { LeadStatus, LeadSource, DealStatus, ProjectStatus } from "@/generated/prisma/client";
@@ -163,6 +163,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     activeDealCount,
     activeProjectCount,
     archivedCount,
+    awaitingCount,
     users,
     recentLogs,
     industries,
@@ -190,6 +191,8 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     db.deal.count({ where: { ...branchScope, status: { in: DEAL_OPEN } } }),
     db.project.count({ where: { ...branchScope, status: { in: PROJECT_ACTIVE } } }),
     db.lead.count({ where: { status: "ARCHIVED" } }),
+    // 送ったが結果を入れていない件数（＝返事待ち）
+    db.lead.count({ where: { sentAt: { not: null }, outreachResult: null } }),
     db.user.findMany({
       where: { isActive: true },
       select: { id: true, name: true, email: true },
@@ -285,6 +288,19 @@ export default async function LeadListPage({ searchParams }: PageProps) {
               {isMine ? "自分のリードのみ" : "自分のリード"}
             </Link>
           )}
+          <Link
+            href="/dashboard/leads/awaiting"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-700 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+            title="送ったが結果を入れていない先。結果を押すとグループ事例に残ります"
+          >
+            <MailQuestion className="w-3.5 h-3.5" />
+            返事待ち
+            {awaitingCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] px-1 h-[18px] rounded-full bg-blue-600 text-white text-[10px] font-black">
+                {awaitingCount}
+              </span>
+            )}
+          </Link>
           <Link
             href={outreachHref}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#1F3A5F] rounded-lg hover:bg-[#16304f] transition-colors"

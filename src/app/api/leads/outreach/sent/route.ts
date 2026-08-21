@@ -7,6 +7,7 @@ import { recordSent, unrecordSent } from "@/lib/actions/no-solicitation";
 // POST /api/leads/outreach/sent
 //   営業フォーム（OS内）で「送付済み」にした履歴をOSへ反映する。
 //   - LeadLog に action="FORM_SENT" として、使った訴求＋本文を記録
+//   - Lead.sentAt に送付日を入れる（「返事待ち」一覧の起点）
 //   - リードが UNTOUCHED の場合のみ CALLED に更新（ステータスは降格しない）
 //   body: { leadId: string; appeal?: string; body?: string; action: "mark" | "unmark" }
 // ---------------------------------------------------------------
@@ -48,6 +49,22 @@ export async function POST(req: NextRequest) {
     if (last) {
       await db.leadLog.delete({ where: { id: last.id } });
     }
+    // 送付ログが1件も残らなければ「送っていない」状態に戻す＝返事待ちからも外れる
+    const remaining = await db.leadLog.findFirst({
+      where: { leadId, action: FORM_SENT },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+    await db.lead.update({
+      where: { id: leadId },
+      data: remaining
+        ? { sentAt: remaining.createdAt }
+        : { sentAt: null, outreachResult: null, outreachResultAt: null },
+    });
+    if (!remaining) {
+      // 送付そのものを取り消したので、そこから自動生成した事例も残さない
+      await db.salesApproach.deleteMany({ where: { leadId } });
+    }
     // 全社の送付済み台帳からも外す（自分が登録した分のみ）
     await unrecordSent(lead.websiteUrl, leadId);
     return NextResponse.json({ ok: true, status: lead.status });
@@ -71,11 +88,14 @@ export async function POST(req: NextRequest) {
     data: { action: FORM_SENT, detail, staffName, leadId },
   });
 
+  // 送付日を入れ、前回の結果は消す（送り直した＝また返事待ちに戻る）
   let status = lead.status;
-  if (lead.status === "UNTOUCHED") {
-    await db.lead.update({ where: { id: leadId }, data: { status: "CALLED" } });
-    status = "CALLED";
-  }
+  const statusPatch = lead.status === "UNTOUCHED" ? { status: "CALLED" as const } : {};
+  await db.lead.update({
+    where: { id: leadId },
+    data: { sentAt: new Date(), outreachResult: null, outreachResultAt: null, ...statusPatch },
+  });
+  if (statusPatch.status) status = statusPatch.status;
 
   return NextResponse.json({ ok: true, status });
 }

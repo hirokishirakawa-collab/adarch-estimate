@@ -1,5 +1,6 @@
 export const RESULT_OPTIONS = [
   { value: "DEAL",       label: "商談化",             className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  { value: "REPLIED_OK", label: "返信あり（前向き）", className: "bg-teal-50 text-teal-700 border-teal-200" },
   { value: "REPLIED_NG", label: "返信あり（不成立）", className: "bg-amber-50 text-amber-700 border-amber-200" },
   { value: "NO_REPLY",   label: "未返信",             className: "bg-zinc-100 text-zinc-500 border-zinc-200" },
   { value: "REJECTED",   label: "拒否",               className: "bg-red-50 text-red-600 border-red-200" },
@@ -22,7 +23,9 @@ export const INDUSTRY_OPTIONS = [
 ] as const;
 
 export function getResultOption(value: string) {
-  return RESULT_OPTIONS.find((o) => o.value === value) ?? RESULT_OPTIONS[2];
+  // 不明値は「未返信」に倒す（配列の順番に依存させない）
+  return RESULT_OPTIONS.find((o) => o.value === value)
+    ?? RESULT_OPTIONS.find((o) => o.value === "NO_REPLY")!;
 }
 
 export function getMethodLabel(value: string) {

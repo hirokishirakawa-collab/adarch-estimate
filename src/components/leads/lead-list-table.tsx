@@ -9,6 +9,8 @@ import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, de
 import { findEmailsForLeads } from "@/lib/actions/lead-email";
 import { getFreshness, SIGNAL_KIND_LABEL, type SignalKind } from "@/lib/leads/signal";
 import { getHearingSheet } from "@/lib/actions/hearing";
+import { OutreachResultBar } from "./outreach-result-bar";
+import { daysSince } from "@/lib/constants/outreach-result";
 import { HearingSheetForm } from "./hearing-sheet-form";
 import { Trash2, RefreshCw, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,6 +46,10 @@ interface LeadRow {
   releasedFromName: string | null;
   signalAt: string | Date | null;
   signalKind: string | null;
+  /** 営業フォームで送付済みにした日。値があれば結果ボタンを出す */
+  sentAt: string | Date | null;
+  /** 送った先から返ってきた結果。null = 返事待ち */
+  outreachResult: string | null;
   createdAt: string | Date;
 }
 
@@ -756,6 +762,20 @@ function LeadRow({
               </option>
             ))}
           </select>
+          {/* 送付済みなら結果を1クリックで。押すとグループ事例にも自動で残る */}
+          {lead.sentAt && (
+            <div className="pt-1 mt-0.5 border-t border-zinc-100">
+              <div className="text-[10px] text-zinc-400 mb-0.5">
+                送付から{daysSince(lead.sentAt)}日{lead.outreachResult ? "" : "・結果未入力"}
+              </div>
+              <OutreachResultBar
+                leadId={lead.id}
+                result={lead.outreachResult}
+                size="compact"
+                showLabel={false}
+              />
+            </div>
+          )}
         </div>
       </td>
 

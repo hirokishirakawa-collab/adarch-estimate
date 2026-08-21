@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Copy, Check, MapPin, Sparkles, ChevronDown, ChevronUp, Plus, Trash2, Ban, ShieldAlert, Loader2 } from "lucide-react";
 import { checkNoSolicitation, getBlockedDomains, addBlockedDomain } from "@/lib/actions/no-solicitation";
+import { OutreachResultBar } from "./outreach-result-bar";
+import { daysSince } from "@/lib/constants/outreach-result";
 
 // ---------------------------------------------------------------
 // 型
@@ -17,10 +19,14 @@ export interface OutreachLead {
   phone: string | null;
   nearbyPref: string | null;
   alreadySent: boolean;
+  /** 送付日（結果バーの「◯日経過」表示用）。未送付なら null */
+  sentAt: string | null;
+  /** 送った先から返ってきた結果。null = まだ返事待ち */
+  outreachResult: string | null;
 }
 export interface ProvenCopy {
   industry: string;
-  result: "DEAL" | "REPLIED_NG";
+  result: "DEAL" | "REPLIED_OK" | "REPLIED_NG";
   company: string;
   body: string;
 }
@@ -602,6 +608,21 @@ function OutreachCard({
         {!lead.websiteUrl && !lead.mapsUrl && !lead.phone && <span className="text-zinc-400">リンクなし（手動で確認）</span>}
       </div>
 
+      {/* 結果（送付済みのときだけ出す。押すとステータス更新＋グループ事例へ自動登録） */}
+      {state.sent && (
+        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2">
+          <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+            <OutreachResultBar leadId={lead.id} result={lead.outreachResult} />
+            {lead.sentAt && (
+              <span className="text-[11px] text-zinc-500">送付から{daysSince(lead.sentAt)}日</span>
+            )}
+          </div>
+          <p className="text-[11px] text-zinc-500 mt-1">
+            返事が来たらここで1クリック。文面と業種は送付ログから自動でグループ事例に残ります
+          </p>
+        </div>
+      )}
+
       {/* 操作行 */}
       <div className="flex flex-wrap items-center gap-3 mt-3">
         <label className="flex items-center gap-1.5 text-xs text-zinc-600">
@@ -683,8 +704,8 @@ function ProvenItem({ item, onAdopt }: { item: ProvenCopy; onAdopt: () => void }
     <div className="rounded-md bg-white border border-amber-200 p-2">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-[11px]">
-          <span className={`font-bold rounded px-1.5 py-0.5 text-white ${item.result === "DEAL" ? "bg-emerald-600" : "bg-amber-500"}`}>
-            {item.result === "DEAL" ? "商談化" : "返信あり"}
+          <span className={`font-bold rounded px-1.5 py-0.5 text-white ${item.result === "DEAL" ? "bg-emerald-600" : item.result === "REPLIED_OK" ? "bg-teal-600" : "bg-amber-500"}`}>
+            {item.result === "DEAL" ? "商談化" : item.result === "REPLIED_OK" ? "返信あり（前向き）" : "返信あり（不成立）"}
           </span>
           <span className="text-zinc-500">{item.industry}{item.company ? `／${item.company}` : ""}</span>
         </div>

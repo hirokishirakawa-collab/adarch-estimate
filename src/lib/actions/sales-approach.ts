@@ -147,15 +147,16 @@ export async function deleteSalesApproach(id: string): Promise<void> {
 // ---------------------------------------------------------------
 export async function getSalesApproachStats() {
   const info = await getSessionInfo();
-  if (!info) return { total: 0, deal: 0, repliedNg: 0, noReply: 0, rejected: 0 };
+  if (!info) return { total: 0, deal: 0, repliedOk: 0, repliedNg: 0, noReply: 0, rejected: 0 };
 
-  const [total, deal, repliedNg, noReply, rejected] = await Promise.all([
+  const [total, deal, repliedOk, repliedNg, noReply, rejected] = await Promise.all([
     db.salesApproach.count(),
     db.salesApproach.count({ where: { result: "DEAL" } }),
+    db.salesApproach.count({ where: { result: "REPLIED_OK" } }),
     db.salesApproach.count({ where: { result: "REPLIED_NG" } }),
     db.salesApproach.count({ where: { result: "NO_REPLY" } }),
     db.salesApproach.count({ where: { result: "REJECTED" } }),
   ]);
 
-  return { total, deal, repliedNg, noReply, rejected };
+  return { total, deal, repliedOk, repliedNg, noReply, rejected };
 }

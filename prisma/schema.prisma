@@ -1918,6 +1918,26 @@ model Lead {
   //   FOUND    シグナルなし＝発掘した日（フォールバック）
   signalAt            DateTime?
   signalKind          String?
+  // ---- 送付と結果（アウトリーチの往復）----
+  // 送った記録は LeadLog(FORM_SENT) にあるが、「返事待ち」を一覧で出すには
+  // リード側に日付が要る。sentAt = 最後に営業フォームで「送付済み」にした日。
+  //   outreachResult   REPLIED(返信あり) / REPLIED_NG(返信あり・不成立) /
+  //                    NO_REPLY(無反応) / REJECTED(断り)。null = まだ結果未入力＝返事待ち
+  sentAt              DateTime?
+  outreachResult      String?
+  outreachResultAt    DateTime?
+  // ---- 設立・創業（周年ファインダー）----
+  // 出典は相手の自社サイト（会社概要）と PR TIMES のリリース。
+  // 「創業1960年」のように年しか書いていない会社が大半なので、日付ではなく年・月で持つ。
+  // 月が取れない会社は「今年◯周年」までしか言えない＝月日を推測で埋めない。
+  foundedYear         Int?
+  foundedMonth        Int?
+  foundedRaw          String?   // 拾った原文（例: "創業 昭和35年"）。誤抽出を人が弾くための証跡
+  foundedSource       String?   // "site" / "prtimes" / "manual"
+  foundedSourceUrl    String?   // 根拠ページのURL
+  // 取得を試した時刻。null = 未確認、値あり & foundedYear が null = 「探したが記載なし」。
+  // 同じ会社のサイトを何度も巡回しないための印（email / emailCheckedAt と同じ考え方）。
+  foundedCheckedAt    DateTime?
   cinemaTheaterId     Int?
   cinemaTheaterName   String?
   distanceKm          Float?
@@ -1943,6 +1963,8 @@ model Lead {
   releasedAt          DateTime?
   logs                LeadLog[]
   hearingSheet        HearingSheet?
+  // 結果ボタンから自動生成されたグループ事例（1リード1件。押し直すと結果だけ更新）
+  salesApproaches     SalesApproach[] @relation("SalesApproachLead")
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
@@ -1955,6 +1977,9 @@ model Lead {
   @@index([createdAt])
   @@index([source])
   @@index([signalAt])
+  @@index([sentAt])
+  @@index([foundedYear])
+  @@index([foundedCheckedAt])
   @@map("leads")
 }
 
@@ -2234,6 +2259,7 @@ model SalesInsight {
 
 enum SalesApproachResult {
   DEAL // 商談化
+  REPLIED_OK // 返信あり（前向き）
   REPLIED_NG // 返信あり（不成立）
   NO_REPLY // 未返信
   REJECTED // 拒否
@@ -2263,6 +2289,10 @@ model SalesApproach {
   targetDesc String?   @db.Text // 送り先の特徴（自由記入）
   customerId String? // 顧客管理との紐づけ（任意）
   customer   Customer? @relation("SalesApproachCustomer", fields: [customerId], references: [id])
+  // リードの結果ボタンから自動生成された場合の紐づけ。
+  // 同じリードで押し直したときに二重投稿せず結果だけ更新するための鍵。
+  leadId     String?
+  lead       Lead?     @relation("SalesApproachLead", fields: [leadId], references: [id], onDelete: SetNull)
 
   // ── アプローチ内容
   method      SalesApproachMethod // 送信方法
@@ -2278,6 +2308,7 @@ model SalesApproach {
   @@index([result])
   @@index([industry])
   @@index([createdAt(sort: Desc)])
+  @@index([leadId])
   @@map("sales_approaches")
 }
 

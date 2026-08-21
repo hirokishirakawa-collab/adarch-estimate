@@ -56,6 +56,7 @@ export default async function SalesApproachesPage({ searchParams }: Props) {
         {[
           { label: "全件", value: stats.total, cls: "text-zinc-800" },
           { label: "商談化", value: stats.deal, cls: "text-emerald-700" },
+          { label: "返信（前向き）", value: stats.repliedOk, cls: "text-teal-700" },
           { label: "返信（不成立）", value: stats.repliedNg, cls: "text-amber-700" },
           { label: "未返信", value: stats.noReply, cls: "text-zinc-500" },
           { label: "拒否", value: stats.rejected, cls: "text-red-600" },

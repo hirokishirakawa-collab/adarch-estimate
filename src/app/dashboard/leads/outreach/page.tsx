@@ -107,6 +107,8 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
         mapsUrl: true,
         phone: true,
         status: true,
+        sentAt: true,
+        outreachResult: true,
       },
       orderBy: [{ scoreTotal: "desc" }, { createdAt: "desc" }],
       take: hasIds ? idList.length : MAX_LEADS,
@@ -118,7 +120,7 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
     }),
     // 結果の出た営業文（商談化・返信あり）
     db.salesApproach.findMany({
-      where: { result: { in: ["DEAL", "REPLIED_NG"] } },
+      where: { result: { in: ["DEAL", "REPLIED_OK", "REPLIED_NG"] } },
       select: {
         industry: true,
         result: true,
@@ -175,13 +177,15 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
       phone: l.phone ?? null,
       nearbyPref,
       alreadySent: sentSet.has(l.id),
+      sentAt: l.sentAt ? l.sentAt.toISOString() : null,
+      outreachResult: l.outreachResult,
     };
   });
 
   // 結果の出た文面（本文は長すぎる場合だけ切り詰め）
   const provenCopies = provenRaw.map((p) => ({
     industry: p.industry,
-    result: p.result as "DEAL" | "REPLIED_NG",
+    result: p.result as "DEAL" | "REPLIED_OK" | "REPLIED_NG",
     company: p.groupCompany?.name ?? "",
     body: p.messageBody.length > 2400 ? p.messageBody.slice(0, 2400) + "…" : p.messageBody,
   }));

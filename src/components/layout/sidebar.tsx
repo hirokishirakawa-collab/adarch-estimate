@@ -42,6 +42,7 @@ import {
   Crosshair,
   Handshake,
   ListChecks,
+  MailQuestion,
   Activity,
   CalendarClock,
   Film,
@@ -645,6 +646,7 @@ interface SidebarProps {
 const SELL_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/customers", label: "顧客管理（起点）", icon: Users, minRole: "USER" },
   { href: "/dashboard/leads/list", label: "① リード管理", icon: ListChecks, minRole: "USER" },
+  { href: "/dashboard/leads/awaiting", label: "返事待ち（結果入力）", icon: MailQuestion, minRole: "USER" },
   { href: "/dashboard/deals", label: "② 商談管理（SFA）", icon: TrendingUp, minRole: "USER" },
   { href: "/dashboard/projects/new", label: "③ プロジェクト登録", icon: FolderKanban, minRole: "USER" },
   { href: "/dashboard/sales", label: "営業フロー", icon: Workflow, minRole: "USER" },
