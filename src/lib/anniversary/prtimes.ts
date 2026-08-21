@@ -19,6 +19,19 @@ import { PREFECTURES } from "@/lib/constants/crm";
 /** 周年リリースを拾うキーワード */
 export const ANNIVERSARY_KEYWORDS = ["周年", "創業", "創立"];
 
+/**
+ * 同業（＝競合）とみて営業リストに入れない社名。
+ *
+ * 周年リリースは広告・映像の会社自身が出すことも多く、そのまま入れると
+ * 競合に「創業◯周年おめでとうございます」と声をかける事故になる。
+ *
+ * 広く取りすぎると顧客になり得る会社まで消えるので、社名だけで同業と言い切れる語に絞る。
+ * 「印刷」「デザイン」「メディア」は顧客になり得るので**入れない**。
+ * ここで拾い切れなかったものは、画面の「営業対象から外す」で人が外す。
+ */
+const COMPETITOR_NAME_RE =
+  /映像制作|動画制作|映像プロダクション|広告代理店|総合広告|広告社|広告会社|アドエージェンシー|クリエイティブエージェンシー/;
+
 /** 「創業50周年」のように会社そのものの周年を指すタイトルか */
 const FOUNDING_ANNIV_RE = /(創業|設立|創立|開業)\s*(\d{1,3})\s*(?:周年|年)/;
 /** 「20周年」全般（ブランド周年を含む） */
@@ -64,6 +77,8 @@ export interface DiscoverStats {
   created: number;
   updated: number;
   skipped: number;
+  /** 同業とみて入れなかった件数 */
+  skippedCompetitor: number;
 }
 
 /**
@@ -71,7 +86,7 @@ export interface DiscoverStats {
  * 1回の実行で maxPerKeyword 件だけ見る（cron が切れても次回続きから）。
  */
 export async function runAnniversaryDiscovery(maxPerKeyword = 15): Promise<DiscoverStats> {
-  const stats: DiscoverStats = { scanned: 0, anniversaryHits: 0, created: 0, updated: 0, skipped: 0 };
+  const stats: DiscoverStats = { scanned: 0, anniversaryHits: 0, created: 0, updated: 0, skipped: 0, skippedCompetitor: 0 };
   const seenUrls = new Set<string>();
 
   for (const keyword of ANNIVERSARY_KEYWORDS) {
@@ -91,6 +106,12 @@ export async function runAnniversaryDiscovery(maxPerKeyword = 15): Promise<Disco
 
       const name = pickCompanyName(article.jsonLd, article.bodyText);
       if (!name) { stats.skipped++; continue; }
+
+      // 同業は最初から入れない（競合に周年の声をかける事故を防ぐ）
+      if (COMPETITOR_NAME_RE.test(name)) {
+        stats.skippedCompetitor++;
+        continue;
+      }
 
       const prefecture = pickPrefecture(article.bodyText);
       const website = pickWebsite(article.bodyText);

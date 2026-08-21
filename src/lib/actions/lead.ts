@@ -1548,3 +1548,55 @@ export async function saveTvcmLeadsFromSearch(
     return { saved: savedCount, error: "保存中にエラーが発生しました" };
   }
 }
+
+// ---------------------------------------------------------------
+// リードを営業対象から外す（却下）
+//
+// 周年ファインダーで競合・同業が並んでしまうため、気づいた人がその場で外せるようにしたもの。
+// 外すと status=SKIPPED になり、リード管理・営業フロー・周年ファインダーの
+// すべてから見えなくなる（既存の却下と同じ扱い）。
+//
+// 物理削除ではないので、代表がリード管理の「却下済み」から戻せる。
+// 誰が外したかは LeadLog に残す。
+// ---------------------------------------------------------------
+export async function rejectLeadFromList(
+  leadId: string,
+  rejectReason: LeadRejectReasonValue,
+): Promise<{ success: boolean; error?: string }> {
+  const session = await auth();
+  if (!session?.user?.email) return { success: false, error: "ログインが必要です" };
+
+  const staffName = session.user.name ?? session.user.email;
+
+  const lead = await db.lead.findUnique({
+    where: { id: leadId },
+    select: { id: true, name: true, status: true },
+  });
+  if (!lead) return { success: false, error: "リードが見つかりません" };
+  if (lead.status === "SKIPPED") return { success: true }; // 二重押しは黙って成功扱い
+
+  const reasonLabel = getLeadRejectReason(rejectReason)?.label ?? "理由なし";
+
+  try {
+    await db.lead.update({
+      where: { id: leadId },
+      data: { status: "SKIPPED", assigneeId: null, rejectReason },
+    });
+    await db.leadLog.create({
+      data: {
+        leadId,
+        action: "REJECTED",
+        detail: `営業対象から除外［${reasonLabel}］`,
+        staffName,
+      },
+    });
+
+    revalidatePath("/dashboard/anniversary-finder");
+    revalidatePath("/dashboard/leads/list");
+    revalidatePath("/dashboard/sales");
+    return { success: true };
+  } catch (e) {
+    console.error("[rejectLeadFromList] DB error:", e);
+    return { success: false, error: "除外に失敗しました" };
+  }
+}

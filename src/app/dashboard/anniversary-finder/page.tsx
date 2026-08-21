@@ -4,6 +4,8 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { PREFECTURES } from "@/lib/constants/crm";
 import { nextAnniversary, anniversaryLabel } from "@/lib/anniversary/calc";
+import { ExcludeLeadButton } from "@/components/anniversary/exclude-lead-button";
+import type { LeadStatus } from "@/generated/prisma/client";
 
 export const metadata = { title: "周年ファインダー" };
 export const dynamic = "force-dynamic";
@@ -48,6 +50,9 @@ export default async function AnniversaryFinderPage({
   const rows = await db.lead.findMany({
     where: {
       foundedYear: { not: null },
+      // 却下済み（同業・競合を含む）とアーカイブは出さない。
+      // リード管理・営業フローと同じ不可視化に揃える（[[feedback_tver_rejected_hidden]]）。
+      status: { notIn: ["SKIPPED", "ARCHIVED"] as LeadStatus[] },
       ...(pref ? { OR: [{ prefecture: pref }, { address: { contains: pref } }] } : {}),
     },
     select: {
@@ -86,7 +91,9 @@ export default async function AnniversaryFinderPage({
       return b.anniv.years - a.anniv.years;
     });
 
-  const filled = await db.lead.count({ where: { foundedYear: { not: null } } });
+  const filled = await db.lead.count({
+    where: { foundedYear: { not: null }, status: { notIn: ["SKIPPED", "ARCHIVED"] as LeadStatus[] } },
+  });
   const checked = await db.lead.count({ where: { foundedCheckedAt: { not: null } } });
   const remaining = await db.lead.count({
     where: { foundedCheckedAt: null, websiteUrl: { not: null } },
@@ -119,6 +126,10 @@ export default async function AnniversaryFinderPage({
           <span className="font-semibold">声をかける前に出典リンクで一度ご確認ください。</span>
           <br />
           設立「月」まで書いていない会社が多く、その場合は「今年◯周年」までしか分かりません（月は推測していません）。
+          <br />
+          同業（動画制作会社・広告代理店）が混ざっていたら、
+          <span className="font-semibold">「営業対象から外す」</span>
+          で消してください。リード管理・営業フローからも見えなくなります。
         </p>
       </div>
 
@@ -262,6 +273,7 @@ export default async function AnniversaryFinderPage({
                   >
                     リードを開く
                   </Link>
+                  <ExcludeLeadButton leadId={lead.id} leadName={lead.name} />
                 </div>
               </div>
             </li>
