@@ -58,6 +58,7 @@ import {
   Briefcase,
   Banknote,
   Gavel,
+  Cake,
   Workflow,
 } from "lucide-react";
 
@@ -172,6 +173,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/subsidy-finder",
         label: "補助金ファインダー（広告費の財源）",
         icon: Banknote,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/anniversary-finder",
+        label: "周年ファインダー（記念広告の商機）",
+        icon: Cake,
         minRole: "USER",
       },
       {
@@ -653,6 +660,7 @@ const SELL_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, minRole: "USER" },
   { href: "/dashboard/subsidy-finder", label: "補助金ファインダー", icon: Banknote, minRole: "USER" },
   { href: "/dashboard/tender-finder", label: "入札ファインダー", icon: Gavel, minRole: "USER" },
+  { href: "/dashboard/anniversary-finder", label: "周年ファインダー", icon: Cake, minRole: "USER" },
   { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, minRole: "USER" },
   { href: "/dashboard/outreach-pipeline", label: "アウトリーチ", icon: Send, minRole: "ADMIN" },
   { href: "/dashboard/regulars", label: "レギュラー案件", icon: Repeat, minRole: "MANAGER" },
