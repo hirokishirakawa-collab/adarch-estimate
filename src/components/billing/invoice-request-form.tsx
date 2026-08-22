@@ -12,6 +12,7 @@ export interface Props {
   projects: Project[];
   customers: Customer[];
   defaultValues?: {
+    kind?: "NORMAL" | "MEDIA";
     subject?: string;
     customerId?: string | null;
     contactName?: string | null;
@@ -222,6 +223,10 @@ export function InvoiceRequestForm({
   }, [selectedCustomerId, customers]);
 
   // ── 税計算
+  // ── 種別。媒体請求は取り分の条件が案件ごとに違うため、本部手数料を出さない
+  const [kind, setKind] = useState<"NORMAL" | "MEDIA">(defaultValues?.kind ?? "NORMAL");
+  const isMedia = kind === "MEDIA";
+
   const initAmount = defaultValues?.amountExclTax ?? 0;
   const [amountExclTax, setAmountExclTax] = useState(initAmount);
   const taxAmount     = Math.round(amountExclTax * 0.1);
@@ -236,8 +241,8 @@ export function InvoiceRequestForm({
 
   // ── 本部手数料（10%）。ロイヤリティ相殺の原資になる。
   // 計算基礎は「税抜金額 − 立替実費」（契約 別紙2-4）。
-  const commissionBaseExclTax = commissionBaseOf(amountExclTax, reimbursementExclTax);
-  const commissionExclTax = commissionOf(commissionBaseExclTax);
+  const commissionBaseExclTax = isMedia ? 0 : commissionBaseOf(amountExclTax, reimbursementExclTax);
+  const commissionExclTax = isMedia ? 0 : commissionOf(commissionBaseExclTax);
   const commissionTax     = Math.floor(commissionExclTax * 0.1);
 
   // ── 源泉徴収・控除不可消費税の自動計算
@@ -272,6 +277,48 @@ export function InvoiceRequestForm({
           {state.error}
         </div>
       )}
+
+      {/* ── 種別：媒体請求は本部手数料を自動計算しない ── */}
+      <input type="hidden" name="kind" value={kind} />
+      <div className="p-3 rounded-lg border border-zinc-200 bg-zinc-50">
+        <p className="text-xs font-semibold text-zinc-700 mb-2">請求の種別</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setKind("NORMAL")}
+            className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+              !isMedia
+                ? "border-zinc-900 bg-white text-zinc-900 font-semibold"
+                : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300"
+            }`}
+          >
+            通常請求
+            <span className="block text-[11px] font-normal text-zinc-400 mt-0.5">
+              本部手数料{HQ_COMMISSION_RATE}%がかかります
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setKind("MEDIA")}
+            className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+              isMedia
+                ? "border-amber-500 bg-amber-50 text-amber-900 font-semibold"
+                : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300"
+            }`}
+          >
+            媒体請求
+            <span className="block text-[11px] font-normal text-zinc-400 mt-0.5">
+              取り分は自動計算しません
+            </span>
+          </button>
+        </div>
+        {isMedia && (
+          <p className="mt-2 text-[11px] text-amber-700 leading-relaxed">
+            媒体費だけの請求です。案件ごとに条件が違うため、<span className="font-semibold">本部手数料は一切かかりません</span>。
+            取り分が必要な場合は本部が別途調整します。
+          </p>
+        )}
+      </div>
 
       {/* ── 拠点（県）：複数拠点パートナーのみ。ロイヤリティの県別判定に使用 ── */}
       {multiBranch && (
@@ -471,7 +518,8 @@ export function InvoiceRequestForm({
           </div>
         </div>
 
-        {/* ── 立替実費（本部手数料の対象外） ── */}
+        {/* ── 立替実費（本部手数料の対象外）。媒体請求は手数料自体が無いので出さない ── */}
+        {!isMedia && (
         <div className="pt-3 border-t border-zinc-200 space-y-2">
           <label className="block text-xs font-semibold text-zinc-700">
             立替実費（税抜・手数料対象外）
@@ -493,16 +541,25 @@ export function InvoiceRequestForm({
             領収書は下のファイル欄に添付してください。
           </p>
         </div>
+        )}
 
         {/* ── 控除・差引支払額（自動計算） ── */}
         {amountExclTax > 0 && (
           <div className="pt-3 border-t border-zinc-200 space-y-2">
             <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">控除（自動計算）</p>
-            <div className="flex justify-between text-xs">
-              <span className="text-zinc-600">本部手数料（{HQ_COMMISSION_RATE}%・税抜）</span>
-              <span className="font-bold text-red-600">-¥{fmtNum(commissionExclTax)}</span>
-            </div>
-            {reimbursementExclTax > 0 && (
+            {!isMedia && (
+              <div className="flex justify-between text-xs">
+                <span className="text-zinc-600">本部手数料（{HQ_COMMISSION_RATE}%・税抜）</span>
+                <span className="font-bold text-red-600">-¥{fmtNum(commissionExclTax)}</span>
+              </div>
+            )}
+            {isMedia && (
+              <div className="flex justify-between text-xs">
+                <span className="text-zinc-600">本部手数料</span>
+                <span className="font-semibold text-zinc-500">媒体請求のためなし</span>
+              </div>
+            )}
+            {!isMedia && reimbursementExclTax > 0 && (
               <div className="flex justify-between text-[11px] text-zinc-400">
                 <span className="pl-3">手数料の対象 ¥{fmtNum(commissionBaseExclTax)}（立替実費 ¥{fmtNum(Math.min(reimbursementExclTax, amountExclTax))} を除く）</span>
               </div>
@@ -513,9 +570,11 @@ export function InvoiceRequestForm({
                 <span className="font-bold text-red-600">-¥{fmtNum(commissionTax)}</span>
               </div>
             )}
-            <p className="text-[11px] text-zinc-400">
-              本部手数料はロイヤリティの相殺に充当されます（月合計が最低保証に達すると、その月のロイヤリティ請求はありません）。
-            </p>
+            {!isMedia && (
+              <p className="text-[11px] text-zinc-400">
+                本部手数料はロイヤリティの相殺に充当されます（月合計が最低保証に達すると、その月のロイヤリティ請求はありません）。
+              </p>
+            )}
             {isSoleProprietor && withholdingTaxAmount > 0 && (
               <div className="flex justify-between text-xs">
                 <span className="text-zinc-600">源泉徴収税（制作費 ¥{fmtNum(productionExpense)} に対して）</span>

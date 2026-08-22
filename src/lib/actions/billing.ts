@@ -11,6 +11,7 @@ import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
 import { logAudit } from "@/lib/audit";
 import { HQ_COMMISSION_RATE, commissionBaseOf, commissionOf } from "@/lib/royalty-monthly";
+import type { InvoiceRequestKind } from "@/generated/prisma/client";
 
 // ---------------------------------------------------------------
 // 閲覧権限スコープ
@@ -33,6 +34,7 @@ async function parseFormData(formData: FormData): Promise<
       ok: true;
       data: {
         subject: string;
+        kind: InvoiceRequestKind;
         branchLabel: string | null;
         customerId: string | null;
         contactName: string | null;
@@ -59,6 +61,11 @@ async function parseFormData(formData: FormData): Promise<
     }
   | { ok: false; error: string }
 > {
+  // 媒体請求は取り分の条件が案件ごとに違うため、本部手数料を自動計算しない。
+  // 想定外の値が来たら通常請求として扱う（手数料を取り損ねる側に倒さない）。
+  const kind: InvoiceRequestKind =
+    (formData.get("kind") as string)?.trim() === "MEDIA" ? "MEDIA" : "NORMAL";
+
   const subject        = (formData.get("subject")           as string)?.trim();
   const branchLabel    = (formData.get("branchLabel")        as string)?.trim() || null;
   const customerId     = (formData.get("customerId")         as string)?.trim() || null;
@@ -110,11 +117,14 @@ async function parseFormData(formData: FormData): Promise<
 
   // ── 本部手数料（ロイヤリティ相殺の原資）。クライアント送信値は使わずサーバーで計算する。
   // 計算基礎は「税抜金額 − 立替実費」（契約 別紙2-4）。
-  const commissionRate    = HQ_COMMISSION_RATE;
-  const commissionExclTax = commissionOf(
-    commissionBaseOf(amountExclTax, reimbursementExclTax ?? 0),
-    commissionRate,
-  );
+  //
+  // 媒体請求は取り分の条件が案件ごとに違うため、ここでは一切計算しない（率も額も0）。
+  // 取り分が要る場合は、本部が「ロイヤリティ状況」の手入力欄で月ごとに調整する。
+  const isMedia = kind === "MEDIA";
+  const commissionRate    = isMedia ? 0 : HQ_COMMISSION_RATE;
+  const commissionExclTax = isMedia
+    ? 0
+    : commissionOf(commissionBaseOf(amountExclTax, reimbursementExclTax ?? 0), commissionRate);
   const commissionTax     = Math.floor(commissionExclTax * 0.1);
 
   // ── 源泉徴収・控除不可消費税（hidden fields）
@@ -138,6 +148,7 @@ async function parseFormData(formData: FormData): Promise<
   return {
     ok: true,
     data: {
+      kind,
       subject, branchLabel, customerId, contactName, contactEmail, billingDate, dueDate,
       details, amountExclTax, taxAmount, amountInclTax,
       commissionRate, commissionExclTax,
@@ -180,6 +191,7 @@ export async function createInvoiceRequest(
   try {
     const created = await db.invoiceRequest.create({
       data: {
+        kind:             d.kind,
         subject:          d.subject,
         branchLabel:      d.branchLabel,
         customerId:       d.customerId,
@@ -264,6 +276,7 @@ export async function updateInvoiceRequest(
     await db.invoiceRequest.update({
       where: { id: requestId },
       data: {
+        kind:             d.kind,
         subject:          d.subject,
         branchLabel:      d.branchLabel,
         customerId:       d.customerId,

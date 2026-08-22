@@ -29,8 +29,11 @@ export default async function BillingDetailPage({ params }: Props) {
   const reimbursementExclTax = Number(request.reimbursementExclTax ?? 0);
 
   // 本部手数料。フィールド追加前の既存データは「税抜金額 − 立替実費」から再計算して表示する。
-  const commissionExclTax =
-    request.commissionExclTax != null
+  // 媒体請求は取り分の条件が案件ごとに違うため、手数料は常に0（フォールバックも通さない）。
+  const isMedia = request.kind === "MEDIA";
+  const commissionExclTax = isMedia
+    ? 0
+    : request.commissionExclTax != null
       ? Number(request.commissionExclTax)
       : commissionOf(
           commissionBaseOf(Number(request.amountExclTax), reimbursementExclTax),
@@ -64,10 +67,17 @@ export default async function BillingDetailPage({ params }: Props) {
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">{request.subject}</h2>
-            <span className={`mt-1 inline-flex items-center px-2 py-0.5 text-[11px] font-semibold
-                              rounded-full border ${statusCfg.className}`}>
-              {statusCfg.label}
-            </span>
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-semibold
+                                rounded-full border ${statusCfg.className}`}>
+                {statusCfg.label}
+              </span>
+              {isMedia && (
+                <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                  媒体請求（手数料なし）
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -136,9 +146,13 @@ export default async function BillingDetailPage({ params }: Props) {
       <div className="bg-white border border-zinc-200 rounded-xl px-5 py-4 mb-5 space-y-2">
         <div className="flex justify-between text-xs">
           <span className="text-zinc-600">
-            本部手数料（{Number(request.commissionRate)}%・税抜）
+            本部手数料{isMedia ? "" : `（${Number(request.commissionRate)}%・税抜）`}
           </span>
-          <span className="font-bold text-red-600">-{fmtAmt(commissionExclTax)}</span>
+          {isMedia ? (
+            <span className="font-semibold text-zinc-500">媒体請求のためなし</span>
+          ) : (
+            <span className="font-bold text-red-600">-{fmtAmt(commissionExclTax)}</span>
+          )}
         </div>
         {reimbursementExclTax > 0 && (
           <div className="flex justify-between text-[11px] text-zinc-400">
@@ -165,7 +179,9 @@ export default async function BillingDetailPage({ params }: Props) {
           <span className="font-bold text-indigo-700">{fmtAmt(netPaymentAmount)}</span>
         </div>
         <p className="text-[11px] text-zinc-400 pt-1">
-          本部手数料はロイヤリティの相殺に充当されます。
+          {isMedia
+            ? "媒体請求はロイヤリティの相殺に含まれません。取り分が必要な場合は本部が別途調整します。"
+            : "本部手数料はロイヤリティの相殺に充当されます。"}
           <Link href="/dashboard/royalty" className="ml-1 text-indigo-600 hover:underline">
             今月のロイヤリティ状況を見る →
           </Link>

@@ -54,6 +54,7 @@ export default async function EditBillingRequestPage({ params }: Props) {
           branchLabels={branchLabels}
           defaultBranchLabel={owner?.branchLabel ?? null}
           defaultValues={{
+            kind:             request.kind,
             subject:          request.subject,
             customerId:       request.customerId,
             contactName:      request.contactName,
@@ -62,7 +63,9 @@ export default async function EditBillingRequestPage({ params }: Props) {
             dueDate:          request.dueDate?.toISOString().slice(0, 10) ?? null,
             details:          request.details,
             amountExclTax:    Number(request.amountExclTax),
-            // 立替実費は再送しないと更新時に0へ戻ってしまうため必ず渡す
+            // 渡さないと更新時に0へ戻ってしまう項目。必ず全部渡すこと
+            mediaExpense:         Number(request.mediaExpense ?? 0),
+            productionExpense:    Number(request.productionExpense ?? 0),
             reimbursementExclTax: Number(request.reimbursementExclTax ?? 0),
             inspectionStatus: request.inspectionStatus,
             fileUrl:          request.fileUrl,

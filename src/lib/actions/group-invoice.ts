@@ -491,6 +491,9 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
   const requests = await db.invoiceRequest.findMany({
     where: {
       status: { not: "DRAFT" },
+      // 媒体請求は取り分の条件が案件ごとに違うため、自動集計に乗せない。
+      // 保存時にも手数料0で入るが、集計側でも明示的に外す（既存データのフォールバック経路を通さないため）。
+      kind: { not: "MEDIA" },
       billingDate: { gte: monthStart, lt: monthEnd },
       ...(limitToGroupCompanyId ? { createdBy: { groupCompanyId: limitToGroupCompanyId } } : {}),
     },

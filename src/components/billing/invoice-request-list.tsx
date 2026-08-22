@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 type InvoiceRequest = {
   id: string;
+  kind: "NORMAL" | "MEDIA";
   subject: string;
   customer: { id: string; name: string } | null;
   amountExclTax: { toString(): string };
@@ -63,19 +64,22 @@ export function InvoiceRequestList({ requests, role }: Props) {
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | "DRAFT" | "SUBMITTED">("");
+  // 媒体請求は本部手数料がかからない別物なので、分けて見られるようにする
+  const [kindFilter, setKindFilter] = useState<"" | "NORMAL" | "MEDIA">("");
 
   const adminCols = role === "ADMIN";
 
   const filtered = useMemo(() => {
     return requests.filter((r) => {
       const matchStatus = !statusFilter || r.status === statusFilter;
+      const matchKind = !kindFilter || r.kind === kindFilter;
       const q = query.trim().toLowerCase();
       const matchQuery = !q ||
         r.subject.toLowerCase().includes(q) ||
         (r.customer?.name ?? "").toLowerCase().includes(q);
-      return matchStatus && matchQuery;
+      return matchStatus && matchKind && matchQuery;
     });
-  }, [requests, query, statusFilter]);
+  }, [requests, query, statusFilter, kindFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -120,6 +124,23 @@ export function InvoiceRequestList({ requests, role }: Props) {
               )}
             >
               {s === "" ? "すべて" : s === "DRAFT" ? "未提出" : "提出済"}
+            </button>
+          ))}
+        </div>
+        {/* 種別フィルタ */}
+        <div className="flex items-center gap-1">
+          {(["", "NORMAL", "MEDIA"] as const).map((k) => (
+            <button
+              key={k}
+              onClick={() => { setKindFilter(k); setPage(1); }}
+              className={cn(
+                "px-2.5 py-1 text-xs rounded-full border transition-colors",
+                kindFilter === k
+                  ? "bg-zinc-800 text-white border-zinc-700"
+                  : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400"
+              )}
+            >
+              {k === "" ? "全種別" : k === "NORMAL" ? "通常請求" : "媒体請求"}
             </button>
           ))}
         </div>
@@ -182,6 +203,11 @@ export function InvoiceRequestList({ requests, role }: Props) {
                                        hover:underline truncate block">
                         {req.subject}
                       </Link>
+                      {req.kind === "MEDIA" && (
+                        <span className="mt-1 inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                          媒体請求（手数料なし）
+                        </span>
+                      )}
                     </td>
 
                     {/* 請求先 */}
