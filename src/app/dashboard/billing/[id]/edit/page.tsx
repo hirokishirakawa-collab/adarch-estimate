@@ -55,7 +55,7 @@ export default async function EditBillingRequestPage({ params }: Props) {
           defaultBranchLabel={owner?.branchLabel ?? null}
           defaultValues={{
             kind:             request.kind,
-            mediaName:        request.mediaName,
+            medias:           request.medias.map((m) => ({ name: m.name, costExclTax: Number(m.costExclTax) })),
             subject:          request.subject,
             customerId:       request.customerId,
             contactName:      request.contactName,

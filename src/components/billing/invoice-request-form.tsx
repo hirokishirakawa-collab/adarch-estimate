@@ -13,7 +13,7 @@ export interface Props {
   customers: Customer[];
   defaultValues?: {
     kind?: "NORMAL" | "MEDIA";
-    mediaName?: string | null;
+    medias?: { name: string; costExclTax: number }[];
     subject?: string;
     customerId?: string | null;
     contactName?: string | null;
@@ -227,7 +227,21 @@ export function InvoiceRequestForm({
   // ── 種別。媒体請求は取り分の条件が案件ごとに違うため、本部手数料を出さない
   const [kind, setKind] = useState<"NORMAL" | "MEDIA">(defaultValues?.kind ?? "NORMAL");
   const isMedia = kind === "MEDIA";
-  const [mediaName, setMediaName] = useState(defaultValues?.mediaName ?? "");
+  // 媒体の内訳。1件の請求で複数媒体を回すことがあるので行で持つ
+  const [medias, setMedias] = useState<{ name: string; costExclTax: number }[]>(
+    defaultValues?.medias?.length ? defaultValues.medias : [{ name: "", costExclTax: 0 }],
+  );
+  const mediaCostTotal = medias.reduce((sum, m) => sum + (m.costExclTax || 0), 0);
+
+  function updateMedia(index: number, patch: Partial<{ name: string; costExclTax: number }>) {
+    setMedias((prev) => prev.map((m, i) => (i === index ? { ...m, ...patch } : m)));
+  }
+  function addMedia() {
+    setMedias((prev) => [...prev, { name: "", costExclTax: 0 }]);
+  }
+  function removeMedia(index: number) {
+    setMedias((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
+  }
 
   const initAmount = defaultValues?.amountExclTax ?? 0;
   const [amountExclTax, setAmountExclTax] = useState(initAmount);
@@ -317,21 +331,65 @@ export function InvoiceRequestForm({
         {isMedia && (
           <>
             <div className="mt-3">
-              <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                媒体名<span className="text-red-500 ml-0.5">*</span>
+              <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+                媒体と媒体費実費<span className="text-red-500 ml-0.5">*</span>
+                <span className="font-normal text-zinc-400 ml-1">複数の媒体を回す場合は行を足してください</span>
               </label>
+              <div className="space-y-2">
+                {medias.map((m, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={m.name}
+                      onChange={(e) => updateMedia(i, { name: e.target.value })}
+                      placeholder="媒体名（例: TVer）"
+                      className={`${inputCls} text-xs flex-1`}
+                    />
+                    <div className="relative w-36 shrink-0">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={m.costExclTax === 0 ? "" : m.costExclTax}
+                        onChange={(e) => updateMedia(i, { costExclTax: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                        placeholder="媒体費実費"
+                        className={`${inputCls} pl-7 text-xs`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeMedia(i)}
+                      disabled={medias.length <= 1}
+                      className="shrink-0 rounded-lg border border-zinc-200 px-2 py-1.5 text-xs text-zinc-500
+                                 hover:bg-red-50 hover:text-red-600 hover:border-red-200 disabled:opacity-30"
+                      aria-label="この媒体を削除"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={addMedia}
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50"
+                >
+                  ＋ 媒体を追加
+                </button>
+                <span className="text-xs text-zinc-500">
+                  媒体費実費の合計 <span className="font-bold text-zinc-800">¥{fmtNum(mediaCostTotal)}</span>
+                </span>
+              </div>
               <input
-                type="text"
-                name="mediaName"
-                value={mediaName}
-                onChange={(e) => setMediaName(e.target.value)}
-                placeholder="例: TVer / TOKYO PRIME / イオンシネマ"
-                className={`${inputCls} text-xs`}
-                required
+                type="hidden"
+                name="medias"
+                value={JSON.stringify(medias.filter((m) => m.name.trim()))}
               />
             </div>
             <p className="mt-2 text-[11px] text-amber-700 leading-relaxed">
-              取引媒体に応じて媒体側へ支払う額が変わり、条件も変動します。そのため
+              媒体ごとに媒体側へ支払う額が変わり、条件も変動します。そのため
               <span className="font-semibold">本部手数料は申請を許可する段階で本部が入力します</span>。
               この画面では自動計算されません。
             </p>

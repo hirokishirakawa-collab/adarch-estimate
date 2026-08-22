@@ -76,7 +76,9 @@ export default async function BillingDetailPage({ params }: Props) {
               </span>
               {isMedia && (
                 <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                  媒体請求{request.mediaName ? `／${request.mediaName}` : ""}
+                  媒体請求
+                  {request.medias.length > 0 &&
+                    `／${request.medias[0].name}${request.medias.length > 1 ? ` 他${request.medias.length - 1}件` : ""}`}
                 </span>
               )}
             </div>
@@ -110,6 +112,34 @@ export default async function BillingDetailPage({ params }: Props) {
                 <td className="px-5 py-3 text-sm text-zinc-800">{value}</td>
               </tr>
             ))}
+
+            {/* 媒体の内訳（媒体請求のみ） */}
+            {isMedia && request.medias.length > 0 && (
+              <tr>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-zinc-500
+                               whitespace-nowrap bg-zinc-50 align-top">
+                  媒体と媒体費実費
+                </th>
+                <td className="px-5 py-3 text-sm text-zinc-800">
+                  <ul className="space-y-1">
+                    {request.medias.map((m) => (
+                      <li key={m.id} className="flex justify-between gap-4">
+                        <span>{m.name}</span>
+                        <span className="text-zinc-600">{fmtAmt(m.costExclTax)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {request.medias.length > 1 && (
+                    <div className="mt-2 pt-2 border-t border-zinc-100 flex justify-between gap-4 text-xs">
+                      <span className="font-semibold text-zinc-600">合計</span>
+                      <span className="font-bold text-zinc-900">
+                        {fmtAmt(request.medias.reduce((sum, m) => sum + Number(m.costExclTax), 0))}
+                      </span>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )}
 
             {/* 内訳 */}
             {request.details && (
@@ -237,7 +267,7 @@ export default async function BillingDetailPage({ params }: Props) {
       {isAdmin && isMedia && (
         <MediaCommissionForm
           requestId={id}
-          mediaName={request.mediaName}
+          medias={request.medias.map((m) => ({ name: m.name, costExclTax: Number(m.costExclTax) }))}
           amountExclTax={Number(request.amountExclTax)}
           current={request.commissionExclTax != null ? Number(request.commissionExclTax) : null}
         />

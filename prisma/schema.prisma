@@ -815,9 +815,9 @@ model InvoiceRequest {
   // 申請の時点では率が決まらない。本部が申請を許可する段階で手数料を打ち込む。
   // 既存データは NORMAL のまま＝過去の集計結果は変わらない。
   kind      InvoiceRequestKind @default(NORMAL)
-  /// 媒体請求のときの取引媒体名（例: TVer / TOKYO PRIME / イオンシネマ）。
-  /// 条件が媒体ごとに違うため、本部が手数料を決める判断材料になる。
-  mediaName String?
+  /// 媒体請求の内訳。1件の請求で複数の媒体を回すことがあるため行で持つ。
+  /// 媒体ごとに媒体側へ支払う実費が違い、それが本部手数料を決める判断材料になる。
+  medias    InvoiceRequestMedia[]
 
   // ── 請求情報
   subject      String // 件名
@@ -898,6 +898,31 @@ model InvoiceRequest {
   @@index([createdById, createdAt(sort: Desc)])
   @@index([kind])
   @@map("invoice_requests")
+}
+
+// ==============================================================
+// InvoiceRequestMedia（媒体請求の媒体1行）
+// ==============================================================
+
+/// 媒体請求で扱う媒体を1行ずつ持つ。
+/// 1件の請求で複数媒体を連動させることがあり、媒体ごとに媒体側へ支払う実費が違う。
+/// 本部はこの内訳を見て、許可の段階で本部手数料を打ち込む。
+model InvoiceRequestMedia {
+  id               String         @id @default(cuid())
+  invoiceRequestId String
+  invoiceRequest   InvoiceRequest @relation(fields: [invoiceRequestId], references: [id], onDelete: Cascade)
+
+  /// 媒体名（例: TVer / TOKYO PRIME / イオンシネマ）
+  name String
+  /// その媒体へ支払う実費（税抜）
+  costExclTax Decimal @default(0) @db.Decimal(15, 0)
+  /// 画面での並び順
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceRequestId])
+  @@map("invoice_request_medias")
 }
 
 // ==============================================================

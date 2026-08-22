@@ -35,7 +35,7 @@ async function parseFormData(formData: FormData): Promise<
       data: {
         subject: string;
         kind: InvoiceRequestKind;
-        mediaName: string | null;
+        medias: { name: string; costExclTax: number }[];
         branchLabel: string | null;
         customerId: string | null;
         contactName: string | null;
@@ -67,9 +67,27 @@ async function parseFormData(formData: FormData): Promise<
   // 想定外の値が来たら通常請求として扱う（手数料を取り損ねる側に倒さない）。
   const kind: InvoiceRequestKind =
     (formData.get("kind") as string)?.trim() === "MEDIA" ? "MEDIA" : "NORMAL";
-  // 媒体名は媒体請求のときだけ持つ（通常請求で残っていても捨てる）
-  const mediaName =
-    kind === "MEDIA" ? ((formData.get("mediaName") as string)?.trim() || null) : null;
+  // 媒体の内訳。1件の請求で複数媒体を回すことがあるため行で受ける。
+  // フォームからは JSON 文字列1つで届く（行数が可変のため）。通常請求では持たない。
+  const medias: { name: string; costExclTax: number }[] = [];
+  if (kind === "MEDIA") {
+    const raw = (formData.get("medias") as string)?.trim();
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          for (const row of parsed) {
+            const name = String(row?.name ?? "").trim();
+            if (!name) continue;
+            const cost = Math.max(0, Math.round(Number(row?.costExclTax) || 0));
+            medias.push({ name: name.slice(0, 100), costExclTax: cost });
+          }
+        }
+      } catch {
+        return { ok: false, error: "媒体の内訳を読み取れませんでした" };
+      }
+    }
+  }
 
   const subject        = (formData.get("subject")           as string)?.trim();
   const branchLabel    = (formData.get("branchLabel")        as string)?.trim() || null;
@@ -87,8 +105,8 @@ async function parseFormData(formData: FormData): Promise<
   const file           = formData.get("file") as File | null;
 
   if (!subject)       return { ok: false, error: "件名を入力してください" };
-  if (kind === "MEDIA" && !mediaName)
-    return { ok: false, error: "媒体請求では媒体名を入力してください" };
+  if (kind === "MEDIA" && medias.length === 0)
+    return { ok: false, error: "媒体請求では媒体を1つ以上入力してください" };
   if (!contactEmail)  return { ok: false, error: "メールアドレスを入力してください" };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail))
     return { ok: false, error: "メールアドレスの形式が正しくありません" };
@@ -155,7 +173,7 @@ async function parseFormData(formData: FormData): Promise<
   return {
     ok: true,
     data: {
-      kind, mediaName,
+      kind, medias,
       subject, branchLabel, customerId, contactName, contactEmail, billingDate, dueDate,
       details, amountExclTax, taxAmount, amountInclTax,
       commissionRate, commissionExclTax,
@@ -198,8 +216,15 @@ export async function createInvoiceRequest(
   try {
     const created = await db.invoiceRequest.create({
       data: {
+        // 媒体の内訳。通常請求では空配列＝行を作らない
+        medias: {
+          create: d.medias.map((m, i) => ({
+            name: m.name,
+            costExclTax: m.costExclTax,
+            sortOrder: i,
+          })),
+        },
         kind:             d.kind,
-        mediaName:        d.mediaName,
         subject:          d.subject,
         branchLabel:      d.branchLabel,
         customerId:       d.customerId,
@@ -284,8 +309,16 @@ export async function updateInvoiceRequest(
     await db.invoiceRequest.update({
       where: { id: requestId },
       data: {
+        // 行数が変わるので、消してから入れ直す
+        medias: {
+          deleteMany: {},
+          create: d.medias.map((m, i) => ({
+            name: m.name,
+            costExclTax: m.costExclTax,
+            sortOrder: i,
+          })),
+        },
         kind:             d.kind,
-        mediaName:        d.mediaName,
         subject:          d.subject,
         branchLabel:      d.branchLabel,
         customerId:       d.customerId,
@@ -482,6 +515,7 @@ async function fetchList(where: Prisma.InvoiceRequestWhereInput) {
       customer:  { select: { id: true, name: true } },
       createdBy: { select: { name: true } },
       project:   { select: { id: true, title: true } },
+      medias:    { orderBy: { sortOrder: "asc" }, select: { name: true, costExclTax: true } },
     },
   });
 }
@@ -502,6 +536,7 @@ export async function getInvoiceRequestWithAuth(requestId: string) {
       customer:  { select: { id: true, name: true, contactName: true } },
       createdBy: { select: { name: true, email: true } },
       project:   { select: { id: true, title: true } },
+      medias:    { orderBy: { sortOrder: "asc" } },
     },
   });
 

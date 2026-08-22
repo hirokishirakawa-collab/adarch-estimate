@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 type InvoiceRequest = {
   id: string;
   kind: "NORMAL" | "MEDIA";
-  mediaName: string | null;
+  medias: { name: string; costExclTax: { toString(): string } }[];
   subject: string;
   customer: { id: string; name: string } | null;
   amountExclTax: { toString(): string };
@@ -206,7 +206,9 @@ export function InvoiceRequestList({ requests, role }: Props) {
                       </Link>
                       {req.kind === "MEDIA" && (
                         <span className="mt-1 inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                          媒体請求{req.mediaName ? `／${req.mediaName}` : ""}
+                          媒体請求
+                          {req.medias.length > 0 &&
+                            `／${req.medias[0].name}${req.medias.length > 1 ? ` 他${req.medias.length - 1}件` : ""}`}
                         </span>
                       )}
                     </td>
