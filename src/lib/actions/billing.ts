@@ -35,6 +35,7 @@ async function parseFormData(formData: FormData): Promise<
       data: {
         subject: string;
         kind: InvoiceRequestKind;
+        mediaName: string | null;
         branchLabel: string | null;
         customerId: string | null;
         contactName: string | null;
@@ -61,10 +62,14 @@ async function parseFormData(formData: FormData): Promise<
     }
   | { ok: false; error: string }
 > {
-  // 媒体請求は取り分の条件が案件ごとに違うため、本部手数料を自動計算しない。
+  // 媒体請求も手数料は発生するが、取引媒体によって条件が変わるため申請時点では決まらない。
+  // 本部が許可する段階で打ち込むので、ここでは自動計算しない。
   // 想定外の値が来たら通常請求として扱う（手数料を取り損ねる側に倒さない）。
   const kind: InvoiceRequestKind =
     (formData.get("kind") as string)?.trim() === "MEDIA" ? "MEDIA" : "NORMAL";
+  // 媒体名は媒体請求のときだけ持つ（通常請求で残っていても捨てる）
+  const mediaName =
+    kind === "MEDIA" ? ((formData.get("mediaName") as string)?.trim() || null) : null;
 
   const subject        = (formData.get("subject")           as string)?.trim();
   const branchLabel    = (formData.get("branchLabel")        as string)?.trim() || null;
@@ -82,6 +87,8 @@ async function parseFormData(formData: FormData): Promise<
   const file           = formData.get("file") as File | null;
 
   if (!subject)       return { ok: false, error: "件名を入力してください" };
+  if (kind === "MEDIA" && !mediaName)
+    return { ok: false, error: "媒体請求では媒体名を入力してください" };
   if (!contactEmail)  return { ok: false, error: "メールアドレスを入力してください" };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail))
     return { ok: false, error: "メールアドレスの形式が正しくありません" };
@@ -118,8 +125,8 @@ async function parseFormData(formData: FormData): Promise<
   // ── 本部手数料（ロイヤリティ相殺の原資）。クライアント送信値は使わずサーバーで計算する。
   // 計算基礎は「税抜金額 − 立替実費」（契約 別紙2-4）。
   //
-  // 媒体請求は取り分の条件が案件ごとに違うため、ここでは一切計算しない（率も額も0）。
-  // 取り分が要る場合は、本部が「ロイヤリティ状況」の手入力欄で月ごとに調整する。
+  // 媒体請求は、取引媒体に応じて媒体側へ支払う額が変わるため申請時点では率が決まらない。
+  // ここでは0で置き、本部が許可する段階で setInvoiceCommission() で打ち込む。
   const isMedia = kind === "MEDIA";
   const commissionRate    = isMedia ? 0 : HQ_COMMISSION_RATE;
   const commissionExclTax = isMedia
@@ -148,7 +155,7 @@ async function parseFormData(formData: FormData): Promise<
   return {
     ok: true,
     data: {
-      kind,
+      kind, mediaName,
       subject, branchLabel, customerId, contactName, contactEmail, billingDate, dueDate,
       details, amountExclTax, taxAmount, amountInclTax,
       commissionRate, commissionExclTax,
@@ -192,6 +199,7 @@ export async function createInvoiceRequest(
     const created = await db.invoiceRequest.create({
       data: {
         kind:             d.kind,
+        mediaName:        d.mediaName,
         subject:          d.subject,
         branchLabel:      d.branchLabel,
         customerId:       d.customerId,
@@ -277,6 +285,7 @@ export async function updateInvoiceRequest(
       where: { id: requestId },
       data: {
         kind:             d.kind,
+        mediaName:        d.mediaName,
         subject:          d.subject,
         branchLabel:      d.branchLabel,
         customerId:       d.customerId,
@@ -365,6 +374,65 @@ export async function submitInvoiceRequest(requestId: string): Promise<void> {
 
   revalidatePath(`/dashboard/billing/${requestId}`);
   revalidatePath("/dashboard/billing");
+}
+
+// ---------------------------------------------------------------
+// 本部手数料を打ち込む（ADMIN のみ）
+//
+// 媒体請求は、取引媒体に応じて媒体側へ支払う額が変わるため、申請の時点では
+// 手数料の率が決まらない。本部が申請を許可する段階でここから金額を入れる。
+// 入れた額はそのままロイヤリティの月次集計に乗る。
+// ---------------------------------------------------------------
+export async function setInvoiceCommission(
+  requestId: string,
+  commissionExclTaxInput: number,
+): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return { error: "本部のみ入力できます" };
+
+  const existing = await db.invoiceRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      amountExclTax: true,
+      amountInclTax: true,
+      withholdingTaxAmount: true,
+      nonDeductibleTaxAmount: true,
+    },
+  });
+  if (!existing) return { error: "請求依頼が見つかりません" };
+
+  if (!Number.isFinite(commissionExclTaxInput) || commissionExclTaxInput < 0)
+    return { error: "手数料は0以上の整数で入力してください" };
+
+  // 税抜金額を超える手数料はあり得ない（打ち間違いを弾く）
+  const commissionExclTax = Math.min(
+    Math.round(commissionExclTaxInput),
+    Number(existing.amountExclTax),
+  );
+  const commissionTax = Math.floor(commissionExclTax * 0.1);
+
+  // 差引支払額は通常請求と同じ式で引き直す
+  const netPaymentAmount =
+    Number(existing.amountInclTax)
+    - commissionExclTax
+    - commissionTax
+    - Number(existing.withholdingTaxAmount ?? 0)
+    - Number(existing.nonDeductibleTaxAmount ?? 0);
+
+  try {
+    await db.invoiceRequest.update({
+      where: { id: requestId },
+      data: { commissionExclTax, netPaymentAmount },
+    });
+  } catch (e) {
+    console.error("[setInvoiceCommission] DB error:", e);
+    return { error: "手数料の保存に失敗しました" };
+  }
+
+  revalidatePath(`/dashboard/billing/${requestId}`);
+  revalidatePath("/dashboard/billing");
+  revalidatePath("/dashboard/admin/royalty");
+  return {};
 }
 
 // ---------------------------------------------------------------

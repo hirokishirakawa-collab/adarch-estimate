@@ -811,9 +811,13 @@ model InvoiceRequest {
   id String @id @default(cuid())
 
   // ── 種別（通常請求 / 媒体請求）
-  // 媒体請求は取り分の条件が案件ごとに違うため、本部手数料を自動計算しない。
+  // 媒体請求も手数料は発生するが、取引媒体によって媒体側へ支払う額が変わるため、
+  // 申請の時点では率が決まらない。本部が申請を許可する段階で手数料を打ち込む。
   // 既存データは NORMAL のまま＝過去の集計結果は変わらない。
-  kind InvoiceRequestKind @default(NORMAL)
+  kind      InvoiceRequestKind @default(NORMAL)
+  /// 媒体請求のときの取引媒体名（例: TVer / TOKYO PRIME / イオンシネマ）。
+  /// 条件が媒体ごとに違うため、本部が手数料を決める判断材料になる。
+  mediaName String?
 
   // ── 請求情報
   subject      String // 件名

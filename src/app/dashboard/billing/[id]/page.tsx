@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CreditCard, Pencil, ArrowLeft, FileText, ExternalLink } from "lucide-react";
 import { getInvoiceRequestWithAuth, submitInvoiceRequest } from "@/lib/actions/billing";
 import { commissionBaseOf, commissionOf } from "@/lib/royalty-monthly";
+import { MediaCommissionForm } from "@/components/billing/media-commission-form";
 
 const STATUS_CONFIG = {
   DRAFT:     { label: "未提出",  className: "bg-amber-50 text-amber-700 border-amber-200" },
@@ -29,10 +30,11 @@ export default async function BillingDetailPage({ params }: Props) {
   const reimbursementExclTax = Number(request.reimbursementExclTax ?? 0);
 
   // 本部手数料。フィールド追加前の既存データは「税抜金額 − 立替実費」から再計算して表示する。
-  // 媒体請求は取り分の条件が案件ごとに違うため、手数料は常に0（フォールバックも通さない）。
+  // 媒体請求は本部が許可時に打ち込んだ額だけを見る（率での自動計算は通さない）。
   const isMedia = request.kind === "MEDIA";
+  const mediaCommissionEntered = isMedia && Number(request.commissionExclTax ?? 0) > 0;
   const commissionExclTax = isMedia
-    ? 0
+    ? Number(request.commissionExclTax ?? 0)
     : request.commissionExclTax != null
       ? Number(request.commissionExclTax)
       : commissionOf(
@@ -74,7 +76,7 @@ export default async function BillingDetailPage({ params }: Props) {
               </span>
               {isMedia && (
                 <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                  媒体請求（手数料なし）
+                  媒体請求{request.mediaName ? `／${request.mediaName}` : ""}
                 </span>
               )}
             </div>
@@ -148,8 +150,10 @@ export default async function BillingDetailPage({ params }: Props) {
           <span className="text-zinc-600">
             本部手数料{isMedia ? "" : `（${Number(request.commissionRate)}%・税抜）`}
           </span>
-          {isMedia ? (
-            <span className="font-semibold text-zinc-500">媒体請求のためなし</span>
+          {isMedia && !mediaCommissionEntered ? (
+            <span className="font-semibold text-zinc-500">許可時に本部が入力</span>
+          ) : isMedia ? (
+            <span className="font-bold text-red-600">-{fmtAmt(commissionExclTax)}</span>
           ) : (
             <span className="font-bold text-red-600">-{fmtAmt(commissionExclTax)}</span>
           )}
@@ -179,8 +183,8 @@ export default async function BillingDetailPage({ params }: Props) {
           <span className="font-bold text-indigo-700">{fmtAmt(netPaymentAmount)}</span>
         </div>
         <p className="text-[11px] text-zinc-400 pt-1">
-          {isMedia
-            ? "媒体請求はロイヤリティの相殺に含まれません。取り分が必要な場合は本部が別途調整します。"
+          {isMedia && !mediaCommissionEntered
+            ? "媒体請求の手数料は、取引媒体に応じて条件が変わるため、本部が申請を許可する段階で入力します。"
             : "本部手数料はロイヤリティの相殺に充当されます。"}
           <Link href="/dashboard/royalty" className="ml-1 text-indigo-600 hover:underline">
             今月のロイヤリティ状況を見る →
@@ -228,6 +232,16 @@ export default async function BillingDetailPage({ params }: Props) {
         申請者: {request.createdBy?.name ?? request.creatorEmail} ／
         申請日: {fmtDate(request.createdAt)}
       </p>
+
+      {/* ADMIN 専用: 媒体請求の手数料入力（許可の段階で打ち込む） */}
+      {isAdmin && isMedia && (
+        <MediaCommissionForm
+          requestId={id}
+          mediaName={request.mediaName}
+          amountExclTax={Number(request.amountExclTax)}
+          current={request.commissionExclTax != null ? Number(request.commissionExclTax) : null}
+        />
+      )}
 
       {/* ADMIN 専用: 提出済ボタン */}
       {isAdmin && request.status === "DRAFT" && (

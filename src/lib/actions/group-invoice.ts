@@ -491,13 +491,11 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
   const requests = await db.invoiceRequest.findMany({
     where: {
       status: { not: "DRAFT" },
-      // 媒体請求は取り分の条件が案件ごとに違うため、自動集計に乗せない。
-      // 保存時にも手数料0で入るが、集計側でも明示的に外す（既存データのフォールバック経路を通さないため）。
-      kind: { not: "MEDIA" },
       billingDate: { gte: monthStart, lt: monthEnd },
       ...(limitToGroupCompanyId ? { createdBy: { groupCompanyId: limitToGroupCompanyId } } : {}),
     },
     select: {
+      kind: true,
       amountExclTax: true,
       commissionRate: true,
       commissionExclTax: true,
@@ -511,10 +509,14 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
   for (const r of requests) {
     const gc = r.createdBy?.groupCompanyId;
     if (!gc) continue;
+    // 媒体請求は本部が許可時に打ち込んだ額だけを見る。
+    // 率での自動計算（フォールバック）は通さない＝入っていなければ0。
     const commission =
       r.commissionExclTax != null
         ? Math.max(0, Number(r.commissionExclTax))
-        : commissionOf(Number(r.amountExclTax), Number(r.commissionRate));
+        : r.kind === "MEDIA"
+          ? 0
+          : commissionOf(Number(r.amountExclTax), Number(r.commissionRate));
     totalByPartner.set(gc, (totalByPartner.get(gc) ?? 0) + commission);
     if (r.branchLabel) {
       const m = byPartnerLabel.get(gc) ?? {};

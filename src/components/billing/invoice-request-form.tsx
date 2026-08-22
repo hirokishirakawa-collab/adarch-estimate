@@ -13,6 +13,7 @@ export interface Props {
   customers: Customer[];
   defaultValues?: {
     kind?: "NORMAL" | "MEDIA";
+    mediaName?: string | null;
     subject?: string;
     customerId?: string | null;
     contactName?: string | null;
@@ -226,6 +227,7 @@ export function InvoiceRequestForm({
   // ── 種別。媒体請求は取り分の条件が案件ごとに違うため、本部手数料を出さない
   const [kind, setKind] = useState<"NORMAL" | "MEDIA">(defaultValues?.kind ?? "NORMAL");
   const isMedia = kind === "MEDIA";
+  const [mediaName, setMediaName] = useState(defaultValues?.mediaName ?? "");
 
   const initAmount = defaultValues?.amountExclTax ?? 0;
   const [amountExclTax, setAmountExclTax] = useState(initAmount);
@@ -308,15 +310,32 @@ export function InvoiceRequestForm({
           >
             媒体請求
             <span className="block text-[11px] font-normal text-zinc-400 mt-0.5">
-              取り分は自動計算しません
+              手数料は本部が入力します
             </span>
           </button>
         </div>
         {isMedia && (
-          <p className="mt-2 text-[11px] text-amber-700 leading-relaxed">
-            媒体費だけの請求です。案件ごとに条件が違うため、<span className="font-semibold">本部手数料は一切かかりません</span>。
-            取り分が必要な場合は本部が別途調整します。
-          </p>
+          <>
+            <div className="mt-3">
+              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                媒体名<span className="text-red-500 ml-0.5">*</span>
+              </label>
+              <input
+                type="text"
+                name="mediaName"
+                value={mediaName}
+                onChange={(e) => setMediaName(e.target.value)}
+                placeholder="例: TVer / TOKYO PRIME / イオンシネマ"
+                className={`${inputCls} text-xs`}
+                required
+              />
+            </div>
+            <p className="mt-2 text-[11px] text-amber-700 leading-relaxed">
+              取引媒体に応じて媒体側へ支払う額が変わり、条件も変動します。そのため
+              <span className="font-semibold">本部手数料は申請を許可する段階で本部が入力します</span>。
+              この画面では自動計算されません。
+            </p>
+          </>
         )}
       </div>
 
@@ -556,7 +575,7 @@ export function InvoiceRequestForm({
             {isMedia && (
               <div className="flex justify-between text-xs">
                 <span className="text-zinc-600">本部手数料</span>
-                <span className="font-semibold text-zinc-500">媒体請求のためなし</span>
+                <span className="font-semibold text-zinc-500">許可時に本部が入力</span>
               </div>
             )}
             {!isMedia && reimbursementExclTax > 0 && (
@@ -591,6 +610,11 @@ export function InvoiceRequestForm({
               <span className="font-semibold text-zinc-700">差引支払額（お受け取り予定額）</span>
               <span className="font-bold text-indigo-700">¥{fmtNum(netPaymentAmount)}</span>
             </div>
+            {isMedia && (
+              <p className="text-[11px] text-amber-700">
+                本部が手数料を入力すると、その分を差し引いた額に変わります。
+              </p>
+            )}
           </div>
         )}
         <input type="hidden" name="withholdingTaxAmount"   value={withholdingTaxAmount || ""} />
