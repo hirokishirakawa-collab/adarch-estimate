@@ -914,8 +914,10 @@ model InvoiceRequestMedia {
 
   /// 媒体名（例: TVer / TOKYO PRIME / イオンシネマ）
   name String
-  /// その媒体へ支払う実費（税抜）
-  costExclTax Decimal @default(0) @db.Decimal(15, 0)
+  /// その媒体でクライアントへ請求する額（税抜）。
+  /// 申請側が入れるのはここまで。媒体へ支払う実費と取り分は本部が計算して提示する
+  /// （申請側に実費まで入れさせると入力事故が起きるため・2026-08-22 代表判断）。
+  billedExclTax Decimal @default(0) @db.Decimal(15, 0)
   /// 画面での並び順
   sortOrder Int @default(0)
 

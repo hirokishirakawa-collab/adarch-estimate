@@ -13,7 +13,7 @@ export interface Props {
   customers: Customer[];
   defaultValues?: {
     kind?: "NORMAL" | "MEDIA";
-    medias?: { name: string; costExclTax: number }[];
+    medias?: { name: string; billedExclTax: number }[];
     subject?: string;
     customerId?: string | null;
     contactName?: string | null;
@@ -228,16 +228,17 @@ export function InvoiceRequestForm({
   const [kind, setKind] = useState<"NORMAL" | "MEDIA">(defaultValues?.kind ?? "NORMAL");
   const isMedia = kind === "MEDIA";
   // 媒体の内訳。1件の請求で複数媒体を回すことがあるので行で持つ
-  const [medias, setMedias] = useState<{ name: string; costExclTax: number }[]>(
-    defaultValues?.medias?.length ? defaultValues.medias : [{ name: "", costExclTax: 0 }],
+  type MediaRow = { name: string; billedExclTax: number };
+  const [medias, setMedias] = useState<MediaRow[]>(
+    defaultValues?.medias?.length ? defaultValues.medias : [{ name: "", billedExclTax: 0 }],
   );
-  const mediaCostTotal = medias.reduce((sum, m) => sum + (m.costExclTax || 0), 0);
+  const mediaBilledTotal = medias.reduce((sum, m) => sum + (m.billedExclTax || 0), 0);
 
-  function updateMedia(index: number, patch: Partial<{ name: string; costExclTax: number }>) {
+  function updateMedia(index: number, patch: Partial<MediaRow>) {
     setMedias((prev) => prev.map((m, i) => (i === index ? { ...m, ...patch } : m)));
   }
   function addMedia() {
-    setMedias((prev) => [...prev, { name: "", costExclTax: 0 }]);
+    setMedias((prev) => [...prev, { name: "", billedExclTax: 0 }]);
   }
   function removeMedia(index: number) {
     setMedias((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
@@ -332,9 +333,14 @@ export function InvoiceRequestForm({
           <>
             <div className="mt-3">
               <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-                媒体と媒体費実費<span className="text-red-500 ml-0.5">*</span>
+                媒体とクライアント請求額<span className="text-red-500 ml-0.5">*</span>
                 <span className="font-normal text-zinc-400 ml-1">複数の媒体を回す場合は行を足してください</span>
               </label>
+              <div className="hidden sm:flex items-center gap-2 px-1 pb-1 text-[11px] text-zinc-400">
+                <span className="flex-1">媒体名</span>
+                <span className="w-40 shrink-0">クライアント請求額</span>
+                <span className="w-8 shrink-0" />
+              </div>
               <div className="space-y-2">
                 {medias.map((m, i) => (
                   <div key={i} className="flex items-center gap-2">
@@ -345,15 +351,15 @@ export function InvoiceRequestForm({
                       placeholder="媒体名（例: TVer）"
                       className={`${inputCls} text-xs flex-1`}
                     />
-                    <div className="relative w-36 shrink-0">
+                    <div className="relative w-40 shrink-0">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">¥</span>
                       <input
                         type="number"
                         min={0}
                         step={1}
-                        value={m.costExclTax === 0 ? "" : m.costExclTax}
-                        onChange={(e) => updateMedia(i, { costExclTax: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                        placeholder="媒体費実費"
+                        value={m.billedExclTax === 0 ? "" : m.billedExclTax}
+                        onChange={(e) => updateMedia(i, { billedExclTax: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                        placeholder="クライアント請求額"
                         className={`${inputCls} pl-7 text-xs`}
                       />
                     </div>
@@ -379,7 +385,7 @@ export function InvoiceRequestForm({
                   ＋ 媒体を追加
                 </button>
                 <span className="text-xs text-zinc-500">
-                  媒体費実費の合計 <span className="font-bold text-zinc-800">¥{fmtNum(mediaCostTotal)}</span>
+                  クライアント請求額の合計 <span className="font-bold text-zinc-800">¥{fmtNum(mediaBilledTotal)}</span>
                 </span>
               </div>
               <input
@@ -389,9 +395,9 @@ export function InvoiceRequestForm({
               />
             </div>
             <p className="mt-2 text-[11px] text-amber-700 leading-relaxed">
-              媒体ごとに媒体側へ支払う額が変わり、条件も変動します。そのため
-              <span className="font-semibold">本部手数料は申請を許可する段階で本部が入力します</span>。
-              この画面では自動計算されません。
+              入力するのは<span className="font-semibold">媒体名とクライアントへの請求額まで</span>です。
+              媒体へ支払う額は媒体ごとに条件が変わるため、
+              <span className="font-semibold">取り分は本部が計算して提示します</span>。
             </p>
           </>
         )}

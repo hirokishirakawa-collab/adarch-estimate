@@ -118,25 +118,33 @@ export default async function BillingDetailPage({ params }: Props) {
               <tr>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-zinc-500
                                whitespace-nowrap bg-zinc-50 align-top">
-                  媒体と媒体費実費
+                  媒体とクライアント請求額
                 </th>
                 <td className="px-5 py-3 text-sm text-zinc-800">
-                  <ul className="space-y-1">
-                    {request.medias.map((m) => (
-                      <li key={m.id} className="flex justify-between gap-4">
-                        <span>{m.name}</span>
-                        <span className="text-zinc-600">{fmtAmt(m.costExclTax)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {request.medias.length > 1 && (
-                    <div className="mt-2 pt-2 border-t border-zinc-100 flex justify-between gap-4 text-xs">
-                      <span className="font-semibold text-zinc-600">合計</span>
-                      <span className="font-bold text-zinc-900">
-                        {fmtAmt(request.medias.reduce((sum, m) => sum + Number(m.costExclTax), 0))}
-                      </span>
-                    </div>
-                  )}
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-zinc-400">
+                        <th className="text-left font-medium pb-1">媒体</th>
+                        <th className="text-right font-medium pb-1">クライアント請求額</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {request.medias.map((m) => (
+                        <tr key={m.id} className="border-t border-zinc-100">
+                          <td className="py-1.5 text-zinc-700">{m.name}</td>
+                          <td className="py-1.5 text-right text-zinc-700">{fmtAmt(m.billedExclTax)}</td>
+                        </tr>
+                      ))}
+                      {request.medias.length > 1 && (
+                        <tr className="border-t border-zinc-200">
+                          <td className="py-1.5 font-semibold text-zinc-600">合計</td>
+                          <td className="py-1.5 text-right font-bold text-zinc-900">
+                            {fmtAmt(request.medias.reduce((sum, m) => sum + Number(m.billedExclTax), 0))}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </td>
               </tr>
             )}
@@ -267,7 +275,10 @@ export default async function BillingDetailPage({ params }: Props) {
       {isAdmin && isMedia && (
         <MediaCommissionForm
           requestId={id}
-          medias={request.medias.map((m) => ({ name: m.name, costExclTax: Number(m.costExclTax) }))}
+          medias={request.medias.map((m) => ({
+            name: m.name,
+            billedExclTax: Number(m.billedExclTax),
+          }))}
           amountExclTax={Number(request.amountExclTax)}
           current={request.commissionExclTax != null ? Number(request.commissionExclTax) : null}
         />

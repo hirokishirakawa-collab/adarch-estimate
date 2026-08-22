@@ -17,11 +17,11 @@ export function MediaCommissionForm({
   current,
 }: {
   requestId: string;
-  medias: { name: string; costExclTax: number }[];
+  medias: { name: string; billedExclTax: number }[];
   amountExclTax: number;
   current: number | null;
 }) {
-  const mediaCostTotal = medias.reduce((sum, m) => sum + m.costExclTax, 0);
+  const mediaBilledTotal = medias.reduce((sum, m) => sum + m.billedExclTax, 0);
   const [value, setValue] = useState<string>(current != null ? String(current) : "");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -53,7 +53,8 @@ export function MediaCommissionForm({
     <div className="bg-white border border-amber-200 rounded-xl px-5 py-4 mb-5">
       <p className="text-xs font-bold text-amber-800">本部手数料の入力（本部のみ）</p>
       <p className="mt-1 text-[11px] text-zinc-500 leading-relaxed">
-        媒体ごとに媒体側へ支払う額が変わるため、下の内訳を見て手数料を打ち込んでください。
+        申請側が入れているのは媒体名とクライアント請求額までです。
+        媒体へ支払う額を踏まえて取り分を計算し、ここに打ち込んでください。
         入力した額がロイヤリティの相殺に充当されます。
       </p>
 
@@ -63,7 +64,7 @@ export function MediaCommissionForm({
             <thead className="bg-zinc-50">
               <tr>
                 <th className="px-3 py-1.5 text-left font-semibold text-zinc-600">媒体</th>
-                <th className="px-3 py-1.5 text-right font-semibold text-zinc-600">媒体費実費（税抜）</th>
+                <th className="px-3 py-1.5 text-right font-semibold text-zinc-600">クライアント請求額</th>
               </tr>
             </thead>
             <tbody>
@@ -71,20 +72,22 @@ export function MediaCommissionForm({
                 <tr key={i} className="border-t border-zinc-100">
                   <td className="px-3 py-1.5 text-zinc-700">{m.name}</td>
                   <td className="px-3 py-1.5 text-right text-zinc-700">
-                    ¥{m.costExclTax.toLocaleString("ja-JP")}
+                    ¥{m.billedExclTax.toLocaleString("ja-JP")}
                   </td>
                 </tr>
               ))}
               <tr className="border-t border-zinc-200 bg-zinc-50/60">
                 <td className="px-3 py-1.5 font-semibold text-zinc-700">合計</td>
                 <td className="px-3 py-1.5 text-right font-bold text-zinc-900">
-                  ¥{mediaCostTotal.toLocaleString("ja-JP")}
+                  ¥{mediaBilledTotal.toLocaleString("ja-JP")}
                 </td>
               </tr>
               <tr className="border-t border-zinc-100">
-                <td className="px-3 py-1.5 text-zinc-500">請求額（税抜）との差</td>
+                <td className="px-3 py-1.5 text-zinc-500">
+                  この請求の税抜金額 ¥{amountExclTax.toLocaleString("ja-JP")} との差
+                </td>
                 <td className="px-3 py-1.5 text-right text-zinc-700">
-                  ¥{(amountExclTax - mediaCostTotal).toLocaleString("ja-JP")}
+                  ¥{(amountExclTax - mediaBilledTotal).toLocaleString("ja-JP")}
                 </td>
               </tr>
             </tbody>

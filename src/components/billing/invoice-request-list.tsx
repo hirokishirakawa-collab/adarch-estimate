@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 type InvoiceRequest = {
   id: string;
   kind: "NORMAL" | "MEDIA";
-  medias: { name: string; costExclTax: { toString(): string } }[];
+  medias: { name: string; billedExclTax: { toString(): string } }[];
   subject: string;
   customer: { id: string; name: string } | null;
   amountExclTax: { toString(): string };

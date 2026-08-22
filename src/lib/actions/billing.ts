@@ -35,7 +35,7 @@ async function parseFormData(formData: FormData): Promise<
       data: {
         subject: string;
         kind: InvoiceRequestKind;
-        medias: { name: string; costExclTax: number }[];
+        medias: { name: string; billedExclTax: number }[];
         branchLabel: string | null;
         customerId: string | null;
         contactName: string | null;
@@ -69,7 +69,7 @@ async function parseFormData(formData: FormData): Promise<
     (formData.get("kind") as string)?.trim() === "MEDIA" ? "MEDIA" : "NORMAL";
   // 媒体の内訳。1件の請求で複数媒体を回すことがあるため行で受ける。
   // フォームからは JSON 文字列1つで届く（行数が可変のため）。通常請求では持たない。
-  const medias: { name: string; costExclTax: number }[] = [];
+  const medias: { name: string; billedExclTax: number }[] = [];
   if (kind === "MEDIA") {
     const raw = (formData.get("medias") as string)?.trim();
     if (raw) {
@@ -79,8 +79,8 @@ async function parseFormData(formData: FormData): Promise<
           for (const row of parsed) {
             const name = String(row?.name ?? "").trim();
             if (!name) continue;
-            const cost = Math.max(0, Math.round(Number(row?.costExclTax) || 0));
-            medias.push({ name: name.slice(0, 100), costExclTax: cost });
+            const billed = Math.max(0, Math.round(Number(row?.billedExclTax) || 0));
+            medias.push({ name: name.slice(0, 100), billedExclTax: billed });
           }
         }
       } catch {
@@ -220,7 +220,7 @@ export async function createInvoiceRequest(
         medias: {
           create: d.medias.map((m, i) => ({
             name: m.name,
-            costExclTax: m.costExclTax,
+            billedExclTax: m.billedExclTax,
             sortOrder: i,
           })),
         },
@@ -314,7 +314,7 @@ export async function updateInvoiceRequest(
           deleteMany: {},
           create: d.medias.map((m, i) => ({
             name: m.name,
-            costExclTax: m.costExclTax,
+            billedExclTax: m.billedExclTax,
             sortOrder: i,
           })),
         },
@@ -515,7 +515,7 @@ async function fetchList(where: Prisma.InvoiceRequestWhereInput) {
       customer:  { select: { id: true, name: true } },
       createdBy: { select: { name: true } },
       project:   { select: { id: true, title: true } },
-      medias:    { orderBy: { sortOrder: "asc" }, select: { name: true, costExclTax: true } },
+      medias:    { orderBy: { sortOrder: "asc" }, select: { name: true, billedExclTax: true } },
     },
   });
 }
