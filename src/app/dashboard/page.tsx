@@ -7,6 +7,7 @@ import { ForcedInactiveModal } from "@/components/partner-status/forced-inactive
 import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
 import { getActivityKpi } from "@/lib/kpis/activity";
 import { MySalesPanel } from "@/components/dashboard/my-sales-panel";
+import { AnniversaryCard } from "@/components/dashboard/anniversary-card";
 import { GroupThreadCard } from "@/components/dashboard/group-thread-card";
 import { getMyGroupThread } from "@/lib/actions/group-support";
 import {
@@ -221,6 +222,9 @@ export default async function DashboardPage() {
 
       {/* ── あなたの営業数値（本人のみ・営業フローへ誘導） ── */}
       <MySalesPanel showLink />
+
+      {/* ── 今年これから周年を迎える会社（担当エリア優先） ── */}
+      <AnniversaryCard userEmail={session?.user?.email} />
 
       {/* ── パートナー稼働ステータス（ADMIN） ── */}
       {role === "ADMIN" && adminStatusCounts && (
