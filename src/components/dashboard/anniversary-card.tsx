@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { PREFECTURES } from "@/lib/constants/crm";
 import { nextAnniversary, anniversaryLabel } from "@/lib/anniversary/calc";
+import { areaLabel } from "@/lib/anniversary/area";
 import type { LeadStatus } from "@/generated/prisma/client";
 
 /**
@@ -75,7 +76,7 @@ export async function AnniversaryCard({ userEmail }: { userEmail?: string | null
 
   if (items.length === 0) return null;
 
-  const areaLabel = myPrefs.length > 0 ? myPrefs.join("・") : "全国";
+  const areaTitle = myPrefs.length > 0 ? myPrefs.join("・") : "全国";
   const href =
     myPrefs.length === 1
       ? `/dashboard/anniversary-finder?window=year&pref=${encodeURIComponent(myPrefs[0])}`
@@ -89,7 +90,7 @@ export async function AnniversaryCard({ userEmail }: { userEmail?: string | null
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-zinc-800">
-            今年これから周年を迎える会社（{areaLabel}）
+            今年これから周年を迎える会社（{areaTitle}）
           </p>
           <p className="text-xs text-zinc-500 mt-0.5">
             {items.length}社。記念広告・記念動画を提案しやすいタイミングです
@@ -114,9 +115,11 @@ export async function AnniversaryCard({ userEmail }: { userEmail?: string | null
               {anniversaryLabel(anniv, today)}
             </span>
             <span className="truncate text-zinc-700">{lead.name}</span>
-            <span className="ml-auto shrink-0 text-zinc-400">
-              {lead.prefecture ?? ""}
-            </span>
+            {areaLabel(lead.prefecture, lead.address) && (
+              <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-500">
+                {areaLabel(lead.prefecture, lead.address)}
+              </span>
+            )}
           </li>
         ))}
       </ul>
