@@ -7,7 +7,7 @@ import type { LeadStatus, SalesApproachResult } from "@/generated/prisma/client"
 
 export interface OutreachResultOption {
   /** Lead.outreachResult に入る値 */
-  value: "REPLIED" | "REPLIED_NG" | "NO_REPLY" | "REJECTED";
+  value: "REPLIED" | "REPLIED_NG" | "NO_REPLY" | "REJECTED" | "WON";
   label: string;
   icon: string;
   /** ボタン（未選択時）の見た目 */
@@ -61,6 +61,16 @@ export const OUTREACH_RESULT_OPTIONS: OutreachResultOption[] = [
     approachResult: "REJECTED",
     // 断られた先は一覧の主線から外す（営業お断りリストへの登録は別操作）
     statusMove: { from: ["UNTOUCHED", "CALLED"], to: "SKIPPED" },
+  },
+  {
+    // 受注＝この往復の最終形。月次報告の「受注したリードを取り込む」の元になる
+    value: "WON",
+    label: "受注",
+    icon: "🎉",
+    className: "text-sky-700 border-sky-200 hover:bg-sky-50",
+    activeClassName: "bg-sky-600 text-white border-sky-600",
+    approachResult: "DEAL",
+    statusMove: { from: ["UNTOUCHED", "CALLED", "APPOINTMENT"], to: "DEAL_CONVERTED" },
   },
 ];
 

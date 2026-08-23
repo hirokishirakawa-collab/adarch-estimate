@@ -21,6 +21,8 @@ export interface RevenueItemInput {
   projectName: string;
   amountExclTax: number; // 税抜
   memo: string;
+  /** 「受注」リードから取り込んだ行のとき、そのリードID（任意） */
+  leadId?: string | null;
 }
 
 /** 税抜 → 消費税額（円未満四捨五入。請求依頼と同じ方式） */
@@ -84,6 +86,8 @@ export function parseItemsJson(
     const amountRaw = String(r.amountExclTax ?? "").replace(/,/g, "").trim();
     const memo = String(r.memo ?? "").trim();
     const billedBy: BilledBy = r.billedBy === "HQ" ? "HQ" : "SELF";
+    const leadIdRaw = typeof r.leadId === "string" ? r.leadId.trim() : "";
+    const leadId = /^[a-z0-9]{1,40}$/i.test(leadIdRaw) ? leadIdRaw : null;
 
     // 完全な空行は無視（フォームで追加しただけの行）
     if (!clientName && !projectName && !amountRaw && !memo) continue;
@@ -102,6 +106,7 @@ export function parseItemsJson(
       projectName: projectName.slice(0, 200),
       amountExclTax,
       memo: memo.slice(0, 1000),
+      leadId,
     });
   }
 

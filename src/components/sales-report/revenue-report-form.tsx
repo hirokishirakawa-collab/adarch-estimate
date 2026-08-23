@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
-import { RevenueItemEditor, type ItemDefault } from "./revenue-item-editor";
+import { RevenueItemEditor, type ItemDefault, type WonLead } from "./revenue-item-editor";
 
 interface Props {
   action: (prev: { error?: string } | null, formData: FormData) => Promise<{ error?: string }>;
@@ -15,9 +15,11 @@ interface Props {
     supportRequest?: string | null;
     items?: ItemDefault[];
   };
+  /** 受注済み・未報告のリード（取り込み候補） */
+  wonLeads?: WonLead[];
 }
 
-export function RevenueReportForm({ action, defaultValues }: Props) {
+export function RevenueReportForm({ action, defaultValues, wonLeads }: Props) {
   const [state, formAction, isPending] = useActionState(action, null);
 
   return (
@@ -113,7 +115,7 @@ export function RevenueReportForm({ action, defaultValues }: Props) {
           案件ごとに1行で入力してください。請求元（自分で請求／本部から請求）を行ごとに選べます。
           税込は税抜から自動計算されます。売上が0円の月は行を空のまま保存してください。
         </p>
-        <RevenueItemEditor defaultItems={defaultValues?.items} />
+        <RevenueItemEditor defaultItems={defaultValues?.items} wonLeads={wonLeads} />
       </div>
 
       {/* 本部に相談したいこと */}

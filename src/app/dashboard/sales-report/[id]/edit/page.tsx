@@ -6,6 +6,7 @@ import { RevenueReportForm } from "@/components/sales-report/revenue-report-form
 import { updateRevenueReport } from "@/lib/actions/sales-report";
 import { BarChart2 } from "lucide-react";
 import type { UserRole } from "@/types/roles";
+import { findUnreportedWonLeads } from "@/lib/leads/won-leads";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -33,6 +34,7 @@ export default async function EditSalesReportPage({ params }: Props) {
   });
   if (!report) notFound();
 
+  const wonLeads = user ? await findUnreportedWonLeads(user.id, id) : [];
   const action = updateRevenueReport.bind(null, id);
 
   return (
@@ -63,8 +65,10 @@ export default async function EditSalesReportPage({ params }: Props) {
               projectName: it.projectName,
               amountExclTax: Number(it.amountExclTax),
               memo: it.memo,
+              leadId: it.leadId,
             })),
           }}
+          wonLeads={wonLeads}
         />
       </div>
     </div>

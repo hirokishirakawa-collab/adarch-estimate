@@ -795,9 +795,15 @@ model RevenueReportItem {
   memo      String? @db.Text // 備考
   sortOrder Int     @default(0) // 表示順（フォームの行順）
 
+  // 「受注」ボタンを押したリードから取り込んだ行の紐づけ（任意）。
+  // 同じリードを二度取り込まないための鍵。リードが消えても行は残す。
+  leadId String?
+  lead   Lead?   @relation("RevenueItemLead", fields: [leadId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
 
   @@index([reportId])
+  @@index([leadId])
   @@map("revenue_report_items")
 }
 
@@ -814,10 +820,10 @@ model InvoiceRequest {
   // 媒体請求も手数料は発生するが、取引媒体によって媒体側へ支払う額が変わるため、
   // 申請の時点では率が決まらない。本部が申請を許可する段階で手数料を打ち込む。
   // 既存データは NORMAL のまま＝過去の集計結果は変わらない。
-  kind      InvoiceRequestKind @default(NORMAL)
+  kind   InvoiceRequestKind    @default(NORMAL)
   /// 媒体請求の内訳。1件の請求で複数の媒体を回すことがあるため行で持つ。
   /// 媒体ごとに媒体側へ支払う実費が違い、それが本部手数料を決める判断材料になる。
-  medias    InvoiceRequestMedia[]
+  medias InvoiceRequestMedia[]
 
   // ── 請求情報
   subject      String // 件名
@@ -913,13 +919,13 @@ model InvoiceRequestMedia {
   invoiceRequest   InvoiceRequest @relation(fields: [invoiceRequestId], references: [id], onDelete: Cascade)
 
   /// 媒体名（例: TVer / TOKYO PRIME / イオンシネマ）
-  name String
+  name          String
   /// その媒体でクライアントへ請求する額（税抜）。
   /// 申請側が入れるのはここまで。媒体へ支払う実費と取り分は本部が計算して提示する
   /// （申請側に実費まで入れさせると入力事故が起きるため・2026-08-22 代表判断）。
   billedExclTax Decimal @default(0) @db.Decimal(15, 0)
   /// 画面での並び順
-  sortOrder Int @default(0)
+  sortOrder     Int     @default(0)
 
   createdAt DateTime @default(now())
 
@@ -1923,24 +1929,24 @@ model ProjectApplication {
 /// リード獲得AIで取得した営業候補企業を管理するテーブル。
 /// ステータス管理・担当者アサイン・顧客への転換を行う。
 model Lead {
-  id                  String        @id @default(cuid())
+  id                  String              @id @default(cuid())
   name                String
   address             String?
   phone               String?
-  rating              Float         @default(0)
-  ratingCount         Int           @default(0)
-  types               String[]      @default([])
+  rating              Float               @default(0)
+  ratingCount         Int                 @default(0)
+  types               String[]            @default([])
   mapsUrl             String?
   websiteUrl          String?
   businessStatus      String?
-  scoreTotal          Int           @default(0)
+  scoreTotal          Int                 @default(0)
   scoreBreakdown      Json?
-  scoreComment        String?       @db.Text
+  scoreComment        String?             @db.Text
   industry            String?
   area                String?
-  status              LeadStatus    @default(UNTOUCHED)
-  memo                String?       @db.Text
-  source              LeadSource    @default(GOOGLE_PLACES)
+  status              LeadStatus          @default(UNTOUCHED)
+  memo                String?             @db.Text
+  source              LeadSource          @default(GOOGLE_PLACES)
   corporateNumber     String?
   capital             BigInt?
   employeeCount       Int?
@@ -1955,7 +1961,7 @@ model Lead {
   youtubeChannelUrl   String?
   youtubeSubscribers  Int?
   youtubeLastUpload   DateTime?
-  subsidies           String[]      @default([])
+  subsidies           String[]            @default([])
   // ---- 購買シグナル ----
   // 「買う気配」が立った日。スコア順ではなくこの新しさで当たる順を決める。
   //   SUBSIDY  補助金の認定日（予算がついた）
@@ -1978,9 +1984,9 @@ model Lead {
   // 月が取れない会社は「今年◯周年」までしか言えない＝月日を推測で埋めない。
   foundedYear         Int?
   foundedMonth        Int?
-  foundedRaw          String?   // 拾った原文（例: "創業 昭和35年"）。誤抽出を人が弾くための証跡
-  foundedSource       String?   // "site" / "prtimes" / "manual"
-  foundedSourceUrl    String?   // 根拠ページのURL
+  foundedRaw          String? // 拾った原文（例: "創業 昭和35年"）。誤抽出を人が弾くための証跡
+  foundedSource       String? // "site" / "prtimes" / "manual"
+  foundedSourceUrl    String? // 根拠ページのURL
   // 取得を試した時刻。null = 未確認、値あり & foundedYear が null = 「探したが記載なし」。
   // 同じ会社のサイトを何度も巡回しないための印（email / emailCheckedAt と同じ考え方）。
   foundedCheckedAt    DateTime?
@@ -1997,11 +2003,11 @@ model Lead {
   agencyDetected      String?
   isListed            Boolean?
   assigneeId          String?
-  assignee            User?         @relation("LeadAssignee", fields: [assigneeId], references: [id])
+  assignee            User?               @relation("LeadAssignee", fields: [assigneeId], references: [id])
   createdById         String?
-  createdBy           User?         @relation("LeadCreatedBy", fields: [createdById], references: [id])
-  convertedCustomerId String?       @unique
-  convertedCustomer   Customer?     @relation("LeadConvertedCustomer", fields: [convertedCustomerId], references: [id])
+  createdBy           User?               @relation("LeadCreatedBy", fields: [createdById], references: [id])
+  convertedCustomerId String?             @unique
+  convertedCustomer   Customer?           @relation("LeadConvertedCustomer", fields: [convertedCustomerId], references: [id])
   // 却下理由（選定時に本部が外した理由。AI判定の学習データとして次回プロンプトに反映される）
   rejectReason        String?
   // 声かけ解放: 解放時に直前の担当者名を記録（次の代表が「過去に誰が声かけ済みか」を把握するタグ）
@@ -2010,9 +2016,10 @@ model Lead {
   logs                LeadLog[]
   hearingSheet        HearingSheet?
   // 結果ボタンから自動生成されたグループ事例（1リード1件。押し直すと結果だけ更新）
-  salesApproaches     SalesApproach[] @relation("SalesApproachLead")
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  salesApproaches     SalesApproach[]     @relation("SalesApproachLead")
+  revenueItems        RevenueReportItem[] @relation("RevenueItemLead")
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
   // ---- Studio（制作OS）----
   studioClients StudioClient[] @relation("StudioLead")

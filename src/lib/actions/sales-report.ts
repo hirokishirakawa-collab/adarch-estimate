@@ -33,6 +33,7 @@ function toItemRows(items: RevenueItemInput[]) {
     taxAmount: calcTax(item.amountExclTax),
     amountInclTax: calcInclTax(item.amountExclTax),
     memo: item.memo || null,
+    leadId: item.leadId ?? null,
     sortOrder: index,
   }));
 }

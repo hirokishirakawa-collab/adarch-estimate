@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { RevenueReportForm } from "@/components/sales-report/revenue-report-form";
 import { createRevenueReport } from "@/lib/actions/sales-report";
 import { BarChart2 } from "lucide-react";
+import { findUnreportedWonLeads } from "@/lib/leads/won-leads";
 
 export default async function NewSalesReportPage({
   searchParams,
@@ -15,12 +16,14 @@ export default async function NewSalesReportPage({
 
   // 累積停止回数を取得（警告メッセージの段階切り替えに使用）
   let suspendCount = 0;
+  let wonLeads: Awaited<ReturnType<typeof findUnreportedWonLeads>> = [];
   if (session?.user?.email) {
     const user = await db.user.findUnique({
       where: { email: session.user.email },
-      select: { suspendCount: true },
+      select: { id: true, suspendCount: true },
     });
     suspendCount = user?.suspendCount ?? 0;
+    if (user) wonLeads = await findUnreportedWonLeads(user.id);
   }
 
   // 停止中ユーザーには前月をデフォルトに
@@ -84,7 +87,11 @@ export default async function NewSalesReportPage({
       </div>
 
       <div className="bg-white rounded-xl border border-zinc-200 p-6">
-        <RevenueReportForm action={createRevenueReport} defaultValues={defaultMonth ? { targetMonth: defaultMonth } : undefined} />
+        <RevenueReportForm
+          action={createRevenueReport}
+          defaultValues={defaultMonth ? { targetMonth: defaultMonth } : undefined}
+          wonLeads={wonLeads}
+        />
       </div>
     </div>
   );

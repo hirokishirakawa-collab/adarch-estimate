@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, PartyPopper } from "lucide-react";
 import {
   BILLED_BY_LABEL,
   calcInclTax,
@@ -18,6 +18,8 @@ export interface ItemRow {
   projectName: string;
   amountExclTax: string;
   memo: string;
+  /** 「受注」リードから取り込んだ行のとき、そのリードID */
+  leadId: string | null;
 }
 
 export interface ItemDefault {
@@ -26,11 +28,22 @@ export interface ItemDefault {
   projectName: string;
   amountExclTax: number;
   memo: string | null;
+  leadId?: string | null;
+}
+
+/** 「受注」ボタンを押したが、まだ月次報告に入っていないリード */
+export interface WonLead {
+  id: string;
+  name: string;
+  industry: string | null;
+  wonAt: string; // "M/D"
 }
 
 interface Props {
   /** 編集時の初期値 */
   defaultItems?: ItemDefault[];
+  /** 取り込み候補（受注済み・未報告のリード） */
+  wonLeads?: WonLead[];
 }
 
 let keySeq = 0;
@@ -43,6 +56,7 @@ function newRow(billedBy: BilledBy = "SELF"): ItemRow {
     projectName: "",
     amountExclTax: "",
     memo: "",
+    leadId: null,
   };
 }
 
@@ -56,7 +70,7 @@ function num(v: string): number {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
-export function RevenueItemEditor({ defaultItems }: Props) {
+export function RevenueItemEditor({ defaultItems, wonLeads = [] }: Props) {
   const [rows, setRows] = useState<ItemRow[]>(() => {
     if (defaultItems && defaultItems.length > 0) {
       return defaultItems.map((d) => {
@@ -68,6 +82,7 @@ export function RevenueItemEditor({ defaultItems }: Props) {
           projectName: d.projectName,
           amountExclTax: String(d.amountExclTax),
           memo: d.memo ?? "",
+          leadId: d.leadId ?? null,
         };
       });
     }
@@ -80,6 +95,18 @@ export function RevenueItemEditor({ defaultItems }: Props) {
 
   function addRow(billedBy: BilledBy) {
     setRows((prev) => [...prev, newRow(billedBy)]);
+  }
+
+  // 受注リードを行として取り込む（クライアント名だけ埋める。金額と案件名は本人が入れる）
+  function importLead(lead: WonLead) {
+    setRows((prev) => {
+      const row = { ...newRow("SELF"), clientName: lead.name, leadId: lead.id };
+      // 最初の1行が空のままなら、そこに入れる（空行を残さない）
+      const first = prev[0];
+      const firstEmpty =
+        prev.length === 1 && !first.clientName && !first.projectName && !first.amountExclTax && !first.memo;
+      return firstEmpty ? [row] : [...prev, row];
+    });
   }
 
   function removeRow(key: string) {
@@ -108,12 +135,47 @@ export function RevenueItemEditor({ defaultItems }: Props) {
       projectName: r.projectName.trim(),
       amountExclTax: r.amountExclTax.replace(/,/g, "").trim(),
       memo: r.memo.trim(),
+      leadId: r.leadId,
     }))
   );
+
+  const importedIds = new Set(rows.map((r) => r.leadId).filter(Boolean));
+  const importable = wonLeads.filter((l) => !importedIds.has(l.id));
 
   return (
     <div className="space-y-3">
       <input type="hidden" name="items" value={payload} />
+
+      {/* 受注したリードの取り込み */}
+      {importable.length > 0 && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50/60 px-4 py-3">
+          <div className="flex items-center gap-1.5 mb-2">
+            <PartyPopper className="w-3.5 h-3.5 text-sky-600" />
+            <p className="text-xs font-semibold text-sky-800">
+              受注したリードが {importable.length} 件あります（まだ報告に入っていません）
+            </p>
+          </div>
+          <p className="text-[11px] text-sky-700/80 mb-2">
+            クリックすると明細に1行追加されます。金額と案件名を入れてください。
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {importable.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => importLead(l)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium
+                           bg-white border border-sky-200 text-sky-800 rounded-lg hover:bg-sky-100 transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                {l.name}
+                {l.industry && <span className="text-sky-500">／{l.industry}</span>}
+                <span className="text-zinc-400">{l.wonAt}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {rows.map((row, i) => {
