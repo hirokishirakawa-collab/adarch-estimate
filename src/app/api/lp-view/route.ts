@@ -22,6 +22,9 @@ const ALLOWED_EVENTS = new Set([
   "lead",
   "book_click",
   "booking_view",
+  "scroll_25",
+  "scroll_50",
+  "scroll_75",
 ]);
 
 // IPごとの簡易レート制限（インメモリ。1分あたり30件まで）
