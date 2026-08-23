@@ -1,11 +1,10 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { db } from "@/lib/db";
 import { PREFECTURES } from "@/lib/constants/crm";
 import { nextAnniversary, anniversaryLabel } from "@/lib/anniversary/calc";
 import { areaLabel } from "@/lib/anniversary/area";
-import { ExcludeLeadButton } from "@/components/anniversary/exclude-lead-button";
+import { AnniversaryList, type AnniversaryRow } from "@/components/anniversary/anniversary-list";
 import type { LeadStatus } from "@/generated/prisma/client";
 
 export const metadata = { title: "周年ファインダー" };
@@ -54,6 +53,9 @@ export default async function AnniversaryFinderPage({
       foundedSourceUrl: true,
       signalKind: true,
       pressReleaseUrl: true,
+      websiteUrl: true,
+      phone: true,
+      email: true,
     },
     take: 2000,
   });
@@ -76,6 +78,30 @@ export default async function AnniversaryFinderPage({
       if (a.anniv.monthsAway !== b.anniv.monthsAway) return a.anniv.monthsAway - b.anniv.monthsAway;
       return b.anniv.years - a.anniv.years;
     });
+
+  // クライアント側（チェック選択・CSV書き出し）へ渡す素の値。
+  const listRows: AnniversaryRow[] = items.map(({ lead, anniv }) => ({
+    id: lead.id,
+    name: lead.name,
+    area: areaLabel(lead.prefecture, lead.address),
+    industry: lead.industry,
+    employeeCount: lead.employeeCount,
+    foundedYear: lead.foundedYear!,
+    foundedMonth: lead.foundedMonth,
+    foundedRaw: lead.foundedRaw,
+    foundedSourceUrl: lead.foundedSourceUrl,
+    pressReleaseUrl: lead.pressReleaseUrl,
+    websiteUrl: lead.websiteUrl,
+    phone: lead.phone,
+    email: lead.email,
+    address: lead.address,
+    isAnnivSignal: lead.signalKind === "ANNIV",
+    annivLabel: anniversaryLabel(anniv, today),
+    annivYears: anniv.years,
+    annivOnYear: anniv.onYear,
+    annivOnMonth: anniv.onMonth,
+    isMilestone: anniv.isMilestone,
+  }));
 
   const filled = await db.lead.count({
     where: { foundedYear: { not: null }, status: { notIn: ["SKIPPED", "ARCHIVED"] as LeadStatus[] } },
@@ -185,86 +211,7 @@ export default async function AnniversaryFinderPage({
           </span>
         </div>
       ) : (
-        <ul className="space-y-3">
-          {items.map(({ lead, anniv }) => (
-            <li
-              key={lead.id}
-              className="rounded-xl border border-zinc-200 bg-white p-4 hover:border-zinc-300 transition-colors"
-            >
-              <div className="flex flex-wrap items-start gap-3">
-                <span
-                  className={`shrink-0 rounded-lg px-2 py-1 text-xs font-bold ${
-                    anniv.isMilestone ? "bg-rose-600 text-white" : "bg-zinc-100 text-zinc-600"
-                  }`}
-                >
-                  {anniv.isMilestone ? "◎ 節目" : "○"}
-                </span>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold text-zinc-900 truncate">{lead.name}</p>
-                    <span className="rounded-md bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">
-                      {anniversaryLabel(anniv, today)}
-                    </span>
-                    {lead.signalKind === "ANNIV" && (
-                      <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
-                        周年を自社発信中
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {[
-                      areaLabel(lead.prefecture, lead.address),
-                      lead.industry,
-                      lead.employeeCount ? `従業員${lead.employeeCount}名` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" / ") || "—"}
-                  </p>
-
-                  <p className="mt-1 text-xs text-zinc-600">
-                    設立: {lead.foundedYear}年
-                    {lead.foundedMonth ? `${lead.foundedMonth}月` : "（月は記載なし）"}
-                    {lead.foundedRaw && (
-                      <span className="text-zinc-400">　原文「{lead.foundedRaw}」</span>
-                    )}
-                  </p>
-                </div>
-
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  {lead.foundedSourceUrl && (
-                    <a
-                      href={lead.foundedSourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50"
-                    >
-                      出典を見る
-                    </a>
-                  )}
-                  {lead.pressReleaseUrl && lead.pressReleaseUrl !== lead.foundedSourceUrl && (
-                    <a
-                      href={lead.pressReleaseUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50"
-                    >
-                      リリース
-                    </a>
-                  )}
-                  <Link
-                    href={`/dashboard/leads/list?q=${encodeURIComponent(lead.name)}`}
-                    className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800"
-                  >
-                    リードを開く
-                  </Link>
-                  <ExcludeLeadButton leadId={lead.id} leadName={lead.name} />
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <AnniversaryList rows={listRows} />
       )}
     </div>
   );
