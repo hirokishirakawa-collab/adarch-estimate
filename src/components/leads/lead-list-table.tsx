@@ -363,6 +363,30 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
               営業フォームへ
             </button>
 
+            {/* メール送付（メールアドレス取得済みの選択リードだけをアウトリーチに投入） */}
+            {(() => {
+              const emailIds = leads
+                .filter((l) => selectedIds.has(l.id) && l.email)
+                .map((l) => l.id);
+              return (
+                <button
+                  onClick={() =>
+                    router.push(`/dashboard/leads/outreach?ids=${emailIds.join(",")}`)
+                  }
+                  disabled={emailIds.length === 0}
+                  title={
+                    emailIds.length === 0
+                      ? "選択中にメールアドレス取得済みの会社がありません。先に「メールを取得」を押してください"
+                      : "メールアドレス取得済みの会社をアウトリーチ画面に送ります。件名・本文入りのメール下書きをそのまま開けます"
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  メール送付：アウトリーチへ（{emailIds.length}件）
+                </button>
+              );
+            })()}
+
             {/* エクスポート */}
             <button
               onClick={() => handleExport("csv")}

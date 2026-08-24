@@ -17,6 +17,8 @@ export interface OutreachLead {
   websiteUrl: string | null;
   mapsUrl: string | null;
   phone: string | null;
+  /** サイトから取得済みのメールアドレス。null = 未取得（リード管理の「メールを取得」で取り込める） */
+  email: string | null;
   nearbyPref: string | null;
   alreadySent: boolean;
   /** 送付日（結果バーの「◯日経過」表示用）。未送付なら null */
@@ -460,6 +462,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
             onToggleNg={() => toggleNg(lead.id)}
             blockedReason={blockReasonOf(lead.websiteUrl)}
             onMarkBlocked={() => markBlocked(lead.id)}
+            subject={subject}
           />
         );
       })}
@@ -499,6 +502,7 @@ function OutreachCard({
   onToggleNg,
   blockedReason,
   onMarkBlocked,
+  subject,
 }: {
   no: number;
   lead: OutreachLead;
@@ -513,6 +517,8 @@ function OutreachCard({
   /** 営業お断りの記載がある場合の理由。あるときは送信操作を止める */
   blockedReason?: string;
   onMarkBlocked: () => void;
+  /** メール件名（共通項目）。メールで送る↗の下書きに使う */
+  subject: string;
 }) {
   const [copied, setCopied] = useState(false);
   const [showProven, setShowProven] = useState(false);
@@ -601,11 +607,20 @@ function OutreachCard({
         {lead.websiteUrl && (
           <a href={lead.websiteUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 hover:underline">サイト↗（フォーム）</a>
         )}
+        {lead.email && !blockedReason && (
+          <a
+            href={`mailto:${lead.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(state.body)}`}
+            title="メールソフトで件名・本文入りの下書きが開きます（送信はご自身で）"
+            className="font-bold text-blue-600 hover:underline"
+          >
+            メールで送る↗（{lead.email}）
+          </a>
+        )}
         {lead.mapsUrl && (
           <a href={lead.mapsUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline">Google Maps↗</a>
         )}
         {lead.phone && <span className="text-zinc-500">☎{lead.phone}</span>}
-        {!lead.websiteUrl && !lead.mapsUrl && !lead.phone && <span className="text-zinc-400">リンクなし（手動で確認）</span>}
+        {!lead.websiteUrl && !lead.mapsUrl && !lead.phone && !lead.email && <span className="text-zinc-400">リンクなし（手動で確認）</span>}
       </div>
 
       {/* 結果（送付済みのときだけ出す。押すとステータス更新＋グループ事例へ自動登録） */}
