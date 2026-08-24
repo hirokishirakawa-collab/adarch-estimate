@@ -21,7 +21,6 @@ interface Counts {
   approach: number;
   deal: number;
   won: number;
-  weekly: number;
   hq: number;
 }
 interface Feed {
@@ -65,7 +64,6 @@ const KIND_META: Record<string, { label: string; cls: string }> = {
   won: { label: "受注", cls: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10" },
   log: { label: "活動", cls: "text-sky-300 border-sky-500/30 bg-sky-500/10" },
   move: { label: "動き", cls: "text-sky-300 border-sky-500/30 bg-sky-500/10" },
-  weekly: { label: "週次", cls: "text-zinc-300 border-zinc-500/30 bg-zinc-500/10" },
   lead: { label: "資料請求", cls: "text-amber-300 border-amber-500/30 bg-amber-500/10" },
   booking: { label: "面談予約", cls: "text-amber-300 border-amber-500/30 bg-amber-500/10" },
   joined: { label: "新規加盟", cls: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10" },
@@ -127,7 +125,6 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
     { n: t?.approach ?? 0, wn: w?.approach ?? 0, l: "アプローチ" },
     { n: t?.deal ?? 0, wn: w?.deal ?? 0, l: "商談が動いた" },
     { n: t?.won ?? 0, wn: w?.won ?? 0, l: "受注・加盟", hot: true },
-    { n: t?.weekly ?? 0, wn: w?.weekly ?? 0, l: "週次共有" },
     { n: t?.hq ?? 0, wn: w?.hq ?? 0, l: "本部・自動検出" },
   ];
 
@@ -170,7 +167,7 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
 
       {/* カウンタ */}
       <div
-        className={`relative grid gap-3 ${compact ? "grid-cols-5 mt-4" : "grid-cols-2 sm:grid-cols-5 mt-5"}`}
+        className={`relative grid gap-3 ${compact ? "grid-cols-4 mt-4" : "grid-cols-2 sm:grid-cols-4 mt-5"}`}
       >
         {tiles.map((s) => (
           <div
@@ -304,7 +301,7 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
 
       {!compact && (
         <p className="relative mt-4 text-[10.5px] text-zinc-600">
-          商談・送付台帳・週次共有などから自動生成（20秒ごと更新）。金額は表示されません。
+          商談・送付台帳などから自動生成（20秒ごと更新）。金額と週次共有は表示されません。
         </p>
       )}
     </div>

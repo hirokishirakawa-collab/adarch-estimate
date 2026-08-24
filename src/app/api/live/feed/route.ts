@@ -75,7 +75,6 @@ export interface LiveEvent {
     | "won"
     | "log"
     | "move"
-    | "weekly"
     | "lead"
     | "booking"
     | "joined"
@@ -98,7 +97,7 @@ export async function GET() {
 
   const since = new Date(Date.now() - WINDOW_DAYS * 86400000);
 
-  const [sent, deals, dealLogs, moves, weeklies, leads, bookings, joined, tenders] =
+  const [sent, deals, dealLogs, moves, leads, bookings, joined, tenders] =
     await Promise.all([
       db.autoSalesSentDomain.findMany({
         where: { sentAt: { gte: since } },
@@ -144,16 +143,6 @@ export async function GET() {
         },
         orderBy: { movedAt: "desc" },
         take: 30,
-      }),
-      db.weeklySubmission.findMany({
-        where: { createdAt: { gte: since } },
-        select: {
-          createdAt: true,
-          q1: true,
-          groupCompany: { select: { name: true, prefecture: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 40,
       }),
       db.lpView.findMany({
         where: { createdAt: { gte: since }, event: "lead" },
@@ -233,15 +222,6 @@ export async function GET() {
       text: `${m.industry}に${method ? `${method}で` : ""}アプローチ — ${MOVE_STAGE_LABEL[m.stage] ?? m.stage}`,
     });
   }
-  for (const w of weeklies) {
-    events.push({
-      at: w.createdAt.toISOString(),
-      kind: "weekly",
-      actor: w.groupCompany.name,
-      prefs: prefsIn(w.groupCompany.prefecture),
-      text: `週次共有を提出（${w.q1}）`,
-    });
-  }
   for (const l of leads) {
     events.push({
       at: l.createdAt.toISOString(),
@@ -290,12 +270,11 @@ export async function GET() {
   const in7d = (e: LiveEvent) => now - Date.parse(e.at) < 7 * 86400000;
   const today = (e: LiveEvent) => Date.parse(e.at) >= dayStart.getTime();
   const countBy = (pred: (e: LiveEvent) => boolean) => {
-    const c = { approach: 0, deal: 0, won: 0, weekly: 0, hq: 0 };
+    const c = { approach: 0, deal: 0, won: 0, hq: 0 };
     for (const e of events.filter(pred)) {
       if (e.kind === "sent" || e.kind === "move" || e.kind === "log") c.approach++;
       else if (e.kind === "deal") c.deal++;
       else if (e.kind === "won" || e.kind === "joined") c.won++;
-      else if (e.kind === "weekly") c.weekly++;
       else c.hq++;
     }
     return c;
