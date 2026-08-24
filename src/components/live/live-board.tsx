@@ -88,6 +88,16 @@ function ago(iso: string): string {
   return `${Math.floor(s / 86400)}日前`;
 }
 
+// APIが返すURLをそのまま href に入れない。詳細に載る公告URLは外部データなので、
+// http(s) と自サイト内パス以外は弾く（javascript: を踏ませないため）。
+function safeHref(url: string | undefined): string | undefined {
+  const v = (url ?? "").trim();
+  if (!v) return undefined;
+  if (/^https?:\/\//i.test(v)) return v;
+  if (v.startsWith("/") && !v.startsWith("//")) return v;
+  return undefined;
+}
+
 export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
   const [feed, setFeed] = useState<Feed | null>(null);
   const [clock, setClock] = useState("");
@@ -427,11 +437,11 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
                   </div>
                 )}
 
-                {detail.href && (
+                {safeHref(detail.href) && (
                   <a
-                    href={detail.href}
-                    target={detail.href.startsWith("http") ? "_blank" : undefined}
-                    rel={detail.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                    href={safeHref(detail.href)}
+                    target={detail.href!.startsWith("http") ? "_blank" : undefined}
+                    rel={detail.href!.startsWith("http") ? "noopener noreferrer" : undefined}
                     className="mt-6 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
                                border border-white/15 text-[12px] text-zinc-200
                                hover:bg-white/[0.06] transition-colors"

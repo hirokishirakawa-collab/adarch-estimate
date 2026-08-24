@@ -27,6 +27,17 @@ export interface LiveDetail {
   hrefLabel?: string;
 }
 
+// 外部データ由来のURLをそのままリンクにしない。
+// 入札の公告URLは官公需ポータル由来の外部文字列なので、javascript: などが
+// 混ざると押した人の画面でスクリプトが動く。http(s) と自サイト内パスだけ通す。
+function safeHref(url: string | null | undefined): string | undefined {
+  const v = (url ?? "").trim();
+  if (!v) return undefined;
+  if (/^https?:\/\//i.test(v)) return v;
+  if (v.startsWith("/") && !v.startsWith("//")) return v;
+  return undefined;
+}
+
 function fmt(d: Date): string {
   return new Intl.DateTimeFormat("ja-JP", {
     month: "numeric",
@@ -192,8 +203,8 @@ export async function GET(req: NextRequest) {
         subtitle: [t.organizationName, t.prefectureName].filter(Boolean).join(" ・ "),
         actor: "入札ファインダー",
         rows,
-        href: t.documentUrl ?? "/dashboard/tender-finder",
-        hrefLabel: t.documentUrl ? "公告を開く" : "入札ファインダーへ",
+        href: safeHref(t.documentUrl) ?? "/dashboard/tender-finder",
+        hrefLabel: safeHref(t.documentUrl) ? "公告を開く" : "入札ファインダーへ",
       };
       return NextResponse.json(detail);
     }
