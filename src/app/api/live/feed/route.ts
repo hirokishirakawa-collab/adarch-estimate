@@ -90,6 +90,11 @@ export async function GET() {
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // 全社名が流れる画面のため、デモアカウントと停止中ユーザーには出さない。
+  // （加盟代表どうしで全拠点の動きを見合うのは仕様＝2026-08-24 代表決定）
+  if (session.user.email === "demo@adarch.co.jp" || session.user.isActive === false) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const since = new Date(Date.now() - WINDOW_DAYS * 86400000);
 

@@ -6,5 +6,8 @@ import { LiveBoard } from "@/components/live/live-board";
 export default async function LivePage() {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");
+  // デモアカウント・停止中ユーザーには実社名フィードを見せない
+  if (session.user.email === "demo@adarch.co.jp" || session.user.isActive === false)
+    redirect("/dashboard");
   return <LiveBoard />;
 }
