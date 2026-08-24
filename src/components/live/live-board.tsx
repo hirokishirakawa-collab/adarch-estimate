@@ -16,6 +16,16 @@ interface LiveEvent {
   actor: string;
   prefs: string[];
   text: string;
+  ref?: { kind: string; id: string };
+}
+interface LiveDetail {
+  title: string;
+  subtitle?: string;
+  actor: string;
+  rows: { label: string; value: string }[];
+  timeline?: { at: string; text: string }[];
+  href?: string;
+  hrefLabel?: string;
 }
 interface Counts {
   approach: number;
@@ -83,6 +93,30 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
   const [clock, setClock] = useState("");
   const [error, setError] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 押した1件のパネル。detail は ref を持つ種別だけ引きに行く
+  const [picked, setPicked] = useState<LiveEvent | null>(null);
+  const [detail, setDetail] = useState<LiveDetail | null>(null);
+  const [detailState, setDetailState] = useState<"idle" | "loading" | "error">("idle");
+
+  const open = (e: LiveEvent) => {
+    setPicked(e);
+    setDetail(null);
+    if (!e.ref) {
+      setDetailState("idle");
+      return;
+    }
+    setDetailState("loading");
+    fetch(`/api/live/detail?kind=${e.ref.kind}&id=${encodeURIComponent(e.ref.id)}`, {
+      cache: "no-store",
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: LiveDetail) => {
+        setDetail(d);
+        setDetailState("idle");
+      })
+      .catch(() => setDetailState("error"));
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -273,9 +307,13 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
               const meta = KIND_META[e.kind] ?? KIND_META.log;
               const fresh = Date.now() - Date.parse(e.at) < DAY;
               return (
-                <div
+                <button
+                  type="button"
+                  onClick={() => open(e)}
                   key={e.at + e.text + i}
-                  className={`flex items-start gap-3 px-4 py-2.5 ${fresh ? "" : "opacity-60"}`}
+                  className={`w-full text-left flex items-start gap-3 px-4 py-2.5 transition-colors
+                              hover:bg-white/[0.05] focus:outline-none focus:bg-white/[0.06]
+                              ${fresh ? "" : "opacity-60"}`}
                 >
                   <span className="font-mono text-[10px] text-zinc-500 tabular-nums whitespace-nowrap mt-1 w-14">
                     {ago(e.at)}
@@ -292,7 +330,7 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
                       {e.text}
                     </span>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -303,6 +341,112 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
         <p className="relative mt-4 text-[10.5px] text-zinc-600">
           商談・送付台帳などから自動生成（20秒ごと更新）。金額と週次共有は表示されません。
         </p>
+      )}
+
+      {/* 詳細パネル */}
+      {picked && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/50"
+          onClick={() => setPicked(null)}
+        >
+          <div
+            className="w-full max-w-sm h-full overflow-y-auto bg-[#0d1119] border-l border-white/10 p-5"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                  (KIND_META[picked.kind] ?? KIND_META.log).cls
+                }`}
+              >
+                {(KIND_META[picked.kind] ?? KIND_META.log).label}
+              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] text-zinc-500">{ago(picked.at)}</span>
+                <button
+                  type="button"
+                  onClick={() => setPicked(null)}
+                  className="text-zinc-500 hover:text-zinc-200 transition-colors text-sm leading-none"
+                  aria-label="閉じる"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-zinc-500">{detail?.actor ?? picked.actor}</p>
+
+            {detailState === "loading" && (
+              <p className="mt-6 text-[12px] text-zinc-500">読み込み中…</p>
+            )}
+
+            {detailState === "error" && (
+              <>
+                <p className="mt-3 text-[13px] text-zinc-200 leading-relaxed">{picked.text}</p>
+                <p className="mt-4 text-[11px] text-zinc-500">
+                  詳細が取れませんでした（元の記録が消えている可能性があります）
+                </p>
+              </>
+            )}
+
+            {detailState === "idle" && !detail && (
+              <p className="mt-3 text-[13px] text-zinc-200 leading-relaxed">{picked.text}</p>
+            )}
+
+            {detailState === "idle" && detail && (
+              <>
+                <p className="mt-1 text-[15px] font-bold text-zinc-100 leading-snug">
+                  {detail.title}
+                </p>
+                {detail.subtitle && (
+                  <p className="mt-1 text-[11.5px] text-zinc-400">{detail.subtitle}</p>
+                )}
+
+                <dl className="mt-4 space-y-2">
+                  {detail.rows.map((r) => (
+                    <div key={r.label} className="flex gap-3 text-[12px]">
+                      <dt className="w-20 shrink-0 text-zinc-500">{r.label}</dt>
+                      <dd className="text-zinc-200">{r.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+
+                {detail.timeline && detail.timeline.length > 0 && (
+                  <div className="mt-5">
+                    <p className="text-[10px] tracking-[0.15em] text-zinc-500 mb-2">直近の動き</p>
+                    <ul className="space-y-2">
+                      {detail.timeline.map((t2, i) => (
+                        <li key={i} className="flex gap-3 text-[12px]">
+                          <span className="font-mono text-[10px] text-zinc-500 tabular-nums w-10 shrink-0 mt-0.5">
+                            {t2.at}
+                          </span>
+                          <span className="text-zinc-300 leading-relaxed">{t2.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {detail.href && (
+                  <a
+                    href={detail.href}
+                    target={detail.href.startsWith("http") ? "_blank" : undefined}
+                    rel={detail.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                    className="mt-6 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                               border border-white/15 text-[12px] text-zinc-200
+                               hover:bg-white/[0.06] transition-colors"
+                  >
+                    {detail.hrefLabel ?? "開く"} ↗
+                  </a>
+                )}
+
+                <p className="mt-6 text-[10px] text-zinc-600 leading-relaxed">
+                  金額はこの画面では表示しません
+                </p>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

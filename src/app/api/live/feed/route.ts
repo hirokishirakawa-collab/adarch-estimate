@@ -10,6 +10,12 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import {
+  DEAL_STATUS_LABEL,
+  ACTIVITY_LABEL,
+  MOVE_STAGE_LABEL,
+  MOVE_METHOD_LABEL,
+} from "@/lib/live/labels";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -31,41 +37,6 @@ function prefsIn(text: string | null | undefined): string[] {
   return PREFS.filter((p) => text.includes(p));
 }
 
-const DEAL_STATUS_LABEL: Record<string, string> = {
-  PROSPECTING: "見込み",
-  QUALIFYING: "検討中",
-  PROPOSAL: "提案中",
-  NEGOTIATION: "交渉中",
-  CLOSED_WON: "受注",
-  CLOSED_LOST: "見送り",
-  DORMANT: "休眠",
-  DEFERRED: "保留",
-};
-const ACTIVITY_LABEL: Record<string, string> = {
-  CALL: "電話",
-  EMAIL: "メール",
-  VISIT: "訪問",
-  MEETING: "Web会議",
-  OTHER: "フォロー",
-};
-const MOVE_STAGE_LABEL: Record<string, string> = {
-  APPROACHING: "当たってる",
-  REPLIED: "反応あり",
-  MEETING: "打合せ",
-  PROPOSAL: "提案中",
-  WON: "受注",
-  LOST: "見送り",
-};
-const MOVE_METHOD_LABEL: Record<string, string> = {
-  FORM: "フォーム",
-  EMAIL: "メール",
-  DM: "DM",
-  PHONE: "電話",
-  VISIT: "訪問",
-  REFERRAL: "紹介",
-  EXISTING: "既存客",
-  OTHER: "",
-};
 
 export interface LiveEvent {
   at: string; // ISO
@@ -82,6 +53,8 @@ export interface LiveEvent {
   actor: string; // 拠点名・会社名・「本部」
   prefs: string[];
   text: string;
+  /** 押したときに詳細を引くための参照。無い種別はフィードの情報だけ出す */
+  ref?: { kind: "deal" | "move" | "sent" | "tender"; id: string };
 }
 
 export async function GET() {
@@ -101,13 +74,14 @@ export async function GET() {
     await Promise.all([
       db.autoSalesSentDomain.findMany({
         where: { sentAt: { gte: since } },
-        select: { sentAt: true, companyName: true, hasResponse: true, branch: { select: { name: true } } },
+        select: { id: true, sentAt: true, companyName: true, hasResponse: true, branch: { select: { name: true } } },
         orderBy: { sentAt: "desc" },
         take: 40,
       }),
       db.deal.findMany({
         where: { updatedAt: { gte: since } },
         select: {
+          id: true,
           updatedAt: true,
           createdAt: true,
           status: true,
@@ -124,6 +98,7 @@ export async function GET() {
           type: true,
           deal: {
             select: {
+              id: true,
               customer: { select: { name: true, industry: true } },
               branch: { select: { name: true } },
             },
@@ -135,6 +110,7 @@ export async function GET() {
       db.groupMove.findMany({
         where: { movedAt: { gte: since } },
         select: {
+          id: true,
           movedAt: true,
           industry: true,
           method: true,
@@ -165,6 +141,7 @@ export async function GET() {
       db.tender.findMany({
         where: { fitCheckedAt: { gte: since }, fit: "MATCH" },
         select: {
+          id: true,
           fitCheckedAt: true,
           projectName: true,
           organizationName: true,
@@ -184,6 +161,7 @@ export async function GET() {
       actor: s.branch.name,
       prefs: prefsIn(s.branch.name),
       text: `「${s.companyName}」へ初回コンタクトを送付${s.hasResponse ? "（反響あり）" : ""}`,
+      ref: { kind: "sent", id: s.id },
     });
   }
   for (const d of deals) {
@@ -200,6 +178,7 @@ export async function GET() {
         : isNew
           ? `「${d.customer.name}」${ind ? `（${ind}）` : ""}との商談を開始`
           : `「${d.customer.name}」${ind ? `（${ind}）` : ""}の商談を「${DEAL_STATUS_LABEL[d.status] ?? d.status}」へ`,
+      ref: { kind: "deal", id: d.id },
     });
   }
   for (const l of dealLogs) {
@@ -210,6 +189,7 @@ export async function GET() {
       actor: l.deal.branch.name,
       prefs: prefsIn(l.deal.branch.name),
       text: `「${l.deal.customer.name}」${ind ? `（${ind}）` : ""}に${ACTIVITY_LABEL[l.type] ?? "フォロー"}`,
+      ref: { kind: "deal", id: l.deal.id },
     });
   }
   for (const m of moves) {
@@ -220,6 +200,7 @@ export async function GET() {
       actor: m.groupCompany.name,
       prefs: prefsIn(m.groupCompany.prefecture),
       text: `${m.industry}に${method ? `${method}で` : ""}アプローチ — ${MOVE_STAGE_LABEL[m.stage] ?? m.stage}`,
+      ref: { kind: "move", id: m.id },
     });
   }
   for (const l of leads) {
@@ -257,6 +238,7 @@ export async function GET() {
       actor: "入札ファインダー",
       prefs: prefsIn(t.prefectureName),
       text: `${t.organizationName ?? ""}「${t.projectName.slice(0, 40)}${t.projectName.length > 40 ? "…" : ""}」を○判定`,
+      ref: { kind: "tender", id: t.id },
     });
   }
 
