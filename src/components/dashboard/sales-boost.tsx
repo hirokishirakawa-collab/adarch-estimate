@@ -27,6 +27,22 @@ function prefBase(s: string): string {
   return t.replace(/[都府県]$/, "");
 }
 
+// 匿名フィード用のエリア区分。県名だと1県1〜3社で誰の実績か特定できてしまうため、
+// 東日本／西日本の2区分まで丸める（近畿以西＝西日本、それ以外＝東日本）。
+const WEST_PREFS = new Set([
+  "三重", "滋賀", "京都", "大阪", "兵庫", "奈良", "和歌山",
+  "鳥取", "島根", "岡山", "広島", "山口",
+  "徳島", "香川", "愛媛", "高知",
+  "福岡", "佐賀", "長崎", "熊本", "大分", "宮崎", "鹿児島", "沖縄",
+]);
+
+function regionLabel(prefecture: string | null): string | null {
+  if (!prefecture) return null;
+  const base = prefBase(prefecture);
+  if (!base) return null;
+  return WEST_PREFS.has(base) ? "西日本" : "東日本";
+}
+
 export async function SalesBoost({ userEmail }: { userEmail: string }) {
   const user = await db.user.findUnique({
     where: { email: userEmail },
@@ -148,7 +164,7 @@ export async function SalesBoost({ userEmail }: { userEmail: string }) {
                   {w.result === "DEAL" ? "受注 🎉" : "前向き返信"}
                 </span>
                 <span className="min-w-0 text-xs text-zinc-700 truncate">
-                  {w.lead?.prefecture ? `${w.lead.prefecture}・` : ""}
+                  {regionLabel(w.lead?.prefecture ?? null) ? `${regionLabel(w.lead?.prefecture ?? null)}・` : ""}
                   {w.industry || "業種不明"}に{METHOD_LABEL[w.method] ?? w.method}
                 </span>
                 <span className="ml-auto flex-shrink-0 text-[10px] text-zinc-400">
