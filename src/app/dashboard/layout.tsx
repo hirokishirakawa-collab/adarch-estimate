@@ -2,7 +2,6 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { SuspendedRedirect } from "@/components/layout/suspended-redirect";
-import { ContractExpiredRedirect } from "@/components/layout/contract-expired-redirect";
 import { ChatbotWidget } from "@/components/chatbot/chatbot-widget";
 import { Toaster } from "sonner";
 import { db } from "@/lib/db";
@@ -38,8 +37,9 @@ export default async function DashboardLayout({
   };
 
   // ── 契約更新チェック（ADMIN以外） ──
+  // 2026-08-24 代表決定: 満了による強制停止（/dashboard/contract-expired への
+  // リダイレクト）は廃止。90日前からの更新お願いバナーのみ残す。
   let contractDaysLeft: number | null = null;
-  let contractExpired = false;
   if (role !== "ADMIN" && session.user?.email) {
     try {
       const userGc = await db.user.findUnique({
@@ -52,9 +52,6 @@ export default async function DashboardLayout({
         const now = new Date();
         const diff = gc.contractEndDate.getTime() - now.getTime();
         contractDaysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
-        if (contractDaysLeft <= 0 && !gc.contractRenewed) {
-          contractExpired = true;
-        }
       }
     } catch (e) {
       console.error("[layout] Contract check failed:", e instanceof Error ? e.message : e);
@@ -94,7 +91,6 @@ export default async function DashboardLayout({
     <>
       <DashboardShell user={user} reportWarning={reportWarning} isActive={isActive} contractDaysLeft={contractDaysLeft}>
         {!isActive && <SuspendedRedirect suspendReason={suspendReason} />}
-        {contractExpired && <ContractExpiredRedirect />}
         {children}
       </DashboardShell>
       <ChatbotWidget />
