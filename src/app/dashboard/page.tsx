@@ -723,6 +723,12 @@ export default async function DashboardPage() {
         <div className="space-y-2.5">
           {[
             {
+              date: "2026.08.24",
+              title: "アーチくんのAIを最新モデルに更新",
+              desc: "チャットボット「アーチくん」の頭脳を最新のClaude Sonnet 5に更新しました。回答の精度が上がっています。使い方はこれまで通りです",
+              tag: "機能追加",
+            },
+            {
               date: "2026.08.23",
               title: "周年リストにチェック選択とCSV書き出し",
               desc: "周年ファインダーで当たりたい会社にチェックを入れ、そのままCSVに書き出せます。DMやリスト作成にそのまま使えます",
