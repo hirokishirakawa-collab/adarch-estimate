@@ -11,6 +11,7 @@ import { AnniversaryCard } from "@/components/dashboard/anniversary-card";
 import { GroupThreadCard } from "@/components/dashboard/group-thread-card";
 import { SalesBoost } from "@/components/dashboard/sales-boost";
 import { getMyGroupThread } from "@/lib/actions/group-support";
+import { LiveBoard } from "@/components/live/live-board";
 import {
   Users,
   FolderKanban,
@@ -220,6 +221,11 @@ export default async function DashboardPage() {
       </div>
 
       <ActivityKpiBar kpi={activityKpi} />
+
+      {/* ── グループライブ（コンパクト版・全画面は /dashboard/live） ── */}
+      {session?.user?.email !== "demo@adarch.co.jp" && session?.user?.isActive !== false && (
+        <LiveBoard compact />
+      )}
 
       {/* ── あなたの営業数値（本人のみ・営業フローへ誘導） ── */}
       <MySalesPanel showLink />

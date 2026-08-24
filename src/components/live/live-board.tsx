@@ -80,7 +80,7 @@ function ago(iso: string): string {
   return `${Math.floor(s / 86400)}日前`;
 }
 
-export function LiveBoard() {
+export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
   const [feed, setFeed] = useState<Feed | null>(null);
   const [clock, setClock] = useState("");
   const [error, setError] = useState(false);
@@ -132,7 +132,9 @@ export function LiveBoard() {
   ];
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] rounded-2xl bg-[#0a0d13] text-zinc-200 p-5 sm:p-7 relative overflow-hidden">
+    <div
+      className={`${compact ? "p-4 sm:p-5" : "min-h-[calc(100vh-4rem)] p-5 sm:p-7"} rounded-2xl bg-[#0a0d13] text-zinc-200 relative overflow-hidden`}
+    >
       {/* 背景グリッド */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.35]"
@@ -153,33 +155,46 @@ export function LiveBoard() {
         <span className="text-[11px] text-zinc-500">全国の代表の動きがリアルタイムで流れます</span>
         <div className="ml-auto flex items-center gap-3">
           {error && <span className="text-[11px] text-rose-400">再接続中…</span>}
-          <span className="font-mono text-[13px] text-zinc-400 tabular-nums">{clock}</span>
+          {compact ? (
+            <a
+              href="/dashboard/live"
+              className="text-[11px] text-sky-300 hover:text-sky-200 border border-sky-500/30 bg-sky-500/10 rounded-full px-2.5 py-1"
+            >
+              全画面で見る →
+            </a>
+          ) : (
+            <span className="font-mono text-[13px] text-zinc-400 tabular-nums">{clock}</span>
+          )}
         </div>
       </div>
 
       {/* カウンタ */}
-      <div className="relative grid grid-cols-2 sm:grid-cols-5 gap-3 mt-5">
+      <div
+        className={`relative grid gap-3 ${compact ? "grid-cols-5 mt-4" : "grid-cols-2 sm:grid-cols-5 mt-5"}`}
+      >
         {tiles.map((s) => (
           <div
             key={s.l}
-            className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 backdrop-blur-sm"
+            className={`rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ${compact ? "px-2.5 py-2" : "px-4 py-3"}`}
           >
             <div className="flex items-baseline gap-1.5">
               <span
-                className={`text-2xl font-bold tabular-nums ${s.hot && s.n > 0 ? "text-emerald-300" : "text-white"}`}
+                className={`${compact ? "text-lg" : "text-2xl"} font-bold tabular-nums ${s.hot && s.n > 0 ? "text-emerald-300" : "text-white"}`}
               >
                 {s.n}
               </span>
               <span className="text-[10px] text-zinc-500">今日</span>
             </div>
-            <div className="text-[11px] text-zinc-400 mt-0.5">{s.l}</div>
-            <div className="text-[10px] text-zinc-600 tabular-nums">7日間 {s.wn}</div>
+            <div className={`${compact ? "text-[10px]" : "text-[11px]"} text-zinc-400 mt-0.5 truncate`}>{s.l}</div>
+            {!compact && <div className="text-[10px] text-zinc-600 tabular-nums">7日間 {s.wn}</div>}
           </div>
         ))}
       </div>
 
       {/* 地図 + フィード */}
-      <div className="relative grid lg:grid-cols-[minmax(320px,46%)_1fr] gap-5 mt-5 items-start">
+      <div
+        className={`relative grid gap-5 items-start ${compact ? "sm:grid-cols-[minmax(220px,36%)_1fr] mt-4" : "lg:grid-cols-[minmax(320px,46%)_1fr] mt-5"}`}
+      >
         {/* 日本地図（ドット） */}
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
           <svg viewBox="0 0 400 400" className="w-full h-auto" role="img" aria-label="全国の稼働マップ">
@@ -230,7 +245,7 @@ export function LiveBoard() {
                 );
               })}
           </svg>
-          <div className="flex items-center gap-4 px-2 pb-1 text-[10px] text-zinc-500">
+          <div className={`${compact ? "hidden" : "flex"} items-center gap-4 px-2 pb-1 text-[10px] text-zinc-500`}>
             <span className="flex items-center gap-1.5">
               <i className="inline-block w-2 h-2 rounded-full bg-sky-300" />24時間以内
             </span>
@@ -248,7 +263,7 @@ export function LiveBoard() {
           <div className="px-4 py-2.5 border-b border-white/[0.06] text-[11px] tracking-[0.15em] text-zinc-500">
             ACTIVITY FEED
           </div>
-          <div className="max-h-[560px] overflow-y-auto divide-y divide-white/[0.04]">
+          <div className={`${compact ? "max-h-[300px]" : "max-h-[560px]"} overflow-y-auto divide-y divide-white/[0.04]`}>
             {!feed && (
               <div className="px-4 py-8 text-center text-[12px] text-zinc-500">読み込み中…</div>
             )}
@@ -257,7 +272,7 @@ export function LiveBoard() {
                 直近90日の動きがまだありません
               </div>
             )}
-            {feed?.events.map((e, i) => {
+            {(compact ? feed?.events.slice(0, 14) : feed?.events)?.map((e, i) => {
               const meta = KIND_META[e.kind] ?? KIND_META.log;
               const fresh = Date.now() - Date.parse(e.at) < DAY;
               return (
@@ -287,9 +302,11 @@ export function LiveBoard() {
         </div>
       </div>
 
-      <p className="relative mt-4 text-[10.5px] text-zinc-600">
-        商談・送付台帳・週次共有などから自動生成（20秒ごと更新）。金額は表示されません。
-      </p>
+      {!compact && (
+        <p className="relative mt-4 text-[10.5px] text-zinc-600">
+          商談・送付台帳・週次共有などから自動生成（20秒ごと更新）。金額は表示されません。
+        </p>
+      )}
     </div>
   );
 }
