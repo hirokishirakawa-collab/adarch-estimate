@@ -60,6 +60,8 @@ import {
   Gavel,
   Cake,
   Workflow,
+  Waypoints,
+  Radio,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -324,6 +326,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/sales-insights",
         label: "営業分析レポート",
         icon: Activity,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/live",
+        label: "グループライブ",
+        icon: Radio,
         minRole: "USER",
       },
       {
@@ -686,6 +694,7 @@ const PROPOSE_TAB_ITEMS: NavItem[] = [
       { href: "/dashboard/omochannel-simulator", label: "おもチャンネル", icon: Tv2, minRole: "USER" },
     ],
   },
+  { href: "/dashboard/live", label: "グループライブ", icon: Radio, minRole: "USER" },
   { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
   { href: "/dashboard/playbook", label: "営業プレイブック", icon: BookOpen, minRole: "USER" },
   { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
