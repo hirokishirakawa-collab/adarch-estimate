@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ExcludeLeadButton } from "@/components/anniversary/exclude-lead-button";
 
@@ -74,6 +75,7 @@ function downloadCsv(rows: AnniversaryRow[]) {
 }
 
 export function AnniversaryList({ rows }: { rows: AnniversaryRow[] }) {
+  const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const allIds = useMemo(() => rows.map((r) => r.id), [rows]);
   const allChecked = rows.length > 0 && allIds.every((id) => selected.has(id));
@@ -122,6 +124,38 @@ export function AnniversaryList({ rows }: { rows: AnniversaryRow[] }) {
               選択を解除
             </button>
           )}
+          {/* 営業フォームへ（選択した会社をアウトリーチに投入） */}
+          <button
+            type="button"
+            onClick={() =>
+              router.push(`/dashboard/leads/outreach?ids=${Array.from(selected).join(",")}`)
+            }
+            disabled={count === 0}
+            className="rounded-lg bg-[#1F3A5F] px-4 py-1.5 text-xs font-bold text-white hover:bg-[#16304f] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            営業フォームへ{count > 0 ? `（${count}件）` : ""}
+          </button>
+          {/* メール送付（メールアドレスがある選択リードだけをアウトリーチに投入） */}
+          {(() => {
+            const emailIds = rows.filter((r) => selected.has(r.id) && r.email).map((r) => r.id);
+            return (
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(`/dashboard/leads/outreach?ids=${emailIds.join(",")}`)
+                }
+                disabled={emailIds.length === 0}
+                title={
+                  emailIds.length === 0
+                    ? "選択中にメールアドレスのある会社がありません"
+                    : "メールアドレスのある会社をアウトリーチ画面に送ります。件名・本文入りのメール下書きをそのまま開けます"
+                }
+                className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                メール送付へ{emailIds.length > 0 ? `（${emailIds.length}件）` : ""}
+              </button>
+            );
+          })()}
           <button
             type="button"
             onClick={exportSelected}

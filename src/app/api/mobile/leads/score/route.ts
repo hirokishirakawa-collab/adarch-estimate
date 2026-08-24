@@ -106,7 +106,7 @@ Scoring criteria (100 points total):
 1. Industry match (25pts): How well the business matches the target industry
 2. Activity level (15pts): Business activity based on reviews/ratings
 3. Scale (15pts): Business size, multi-location, hiring pages
-4. Competitive advantage (15pts): Whether Ad Arch strengths (video production, OOH ads) apply
+4. Competitive advantage (15pts): Whether Ad Arch strengths apply — primarily ad media agency rights (TVer, cinema, taxi ads) and video production. Local BtoC businesses with a trade area (restaurants, beauty, retail, housing, clinics, etc.) score high for area-targeted media proposals (e.g., TVer city-level coverage)
 5. Accessibility (10pts): Phone availability, operational status
 6. Digital presence (20pts): Opportunity for digital marketing proposals (low digital = high opportunity)
 
