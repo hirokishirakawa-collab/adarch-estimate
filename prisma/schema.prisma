@@ -417,6 +417,7 @@ model User {
   salesActivities SalesActivity[] @relation("SalesActivities")
   proposals       Proposal[]      @relation("Proposals")
   salesApproaches SalesApproach[] @relation("SalesApproachAuthor")
+  groupMoves      GroupMove[]     @relation("GroupMoveAuthor")
 
   // ---- ヘルプチャットボット ----
   chatbotConversations ChatbotConversation[] @relation("ChatbotConversations")
@@ -1764,6 +1765,7 @@ model GroupCompany {
   applications         ProjectApplication[]           @relation("Applications")
   salesInsights        SalesInsight[]
   salesApproaches      SalesApproach[]
+  groupMoves           GroupMove[]                    @relation("GroupMoves")
 
   // ---- 稼働ステータス管理 ----
   partnerStatuses   PartnerStatus[]    @relation("PartnerStatuses")
@@ -4073,4 +4075,58 @@ model LpView {
   @@index([event])
   @@index([visitorId])
   @@map("lp_views")
+}
+
+// ==============================================================
+// GroupMove（グループの動き）
+// ==============================================================
+
+/// 「今どの業界に、どうやって当たっていて、どこまで進んでいるか」の1件。
+/// ボードは商談（Deal）から自動で組み立てるのが主で、この表は
+/// 商談に載らない動き（紹介・飛び込み・既存客への提案など）を
+/// 拠点が自分で1件足すための軽い受け皿。入力は 業界／方法／段階／一言 の4つだけ。
+/// 金額は持たない（持たなければ書けない＝予算が混ざる事故が構造的に起きない）。
+model GroupMove {
+  id             String       @id @default(cuid())
+  groupCompanyId String
+  groupCompany   GroupCompany @relation("GroupMoves", fields: [groupCompanyId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User         @relation("GroupMoveAuthor", fields: [authorId], references: [id])
+
+  industry String // 業種（sales-approach の INDUSTRY_OPTIONS と同じ語を使う）
+  method   GroupMoveMethod // 当たり方
+  stage    GroupMoveStage  @default(APPROACHING) // 今どこまで進んだか
+  note     String? // 一言（120字まで。顧客名を書かせない前提の短さ）
+
+  // 段階を動かした最後の時刻。「更新◯日前」と、止まっているカードを薄くするのに使う。
+  movedAt   DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupCompanyId])
+  @@index([movedAt(sort: Desc)])
+  @@index([industry])
+  @@map("group_moves")
+}
+
+/// 動きの段階。商談（DealStatus）もこの6段階に寄せて同じ物差しで並べる。
+enum GroupMoveStage {
+  APPROACHING // 当たってる
+  REPLIED // 反応あり
+  MEETING // 打合せ
+  PROPOSAL // 提案中
+  WON // 受注
+  LOST // 見送り
+}
+
+/// 当たり方。SalesApproach の送信方法に、商談で多い「紹介」「既存客」を足したもの。
+enum GroupMoveMethod {
+  FORM // 問い合わせフォーム
+  EMAIL // メール
+  DM // DM（SNS等）
+  PHONE // 電話
+  VISIT // 訪問・飛び込み
+  REFERRAL // 紹介
+  EXISTING // 既存客
+  OTHER // その他
 }
