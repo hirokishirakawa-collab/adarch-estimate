@@ -137,11 +137,11 @@ export default async function GroupCompanyDetailPage({
               {company.weeklySubmissions.map((sub) => {
                 const sl = STATUS_LIGHT[sub.status];
                 const sc = STATUS_CONFIG[sub.status];
-                return (
-                  <div
-                    key={sub.id}
-                    className="flex items-center gap-2 text-xs"
-                  >
+                const hasWriting = [sub.q2, sub.q3, sub.q4].some(
+                  (v) => v.trim() !== ""
+                );
+                const row = (
+                  <>
                     <span className="text-zinc-400 w-16 flex-shrink-0">
                       {sub.weekId}
                     </span>
@@ -153,7 +153,44 @@ export default async function GroupCompanyDetailPage({
                     <span className="text-zinc-600 truncate">
                       {sub.q1}
                     </span>
-                  </div>
+                  </>
+                );
+                if (!hasWriting) {
+                  return (
+                    <div
+                      key={sub.id}
+                      className="flex items-center gap-2 text-xs"
+                    >
+                      {row}
+                    </div>
+                  );
+                }
+                return (
+                  <details key={sub.id} className="group text-xs">
+                    <summary className="flex items-center gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                      {row}
+                      <span className="ml-auto flex-shrink-0 text-zinc-400 group-open:hidden">
+                        ✏️ 開く
+                      </span>
+                      <span className="ml-auto flex-shrink-0 text-zinc-400 hidden group-open:inline">
+                        閉じる
+                      </span>
+                    </summary>
+                    <div className="mt-1.5 mb-2 ml-2 pl-3 border-l-2 border-zinc-200 space-y-1.5">
+                      {sub.q2.trim() !== "" && (
+                        <Field label="先週やったこと" value={sub.q2} />
+                      )}
+                      {sub.q3.trim() !== "" && (
+                        <Field label="来週やること" value={sub.q3} />
+                      )}
+                      {sub.q4.trim() !== "" && (
+                        <Field label="共有・相談" value={sub.q4} />
+                      )}
+                      {sub.q5.trim() !== "" && (
+                        <Field label="サポート" value={sub.q5} />
+                      )}
+                    </div>
+                  </details>
                 );
               })}
             </div>
