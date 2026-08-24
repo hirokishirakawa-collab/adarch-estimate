@@ -335,6 +335,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/group-moves",
+        label: "グループの動き",
+        icon: Waypoints,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/sales-approaches",
         label: "アプローチ事例集",
         icon: Send,
@@ -695,6 +701,7 @@ const PROPOSE_TAB_ITEMS: NavItem[] = [
     ],
   },
   { href: "/dashboard/live", label: "グループライブ", icon: Radio, minRole: "USER" },
+  { href: "/dashboard/group-moves", label: "グループの動き", icon: Waypoints, minRole: "USER" },
   { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
   { href: "/dashboard/playbook", label: "営業プレイブック", icon: BookOpen, minRole: "USER" },
   { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
