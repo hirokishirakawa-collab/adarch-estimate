@@ -77,7 +77,11 @@ export async function SalesBoost({ userEmail }: { userEmail: string }) {
       ? db.lead.count({ where: { prefecture: { contains: base }, signalAt: { gte: weekAgo } } })
       : Promise.resolve(0),
     db.salesApproach.findMany({
-      where: { result: { in: ["DEAL", "REPLIED_OK"] } },
+      // 直近90日のみ。古い実績を「最新」のように見せない
+      where: {
+        result: { in: ["DEAL", "REPLIED_OK"] },
+        createdAt: { gte: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) },
+      },
       orderBy: { createdAt: "desc" },
       take: 8,
       select: {
@@ -105,7 +109,6 @@ export async function SalesBoost({ userEmail }: { userEmail: string }) {
       ]
     : [];
 
-  if (targets.length === 0 && wins.length === 0) return null;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -138,16 +141,30 @@ export async function SalesBoost({ userEmail }: { userEmail: string }) {
         </div>
       )}
 
-      {/* ── グループの受注・反応（匿名フィード） */}
-      {wins.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 px-5 py-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Trophy className="w-4 h-4 text-white" />
-            </div>
-            <p className="text-sm font-bold text-zinc-800">グループの受注・反応</p>
-            <span className="text-[10px] text-zinc-400">匿名・直近</span>
+      {/* ── グループの受注・反応（匿名フィード・直近90日） */}
+      <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 px-5 py-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Trophy className="w-4 h-4 text-white" />
           </div>
+          <p className="text-sm font-bold text-zinc-800">グループの受注・反応</p>
+          <span className="text-[10px] text-zinc-400">匿名・直近90日</span>
+        </div>
+        {wins.length === 0 ? (
+          <div className="bg-white/70 rounded-lg px-4 py-4 border border-amber-100 text-center">
+            <p className="text-xs text-zinc-600">
+              直近90日の受注・前向き返信はまだ登録されていません。
+            </p>
+            <p className="text-[11px] text-zinc-500 mt-1.5">
+              送った先から返事が来たら
+              <Link href="/dashboard/leads/awaiting" className="font-bold text-amber-700 underline mx-0.5">
+                返事待ち一覧
+              </Link>
+              の結果ボタンを1クリック — それだけでここに流れ、グループ全体の営業の精度が上がります
+            </p>
+          </div>
+        ) : (
+          <>
           <div className="space-y-1.5">
             {wins.map((w, i) => (
               <div
@@ -180,8 +197,9 @@ export async function SalesBoost({ userEmail }: { userEmail: string }) {
             </Link>
             へ
           </p>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
