@@ -165,9 +165,9 @@ ${freeTextSection}
   const client = new Anthropic({ apiKey });
 
   const stream = await client.messages.stream({
-    model: "claude-sonnet-4-6",
+    model: "claude-sonnet-5",
+    thinking: { type: "adaptive" },
     max_tokens: 8000,
-    thinking: { type: "enabled", budget_tokens: 5000 },
     system: [
       { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
     ],

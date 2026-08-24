@@ -107,7 +107,8 @@ ${placeSummary}
   try {
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-5",
+      thinking: { type: "disabled" },
       max_tokens: 8192,
       system: [
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },

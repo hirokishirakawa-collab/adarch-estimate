@@ -119,7 +119,8 @@ ${pairs.length}組のフレームペアを比較してください。回答は�
 
   try {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-5",
+      thinking: { type: "disabled" },
       max_tokens: 2000,
       messages: [{ role: "user", content }],
     });

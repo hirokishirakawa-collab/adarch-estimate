@@ -80,7 +80,8 @@ ${folderTree}
 - 回答の最後に「関連実績ファイル」として、該当するファイル名を箇条書きでリストしてください（完全一致のファイル名で）`;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+    model: "claude-sonnet-5",
+    thinking: { type: "disabled" },
     max_tokens: 1500,
     messages: [{ role: "user", content: query }],
     system: systemPrompt,

@@ -11,7 +11,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { TenderFit, TenderWorkType } from "@/generated/prisma/client";
 
-const MODEL = "claude-sonnet-4-6";
+const MODEL = "claude-sonnet-5";
 
 /** 1回のAPI呼び出しで判定する件数 */
 const BATCH_SIZE = 8;
@@ -135,6 +135,7 @@ async function classifyBatch(
 ): Promise<ClassifyResult[]> {
   const response = await client.messages.create({
     model: MODEL,
+    thinking: { type: "disabled" as const },
     max_tokens: 4096,
     system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: buildUserMessage(items) }],
