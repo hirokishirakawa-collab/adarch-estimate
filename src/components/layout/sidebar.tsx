@@ -124,6 +124,12 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-blue-500/80",
     items: [
       {
+        href: "/dashboard/live",
+        label: "GROUP LIVE（みんなの動き）",
+        icon: Radio,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/customers",
         label: "顧客管理（起点）",
         icon: Users,
