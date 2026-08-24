@@ -46,24 +46,31 @@ function regionLabel(prefecture: string | null): string | null {
 export async function SalesBoost({ userEmail }: { userEmail: string }) {
   const user = await db.user.findUnique({
     where: { email: userEmail },
-    select: { groupCompany: { select: { prefecture: true } } },
+    select: { role: true, groupCompany: { select: { prefecture: true } } },
   });
-  const pref = user?.groupCompany?.prefecture ?? null;
+  // 本部(ADMIN)は特定の県ではなく全国合計で見る
+  const isAdmin = user?.role === "ADMIN";
+  const pref = !isAdmin ? (user?.groupCompany?.prefecture ?? null) : null;
   const base = pref ? prefBase(pref) : null;
 
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+  // 対象範囲: 加盟店=自分の県 / 本部(ADMIN)=全国
+  const scoped = isAdmin || base !== null;
+  const prefFilter = base ? { prefecture: { contains: base } } : {};
+  const tenderPrefFilter = base ? { prefectureName: { contains: base } } : {};
+
   const [foundedLeads, tenderCount, subsidyCount, signalCount, wins] = await Promise.all([
-    base
+    scoped
       ? db.lead.findMany({
-          where: { prefecture: { contains: base }, foundedYear: { not: null } },
+          where: { ...prefFilter, foundedYear: { not: null } },
           select: { foundedYear: true, foundedMonth: true },
         })
       : Promise.resolve([]),
-    base
+    scoped
       ? db.tender.count({
-          where: { fit: "MATCH", prefectureName: { contains: base }, expiresAt: { gte: now } },
+          where: { fit: "MATCH", ...tenderPrefFilter, expiresAt: { gte: now } },
         })
       : Promise.resolve(0),
     db.subsidy.count({
@@ -73,8 +80,8 @@ export async function SalesBoost({ userEmail }: { userEmail: string }) {
         ...(pref ? { targetAreas: { hasSome: [pref, "全国"] } } : {}),
       },
     }),
-    base
-      ? db.lead.count({ where: { prefecture: { contains: base }, signalAt: { gte: weekAgo } } })
+    scoped
+      ? db.lead.count({ where: { ...prefFilter, signalAt: { gte: weekAgo } } })
       : Promise.resolve(0),
     db.salesApproach.findMany({
       // 直近90日のみ。古い実績を「最新」のように見せない
@@ -100,7 +107,7 @@ export async function SalesBoost({ userEmail }: { userEmail: string }) {
     return a !== null && a.monthsAway <= 3;
   }).length;
 
-  const targets = base
+  const targets = scoped
     ? [
         { label: "3ヶ月以内に周年", count: annivCount, href: "/dashboard/anniversary-finder", hint: "節目の年は「地元で目立つ」が刺さります" },
         { label: "入札（○判定・受付中）", count: tenderCount, href: "/dashboard/tender-finder", hint: "広告・映像・印刷の公的案件" },
@@ -119,7 +126,7 @@ export async function SalesBoost({ userEmail }: { userEmail: string }) {
             <div className="w-7 h-7 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center flex-shrink-0">
               <Target className="w-4 h-4 text-white" />
             </div>
-            <p className="text-sm font-bold text-zinc-800">今週の当たり先（{pref}）</p>
+            <p className="text-sm font-bold text-zinc-800">今週の当たり先（{isAdmin ? "全国" : pref}）</p>
           </div>
           <div className="space-y-1.5">
             {targets.map((t) => (
