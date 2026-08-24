@@ -896,8 +896,8 @@ export async function sendCreatorRegistrationNotifyEmail(payload: {
 // LP（adarch.co.jp/intro/, partner.html）からの inquiry_type=partnership に対して即時返信する。
 // 広告経由の請求は深夜・休日にも入るため、人手を待たずに資料を届けるのが目的。
 // ---------------------------------------------------------------
-const DOC_PDF_URL = "https://adarch.co.jp/intro/AdArch-overview.pdf";
-const BOOKING_URL = "https://timerex.net/s/AdArch/b42bc7ae";
+// 資料PDF・予約リンクは計測リダイレクト経由（クリックを加盟リードに記録 → /api/track/partnership）
+import { partnershipTrackedUrl } from "@/lib/partnership-track";
 
 export async function sendPartnershipAutoReply(params: {
   name: string;
@@ -945,7 +945,7 @@ export async function sendPartnershipAutoReply(params: {
             </p>
 
             <p style="margin:0 0 24px;text-align:center;">
-              ${linkBtn(DOC_PDF_URL, "▶ 資料を見る（PDF）", true)}
+              ${linkBtn(partnershipTrackedUrl("doc", email), "▶ 資料を見る（PDF）", true)}
             </p>
 
             <p style="margin:0 0 24px;">
@@ -962,7 +962,7 @@ export async function sendPartnershipAutoReply(params: {
                 ご都合のよい日時をお選びください。
               </p>
               <p style="margin:0 0 18px;text-align:center;">
-                ${linkBtn(BOOKING_URL, "▶ 日程を選ぶ", false)}
+                ${linkBtn(partnershipTrackedUrl("booking", email), "▶ 日程を選ぶ", false)}
               </p>
             </div>
 

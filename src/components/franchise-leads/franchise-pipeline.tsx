@@ -42,6 +42,11 @@ export interface FranchiseLeadData {
   source: string;
   revenueRange: string | null;
   slaAlertStage: string | null;
+  // 資料請求後の行動計測（自動返信メールのリンククリック）
+  docViewedAt: string | null;
+  docViewCount: number;
+  bookingClickedAt: string | null;
+  bookingClickCount: number;
   createdAt: string;
   updatedAt: string;
 }

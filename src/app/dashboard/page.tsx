@@ -9,6 +9,7 @@ import { getActivityKpi } from "@/lib/kpis/activity";
 import { MySalesPanel } from "@/components/dashboard/my-sales-panel";
 import { AnniversaryCard } from "@/components/dashboard/anniversary-card";
 import { GroupThreadCard } from "@/components/dashboard/group-thread-card";
+import { SalesBoost } from "@/components/dashboard/sales-boost";
 import { getMyGroupThread } from "@/lib/actions/group-support";
 import {
   Users,
@@ -655,6 +656,9 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* ── 今週の当たり先＋グループの受注・反応（匿名） ── */}
+      {session?.user?.email && <SalesBoost userEmail={session.user.email} />}
+
       {/* ── 実績フォルダ 更新情報 ── */}
       <div className="rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 overflow-hidden ring-1 ring-amber-200/50">
         <div className="px-6 py-4 flex items-center justify-between">
@@ -722,6 +726,12 @@ export default async function DashboardPage() {
         </div>
         <div className="space-y-2.5">
           {[
+            {
+              date: "2026.08.24",
+              title: "「今週の当たり先」とグループの受注フィード",
+              desc: "ダッシュボードに、あなたの県の周年・入札・補助金・シグナル新着の件数がまとまって出ます。あわせてグループ全体の受注・前向き返信が匿名で流れます。新機能の使い方はWikiに5本追加（アーチくんに聞いてもOK）",
+              tag: "NEW",
+            },
             {
               date: "2026.08.24",
               title: "リード管理から「メール送付」へ直行できるように",

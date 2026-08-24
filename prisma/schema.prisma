@@ -3655,6 +3655,12 @@ model FranchiseLead {
   slaAlertStage  String?
   slaLastAlertAt DateTime?
 
+  // 資料請求後の行動計測（自動返信メール内リンクのクリックを /api/track/partnership が記録）
+  docViewedAt       DateTime? // 資料PDFリンクの初回クリック
+  docViewCount      Int       @default(0)
+  bookingClickedAt  DateTime? // 予約リンクの初回クリック
+  bookingClickCount Int       @default(0)
+
   // 担当者（誰が拾ったリードか）。null = 本部（既存リード含む）。
   // 非ADMINは自分が担当のリードのみ閲覧・編集可。emailで識別（session.user.id 非提供のため）。
   ownerEmail String?

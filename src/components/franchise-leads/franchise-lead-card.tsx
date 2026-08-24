@@ -179,6 +179,27 @@ export function FranchiseLeadCard({
             <p className="text-[10px] text-emerald-600 truncate mt-0.5">
               担当: {lead.ownerName || lead.ownerEmail || "本部"}
             </p>
+            {/* 資料請求後の行動計測（自動返信メールのリンククリック） */}
+            {(lead.docViewedAt || lead.bookingClickedAt) && (
+              <div className="flex flex-wrap items-center gap-1 mt-1">
+                {lead.docViewedAt && (
+                  <span
+                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-700"
+                    title={`初回: ${new Date(lead.docViewedAt).toLocaleString("ja-JP")}`}
+                  >
+                    📄 資料を閲覧{lead.docViewCount > 1 ? `（${lead.docViewCount}回）` : ""}
+                  </span>
+                )}
+                {lead.bookingClickedAt && (
+                  <span
+                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700"
+                    title={`初回: ${new Date(lead.bookingClickedAt).toLocaleString("ja-JP")}`}
+                  >
+                    📅 予約リンクを開いた{lead.bookingClickCount > 1 ? `（${lead.bookingClickCount}回）` : ""}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {priorityBadge && (
