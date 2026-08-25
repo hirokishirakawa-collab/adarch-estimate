@@ -40,7 +40,7 @@ import {
   Upload,
   Download,
   ListChecks,
-} from "lucide-react";
+ MessageCircle } from "lucide-react";
 
 // ----------------------------------------------------------------
 // ページ本体
@@ -225,6 +225,23 @@ export default async function DashboardPage() {
       {/* ── グループライブ（コンパクト版・全画面は /dashboard/live） ── */}
       {session?.user?.email !== "demo@adarch.co.jp" && session?.user?.isActive !== false && (
         <LiveBoard compact />
+      )}
+
+      {/* ── LINE公式アカウント（MANAGER以上） ── */}
+      {role !== "USER" && (
+        <Link
+          href="/dashboard/line"
+          className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-white px-5 py-3.5 transition group hover:border-emerald-300 hover:shadow-sm"
+        >
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+            <MessageCircle className="w-[18px] h-[18px] text-emerald-700" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-zinc-800">LINE公式アカウント</p>
+            <p className="text-xs text-zinc-500 mt-0.5">友だち・チャット・ステップ配信・一斉配信・セミナー枠（QR）</p>
+          </div>
+          <span className="text-xs text-emerald-700 font-medium">開く →</span>
+        </Link>
       )}
 
       {/* ── あなたの営業数値（本人のみ・営業フローへ誘導） ── */}

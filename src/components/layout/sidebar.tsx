@@ -117,6 +117,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: ListChecks,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/line",
+        label: "LINE公式アカウント",
+        icon: MessageCircle,
+        minRole: "MANAGER",
+      },
     ],
   },
   {
