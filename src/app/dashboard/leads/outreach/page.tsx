@@ -201,11 +201,11 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h2 className="text-lg font-bold text-zinc-900">営業フォーム（OS連携）</h2>
-              <FavoriteButton path="/dashboard/leads/outreach" label="営業フォーム" />
+              <h2 className="text-lg font-bold text-zinc-900">アウトリーチ／営業フォーム（OS連携）</h2>
+              <FavoriteButton path="/dashboard/leads/outreach" label="アウトリーチ／営業フォーム" />
             </div>
             <p className="text-xs text-zinc-500 mt-0.5">
-              訴求を選ぶと営業文が自動生成。送付済みにするとOSへ自動反映されます。
+              訴求を選ぶと営業文が自動生成。メールアドレスがある会社は各カードの「メールで送る↗」から下書きが開きます。送付済みにするとOSへ自動反映されます。
             </p>
           </div>
         </div>

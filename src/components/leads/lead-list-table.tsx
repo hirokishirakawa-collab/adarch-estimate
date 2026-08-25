@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ExternalLink, Phone, Mail, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText, Film, Globe, PenLine } from "lucide-react";
+import { ExternalLink, Phone, Mail, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText, Film, Globe, PenLine, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel, getLeadSourceOption } from "@/lib/constants/leads";
 import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads, bulkUpdateLeadStatus, bulkAssignLeads } from "@/lib/actions/lead";
@@ -279,8 +279,17 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
       </div>
 
       {/* 選択操作バー */}
-      {canSelect && selectedIds.size > 0 && (
-        <div className="flex items-center justify-between px-4 py-2 bg-blue-50 border-b border-blue-100">
+      {canSelect && selectedIds.size > 0 && (() => {
+        // アウトリーチ（メール送付）はメールアドレスがある会社しか対象にできない。
+        // 未取得が混ざっていたら黙って落とさず、選択バーの下に警告を出す。
+        const selectedLeads = leads.filter((l) => selectedIds.has(l.id));
+        const emailIds = selectedLeads.filter((l) => l.email).map((l) => l.id);
+        const missingLeads = selectedLeads.filter((l) => !l.email);
+        const notCheckedCount = missingLeads.filter((l) => !l.emailCheckedAt).length;
+        const checkedNoneCount = missingLeads.length - notCheckedCount;
+        return (
+        <div className="bg-blue-50 border-b border-blue-100">
+        <div className="flex items-center justify-between px-4 py-2">
           <p className="text-sm font-medium text-blue-700">
             {selectedIds.size}件選択中
             <button
@@ -364,28 +373,21 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
             </button>
 
             {/* メール送付（メールアドレス取得済みの選択リードだけをアウトリーチに投入） */}
-            {(() => {
-              const emailIds = leads
-                .filter((l) => selectedIds.has(l.id) && l.email)
-                .map((l) => l.id);
-              return (
-                <button
-                  onClick={() =>
-                    router.push(`/dashboard/leads/outreach?ids=${emailIds.join(",")}`)
-                  }
-                  disabled={emailIds.length === 0}
-                  title={
-                    emailIds.length === 0
-                      ? "選択中にメールアドレス取得済みの会社がありません。先に「メールを取得」を押してください"
-                      : "メールアドレス取得済みの会社をアウトリーチ画面に送ります。件名・本文入りのメール下書きをそのまま開けます"
-                  }
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  メール送付：アウトリーチへ（{emailIds.length}件）
-                </button>
-              );
-            })()}
+            <button
+              onClick={() =>
+                router.push(`/dashboard/leads/outreach?ids=${emailIds.join(",")}`)
+              }
+              disabled={emailIds.length === 0}
+              title={
+                emailIds.length === 0
+                  ? "選択中にメールアドレス取得済みの会社がありません。先に「メールを取得」を押してください"
+                  : "メールアドレス取得済みの会社をアウトリーチ画面に送ります。件名・本文入りのメール下書きをそのまま開けます"
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              メール送付：アウトリーチへ（{emailIds.length}件）
+            </button>
 
             {/* エクスポート */}
             <button
@@ -424,7 +426,38 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
             )}
           </div>
         </div>
-      )}
+
+        {/* アウトリーチ前の警告（メールアドレスが無い会社が選択に含まれるときだけ出す） */}
+        {missingLeads.length > 0 && (
+          <div className="px-4 pb-2">
+            <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-900 leading-relaxed">
+                {emailIds.length === 0 ? (
+                  <p className="font-bold">
+                    選択した{selectedLeads.length}件はすべてメールアドレスが未取得です。このままではアウトリーチ（メール送付）に進めません。
+                  </p>
+                ) : (
+                  <p className="font-bold">
+                    選択{selectedLeads.length}件のうち{missingLeads.length}件はメールアドレスが未取得です。このままアウトリーチへ進むと、メールがある{emailIds.length}件だけが対象になります。
+                  </p>
+                )}
+                <p className="mt-1">
+                  先に「メールを取得」を押し、取得が終わったあと各行のメール欄にアドレスが入っているかご確認ください。
+                  {checkedNoneCount > 0 && (
+                    <>
+                      {" "}
+                      未取得{missingLeads.length}件の内訳は、未取得{notCheckedCount}件／取得済みだがサイトに記載なし{checkedNoneCount}件です（記載なしの会社はフォームまたは電話でのご連絡になります）。
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        </div>
+        );
+      })()}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
