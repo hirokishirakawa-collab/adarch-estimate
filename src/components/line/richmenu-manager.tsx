@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, LayoutGrid } from "lucide-react";
-import { saveLineRichMenu, deleteLineRichMenu, reapplyLineRichMenus, publishLineRichMenu } from "@/lib/actions/line";
+import { Loader2, Plus, LayoutGrid, ImagePlus } from "lucide-react";
+import { saveLineRichMenu, deleteLineRichMenu, reapplyLineRichMenus, publishLineRichMenu, seedSampleRichMenu } from "@/lib/actions/line";
 
 const inputCls =
   "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white text-zinc-900 " +
@@ -38,7 +38,20 @@ function MenuForm({ accountId, layouts, initial, tagNames, onClose }: { accountI
   });
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  function onPick(f: File | null) {
+    if (!f) {
+      setPreview(null);
+      setFileName(null);
+      return;
+    }
+    setFileName(`${f.name}（${Math.round(f.size / 1024)}KB）`);
+    const url = URL.createObjectURL(f);
+    setPreview(url);
+  }
 
   function upd(i: number, patch: Partial<Area>) {
     setAreas((p) => p.map((a, j) => (j === i ? { ...a, ...patch } : a)));
@@ -98,7 +111,10 @@ function MenuForm({ accountId, layouts, initial, tagNames, onClose }: { accountI
         <div className="space-y-2">
           <p className="text-[11px] font-bold text-zinc-500">画像</p>
           <div className="border border-dashed border-zinc-300 rounded-lg overflow-hidden bg-zinc-50" style={{ aspectRatio: `${L.width} / ${L.height}` }}>
-            {initial?.hasImage ? (
+            {preview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={preview} alt="" className="w-full h-full object-cover" />
+            ) : initial?.hasImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={`/api/line/richmenu-image/${initial.id}`} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -109,8 +125,13 @@ function MenuForm({ accountId, layouts, initial, tagNames, onClose }: { accountI
               </div>
             )}
           </div>
-          <input type="file" name="image" accept="image/png,image/jpeg" className="text-xs" />
-          <p className="text-[11px] text-zinc-400">{L.width}×{L.height}px・PNG/JPEG・1MB以下。{initial?.hasImage ? "変えるときだけ選択。" : "画像を付けるとLINEへ登録されます。"}</p>
+          <label className="flex items-center justify-center gap-1.5 w-full px-3 py-2 bg-zinc-800 text-white text-xs font-bold rounded-lg cursor-pointer hover:bg-zinc-900">
+            <ImagePlus className="w-3.5 h-3.5" />
+            {initial?.hasImage ? "画像を差し替える" : "画像を選ぶ（PNG / JPEG）"}
+            <input type="file" name="image" accept="image/png,image/jpeg" className="sr-only" onChange={(e) => onPick(e.target.files?.[0] ?? null)} />
+          </label>
+          <p className="text-[11px] text-zinc-600">{fileName ?? (initial?.hasImage ? "現在の画像を使います（変えるときだけ選択）" : "まだ画像が選ばれていません")}</p>
+          <p className="text-[11px] text-zinc-400">サイズ {L.width}×{L.height}px・1MB以下。Canva等で「カスタムサイズ」にこの数値を入れて作れます。</p>
         </div>
       </div>
 
@@ -149,6 +170,14 @@ export function RichMenuManager({ accountId, layouts, menus, tagNames }: { accou
           既定メニュー＝全員に出るもの。「タグで自動切替」を設定すると、そのタグが付いた瞬間にその人だけメニューが変わります（例: 加盟者→会員メニュー）。
         </p>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => startTransition(async () => { const r = await seedSampleRichMenu(accountId); setMsg(r.error ?? (typeof r.message === "string" ? r.message : "完了")); router.refresh(); })}
+            className="px-3 py-1.5 text-xs rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+          >
+            サンプルを投入（画像付き）
+          </button>
           <button
             type="button"
             disabled={isPending}

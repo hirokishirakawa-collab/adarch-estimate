@@ -5,6 +5,8 @@
 // ==============================================================
 
 import { revalidatePath } from "next/cache";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { encryptSecret, decryptSecret } from "@/lib/line/secret";
@@ -1022,4 +1024,46 @@ export async function publishLineRichMenu(accountId: string, id: string): Promis
   }
   revalidatePath(`${BASE}/${accountId}/richmenus`);
   return { ok: true, message: "LINEへ登録しました" };
+}
+
+
+/** サンプルのリッチメニューを投入（本部＝加盟促進用／拠点＝クライアント向け）。画像付き・未登録で作る */
+export async function seedSampleRichMenu(accountId: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const isHq = account.branchId === null;
+  const name = isHq ? "加盟促進（サンプル）" : "クライアント向け（サンプル）";
+  const exists = await db.lineRichMenu.findFirst({ where: { accountId, name } });
+  if (exists) return { error: "すでに投入済みです" };
+  const file = isHq ? "richmenu-sample-hq.jpg" : "richmenu-sample-client.jpg";
+  let imageData: Uint8Array<ArrayBuffer>;
+  try {
+    const buf = await fs.readFile(path.join(process.cwd(), "public", "line", file));
+    imageData = new Uint8Array(buf);
+  } catch {
+    return { error: "サンプル画像が見つかりません" };
+  }
+  const areas = isHq
+    ? [
+        { type: "uri", value: "https://timerex.net/s/AdArch/b42bc7ae", label: "15分相談を予約" },
+        { type: "uri", value: "https://adarch.co.jp/intro/", label: "資料を見る" },
+        { type: "message", value: "質問があります", label: "質問する" },
+      ]
+    : [
+        { type: "message", value: "ご相談・お見積りをお願いします", label: "ご相談・お見積り" },
+        { type: "uri", value: "https://adarch.co.jp/", label: "事例を見る" },
+        { type: "message", value: "担当者に連絡したいです", label: "担当に連絡" },
+      ];
+  const hasDefault = await db.lineRichMenu.findFirst({ where: { accountId, isDefault: true } });
+  await db.lineRichMenu.create({
+    data: { accountId, name, layout: "L3", chatBarText: "メニュー", areas, imageData, imageType: "image/jpeg", isDefault: !hasDefault },
+  });
+  revalidatePath(`${BASE}/${accountId}/richmenus`);
+  return {
+    ok: true,
+    message: isHq
+      ? "投入しました。「LINEへ登録」を押すと全員に表示されます"
+      : "投入しました。「事例を見る」のURLを自社サイトに直してから「LINEへ登録」を押してください",
+  };
 }
