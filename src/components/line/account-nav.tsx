@@ -9,6 +9,7 @@ const TABS = [
   { seg: "/entry-points", label: "セミナー・流入枠" },
   { seg: "/scenarios", label: "ステップ配信" },
   { seg: "/broadcasts", label: "一斉配信" },
+  { seg: "/richmenus", label: "リッチメニュー" },
   { seg: "/settings", label: "設定" },
 ];
 

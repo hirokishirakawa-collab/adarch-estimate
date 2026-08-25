@@ -102,3 +102,65 @@ export async function getQuota(token: string): Promise<{ type: string; value?: n
 export function text(t: string): LineTextMessage {
   return { type: "text", text: t.slice(0, 5000) };
 }
+
+// ---------------------------------------------------------------
+// リッチメニュー
+// ---------------------------------------------------------------
+const API_DATA = "https://api-data.line.me/v2/bot";
+
+export type RichMenuArea = {
+  bounds: { x: number; y: number; width: number; height: number };
+  action: Record<string, unknown>;
+};
+
+export async function createRichMenu(
+  token: string,
+  body: { size: { width: number; height: number }; selected: boolean; name: string; chatBarText: string; areas: RichMenuArea[] },
+): Promise<string> {
+  const r = (await call(token, "/richmenu", { method: "POST", body })) as { richMenuId: string };
+  return r.richMenuId;
+}
+
+export async function uploadRichMenuImage(token: string, richMenuId: string, image: Uint8Array, contentType: string): Promise<void> {
+  const res = await fetch(`${API_DATA}/richmenu/${richMenuId}/content`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+    body: new Blob([image as BlobPart], { type: contentType }),
+  });
+  if (!res.ok) throw new LineApiError(res.status, await res.text());
+}
+
+export async function deleteRichMenu(token: string, richMenuId: string): Promise<void> {
+  try {
+    await call(token, `/richmenu/${richMenuId}`, { method: "DELETE" });
+  } catch (e) {
+    if (e instanceof LineApiError && e.status === 404) return;
+    throw e;
+  }
+}
+
+export async function setDefaultRichMenu(token: string, richMenuId: string): Promise<void> {
+  await call(token, `/user/all/richmenu/${richMenuId}`, { method: "POST" });
+}
+
+export async function clearDefaultRichMenu(token: string): Promise<void> {
+  try {
+    await call(token, "/user/all/richmenu", { method: "DELETE" });
+  } catch (e) {
+    if (e instanceof LineApiError && e.status === 404) return;
+    throw e;
+  }
+}
+
+export async function linkRichMenuToUser(token: string, userId: string, richMenuId: string): Promise<void> {
+  await call(token, `/user/${userId}/richmenu/${richMenuId}`, { method: "POST" });
+}
+
+export async function unlinkRichMenuFromUser(token: string, userId: string): Promise<void> {
+  try {
+    await call(token, `/user/${userId}/richmenu`, { method: "DELETE" });
+  } catch (e) {
+    if (e instanceof LineApiError && e.status === 404) return;
+    throw e;
+  }
+}

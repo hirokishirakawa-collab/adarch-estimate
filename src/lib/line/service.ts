@@ -13,7 +13,10 @@ import {
   multicastMessage,
   text,
   LineApiError,
+  linkRichMenuToUser,
+  unlinkRichMenuFromUser,
   type LineMessageObject,
+  type RichMenuArea,
 } from "@/lib/line/client";
 import type { LineAccount, LineEntryPoint, LineFriend, LineScenarioStep } from "@/generated/prisma/client";
 
@@ -130,6 +133,7 @@ export async function enrollByTags(friend: LineFriend, newTags: string[]): Promi
     select: { id: true },
   });
   for (const s of scenarios) await enrollInScenario(friend, s.id);
+  applyRichMenuRules(friend.id).catch((e) => console.error("[line] richmenu apply failed", e));
 }
 
 // ---------------------------------------------------------------
@@ -747,4 +751,91 @@ export async function submitFormResponse(
   }
   notifyNewInbound(friend.account, friend, `フォーム「${form.title}」に回答`).catch(() => {});
   return { ok: true, thankYou };
+}
+
+// ---------------------------------------------------------------
+// リッチメニュー
+// ---------------------------------------------------------------
+export const RICH_MENU_LAYOUTS: Record<string, { width: number; height: number; cols: number; rows: number; label: string }> = {
+  L6: { width: 2500, height: 1686, cols: 3, rows: 2, label: "大・6分割（3×2）" },
+  L4: { width: 2500, height: 1686, cols: 2, rows: 2, label: "大・4分割（2×2）" },
+  L3: { width: 2500, height: 1686, cols: 3, rows: 1, label: "大・3分割（横並び）" },
+  L2: { width: 2500, height: 1686, cols: 2, rows: 1, label: "大・2分割（横並び）" },
+  L1: { width: 2500, height: 1686, cols: 1, rows: 1, label: "大・1枚" },
+  S3: { width: 2500, height: 843, cols: 3, rows: 1, label: "小・3分割" },
+  S2: { width: 2500, height: 843, cols: 2, rows: 1, label: "小・2分割" },
+  S1: { width: 2500, height: 843, cols: 1, rows: 1, label: "小・1枚" },
+};
+
+export type RichMenuAreaInput = { type: "uri" | "tag" | "message"; value: string; label: string };
+
+export function parseRichMenuAreas(raw: unknown): RichMenuAreaInput[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((a) => {
+    const o = (a ?? {}) as Partial<RichMenuAreaInput>;
+    return {
+      type: (["uri", "tag", "message"].includes(o.type as string) ? o.type : "uri") as RichMenuAreaInput["type"],
+      value: String(o.value ?? ""),
+      label: String(o.label ?? ""),
+    };
+  });
+}
+
+/** レイアウトと各ボタンの設定から LINE の areas を組む */
+export function buildRichMenuAreas(layout: string, inputs: RichMenuAreaInput[]): RichMenuArea[] {
+  const L = RICH_MENU_LAYOUTS[layout];
+  if (!L) throw new Error("unknown layout");
+  const cellW = Math.floor(L.width / L.cols);
+  const cellH = Math.floor(L.height / L.rows);
+  const out: RichMenuArea[] = [];
+  for (let r = 0; r < L.rows; r++) {
+    for (let c = 0; c < L.cols; c++) {
+      const i = r * L.cols + c;
+      const a = inputs[i];
+      if (!a || !a.value) continue;
+      const width = c === L.cols - 1 ? L.width - cellW * c : cellW;
+      const height = r === L.rows - 1 ? L.height - cellH * r : cellH;
+      const label = (a.label || a.value).slice(0, 20);
+      const action =
+        a.type === "uri"
+          ? { type: "uri", label, uri: a.value }
+          : a.type === "tag"
+            ? { type: "postback", label, data: `tag=${encodeURIComponent(a.value)}`, displayText: label }
+            : { type: "message", label, text: a.value.slice(0, 300) };
+      out.push({ bounds: { x: cellW * c, y: cellH * r, width, height }, action });
+    }
+  }
+  return out;
+}
+
+/** タグのルールに従って、その友だちのリッチメニューを切り替える */
+export async function applyRichMenuRules(friendId: string): Promise<void> {
+  const friend = await db.lineFriend.findUnique({ where: { id: friendId }, include: { account: true } });
+  if (!friend || !friend.isFollowing) return;
+  const menus = await db.lineRichMenu.findMany({
+    where: { accountId: friend.accountId, lineRichMenuId: { not: null }, ruleTag: { not: null } },
+    orderBy: { priority: "asc" },
+    select: { id: true, lineRichMenuId: true, ruleTag: true },
+  });
+  const target = menus.find((m) => m.ruleTag && friend.tags.includes(m.ruleTag)) ?? null;
+  if ((target?.id ?? null) === (friend.richMenuId ?? null)) return;
+  const token = tokenOf(friend.account);
+  if (target?.lineRichMenuId) await linkRichMenuToUser(token, friend.lineUserId, target.lineRichMenuId);
+  else await unlinkRichMenuFromUser(token, friend.lineUserId);
+  await db.lineFriend.update({ where: { id: friendId }, data: { richMenuId: target?.id ?? null } });
+}
+
+/** 手動で特定メニューにする（null=既定に戻す） */
+export async function setFriendRichMenu(friendId: string, menuId: string | null): Promise<void> {
+  const friend = await db.lineFriend.findUnique({ where: { id: friendId }, include: { account: true } });
+  if (!friend) return;
+  const token = tokenOf(friend.account);
+  if (menuId) {
+    const menu = await db.lineRichMenu.findFirst({ where: { id: menuId, accountId: friend.accountId } });
+    if (!menu?.lineRichMenuId) throw new Error("このメニューはまだLINEに登録されていません");
+    await linkRichMenuToUser(token, friend.lineUserId, menu.lineRichMenuId);
+  } else {
+    await unlinkRichMenuFromUser(token, friend.lineUserId);
+  }
+  await db.lineFriend.update({ where: { id: friendId }, data: { richMenuId: menuId } });
 }

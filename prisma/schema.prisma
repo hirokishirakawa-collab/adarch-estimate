@@ -4202,6 +4202,7 @@ model LineAccount {
   keywordRules  LineKeywordRule[]
   links         LineLink[]
   forms         LineForm[]
+  richMenus     LineRichMenu[]
 
   @@index([branchId])
   @@map("line_accounts")
@@ -4232,6 +4233,7 @@ model LineFriend {
   leadId     String? // 加盟リードとの紐付け（任意）
   mutedAt    DateTime? // ミュート中＝ステップ配信・一斉配信を送らず、新着通知も出さない
   token      String?   @unique // 相手ごとのURL用トークン（クリック計測・フォーム）
+  richMenuId String? // いま個別に紐付いているリッチメニュー（OS側ID・null=既定）
 
   messages      LineMessage[]
   enrollments   LineScenarioEnrollment[]
@@ -4476,4 +4478,27 @@ model LineFormResponse {
   @@index([formId, createdAt(sort: Desc)])
   @@index([friendId, createdAt(sort: Desc)])
   @@map("line_form_responses")
+}
+
+/// リッチメニュー。画像はOSに保存し、LINEへ登録（作成→画像→既定/個別リンク）する
+model LineRichMenu {
+  id             String      @id @default(cuid())
+  accountId      String
+  account        LineAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name           String
+  layout         String // L6/L4/L3/L2/L1（2500x1686）・S3/S2/S1（2500x843）
+  chatBarText    String      @default("メニュー")
+  areas          Json // [{type:"uri"|"tag"|"message", value, label}]
+  imageData      Bytes?
+  imageType      String? // image/png or image/jpeg
+  lineRichMenuId String? // LINE側のID（登録済みなら入る）
+  isDefault      Boolean     @default(false) // 全員の既定メニュー
+  ruleTag        String? // このタグを持つ人に自動で切り替える
+  priority       Int         @default(0) // ruleTag が複数当たるとき小さい方を優先
+  lastError      String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([accountId, priority])
+  @@map("line_rich_menus")
 }

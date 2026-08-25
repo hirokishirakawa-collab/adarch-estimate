@@ -8,9 +8,28 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { encryptSecret, decryptSecret } from "@/lib/line/secret";
+import {
+  createRichMenu,
+  uploadRichMenuImage,
+  deleteRichMenu,
+  setDefaultRichMenu,
+  clearDefaultRichMenu,
+} from "@/lib/line/client";
 import { getBotInfo, LineApiError } from "@/lib/line/client";
 import { requireSession, getManageableAccount, branchIdForNewAccount } from "@/lib/line/access";
-import { sendManual, enrollInScenario, enrollByTags, broadcastTargetWhere, parseFormFields, submitFormResponse } from "@/lib/line/service";
+import {
+  sendManual,
+  enrollInScenario,
+  enrollByTags,
+  broadcastTargetWhere,
+  parseFormFields,
+  submitFormResponse,
+  RICH_MENU_LAYOUTS,
+  parseRichMenuAreas,
+  buildRichMenuAreas,
+  applyRichMenuRules,
+  setFriendRichMenu,
+} from "@/lib/line/service";
 import type { LineScenarioTrigger } from "@/generated/prisma/client";
 
 type Result = { error?: string; ok?: boolean; id?: string; message?: string };
@@ -804,4 +823,149 @@ export async function submitPublicLineForm(
 ): Promise<{ ok: true; thankYou: string | null } | { ok: false; error: string }> {
   if (!token || !code) return { ok: false, error: "リンクが無効です" };
   return submitFormResponse(token, code, answers);
+}
+
+
+// ---------------------------------------------------------------
+// リッチメニュー
+// ---------------------------------------------------------------
+const RICH_IMAGE_MAX = 1024 * 1024; // LINEの上限 1MB
+
+/** 保存＋（画像があれば）LINEへ登録。既に登録済みなら作り直して差し替える */
+export async function saveLineRichMenu(_prev: Result | null, fd: FormData): Promise<Result> {
+  const info = await requireSession();
+  const accountId = str(fd, "accountId");
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+
+  const id = str(fd, "id");
+  const name = str(fd, "name").slice(0, 60);
+  const layout = str(fd, "layout");
+  const chatBarText = (str(fd, "chatBarText") || "メニュー").slice(0, 14);
+  const isDefault = fd.getAll("isDefault").includes("on");
+  const ruleTag = str(fd, "ruleTag") || null;
+  const priority = Math.max(0, Math.min(99, Number(str(fd, "priority")) || 0));
+  if (!name) return { error: "名前を入れてください" };
+  if (!RICH_MENU_LAYOUTS[layout]) return { error: "レイアウトを選んでください" };
+  let areas;
+  try {
+    areas = parseRichMenuAreas(JSON.parse(str(fd, "areas") || "[]"));
+  } catch {
+    return { error: "ボタン設定の形式が不正です" };
+  }
+  for (const a of areas) {
+    if (a.type === "uri" && a.value && !/^(https?:\/\/|tel:)/.test(a.value)) return { error: `URLは https:// から入れてください（${a.value}）` };
+  }
+  const lineAreas = buildRichMenuAreas(layout, areas);
+  if (lineAreas.length === 0) return { error: "ボタンを1つ以上設定してください" };
+
+  // 画像（任意・更新時は据え置き可）
+  let imageData: Uint8Array<ArrayBuffer> | null = null;
+  let imageType: string | null = null;
+  const file = fd.get("image");
+  if (file && typeof file === "object" && "arrayBuffer" in file && (file as File).size > 0) {
+    const f = file as File;
+    if (!["image/png", "image/jpeg"].includes(f.type)) return { error: "画像はPNGかJPEGにしてください" };
+    if (f.size > RICH_IMAGE_MAX) return { error: "画像は1MB以下にしてください" };
+    imageData = new Uint8Array(await f.arrayBuffer());
+    imageType = f.type;
+  }
+
+  const existing = id ? await db.lineRichMenu.findFirst({ where: { id, accountId } }) : null;
+  if (id && !existing) return { error: "メニューが見つかりません" };
+
+  const saved = existing
+    ? await db.lineRichMenu.update({
+        where: { id },
+        data: { name, layout, chatBarText, areas, isDefault, ruleTag, priority, ...(imageData ? { imageData, imageType } : {}) },
+      })
+    : await db.lineRichMenu.create({ data: { accountId, name, layout, chatBarText, areas, isDefault, ruleTag, priority, imageData, imageType } });
+
+  if (isDefault) {
+    await db.lineRichMenu.updateMany({ where: { accountId, NOT: { id: saved.id } }, data: { isDefault: false } });
+  }
+
+  // LINEへ登録（画像が無ければ保存だけ）
+  if (!saved.imageData || !saved.imageType) {
+    revalidatePath(`${BASE}/${accountId}/richmenus`);
+    return { ok: true, message: "保存しました（画像を付けるとLINEへ登録されます）" };
+  }
+  const token = decryptSecret(account.accessTokenEnc);
+  const L = RICH_MENU_LAYOUTS[layout];
+  try {
+    const newId = await createRichMenu(token, {
+      size: { width: L.width, height: L.height },
+      selected: true,
+      name: name.slice(0, 300),
+      chatBarText,
+      areas: lineAreas,
+    });
+    await uploadRichMenuImage(token, newId, saved.imageData, saved.imageType);
+    if (saved.lineRichMenuId) await deleteRichMenu(token, saved.lineRichMenuId).catch(() => {});
+    await db.lineRichMenu.update({ where: { id: saved.id }, data: { lineRichMenuId: newId, lastError: null } });
+    if (isDefault) await setDefaultRichMenu(token, newId);
+    // このメニューに個別リンクされていた人を新IDへ付け直す
+    const linked = await db.lineFriend.findMany({ where: { accountId, richMenuId: saved.id, isFollowing: true }, select: { id: true } });
+    for (const f of linked) {
+      await db.lineFriend.update({ where: { id: f.id }, data: { richMenuId: null } });
+      await applyRichMenuRules(f.id).catch(() => {});
+    }
+  } catch (e) {
+    const msg = e instanceof LineApiError ? `LINE登録に失敗（${e.status}）: ${e.body.slice(0, 200)}` : (e as Error).message;
+    await db.lineRichMenu.update({ where: { id: saved.id }, data: { lastError: msg } });
+    revalidatePath(`${BASE}/${accountId}/richmenus`);
+    return { error: msg };
+  }
+  revalidatePath(`${BASE}/${accountId}/richmenus`);
+  return { ok: true, message: "LINEへ登録しました" };
+}
+
+export async function deleteLineRichMenu(accountId: string, id: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const menu = await db.lineRichMenu.findFirst({ where: { id, accountId } });
+  if (!menu) return { error: "メニューが見つかりません" };
+  const token = decryptSecret(account.accessTokenEnc);
+  try {
+    if (menu.isDefault) await clearDefaultRichMenu(token);
+    if (menu.lineRichMenuId) await deleteRichMenu(token, menu.lineRichMenuId);
+  } catch (e) {
+    return { error: e instanceof LineApiError ? `LINE側の削除に失敗（${e.status}）` : (e as Error).message };
+  }
+  await db.lineFriend.updateMany({ where: { richMenuId: id }, data: { richMenuId: null } });
+  await db.lineRichMenu.delete({ where: { id } });
+  revalidatePath(`${BASE}/${accountId}/richmenus`);
+  return { ok: true };
+}
+
+/** 友だち全員にタグのルールを当て直す（最大500人） */
+export async function reapplyLineRichMenus(accountId: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const friends = await db.lineFriend.findMany({ where: { accountId, isFollowing: true }, select: { id: true }, take: 500 });
+  let ok = 0;
+  for (const f of friends) {
+    try {
+      await applyRichMenuRules(f.id);
+      ok++;
+    } catch {
+      /* 個別失敗は飛ばす */
+    }
+  }
+  revalidatePath(`${BASE}/${accountId}/richmenus`);
+  return { ok: true, message: `${ok}人に適用しました` };
+}
+
+export async function setLineFriendRichMenu(accountId: string, friendId: string, menuId: string | null): Promise<Result> {
+  const ctx = await friendWithAccount(accountId, friendId);
+  if (!ctx) return { error: "権限がありません" };
+  try {
+    await setFriendRichMenu(friendId, menuId);
+  } catch (e) {
+    return { error: e instanceof LineApiError ? `切替に失敗（${e.status}）` : (e as Error).message };
+  }
+  revalidatePath(`${BASE}/${accountId}/chat/${friendId}`);
+  return { ok: true, message: menuId ? "メニューを切り替えました" : "既定のメニューに戻しました" };
 }
