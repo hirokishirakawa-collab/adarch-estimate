@@ -1,11 +1,8 @@
-import Link from "next/link";
 import { db } from "@/lib/db";
 import { loadAccountPage } from "@/lib/line/page-helpers";
 import { AccountHeader } from "@/components/line/account-header";
 import { fmtAgo } from "@/lib/line/format";
-import { cn } from "@/lib/utils";
-import { TagChip } from "@/components/line/tag-manager";
-import { StarRating } from "@/components/line/star-rating";
+import { FriendRows } from "@/components/line/friend-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -46,10 +43,29 @@ export default async function LineFriendsPage({
     take: LIMIT,
     include: { _count: { select: { enrollments: { where: { status: "ACTIVE" } } } } },
   });
-  const [usedTags, tagDefs] = await Promise.all([
+  const [usedTags, tagDefs, menus] = await Promise.all([
     db.lineFriend.findMany({ where: { accountId }, select: { tags: true } }),
     db.lineTag.findMany({ where: { accountId }, select: { name: true, color: true } }),
+    db.lineRichMenu.findMany({ where: { accountId, lineRichMenuId: { not: null } }, select: { id: true, name: true }, orderBy: { priority: "asc" } }),
   ]);
+  const menuName = new Map(menus.map((m) => [m.id, m.name]));
+  const rows = friends.map((f) => ({
+    id: f.id,
+    displayName: f.displayName,
+    pictureUrl: f.pictureUrl,
+    tags: f.tags,
+    note: f.note,
+    isFollowing: f.isFollowing,
+    unfollowedAgo: fmtAgo(f.unfollowedAt),
+    unreadCount: f.unreadCount,
+    activeEnrollments: f._count.enrollments,
+    mutedAt: !!f.mutedAt,
+    rating: f.rating,
+    richMenuName: f.richMenuId ? (menuName.get(f.richMenuId) ?? null) : null,
+    richMenuPinned: f.richMenuPinned,
+    inboundAgo: fmtAgo(f.lastInboundAt),
+    followedAgo: fmtAgo(f.followedAt),
+  }));
   const colorOf = new Map(tagDefs.map((t) => [t.name, t.color]));
   const allTags = [...new Set([...tagDefs.map((t) => t.name), ...usedTags.flatMap((f) => f.tags)])].sort();
   const total = await db.lineFriend.count({ where: { accountId, isFollowing: true } });
@@ -96,52 +112,7 @@ export default async function LineFriendsPage({
           該当する友だちはいません。
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-zinc-200 divide-y divide-zinc-100">
-          {friends.map((f) => (
-            <Link
-              key={f.id}
-              href={`/dashboard/line/${accountId}/chat/${f.id}`}
-              className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 transition-colors"
-            >
-              {f.pictureUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={f.pictureUrl} alt="" className="w-9 h-9 rounded-full object-cover bg-zinc-100" />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-zinc-100" />
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className={cn("text-sm truncate", f.unreadCount > 0 ? "font-bold text-zinc-900" : "text-zinc-800")}>
-                    {f.displayName ?? "（名前未取得）"}
-                  </p>
-                  {!f.isFollowing && (
-                    <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 rounded px-1">
-                      ブロック/解除 {fmtAgo(f.unfollowedAt)}
-                    </span>
-                  )}
-                  {f.mutedAt && <span className="text-[10px] text-zinc-600 bg-zinc-100 rounded px-1">ミュート</span>}
-                  {f.unreadCount > 0 && (
-                    <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5">{f.unreadCount}</span>
-                  )}
-                  {f._count.enrollments > 0 && (
-                    <span className="text-[10px] text-emerald-700 bg-emerald-50 rounded px-1">配信中</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                  {f.tags.map((t) => (
-                    <TagChip key={t} name={t} color={colorOf.get(t)} />
-                  ))}
-                  {f.note && <span className="text-[11px] text-zinc-400 truncate">{f.note}</span>}
-                </div>
-              </div>
-              <div className="text-right text-[11px] text-zinc-400 shrink-0 flex flex-col items-end gap-0.5">
-                <StarRating accountId={accountId} friendId={f.id} value={f.rating} />
-                <p>受信 {fmtAgo(f.lastInboundAt)}</p>
-                <p>追加 {fmtAgo(f.followedAt)}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <FriendRows accountId={accountId} friends={rows} colors={Object.fromEntries(colorOf)} menus={menus} />
       )}
     </div>
   );
