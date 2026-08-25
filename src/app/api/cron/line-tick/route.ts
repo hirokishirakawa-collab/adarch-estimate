@@ -4,7 +4,7 @@
 // ==============================================================
 
 import { NextRequest, NextResponse } from "next/server";
-import { runScenarioTick, runBroadcasts } from "@/lib/line/service";
+import { runLineTickWithLock } from "@/lib/line/scheduler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,9 +18,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const scenario = await runScenarioTick();
-    const broadcasts = await runBroadcasts();
-    return NextResponse.json({ ok: true, scenario, broadcasts });
+    const r = await runLineTickWithLock();
+    return NextResponse.json({ ok: true, ...r });
   } catch (e) {
     console.error("[cron/line-tick]", e);
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });

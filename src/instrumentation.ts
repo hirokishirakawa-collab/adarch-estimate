@@ -16,6 +16,12 @@ export async function register() {
     }
 
     await import("../sentry.server.config");
+
+    // LINE のステップ配信・予約一斉配信（本番のみ・60秒ごと）
+    if (process.env.NODE_ENV === "production" && process.env.DATABASE_URL) {
+      const { startLineScheduler } = await import("./lib/line/scheduler");
+      startLineScheduler();
+    }
   }
   if (process.env.NEXT_RUNTIME === "edge") {
     await import("../sentry.edge.config");
