@@ -7,8 +7,15 @@ import { revalidatePath } from "next/cache";
 import { getWeekId } from "@/lib/constants/group-support";
 import { createInAppNotification } from "@/lib/notifications";
 import { notifyUser } from "@/lib/push-notification";
+import { sendChatMessage } from "@/lib/google-chat";
 import type { GroupCompanyPhase } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
+
+function appUrl(path: string): string {
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+  return `${base}${path}`;
+}
 
 // ----------------------------------------------------------------
 // 認証ヘルパー（ADMIN 限定）
@@ -227,7 +234,7 @@ export async function replyToWeeklySubmission(
 
     const company = await db.groupCompany.findUnique({
       where: { id: groupCompanyId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, chatSpaceId: true },
     });
     if (!company) return { error: "企業が見つかりません" };
 
@@ -240,6 +247,14 @@ export async function replyToWeeklySubmission(
         weekId,
       },
     });
+
+    // 加盟代表のスペースへ「届いた」ことだけ流す。本文はここに載せない。
+    if (company.chatSpaceId) {
+      sendChatMessage(
+        company.chatSpaceId,
+        ["本部から返信が届きました", "OS を開いてご確認ください", appUrl("/dashboard")].join("\n")
+      ).catch((e) => console.error("[group-support:chat]", e));
+    }
 
     // 加盟代表へ通知。本文は入れない（OS でだけ読める状態にする）
     const partners = await db.user.findMany({
