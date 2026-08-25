@@ -22,7 +22,7 @@ export type MenuDef = {
   hasImage: boolean;
   lineRichMenuId: string | null;
   isDefault: boolean;
-  ruleTag: string | null;
+  ruleTags: string[];
   priority: number;
   lastError: string | null;
   linkedCount: number;
@@ -143,7 +143,7 @@ function MenuForm({ accountId, layouts, initial, tagNames, onClose }: { accountI
         <label className="text-xs text-zinc-700 flex items-center gap-1.5">
           <input type="checkbox" name="isDefault" value="on" defaultChecked={initial?.isDefault ?? false} />全員の既定メニューにする
         </label>
-        <input name="ruleTag" defaultValue={initial?.ruleTag ?? ""} placeholder="このタグを持つ人に自動で切り替える（任意）" className={inputCls} list="line-tag-names-rm" />
+        <input name="ruleTags" defaultValue={initial?.ruleTags.join(", ") ?? ""} placeholder="対象タグ：いずれかを持つ人に自動で切り替える（複数可・カンマ区切り）" className={inputCls} list="line-tag-names-rm" />
         <input name="priority" type="number" min={0} max={99} defaultValue={initial?.priority ?? 0} title="優先順位（小さいほど優先）" className={inputCls} />
       </div>
 
@@ -172,7 +172,7 @@ export function RichMenuManager({ accountId, layouts, menus, tagNames, samples }
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <p className="text-xs text-zinc-500">
-          既定メニュー＝全員に出るもの。「タグで自動切替」を設定すると、そのタグが付いた瞬間にその人だけメニューが変わります（例: 加盟者→会員メニュー）。
+          対象の決め方は3つ：<b>既定</b>＝全員／<b>対象タグ</b>＝そのタグが付いた人に自動切替／<b>個別</b>＝友だち一覧でチェックして「メニューを適用」（個別に選んだ人はタグで上書きされません）。
         </p>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1">
@@ -234,8 +234,8 @@ export function RichMenuManager({ accountId, layouts, menus, tagNames, samples }
                   </p>
                   <p className="text-[11px] text-zinc-500">
                     {layouts.find((l) => l.key === m.layout)?.label ?? m.layout} ・ ボタン{m.areas.filter((a) => a.value || a.tags).length}個
-                    {m.ruleTag ? ` ・ タグ「${m.ruleTag}」で自動切替（優先${m.priority}）` : ""}
-                    {m.linkedCount > 0 ? ` ・ 個別適用 ${m.linkedCount}人` : ""}
+                    {m.ruleTags.length ? ` ・ 対象タグ「${m.ruleTags.join("」「")}」で自動切替（優先${m.priority}）` : ""}
+                    {m.linkedCount > 0 ? ` ・ 適用中 ${m.linkedCount}人` : ""}
                   </p>
                   {m.lastError && <p className="text-[11px] text-red-600">{m.lastError}</p>}
                   <div className="flex items-center gap-2 pt-1 flex-wrap">

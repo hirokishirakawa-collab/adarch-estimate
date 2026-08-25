@@ -4229,12 +4229,13 @@ model LineFriend {
   lastOutboundAt DateTime?
   unreadCount    Int       @default(0)
 
-  customerId String? // OS顧客との紐付け（任意）
-  leadId     String? // 加盟リードとの紐付け（任意）
-  mutedAt    DateTime? // ミュート中＝ステップ配信・一斉配信を送らず、新着通知も出さない
-  token      String?   @unique // 相手ごとのURL用トークン（クリック計測・フォーム）
-  richMenuId String? // いま個別に紐付いているリッチメニュー（OS側ID・null=既定）
-  rating     Int       @default(0) // ★評価 0〜5（0=未評価）
+  customerId     String? // OS顧客との紐付け（任意）
+  leadId         String? // 加盟リードとの紐付け（任意）
+  mutedAt        DateTime? // ミュート中＝ステップ配信・一斉配信を送らず、新着通知も出さない
+  token          String?   @unique // 相手ごとのURL用トークン（クリック計測・フォーム）
+  richMenuId     String? // いま個別に紐付いているリッチメニュー（OS側ID・null=既定）
+  richMenuPinned Boolean   @default(false) // 手動で選んだ＝タグのルールで上書きしない
+  rating         Int       @default(0) // ★評価 0〜5（0=未評価）
 
   messages      LineMessage[]
   enrollments   LineScenarioEnrollment[]
@@ -4495,8 +4496,8 @@ model LineRichMenu {
   imageType      String? // image/png or image/jpeg
   lineRichMenuId String? // LINE側のID（登録済みなら入る）
   isDefault      Boolean     @default(false) // 全員の既定メニュー
-  ruleTag        String? // このタグを持つ人に自動で切り替える
-  priority       Int         @default(0) // ruleTag が複数当たるとき小さい方を優先
+  ruleTags       String[]    @default([]) // いずれかのタグを持つ人に自動で切り替える（空=自動切替なし）
+  priority       Int         @default(0) // ルールが複数当たるとき小さい方を優先
   lastError      String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt

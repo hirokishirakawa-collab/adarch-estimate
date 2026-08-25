@@ -643,6 +643,10 @@ export async function saveLineTag(_prev: Result | null, fd: FormData): Promise<R
       }
       await db.lineScenario.updateMany({ where: { accountId, triggerTag: existing.name }, data: { triggerTag: name } });
       await db.lineEntryPoint.updateMany({ where: { accountId, tag: existing.name }, data: { tag: name } });
+      const menus = await db.lineRichMenu.findMany({ where: { accountId, ruleTags: { has: existing.name } }, select: { id: true, ruleTags: true } });
+      for (const m of menus) {
+        await db.lineRichMenu.update({ where: { id: m.id }, data: { ruleTags: m.ruleTags.map((t) => (t === existing.name ? name : t)) } });
+      }
     }
     await db.lineTag.update({ where: { id }, data: { name, color, note } });
   } else {
@@ -846,7 +850,7 @@ export async function saveLineRichMenu(_prev: Result | null, fd: FormData): Prom
   const layout = str(fd, "layout");
   const chatBarText = (str(fd, "chatBarText") || "メニュー").slice(0, 14);
   const isDefault = fd.getAll("isDefault").includes("on");
-  const ruleTag = str(fd, "ruleTag") || null;
+  const ruleTags = tagList(str(fd, "ruleTags"));
   const priority = Math.max(0, Math.min(99, Number(str(fd, "priority")) || 0));
   if (!name) return { error: "名前を入れてください" };
   if (!RICH_MENU_LAYOUTS[layout]) return { error: "レイアウトを選んでください" };
@@ -881,9 +885,9 @@ export async function saveLineRichMenu(_prev: Result | null, fd: FormData): Prom
   const saved = existing
     ? await db.lineRichMenu.update({
         where: { id },
-        data: { name, layout, chatBarText, areas, isDefault, ruleTag, priority, ...(imageData ? { imageData, imageType } : {}) },
+        data: { name, layout, chatBarText, areas, isDefault, ruleTags, priority, ...(imageData ? { imageData, imageType } : {}) },
       })
-    : await db.lineRichMenu.create({ data: { accountId, name, layout, chatBarText, areas, isDefault, ruleTag, priority, imageData, imageType } });
+    : await db.lineRichMenu.create({ data: { accountId, name, layout, chatBarText, areas, isDefault, ruleTags, priority, imageData, imageType } });
 
   if (isDefault) {
     await db.lineRichMenu.updateMany({ where: { accountId, NOT: { id: saved.id } }, data: { isDefault: false } });
@@ -1051,4 +1055,26 @@ export async function seedSampleRichMenu(accountId: string, key: string): Promis
   });
   revalidatePath(`${BASE}/${accountId}/richmenus`);
   return { ok: true, message: "投入しました。URLや文言を自社向けに直してから「LINEへ登録」を押してください" };
+}
+
+
+/** 複数の友だちにまとめてメニューを適用（null=既定に戻す） */
+export async function bulkSetLineFriendRichMenu(accountId: string, friendIds: string[], menuId: string | null): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const ids = [...new Set(friendIds)].slice(0, 500);
+  const friends = await db.lineFriend.findMany({ where: { id: { in: ids }, accountId, isFollowing: true }, select: { id: true } });
+  let ok = 0;
+  let lastError: string | null = null;
+  for (const f of friends) {
+    try {
+      await setFriendRichMenu(f.id, menuId);
+      ok++;
+    } catch (e) {
+      lastError = e instanceof LineApiError ? `LINE ${e.status}` : (e as Error).message;
+    }
+  }
+  revalidatePath(`${BASE}/${accountId}`);
+  return { ok: true, message: `${ok}人に適用しました${lastError ? `（一部失敗: ${lastError}）` : ""}` };
 }

@@ -836,16 +836,16 @@ export function buildRichMenuAreas(layout: string, inputs: RichMenuAreaInput[]):
   return out;
 }
 
-/** タグのルールに従って、その友だちのリッチメニューを切り替える */
+/** タグのルールに従って、その友だちのリッチメニューを切り替える（手動で選んだ人は上書きしない） */
 export async function applyRichMenuRules(friendId: string): Promise<void> {
   const friend = await db.lineFriend.findUnique({ where: { id: friendId }, include: { account: true } });
-  if (!friend || !friend.isFollowing) return;
+  if (!friend || !friend.isFollowing || friend.richMenuPinned) return;
   const menus = await db.lineRichMenu.findMany({
-    where: { accountId: friend.accountId, lineRichMenuId: { not: null }, ruleTag: { not: null } },
+    where: { accountId: friend.accountId, lineRichMenuId: { not: null }, NOT: { ruleTags: { isEmpty: true } } },
     orderBy: { priority: "asc" },
-    select: { id: true, lineRichMenuId: true, ruleTag: true },
+    select: { id: true, lineRichMenuId: true, ruleTags: true },
   });
-  const target = menus.find((m) => m.ruleTag && friend.tags.includes(m.ruleTag)) ?? null;
+  const target = menus.find((m) => m.ruleTags.some((t) => friend.tags.includes(t))) ?? null;
   if ((target?.id ?? null) === (friend.richMenuId ?? null)) return;
   const token = tokenOf(friend.account);
   if (target?.lineRichMenuId) await linkRichMenuToUser(token, friend.lineUserId, target.lineRichMenuId);
@@ -862,8 +862,11 @@ export async function setFriendRichMenu(friendId: string, menuId: string | null)
     const menu = await db.lineRichMenu.findFirst({ where: { id: menuId, accountId: friend.accountId } });
     if (!menu?.lineRichMenuId) throw new Error("このメニューはまだLINEに登録されていません");
     await linkRichMenuToUser(token, friend.lineUserId, menu.lineRichMenuId);
+    await db.lineFriend.update({ where: { id: friendId }, data: { richMenuId: menuId, richMenuPinned: true } });
   } else {
+    // 既定に戻す＝手動指定を解除し、タグのルールがあればそれに従う
     await unlinkRichMenuFromUser(token, friend.lineUserId);
+    await db.lineFriend.update({ where: { id: friendId }, data: { richMenuId: null, richMenuPinned: false } });
+    await applyRichMenuRules(friendId);
   }
-  await db.lineFriend.update({ where: { id: friendId }, data: { richMenuId: menuId } });
 }

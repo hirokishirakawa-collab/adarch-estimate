@@ -14,7 +14,7 @@ export default async function LineRichMenusPage({ params }: { params: Promise<{ 
     db.lineRichMenu.findMany({
       where: { accountId },
       orderBy: [{ isDefault: "desc" }, { priority: "asc" }, { createdAt: "asc" }],
-      select: { id: true, name: true, layout: true, chatBarText: true, areas: true, imageType: true, lineRichMenuId: true, isDefault: true, ruleTag: true, priority: true, lastError: true },
+      select: { id: true, name: true, layout: true, chatBarText: true, areas: true, imageType: true, lineRichMenuId: true, isDefault: true, ruleTags: true, priority: true, lastError: true },
     }),
     db.lineTag.findMany({ where: { accountId }, select: { name: true }, orderBy: { order: "asc" } }),
     db.lineFriend.groupBy({ by: ["richMenuId"], where: { accountId, richMenuId: { not: null } }, _count: { _all: true } }),
@@ -22,7 +22,7 @@ export default async function LineRichMenusPage({ params }: { params: Promise<{ 
   const linkedCount = new Map(linked.map((l) => [l.richMenuId, l._count._all]));
   const menus = rows.map((m) => ({
     id: m.id, name: m.name, layout: m.layout, chatBarText: m.chatBarText, areas: parseRichMenuAreas(m.areas).map((a) => ({ ...a, tags: a.tags.join(", ") })),
-    hasImage: !!m.imageType, lineRichMenuId: m.lineRichMenuId, isDefault: m.isDefault, ruleTag: m.ruleTag, priority: m.priority,
+    hasImage: !!m.imageType, lineRichMenuId: m.lineRichMenuId, isDefault: m.isDefault, ruleTags: m.ruleTags, priority: m.priority,
     lastError: m.lastError, linkedCount: linkedCount.get(m.id) ?? 0,
   }));
   const layouts = Object.entries(RICH_MENU_LAYOUTS).map(([key, l]) => ({ key, label: l.label, cols: l.cols, rows: l.rows, width: l.width, height: l.height }));
