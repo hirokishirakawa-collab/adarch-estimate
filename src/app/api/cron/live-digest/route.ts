@@ -20,18 +20,30 @@ const NOTIFY_SPACE = process.env.DEAL_CHAT_SPACE_ID ?? "AAQAp6XvXqE";
 // ・動きが1件も無い日は送らない（無風の通知でスペースを埋めない）
 // ---------------------------------------------------------------
 
+// 本番（Railway）は UTC で動いている。素の new Date() で日付を出すと、
+// 日本時間の朝8時＝UTCでは前日23時なので「前日」が一日ぶんずれて
+// 一昨日を集計してしまう（2026-08-25 に実際に発生）。
+// 日付の判定も集計の境界も、必ず日本時間で切る。
+const JST_OFFSET = 9 * 60 * 60 * 1000;
+
 function dayRange(dateParam: string | null): { start: Date; end: Date; label: string } {
-  let base: Date;
+  let y: number, m: number, d: number;
+
   if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-    const [y, m, d] = dateParam.split("-").map(Number);
-    base = new Date(y, m - 1, d);
+    [y, m, d] = dateParam.split("-").map(Number);
   } else {
-    base = new Date();
-    base.setDate(base.getDate() - 1);
+    // 「今の日本時間」の前日
+    const jst = new Date(Date.now() + JST_OFFSET);
+    jst.setUTCDate(jst.getUTCDate() - 1);
+    y = jst.getUTCFullYear();
+    m = jst.getUTCMonth() + 1;
+    d = jst.getUTCDate();
   }
-  const start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+
+  // 日本時間の 00:00 は UTC では前日の 15:00
+  const start = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - JST_OFFSET);
   const end = new Date(start.getTime() + 86400000);
-  return { start, end, label: `${start.getMonth() + 1}/${start.getDate()}` };
+  return { start, end, label: `${m}/${d}` };
 }
 
 export async function GET(req: NextRequest) {

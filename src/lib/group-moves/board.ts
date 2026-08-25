@@ -53,8 +53,19 @@ export interface Board {
   monthLabel: string;
 }
 
-function monthStart(d = new Date()): Date {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
+// 本番は UTC で動くので、素の new Date() で月を切ると日本時間の月初・月末が
+// 9時間ぶんずれる（朝まとめで実際に事故った 2026-08-25）。月の境界も日本時間で切る。
+const JST_OFFSET = 9 * 60 * 60 * 1000;
+
+/** 「今の日本時間」を、UTCのgetterで読めるようにずらした Date */
+function jstNow(): Date {
+  return new Date(Date.now() + JST_OFFSET);
+}
+
+/** 日本時間の「今月1日 00:00」を指す Date */
+function monthStart(): Date {
+  const j = jstNow();
+  return new Date(Date.UTC(j.getUTCFullYear(), j.getUTCMonth(), 1) - JST_OFFSET);
 }
 
 export async function getMoveBoard(opts: {
@@ -205,7 +216,7 @@ export async function getMoveBoard(opts: {
       a.companyName.localeCompare(b.companyName, "ja"),
   );
 
-  const now = new Date();
+  const nowJst = jstNow();
   return {
     cards,
     quietCompanies,
@@ -215,6 +226,6 @@ export async function getMoveBoard(opts: {
     industries: [...industryCount.entries()]
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ja")),
-    monthLabel: `${now.getFullYear()}年${now.getMonth() + 1}月`,
+    monthLabel: `${nowJst.getUTCFullYear()}年${nowJst.getUTCMonth() + 1}月`,
   };
 }
