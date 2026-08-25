@@ -10,6 +10,9 @@
  * （Code.gs / Config.gs / CardBuilder.gs / FollowUp.gs が入っているもの）。
  * WEBHOOK_URLS と API_BASE_URL は既存のものをそのまま使うので、追加設定は不要。
  *
+ * 配信後は markAllSpacesAsRead()（Code.gs にある既存関数）を呼んで自動で既読にする。
+ * 自分が投げたカードで本部側に未読バッジが付かないようにするため。
+ *
  * 1. ＋ → スクリプト でファイルを足し、この中身を貼る
  * 2. postMoveCardToAll() を一度手で実行して、各スペースにカードが出るか確認
  * 3. 常設にするならトリガー: 関数=postMoveCardToAll / 週ベース / 好きな曜日
@@ -47,6 +50,9 @@ function postMoveCardToAll() {
   });
 
   Logger.log('動きカード配信完了: ' + sent + '/' + webhooks.length + '社');
+
+  // 自分が投げたカードで未読バッジが付かないよう既読にする（月曜カードと同じ扱い）
+  markAllSpacesAsRead();
 }
 
 /** 自分のスペースにだけ試し打ちする（1件目のwebhookへ） */
@@ -67,6 +73,7 @@ function testMoveCard() {
     muteHttpExceptions: true,
   });
   Logger.log('テスト配信しました: ' + spaceId);
+  markAllSpacesAsRead();
 }
 
 /**
