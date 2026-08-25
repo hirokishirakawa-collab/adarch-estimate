@@ -217,7 +217,7 @@ export function RichMenuManager({ accountId, layouts, menus, tagNames }: { accou
                   <p className="text-sm font-bold text-zinc-900 flex items-center gap-2 flex-wrap">
                     {m.name}
                     {m.isDefault && <span className="text-[10px] bg-emerald-50 text-emerald-700 rounded px-1.5">既定</span>}
-                    <span className={`text-[10px] rounded px-1.5 ${m.lineRichMenuId ? "bg-zinc-100 text-zinc-600" : "bg-amber-50 text-amber-700"}`}>{m.lineRichMenuId ? "LINE登録済" : "未登録（画像なし）"}</span>
+                    <span className={`text-[10px] rounded px-1.5 ${m.lineRichMenuId ? "bg-zinc-100 text-zinc-600" : "bg-amber-50 text-amber-700"}`}>{m.lineRichMenuId ? "LINE登録済" : m.hasImage ? "未登録（「LINEへ登録」を押す）" : "画像なし"}</span>
                   </p>
                   <p className="text-[11px] text-zinc-500">
                     {layouts.find((l) => l.key === m.layout)?.label ?? m.layout} ・ ボタン{m.areas.filter((a) => a.value).length}個
