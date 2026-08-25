@@ -11,7 +11,8 @@ const inputCls =
 const smallCls = "px-2 py-1 text-xs border border-zinc-200 rounded bg-white";
 
 export type LayoutDef = { key: string; label: string; cols: number; rows: number; width: number; height: number };
-export type Area = { type: "uri" | "tag" | "message"; value: string; label: string };
+export type Area = { type: "uri" | "message"; value: string; label: string; tags: string };
+export type SampleOpt = { key: string; name: string; note: string };
 export type MenuDef = {
   id: string;
   name: string;
@@ -34,7 +35,7 @@ function MenuForm({ accountId, layouts, initial, tagNames, onClose }: { accountI
   const n = L.cols * L.rows;
   const [areas, setAreas] = useState<Area[]>(() => {
     const base = initial?.areas ?? [];
-    return Array.from({ length: 6 }, (_, i) => base[i] ?? { type: "uri", value: "", label: "" });
+    return Array.from({ length: 6 }, (_, i) => base[i] ?? { type: "uri", value: "", label: "", tags: "" });
   });
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -57,7 +58,10 @@ function MenuForm({ accountId, layouts, initial, tagNames, onClose }: { accountI
     setAreas((p) => p.map((a, j) => (j === i ? { ...a, ...patch } : a)));
   }
   function submit(fd: FormData) {
-    fd.set("areas", JSON.stringify(areas.slice(0, n)));
+    fd.set(
+      "areas",
+      JSON.stringify(areas.slice(0, n).map((a) => ({ ...a, tags: a.tags.split(/[,、\s]+/).map((t) => t.trim()).filter(Boolean) }))),
+    );
     startTransition(async () => {
       const r = await saveLineRichMenu(null, fd);
       if (r.error) {
@@ -93,20 +97,20 @@ function MenuForm({ accountId, layouts, initial, tagNames, onClose }: { accountI
               <span className="text-[11px] text-zinc-500 w-5">{i + 1}</span>
               <select value={areas[i].type} onChange={(e) => upd(i, { type: e.target.value as Area["type"] })} className={smallCls}>
                 <option value="uri">URLを開く</option>
-                <option value="tag">タグを付ける</option>
                 <option value="message">メッセージを送る</option>
               </select>
               <input
                 value={areas[i].value}
                 onChange={(e) => upd(i, { value: e.target.value })}
-                placeholder={areas[i].type === "uri" ? "https://…" : areas[i].type === "tag" ? "タグ名" : "送信される文言"}
+                placeholder={areas[i].type === "uri" ? "https://…（tel: も可）" : "相手が送る文言（例: 資料が欲しいです）"}
                 className={`${smallCls} flex-1 min-w-40`}
-                list={areas[i].type === "tag" ? "line-tag-names-rm" : undefined}
               />
-              <input value={areas[i].label} onChange={(e) => upd(i, { label: e.target.value })} placeholder="ラベル（任意）" className={`${smallCls} w-32`} maxLength={20} />
+              <input value={areas[i].label} onChange={(e) => upd(i, { label: e.target.value })} placeholder="ラベル（任意）" className={`${smallCls} w-28`} maxLength={20} />
+              <input value={areas[i].tags} onChange={(e) => upd(i, { tags: e.target.value })} placeholder="押したら付けるタグ（複数可・カンマ）" className={`${smallCls} w-56`} list="line-tag-names-rm" />
             </div>
           ))}
           <datalist id="line-tag-names-rm">{tagNames.map((t) => <option key={t} value={t} />)}</datalist>
+          <p className="text-[11px] text-zinc-400">「URLを開く」にタグを付けると、押した人にタグが付いたあと、開くためのリンクが自動返信されます（LINEの仕様でワンタップ増えます）。タグなしならそのまま開きます。</p>
         </div>
         <div className="space-y-2">
           <p className="text-[11px] font-bold text-zinc-500">画像</p>
@@ -155,9 +159,10 @@ function MenuForm({ accountId, layouts, initial, tagNames, onClose }: { accountI
   );
 }
 
-export function RichMenuManager({ accountId, layouts, menus, tagNames }: { accountId: string; layouts: LayoutDef[]; menus: MenuDef[]; tagNames: string[] }) {
+export function RichMenuManager({ accountId, layouts, menus, tagNames, samples }: { accountId: string; layouts: LayoutDef[]; menus: MenuDef[]; tagNames: string[]; samples: SampleOpt[] }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
+  const [sampleKey, setSampleKey] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -170,14 +175,22 @@ export function RichMenuManager({ accountId, layouts, menus, tagNames }: { accou
           既定メニュー＝全員に出るもの。「タグで自動切替」を設定すると、そのタグが付いた瞬間にその人だけメニューが変わります（例: 加盟者→会員メニュー）。
         </p>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => startTransition(async () => { const r = await seedSampleRichMenu(accountId); setMsg(r.error ?? (typeof r.message === "string" ? r.message : "完了")); router.refresh(); })}
-            className="px-3 py-1.5 text-xs rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-          >
-            サンプルを投入（画像付き）
-          </button>
+          <span className="inline-flex items-center gap-1">
+            <select value={sampleKey} onChange={(e) => setSampleKey(e.target.value)} className="px-2 py-1.5 text-xs border border-emerald-300 rounded-lg bg-white text-emerald-800 max-w-[260px]">
+              <option value="">サンプルを選ぶ（画像付き）…</option>
+              {samples.map((sm) => (
+                <option key={sm.key} value={sm.key}>{sm.name}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={isPending || !sampleKey}
+              onClick={() => startTransition(async () => { const r = await seedSampleRichMenu(accountId, sampleKey); setMsg(r.error ?? (typeof r.message === "string" ? r.message : "完了")); setSampleKey(""); router.refresh(); })}
+              className="px-3 py-1.5 text-xs rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+            >
+              投入
+            </button>
+          </span>
           <button
             type="button"
             disabled={isPending}
@@ -220,7 +233,7 @@ export function RichMenuManager({ accountId, layouts, menus, tagNames }: { accou
                     <span className={`text-[10px] rounded px-1.5 ${m.lineRichMenuId ? "bg-zinc-100 text-zinc-600" : "bg-amber-50 text-amber-700"}`}>{m.lineRichMenuId ? "LINE登録済" : m.hasImage ? "未登録（「LINEへ登録」を押す）" : "画像なし"}</span>
                   </p>
                   <p className="text-[11px] text-zinc-500">
-                    {layouts.find((l) => l.key === m.layout)?.label ?? m.layout} ・ ボタン{m.areas.filter((a) => a.value).length}個
+                    {layouts.find((l) => l.key === m.layout)?.label ?? m.layout} ・ ボタン{m.areas.filter((a) => a.value || a.tags).length}個
                     {m.ruleTag ? ` ・ タグ「${m.ruleTag}」で自動切替（優先${m.priority}）` : ""}
                     {m.linkedCount > 0 ? ` ・ 個別適用 ${m.linkedCount}人` : ""}
                   </p>

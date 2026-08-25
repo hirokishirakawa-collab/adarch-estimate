@@ -3,6 +3,7 @@ import { loadAccountPage } from "@/lib/line/page-helpers";
 import { AccountHeader } from "@/components/line/account-header";
 import { RichMenuManager } from "@/components/line/richmenu-manager";
 import { RICH_MENU_LAYOUTS, parseRichMenuAreas } from "@/lib/line/service";
+import { RICH_MENU_SAMPLES } from "@/lib/line/richmenu-samples";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function LineRichMenusPage({ params }: { params: Promise<{ 
   ]);
   const linkedCount = new Map(linked.map((l) => [l.richMenuId, l._count._all]));
   const menus = rows.map((m) => ({
-    id: m.id, name: m.name, layout: m.layout, chatBarText: m.chatBarText, areas: parseRichMenuAreas(m.areas),
+    id: m.id, name: m.name, layout: m.layout, chatBarText: m.chatBarText, areas: parseRichMenuAreas(m.areas).map((a) => ({ ...a, tags: a.tags.join(", ") })),
     hasImage: !!m.imageType, lineRichMenuId: m.lineRichMenuId, isDefault: m.isDefault, ruleTag: m.ruleTag, priority: m.priority,
     lastError: m.lastError, linkedCount: linkedCount.get(m.id) ?? 0,
   }));
@@ -29,7 +30,13 @@ export default async function LineRichMenusPage({ params }: { params: Promise<{ 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-5">
       <AccountHeader account={account} />
-      <RichMenuManager accountId={accountId} layouts={layouts} menus={menus} tagNames={tagDefs.map((t) => t.name)} />
+      <RichMenuManager
+        accountId={accountId}
+        layouts={layouts}
+        menus={menus}
+        tagNames={tagDefs.map((t) => t.name)}
+        samples={RICH_MENU_SAMPLES.filter((sm) => (account.branchId === null ? true : !sm.forHq)).map((sm) => ({ key: sm.key, name: sm.name, note: sm.note }))}
+      />
     </div>
   );
 }

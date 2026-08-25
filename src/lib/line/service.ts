@@ -416,12 +416,25 @@ async function notifyNewInbound(account: LineAccount, friend: LineFriend, body: 
 
 /** ポストバック data は "tag=xxx" 形式ならタグ付け（Phase 2 のリッチメニュー用に先に受ける） */
 async function onPostback(account: LineAccount, userId: string, ev: WebhookEvent): Promise<void> {
-  const friend = await upsertFriend(account, userId);
+  let friend = await upsertFriend(account, userId);
   const data = ev.postback?.data ?? "";
-  await db.lineMessage.create({
-    data: { friendId: friend.id, direction: "IN", type: "postback", text: data, payload: ev as object },
-  });
   const params = new URLSearchParams(data);
+  const say = params.get("say");
+  const url = params.get("url");
+  const tags = (params.get("tag") ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+
+  // ボタンの文言はチャットに「相手の発言」として残す（担当者が気づけるように）
+  const shown = say || (url ? `「${url}」を開く` : data);
+  await db.$transaction([
+    db.lineMessage.create({
+      data: { friendId: friend.id, direction: "IN", type: say ? "text" : "postback", text: shown, payload: ev as object },
+    }),
+    db.lineFriend.update({ where: { id: friend.id }, data: { lastInboundAt: new Date(), ...(say ? { unreadCount: { increment: 1 } } : {}) } }),
+  ]);
+  if (say && friend.unreadCount === 0 && !friend.mutedAt) {
+    notifyNewInbound(account, friend, say).catch(() => {});
+  }
+
   const epId = params.get("ep");
   if (epId && epId !== "other") {
     const ep = await db.lineEntryPoint.findFirst({ where: { id: epId, accountId: account.id } });
@@ -430,10 +443,19 @@ async function onPostback(account: LineAccount, userId: string, ev: WebhookEvent
       return;
     }
   }
-  const tag = params.get("tag");
-  if (tag && !friend.tags.includes(tag)) {
-    const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: tag } } });
-    await enrollByTags(updated, [tag]);
+  const fresh = tags.filter((t) => !friend.tags.includes(t));
+  if (fresh.length > 0) {
+    friend = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: [...friend.tags, ...fresh] } });
+    await enrollByTags(friend, fresh);
+  }
+  // URL付き：タグを付けたうえで、開くためのリンクを返信（同じURLの計測リンクがあれば相手ごとの計測URLにする）
+  if (url && ev.replyToken) {
+    let target = url;
+    const link = await db.lineLink.findFirst({ where: { accountId: account.id, url } });
+    if (link) target = await renderForFriend(`{link:${link.code}}`, friend);
+    const body = `こちらからどうぞ\n${target}`;
+    await replyMessage(tokenOf(account), ev.replyToken, [text(body)]);
+    await logOut(friend.id, body, "richmenu");
   }
 }
 
@@ -767,17 +789,17 @@ export const RICH_MENU_LAYOUTS: Record<string, { width: number; height: number; 
   S1: { width: 2500, height: 843, cols: 1, rows: 1, label: "小・1枚" },
 };
 
-export type RichMenuAreaInput = { type: "uri" | "tag" | "message"; value: string; label: string };
+export type RichMenuAreaInput = { type: "uri" | "message"; value: string; label: string; tags: string[] };
 
 export function parseRichMenuAreas(raw: unknown): RichMenuAreaInput[] {
   if (!Array.isArray(raw)) return [];
   return raw.map((a) => {
-    const o = (a ?? {}) as Partial<RichMenuAreaInput>;
-    return {
-      type: (["uri", "tag", "message"].includes(o.type as string) ? o.type : "uri") as RichMenuAreaInput["type"],
-      value: String(o.value ?? ""),
-      label: String(o.label ?? ""),
-    };
+    const o = (a ?? {}) as { type?: string; value?: unknown; label?: unknown; tags?: unknown };
+    const tags = Array.isArray(o.tags) ? o.tags.map(String).filter(Boolean) : [];
+    // 旧形式「タグを付ける」→ メッセージなし・タグのみ
+    if (o.type === "tag") return { type: "message", value: "", label: String(o.label ?? ""), tags: [String(o.value ?? ""), ...tags].filter(Boolean) };
+    const type: RichMenuAreaInput["type"] = o.type === "message" ? "message" : "uri";
+    return { type, value: String(o.value ?? ""), label: String(o.label ?? ""), tags };
   });
 }
 
@@ -792,16 +814,22 @@ export function buildRichMenuAreas(layout: string, inputs: RichMenuAreaInput[]):
     for (let c = 0; c < L.cols; c++) {
       const i = r * L.cols + c;
       const a = inputs[i];
-      if (!a || !a.value) continue;
+      if (!a || (!a.value && a.tags.length === 0)) continue;
       const width = c === L.cols - 1 ? L.width - cellW * c : cellW;
       const height = r === L.rows - 1 ? L.height - cellH * r : cellH;
-      const label = (a.label || a.value).slice(0, 20);
-      const action =
-        a.type === "uri"
-          ? { type: "uri", label, uri: a.value }
-          : a.type === "tag"
-            ? { type: "postback", label, data: `tag=${encodeURIComponent(a.value)}`, displayText: label }
-            : { type: "message", label, text: a.value.slice(0, 300) };
+      const label = (a.label || a.value || a.tags[0]).slice(0, 20);
+      const tagParam = a.tags.length ? `tag=${encodeURIComponent(a.tags.join(","))}` : "";
+      let action: Record<string, unknown>;
+      if (a.type === "uri") {
+        // タグなし＝そのまま開く／タグあり＝postbackでタグを付けてから、返信でURLを渡す（LINEの仕様上ワンタップ増える）
+        action = a.tags.length
+          ? { type: "postback", label, data: `${tagParam}&url=${encodeURIComponent(a.value)}`, displayText: label }
+          : { type: "uri", label, uri: a.value };
+      } else {
+        action = a.tags.length
+          ? { type: "postback", label, data: `${tagParam}&say=${encodeURIComponent(a.value.slice(0, 300))}`, displayText: a.value.slice(0, 300) || label }
+          : { type: "message", label, text: a.value.slice(0, 300) };
+      }
       out.push({ bounds: { x: cellW * c, y: cellH * r, width, height }, action });
     }
   }
