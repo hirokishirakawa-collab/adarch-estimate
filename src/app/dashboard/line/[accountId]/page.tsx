@@ -5,6 +5,7 @@ import { AccountHeader } from "@/components/line/account-header";
 import { fmtAgo } from "@/lib/line/format";
 import { cn } from "@/lib/utils";
 import { TagChip } from "@/components/line/tag-manager";
+import { StarRating } from "@/components/line/star-rating";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,19 @@ export default async function LineFriendsPage({
   searchParams,
 }: {
   params: Promise<{ accountId: string }>;
-  searchParams: Promise<{ q?: string; tag?: string; all?: string }>;
+  searchParams: Promise<{ q?: string; tag?: string; all?: string; sort?: string; star?: string }>;
 }) {
   const { accountId } = await params;
-  const { q = "", tag = "", all } = await searchParams;
+  const { q = "", tag = "", all, sort = "unread", star = "" } = await searchParams;
+  const minStar = Math.max(0, Math.min(5, Number(star) || 0));
+  const orderBy =
+    sort === "rating"
+      ? [{ rating: "desc" as const }, { lastInboundAt: { sort: "desc" as const, nulls: "last" as const } }]
+      : sort === "followed"
+        ? [{ followedAt: "desc" as const }]
+        : sort === "recent"
+          ? [{ lastInboundAt: { sort: "desc" as const, nulls: "last" as const } }]
+          : [{ unreadCount: "desc" as const }, { lastInboundAt: { sort: "desc" as const, nulls: "last" as const } }, { followedAt: "desc" as const }];
   const { account } = await loadAccountPage(accountId);
 
   const friends = await db.lineFriend.findMany({
@@ -29,9 +39,10 @@ export default async function LineFriendsPage({
       accountId,
       ...(all ? {} : { isFollowing: true }),
       ...(tag ? { tags: { has: tag } } : {}),
+      ...(minStar > 0 ? { rating: { gte: minStar } } : {}),
       ...(q ? { OR: [{ displayName: { contains: q, mode: "insensitive" } }, { note: { contains: q, mode: "insensitive" } }] } : {}),
     },
-    orderBy: [{ unreadCount: "desc" }, { lastInboundAt: { sort: "desc", nulls: "last" } }, { followedAt: "desc" }],
+    orderBy,
     take: LIMIT,
     include: { _count: { select: { enrollments: { where: { status: "ACTIVE" } } } } },
   });
@@ -59,6 +70,18 @@ export default async function LineFriendsPage({
           {allTags.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
+        </select>
+        <select name="star" defaultValue={String(minStar || "")} className="px-2 py-1.5 text-xs border border-zinc-200 rounded-lg bg-white">
+          <option value="">★: すべて</option>
+          {[5, 4, 3, 2, 1].map((n) => (
+            <option key={n} value={n}>★{n}以上</option>
+          ))}
+        </select>
+        <select name="sort" defaultValue={sort} className="px-2 py-1.5 text-xs border border-zinc-200 rounded-lg bg-white">
+          <option value="unread">並び: 未読→最新</option>
+          <option value="rating">並び: ★が高い順</option>
+          <option value="recent">並び: 最終受信が新しい順</option>
+          <option value="followed">並び: 追加が新しい順</option>
         </select>
         <label className="text-xs text-zinc-500 flex items-center gap-1">
           <input type="checkbox" name="all" value="1" defaultChecked={!!all} />
@@ -111,7 +134,8 @@ export default async function LineFriendsPage({
                   {f.note && <span className="text-[11px] text-zinc-400 truncate">{f.note}</span>}
                 </div>
               </div>
-              <div className="text-right text-[11px] text-zinc-400 shrink-0">
+              <div className="text-right text-[11px] text-zinc-400 shrink-0 flex flex-col items-end gap-0.5">
+                <StarRating accountId={accountId} friendId={f.id} value={f.rating} />
                 <p>受信 {fmtAgo(f.lastInboundAt)}</p>
                 <p>追加 {fmtAgo(f.followedAt)}</p>
               </div>

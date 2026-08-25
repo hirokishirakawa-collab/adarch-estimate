@@ -4234,6 +4234,7 @@ model LineFriend {
   mutedAt    DateTime? // ミュート中＝ステップ配信・一斉配信を送らず、新着通知も出さない
   token      String?   @unique // 相手ごとのURL用トークン（クリック計測・フォーム）
   richMenuId String? // いま個別に紐付いているリッチメニュー（OS側ID・null=既定）
+  rating     Int       @default(0) // ★評価 0〜5（0=未評価）
 
   messages      LineMessage[]
   enrollments   LineScenarioEnrollment[]
@@ -4243,6 +4244,7 @@ model LineFriend {
   @@unique([accountId, lineUserId])
   @@index([accountId, lastInboundAt(sort: Desc)])
   @@index([accountId, isFollowing])
+  @@index([accountId, rating(sort: Desc)])
   @@map("line_friends")
 }
 

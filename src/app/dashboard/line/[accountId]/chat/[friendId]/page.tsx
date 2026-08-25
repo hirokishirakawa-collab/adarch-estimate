@@ -6,6 +6,7 @@ import { AccountHeader } from "@/components/line/account-header";
 import { ChatSendBox, FriendMetaForm, StartScenarioSelect } from "@/components/line/chat-box";
 import { MuteButton, CustomerLink } from "@/components/line/friend-tools";
 import { RichMenuSelect } from "@/components/line/richmenu-select";
+import { StarRating } from "@/components/line/star-rating";
 import { fmtJst } from "@/lib/line/format";
 import { parseFormFields } from "@/lib/line/service";
 import { cn } from "@/lib/utils";
@@ -55,7 +56,10 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
             )}
             <div>
               <p className="text-sm font-bold text-zinc-900">{friend.displayName ?? "（名前未取得）"}</p>
-              <p className="text-[11px] text-zinc-400">追加 {fmtJst(friend.followedAt)}</p>
+              <p className="text-[11px] text-zinc-400 flex items-center gap-2">
+                <StarRating accountId={accountId} friendId={friendId} value={friend.rating} size={15} />
+                <span>追加 {fmtJst(friend.followedAt)}</span>
+              </p>
             </div>
             <div className="ml-auto flex items-center gap-1.5">
               {!friend.isFollowing && (

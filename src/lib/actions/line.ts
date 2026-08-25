@@ -969,3 +969,17 @@ export async function setLineFriendRichMenu(accountId: string, friendId: string,
   revalidatePath(`${BASE}/${accountId}/chat/${friendId}`);
   return { ok: true, message: menuId ? "メニューを切り替えました" : "既定のメニューに戻しました" };
 }
+
+
+// ---------------------------------------------------------------
+// ★評価（0〜5）
+// ---------------------------------------------------------------
+export async function setLineFriendRating(accountId: string, friendId: string, rating: number): Promise<Result> {
+  const ctx = await friendWithAccount(accountId, friendId);
+  if (!ctx) return { error: "権限がありません" };
+  const r = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+  await db.lineFriend.update({ where: { id: friendId }, data: { rating: r } });
+  revalidatePath(`${BASE}/${accountId}`);
+  revalidatePath(`${BASE}/${accountId}/chat/${friendId}`);
+  return { ok: true };
+}
