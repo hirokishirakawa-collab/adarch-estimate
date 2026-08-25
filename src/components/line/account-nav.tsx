@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { seg: "", label: "友だち・チャット" },
+  { seg: "/entry-points", label: "セミナー・流入枠" },
   { seg: "/scenarios", label: "ステップ配信" },
   { seg: "/broadcasts", label: "一斉配信" },
   { seg: "/settings", label: "設定" },

@@ -13,7 +13,7 @@ import {
   LineApiError,
   type LineMessageObject,
 } from "@/lib/line/client";
-import type { LineAccount, LineFriend, LineScenarioStep } from "@/generated/prisma/client";
+import type { LineAccount, LineEntryPoint, LineFriend, LineScenarioStep } from "@/generated/prisma/client";
 
 const JST_OFFSET = 9 * 60 * 60 * 1000;
 
@@ -94,6 +94,76 @@ export async function enrollByTags(friend: LineFriend, newTags: string[]): Promi
 }
 
 // ---------------------------------------------------------------
+// 流入枠（セミナー等）
+//   自動タグの時間帯 = 開始30分前 〜 終了2時間後
+//   1通目のクイックリプライ候補 = askOnFollow かつ（時間帯未設定 or 終了後3日以内）
+// ---------------------------------------------------------------
+const EP_BEFORE_MS = 30 * 60 * 1000;
+const EP_AFTER_MS = 2 * 60 * 60 * 1000;
+const EP_ASK_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
+
+export function entryPointWindow(ep: Pick<LineEntryPoint, "startsAt" | "endsAt">): { start: Date; end: Date } | null {
+  if (!ep.startsAt) return null;
+  const end = ep.endsAt ?? new Date(ep.startsAt.getTime() + 2 * 60 * 60 * 1000);
+  return { start: new Date(ep.startsAt.getTime() - EP_BEFORE_MS), end: new Date(end.getTime() + EP_AFTER_MS) };
+}
+
+function epMatchesNow(ep: LineEntryPoint, now: Date): boolean {
+  const w = entryPointWindow(ep);
+  return !!w && now >= w.start && now <= w.end;
+}
+
+function epAskable(ep: LineEntryPoint, now: Date): boolean {
+  if (!ep.askOnFollow) return false;
+  const w = entryPointWindow(ep);
+  if (!w) return true; // 時間帯なし＝常設（広告など）
+  return now >= w.start && now <= new Date(w.end.getTime() + EP_ASK_GRACE_MS);
+}
+
+/** 友だち追加時：時間帯に合う枠へ自動で紐づけ、タグを付ける */
+async function attributeEntryPoint(friend: LineFriend, eps: LineEntryPoint[], now: Date): Promise<LineFriend> {
+  const hit = eps.find((ep) => epMatchesNow(ep, now));
+  if (!hit) return friend;
+  return applyEntryPoint(friend, hit);
+}
+
+async function applyEntryPoint(friend: LineFriend, ep: LineEntryPoint): Promise<LineFriend> {
+  const alreadyTagged = friend.tags.includes(ep.tag);
+  const updated = await db.lineFriend.update({
+    where: { id: friend.id },
+    data: {
+      source: ep.name,
+      ...(alreadyTagged ? {} : { tags: { push: ep.tag } }),
+    },
+  });
+  if (!alreadyTagged) {
+    await db.lineEntryPoint.update({ where: { id: ep.id }, data: { followCount: { increment: 1 } } });
+    await enrollByTags(updated, [ep.tag]);
+  }
+  return updated;
+}
+
+/** 1通目に付けるクイックリプライ（候補が無ければ undefined） */
+function entryPointQuickReply(eps: LineEntryPoint[], now: Date): Record<string, unknown> | undefined {
+  const items = eps.filter((ep) => epAskable(ep, now)).slice(0, 12);
+  if (items.length === 0) return undefined;
+  return {
+    items: [
+      ...items.map((ep) => ({
+        type: "action",
+        action: {
+          type: "postback",
+          label: ep.name.slice(0, 20),
+          data: `tag=${encodeURIComponent(ep.tag)}&ep=${ep.id}`,
+          displayText: ep.name,
+        },
+      })),
+      { type: "action", action: { type: "postback", label: "その他", data: "ep=other", displayText: "その他" } },
+    ],
+  };
+}
+
+// ---------------------------------------------------------------
 // Webhook イベント処理
 // ---------------------------------------------------------------
 type WebhookEvent = {
@@ -142,7 +212,8 @@ export async function handleWebhookEvents(account: LineAccount, events: WebhookE
 async function onFollow(account: LineAccount, userId: string, replyToken?: string): Promise<void> {
   const token = tokenOf(account);
   const profile = await getProfile(token, userId).catch(() => null);
-  const friend = await db.lineFriend.upsert({
+  const now = new Date();
+  let friend = await db.lineFriend.upsert({
     where: { accountId_lineUserId: { accountId: account.id, lineUserId: userId } },
     create: {
       accountId: account.id,
@@ -153,12 +224,17 @@ async function onFollow(account: LineAccount, userId: string, replyToken?: strin
     },
     update: {
       isFollowing: true,
-      followedAt: new Date(),
+      followedAt: now,
       unfollowedAt: null,
       displayName: profile?.displayName ?? undefined,
       pictureUrl: profile?.pictureUrl ?? undefined,
     },
   });
+
+  // 流入枠（セミナー等）：時間帯で自動紐づけ。確認用のボタンも1通目に付ける
+  const entryPoints = await db.lineEntryPoint.findMany({ where: { accountId: account.id, isActive: true } });
+  friend = await attributeEntryPoint(friend, entryPoints, now);
+  const quickReply = entryPointQuickReply(entryPoints, now);
 
   // 友だち追加で始まるシナリオに登録
   const scenarios = await db.lineScenario.findMany({
@@ -182,7 +258,13 @@ async function onFollow(account: LineAccount, userId: string, replyToken?: strin
     logs.push({ body, via: `scenario:${step.id}` });
     await advanceEnrollment(enrollment.id, step);
   }
+  if (messages.length === 0 && quickReply) {
+    const ask = "ご参加のセミナー（きっかけ）をお選びください。";
+    messages.push(text(ask));
+    logs.push({ body: ask, via: "greeting" });
+  }
   if (messages.length === 0) return;
+  if (quickReply) messages[messages.length - 1] = { ...messages[messages.length - 1], quickReply };
 
   if (replyToken) {
     try {
@@ -246,7 +328,16 @@ async function onPostback(account: LineAccount, userId: string, ev: WebhookEvent
   await db.lineMessage.create({
     data: { friendId: friend.id, direction: "IN", type: "postback", text: data, payload: ev as object },
   });
-  const tag = new URLSearchParams(data).get("tag");
+  const params = new URLSearchParams(data);
+  const epId = params.get("ep");
+  if (epId && epId !== "other") {
+    const ep = await db.lineEntryPoint.findFirst({ where: { id: epId, accountId: account.id } });
+    if (ep) {
+      await applyEntryPoint(friend, ep);
+      return;
+    }
+  }
+  const tag = params.get("tag");
   if (tag && !friend.tags.includes(tag)) {
     const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: tag } } });
     await enrollByTags(updated, [tag]);

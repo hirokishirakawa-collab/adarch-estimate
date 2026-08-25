@@ -4190,9 +4190,10 @@ model LineAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  friends    LineFriend[]
-  scenarios  LineScenario[]
-  broadcasts LineBroadcast[]
+  friends     LineFriend[]
+  scenarios   LineScenario[]
+  broadcasts  LineBroadcast[]
+  entryPoints LineEntryPoint[]
 
   @@index([branchId])
   @@map("line_accounts")
@@ -4328,4 +4329,26 @@ model LineBroadcast {
   @@index([status, scheduledAt])
   @@index([accountId, createdAt(sort: Desc)])
   @@map("line_broadcasts")
+}
+
+/// 流入枠（セミナー等）。専用QRを出し、時間帯内の友だち追加に自動でタグを付ける。
+/// 1通目のクイックリプライ「ご参加のセミナーをお選びください」でも確定できる。
+model LineEntryPoint {
+  id        String      @id @default(cuid())
+  accountId String
+  account   LineAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  name        String // セミナー名（例: 9/10 グループ定例）
+  tag         String // 付けるタグ（例: セミナー:9/10定例）
+  startsAt    DateTime? // 開催開始（自動タグの時間帯＝開始30分前〜終了2時間後）
+  endsAt      DateTime?
+  askOnFollow Boolean   @default(true) // 1通目のボタン候補に出す
+  isActive    Boolean   @default(true)
+  followCount Int       @default(0) // この枠に紐づいた友だち追加数
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId, isActive])
+  @@map("line_entry_points")
 }

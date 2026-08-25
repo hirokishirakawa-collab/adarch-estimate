@@ -468,3 +468,57 @@ export async function seedClientScenario(accountId: string): Promise<Result> {
   revalidatePath(`${BASE}/${accountId}/scenarios`);
   return { ok: true };
 }
+
+// ---------------------------------------------------------------
+// 流入枠（セミナー等）
+// ---------------------------------------------------------------
+function parseJstLocal(v: string): Date | null {
+  if (!v) return null;
+  const d = new Date(`${v}:00+09:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export async function saveLineEntryPoint(_prev: Result | null, fd: FormData): Promise<Result> {
+  const info = await requireSession();
+  const accountId = str(fd, "accountId");
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+
+  const id = str(fd, "id");
+  const name = str(fd, "name").slice(0, 60);
+  const tag = (str(fd, "tag") || `セミナー:${name}`).replace(/[,\s]+/g, "_").slice(0, 40);
+  const startsAt = parseJstLocal(str(fd, "startsAt"));
+  const endsAt = parseJstLocal(str(fd, "endsAt"));
+  const askOnFollow = fd.get("askOnFollow") === "on";
+  if (!name) return { error: "セミナー名を入れてください" };
+  if (str(fd, "startsAt") && !startsAt) return { error: "開始日時の形式が不正です" };
+  if (endsAt && startsAt && endsAt < startsAt) return { error: "終了は開始より後にしてください" };
+
+  const data = { name, tag, startsAt, endsAt, askOnFollow };
+  if (id) {
+    const r = await db.lineEntryPoint.updateMany({ where: { id, accountId }, data });
+    if (r.count === 0) return { error: "枠が見つかりません" };
+  } else {
+    await db.lineEntryPoint.create({ data: { accountId, ...data } });
+  }
+  revalidatePath(`${BASE}/${accountId}/entry-points`);
+  return { ok: true };
+}
+
+export async function deleteLineEntryPoint(accountId: string, id: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  await db.lineEntryPoint.deleteMany({ where: { id, accountId } });
+  revalidatePath(`${BASE}/${accountId}/entry-points`);
+  return { ok: true };
+}
+
+export async function toggleLineEntryPoint(accountId: string, id: string, isActive: boolean): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  await db.lineEntryPoint.updateMany({ where: { id, accountId }, data: { isActive } });
+  revalidatePath(`${BASE}/${accountId}/entry-points`);
+  return { ok: true };
+}
