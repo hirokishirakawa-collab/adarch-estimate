@@ -1,0 +1,451 @@
+// ==============================================================
+// LINE公式アカウント — Webhook処理・シナリオ配信・一斉配信
+// ==============================================================
+
+import { db } from "@/lib/db";
+import { decryptSecret } from "@/lib/line/secret";
+import {
+  getProfile,
+  replyMessage,
+  pushMessage,
+  multicastMessage,
+  text,
+  LineApiError,
+  type LineMessageObject,
+} from "@/lib/line/client";
+import type { LineAccount, LineFriend, LineScenarioStep } from "@/generated/prisma/client";
+
+const JST_OFFSET = 9 * 60 * 60 * 1000;
+
+// ---------------------------------------------------------------
+// ステップの送信時刻
+//   delayDays=0 & sendHour=null → 即時
+//   それ以外 → 開始日(JST) + delayDays 日 の sendHour 時（JST）。過去なら今すぐ
+// ---------------------------------------------------------------
+export function computeStepRunAt(startedAt: Date, step: Pick<LineScenarioStep, "delayDays" | "sendHour">): Date {
+  const now = new Date();
+  if (step.delayDays === 0 && step.sendHour == null) return now;
+  const jst = new Date(startedAt.getTime() + JST_OFFSET);
+  const hour = step.sendHour ?? 10;
+  const runAt = new Date(
+    Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + step.delayDays, hour, 0, 0) - JST_OFFSET,
+  );
+  return runAt < now ? now : runAt;
+}
+
+/** 本文の差し込み（{name} だけ対応） */
+export function renderText(template: string, friend: Pick<LineFriend, "displayName">): string {
+  return template.replaceAll("{name}", friend.displayName ?? "");
+}
+
+function tokenOf(account: LineAccount): string {
+  return decryptSecret(account.accessTokenEnc);
+}
+
+async function logOut(
+  friendId: string,
+  body: string,
+  sentVia: string,
+  sentByUserId?: string | null,
+): Promise<void> {
+  await db.$transaction([
+    db.lineMessage.create({
+      data: { friendId, direction: "OUT", type: "text", text: body, sentVia, sentByUserId: sentByUserId ?? null },
+    }),
+    db.lineFriend.update({ where: { id: friendId }, data: { lastOutboundAt: new Date() } }),
+  ]);
+}
+
+// ---------------------------------------------------------------
+// シナリオ登録
+// ---------------------------------------------------------------
+export async function enrollInScenario(friend: LineFriend, scenarioId: string): Promise<void> {
+  const first = await db.lineScenarioStep.findFirst({ where: { scenarioId }, orderBy: { order: "asc" } });
+  const startedAt = new Date();
+  await db.lineScenarioEnrollment.upsert({
+    where: { friendId_scenarioId: { friendId: friend.id, scenarioId } },
+    create: {
+      friendId: friend.id,
+      scenarioId,
+      startedAt,
+      nextOrder: first?.order ?? 1,
+      nextRunAt: first ? computeStepRunAt(startedAt, first) : null,
+      status: first ? "ACTIVE" : "DONE",
+    },
+    // 既に登録済みなら最初からやり直す
+    update: {
+      startedAt,
+      nextOrder: first?.order ?? 1,
+      nextRunAt: first ? computeStepRunAt(startedAt, first) : null,
+      status: first ? "ACTIVE" : "DONE",
+      finishedAt: null,
+    },
+  });
+}
+
+/** タグが付いたときに TAG トリガーのシナリオを開始 */
+export async function enrollByTags(friend: LineFriend, newTags: string[]): Promise<void> {
+  if (newTags.length === 0) return;
+  const scenarios = await db.lineScenario.findMany({
+    where: { accountId: friend.accountId, isActive: true, trigger: "TAG", triggerTag: { in: newTags } },
+    select: { id: true },
+  });
+  for (const s of scenarios) await enrollInScenario(friend, s.id);
+}
+
+// ---------------------------------------------------------------
+// Webhook イベント処理
+// ---------------------------------------------------------------
+type WebhookEvent = {
+  type: string;
+  replyToken?: string;
+  timestamp?: number;
+  source?: { type: string; userId?: string };
+  message?: { id: string; type: string; text?: string; stickerId?: string; packageId?: string };
+  postback?: { data: string };
+};
+
+async function upsertFriend(account: LineAccount, userId: string): Promise<LineFriend> {
+  const existing = await db.lineFriend.findUnique({
+    where: { accountId_lineUserId: { accountId: account.id, lineUserId: userId } },
+  });
+  if (existing) return existing;
+  const profile = await getProfile(tokenOf(account), userId).catch(() => null);
+  return db.lineFriend.create({
+    data: {
+      accountId: account.id,
+      lineUserId: userId,
+      displayName: profile?.displayName ?? null,
+      pictureUrl: profile?.pictureUrl ?? null,
+      statusMessage: profile?.statusMessage ?? null,
+    },
+  });
+}
+
+export async function handleWebhookEvents(account: LineAccount, events: WebhookEvent[]): Promise<void> {
+  await db.lineAccount.update({ where: { id: account.id }, data: { webhookLastAt: new Date() } });
+
+  for (const ev of events) {
+    const userId = ev.source?.userId;
+    if (!userId || ev.source?.type !== "user") continue; // グループ/ルームは対象外
+    try {
+      if (ev.type === "follow") await onFollow(account, userId, ev.replyToken);
+      else if (ev.type === "unfollow") await onUnfollow(account, userId);
+      else if (ev.type === "message") await onMessage(account, userId, ev);
+      else if (ev.type === "postback") await onPostback(account, userId, ev);
+    } catch (e) {
+      console.error("[line] event failed", ev.type, e);
+    }
+  }
+}
+
+async function onFollow(account: LineAccount, userId: string, replyToken?: string): Promise<void> {
+  const token = tokenOf(account);
+  const profile = await getProfile(token, userId).catch(() => null);
+  const friend = await db.lineFriend.upsert({
+    where: { accountId_lineUserId: { accountId: account.id, lineUserId: userId } },
+    create: {
+      accountId: account.id,
+      lineUserId: userId,
+      displayName: profile?.displayName ?? null,
+      pictureUrl: profile?.pictureUrl ?? null,
+      statusMessage: profile?.statusMessage ?? null,
+    },
+    update: {
+      isFollowing: true,
+      followedAt: new Date(),
+      unfollowedAt: null,
+      displayName: profile?.displayName ?? undefined,
+      pictureUrl: profile?.pictureUrl ?? undefined,
+    },
+  });
+
+  // 友だち追加で始まるシナリオに登録
+  const scenarios = await db.lineScenario.findMany({
+    where: { accountId: account.id, isActive: true, trigger: "FOLLOW" },
+    select: { id: true },
+  });
+  for (const s of scenarios) await enrollInScenario(friend, s.id);
+
+  // あいさつ ＋ 即時ステップは reply（無料枠）でまとめて送る
+  const immediate = await dueStepsFor(friend.id);
+  const messages: LineMessageObject[] = [];
+  const logs: { body: string; via: string }[] = [];
+  if (account.greetingText?.trim()) {
+    const body = renderText(account.greetingText, friend);
+    messages.push(text(body));
+    logs.push({ body, via: "greeting" });
+  }
+  for (const { enrollment, step } of immediate) {
+    const body = renderText(step.text, friend);
+    messages.push(text(body));
+    logs.push({ body, via: `scenario:${step.id}` });
+    await advanceEnrollment(enrollment.id, step);
+  }
+  if (messages.length === 0) return;
+
+  if (replyToken) {
+    try {
+      await replyMessage(token, replyToken, messages);
+    } catch {
+      await pushMessage(token, userId, messages);
+    }
+  } else {
+    await pushMessage(token, userId, messages);
+  }
+  for (const l of logs) await logOut(friend.id, l.body, l.via);
+}
+
+async function onUnfollow(account: LineAccount, userId: string): Promise<void> {
+  const friend = await db.lineFriend.findUnique({
+    where: { accountId_lineUserId: { accountId: account.id, lineUserId: userId } },
+  });
+  if (!friend) return;
+  await db.$transaction([
+    db.lineFriend.update({ where: { id: friend.id }, data: { isFollowing: false, unfollowedAt: new Date() } }),
+    db.lineScenarioEnrollment.updateMany({
+      where: { friendId: friend.id, status: "ACTIVE" },
+      data: { status: "STOPPED", finishedAt: new Date() },
+    }),
+  ]);
+}
+
+async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent): Promise<void> {
+  const friend = await upsertFriend(account, userId);
+  const m = ev.message!;
+  const body =
+    m.type === "text" ? (m.text ?? "") : m.type === "sticker" ? "（スタンプ）" : `（${m.type}）`;
+  await db.$transaction([
+    db.lineMessage.create({
+      data: {
+        friendId: friend.id,
+        direction: "IN",
+        type: m.type,
+        text: body,
+        lineMessageId: m.id,
+        payload: ev as object,
+      },
+    }),
+    db.lineFriend.update({
+      where: { id: friend.id },
+      data: { lastInboundAt: new Date(), unreadCount: { increment: 1 }, isFollowing: true },
+    }),
+  ]);
+
+  if (account.autoReplyText?.trim() && ev.replyToken) {
+    const reply = renderText(account.autoReplyText, friend);
+    await replyMessage(tokenOf(account), ev.replyToken, [text(reply)]);
+    await logOut(friend.id, reply, "auto");
+  }
+}
+
+/** ポストバック data は "tag=xxx" 形式ならタグ付け（Phase 2 のリッチメニュー用に先に受ける） */
+async function onPostback(account: LineAccount, userId: string, ev: WebhookEvent): Promise<void> {
+  const friend = await upsertFriend(account, userId);
+  const data = ev.postback?.data ?? "";
+  await db.lineMessage.create({
+    data: { friendId: friend.id, direction: "IN", type: "postback", text: data, payload: ev as object },
+  });
+  const tag = new URLSearchParams(data).get("tag");
+  if (tag && !friend.tags.includes(tag)) {
+    const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: tag } } });
+    await enrollByTags(updated, [tag]);
+  }
+}
+
+// ---------------------------------------------------------------
+// シナリオ実行
+// ---------------------------------------------------------------
+type Due = {
+  enrollment: { id: string; friendId: string; scenarioId: string; nextOrder: number };
+  step: LineScenarioStep;
+};
+
+async function dueStepsFor(friendId: string): Promise<Due[]> {
+  const now = new Date();
+  const enrollments = await db.lineScenarioEnrollment.findMany({
+    where: { friendId, status: "ACTIVE", nextRunAt: { lte: now } },
+  });
+  const out: Due[] = [];
+  for (const en of enrollments) {
+    const step = await db.lineScenarioStep.findUnique({
+      where: { scenarioId_order: { scenarioId: en.scenarioId, order: en.nextOrder } },
+    });
+    if (step) out.push({ enrollment: en, step });
+  }
+  return out;
+}
+
+async function advanceEnrollment(enrollmentId: string, step: LineScenarioStep): Promise<void> {
+  const next = await db.lineScenarioStep.findFirst({
+    where: { scenarioId: step.scenarioId, order: { gt: step.order } },
+    orderBy: { order: "asc" },
+  });
+  const en = await db.lineScenarioEnrollment.findUnique({ where: { id: enrollmentId } });
+  if (!en) return;
+  if (step.addTags.length > 0) {
+    const friend = await db.lineFriend.findUnique({ where: { id: en.friendId } });
+    if (friend) {
+      const fresh = step.addTags.filter((t) => !friend.tags.includes(t));
+      if (fresh.length > 0) {
+        const updated = await db.lineFriend.update({
+          where: { id: friend.id },
+          data: { tags: [...friend.tags, ...fresh] },
+        });
+        await enrollByTags(updated, fresh);
+      }
+    }
+  }
+  await db.lineScenarioEnrollment.update({
+    where: { id: enrollmentId },
+    data: next
+      ? { nextOrder: next.order, nextRunAt: computeStepRunAt(en.startedAt, next) }
+      : { status: "DONE", nextRunAt: null, finishedAt: new Date() },
+  });
+}
+
+/** cron: 期限の来たステップを送る（1回の実行で最大 limit 件） */
+export async function runScenarioTick(limit = 200): Promise<{ sent: number; failed: number }> {
+  const now = new Date();
+  const due = await db.lineScenarioEnrollment.findMany({
+    where: { status: "ACTIVE", nextRunAt: { lte: now }, friend: { isFollowing: true }, scenario: { isActive: true } },
+    include: { friend: { include: { account: true } } },
+    take: limit,
+    orderBy: { nextRunAt: "asc" },
+  });
+  let sent = 0;
+  let failed = 0;
+  for (const en of due) {
+    const step = await db.lineScenarioStep.findUnique({
+      where: { scenarioId_order: { scenarioId: en.scenarioId, order: en.nextOrder } },
+    });
+    if (!step) {
+      await db.lineScenarioEnrollment.update({
+        where: { id: en.id },
+        data: { status: "DONE", nextRunAt: null, finishedAt: now },
+      });
+      continue;
+    }
+    const account = en.friend.account;
+    if (!account.isActive) continue;
+    const body = renderText(step.text, en.friend);
+    try {
+      await pushMessage(tokenOf(account), en.friend.lineUserId, [text(body)]);
+      await logOut(en.friendId, body, `scenario:${step.id}`);
+      await advanceEnrollment(en.id, step);
+      sent++;
+    } catch (e) {
+      failed++;
+      console.error("[line] scenario push failed", en.id, e);
+      // ブロック等で届かない相手は止める。それ以外は次回再試行（1時間後）
+      if (e instanceof LineApiError && (e.status === 404 || e.status === 400)) {
+        await db.lineScenarioEnrollment.update({
+          where: { id: en.id },
+          data: { status: "STOPPED", nextRunAt: null, finishedAt: now },
+        });
+      } else {
+        await db.lineScenarioEnrollment.update({
+          where: { id: en.id },
+          data: { nextRunAt: new Date(now.getTime() + 60 * 60 * 1000) },
+        });
+      }
+    }
+  }
+  return { sent, failed };
+}
+
+// ---------------------------------------------------------------
+// 一斉配信
+// ---------------------------------------------------------------
+export function broadcastTargetWhere(accountId: string, filterTags: string[], excludeTags: string[]) {
+  return {
+    accountId,
+    isFollowing: true,
+    ...(filterTags.length > 0 ? { tags: { hasSome: filterTags } } : {}),
+    ...(excludeTags.length > 0 ? { NOT: { tags: { hasSome: excludeTags } } } : {}),
+  };
+}
+
+export async function runBroadcasts(): Promise<{ processed: number }> {
+  const now = new Date();
+  const due = await db.lineBroadcast.findMany({
+    where: { status: "SCHEDULED", scheduledAt: { lte: now } },
+    include: { account: true },
+    take: 20,
+  });
+  for (const b of due) {
+    // 二重送信防止：先に SENDING に切り替えられた1件だけ送る
+    const claimed = await db.lineBroadcast.updateMany({
+      where: { id: b.id, status: "SCHEDULED" },
+      data: { status: "SENDING" },
+    });
+    if (claimed.count === 0) continue;
+
+    const friends = await db.lineFriend.findMany({
+      where: broadcastTargetWhere(b.accountId, b.filterTags, b.excludeTags),
+      select: { id: true, lineUserId: true, displayName: true },
+    });
+    let sent = 0;
+    let failedCount = 0;
+    let error: string | null = null;
+    try {
+      const token = tokenOf(b.account);
+      // {name} を使う本文は個別push、使わなければ multicast で1回
+      if (b.text.includes("{name}")) {
+        for (const f of friends) {
+          try {
+            await pushMessage(token, f.lineUserId, [text(renderText(b.text, f))]);
+            sent++;
+          } catch {
+            failedCount++;
+          }
+        }
+      } else if (friends.length > 0) {
+        await multicastMessage(
+          token,
+          friends.map((f) => f.lineUserId),
+          [text(b.text)],
+        );
+        sent = friends.length;
+      }
+      if (friends.length > 0) {
+        await db.lineMessage.createMany({
+          data: friends.map((f) => ({
+            friendId: f.id,
+            direction: "OUT" as const,
+            type: "text",
+            text: renderText(b.text, f),
+            sentVia: `broadcast:${b.id}`,
+          })),
+        });
+        await db.lineFriend.updateMany({
+          where: { id: { in: friends.map((f) => f.id) } },
+          data: { lastOutboundAt: now },
+        });
+      }
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+      console.error("[line] broadcast failed", b.id, e);
+    }
+    await db.lineBroadcast.update({
+      where: { id: b.id },
+      data: {
+        status: error ? "FAILED" : "SENT",
+        targetCount: friends.length,
+        sentCount: sent,
+        failedCount,
+        sentAt: now,
+        error,
+      },
+    });
+  }
+  return { processed: due.length };
+}
+
+// ---------------------------------------------------------------
+// 手動送信（OSのチャット画面から）
+// ---------------------------------------------------------------
+export async function sendManual(account: LineAccount, friend: LineFriend, body: string, userId: string): Promise<void> {
+  await pushMessage(tokenOf(account), friend.lineUserId, [text(body)]);
+  await logOut(friend.id, body, "manual", userId);
+}

@@ -367,6 +367,18 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    section: "LINE公式",
+    color: "text-emerald-500/80",
+    items: [
+      {
+        href: "/dashboard/line",
+        label: "LINE公式アカウント",
+        icon: MessageCircle,
+        minRole: "MANAGER",
+      },
+    ],
+  },
+  {
     section: "経理",
     color: "text-indigo-500/80",
     items: [

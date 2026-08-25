@@ -332,6 +332,9 @@ model Branch {
   autoSalesTemplates AutoSalesTemplate[]
   autoSalesTargets   AutoSalesTarget[]
 
+  // LINE公式アカウント連携
+  lineAccounts LineAccount[]
+
   @@map("branches")
 }
 
@@ -4134,4 +4137,195 @@ enum GroupMoveMethod {
   REFERRAL // 紹介
   EXISTING // 既存客
   OTHER // その他
+}
+
+// ==============================================================
+// LINE公式アカウント連携（2026-08-25）
+// 拠点ごとに1つのLINE公式（Messaging API）を接続する。
+// branchId = null は本部アカウント（加盟促進用）。
+// 本部は拠点アカウントの「接続状況と件数」だけ見る（会話・友だち名は見ない）。
+// ==============================================================
+
+enum LineMessageDirection {
+  IN // 友だち → 公式
+  OUT // 公式 → 友だち
+}
+
+enum LineScenarioTrigger {
+  FOLLOW // 友だち追加で開始
+  TAG // タグが付いたら開始
+  MANUAL // 手動で開始
+}
+
+enum LineEnrollmentStatus {
+  ACTIVE
+  DONE
+  STOPPED
+}
+
+enum LineBroadcastStatus {
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+}
+
+model LineAccount {
+  id       String  @id @default(cuid())
+  branchId String? // null = 本部
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  name             String // 表示名（例: 本部 加盟促進 / 香川 ○○社）
+  channelId        String
+  channelSecretEnc String // AES-256-GCM 暗号化
+  accessTokenEnc   String // AES-256-GCM 暗号化（長期チャネルアクセストークン）
+  basicId          String? // @から始まるベーシックID（友だち追加URLに使う）
+  botDisplayName   String?
+
+  greetingText  String?   @db.Text // 友だち追加時の自動返信（空なら送らない）
+  autoReplyText String?   @db.Text // 受信時の自動返信（空なら送らない）
+  webhookLastAt DateTime? // 最後にWebhookを受けた時刻＝接続確認
+  isActive      Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  friends    LineFriend[]
+  scenarios  LineScenario[]
+  broadcasts LineBroadcast[]
+
+  @@index([branchId])
+  @@map("line_accounts")
+}
+
+model LineFriend {
+  id        String      @id @default(cuid())
+  accountId String
+  account   LineAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  lineUserId    String
+  displayName   String?
+  pictureUrl    String?
+  statusMessage String?
+
+  tags   String[] @default([])
+  source String? // 流入経路（Phase 2 で LIFF から入れる）
+  note   String?  @db.Text
+
+  isFollowing    Boolean   @default(true)
+  followedAt     DateTime  @default(now())
+  unfollowedAt   DateTime?
+  lastInboundAt  DateTime?
+  lastOutboundAt DateTime?
+  unreadCount    Int       @default(0)
+
+  customerId String? // OS顧客との紐付け（任意）
+  leadId     String? // 加盟リードとの紐付け（任意）
+
+  messages    LineMessage[]
+  enrollments LineScenarioEnrollment[]
+
+  @@unique([accountId, lineUserId])
+  @@index([accountId, lastInboundAt(sort: Desc)])
+  @@index([accountId, isFollowing])
+  @@map("line_friends")
+}
+
+model LineMessage {
+  id       String     @id @default(cuid())
+  friendId String
+  friend   LineFriend @relation(fields: [friendId], references: [id], onDelete: Cascade)
+
+  direction     LineMessageDirection
+  type          String // text / image / sticker / postback / ...
+  text          String?              @db.Text
+  payload       Json? // 送信JSON or 受信イベントの生データ
+  lineMessageId String?
+  sentByUserId  String? // OSユーザーが手動送信した場合
+  sentVia       String? // manual / greeting / auto / scenario:<stepId> / broadcast:<id>
+
+  createdAt DateTime @default(now())
+
+  @@index([friendId, createdAt(sort: Desc)])
+  @@map("line_messages")
+}
+
+model LineScenario {
+  id        String      @id @default(cuid())
+  accountId String
+  account   LineAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  name       String
+  trigger    LineScenarioTrigger @default(FOLLOW)
+  triggerTag String? // trigger=TAG のとき
+  isActive   Boolean             @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps       LineScenarioStep[]
+  enrollments LineScenarioEnrollment[]
+
+  @@index([accountId])
+  @@map("line_scenarios")
+}
+
+model LineScenarioStep {
+  id         String       @id @default(cuid())
+  scenarioId String
+  scenario   LineScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  order     Int // 1始まり
+  delayDays Int      @default(0) // 開始から何日後（0=当日）
+  sendHour  Int? // 何時に送るか（JST・null=即時）
+  text      String   @db.Text
+  addTags   String[] @default([]) // 送信時に付けるタグ
+
+  @@unique([scenarioId, order])
+  @@map("line_scenario_steps")
+}
+
+model LineScenarioEnrollment {
+  id         String       @id @default(cuid())
+  friendId   String
+  friend     LineFriend   @relation(fields: [friendId], references: [id], onDelete: Cascade)
+  scenarioId String
+  scenario   LineScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  nextOrder  Int                  @default(1)
+  nextRunAt  DateTime?
+  status     LineEnrollmentStatus @default(ACTIVE)
+  startedAt  DateTime             @default(now())
+  finishedAt DateTime?
+
+  @@unique([friendId, scenarioId])
+  @@index([status, nextRunAt])
+  @@map("line_scenario_enrollments")
+}
+
+model LineBroadcast {
+  id        String      @id @default(cuid())
+  accountId String
+  account   LineAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  title       String
+  text        String   @db.Text
+  filterTags  String[] @default([]) // いずれかのタグを持つ人（空=全員）
+  excludeTags String[] @default([]) // このタグを持つ人は除外
+
+  scheduledAt DateTime
+  status      LineBroadcastStatus @default(SCHEDULED)
+  targetCount Int                 @default(0)
+  sentCount   Int                 @default(0)
+  failedCount Int                 @default(0)
+  sentAt      DateTime?
+  error       String?
+
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([accountId, createdAt(sort: Desc)])
+  @@map("line_broadcasts")
 }
