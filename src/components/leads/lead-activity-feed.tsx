@@ -40,6 +40,8 @@ function formatLogMessage(log: LogEntry): string {
       return `${staffName}さんが「${lead.name}」の${detail ?? "担当者を設定しました"}`;
     case "CONVERTED":
       return `${staffName}さんが「${lead.name}」を顧客に転換しました`;
+    case "FORM_SKIPPED":
+      return `${staffName}さんが「${lead.name}」を${detail ?? "送付見送り"}にしました`;
     default:
       return `${staffName}さんが「${lead.name}」に対して操作しました`;
   }

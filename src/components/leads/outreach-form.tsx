@@ -5,6 +5,7 @@ import { Copy, Check, MapPin, Sparkles, ChevronDown, ChevronUp, Plus, Trash2, Ba
 import { checkNoSolicitation, getBlockedDomains, addBlockedDomain } from "@/lib/actions/no-solicitation";
 import { OutreachResultBar } from "./outreach-result-bar";
 import { daysSince } from "@/lib/constants/outreach-result";
+import { OUTREACH_SKIP_REASONS, type OutreachSkipReasonValue } from "@/lib/constants/outreach-skip";
 
 // ---------------------------------------------------------------
 // 型
@@ -25,6 +26,8 @@ export interface OutreachLead {
   sentAt: string | null;
   /** 送った先から返ってきた結果。null = まだ返事待ち */
   outreachResult: string | null;
+  /** 送付見送り（OSに記録済み）。null = 見送っていない */
+  skip: { reasonLabel: string; note: string } | null;
 }
 export interface ProvenCopy {
   industry: string;
@@ -118,7 +121,6 @@ function buildBody(lead: OutreachLead, appeal: string, proximity: boolean, c: Co
   return lines.join("\n");
 }
 
-const SKIP_KEY = "skip_os_outreach_page"; // 送付見送り（端末ローカル）
 const PROFILE_KEY = "profile_os_outreach_form"; // 共通項目（差出人）の記憶
 
 // ---------------------------------------------------------------
@@ -129,7 +131,10 @@ interface CardState {
   proximity: boolean;
   body: string;
   sent: boolean;
+  /** 送付見送り（OS反映済み） */
   ng: boolean;
+  skipReasonLabel: string;
+  skipNote: string;
   busy: boolean;
 }
 
@@ -154,7 +159,9 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
         proximity,
         body: buildBody(l, appeal, proximity, { name: senderName, company: senderCompany, email: senderEmail }, []),
         sent: l.alreadySent,
-        ng: false,
+        ng: !!l.skip,
+        skipReasonLabel: l.skip?.reasonLabel ?? "",
+        skipNote: l.skip?.note ?? "",
         busy: false,
       };
     }
@@ -252,21 +259,8 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
     }, 800);
   }, []);
 
-  // マウント時: 送付見送り＋共通項目の記憶を読み込む
+  // マウント時: 共通項目の記憶を読み込む
   useEffect(() => {
-    // 送付見送り（端末ローカル）
-    try {
-      const raw = JSON.parse(localStorage.getItem(SKIP_KEY) || "{}") as Record<string, boolean>;
-      setCards((prev) => {
-        const next = { ...prev };
-        for (const id of Object.keys(next)) {
-          if (raw[id]) next[id] = { ...next[id], ng: true };
-        }
-        return next;
-      });
-    } catch {
-      /* noop */
-    }
     // 共通項目（差出人）の記憶 → あれば適用して全本文を再生成
     try {
       const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null") as
@@ -293,16 +287,6 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
       /* noop */
     }
   }, [leadById, senderName, senderEmail, senderCompany, initialSamples]);
-
-  const persistNg = useCallback((map: Record<string, CardState>) => {
-    const ng: Record<string, boolean> = {};
-    for (const [id, c] of Object.entries(map)) if (c.ng) ng[id] = true;
-    try {
-      localStorage.setItem(SKIP_KEY, JSON.stringify(ng));
-    } catch {
-      /* noop */
-    }
-  }, []);
 
   // 訴求・近接の変更 → そのカードの本文を再生成
   const regen = useCallback(
@@ -373,12 +357,46 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
     }
   }
 
-  function toggleNg(id: string) {
-    setCards((prev) => {
-      const next = { ...prev, [id]: { ...prev[id], ng: !prev[id].ng } };
-      persistNg(next);
-      return next;
-    });
+  // 送付見送り → OSへ反映（理由＋メモを LeadLog とリード管理のメモ欄に残す）
+  async function markSkip(id: string, reason: OutreachSkipReasonValue, note: string) {
+    const cur = cards[id];
+    if (!cur || cur.busy) return;
+    setCards((p) => ({ ...p, [id]: { ...p[id], busy: true } }));
+    try {
+      const res = await fetch("/api/leads/outreach/skip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: id, reason, note, action: "mark" }),
+      });
+      if (!res.ok) throw new Error("failed");
+      const data = (await res.json()) as { reasonLabel?: string; note?: string };
+      setCards((p) => ({
+        ...p,
+        [id]: { ...p[id], ng: true, skipReasonLabel: data.reasonLabel ?? "", skipNote: data.note ?? "", busy: false },
+      }));
+    } catch {
+      setCards((p) => ({ ...p, [id]: { ...p[id], busy: false } }));
+      alert("OSへの反映に失敗しました。通信状況をご確認ください。");
+    }
+  }
+
+  // 見送り解除 → 見送りログとメモの1行を取り除く
+  async function unmarkSkip(id: string) {
+    const cur = cards[id];
+    if (!cur || cur.busy) return;
+    setCards((p) => ({ ...p, [id]: { ...p[id], busy: true } }));
+    try {
+      const res = await fetch("/api/leads/outreach/skip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: id, action: "unmark" }),
+      });
+      if (!res.ok) throw new Error("failed");
+      setCards((p) => ({ ...p, [id]: { ...p[id], ng: false, skipReasonLabel: "", skipNote: "", busy: false } }));
+    } catch {
+      setCards((p) => ({ ...p, [id]: { ...p[id], busy: false } }));
+      alert("OSへの反映に失敗しました。通信状況をご確認ください。");
+    }
   }
 
   function setBody(id: string, body: string) {
@@ -459,7 +477,8 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
             onProximity={(v) => regen(lead.id, { proximity: v }, common)}
             onBody={(v) => setBody(lead.id, v)}
             onToggleSent={() => toggleSent(lead.id)}
-            onToggleNg={() => toggleNg(lead.id)}
+            onSkip={(reason, note) => markSkip(lead.id, reason, note)}
+            onUnskip={() => unmarkSkip(lead.id)}
             blockedReason={blockReasonOf(lead.websiteUrl)}
             onMarkBlocked={() => markBlocked(lead.id)}
             subject={subject}
@@ -499,7 +518,8 @@ function OutreachCard({
   onProximity,
   onBody,
   onToggleSent,
-  onToggleNg,
+  onSkip,
+  onUnskip,
   blockedReason,
   onMarkBlocked,
   subject,
@@ -513,7 +533,9 @@ function OutreachCard({
   onProximity: (v: boolean) => void;
   onBody: (v: string) => void;
   onToggleSent: () => void;
-  onToggleNg: () => void;
+  /** 送付見送り（理由＋メモをOSへ記録） */
+  onSkip: (reason: OutreachSkipReasonValue, note: string) => void;
+  onUnskip: () => void;
   /** 営業お断りの記載がある場合の理由。あるときは送信操作を止める */
   blockedReason?: string;
   onMarkBlocked: () => void;
@@ -521,6 +543,9 @@ function OutreachCard({
   subject: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [skipOpen, setSkipOpen] = useState(false);
+  const [skipReason, setSkipReason] = useState<OutreachSkipReasonValue>("CUSTOMER_ONLY");
+  const [skipNote, setSkipNote] = useState("");
   const [showProven, setShowProven] = useState(false);
   const [showAllProven, setShowAllProven] = useState(false);
 
@@ -594,13 +619,71 @@ function OutreachCard({
             </button>
           )}
           <button
-            onClick={onToggleNg}
-            className={`text-xs font-bold rounded-lg px-2.5 py-1.5 ${state.ng ? "bg-zinc-600 text-white" : "bg-zinc-400 text-white hover:bg-zinc-500"}`}
+            onClick={() => (state.ng ? onUnskip() : setSkipOpen((o) => !o))}
+            disabled={state.busy}
+            className={`text-xs font-bold rounded-lg px-2.5 py-1.5 disabled:opacity-30 ${state.ng ? "bg-zinc-600 text-white" : "bg-zinc-400 text-white hover:bg-zinc-500"}`}
           >
             {state.ng ? "見送り解除" : "送付見送り"}
           </button>
         </div>
       </div>
+
+      {/* 見送り済みの理由（OSのメモ欄にも同じ1行が入っている） */}
+      {state.ng && (
+        <p className="text-[11px] text-zinc-500 mt-1.5">
+          見送り：{state.skipReasonLabel || "その他"}
+          {state.skipNote && <span className="text-zinc-600">（{state.skipNote}）</span>}
+          <span className="text-zinc-400 ml-1">／リード管理のメモに記録済み</span>
+        </p>
+      )}
+
+      {/* 見送りの理由を選ぶ（選択＋自由記載）。決定でOSに記録される */}
+      {skipOpen && !state.ng && (
+        <div className="mt-2 rounded-lg border border-zinc-300 bg-zinc-50 p-3">
+          <p className="text-[11px] font-bold text-zinc-600 mb-1.5">見送りの理由は？</p>
+          <div className="flex flex-wrap gap-1.5">
+            {OUTREACH_SKIP_REASONS.map((r) => (
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => setSkipReason(r.value)}
+                title={r.hint}
+                className={`text-[11px] font-medium px-2.5 py-1.5 rounded border ${
+                  skipReason === r.value
+                    ? "bg-zinc-700 text-white border-zinc-700"
+                    : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-100"
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+          <input
+            value={skipNote}
+            onChange={(e) => setSkipNote(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { onSkip(skipReason, skipNote); setSkipOpen(false); }
+              if (e.key === "Escape") setSkipOpen(false);
+            }}
+            placeholder={skipReason === "OTHER" ? "理由を書いてください" : "メモ（任意）"}
+            className="mt-2 w-full text-xs px-2.5 py-1.5 border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-zinc-200"
+          />
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => { onSkip(skipReason, skipNote); setSkipOpen(false); }}
+              disabled={state.busy || (skipReason === "OTHER" && !skipNote.trim())}
+              className="text-xs font-bold text-white bg-zinc-600 hover:bg-zinc-700 disabled:opacity-40 px-3 py-1.5 rounded-lg"
+            >
+              見送りにする
+            </button>
+            <button type="button" onClick={() => setSkipOpen(false)} className="text-xs text-zinc-500 hover:text-zinc-800">
+              やめる
+            </button>
+            <span className="text-[11px] text-zinc-400">理由とメモはリード管理のメモ欄に残ります</span>
+          </div>
+        </div>
+      )}
 
       {/* リンク */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs">

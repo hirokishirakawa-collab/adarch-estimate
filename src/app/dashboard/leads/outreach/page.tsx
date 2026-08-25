@@ -8,6 +8,7 @@ import { OutreachForm } from "@/components/leads/outreach-form";
 import { FavoriteButton } from "@/components/layout/favorite-button";
 import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
 import { getActivityKpi } from "@/lib/kpis/activity";
+import { FORM_SKIPPED, parseSkipDetail } from "@/lib/constants/outreach-skip";
 
 const MAX_LEADS = 120;
 
@@ -163,6 +164,21 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
     : [];
   const sentSet = new Set(sentLogs.map((s) => s.leadId));
 
+  // 送付見送り（FORM_SKIPPED ログ）。1リードにつき最新の1件だけ使う
+  const skipLogs = leadIds.length
+    ? await db.leadLog.findMany({
+        where: { leadId: { in: leadIds }, action: FORM_SKIPPED },
+        select: { leadId: true, detail: true },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+  const skipMap = new Map<string, { reasonLabel: string; note: string }>();
+  for (const s of skipLogs) {
+    if (skipMap.has(s.leadId)) continue;
+    const parsed = parseSkipDetail(s.detail);
+    if (parsed) skipMap.set(s.leadId, parsed);
+  }
+
   // クライアントへ渡す形に整形
   const formLeads = leads.map((l) => {
     const text = `${l.prefecture ?? ""} ${l.area ?? ""} ${l.address ?? ""}`;
@@ -181,6 +197,7 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
       alreadySent: sentSet.has(l.id),
       sentAt: l.sentAt ? l.sentAt.toISOString() : null,
       outreachResult: l.outreachResult,
+      skip: skipMap.get(l.id) ?? null,
     };
   });
 
