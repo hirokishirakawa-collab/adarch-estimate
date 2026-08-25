@@ -1,10 +1,10 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Link from "next/link";
-import { MailQuestion, ExternalLink, UserCheck } from "lucide-react";
+import { MailQuestion, UserCheck } from "lucide-react";
 import { FavoriteButton } from "@/components/layout/favorite-button";
-import { OutreachResultBar } from "@/components/leads/outreach-result-bar";
-import { getOutreachResultOption, daysSince, cutoffDaysAgo } from "@/lib/constants/outreach-result";
+import { AwaitingTable, type AwaitingRow } from "@/components/leads/awaiting-table";
+import { daysSince, cutoffDaysAgo } from "@/lib/constants/outreach-result";
 
 const PER_PAGE = 100;
 
@@ -19,13 +19,6 @@ function appealOf(detail: string | null): string {
 function fmtDate(d: Date | null): string {
   if (!d) return "—";
   return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-// 経過日数の見た目。放置が長いほど強い色にして、上から手を打てるようにする
-function elapsedClass(days: number): string {
-  if (days >= 14) return "bg-rose-50 text-rose-700 border-rose-200";
-  if (days >= 7) return "bg-amber-50 text-amber-700 border-amber-200";
-  return "bg-zinc-50 text-zinc-500 border-zinc-200";
 }
 
 interface PageProps {
@@ -90,6 +83,23 @@ export default async function LeadAwaitingPage({ searchParams }: PageProps) {
     where: { ...waitingWhere, sentAt: { lt: cutoffDaysAgo(7) } },
   });
 
+  // クライアント側の表に渡す素の行データ（Date は文字列にしてから渡す）
+  const rows: AwaitingRow[] = leads.map((lead) => {
+    const log = logByLead.get(lead.id);
+    return {
+      id: lead.id,
+      name: lead.name,
+      meta: [lead.area ?? lead.prefecture, lead.industry].filter(Boolean).join("・"),
+      websiteUrl: lead.websiteUrl,
+      days: lead.sentAt ? daysSince(lead.sentAt) : 0,
+      appeal: appealOf(log?.detail ?? null),
+      sentDate: fmtDate(lead.sentAt),
+      staff: log?.staffName ?? lead.assignee?.name ?? "—",
+      outreachResult: lead.outreachResult,
+      resultDate: fmtDate(lead.outreachResultAt),
+    };
+  });
+
   const tabHref = (t: string) => `/dashboard/leads/awaiting?tab=${t}${mine ? "&mine=1" : ""}`;
 
   return (
@@ -106,7 +116,7 @@ export default async function LeadAwaitingPage({ searchParams }: PageProps) {
               <FavoriteButton path="/dashboard/leads/awaiting" label="返事待ち" />
             </div>
             <p className="text-xs text-zinc-500 mt-0.5">
-              営業フォームで送った先のうち、まだ結果を入れていないもの。結果を押すとグループ事例に自動で残ります
+              営業フォームで送った先のうち、まだ結果を入れていないもの。結果を押すとグループ事例に自動で残ります。チェックを入れるとまとめて記録できます
             </p>
           </div>
         </div>
@@ -181,71 +191,7 @@ export default async function LeadAwaitingPage({ searchParams }: PageProps) {
               : "返事待ちはありません。営業フォームで送付済みにすると、ここに並びます。"}
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-zinc-50 border-b border-zinc-200">
-                <tr className="text-[11px] font-bold text-zinc-500">
-                  <th className="px-3 py-2.5 text-center whitespace-nowrap">経過</th>
-                  <th className="px-3 py-2.5 text-left">会社</th>
-                  <th className="px-3 py-2.5 text-left whitespace-nowrap">訴求</th>
-                  <th className="px-3 py-2.5 text-center whitespace-nowrap">送付</th>
-                  <th className="px-3 py-2.5 text-left whitespace-nowrap">送った人</th>
-                  <th className="px-3 py-2.5 text-left">結果</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {leads.map((lead) => {
-                  const log = logByLead.get(lead.id);
-                  const days = lead.sentAt ? daysSince(lead.sentAt) : 0;
-                  const done = getOutreachResultOption(lead.outreachResult);
-                  const meta = [lead.area ?? lead.prefecture, lead.industry].filter(Boolean).join("・");
-                  return (
-                    <tr key={lead.id} className="hover:bg-zinc-50/60 align-top">
-                      <td className="px-3 py-3 text-center">
-                        <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${elapsedClass(days)}`}
-                        >
-                          {days}日
-                        </span>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="font-bold text-zinc-900">{lead.name}</div>
-                        <div className="text-[11px] text-zinc-500 mt-0.5">{meta || "—"}</div>
-                        {lead.websiteUrl && (
-                          <a
-                            href={lead.websiteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:underline mt-0.5"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            サイト
-                          </a>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-xs text-zinc-600 whitespace-nowrap">
-                        {appealOf(log?.detail ?? null) || "—"}
-                      </td>
-                      <td className="px-3 py-3 text-center text-xs text-zinc-600 whitespace-nowrap">
-                        {fmtDate(lead.sentAt)}
-                      </td>
-                      <td className="px-3 py-3 text-xs text-zinc-600 whitespace-nowrap">
-                        {log?.staffName ?? lead.assignee?.name ?? "—"}
-                      </td>
-                      <td className="px-3 py-3">
-                        <OutreachResultBar leadId={lead.id} result={lead.outreachResult} showLabel={false} />
-                        {done && (
-                          <p className="text-[10px] text-zinc-400 mt-1">
-                            {fmtDate(lead.outreachResultAt)} に記録／もう一度押すと取り消し
-                          </p>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <AwaitingTable rows={rows} bulk={tab === "waiting"} />
         )}
       </div>
 

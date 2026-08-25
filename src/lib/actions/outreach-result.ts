@@ -39,10 +39,77 @@ export async function recordOutreachResult(
   if (!lead) return { error: "リードが見つかりません" };
   if (!user) return { error: "ユーザーが見つかりません" };
 
-  const staffName = user.name ?? session.user.email;
+  const res = await applyOutreachResult(lead, option, user, session.user.email, { allowUndo: true });
+  if (!res.error) revalidateOutreachPaths();
+  return res;
+}
+
+// ---------------------------------------------------------------
+// 一括版：選んだリードにまとめて同じ結果を入れる（返事待ち画面のチェック→一括）
+//   ・1件ずつと同じ処理（ステータス／ログ／事例DB）を順に流す
+//   ・すでに同じ結果が入っている行は「取り消し」にせず飛ばす（一括で消えると事故になる）
+//   ・途中で失敗しても残りは続け、件数で返す
+// ---------------------------------------------------------------
+const BULK_MAX = 200;
+
+export async function recordOutreachResultBulk(
+  leadIds: string[],
+  result: string,
+): Promise<{ error?: string; done: number; skipped: number; failed: number }> {
+  const session = await auth();
+  if (!session?.user?.email) return { error: "ログインが必要です", done: 0, skipped: 0, failed: 0 };
+
+  const option = getOutreachResultOption(result);
+  if (!option) return { error: "結果の指定が不正です", done: 0, skipped: 0, failed: 0 };
+
+  const ids = Array.from(new Set(leadIds.filter((id) => typeof id === "string" && id))).slice(0, BULK_MAX);
+  if (ids.length === 0) return { error: "対象が選ばれていません", done: 0, skipped: 0, failed: 0 };
+
+  const [leads, user] = await Promise.all([
+    db.lead.findMany({ where: { id: { in: ids } } }),
+    db.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, name: true, groupCompanyId: true },
+    }),
+  ]);
+  if (!user) return { error: "ユーザーが見つかりません", done: 0, skipped: 0, failed: 0 };
+
+  let done = 0;
+  let skipped = 0;
+  let failed = 0;
+  for (const lead of leads) {
+    // 未送付／同じ結果が入っている行は対象外
+    if (!lead.sentAt || lead.outreachResult === option.value) {
+      skipped++;
+      continue;
+    }
+    const res = await applyOutreachResult(lead, option, user, session.user.email, { allowUndo: false });
+    if (res.error) failed++;
+    else done++;
+  }
+  skipped += ids.length - leads.length;
+
+  if (done > 0) revalidateOutreachPaths();
+  return { done, skipped, failed };
+}
+
+// ---------------------------------------------------------------
+// 1件分の本体。単発／一括の両方から呼ぶ
+// ---------------------------------------------------------------
+type LeadRow = NonNullable<Awaited<ReturnType<typeof db.lead.findUnique>>>;
+
+async function applyOutreachResult(
+  lead: LeadRow,
+  option: NonNullable<ReturnType<typeof getOutreachResultOption>>,
+  user: { id: string; name: string | null; groupCompanyId: string | null },
+  email: string,
+  opts: { allowUndo: boolean },
+): Promise<{ error?: string; result?: string | null }> {
+  const leadId = lead.id;
+  const staffName = user.name ?? email;
 
   // 同じ結果をもう一度押したら取り消し（押し間違いをその場で戻せるように）
-  const isUndo = lead.outreachResult === option.value;
+  const isUndo = opts.allowUndo && lead.outreachResult === option.value;
 
   try {
     if (isUndo) {
@@ -60,7 +127,6 @@ export async function recordOutreachResult(
       });
       // 事例DB側も取り消す。自動生成した分だけを消す（人が手で書いた事例は leadId が付かない）
       await db.salesApproach.deleteMany({ where: { leadId } });
-      revalidateOutreachPaths();
       return { result: null };
     }
 
@@ -93,17 +159,16 @@ export async function recordOutreachResult(
 
     logAudit({
       action: "outreach_result_recorded",
-      email: session.user.email,
+      email,
       name: staffName,
       entity: "lead",
       entityId: leadId,
       detail: `${lead.name} / ${option.label}`,
     });
 
-    revalidateOutreachPaths();
     return { result: option.value };
   } catch (e) {
-    console.error("[recordOutreachResult] error:", e instanceof Error ? e.message : e);
+    console.error("[applyOutreachResult] error:", e instanceof Error ? e.message : e);
     return { error: "保存に失敗しました" };
   }
 }
