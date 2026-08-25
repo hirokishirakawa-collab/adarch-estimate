@@ -119,6 +119,7 @@ export async function GET(req: NextRequest) {
           method: true,
           stage: true,
           note: true,
+          companyName: true,
           movedAt: true,
           createdAt: true,
           groupCompany: { select: { name: true, prefecture: true } },
@@ -134,8 +135,10 @@ export async function GET(req: NextRequest) {
       ];
 
       const detail: LiveDetail = {
-        title: move.industry,
-        subtitle: move.groupCompany.prefecture ?? undefined,
+        title: move.companyName ?? move.industry,
+        subtitle: move.companyName
+          ? [move.industry, move.groupCompany.prefecture].filter(Boolean).join(" ・ ")
+          : (move.groupCompany.prefecture ?? undefined),
         actor: move.groupCompany.name,
         rows,
         timeline: move.note ? [{ at: fmt(move.movedAt), text: move.note }] : [],

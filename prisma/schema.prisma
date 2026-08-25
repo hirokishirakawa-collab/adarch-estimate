@@ -4096,7 +4096,12 @@ model GroupMove {
   industry String // 業種（sales-approach の INDUSTRY_OPTIONS と同じ語を使う）
   method   GroupMoveMethod // 当たり方
   stage    GroupMoveStage  @default(APPROACHING) // 今どこまで進んだか
-  note     String? // 一言（120字まで。顧客名を書かせない前提の短さ）
+  note     String? // 一言（120字まで）
+
+  /// 当たっている先の会社名。
+  /// GROUP LIVE には出す（商談と同じ扱い）が、「グループの動き」ボードには出さない。
+  /// ボードは業界だけを見る面として保つ（2026-08-25 代表決定）。
+  companyName String?
 
   // 段階を動かした最後の時刻。「更新◯日前」と、止まっているカードを薄くするのに使う。
   movedAt   DateTime @default(now())

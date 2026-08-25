@@ -115,6 +115,7 @@ export async function GET() {
           industry: true,
           method: true,
           stage: true,
+          companyName: true,
           groupCompany: { select: { name: true, prefecture: true } },
         },
         orderBy: { movedAt: "desc" },
@@ -199,7 +200,10 @@ export async function GET() {
       kind: "move",
       actor: m.groupCompany.name,
       prefs: prefsIn(m.groupCompany.prefecture),
-      text: `${m.industry}に${method ? `${method}で` : ""}アプローチ — ${MOVE_STAGE_LABEL[m.stage] ?? m.stage}`,
+      // 会社名が入っていれば商談と同じ見え方に揃える（ライブは社名を出す面）
+      text: m.companyName
+        ? `「${m.companyName}」（${m.industry}）に${method ? `${method}で` : ""}アプローチ — ${MOVE_STAGE_LABEL[m.stage] ?? m.stage}`
+        : `${m.industry}に${method ? `${method}で` : ""}アプローチ — ${MOVE_STAGE_LABEL[m.stage] ?? m.stage}`,
       ref: { kind: "move", id: m.id },
     });
   }
