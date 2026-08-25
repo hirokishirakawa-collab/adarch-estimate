@@ -193,7 +193,10 @@ async function upsertFriend(account: LineAccount, userId: string): Promise<LineF
 }
 
 export async function handleWebhookEvents(account: LineAccount, events: WebhookEvent[]): Promise<void> {
-  await db.lineAccount.update({ where: { id: account.id }, data: { webhookLastAt: new Date() } });
+  await db.lineAccount.update({
+    where: { id: account.id },
+    data: { webhookLastAt: new Date(), webhookErrorAt: null, webhookError: null },
+  });
 
   for (const ev of events) {
     const userId = ev.source?.userId;

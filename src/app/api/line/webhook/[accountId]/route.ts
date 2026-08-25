@@ -24,6 +24,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ accountId:
   const rawBody = await req.text();
   const secret = decryptSecret(account.channelSecretEnc);
   if (!verifySignature(secret, rawBody, req.headers.get("x-line-signature"))) {
+    // 診断用に記録（LINEは届いているのに秘密鍵が合わない＝別チャネルのシークレット等）
+    await db.lineAccount.update({
+      where: { id: account.id },
+      data: {
+        webhookErrorAt: new Date(),
+        webhookError: "署名が一致しません。チャネルシークレットが Messaging API チャネルのものか確認してください",
+      },
+    });
     return NextResponse.json({ error: "Bad signature" }, { status: 401 });
   }
 

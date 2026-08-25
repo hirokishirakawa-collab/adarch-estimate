@@ -39,6 +39,17 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
           </li>
           <li>LINE Official Account Manager → 設定 → 応答設定：<b>応答メッセージ OFF／Webhook ON</b>（あいさつは本OSから送るので「あいさつメッセージ」もOFF推奨）</li>
         </ol>
+        {account.webhookError && (!account.webhookLastAt || (account.webhookErrorAt && account.webhookErrorAt > account.webhookLastAt)) && (
+          <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            ⚠️ {fmtJst(account.webhookErrorAt)} にLINEからの通知を弾きました：{account.webhookError}
+          </p>
+        )}
+        {!account.webhookLastAt && !account.webhookError && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            まだLINEからの通知が一度も届いていません。手順2のWebhook URL登録と「Webhookの利用 ON」を確認してください。
+            （すでに友だちの方は、追加後にメッセージを送ってもらうまで一覧には出ません）
+          </p>
+        )}
         <div className="flex items-center gap-3 flex-wrap text-xs text-zinc-600">
           <span>最終Webhook受信: <b>{fmtJst(account.webhookLastAt)}</b></span>
           <span>ボット名: <b>{account.botDisplayName ?? "—"}</b></span>

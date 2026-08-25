@@ -134,7 +134,12 @@ export default async function LineHomePage() {
                       <td className="px-3 py-2 text-right tabular-nums">{a._count.friends}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{a._count.scenarios}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{a._count.broadcasts}</td>
-                      <td className="px-3 py-2 text-right text-zinc-500">{fmtAgo(a.webhookLastAt)}</td>
+                      <td className="px-3 py-2 text-right text-zinc-500">
+                        {fmtAgo(a.webhookLastAt)}
+                        {a.webhookError && (!a.webhookLastAt || (a.webhookErrorAt && a.webhookErrorAt > a.webhookLastAt)) && (
+                          <span className="block text-[10px] text-red-600">署名不一致</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

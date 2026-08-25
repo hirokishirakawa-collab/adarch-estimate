@@ -4182,10 +4182,12 @@ model LineAccount {
   basicId          String? // @から始まるベーシックID（友だち追加URLに使う）
   botDisplayName   String?
 
-  greetingText  String?   @db.Text // 友だち追加時の自動返信（空なら送らない）
-  autoReplyText String?   @db.Text // 受信時の自動返信（空なら送らない）
-  webhookLastAt DateTime? // 最後にWebhookを受けた時刻＝接続確認
-  isActive      Boolean   @default(true)
+  greetingText   String?   @db.Text // 友だち追加時の自動返信（空なら送らない）
+  autoReplyText  String?   @db.Text // 受信時の自動返信（空なら送らない）
+  webhookLastAt  DateTime? // 最後にWebhookを受けた時刻＝接続確認
+  webhookErrorAt DateTime? // 最後に署名不一致などで弾いた時刻（診断用）
+  webhookError   String? // 弾いた理由
+  isActive       Boolean   @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
