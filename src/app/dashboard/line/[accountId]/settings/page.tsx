@@ -10,6 +10,8 @@ import { CannedReplyManager } from "@/components/line/canned-replies";
 import { TagManager } from "@/components/line/tag-manager";
 import { KeywordRuleManager } from "@/components/line/keyword-rules";
 import { LinkManager } from "@/components/line/link-manager";
+import { FormManager } from "@/components/line/form-manager";
+import { parseFormFields } from "@/lib/line/service";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +19,18 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
   const { accountId } = await params;
   const { account } = await loadAccountPage(accountId);
   const hook = webhookUrl(account.id);
-  const [canned, tagDefs, friendTags, rules, linkRows] = await Promise.all([
+  const [canned, tagDefs, friendTags, rules, linkRows, formRows] = await Promise.all([
     db.lineCannedReply.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { id: true, title: true, text: true } }),
     db.lineTag.findMany({ where: { accountId }, orderBy: { order: "asc" } }),
     db.lineFriend.findMany({ where: { accountId }, select: { tags: true } }),
     db.lineKeywordRule.findMany({ where: { accountId }, orderBy: { createdAt: "asc" } }),
     db.lineLink.findMany({ where: { accountId }, orderBy: { createdAt: "asc" }, include: { clicks: { select: { friendId: true } } } }),
+    db.lineForm.findMany({ where: { accountId }, orderBy: { createdAt: "asc" } }),
   ]);
+  const forms = formRows.map((f) => ({
+    id: f.id, title: f.title, code: f.code, description: f.description, thankYouText: f.thankYouText,
+    addTags: f.addTags, isActive: f.isActive, responseCount: f.responseCount, fields: parseFormFields(f.fields),
+  }));
   const links = linkRows.map((l) => ({
     id: l.id, label: l.label, code: l.code, url: l.url, addTags: l.addTags, clickCount: l.clickCount,
     uniqueCount: new Set(l.clicks.map((c) => c.friendId)).size,
@@ -96,6 +103,7 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
       <TagManager accountId={accountId} tags={tags} />
       <KeywordRuleManager accountId={accountId} rules={rules} tagNames={tags.map((t) => t.name)} />
       <LinkManager accountId={accountId} links={links} tagNames={tags.map((t) => t.name)} />
+      <FormManager accountId={accountId} forms={forms} tagNames={tags.map((t) => t.name)} />
       <CannedReplyManager accountId={accountId} items={canned} />
 
       <section className="bg-white rounded-xl border border-red-100 p-4 flex items-center justify-between">

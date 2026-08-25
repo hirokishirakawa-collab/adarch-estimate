@@ -58,18 +58,21 @@ export async function renderForFriend(
   friend: Pick<LineFriend, "id" | "displayName" | "token" | "accountId">,
 ): Promise<string> {
   let out = renderText(template, friend);
-  if (!out.includes("{link:")) return out;
+  if (!out.includes("{link:") && !out.includes("{form:")) return out;
   let token = friend.token;
   if (!token) {
     token = newFriendToken();
     await db.lineFriend.update({ where: { id: friend.id }, data: { token } });
   }
-  const codes = [...new Set([...out.matchAll(/\{link:([^}]+)\}/g)].map((m) => m[1].trim()))];
-  const links = await db.lineLink.findMany({ where: { accountId: friend.accountId, code: { in: codes } }, select: { code: true } });
-  const known = new Set(links.map((l) => l.code));
-  for (const code of codes) {
-    if (!known.has(code)) continue;
-    out = out.replaceAll(`{link:${code}}`, `${appBase()}/l/${token}/${encodeURIComponent(code)}`);
+  const linkCodes = [...new Set([...out.matchAll(/\{link:([^}]+)\}/g)].map((m) => m[1].trim()))];
+  if (linkCodes.length > 0) {
+    const links = await db.lineLink.findMany({ where: { accountId: friend.accountId, code: { in: linkCodes } }, select: { code: true } });
+    for (const l of links) out = out.replaceAll(`{link:${l.code}}`, `${appBase()}/l/${token}/${encodeURIComponent(l.code)}`);
+  }
+  const formCodes = [...new Set([...out.matchAll(/\{form:([^}]+)\}/g)].map((m) => m[1].trim()))];
+  if (formCodes.length > 0) {
+    const forms = await db.lineForm.findMany({ where: { accountId: friend.accountId, code: { in: formCodes }, isActive: true }, select: { code: true } });
+    for (const f of forms) out = out.replaceAll(`{form:${f.code}}`, `${appBase()}/f/${token}/${encodeURIComponent(f.code)}`);
   }
   return out;
 }
@@ -661,4 +664,87 @@ export async function resolveLinkUrl(token: string, code: string): Promise<strin
   if (!friend) return null;
   const link = await db.lineLink.findUnique({ where: { accountId_code: { accountId: friend.accountId, code } }, select: { url: true } });
   return link?.url ?? null;
+}
+
+
+// ---------------------------------------------------------------
+// 回答フォーム
+// ---------------------------------------------------------------
+export type FormField = {
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "select" | "checkbox" | "date" | "tel" | "email";
+  required: boolean;
+  options?: string[];
+};
+
+export function parseFormFields(raw: unknown): FormField[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((f) => f as Partial<FormField>)
+    .filter((f) => f && typeof f.key === "string" && typeof f.label === "string")
+    .map((f) => ({
+      key: f.key as string,
+      label: f.label as string,
+      type: (["text", "textarea", "select", "checkbox", "date", "tel", "email"].includes(f.type as string) ? f.type : "text") as FormField["type"],
+      required: !!f.required,
+      options: Array.isArray(f.options) ? f.options.map(String) : undefined,
+    }));
+}
+
+export async function submitFormResponse(
+  token: string,
+  code: string,
+  answers: Record<string, string | string[]>,
+): Promise<{ ok: true; thankYou: string | null } | { ok: false; error: string }> {
+  const friend = await db.lineFriend.findUnique({ where: { token }, include: { account: true } });
+  if (!friend) return { ok: false, error: "このフォームのリンクは無効です" };
+  const form = await db.lineForm.findUnique({ where: { accountId_code: { accountId: friend.accountId, code } } });
+  if (!form || !form.isActive) return { ok: false, error: "このフォームは受付を終了しています" };
+
+  const fields = parseFormFields(form.fields);
+  const clean: Record<string, string | string[]> = {};
+  for (const f of fields) {
+    const v = answers[f.key];
+    const val = Array.isArray(v) ? v.map((x) => String(x).slice(0, 500)).slice(0, 50) : String(v ?? "").slice(0, 2000);
+    const empty = Array.isArray(val) ? val.length === 0 : val.trim() === "";
+    if (f.required && empty) return { ok: false, error: `「${f.label}」を入力してください` };
+    clean[f.key] = val;
+  }
+
+  const summary = fields
+    .map((f) => {
+      const v = clean[f.key];
+      const shown = Array.isArray(v) ? v.join("、") : v;
+      return shown ? `${f.label}: ${shown}` : null;
+    })
+    .filter(Boolean)
+    .join("\n");
+
+  await db.$transaction([
+    db.lineFormResponse.create({ data: { formId: form.id, friendId: friend.id, answers: clean } }),
+    db.lineForm.update({ where: { id: form.id }, data: { responseCount: { increment: 1 } } }),
+    db.lineMessage.create({
+      data: { friendId: friend.id, direction: "IN", type: "form", text: `フォーム「${form.title}」に回答\n${summary}`, sentVia: `form:${form.id}` },
+    }),
+    db.lineFriend.update({ where: { id: friend.id }, data: { lastInboundAt: new Date() } }),
+  ]);
+
+  const fresh = form.addTags.filter((t) => !friend.tags.includes(t));
+  if (fresh.length > 0) {
+    const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: [...friend.tags, ...fresh] } });
+    await enrollByTags(updated, fresh);
+  }
+
+  const thankYou = form.thankYouText?.trim() ? await renderForFriend(form.thankYouText, friend) : null;
+  if (thankYou && friend.isFollowing && friend.account.isActive) {
+    try {
+      await pushMessage(tokenOf(friend.account), friend.lineUserId, [text(thankYou)]);
+      await logOut(friend.id, thankYou, `form:${form.id}`);
+    } catch (e) {
+      console.error("[line] form thank-you push failed", e);
+    }
+  }
+  notifyNewInbound(friend.account, friend, `フォーム「${form.title}」に回答`).catch(() => {});
+  return { ok: true, thankYou };
 }

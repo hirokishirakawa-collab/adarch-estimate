@@ -6,6 +6,7 @@ import { AccountHeader } from "@/components/line/account-header";
 import { ChatSendBox, FriendMetaForm, StartScenarioSelect } from "@/components/line/chat-box";
 import { MuteButton, CustomerLink } from "@/components/line/friend-tools";
 import { fmtJst } from "@/lib/line/format";
+import { parseFormFields } from "@/lib/line/service";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -27,12 +28,13 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
     await db.lineFriend.update({ where: { id: friend.id }, data: { unreadCount: 0 } });
   }
 
-  const [messages, scenarios, canned, customer, tagDefs] = await Promise.all([
+  const [messages, scenarios, canned, customer, tagDefs, responses] = await Promise.all([
     db.lineMessage.findMany({ where: { friendId }, orderBy: { createdAt: "asc" }, take: 300 }),
     db.lineScenario.findMany({ where: { accountId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.lineCannedReply.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { id: true, title: true, text: true } }),
     friend.customerId ? db.customer.findUnique({ where: { id: friend.customerId }, select: { id: true, name: true } }) : Promise.resolve(null),
     db.lineTag.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { name: true, color: true } }),
+    db.lineFormResponse.findMany({ where: { friendId }, orderBy: { createdAt: "desc" }, take: 5, include: { form: { select: { title: true, fields: true } } } }),
   ]);
 
   return (
@@ -104,6 +106,25 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
           <div className="bg-white rounded-xl border border-zinc-200 p-4">
             <FriendMetaForm accountId={accountId} friendId={friendId} tags={friend.tags} note={friend.note} tagOptions={tagDefs} />
           </div>
+          {responses.length > 0 && (
+            <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-2">
+              <p className="text-[11px] font-bold text-zinc-500">フォームの回答</p>
+              {responses.map((r) => {
+                const fields = parseFormFields(r.form.fields);
+                const a = r.answers as Record<string, string | string[]>;
+                return (
+                  <div key={r.id} className="text-xs border border-zinc-100 rounded-lg p-2">
+                    <p className="font-bold text-zinc-800">{r.form.title} <span className="font-normal text-zinc-400">{fmtJst(r.createdAt)}</span></p>
+                    {fields.map((f) => {
+                      const v = a[f.key];
+                      const shown = Array.isArray(v) ? v.join("、") : v;
+                      return shown ? <p key={f.key} className="text-zinc-700"><span className="text-zinc-400">{f.label}:</span> {shown}</p> : null;
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-2">
             <p className="text-[11px] font-bold text-zinc-500">ステップ配信</p>
             {friend.enrollments.length === 0 ? (

@@ -4201,6 +4201,7 @@ model LineAccount {
   tagDefs       LineTag[]
   keywordRules  LineKeywordRule[]
   links         LineLink[]
+  forms         LineForm[]
 
   @@index([branchId])
   @@map("line_accounts")
@@ -4232,9 +4233,10 @@ model LineFriend {
   mutedAt    DateTime? // ミュート中＝ステップ配信・一斉配信を送らず、新着通知も出さない
   token      String?   @unique // 相手ごとのURL用トークン（クリック計測・フォーム）
 
-  messages    LineMessage[]
-  enrollments LineScenarioEnrollment[]
-  linkClicks  LineLinkClick[]
+  messages      LineMessage[]
+  enrollments   LineScenarioEnrollment[]
+  linkClicks    LineLinkClick[]
+  formResponses LineFormResponse[]
 
   @@unique([accountId, lineUserId])
   @@index([accountId, lastInboundAt(sort: Desc)])
@@ -4438,4 +4440,40 @@ model LineLinkClick {
   @@index([linkId, createdAt(sort: Desc)])
   @@index([friendId, createdAt(sort: Desc)])
   @@map("line_link_clicks")
+}
+
+/// 回答フォーム。本文の {form:code} が相手ごとのURL（/f/<token>/<code>）に置き換わる
+model LineForm {
+  id            String      @id @default(cuid())
+  accountId     String
+  account       LineAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  code          String // 本文で使う短い名前
+  title         String
+  description   String?     @db.Text
+  fields        Json // [{key,label,type,required,options}]
+  thankYouText  String?     @db.Text // 回答後にLINEへ送るお礼（空なら送らない）
+  addTags       String[]    @default([]) // 回答時に付けるタグ
+  isActive      Boolean     @default(true)
+  responseCount Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  responses LineFormResponse[]
+
+  @@unique([accountId, code])
+  @@map("line_forms")
+}
+
+model LineFormResponse {
+  id        String      @id @default(cuid())
+  formId    String
+  form      LineForm    @relation(fields: [formId], references: [id], onDelete: Cascade)
+  friendId  String?
+  friend    LineFriend? @relation(fields: [friendId], references: [id], onDelete: SetNull)
+  answers   Json // {key: value}
+  createdAt DateTime    @default(now())
+
+  @@index([formId, createdAt(sort: Desc)])
+  @@index([friendId, createdAt(sort: Desc)])
+  @@map("line_form_responses")
 }

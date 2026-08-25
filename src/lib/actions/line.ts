@@ -10,7 +10,7 @@ import { logAudit } from "@/lib/audit";
 import { encryptSecret, decryptSecret } from "@/lib/line/secret";
 import { getBotInfo, LineApiError } from "@/lib/line/client";
 import { requireSession, getManageableAccount, branchIdForNewAccount } from "@/lib/line/access";
-import { sendManual, enrollInScenario, enrollByTags, broadcastTargetWhere } from "@/lib/line/service";
+import { sendManual, enrollInScenario, enrollByTags, broadcastTargetWhere, parseFormFields, submitFormResponse } from "@/lib/line/service";
 import type { LineScenarioTrigger } from "@/generated/prisma/client";
 
 type Result = { error?: string; ok?: boolean; id?: string; message?: string };
@@ -747,4 +747,61 @@ export async function deleteLineLink(accountId: string, id: string): Promise<Res
   await db.lineLink.deleteMany({ where: { id, accountId } });
   revalidatePath(`${BASE}/${accountId}/settings`);
   return { ok: true };
+}
+
+
+// ---------------------------------------------------------------
+// 回答フォーム
+// ---------------------------------------------------------------
+export async function saveLineForm(_prev: Result | null, fd: FormData): Promise<Result> {
+  const info = await requireSession();
+  const accountId = str(fd, "accountId");
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const id = str(fd, "id");
+  const title = str(fd, "title").slice(0, 80);
+  const code = str(fd, "code").replace(/[{}\s]/g, "").slice(0, 30);
+  const description = str(fd, "description").slice(0, 2000) || null;
+  const thankYouText = str(fd, "thankYouText").slice(0, 5000) || null;
+  const addTags = tagList(str(fd, "addTags"));
+  const isActive = fd.getAll("isActive").includes("on");
+  if (!title || !code) return { error: "タイトルと本文で使う名前を入れてください" };
+  let fields;
+  try {
+    fields = parseFormFields(JSON.parse(str(fd, "fields") || "[]"));
+  } catch {
+    return { error: "項目の形式が不正です" };
+  }
+  if (fields.length === 0) return { error: "項目を1つ以上入れてください" };
+  if (new Set(fields.map((f) => f.key)).size !== fields.length) return { error: "項目名が重複しています" };
+  const dup = await db.lineForm.findFirst({ where: { accountId, code, ...(id ? { NOT: { id } } : {}) } });
+  if (dup) return { error: "同じ名前のフォームがあります" };
+  const data = { title, code, description, thankYouText, addTags, isActive, fields };
+  if (id) {
+    const r = await db.lineForm.updateMany({ where: { id, accountId }, data });
+    if (r.count === 0) return { error: "フォームが見つかりません" };
+  } else {
+    await db.lineForm.create({ data: { accountId, ...data } });
+  }
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  return { ok: true };
+}
+
+export async function deleteLineForm(accountId: string, id: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  await db.lineForm.deleteMany({ where: { id, accountId } });
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  return { ok: true };
+}
+
+/** 公開フォームの送信（認証なし・相手トークンで識別） */
+export async function submitPublicLineForm(
+  token: string,
+  code: string,
+  answers: Record<string, string | string[]>,
+): Promise<{ ok: true; thankYou: string | null } | { ok: false; error: string }> {
+  if (!token || !code) return { ok: false, error: "リンクが無効です" };
+  return submitFormResponse(token, code, answers);
 }

@@ -357,6 +357,6 @@ export const config = {
     // （両ルートはハンドラ内でセッション or Bearer を自前検証する）
     // 自動営業の5ルートは 2026-08-17 の廃止で削除済みのため、除外指定も外した。
     // api/version はデプロイ反映の確認用。コミットの短縮IDしか返さないので認証を通さない。
-    "/((?!api/auth|api/version|api/cron|api/line/webhook|l/|api/contact|api/lp-view|api/franchise-leads/intake|api/franchise-leads/booking-signal|api/group-support|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|test-form|p/|partner|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
+    "/((?!api/auth|api/version|api/cron|api/line/webhook|l/|f/|api/contact|api/lp-view|api/franchise-leads/intake|api/franchise-leads/booking-signal|api/group-support|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|test-form|p/|partner|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
   ],
 };
