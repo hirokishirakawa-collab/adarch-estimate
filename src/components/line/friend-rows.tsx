@@ -98,12 +98,8 @@ export function FriendRows({
           <div key={f.id} className={cn("flex items-center gap-3 px-3 py-2.5 hover:bg-zinc-50 transition-colors", sel.has(f.id) && "bg-emerald-50/60")}>
             {menus.length > 0 && <input type="checkbox" checked={sel.has(f.id)} onChange={() => toggle(f.id)} className="shrink-0" />}
             <Link href={`/dashboard/line/${accountId}/chat/${f.id}`} className="flex items-center gap-3 min-w-0 flex-1">
-              {f.pictureUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={f.pictureUrl} alt="" className="w-9 h-9 rounded-full object-cover bg-zinc-100" />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-zinc-100" />
-              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/api/line/avatar/${f.id}`} alt="" className="w-9 h-9 rounded-full object-cover bg-zinc-100" loading="lazy" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className={cn("text-sm truncate", f.unreadCount > 0 ? "font-bold text-zinc-900" : "text-zinc-800")}>{f.displayName ?? "（名前未取得）"}</p>

@@ -48,12 +48,8 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
       <div className="grid lg:grid-cols-[1fr_320px] gap-4">
         <section className="bg-white rounded-xl border border-zinc-200 flex flex-col min-h-[60vh]">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100">
-            {friend.pictureUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={friend.pictureUrl} alt="" className="w-9 h-9 rounded-full object-cover bg-zinc-100" />
-            ) : (
-              <div className="w-9 h-9 rounded-full bg-zinc-100" />
-            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/api/line/avatar/${friend.id}`} alt="" className="w-9 h-9 rounded-full object-cover bg-zinc-100" />
             <div>
               <p className="text-sm font-bold text-zinc-900">{friend.displayName ?? "（名前未取得）"}</p>
               <p className="text-[11px] text-zinc-400 flex items-center gap-2">
