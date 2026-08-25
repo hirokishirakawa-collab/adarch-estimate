@@ -13,7 +13,7 @@ import { requireSession, getManageableAccount, branchIdForNewAccount } from "@/l
 import { sendManual, enrollInScenario, enrollByTags, broadcastTargetWhere } from "@/lib/line/service";
 import type { LineScenarioTrigger } from "@/generated/prisma/client";
 
-type Result = { error?: string; ok?: boolean; id?: string };
+type Result = { error?: string; ok?: boolean; id?: string; message?: string };
 const BASE = "/dashboard/line";
 
 function str(fd: FormData, key: string): string {
@@ -520,5 +520,73 @@ export async function toggleLineEntryPoint(accountId: string, id: string, isActi
   if (!account) return { error: "権限がありません" };
   await db.lineEntryPoint.updateMany({ where: { id, accountId }, data: { isActive } });
   revalidatePath(`${BASE}/${accountId}/entry-points`);
+  return { ok: true };
+}
+
+
+// ---------------------------------------------------------------
+// ミュート／顧客紐付け／定型文
+// ---------------------------------------------------------------
+export async function toggleLineFriendMute(accountId: string, friendId: string, mute: boolean): Promise<Result> {
+  const ctx = await friendWithAccount(accountId, friendId);
+  if (!ctx) return { error: "権限がありません" };
+  await db.lineFriend.update({ where: { id: friendId }, data: { mutedAt: mute ? new Date() : null } });
+  revalidatePath(`${BASE}/${accountId}`);
+  revalidatePath(`${BASE}/${accountId}/chat/${friendId}`);
+  return { ok: true, message: mute ? "ミュートしました（配信・通知を止めます）" : "ミュートを解除しました" };
+}
+
+/** 紐付け候補の顧客を検索（自拠点のみ／本部アカウントは全拠点） */
+export async function searchCustomersForLine(accountId: string, q: string): Promise<{ id: string; name: string; branch: string }[]> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account || !q.trim()) return [];
+  const rows = await db.customer.findMany({
+    where: {
+      ...(account.branchId ? { branchId: account.branchId } : {}),
+      OR: [{ name: { contains: q.trim(), mode: "insensitive" } }, { nameKana: { contains: q.trim(), mode: "insensitive" } }],
+    },
+    select: { id: true, name: true, branch: { select: { name: true } } },
+    take: 10,
+    orderBy: { updatedAt: "desc" },
+  });
+  return rows.map((r) => ({ id: r.id, name: r.name, branch: r.branch.name }));
+}
+
+export async function linkLineFriendCustomer(accountId: string, friendId: string, customerId: string | null): Promise<Result> {
+  const ctx = await friendWithAccount(accountId, friendId);
+  if (!ctx) return { error: "権限がありません" };
+  if (customerId) {
+    const c = await db.customer.findFirst({
+      where: { id: customerId, ...(ctx.account.branchId ? { branchId: ctx.account.branchId } : {}) },
+      select: { id: true },
+    });
+    if (!c) return { error: "顧客が見つかりません" };
+  }
+  await db.lineFriend.update({ where: { id: friendId }, data: { customerId } });
+  revalidatePath(`${BASE}/${accountId}/chat/${friendId}`);
+  return { ok: true, message: customerId ? "顧客と紐付けました" : "紐付けを外しました" };
+}
+
+export async function saveLineCannedReply(_prev: Result | null, fd: FormData): Promise<Result> {
+  const info = await requireSession();
+  const accountId = str(fd, "accountId");
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const title = str(fd, "title").slice(0, 40);
+  const text = str(fd, "text").slice(0, 5000);
+  if (!title || !text) return { error: "タイトルと本文を入れてください" };
+  const count = await db.lineCannedReply.count({ where: { accountId } });
+  await db.lineCannedReply.create({ data: { accountId, title, text, order: count } });
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  return { ok: true };
+}
+
+export async function deleteLineCannedReply(accountId: string, id: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  await db.lineCannedReply.deleteMany({ where: { id, accountId } });
+  revalidatePath(`${BASE}/${accountId}/settings`);
   return { ok: true };
 }

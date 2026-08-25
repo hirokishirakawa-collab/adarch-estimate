@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { loadAccountPage } from "@/lib/line/page-helpers";
 import { AccountHeader } from "@/components/line/account-header";
 import { ChatSendBox, FriendMetaForm, StartScenarioSelect } from "@/components/line/chat-box";
+import { MuteButton, CustomerLink } from "@/components/line/friend-tools";
 import { fmtJst } from "@/lib/line/format";
 import { cn } from "@/lib/utils";
 
@@ -26,9 +27,11 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
     await db.lineFriend.update({ where: { id: friend.id }, data: { unreadCount: 0 } });
   }
 
-  const [messages, scenarios] = await Promise.all([
+  const [messages, scenarios, canned, customer] = await Promise.all([
     db.lineMessage.findMany({ where: { friendId }, orderBy: { createdAt: "asc" }, take: 300 }),
     db.lineScenario.findMany({ where: { accountId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.lineCannedReply.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { id: true, title: true, text: true } }),
+    friend.customerId ? db.customer.findUnique({ where: { id: friend.customerId }, select: { id: true, name: true } }) : Promise.resolve(null),
   ]);
 
   return (
@@ -47,10 +50,17 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
             )}
             <div>
               <p className="text-sm font-bold text-zinc-900">{friend.displayName ?? "（名前未取得）"}</p>
-              <p className="text-[11px] text-zinc-400">
-                追加 {fmtJst(friend.followedAt)}
-                {!friend.isFollowing && " ・ ブロック/解除済"}
-              </p>
+              <p className="text-[11px] text-zinc-400">追加 {fmtJst(friend.followedAt)}</p>
+            </div>
+            <div className="ml-auto flex items-center gap-1.5">
+              {!friend.isFollowing && (
+                <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5">
+                  ブロックまたは友だち解除 {fmtJst(friend.unfollowedAt)}
+                </span>
+              )}
+              {friend.mutedAt && (
+                <span className="text-[10px] font-bold text-zinc-600 bg-zinc-100 rounded px-1.5 py-0.5">ミュート中</span>
+              )}
             </div>
           </div>
 
@@ -75,11 +85,15 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
           </div>
 
           <div className="px-4 py-3 border-t border-zinc-100">
-            <ChatSendBox accountId={accountId} friendId={friendId} disabled={!friend.isFollowing} />
+            <ChatSendBox accountId={accountId} friendId={friendId} disabled={!friend.isFollowing} canned={canned} friendName={friend.displayName ?? ""} />
           </div>
         </section>
 
         <aside className="space-y-3">
+          <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-3">
+            <MuteButton accountId={accountId} friendId={friendId} muted={!!friend.mutedAt} />
+            <CustomerLink accountId={accountId} friendId={friendId} customer={customer} />
+          </div>
           <div className="bg-white rounded-xl border border-zinc-200 p-4">
             <FriendMetaForm accountId={accountId} friendId={friendId} tags={friend.tags} note={friend.note} />
           </div>

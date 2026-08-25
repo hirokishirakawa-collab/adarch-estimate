@@ -5,6 +5,8 @@ import { ActionButton, ConfirmButton } from "@/components/line/action-buttons";
 import { testLineConnection, deleteLineAccount } from "@/lib/actions/line";
 import { webhookUrl, addFriendUrl, fmtJst } from "@/lib/line/format";
 import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { CannedReplyManager } from "@/components/line/canned-replies";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,7 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
   const { accountId } = await params;
   const { account } = await loadAccountPage(accountId);
   const hook = webhookUrl(account.id);
+  const canned = await db.lineCannedReply.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { id: true, title: true, text: true } });
   const addUrl = addFriendUrl(account.basicId);
 
   async function test() {
@@ -73,6 +76,8 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
           autoReplyText: account.autoReplyText,
         }}
       />
+
+      <CannedReplyManager accountId={accountId} items={canned} />
 
       <section className="bg-white rounded-xl border border-red-100 p-4 flex items-center justify-between">
         <p className="text-xs text-zinc-600">このアカウントの接続を解除する（友だち・会話・シナリオもOSから消えます。LINE側のアカウントは残ります）</p>

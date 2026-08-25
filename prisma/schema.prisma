@@ -2812,6 +2812,7 @@ enum NotificationType {
   REVIEW_APPROVED // レビューが承認された
   REVIEW_REJECTED // レビューが差し戻された
   GROUP_REPLY // グループサポートの返信（本部⇄加盟代表）
+  LINE_MESSAGE // LINE公式アカウントに新着メッセージ
   SYSTEM
 }
 
@@ -4192,10 +4193,11 @@ model LineAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  friends     LineFriend[]
-  scenarios   LineScenario[]
-  broadcasts  LineBroadcast[]
-  entryPoints LineEntryPoint[]
+  friends       LineFriend[]
+  scenarios     LineScenario[]
+  broadcasts    LineBroadcast[]
+  entryPoints   LineEntryPoint[]
+  cannedReplies LineCannedReply[]
 
   @@index([branchId])
   @@map("line_accounts")
@@ -4224,6 +4226,7 @@ model LineFriend {
 
   customerId String? // OS顧客との紐付け（任意）
   leadId     String? // 加盟リードとの紐付け（任意）
+  mutedAt    DateTime? // ミュート中＝ステップ配信・一斉配信を送らず、新着通知も出さない
 
   messages    LineMessage[]
   enrollments LineScenarioEnrollment[]
@@ -4353,4 +4356,18 @@ model LineEntryPoint {
 
   @@index([accountId, isActive])
   @@map("line_entry_points")
+}
+
+/// チャットの定型文（アカウントごと）
+model LineCannedReply {
+  id        String      @id @default(cuid())
+  accountId String
+  account   LineAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  title     String
+  text      String      @db.Text
+  order     Int         @default(0)
+  createdAt DateTime    @default(now())
+
+  @@index([accountId, order])
+  @@map("line_canned_replies")
 }

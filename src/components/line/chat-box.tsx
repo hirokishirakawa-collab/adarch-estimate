@@ -9,9 +9,22 @@ const inputCls =
   "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white text-zinc-900 " +
   "focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400";
 
-export function ChatSendBox({ accountId, friendId, disabled }: { accountId: string; friendId: string; disabled: boolean }) {
+export function ChatSendBox({
+  accountId,
+  friendId,
+  disabled,
+  canned = [],
+  friendName = "",
+}: {
+  accountId: string;
+  friendId: string;
+  disabled: boolean;
+  canned?: { id: string; title: string; text: string }[];
+  friendName?: string;
+}) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
+  const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -23,7 +36,7 @@ export function ChatSendBox({ accountId, friendId, disabled }: { accountId: stri
         return;
       }
       setError(null);
-      ref.current?.reset();
+      setText("");
       router.refresh();
     });
   }
@@ -32,9 +45,27 @@ export function ChatSendBox({ accountId, friendId, disabled }: { accountId: stri
     <form ref={ref} action={submit} className="space-y-2">
       <input type="hidden" name="accountId" value={accountId} />
       <input type="hidden" name="friendId" value={friendId} />
+      {canned.length > 0 && (
+        <select
+          value=""
+          disabled={disabled}
+          onChange={(e) => {
+            const c = canned.find((x) => x.id === e.target.value);
+            if (c) setText((t) => (t ? `${t}\n` : "") + c.text.replaceAll("{name}", friendName));
+          }}
+          className="px-2 py-1 text-xs border border-zinc-200 rounded-lg bg-white"
+        >
+          <option value="">定型文を差し込む…</option>
+          {canned.map((c) => (
+            <option key={c.id} value={c.id}>{c.title}</option>
+          ))}
+        </select>
+      )}
       <textarea
         name="text"
         rows={3}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
         disabled={disabled}
         placeholder={disabled ? "ブロック中・解除済のため送れません" : "メッセージを入力（Ctrl+Enterで送信）"}
         className={inputCls}

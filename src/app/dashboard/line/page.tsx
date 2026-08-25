@@ -61,7 +61,7 @@ export default async function LineHomePage() {
           <div>
             <h2 className="text-lg font-bold text-zinc-900">LINE公式アカウント</h2>
             <p className="text-xs text-zinc-500 mt-0.5">
-              友だち管理・1:1チャット・ステップ配信・一斉配信。拠点ごとに1つ接続できます。
+              友だち管理・1:1チャット・ステップ配信・一斉配信。
             </p>
           </div>
         </div>

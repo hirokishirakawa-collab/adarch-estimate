@@ -56,7 +56,7 @@ export default async function LineFriendsPage({
         </select>
         <label className="text-xs text-zinc-500 flex items-center gap-1">
           <input type="checkbox" name="all" value="1" defaultChecked={!!all} />
-          ブロック済も表示
+          ブロック/解除済も表示
         </label>
         <button type="submit" className="px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 text-white">絞り込む</button>
         <span className="text-xs text-zinc-400 ml-auto">友だち {total}人{friends.length >= LIMIT ? `（先頭${LIMIT}件を表示）` : ""}</span>
@@ -85,7 +85,12 @@ export default async function LineFriendsPage({
                   <p className={cn("text-sm truncate", f.unreadCount > 0 ? "font-bold text-zinc-900" : "text-zinc-800")}>
                     {f.displayName ?? "（名前未取得）"}
                   </p>
-                  {!f.isFollowing && <span className="text-[10px] text-zinc-400 border border-zinc-200 rounded px-1">ブロック/解除</span>}
+                  {!f.isFollowing && (
+                    <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 rounded px-1">
+                      ブロック/解除 {fmtAgo(f.unfollowedAt)}
+                    </span>
+                  )}
+                  {f.mutedAt && <span className="text-[10px] text-zinc-600 bg-zinc-100 rounded px-1">ミュート</span>}
                   {f.unreadCount > 0 && (
                     <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5">{f.unreadCount}</span>
                   )}

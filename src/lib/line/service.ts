@@ -3,6 +3,7 @@
 // ==============================================================
 
 import { db } from "@/lib/db";
+import { createInAppNotification } from "@/lib/notifications";
 import { decryptSecret } from "@/lib/line/secret";
 import {
   getProfile,
@@ -322,6 +323,27 @@ async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent)
     await replyMessage(tokenOf(account), ev.replyToken, [text(reply)]);
     await logOut(friend.id, reply, "auto");
   }
+
+  // 新着通知：未読が0→1になった時だけ（連投で通知を埋めない）。ミュート中は出さない
+  if (friend.unreadCount === 0 && !friend.mutedAt) {
+    notifyNewInbound(account, friend, body).catch((e) => console.error("[line] notify failed", e));
+  }
+}
+
+/** 担当者（拠点ユーザー／本部アカウントならADMIN）へ新着を通知 */
+async function notifyNewInbound(account: LineAccount, friend: LineFriend, body: string): Promise<void> {
+  const users = await db.user.findMany({
+    where: account.branchId
+      ? { isActive: true, OR: [{ branchId: account.branchId }, { branchId2: account.branchId }] }
+      : { isActive: true, role: "ADMIN" },
+    select: { id: true },
+  });
+  const title = `LINE: ${friend.displayName ?? "友だち"} さんから新着`;
+  const message = body.slice(0, 80);
+  const linkUrl = `/dashboard/line/${account.id}/chat/${friend.id}`;
+  await Promise.all(
+    users.map((u) => createInAppNotification({ userId: u.id, type: "LINE_MESSAGE", title, message, linkUrl })),
+  );
 }
 
 /** ポストバック data は "tag=xxx" 形式ならタグ付け（Phase 2 のリッチメニュー用に先に受ける） */
@@ -402,7 +424,7 @@ async function advanceEnrollment(enrollmentId: string, step: LineScenarioStep): 
 export async function runScenarioTick(limit = 200): Promise<{ sent: number; failed: number }> {
   const now = new Date();
   const due = await db.lineScenarioEnrollment.findMany({
-    where: { status: "ACTIVE", nextRunAt: { lte: now }, friend: { isFollowing: true }, scenario: { isActive: true } },
+    where: { status: "ACTIVE", nextRunAt: { lte: now }, friend: { isFollowing: true, mutedAt: null }, scenario: { isActive: true } },
     include: { friend: { include: { account: true } } },
     take: limit,
     orderBy: { nextRunAt: "asc" },
@@ -455,6 +477,7 @@ export function broadcastTargetWhere(accountId: string, filterTags: string[], ex
   return {
     accountId,
     isFollowing: true,
+    mutedAt: null,
     ...(filterTags.length > 0 ? { tags: { hasSome: filterTags } } : {}),
     ...(excludeTags.length > 0 ? { NOT: { tags: { hasSome: excludeTags } } } : {}),
   };
