@@ -7,6 +7,8 @@ import { webhookUrl, addFriendUrl, fmtJst } from "@/lib/line/format";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { CannedReplyManager } from "@/components/line/canned-replies";
+import { TagManager } from "@/components/line/tag-manager";
+import { KeywordRuleManager } from "@/components/line/keyword-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +16,15 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
   const { accountId } = await params;
   const { account } = await loadAccountPage(accountId);
   const hook = webhookUrl(account.id);
-  const canned = await db.lineCannedReply.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { id: true, title: true, text: true } });
+  const [canned, tagDefs, friendTags, rules] = await Promise.all([
+    db.lineCannedReply.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { id: true, title: true, text: true } }),
+    db.lineTag.findMany({ where: { accountId }, orderBy: { order: "asc" } }),
+    db.lineFriend.findMany({ where: { accountId }, select: { tags: true } }),
+    db.lineKeywordRule.findMany({ where: { accountId }, orderBy: { createdAt: "asc" } }),
+  ]);
+  const tagCount = new Map<string, number>();
+  for (const f of friendTags) for (const t of f.tags) tagCount.set(t, (tagCount.get(t) ?? 0) + 1);
+  const tags = tagDefs.map((t) => ({ id: t.id, name: t.name, color: t.color, note: t.note, count: tagCount.get(t.name) ?? 0 }));
   const addUrl = addFriendUrl(account.basicId);
 
   async function test() {
@@ -77,6 +87,8 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
         }}
       />
 
+      <TagManager accountId={accountId} tags={tags} />
+      <KeywordRuleManager accountId={accountId} rules={rules} tagNames={tags.map((t) => t.name)} />
       <CannedReplyManager accountId={accountId} items={canned} />
 
       <section className="bg-white rounded-xl border border-red-100 p-4 flex items-center justify-between">

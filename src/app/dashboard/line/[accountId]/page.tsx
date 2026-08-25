@@ -4,6 +4,7 @@ import { loadAccountPage } from "@/lib/line/page-helpers";
 import { AccountHeader } from "@/components/line/account-header";
 import { fmtAgo } from "@/lib/line/format";
 import { cn } from "@/lib/utils";
+import { TagChip } from "@/components/line/tag-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,12 @@ export default async function LineFriendsPage({
     take: LIMIT,
     include: { _count: { select: { enrollments: { where: { status: "ACTIVE" } } } } },
   });
-  const allTags = [...new Set((await db.lineFriend.findMany({ where: { accountId }, select: { tags: true } })).flatMap((f) => f.tags))].sort();
+  const [usedTags, tagDefs] = await Promise.all([
+    db.lineFriend.findMany({ where: { accountId }, select: { tags: true } }),
+    db.lineTag.findMany({ where: { accountId }, select: { name: true, color: true } }),
+  ]);
+  const colorOf = new Map(tagDefs.map((t) => [t.name, t.color]));
+  const allTags = [...new Set([...tagDefs.map((t) => t.name), ...usedTags.flatMap((f) => f.tags)])].sort();
   const total = await db.lineFriend.count({ where: { accountId, isFollowing: true } });
 
   return (
@@ -100,7 +106,7 @@ export default async function LineFriendsPage({
                 </div>
                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                   {f.tags.map((t) => (
-                    <span key={t} className="text-[10px] bg-zinc-100 text-zinc-600 rounded px-1.5">{t}</span>
+                    <TagChip key={t} name={t} color={colorOf.get(t)} />
                   ))}
                   {f.note && <span className="text-[11px] text-zinc-400 truncate">{f.note}</span>}
                 </div>

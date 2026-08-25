@@ -93,14 +93,17 @@ export function FriendMetaForm({
   friendId,
   tags,
   note,
+  tagOptions = [],
 }: {
   accountId: string;
   friendId: string;
   tags: string[];
   note: string | null;
+  tagOptions?: { name: string; color: string }[];
 }) {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
+  const [tagText, setTagText] = useState(tags.join(", "));
   const [isPending, startTransition] = useTransition();
 
   function submit(fd: FormData) {
@@ -117,7 +120,29 @@ export function FriendMetaForm({
       <input type="hidden" name="friendId" value={friendId} />
       <div>
         <label className="block text-[11px] font-bold text-zinc-500 mb-1">タグ（カンマ区切り）</label>
-        <input name="tags" defaultValue={tags.join(", ")} className={inputCls} placeholder="例: 加盟見込み, 面談済" />
+        <input name="tags" value={tagText} onChange={(e) => setTagText(e.target.value)} className={inputCls} placeholder="例: 加盟見込み, 面談済" />
+        {tagOptions.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {tagOptions.map((t) => {
+              const has = tagText.split(/[,、\s]+/).includes(t.name);
+              return (
+                <button
+                  key={t.name}
+                  type="button"
+                  onClick={() => {
+                    const cur = tagText.split(/[,、\s]+/).filter(Boolean);
+                    const next = has ? cur.filter((x) => x !== t.name) : [...cur, t.name];
+                    setTagText(next.join(", "));
+                  }}
+                  className="text-[10px] rounded px-1.5 py-0.5 border"
+                  style={{ color: t.color, borderColor: `${t.color}${has ? "" : "55"}`, background: has ? `${t.color}22` : "transparent" }}
+                >
+                  {has ? "✓ " : ""}{t.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
       <div>
         <label className="block text-[11px] font-bold text-zinc-500 mb-1">メモ</label>

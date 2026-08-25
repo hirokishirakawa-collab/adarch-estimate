@@ -590,3 +590,124 @@ export async function deleteLineCannedReply(accountId: string, id: string): Prom
   revalidatePath(`${BASE}/${accountId}/settings`);
   return { ok: true };
 }
+
+
+// ---------------------------------------------------------------
+// タグの設定（定義・色・名前変更・削除）／キーワードルール
+// ---------------------------------------------------------------
+const TAG_COLORS = ["#71717a", "#059669", "#2563eb", "#d97706", "#dc2626", "#7c3aed", "#db2777", "#0891b2"];
+
+export async function saveLineTag(_prev: Result | null, fd: FormData): Promise<Result> {
+  const info = await requireSession();
+  const accountId = str(fd, "accountId");
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const id = str(fd, "id");
+  const name = str(fd, "name").replace(/[,\s]+/g, "_").slice(0, 40);
+  const color = TAG_COLORS.includes(str(fd, "color")) ? str(fd, "color") : TAG_COLORS[0];
+  const note = str(fd, "note").slice(0, 200) || null;
+  if (!name) return { error: "タグ名を入れてください" };
+
+  if (id) {
+    const existing = await db.lineTag.findFirst({ where: { id, accountId } });
+    if (!existing) return { error: "タグが見つかりません" };
+    if (existing.name !== name) {
+      const dup = await db.lineTag.findFirst({ where: { accountId, name } });
+      if (dup) return { error: "同じ名前のタグがあります" };
+      // 友だち側のタグ名も書き換える
+      const friends = await db.lineFriend.findMany({ where: { accountId, tags: { has: existing.name } }, select: { id: true, tags: true } });
+      for (const f of friends) {
+        await db.lineFriend.update({ where: { id: f.id }, data: { tags: f.tags.map((t) => (t === existing.name ? name : t)) } });
+      }
+      await db.lineScenario.updateMany({ where: { accountId, triggerTag: existing.name }, data: { triggerTag: name } });
+      await db.lineEntryPoint.updateMany({ where: { accountId, tag: existing.name }, data: { tag: name } });
+    }
+    await db.lineTag.update({ where: { id }, data: { name, color, note } });
+  } else {
+    const dup = await db.lineTag.findFirst({ where: { accountId, name } });
+    if (dup) return { error: "同じ名前のタグがあります" };
+    const count = await db.lineTag.count({ where: { accountId } });
+    await db.lineTag.create({ data: { accountId, name, color, note, order: count } });
+  }
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  revalidatePath(`${BASE}/${accountId}`);
+  return { ok: true };
+}
+
+/** タグ定義を削除。removeFromFriends=true なら友だちからも外す */
+export async function deleteLineTag(accountId: string, id: string, removeFromFriends: boolean): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const tag = await db.lineTag.findFirst({ where: { id, accountId } });
+  if (!tag) return { error: "タグが見つかりません" };
+  if (removeFromFriends) {
+    const friends = await db.lineFriend.findMany({ where: { accountId, tags: { has: tag.name } }, select: { id: true, tags: true } });
+    for (const f of friends) {
+      await db.lineFriend.update({ where: { id: f.id }, data: { tags: f.tags.filter((t) => t !== tag.name) } });
+    }
+  }
+  await db.lineTag.delete({ where: { id } });
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  revalidatePath(`${BASE}/${accountId}`);
+  return { ok: true };
+}
+
+/** 友だちに付いているのに定義が無いタグを、定義として取り込む */
+export async function importLineTagsFromFriends(accountId: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const [friends, defs] = await Promise.all([
+    db.lineFriend.findMany({ where: { accountId }, select: { tags: true } }),
+    db.lineTag.findMany({ where: { accountId }, select: { name: true } }),
+  ]);
+  const have = new Set(defs.map((d) => d.name));
+  const missing = [...new Set(friends.flatMap((f) => f.tags))].filter((t) => !have.has(t));
+  let order = defs.length;
+  for (const name of missing) {
+    await db.lineTag.create({ data: { accountId, name, color: TAG_COLORS[order % TAG_COLORS.length], order: order++ } });
+  }
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  return { ok: true, message: missing.length ? `${missing.length}件を取り込みました` : "取り込むタグはありません" };
+}
+
+export async function saveLineKeywordRule(_prev: Result | null, fd: FormData): Promise<Result> {
+  const info = await requireSession();
+  const accountId = str(fd, "accountId");
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const id = str(fd, "id");
+  const keyword = str(fd, "keyword").slice(0, 60);
+  const addTags = tagList(str(fd, "addTags"));
+  const replyText = str(fd, "replyText").slice(0, 5000) || null;
+  const isActive = fd.get("isActive") !== "off";
+  if (!keyword) return { error: "キーワードを入れてください" };
+  if (addTags.length === 0 && !replyText) return { error: "付けるタグか返信のどちらかを入れてください" };
+  if (id) {
+    const r = await db.lineKeywordRule.updateMany({ where: { id, accountId }, data: { keyword, addTags, replyText, isActive } });
+    if (r.count === 0) return { error: "ルールが見つかりません" };
+  } else {
+    await db.lineKeywordRule.create({ data: { accountId, keyword, addTags, replyText, isActive } });
+  }
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  return { ok: true };
+}
+
+export async function deleteLineKeywordRule(accountId: string, id: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  await db.lineKeywordRule.deleteMany({ where: { id, accountId } });
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  return { ok: true };
+}
+
+export async function toggleLineKeywordRule(accountId: string, id: string, isActive: boolean): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  await db.lineKeywordRule.updateMany({ where: { id, accountId }, data: { isActive } });
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  return { ok: true };
+}

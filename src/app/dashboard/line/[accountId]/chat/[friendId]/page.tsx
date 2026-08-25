@@ -27,11 +27,12 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
     await db.lineFriend.update({ where: { id: friend.id }, data: { unreadCount: 0 } });
   }
 
-  const [messages, scenarios, canned, customer] = await Promise.all([
+  const [messages, scenarios, canned, customer, tagDefs] = await Promise.all([
     db.lineMessage.findMany({ where: { friendId }, orderBy: { createdAt: "asc" }, take: 300 }),
     db.lineScenario.findMany({ where: { accountId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.lineCannedReply.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { id: true, title: true, text: true } }),
     friend.customerId ? db.customer.findUnique({ where: { id: friend.customerId }, select: { id: true, name: true } }) : Promise.resolve(null),
+    db.lineTag.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { name: true, color: true } }),
   ]);
 
   return (
@@ -95,7 +96,7 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
             <CustomerLink accountId={accountId} friendId={friendId} customer={customer} />
           </div>
           <div className="bg-white rounded-xl border border-zinc-200 p-4">
-            <FriendMetaForm accountId={accountId} friendId={friendId} tags={friend.tags} note={friend.note} />
+            <FriendMetaForm accountId={accountId} friendId={friendId} tags={friend.tags} note={friend.note} tagOptions={tagDefs} />
           </div>
           <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-2">
             <p className="text-[11px] font-bold text-zinc-500">ステップ配信</p>

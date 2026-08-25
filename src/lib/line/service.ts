@@ -318,10 +318,34 @@ async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent)
     }),
   ]);
 
-  if (account.autoReplyText?.trim() && ev.replyToken) {
-    const reply = renderText(account.autoReplyText, friend);
-    await replyMessage(tokenOf(account), ev.replyToken, [text(reply)]);
-    await logOut(friend.id, reply, "auto");
+  // 返信は replyToken 1回にまとめる（自動返信＋キーワード返信・最大5通）
+  const replies: { body: string; via: string }[] = [];
+  if (account.autoReplyText?.trim()) {
+    replies.push({ body: renderText(account.autoReplyText, friend), via: "auto" });
+  }
+
+  // キーワードルール：本文に含まれていればタグ付与＋返信
+  if (m.type === "text" && body) {
+    const rules = await db.lineKeywordRule.findMany({ where: { accountId: account.id, isActive: true } });
+    const lower = body.toLowerCase();
+    const hit = rules.filter((r) => r.keyword && lower.includes(r.keyword.toLowerCase()));
+    if (hit.length > 0) {
+      const fresh = [...new Set(hit.flatMap((r) => r.addTags))].filter((t) => !friend.tags.includes(t));
+      if (fresh.length > 0) {
+        const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: [...friend.tags, ...fresh] } });
+        await enrollByTags(updated, fresh);
+      }
+      await db.lineKeywordRule.updateMany({ where: { id: { in: hit.map((r) => r.id) } }, data: { hitCount: { increment: 1 } } });
+      for (const r of hit) {
+        if (r.replyText?.trim()) replies.push({ body: renderText(r.replyText, friend), via: `keyword:${r.id}` });
+      }
+    }
+  }
+
+  if (replies.length > 0 && ev.replyToken) {
+    const batch = replies.slice(0, 5);
+    await replyMessage(tokenOf(account), ev.replyToken, batch.map((r) => text(r.body)));
+    for (const r of batch) await logOut(friend.id, r.body, r.via);
   }
 
   // 新着通知：未読が0→1になった時だけ（連投で通知を埋めない）。ミュート中は出さない
