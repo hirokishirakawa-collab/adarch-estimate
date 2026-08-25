@@ -183,6 +183,25 @@ function getPageLabel(pathname: string): string {
 export function ChatbotWidget() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  // 「×」で閉じると24時間は出さない（邪魔なときに消せるように・2026-08-26 代表指示）
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    try {
+      const until = Number(localStorage.getItem("chatbot-hidden-until") ?? 0);
+      if (until > Date.now()) setHidden(true);
+    } catch {
+      /* noop */
+    }
+  }, []);
+  const hideForToday = () => {
+    try {
+      localStorage.setItem("chatbot-hidden-until", String(Date.now() + 24 * 60 * 60 * 1000));
+    } catch {
+      /* noop */
+    }
+    setOpen(false);
+    setHidden(true);
+  };
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -418,11 +437,21 @@ export function ChatbotWidget() {
       )}
 
       {/* フローティングボタン — キャラクター + 吹き出し */}
+      {!hidden && (
       <div className="fixed bottom-4 right-4 z-50 flex items-end gap-2">
-        {/* 吹き出し（閉じている時のみ表示） */}
+        {/* 吹き出し（閉じている時のみ表示・×で24時間非表示） */}
         {!open && (
-          <div className="mb-2 bg-white rounded-xl shadow-lg border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 animate-bounce-gentle relative">
+          <div className="mb-2 bg-white rounded-xl shadow-lg border border-zinc-200 pl-3 pr-7 py-2 text-xs font-medium text-zinc-700 animate-bounce-gentle relative">
             お困りですか？
+            <button
+              type="button"
+              onClick={hideForToday}
+              title="今日は表示しない"
+              aria-label="アシスタントを非表示"
+              className="absolute top-1 right-1 w-4 h-4 rounded-full bg-zinc-200 text-zinc-600 hover:bg-zinc-300 flex items-center justify-center"
+            >
+              <X className="w-2.5 h-2.5" />
+            </button>
             {/* 吹き出しの三角 */}
             <div className="absolute -right-1.5 bottom-2.5 w-3 h-3 bg-white border-r border-b border-zinc-200 rotate-[-45deg]" />
           </div>
@@ -441,6 +470,7 @@ export function ChatbotWidget() {
           )}
         </button>
       </div>
+      )}
     </>
   );
 }

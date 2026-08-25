@@ -43,6 +43,18 @@ export function renderText(template: string, friend: Pick<LineFriend, "displayNa
   return template.replaceAll("{name}", friend.displayName ?? "");
 }
 
+/**
+ * タグを原子的に追加（重複なし）。
+ * ⚠️ Prisma の `tags: { push: [..] }` は本環境（adapter-pg）で配列が入れ子になり列が壊れる（8/26に実害）ため、SQLで追加する。
+ */
+export async function addFriendTags(friendId: string, fresh: string[]): Promise<LineFriend | null> {
+  const clean = [...new Set(fresh.map((t) => t.trim()).filter(Boolean))];
+  if (clean.length > 0) {
+    await db.$executeRaw`UPDATE line_friends SET tags = ARRAY(SELECT DISTINCT x FROM unnest(tags || ${clean}::text[]) AS x), "updatedAt" = NOW() WHERE id = ${friendId}`;
+  }
+  return db.lineFriend.findUnique({ where: { id: friendId } });
+}
+
 export function newFriendToken(): string {
   return crypto.randomBytes(12).toString("base64url");
 }
@@ -176,13 +188,8 @@ async function attributeEntryPoint(friend: LineFriend, eps: LineEntryPoint[], no
 
 async function applyEntryPoint(friend: LineFriend, ep: LineEntryPoint): Promise<LineFriend> {
   const alreadyTagged = friend.tags.includes(ep.tag);
-  const updated = await db.lineFriend.update({
-    where: { id: friend.id },
-    data: {
-      source: ep.name,
-      ...(alreadyTagged ? {} : { tags: { push: [ep.tag] } }),
-    },
-  });
+  await db.lineFriend.update({ where: { id: friend.id }, data: { source: ep.name } });
+  const updated = (alreadyTagged ? await db.lineFriend.findUnique({ where: { id: friend.id } }) : await addFriendTags(friend.id, [ep.tag])) ?? friend;
   if (!alreadyTagged) {
     await db.lineEntryPoint.update({ where: { id: ep.id }, data: { followCount: { increment: 1 } } });
     await enrollByTags(updated, [ep.tag]);
@@ -385,8 +392,8 @@ async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent)
     if (hit.length > 0) {
       const fresh = [...new Set(hit.flatMap((r) => r.addTags))].filter((t) => !friend.tags.includes(t));
       if (fresh.length > 0) {
-        const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: fresh } } });
-        await enrollByTags(updated, fresh);
+        const updated = await addFriendTags(friend.id, fresh);
+        if (updated) await enrollByTags(updated, fresh);
       }
       await db.lineKeywordRule.updateMany({ where: { id: { in: hit.map((r) => r.id) } }, data: { hitCount: { increment: 1 } } });
       for (const r of hit) {
@@ -465,7 +472,7 @@ async function onPostback(account: LineAccount, userId: string, ev: WebhookEvent
   }
   const fresh = tags.filter((t) => !friend.tags.includes(t));
   if (fresh.length > 0) {
-    friend = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: fresh } } });
+    friend = (await addFriendTags(friend.id, fresh)) ?? friend;
     await enrollByTags(friend, fresh);
   }
   // URL付き：タグを付けたうえで、開くためのリンクを返信（同じURLの計測リンクがあれば相手ごとの計測URLにする）
@@ -514,8 +521,8 @@ async function advanceEnrollment(enrollmentId: string, step: LineScenarioStep): 
     if (friend) {
       const fresh = step.addTags.filter((t) => !friend.tags.includes(t));
       if (fresh.length > 0) {
-        const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: fresh } } });
-        await enrollByTags(updated, fresh);
+        const updated = await addFriendTags(friend.id, fresh);
+        if (updated) await enrollByTags(updated, fresh);
       }
     }
   }
@@ -717,8 +724,8 @@ export async function recordLinkClick(token: string, code: string): Promise<stri
   ]);
   const fresh = link.addTags.filter((t) => !friend.tags.includes(t));
   if (fresh.length > 0) {
-    const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: fresh } } });
-    await enrollByTags(updated, fresh);
+    const updated = await addFriendTags(friend.id, fresh);
+    if (updated) await enrollByTags(updated, fresh);
   }
   return link.url;
 }
@@ -797,8 +804,8 @@ export async function submitFormResponse(
 
   const fresh = form.addTags.filter((t) => !friend.tags.includes(t));
   if (fresh.length > 0) {
-    const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: fresh } } });
-    await enrollByTags(updated, fresh);
+    const updated = await addFriendTags(friend.id, fresh);
+    if (updated) await enrollByTags(updated, fresh);
   }
 
   const thankYou = form.thankYouText?.trim() ? await renderForFriend(form.thankYouText, friend) : null;
