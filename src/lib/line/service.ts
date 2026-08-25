@@ -2,6 +2,7 @@
 // LINE公式アカウント — Webhook処理・シナリオ配信・一斉配信
 // ==============================================================
 
+import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { createInAppNotification } from "@/lib/notifications";
 import { decryptSecret } from "@/lib/line/secret";
@@ -34,9 +35,43 @@ export function computeStepRunAt(startedAt: Date, step: Pick<LineScenarioStep, "
   return runAt < now ? now : runAt;
 }
 
-/** 本文の差し込み（{name} だけ対応） */
+/** 本文の差し込み（{name} のみ・同期） */
 export function renderText(template: string, friend: Pick<LineFriend, "displayName">): string {
   return template.replaceAll("{name}", friend.displayName ?? "");
+}
+
+export function newFriendToken(): string {
+  return crypto.randomBytes(12).toString("base64url");
+}
+
+function appBase(): string {
+  return (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
+}
+
+/**
+ * 相手ごとの差し込み（非同期）
+ *   {name}       → 表示名
+ *   {link:code}  → 計測リンク（/l/<token>/<code>）。未定義の code はそのまま残す
+ */
+export async function renderForFriend(
+  template: string,
+  friend: Pick<LineFriend, "id" | "displayName" | "token" | "accountId">,
+): Promise<string> {
+  let out = renderText(template, friend);
+  if (!out.includes("{link:")) return out;
+  let token = friend.token;
+  if (!token) {
+    token = newFriendToken();
+    await db.lineFriend.update({ where: { id: friend.id }, data: { token } });
+  }
+  const codes = [...new Set([...out.matchAll(/\{link:([^}]+)\}/g)].map((m) => m[1].trim()))];
+  const links = await db.lineLink.findMany({ where: { accountId: friend.accountId, code: { in: codes } }, select: { code: true } });
+  const known = new Set(links.map((l) => l.code));
+  for (const code of codes) {
+    if (!known.has(code)) continue;
+    out = out.replaceAll(`{link:${code}}`, `${appBase()}/l/${token}/${encodeURIComponent(code)}`);
+  }
+  return out;
 }
 
 function tokenOf(account: LineAccount): string {
@@ -186,6 +221,7 @@ async function upsertFriend(account: LineAccount, userId: string): Promise<LineF
     data: {
       accountId: account.id,
       lineUserId: userId,
+      token: newFriendToken(),
       displayName: profile?.displayName ?? null,
       pictureUrl: profile?.pictureUrl ?? null,
       statusMessage: profile?.statusMessage ?? null,
@@ -222,6 +258,7 @@ async function onFollow(account: LineAccount, userId: string, replyToken?: strin
     create: {
       accountId: account.id,
       lineUserId: userId,
+      token: newFriendToken(),
       displayName: profile?.displayName ?? null,
       pictureUrl: profile?.pictureUrl ?? null,
       statusMessage: profile?.statusMessage ?? null,
@@ -252,12 +289,12 @@ async function onFollow(account: LineAccount, userId: string, replyToken?: strin
   const messages: LineMessageObject[] = [];
   const logs: { body: string; via: string }[] = [];
   if (account.greetingText?.trim()) {
-    const body = renderText(account.greetingText, friend);
+    const body = await renderForFriend(account.greetingText, friend);
     messages.push(text(body));
     logs.push({ body, via: "greeting" });
   }
   for (const { enrollment, step } of immediate) {
-    const body = renderText(step.text, friend);
+    const body = await renderForFriend(step.text, friend);
     messages.push(text(body));
     logs.push({ body, via: `scenario:${step.id}` });
     await advanceEnrollment(enrollment.id, step);
@@ -321,7 +358,7 @@ async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent)
   // 返信は replyToken 1回にまとめる（自動返信＋キーワード返信・最大5通）
   const replies: { body: string; via: string }[] = [];
   if (account.autoReplyText?.trim()) {
-    replies.push({ body: renderText(account.autoReplyText, friend), via: "auto" });
+    replies.push({ body: await renderForFriend(account.autoReplyText, friend), via: "auto" });
   }
 
   // キーワードルール：本文に含まれていればタグ付与＋返信
@@ -337,7 +374,7 @@ async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent)
       }
       await db.lineKeywordRule.updateMany({ where: { id: { in: hit.map((r) => r.id) } }, data: { hitCount: { increment: 1 } } });
       for (const r of hit) {
-        if (r.replyText?.trim()) replies.push({ body: renderText(r.replyText, friend), via: `keyword:${r.id}` });
+        if (r.replyText?.trim()) replies.push({ body: await renderForFriend(r.replyText, friend), via: `keyword:${r.id}` });
       }
     }
   }
@@ -468,7 +505,7 @@ export async function runScenarioTick(limit = 200): Promise<{ sent: number; fail
     }
     const account = en.friend.account;
     if (!account.isActive) continue;
-    const body = renderText(step.text, en.friend);
+    const body = await renderForFriend(step.text, en.friend);
     try {
       await pushMessage(tokenOf(account), en.friend.lineUserId, [text(body)]);
       await logOut(en.friendId, body, `scenario:${step.id}`);
@@ -524,18 +561,21 @@ export async function runBroadcasts(): Promise<{ processed: number }> {
 
     const friends = await db.lineFriend.findMany({
       where: broadcastTargetWhere(b.accountId, b.filterTags, b.excludeTags),
-      select: { id: true, lineUserId: true, displayName: true },
+      select: { id: true, lineUserId: true, displayName: true, token: true, accountId: true },
     });
+    const personalized = b.text.includes("{");
+    const rendered = new Map<string, string>();
+    for (const f of friends) rendered.set(f.id, personalized ? await renderForFriend(b.text, f) : b.text);
     let sent = 0;
     let failedCount = 0;
     let error: string | null = null;
     try {
       const token = tokenOf(b.account);
-      // {name} を使う本文は個別push、使わなければ multicast で1回
-      if (b.text.includes("{name}")) {
+      // 差し込みがある本文は個別push、なければ multicast で1回
+      if (personalized) {
         for (const f of friends) {
           try {
-            await pushMessage(token, f.lineUserId, [text(renderText(b.text, f))]);
+            await pushMessage(token, f.lineUserId, [text(rendered.get(f.id) ?? b.text)]);
             sent++;
           } catch {
             failedCount++;
@@ -555,7 +595,7 @@ export async function runBroadcasts(): Promise<{ processed: number }> {
             friendId: f.id,
             direction: "OUT" as const,
             type: "text",
-            text: renderText(b.text, f),
+            text: rendered.get(f.id) ?? b.text,
             sentVia: `broadcast:${b.id}`,
           })),
         });
@@ -587,6 +627,38 @@ export async function runBroadcasts(): Promise<{ processed: number }> {
 // 手動送信（OSのチャット画面から）
 // ---------------------------------------------------------------
 export async function sendManual(account: LineAccount, friend: LineFriend, body: string, userId: string): Promise<void> {
-  await pushMessage(tokenOf(account), friend.lineUserId, [text(body)]);
-  await logOut(friend.id, body, "manual", userId);
+  const rendered = await renderForFriend(body, friend);
+  await pushMessage(tokenOf(account), friend.lineUserId, [text(rendered)]);
+  await logOut(friend.id, rendered, "manual", userId);
+}
+
+// ---------------------------------------------------------------
+// 計測リンクのクリック
+// ---------------------------------------------------------------
+export async function recordLinkClick(token: string, code: string): Promise<string | null> {
+  const friend = await db.lineFriend.findUnique({ where: { token } });
+  if (!friend) return null;
+  const link = await db.lineLink.findUnique({ where: { accountId_code: { accountId: friend.accountId, code } } });
+  if (!link) return null;
+  await db.$transaction([
+    db.lineLinkClick.create({ data: { linkId: link.id, friendId: friend.id } }),
+    db.lineLink.update({ where: { id: link.id }, data: { clickCount: { increment: 1 } } }),
+    db.lineMessage.create({
+      data: { friendId: friend.id, direction: "IN", type: "click", text: `リンク「${link.label}」をクリック`, sentVia: `link:${link.id}` },
+    }),
+  ]);
+  const fresh = link.addTags.filter((t) => !friend.tags.includes(t));
+  if (fresh.length > 0) {
+    const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: [...friend.tags, ...fresh] } });
+    await enrollByTags(updated, fresh);
+  }
+  return link.url;
+}
+
+/** リンク先URLだけ返す（プレビュー用クローラなど、記録しない場合） */
+export async function resolveLinkUrl(token: string, code: string): Promise<string | null> {
+  const friend = await db.lineFriend.findUnique({ where: { token }, select: { accountId: true } });
+  if (!friend) return null;
+  const link = await db.lineLink.findUnique({ where: { accountId_code: { accountId: friend.accountId, code } }, select: { url: true } });
+  return link?.url ?? null;
 }

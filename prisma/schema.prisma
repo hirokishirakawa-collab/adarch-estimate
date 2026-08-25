@@ -4200,6 +4200,7 @@ model LineAccount {
   cannedReplies LineCannedReply[]
   tagDefs       LineTag[]
   keywordRules  LineKeywordRule[]
+  links         LineLink[]
 
   @@index([branchId])
   @@map("line_accounts")
@@ -4229,9 +4230,11 @@ model LineFriend {
   customerId String? // OS顧客との紐付け（任意）
   leadId     String? // 加盟リードとの紐付け（任意）
   mutedAt    DateTime? // ミュート中＝ステップ配信・一斉配信を送らず、新着通知も出さない
+  token      String?   @unique // 相手ごとのURL用トークン（クリック計測・フォーム）
 
   messages    LineMessage[]
   enrollments LineScenarioEnrollment[]
+  linkClicks  LineLinkClick[]
 
   @@unique([accountId, lineUserId])
   @@index([accountId, lastInboundAt(sort: Desc)])
@@ -4404,4 +4407,35 @@ model LineKeywordRule {
 
   @@index([accountId, isActive])
   @@map("line_keyword_rules")
+}
+
+/// 計測リンク。本文の {link:code} が相手ごとのURLに置き換わり、クリックを記録して元URLへ転送する
+model LineLink {
+  id         String      @id @default(cuid())
+  accountId  String
+  account    LineAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  code       String // 本文で使う短い名前（例: 資料）
+  label      String // 管理用の表示名
+  url        String
+  addTags    String[]    @default([]) // クリック時に付けるタグ
+  clickCount Int         @default(0) // 延べクリック数
+  createdAt  DateTime    @default(now())
+
+  clicks LineLinkClick[]
+
+  @@unique([accountId, code])
+  @@map("line_links")
+}
+
+model LineLinkClick {
+  id        String     @id @default(cuid())
+  linkId    String
+  link      LineLink   @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  friendId  String
+  friend    LineFriend @relation(fields: [friendId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@index([linkId, createdAt(sort: Desc)])
+  @@index([friendId, createdAt(sort: Desc)])
+  @@map("line_link_clicks")
 }

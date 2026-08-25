@@ -117,7 +117,7 @@ export function ScenarioEditor({
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
-            <textarea rows={4} value={st.text} onChange={(e) => updStep(i, { text: e.target.value })} className={inputCls} placeholder="本文（{name} で相手の表示名を差し込み）" />
+            <textarea rows={4} value={st.text} onChange={(e) => updStep(i, { text: e.target.value })} className={inputCls} placeholder="本文（{name} で相手の表示名、{link:名前} で計測リンク）" />
           </div>
         ))}
         <button

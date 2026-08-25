@@ -67,7 +67,13 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
 
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-zinc-50/60">
             {messages.length === 0 && <p className="text-xs text-zinc-400 text-center py-8">まだメッセージはありません</p>}
-            {messages.map((m) => (
+            {messages.map((m) => m.type === "click" || m.type === "form" ? (
+              <div key={m.id} className="flex justify-center">
+                <span className="text-[11px] text-zinc-500 bg-zinc-100 rounded-full px-3 py-1">
+                  {m.text} ・ {fmtJst(m.createdAt)}
+                </span>
+              </div>
+            ) : (
               <div key={m.id} className={cn("flex", m.direction === "OUT" ? "justify-end" : "justify-start")}>
                 <div
                   className={cn(

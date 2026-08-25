@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { CannedReplyManager } from "@/components/line/canned-replies";
 import { TagManager } from "@/components/line/tag-manager";
 import { KeywordRuleManager } from "@/components/line/keyword-rules";
+import { LinkManager } from "@/components/line/link-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,17 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
   const { accountId } = await params;
   const { account } = await loadAccountPage(accountId);
   const hook = webhookUrl(account.id);
-  const [canned, tagDefs, friendTags, rules] = await Promise.all([
+  const [canned, tagDefs, friendTags, rules, linkRows] = await Promise.all([
     db.lineCannedReply.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { id: true, title: true, text: true } }),
     db.lineTag.findMany({ where: { accountId }, orderBy: { order: "asc" } }),
     db.lineFriend.findMany({ where: { accountId }, select: { tags: true } }),
     db.lineKeywordRule.findMany({ where: { accountId }, orderBy: { createdAt: "asc" } }),
+    db.lineLink.findMany({ where: { accountId }, orderBy: { createdAt: "asc" }, include: { clicks: { select: { friendId: true } } } }),
   ]);
+  const links = linkRows.map((l) => ({
+    id: l.id, label: l.label, code: l.code, url: l.url, addTags: l.addTags, clickCount: l.clickCount,
+    uniqueCount: new Set(l.clicks.map((c) => c.friendId)).size,
+  }));
   const tagCount = new Map<string, number>();
   for (const f of friendTags) for (const t of f.tags) tagCount.set(t, (tagCount.get(t) ?? 0) + 1);
   const tags = tagDefs.map((t) => ({ id: t.id, name: t.name, color: t.color, note: t.note, count: tagCount.get(t.name) ?? 0 }));
@@ -89,6 +95,7 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
 
       <TagManager accountId={accountId} tags={tags} />
       <KeywordRuleManager accountId={accountId} rules={rules} tagNames={tags.map((t) => t.name)} />
+      <LinkManager accountId={accountId} links={links} tagNames={tags.map((t) => t.name)} />
       <CannedReplyManager accountId={accountId} items={canned} />
 
       <section className="bg-white rounded-xl border border-red-100 p-4 flex items-center justify-between">

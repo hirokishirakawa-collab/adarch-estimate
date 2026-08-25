@@ -711,3 +711,40 @@ export async function toggleLineKeywordRule(accountId: string, id: string, isAct
   revalidatePath(`${BASE}/${accountId}/settings`);
   return { ok: true };
 }
+
+
+// ---------------------------------------------------------------
+// 計測リンク
+// ---------------------------------------------------------------
+export async function saveLineLink(_prev: Result | null, fd: FormData): Promise<Result> {
+  const info = await requireSession();
+  const accountId = str(fd, "accountId");
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const id = str(fd, "id");
+  const label = str(fd, "label").slice(0, 60);
+  const code = str(fd, "code").replace(/[{}\s]/g, "").slice(0, 30);
+  const url = str(fd, "url");
+  const addTags = tagList(str(fd, "addTags"));
+  if (!label || !code) return { error: "表示名と本文で使う名前を入れてください" };
+  if (!/^https?:\/\//.test(url)) return { error: "URLは https:// から入れてください" };
+  const dup = await db.lineLink.findFirst({ where: { accountId, code, ...(id ? { NOT: { id } } : {}) } });
+  if (dup) return { error: "同じ名前のリンクがあります" };
+  if (id) {
+    const r = await db.lineLink.updateMany({ where: { id, accountId }, data: { label, code, url, addTags } });
+    if (r.count === 0) return { error: "リンクが見つかりません" };
+  } else {
+    await db.lineLink.create({ data: { accountId, label, code, url, addTags } });
+  }
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  return { ok: true };
+}
+
+export async function deleteLineLink(accountId: string, id: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  await db.lineLink.deleteMany({ where: { id, accountId } });
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  return { ok: true };
+}
