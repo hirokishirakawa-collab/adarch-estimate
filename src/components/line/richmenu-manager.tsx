@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, LayoutGrid } from "lucide-react";
-import { saveLineRichMenu, deleteLineRichMenu, reapplyLineRichMenus } from "@/lib/actions/line";
+import { saveLineRichMenu, deleteLineRichMenu, reapplyLineRichMenus, publishLineRichMenu } from "@/lib/actions/line";
 
 const inputCls =
   "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white text-zinc-900 " +
@@ -196,7 +196,17 @@ export function RichMenuManager({ accountId, layouts, menus, tagNames }: { accou
                     {m.linkedCount > 0 ? ` ・ 個別適用 ${m.linkedCount}人` : ""}
                   </p>
                   {m.lastError && <p className="text-[11px] text-red-600">{m.lastError}</p>}
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    {m.hasImage && (
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => startTransition(async () => { const r = await publishLineRichMenu(accountId, m.id); setMsg(r.error ?? (typeof r.message === "string" ? r.message : "完了")); router.refresh(); })}
+                        className={`px-2.5 py-1 text-xs rounded-lg ${m.lineRichMenuId ? "border border-zinc-200 hover:bg-zinc-50" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
+                      >
+                        {m.lineRichMenuId ? "LINEへ再登録" : "LINEへ登録"}
+                      </button>
+                    )}
                     <button type="button" onClick={() => setEditing(m.id)} className="px-2.5 py-1 text-xs rounded-lg border border-zinc-200 hover:bg-zinc-50">編集</button>
                     {confirm === m.id ? (
                       <>

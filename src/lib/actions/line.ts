@@ -983,3 +983,43 @@ export async function setLineFriendRating(accountId: string, friendId: string, r
   revalidatePath(`${BASE}/${accountId}/chat/${friendId}`);
   return { ok: true };
 }
+
+
+/** 保存済み（画像あり）のメニューをLINEへ登録／再登録する */
+export async function publishLineRichMenu(accountId: string, id: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const menu = await db.lineRichMenu.findFirst({ where: { id, accountId } });
+  if (!menu) return { error: "メニューが見つかりません" };
+  if (!menu.imageData || !menu.imageType) return { error: "画像がありません。編集から画像を付けてください" };
+  const L = RICH_MENU_LAYOUTS[menu.layout];
+  if (!L) return { error: "レイアウトが不正です" };
+  const lineAreas = buildRichMenuAreas(menu.layout, parseRichMenuAreas(menu.areas));
+  if (lineAreas.length === 0) return { error: "ボタンが設定されていません" };
+  const token = decryptSecret(account.accessTokenEnc);
+  try {
+    const newId = await createRichMenu(token, {
+      size: { width: L.width, height: L.height },
+      selected: true,
+      name: menu.name.slice(0, 300),
+      chatBarText: menu.chatBarText,
+      areas: lineAreas,
+    });
+    await uploadRichMenuImage(token, newId, menu.imageData, menu.imageType);
+    if (menu.lineRichMenuId) await deleteRichMenu(token, menu.lineRichMenuId).catch(() => {});
+    await db.lineRichMenu.update({ where: { id }, data: { lineRichMenuId: newId, lastError: null } });
+    if (menu.isDefault) await setDefaultRichMenu(token, newId);
+    const linked = await db.lineFriend.findMany({ where: { accountId, richMenuId: id, isFollowing: true }, select: { id: true } });
+    for (const f of linked) {
+      await db.lineFriend.update({ where: { id: f.id }, data: { richMenuId: null } });
+      await applyRichMenuRules(f.id).catch(() => {});
+    }
+  } catch (e) {
+    const msg = e instanceof LineApiError ? `LINE登録に失敗（${e.status}）: ${e.body.slice(0, 200)}` : (e as Error).message;
+    await db.lineRichMenu.update({ where: { id }, data: { lastError: msg } });
+    return { error: msg };
+  }
+  revalidatePath(`${BASE}/${accountId}/richmenus`);
+  return { ok: true, message: "LINEへ登録しました" };
+}
