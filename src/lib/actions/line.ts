@@ -409,3 +409,62 @@ export async function seedFranchiseScenario(accountId: string): Promise<Result> 
   revalidatePath(`${BASE}/${accountId}/scenarios`);
   return { ok: true };
 }
+
+// ---------------------------------------------------------------
+// 拠点向けテンプレ（クライアント対応）— 全アカウントで使える
+// 問合せ→ヒアリング→見積→納品後フォロー。本文は各代表が自社向けに直す前提。
+// ---------------------------------------------------------------
+export async function seedClientScenario(accountId: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const exists = await db.lineScenario.findFirst({ where: { accountId, name: "クライアント対応（友だち追加後）" } });
+  if (exists) return { error: "すでに投入済みです" };
+
+  await db.lineScenario.create({
+    data: {
+      accountId,
+      name: "クライアント対応（友だち追加後）",
+      trigger: "FOLLOW",
+      isActive: false, // 本文を自社向けに直してからONにする
+      steps: {
+        create: [
+          {
+            order: 1,
+            delayDays: 0,
+            sendHour: null,
+            text:
+              "{name}さま、友だち追加ありがとうございます！\n\n" +
+              "広告のご相談は、このLINEにそのまま送っていただければ担当が順にお返事します。\n" +
+              "お急ぎの場合はお電話でも大丈夫です。",
+            addTags: ["問合せ"],
+          },
+          {
+            order: 2,
+            delayDays: 1,
+            sendHour: 10,
+            text:
+              "昨日はご登録ありがとうございました！\n\n" +
+              "ご相談の前に、3つだけ教えていただけると提案が早くなります。\n" +
+              "1) 何を伸ばしたいか（来店・問合せ・採用など）\n" +
+              "2) 地域（市区町村）\n" +
+              "3) 時期（いつ頃までに）\n\n" +
+              "このLINEに返信でどうぞ。",
+            addTags: [],
+          },
+          {
+            order: 3,
+            delayDays: 7,
+            sendHour: 19,
+            text:
+              "その後、いかがでしょうか？\n\n" +
+              "「まだ何も決まっていない」段階でも大丈夫です。地域と目的だけ教えていただければ、こちらから合いそうな進め方を2〜3案お出しします。",
+            addTags: ["7日経過"],
+          },
+        ],
+      },
+    },
+  });
+  revalidatePath(`${BASE}/${accountId}/scenarios`);
+  return { ok: true };
+}

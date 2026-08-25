@@ -3,7 +3,7 @@ import { loadAccountPage } from "@/lib/line/page-helpers";
 import { AccountHeader } from "@/components/line/account-header";
 import { NewScenarioToggle, ScenarioEditToggle } from "@/components/line/scenario-editor";
 import { ActionButton, ConfirmButton } from "@/components/line/action-buttons";
-import { deleteLineScenario, toggleLineScenario, seedFranchiseScenario } from "@/lib/actions/line";
+import { deleteLineScenario, toggleLineScenario, seedFranchiseScenario, seedClientScenario } from "@/lib/actions/line";
 import { TRIGGER_LABEL } from "@/lib/line/format";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +37,14 @@ export default async function LineScenariosPage({ params }: { params: Promise<{ 
               successText={() => "投入しました（無効状態）。本文を確認してから有効にしてください"}
             />
           )}
+          <ActionButton
+            label="クライアント対応テンプレを投入"
+            action={async () => {
+              "use server";
+              return seedClientScenario(accountId);
+            }}
+            successText={() => "投入しました（無効状態）。自社向けに本文を直してから有効にしてください"}
+          />
           <NewScenarioToggle accountId={accountId} />
         </div>
       </div>
