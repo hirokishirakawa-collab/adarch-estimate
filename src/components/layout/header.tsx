@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/roles";
 import { Menu, Search, Settings } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
+import { ArchKunToggle } from "@/components/chatbot/arch-kun-toggle";
 
 // ----------------------------------------------------------------
 // ロールごとの上部バナー（ADMIN のみ表示）
@@ -75,6 +76,9 @@ export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProp
 
           {/* 通知ベル */}
           <NotificationBell />
+
+          {/* アーチくん 表示/非表示 */}
+          <ArchKunToggle />
 
           {/* 設定 */}
           <Link

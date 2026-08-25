@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
-import { X, Send, Loader2 } from "lucide-react";
+import { X, Send, Loader2, EyeOff } from "lucide-react";
+import { useArchKunHidden } from "./arch-kun-visibility";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 
@@ -183,22 +184,9 @@ function getPageLabel(pathname: string): string {
 export function ChatbotWidget() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  // 「×」で閉じると24時間は出さない（邪魔なときに消せるように・2026-08-26 代表指示）
-  const [hidden, setHidden] = useState(false);
-  useEffect(() => {
-    try {
-      const until = Number(localStorage.getItem("chatbot-hidden-until") ?? 0);
-      if (until > Date.now()) setHidden(true);
-    } catch {
-      /* noop */
-    }
-  }, []);
-  const hideForToday = () => {
-    try {
-      localStorage.setItem("chatbot-hidden-until", String(Date.now() + 24 * 60 * 60 * 1000));
-    } catch {
-      /* noop */
-    }
+  // 非表示（再表示するまで出ない・ヘッダーのアーチくんボタンで戻せる・2026-08-26 代表指示）
+  const [hidden, setHidden] = useArchKunHidden();
+  const hide = () => {
     setOpen(false);
     setHidden(true);
   };
@@ -314,7 +302,7 @@ export function ChatbotWidget() {
   return (
     <>
       {/* チャットパネル */}
-      {open && (
+      {!hidden && open && (
         <div className="fixed bottom-20 right-4 z-50 w-[360px] max-h-[520px] bg-white rounded-2xl shadow-2xl border border-zinc-200 flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200">
           {/* ヘッダー */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
@@ -325,9 +313,20 @@ export function ChatbotWidget() {
                 <span className="text-[10px] text-blue-200 ml-2">{pageLabel}</span>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="p-1 hover:bg-blue-700 rounded-md transition-colors">
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={hide}
+                title="アーチくんを非表示（ヘッダーのアイコンで戻せます）"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-blue-700 rounded-md transition-colors text-[11px]"
+              >
+                <EyeOff className="w-3.5 h-3.5" />
+                非表示
+              </button>
+              <button onClick={() => setOpen(false)} className="p-1 hover:bg-blue-700 rounded-md transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* メッセージエリア */}
@@ -439,18 +438,18 @@ export function ChatbotWidget() {
       {/* フローティングボタン — キャラクター + 吹き出し */}
       {!hidden && (
       <div className="fixed bottom-4 right-4 z-50 flex items-end gap-2">
-        {/* 吹き出し（閉じている時のみ表示・×で24時間非表示） */}
+        {/* 吹き出し（閉じている時のみ表示・×で非表示） */}
         {!open && (
-          <div className="mb-2 bg-white rounded-xl shadow-lg border border-zinc-200 pl-3 pr-7 py-2 text-xs font-medium text-zinc-700 animate-bounce-gentle relative">
+          <div className="mb-2 bg-white rounded-xl shadow-lg border border-zinc-200 pl-3 pr-8 py-2 text-xs font-medium text-zinc-700 animate-bounce-gentle relative">
             お困りですか？
             <button
               type="button"
-              onClick={hideForToday}
-              title="今日は表示しない"
-              aria-label="アシスタントを非表示"
-              className="absolute top-1 right-1 w-4 h-4 rounded-full bg-zinc-200 text-zinc-600 hover:bg-zinc-300 flex items-center justify-center"
+              onClick={hide}
+              title="アーチくんを非表示（ヘッダーのアイコンで戻せます）"
+              aria-label="アーチくんを非表示"
+              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-zinc-200 text-zinc-600 hover:bg-zinc-400 hover:text-white flex items-center justify-center"
             >
-              <X className="w-2.5 h-2.5" />
+              <X className="w-3 h-3" />
             </button>
             {/* 吹き出しの三角 */}
             <div className="absolute -right-1.5 bottom-2.5 w-3 h-3 bg-white border-r border-b border-zinc-200 rotate-[-45deg]" />
