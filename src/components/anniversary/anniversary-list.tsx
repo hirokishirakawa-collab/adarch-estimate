@@ -20,6 +20,8 @@ export interface AnniversaryRow {
   websiteUrl: string | null;
   phone: string | null;
   email: string | null;
+  /** メール取得を試した時刻。値があって email が null なら「探したが記載なし」 */
+  emailCheckedAt: string | null;
   address: string | null;
   isAnnivSignal: boolean;
   /** 画面に出す周年の表記（例「2026年10月に50周年」） */
@@ -81,6 +83,13 @@ export function AnniversaryList({ rows }: { rows: AnniversaryRow[] }) {
   const allChecked = rows.length > 0 && allIds.every((id) => selected.has(id));
   const count = selected.size;
 
+  // アウトリーチ（メール送付）に進める会社と、メールアドレスが未取得の会社を仕分ける
+  const selectedRows = rows.filter((r) => selected.has(r.id));
+  const emailIds = selectedRows.filter((r) => r.email).map((r) => r.id);
+  const missingRows = selectedRows.filter((r) => !r.email);
+  const notCheckedCount = missingRows.filter((r) => !r.emailCheckedAt).length;
+  const checkedNoneCount = missingRows.length - notCheckedCount;
+
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -103,7 +112,10 @@ export function AnniversaryList({ rows }: { rows: AnniversaryRow[] }) {
   return (
     <div className="space-y-3">
       {/* ── 選択バー */}
-      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white/95 backdrop-blur px-4 py-2.5">
+      {/* アウトリーチ（メール送付）はメールアドレスがある会社しか対象にできない。
+          未取得が混ざっていたら黙って落とさず、選択バーの下に警告を出す。 */}
+      <div className="sticky top-0 z-10 rounded-xl border border-zinc-200 bg-white/95 backdrop-blur">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-2.5">
         <label className="flex items-center gap-2 text-xs text-zinc-700">
           <input
             type="checkbox"
@@ -136,26 +148,21 @@ export function AnniversaryList({ rows }: { rows: AnniversaryRow[] }) {
             営業フォームへ{count > 0 ? `（${count}件）` : ""}
           </button>
           {/* メール送付（メールアドレスがある選択リードだけをアウトリーチに投入） */}
-          {(() => {
-            const emailIds = rows.filter((r) => selected.has(r.id) && r.email).map((r) => r.id);
-            return (
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(`/dashboard/leads/outreach?ids=${emailIds.join(",")}`)
-                }
-                disabled={emailIds.length === 0}
-                title={
-                  emailIds.length === 0
-                    ? "選択中にメールアドレスのある会社がありません"
-                    : "メールアドレスのある会社をアウトリーチ画面に送ります。件名・本文入りのメール下書きをそのまま開けます"
-                }
-                className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                メール送付へ{emailIds.length > 0 ? `（${emailIds.length}件）` : ""}
-              </button>
-            );
-          })()}
+          <button
+            type="button"
+            onClick={() =>
+              router.push(`/dashboard/leads/outreach?ids=${emailIds.join(",")}`)
+            }
+            disabled={emailIds.length === 0}
+            title={
+              emailIds.length === 0
+                ? "選択中にメールアドレスのある会社がありません"
+                : "メールアドレスのある会社をアウトリーチ画面に送ります。件名・本文入りのメール下書きをそのまま開けます"
+            }
+            className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            メール送付へ{emailIds.length > 0 ? `（${emailIds.length}件）` : ""}
+          </button>
           <button
             type="button"
             onClick={exportSelected}
@@ -165,6 +172,37 @@ export function AnniversaryList({ rows }: { rows: AnniversaryRow[] }) {
             CSV書き出し{count > 0 ? `（${count}件）` : ""}
           </button>
         </div>
+      </div>
+
+      {/* アウトリーチ前の警告（メールアドレスが無い会社が選択に含まれるときだけ出す） */}
+      {missingRows.length > 0 && (
+        <div className="px-4 pb-2.5">
+          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+            <span className="text-amber-600 text-sm leading-none mt-0.5">⚠</span>
+            <div className="text-xs text-amber-900 leading-relaxed">
+              {emailIds.length === 0 ? (
+                <p className="font-bold">
+                  選択した{count}件はすべてメールアドレスが未取得です。このままではアウトリーチ（メール送付）に進めません。
+                </p>
+              ) : (
+                <p className="font-bold">
+                  選択{count}件のうち{missingRows.length}件はメールアドレスが未取得です。このままメール送付へ進むと、メールがある{emailIds.length}件だけが対象になります。
+                </p>
+              )}
+              <p className="mt-1">
+                <Link href="/dashboard/leads/list" className="font-bold underline underline-offset-2">リード管理</Link>
+                で該当の会社を選び「メールを取得」を押したうえで、各行のメール欄にアドレスが入っているかご確認ください。
+                {checkedNoneCount > 0 && (
+                  <>
+                    {" "}
+                    未取得{missingRows.length}件の内訳は、未取得{notCheckedCount}件／取得済みだがサイトに記載なし{checkedNoneCount}件です（記載なしの会社はフォームまたは電話でのご連絡になります）。
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
 
       {/* ── 一覧 */}

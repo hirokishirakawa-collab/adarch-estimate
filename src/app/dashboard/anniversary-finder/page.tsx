@@ -56,6 +56,7 @@ export default async function AnniversaryFinderPage({
       websiteUrl: true,
       phone: true,
       email: true,
+      emailCheckedAt: true,
     },
     take: 2000,
   });
@@ -94,6 +95,7 @@ export default async function AnniversaryFinderPage({
     websiteUrl: lead.websiteUrl,
     phone: lead.phone,
     email: lead.email,
+    emailCheckedAt: lead.emailCheckedAt ? lead.emailCheckedAt.toISOString() : null,
     address: lead.address,
     isAnnivSignal: lead.signalKind === "ANNIV",
     annivLabel: anniversaryLabel(anniv, today),
