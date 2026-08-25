@@ -42,7 +42,7 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
         <div className="flex items-center gap-3 flex-wrap text-xs text-zinc-600">
           <span>最終Webhook受信: <b>{fmtJst(account.webhookLastAt)}</b></span>
           <span>ボット名: <b>{account.botDisplayName ?? "—"}</b></span>
-          <ActionButton label="接続テスト" action={test} successText={(r) => `OK: ${String(r.displayName ?? "")}（${String(r.basicId ?? "")}）`} />
+          <ActionButton label="接続テスト" action={test} />
         </div>
         {addUrl && (
           <p className="text-xs text-zinc-600">

@@ -75,7 +75,7 @@ export function ActionButton({
 }: {
   label: string;
   action: () => Promise<Res>;
-  successText?: (r: Res) => string;
+  successText?: string;
 }) {
   const router = useRouter();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -86,7 +86,7 @@ export function ActionButton({
       const res = await action();
       if (res.error) setMsg({ ok: false, text: res.error });
       else {
-        setMsg({ ok: true, text: successText ? successText(res) : "完了" });
+        setMsg({ ok: true, text: typeof res.message === "string" ? res.message : (successText ?? "完了") });
         router.refresh();
       }
     });

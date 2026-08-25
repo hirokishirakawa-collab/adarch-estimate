@@ -118,7 +118,7 @@ export async function deleteLineAccount(accountId: string): Promise<Result> {
   return { ok: true };
 }
 
-export async function testLineConnection(accountId: string): Promise<Result & { basicId?: string; displayName?: string }> {
+export async function testLineConnection(accountId: string): Promise<Result & { message?: string }> {
   const info = await requireSession();
   const account = await getManageableAccount(info, accountId);
   if (!account) return { error: "権限がありません" };
@@ -129,7 +129,7 @@ export async function testLineConnection(accountId: string): Promise<Result & { 
       data: { basicId: bot.basicId, botDisplayName: bot.displayName },
     });
     revalidatePath(BASE);
-    return { ok: true, basicId: bot.basicId, displayName: bot.displayName };
+    return { ok: true, message: `OK: ${bot.displayName}（${bot.basicId}）` };
   } catch (e) {
     return { error: e instanceof LineApiError ? `接続失敗（${e.status}）` : (e as Error).message };
   }

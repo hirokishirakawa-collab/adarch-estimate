@@ -34,7 +34,7 @@ export default async function LineScenariosPage({ params }: { params: Promise<{ 
                 "use server";
                 return seedFranchiseScenario(accountId);
               }}
-              successText={() => "投入しました（無効状態）。本文を確認してから有効にしてください"}
+              successText="投入しました（無効状態）。本文を確認してから有効にしてください"
             />
           )}
           <ActionButton
@@ -43,7 +43,7 @@ export default async function LineScenariosPage({ params }: { params: Promise<{ 
               "use server";
               return seedClientScenario(accountId);
             }}
-            successText={() => "投入しました（無効状態）。自社向けに本文を直してから有効にしてください"}
+            successText="投入しました（無効状態）。自社向けに本文を直してから有効にしてください"
           />
           <NewScenarioToggle accountId={accountId} />
         </div>
