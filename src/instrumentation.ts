@@ -2,7 +2,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     // 環境変数バリデーション（ビルド時はスキップ）
     if (process.env.NODE_ENV !== "production" || process.env.DATABASE_URL) {
-      const required = ["DATABASE_URL", "AUTH_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "ALLOWED_DOMAIN"];
+      const required = ["DATABASE_URL", "AUTH_SECRET", "AUTH_URL", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "ALLOWED_DOMAIN"];
       const optional = ["ANTHROPIC_API_KEY", "GROUP_SUPPORT_API_KEY", "CRON_SECRET", "RESEND_API_KEY"];
       const missing = required.filter((k) => !process.env[k]);
       if (missing.length > 0) {

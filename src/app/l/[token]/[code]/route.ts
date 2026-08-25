@@ -13,7 +13,12 @@ const CRAWLER = /line-poker|facebookexternalhit|bot|crawler|spider|preview|slurp
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ token: string; code: string }> }) {
   const { token, code } = await ctx.params;
-  const decoded = decodeURIComponent(code);
+  let decoded = code;
+  try {
+    decoded = decodeURIComponent(code);
+  } catch {
+    /* 既にデコード済み */
+  }
   const ua = req.headers.get("user-agent") ?? "";
   const url = CRAWLER.test(ua) ? await resolveLinkUrl(token, decoded) : await recordLinkClick(token, decoded);
   if (!url) {

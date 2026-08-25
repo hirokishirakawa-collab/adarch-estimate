@@ -47,6 +47,10 @@ export function newFriendToken(): string {
   return crypto.randomBytes(12).toString("base64url");
 }
 
+function escapeRe(v: string): string {
+  return v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function appBase(): string {
   return (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
 }
@@ -70,12 +74,12 @@ export async function renderForFriend(
   const linkCodes = [...new Set([...out.matchAll(/\{link:([^}]+)\}/g)].map((m) => m[1].trim()))];
   if (linkCodes.length > 0) {
     const links = await db.lineLink.findMany({ where: { accountId: friend.accountId, code: { in: linkCodes } }, select: { code: true } });
-    for (const l of links) out = out.replaceAll(`{link:${l.code}}`, `${appBase()}/l/${token}/${encodeURIComponent(l.code)}`);
+    for (const l of links) out = out.replace(new RegExp(`\\{link:\\s*${escapeRe(l.code)}\\s*\\}`, "g"), `${appBase()}/l/${token}/${encodeURIComponent(l.code)}`);
   }
   const formCodes = [...new Set([...out.matchAll(/\{form:([^}]+)\}/g)].map((m) => m[1].trim()))];
   if (formCodes.length > 0) {
     const forms = await db.lineForm.findMany({ where: { accountId: friend.accountId, code: { in: formCodes }, isActive: true }, select: { code: true } });
-    for (const f of forms) out = out.replaceAll(`{form:${f.code}}`, `${appBase()}/f/${token}/${encodeURIComponent(f.code)}`);
+    for (const f of forms) out = out.replace(new RegExp(`\\{form:\\s*${escapeRe(f.code)}\\s*\\}`, "g"), `${appBase()}/f/${token}/${encodeURIComponent(f.code)}`);
   }
   return out;
 }
@@ -176,7 +180,7 @@ async function applyEntryPoint(friend: LineFriend, ep: LineEntryPoint): Promise<
     where: { id: friend.id },
     data: {
       source: ep.name,
-      ...(alreadyTagged ? {} : { tags: { push: ep.tag } }),
+      ...(alreadyTagged ? {} : { tags: { push: [ep.tag] } }),
     },
   });
   if (!alreadyTagged) {
@@ -197,7 +201,7 @@ function entryPointQuickReply(eps: LineEntryPoint[], now: Date): Record<string, 
         action: {
           type: "postback",
           label: ep.name.slice(0, 20),
-          data: `tag=${encodeURIComponent(ep.tag)}&ep=${ep.id}`,
+          data: `ep=${ep.id}`,
           displayText: ep.name,
         },
       })),
@@ -300,11 +304,12 @@ async function onFollow(account: LineAccount, userId: string, replyToken?: strin
     messages.push(text(body));
     logs.push({ body, via: "greeting" });
   }
-  for (const { enrollment, step } of immediate) {
+  const advances: { id: string; step: LineScenarioStep }[] = [];
+  for (const { enrollment, step } of immediate.slice(0, 4)) {
     const body = await renderForFriend(step.text, friend);
     messages.push(text(body));
     logs.push({ body, via: `scenario:${step.id}` });
-    await advanceEnrollment(enrollment.id, step);
+    advances.push({ id: enrollment.id, step });
   }
   if (messages.length === 0 && quickReply) {
     const ask = "ご参加のセミナー（きっかけ）をお選びください。";
@@ -323,7 +328,9 @@ async function onFollow(account: LineAccount, userId: string, replyToken?: strin
   } else {
     await pushMessage(token, userId, messages);
   }
+  // 送れたものだけ「送信済」にする
   for (const l of logs) await logOut(friend.id, l.body, l.via);
+  for (const a of advances) await advanceEnrollment(a.id, a.step);
 }
 
 async function onUnfollow(account: LineAccount, userId: string): Promise<void> {
@@ -343,6 +350,8 @@ async function onUnfollow(account: LineAccount, userId: string): Promise<void> {
 async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent): Promise<void> {
   const friend = await upsertFriend(account, userId);
   const m = ev.message!;
+  // LINEの再送で同じメッセージが二重に届いた場合は捨てる
+  if (m.id && (await db.lineMessage.findFirst({ where: { friendId: friend.id, lineMessageId: m.id }, select: { id: true } }))) return;
   const body =
     m.type === "text" ? (m.text ?? "") : m.type === "sticker" ? "（スタンプ）" : `（${m.type}）`;
   await db.$transaction([
@@ -376,7 +385,7 @@ async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent)
     if (hit.length > 0) {
       const fresh = [...new Set(hit.flatMap((r) => r.addTags))].filter((t) => !friend.tags.includes(t));
       if (fresh.length > 0) {
-        const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: [...friend.tags, ...fresh] } });
+        const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: fresh } } });
         await enrollByTags(updated, fresh);
       }
       await db.lineKeywordRule.updateMany({ where: { id: { in: hit.map((r) => r.id) } }, data: { hitCount: { increment: 1 } } });
@@ -419,12 +428,27 @@ async function onPostback(account: LineAccount, userId: string, ev: WebhookEvent
   let friend = await upsertFriend(account, userId);
   const data = ev.postback?.data ?? "";
   const params = new URLSearchParams(data);
-  const say = params.get("say");
-  const url = params.get("url");
-  const tags = (params.get("tag") ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+  let say = params.get("say");
+  let url = params.get("url");
+  let tags = (params.get("tag") ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+
+  // リッチメニュー：m=<menuId>&i=<index> から DB のボタン設定を復元（postback data の300バイト制限対策）
+  const menuId = params.get("m");
+  const areaIdx = params.get("i");
+  if (menuId && areaIdx !== null) {
+    const menu = await db.lineRichMenu.findFirst({ where: { id: menuId, accountId: account.id }, select: { areas: true } });
+    const area = menu ? parseRichMenuAreas(menu.areas)[Number(areaIdx)] : undefined;
+    if (area) {
+      tags = [...new Set([...tags, ...area.tags])];
+      if (area.type === "uri") url = area.value;
+      else say = area.value || area.label;
+    }
+  }
+  const epParam = params.get("ep");
+  const epRow = epParam && epParam !== "other" ? await db.lineEntryPoint.findFirst({ where: { id: epParam, accountId: account.id } }) : null;
 
   // ボタンの文言はチャットに「相手の発言」として残す（担当者が気づけるように）
-  const shown = say || (url ? `「${url}」を開く` : data);
+  const shown = say || (epRow ? epRow.name : epParam === "other" ? "その他" : url ? `「${url}」を開く` : data);
   await db.$transaction([
     db.lineMessage.create({
       data: { friendId: friend.id, direction: "IN", type: say ? "text" : "postback", text: shown, payload: ev as object },
@@ -435,17 +459,13 @@ async function onPostback(account: LineAccount, userId: string, ev: WebhookEvent
     notifyNewInbound(account, friend, say).catch(() => {});
   }
 
-  const epId = params.get("ep");
-  if (epId && epId !== "other") {
-    const ep = await db.lineEntryPoint.findFirst({ where: { id: epId, accountId: account.id } });
-    if (ep) {
-      await applyEntryPoint(friend, ep);
-      return;
-    }
+  if (epRow) {
+    await applyEntryPoint(friend, epRow);
+    return;
   }
   const fresh = tags.filter((t) => !friend.tags.includes(t));
   if (fresh.length > 0) {
-    friend = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: [...friend.tags, ...fresh] } });
+    friend = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: fresh } } });
     await enrollByTags(friend, fresh);
   }
   // URL付き：タグを付けたうえで、開くためのリンクを返信（同じURLの計測リンクがあれば相手ごとの計測URLにする）
@@ -494,10 +514,7 @@ async function advanceEnrollment(enrollmentId: string, step: LineScenarioStep): 
     if (friend) {
       const fresh = step.addTags.filter((t) => !friend.tags.includes(t));
       if (fresh.length > 0) {
-        const updated = await db.lineFriend.update({
-          where: { id: friend.id },
-          data: { tags: [...friend.tags, ...fresh] },
-        });
+        const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: fresh } } });
         await enrollByTags(updated, fresh);
       }
     }
@@ -510,11 +527,16 @@ async function advanceEnrollment(enrollmentId: string, step: LineScenarioStep): 
   });
 }
 
-/** cron: 期限の来たステップを送る（1回の実行で最大 limit 件） */
+/** 配信: 期限の来たステップを送る（1回の実行で最大 limit 件・各件を原子的にクレームして二重送信を防ぐ） */
 export async function runScenarioTick(limit = 200): Promise<{ sent: number; failed: number }> {
   const now = new Date();
   const due = await db.lineScenarioEnrollment.findMany({
-    where: { status: "ACTIVE", nextRunAt: { lte: now }, friend: { isFollowing: true, mutedAt: null }, scenario: { isActive: true } },
+    where: {
+      status: "ACTIVE",
+      nextRunAt: { lte: now },
+      friend: { isFollowing: true, mutedAt: null, account: { isActive: true } },
+      scenario: { isActive: true },
+    },
     include: { friend: { include: { account: true } } },
     take: limit,
     orderBy: { nextRunAt: "asc" },
@@ -522,6 +544,13 @@ export async function runScenarioTick(limit = 200): Promise<{ sent: number; fail
   let sent = 0;
   let failed = 0;
   for (const en of due) {
+    // クレーム：同じ行を別プロセスが同時に拾っても片方だけが進む
+    const claimed = await db.lineScenarioEnrollment.updateMany({
+      where: { id: en.id, status: "ACTIVE", nextRunAt: en.nextRunAt },
+      data: { nextRunAt: new Date(now.getTime() + 60 * 60 * 1000) },
+    });
+    if (claimed.count === 0) continue;
+
     const step = await db.lineScenarioStep.findUnique({
       where: { scenarioId_order: { scenarioId: en.scenarioId, order: en.nextOrder } },
     });
@@ -533,7 +562,6 @@ export async function runScenarioTick(limit = 200): Promise<{ sent: number; fail
       continue;
     }
     const account = en.friend.account;
-    if (!account.isActive) continue;
     const body = await renderForFriend(step.text, en.friend);
     try {
       await pushMessage(tokenOf(account), en.friend.lineUserId, [text(body)]);
@@ -543,21 +571,27 @@ export async function runScenarioTick(limit = 200): Promise<{ sent: number; fail
     } catch (e) {
       failed++;
       console.error("[line] scenario push failed", en.id, e);
-      // ブロック等で届かない相手は止める。それ以外は次回再試行（1時間後）
+      // ブロック等で届かない相手は止める。それ以外はクレーム時に入れた1時間後に再試行
       if (e instanceof LineApiError && (e.status === 404 || e.status === 400)) {
         await db.lineScenarioEnrollment.update({
           where: { id: en.id },
           data: { status: "STOPPED", nextRunAt: null, finishedAt: now },
         });
-      } else {
-        await db.lineScenarioEnrollment.update({
-          where: { id: en.id },
-          data: { nextRunAt: new Date(now.getTime() + 60 * 60 * 1000) },
-        });
       }
     }
   }
   return { sent, failed };
+}
+
+/** ミュート解除などで溜まった過去分を、いま起点で組み直す（連射防止） */
+export async function rescheduleOverdueEnrollments(friendId: string): Promise<void> {
+  const now = new Date();
+  const list = await db.lineScenarioEnrollment.findMany({ where: { friendId, status: "ACTIVE", nextRunAt: { lt: now } } });
+  for (const en of list) {
+    const step = await db.lineScenarioStep.findUnique({ where: { scenarioId_order: { scenarioId: en.scenarioId, order: en.nextOrder } } });
+    if (!step) continue;
+    await db.lineScenarioEnrollment.update({ where: { id: en.id }, data: { startedAt: now, nextRunAt: computeStepRunAt(now, step) } });
+  }
 }
 
 // ---------------------------------------------------------------
@@ -575,8 +609,13 @@ export function broadcastTargetWhere(accountId: string, filterTags: string[], ex
 
 export async function runBroadcasts(): Promise<{ processed: number }> {
   const now = new Date();
+  // 送信中のまま30分以上止まっているもの（プロセス落ち等）は失敗扱いにして固まりを解く
+  await db.lineBroadcast.updateMany({
+    where: { status: "SENDING", updatedAt: { lt: new Date(now.getTime() - 30 * 60 * 1000) } },
+    data: { status: "FAILED", error: "送信中に中断されました（再作成してください）" },
+  });
   const due = await db.lineBroadcast.findMany({
-    where: { status: "SCHEDULED", scheduledAt: { lte: now } },
+    where: { status: "SCHEDULED", scheduledAt: { lte: now }, account: { isActive: true } },
     include: { account: true },
     take: 20,
   });
@@ -678,7 +717,7 @@ export async function recordLinkClick(token: string, code: string): Promise<stri
   ]);
   const fresh = link.addTags.filter((t) => !friend.tags.includes(t));
   if (fresh.length > 0) {
-    const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: [...friend.tags, ...fresh] } });
+    const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: fresh } } });
     await enrollByTags(updated, fresh);
   }
   return link.url;
@@ -758,7 +797,7 @@ export async function submitFormResponse(
 
   const fresh = form.addTags.filter((t) => !friend.tags.includes(t));
   if (fresh.length > 0) {
-    const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: [...friend.tags, ...fresh] } });
+    const updated = await db.lineFriend.update({ where: { id: friend.id }, data: { tags: { push: fresh } } });
     await enrollByTags(updated, fresh);
   }
 
@@ -804,7 +843,7 @@ export function parseRichMenuAreas(raw: unknown): RichMenuAreaInput[] {
 }
 
 /** レイアウトと各ボタンの設定から LINE の areas を組む */
-export function buildRichMenuAreas(layout: string, inputs: RichMenuAreaInput[]): RichMenuArea[] {
+export function buildRichMenuAreas(layout: string, inputs: RichMenuAreaInput[], menuId?: string): RichMenuArea[] {
   const L = RICH_MENU_LAYOUTS[layout];
   if (!L) throw new Error("unknown layout");
   const cellW = Math.floor(L.width / L.cols);
@@ -818,16 +857,17 @@ export function buildRichMenuAreas(layout: string, inputs: RichMenuAreaInput[]):
       const width = c === L.cols - 1 ? L.width - cellW * c : cellW;
       const height = r === L.rows - 1 ? L.height - cellH * r : cellH;
       const label = (a.label || a.value || a.tags[0]).slice(0, 20);
-      const tagParam = a.tags.length ? `tag=${encodeURIComponent(a.tags.join(","))}` : "";
+      // postback data は300バイト上限＝本文を載せず、メニューIDとボタン番号だけ渡して受信時にDBから復元する
+      const pb = menuId ? `m=${menuId}&i=${i}` : null;
       let action: Record<string, unknown>;
       if (a.type === "uri") {
         // タグなし＝そのまま開く／タグあり＝postbackでタグを付けてから、返信でURLを渡す（LINEの仕様上ワンタップ増える）
-        action = a.tags.length
-          ? { type: "postback", label, data: `${tagParam}&url=${encodeURIComponent(a.value)}`, displayText: label }
+        action = a.tags.length && pb
+          ? { type: "postback", label, data: pb, displayText: label }
           : { type: "uri", label, uri: a.value };
       } else {
-        action = a.tags.length
-          ? { type: "postback", label, data: `${tagParam}&say=${encodeURIComponent(a.value.slice(0, 300))}`, displayText: a.value.slice(0, 300) || label }
+        action = a.tags.length && pb
+          ? { type: "postback", label, data: pb, displayText: a.value.slice(0, 300) || label }
           : { type: "message", label, text: a.value.slice(0, 300) };
       }
       out.push({ bounds: { x: cellW * c, y: cellH * r, width, height }, action });

@@ -4,7 +4,7 @@
 // 署名（x-line-signature）をチャネルシークレットで検証してから処理。
 // ==============================================================
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
 import { decryptSecret } from "@/lib/line/secret";
 import { verifySignature } from "@/lib/line/client";
@@ -23,8 +23,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ accountId:
 
   const rawBody = await req.text();
   const secret = decryptSecret(account.channelSecretEnc);
-  if (!verifySignature(secret, rawBody, req.headers.get("x-line-signature"))) {
-    // 診断用に記録（LINEは届いているのに秘密鍵が合わない＝別チャネルのシークレット等）
+  const signature = req.headers.get("x-line-signature");
+  if (!verifySignature(secret, rawBody, signature)) {
+    // 署名ヘッダ自体が無い＝LINE以外からのアクセス（スキャナ等）。記録せずに弾く
+    if (!signature) return NextResponse.json({ error: "Bad signature" }, { status: 401 });
+    // 診断用に記録（LINEは届いているのに秘密鍵が合わない＝別チャネルのシークレット等）。書き込みは60秒に1回まで
+    if (account.webhookErrorAt && Date.now() - account.webhookErrorAt.getTime() < 60_000) {
+      return NextResponse.json({ error: "Bad signature" }, { status: 401 });
+    }
     await db.lineAccount.update({
       where: { id: account.id },
       data: {
@@ -43,8 +49,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ accountId:
     return NextResponse.json({ error: "Bad JSON" }, { status: 400 });
   }
 
+  // LINEには先に200を返し、処理は応答後に続ける（応答遅延による再送・重複を防ぐ）
   // 「検証」ボタンは events が空で届く＝接続確認として時刻だけ記録
-  await handleWebhookEvents(account, events as Parameters<typeof handleWebhookEvents>[1]);
+  after(async () => {
+    try {
+      await handleWebhookEvents(account, events as Parameters<typeof handleWebhookEvents>[1]);
+    } catch (e) {
+      console.error("[line/webhook] handle failed", e);
+    }
+  });
   return NextResponse.json({ ok: true });
 }
 

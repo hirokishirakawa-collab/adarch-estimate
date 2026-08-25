@@ -17,6 +17,7 @@ import {
   deleteRichMenu,
   setDefaultRichMenu,
   clearDefaultRichMenu,
+  linkRichMenuToUser,
 } from "@/lib/line/client";
 import { getBotInfo, LineApiError } from "@/lib/line/client";
 import { requireSession, getManageableAccount, branchIdForNewAccount } from "@/lib/line/access";
@@ -32,6 +33,7 @@ import {
   buildRichMenuAreas,
   applyRichMenuRules,
   setFriendRichMenu,
+  rescheduleOverdueEnrollments,
 } from "@/lib/line/service";
 import type { LineScenarioTrigger } from "@/generated/prisma/client";
 
@@ -176,8 +178,12 @@ export async function updateLineFriend(_prev: Result | null, fd: FormData): Prom
   if (!ctx) return { error: "権限がありません" };
   const tags = tagList(str(fd, "tags"));
   const note = str(fd, "note").slice(0, 2000) || null;
+  // 画面を開いている間に自動で付いたタグを消さないよう、差分（追加・削除）だけを反映する
   const fresh = tags.filter((t) => !ctx.friend.tags.includes(t));
-  const updated = await db.lineFriend.update({ where: { id: friendId }, data: { tags, note } });
+  const removed = ctx.friend.tags.filter((t) => !tags.includes(t));
+  const latest = await db.lineFriend.findUnique({ where: { id: friendId }, select: { tags: true } });
+  const merged = [...new Set([...(latest?.tags ?? []).filter((t) => !removed.includes(t)), ...fresh])];
+  const updated = await db.lineFriend.update({ where: { id: friendId }, data: { tags: merged, note } });
   await enrollByTags(updated, fresh);
   revalidatePath(`${BASE}/${accountId}`);
   revalidatePath(`${BASE}/${accountId}/chat/${friendId}`);
@@ -553,6 +559,7 @@ export async function toggleLineFriendMute(accountId: string, friendId: string, 
   const ctx = await friendWithAccount(accountId, friendId);
   if (!ctx) return { error: "権限がありません" };
   await db.lineFriend.update({ where: { id: friendId }, data: { mutedAt: mute ? new Date() : null } });
+  if (!mute) await rescheduleOverdueEnrollments(friendId); // 溜まった分を連射しない
   revalidatePath(`${BASE}/${accountId}`);
   revalidatePath(`${BASE}/${accountId}/chat/${friendId}`);
   return { ok: true, message: mute ? "ミュートしました（配信・通知を止めます）" : "ミュートを解除しました" };
@@ -643,10 +650,22 @@ export async function saveLineTag(_prev: Result | null, fd: FormData): Promise<R
       }
       await db.lineScenario.updateMany({ where: { accountId, triggerTag: existing.name }, data: { triggerTag: name } });
       await db.lineEntryPoint.updateMany({ where: { accountId, tag: existing.name }, data: { tag: name } });
-      const menus = await db.lineRichMenu.findMany({ where: { accountId, ruleTags: { has: existing.name } }, select: { id: true, ruleTags: true } });
+      const ren = (arr: string[]) => arr.map((t) => (t === existing.name ? name : t));
+      const menus = await db.lineRichMenu.findMany({ where: { accountId }, select: { id: true, ruleTags: true, areas: true } });
       for (const m of menus) {
-        await db.lineRichMenu.update({ where: { id: m.id }, data: { ruleTags: m.ruleTags.map((t) => (t === existing.name ? name : t)) } });
+        const areas = parseRichMenuAreas(m.areas).map((a) => ({ ...a, tags: ren(a.tags) }));
+        await db.lineRichMenu.update({ where: { id: m.id }, data: { ruleTags: ren(m.ruleTags), areas } });
       }
+      const steps = await db.lineScenarioStep.findMany({ where: { scenario: { accountId }, addTags: { has: existing.name } }, select: { id: true, addTags: true } });
+      for (const st of steps) await db.lineScenarioStep.update({ where: { id: st.id }, data: { addTags: ren(st.addTags) } });
+      const rules = await db.lineKeywordRule.findMany({ where: { accountId, addTags: { has: existing.name } }, select: { id: true, addTags: true } });
+      for (const r of rules) await db.lineKeywordRule.update({ where: { id: r.id }, data: { addTags: ren(r.addTags) } });
+      const links = await db.lineLink.findMany({ where: { accountId, addTags: { has: existing.name } }, select: { id: true, addTags: true } });
+      for (const l of links) await db.lineLink.update({ where: { id: l.id }, data: { addTags: ren(l.addTags) } });
+      const forms = await db.lineForm.findMany({ where: { accountId, addTags: { has: existing.name } }, select: { id: true, addTags: true } });
+      for (const f of forms) await db.lineForm.update({ where: { id: f.id }, data: { addTags: ren(f.addTags) } });
+      const bcs = await db.lineBroadcast.findMany({ where: { accountId, status: "SCHEDULED" }, select: { id: true, filterTags: true, excludeTags: true } });
+      for (const b of bcs) await db.lineBroadcast.update({ where: { id: b.id }, data: { filterTags: ren(b.filterTags), excludeTags: ren(b.excludeTags) } });
     }
     await db.lineTag.update({ where: { id }, data: { name, color, note } });
   } else {
@@ -864,8 +883,7 @@ export async function saveLineRichMenu(_prev: Result | null, fd: FormData): Prom
     if (a.type === "uri" && a.value && !/^(https?:\/\/|tel:|mailto:)/.test(a.value)) return { error: `URLは https:// から入れてください（${a.value}）` };
     if (a.type === "uri" && !a.value && a.tags.length) return { error: "「URLを開く」にはURLを入れてください" };
   }
-  const lineAreas = buildRichMenuAreas(layout, areas);
-  if (lineAreas.length === 0) return { error: "ボタンを1つ以上設定してください" };
+  if (buildRichMenuAreas(layout, areas).length === 0) return { error: "ボタンを1つ以上設定してください" };
 
   // 画像（任意・更新時は据え置き可）
   let imageData: Uint8Array<ArrayBuffer> | null = null;
@@ -892,13 +910,14 @@ export async function saveLineRichMenu(_prev: Result | null, fd: FormData): Prom
   if (isDefault) {
     await db.lineRichMenu.updateMany({ where: { accountId, NOT: { id: saved.id } }, data: { isDefault: false } });
   }
+  const token = decryptSecret(account.accessTokenEnc);
 
-  // LINEへ登録（画像が無ければ保存だけ）
+  // LINEへ登録（画像が無ければ保存だけ。既定の付け外しだけはLINE側と同期する）
   if (!saved.imageData || !saved.imageType) {
+    if (existing?.isDefault && !isDefault && existing.lineRichMenuId) await clearDefaultRichMenu(token).catch(() => {});
     revalidatePath(`${BASE}/${accountId}/richmenus`);
     return { ok: true, message: "保存しました（画像を付けるとLINEへ登録されます）" };
   }
-  const token = decryptSecret(account.accessTokenEnc);
   const L = RICH_MENU_LAYOUTS[layout];
   try {
     const newId = await createRichMenu(token, {
@@ -906,18 +925,14 @@ export async function saveLineRichMenu(_prev: Result | null, fd: FormData): Prom
       selected: true,
       name: name.slice(0, 300),
       chatBarText,
-      areas: lineAreas,
+      areas: buildRichMenuAreas(layout, areas, saved.id),
     });
     await uploadRichMenuImage(token, newId, saved.imageData, saved.imageType);
     if (saved.lineRichMenuId) await deleteRichMenu(token, saved.lineRichMenuId).catch(() => {});
     await db.lineRichMenu.update({ where: { id: saved.id }, data: { lineRichMenuId: newId, lastError: null } });
     if (isDefault) await setDefaultRichMenu(token, newId);
-    // このメニューに個別リンクされていた人を新IDへ付け直す
-    const linked = await db.lineFriend.findMany({ where: { accountId, richMenuId: saved.id, isFollowing: true }, select: { id: true } });
-    for (const f of linked) {
-      await db.lineFriend.update({ where: { id: f.id }, data: { richMenuId: null } });
-      await applyRichMenuRules(f.id).catch(() => {});
-    }
+    else if (existing?.isDefault) await clearDefaultRichMenu(token).catch(() => {});
+    await relinkFriendsToMenu(accountId, saved.id, newId, token);
   } catch (e) {
     const msg = e instanceof LineApiError ? `LINE登録に失敗（${e.status}）: ${e.body.slice(0, 200)}` : (e as Error).message;
     await db.lineRichMenu.update({ where: { id: saved.id }, data: { lastError: msg } });
@@ -926,6 +941,26 @@ export async function saveLineRichMenu(_prev: Result | null, fd: FormData): Prom
   }
   revalidatePath(`${BASE}/${accountId}/richmenus`);
   return { ok: true, message: "LINEへ登録しました" };
+}
+
+/** このメニューに紐付いている人を新しいLINE IDへ付け直す（手動固定の人は固定のまま） */
+async function relinkFriendsToMenu(accountId: string, menuId: string, newLineId: string, token: string): Promise<void> {
+  const linked = await db.lineFriend.findMany({
+    where: { accountId, richMenuId: menuId, isFollowing: true },
+    select: { id: true, lineUserId: true, richMenuPinned: true },
+  });
+  for (const f of linked) {
+    try {
+      if (f.richMenuPinned) {
+        await linkRichMenuToUser(token, f.lineUserId, newLineId);
+      } else {
+        await db.lineFriend.update({ where: { id: f.id }, data: { richMenuId: null } });
+        await applyRichMenuRules(f.id);
+      }
+    } catch {
+      /* 個別失敗は飛ばす */
+    }
+  }
 }
 
 export async function deleteLineRichMenu(accountId: string, id: string): Promise<Result> {
@@ -941,7 +976,7 @@ export async function deleteLineRichMenu(accountId: string, id: string): Promise
   } catch (e) {
     return { error: e instanceof LineApiError ? `LINE側の削除に失敗（${e.status}）` : (e as Error).message };
   }
-  await db.lineFriend.updateMany({ where: { richMenuId: id }, data: { richMenuId: null } });
+  await db.lineFriend.updateMany({ where: { richMenuId: id }, data: { richMenuId: null, richMenuPinned: false } });
   await db.lineRichMenu.delete({ where: { id } });
   revalidatePath(`${BASE}/${accountId}/richmenus`);
   return { ok: true };
@@ -1003,7 +1038,7 @@ export async function publishLineRichMenu(accountId: string, id: string): Promis
   if (!menu.imageData || !menu.imageType) return { error: "画像がありません。編集から画像を付けてください" };
   const L = RICH_MENU_LAYOUTS[menu.layout];
   if (!L) return { error: "レイアウトが不正です" };
-  const lineAreas = buildRichMenuAreas(menu.layout, parseRichMenuAreas(menu.areas));
+  const lineAreas = buildRichMenuAreas(menu.layout, parseRichMenuAreas(menu.areas), menu.id);
   if (lineAreas.length === 0) return { error: "ボタンが設定されていません" };
   const token = decryptSecret(account.accessTokenEnc);
   try {
@@ -1018,11 +1053,7 @@ export async function publishLineRichMenu(accountId: string, id: string): Promis
     if (menu.lineRichMenuId) await deleteRichMenu(token, menu.lineRichMenuId).catch(() => {});
     await db.lineRichMenu.update({ where: { id }, data: { lineRichMenuId: newId, lastError: null } });
     if (menu.isDefault) await setDefaultRichMenu(token, newId);
-    const linked = await db.lineFriend.findMany({ where: { accountId, richMenuId: id, isFollowing: true }, select: { id: true } });
-    for (const f of linked) {
-      await db.lineFriend.update({ where: { id: f.id }, data: { richMenuId: null } });
-      await applyRichMenuRules(f.id).catch(() => {});
-    }
+    await relinkFriendsToMenu(accountId, id, newId, token);
   } catch (e) {
     const msg = e instanceof LineApiError ? `LINE登録に失敗（${e.status}）: ${e.body.slice(0, 200)}` : (e as Error).message;
     await db.lineRichMenu.update({ where: { id }, data: { lastError: msg } });

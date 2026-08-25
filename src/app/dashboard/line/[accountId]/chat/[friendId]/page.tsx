@@ -31,7 +31,7 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
   }
 
   const [messages, scenarios, canned, customer, tagDefs, responses, richMenus] = await Promise.all([
-    db.lineMessage.findMany({ where: { friendId }, orderBy: { createdAt: "asc" }, take: 300 }),
+    db.lineMessage.findMany({ where: { friendId }, orderBy: { createdAt: "desc" }, take: 300 }).then((r) => r.reverse()),
     db.lineScenario.findMany({ where: { accountId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.lineCannedReply.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { id: true, title: true, text: true } }),
     friend.customerId ? db.customer.findUnique({ where: { id: friend.customerId }, select: { id: true, name: true } }) : Promise.resolve(null),

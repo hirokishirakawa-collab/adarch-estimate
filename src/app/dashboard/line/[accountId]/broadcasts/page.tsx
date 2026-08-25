@@ -21,7 +21,7 @@ export default async function LineBroadcastsPage({ params }: { params: Promise<{
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-5">
       <AccountHeader account={account} />
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="text-xs text-zinc-500">タグで絞って、今すぐ or 予約で送ります。予約分は5分刻みで送信されます。</p>
+        <p className="text-xs text-zinc-500">タグで絞って、今すぐ or 予約で送ります。予約分は1分ごとに確認して送信されます。</p>
         <BroadcastForm accountId={accountId} allTags={allTags} />
       </div>
 

@@ -12,7 +12,12 @@ export const metadata = { robots: { index: false, follow: false } };
 // ---------------------------------------------------------------
 export default async function PublicFormPage({ params }: { params: Promise<{ token: string; code: string }> }) {
   const { token, code } = await params;
-  const decoded = decodeURIComponent(code);
+  let decoded = code;
+  try {
+    decoded = decodeURIComponent(code);
+  } catch {
+    /* 既にデコード済み */
+  }
   const friend = await db.lineFriend.findUnique({ where: { token }, select: { accountId: true, displayName: true, account: { select: { botDisplayName: true, name: true } } } });
   if (!friend) notFound();
   const form = await db.lineForm.findUnique({ where: { accountId_code: { accountId: friend.accountId, code: decoded } } });
