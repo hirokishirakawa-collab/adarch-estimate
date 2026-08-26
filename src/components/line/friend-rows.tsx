@@ -21,6 +21,7 @@ export type FriendRow = {
   activeEnrollments: number;
   mutedAt: boolean;
   rating: number;
+  score: number;
   richMenuName: string | null;
   richMenuPinned: boolean;
   inboundAgo: string;
@@ -107,6 +108,7 @@ export function FriendRows({
                     <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 rounded px-1">ブロック/解除 {f.unfollowedAgo}</span>
                   )}
                   {f.mutedAt && <span className="text-[10px] text-zinc-600 bg-zinc-100 rounded px-1">ミュート</span>}
+                  {f.score !== 0 && <span className="text-[10px] font-bold text-orange-700 bg-orange-50 rounded px-1" title="行動スコア">{f.score}pt</span>}
                   {f.unreadCount > 0 && <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5">{f.unreadCount}</span>}
                   {f.activeEnrollments > 0 && <span className="text-[10px] text-emerald-700 bg-emerald-50 rounded px-1">配信中</span>}
                   {f.richMenuName && (

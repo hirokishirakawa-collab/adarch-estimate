@@ -4192,6 +4192,7 @@ model LineAccount {
   greetingText        String?   @db.Text // 友だち追加時の自動返信（空なら送らない）
   autoReplyText       String?   @db.Text // 受信時の自動返信（空なら送らない）
   bookingReminderText String?   @db.Text // 予約前日のリマインド文（空なら既定文）
+  scoreRules          Json? // 行動スコアの点数表 {follow,message,postback,click,form,booking,tagPoints:{},thresholds:[{score,tag}]}
   webhookLastAt       DateTime? // 最後にWebhookを受けた時刻＝接続確認
   webhookErrorAt      DateTime? // 最後に署名不一致などで弾いた時刻（診断用）
   webhookError        String? // 弾いた理由
@@ -4243,16 +4244,19 @@ model LineFriend {
   richMenuId     String? // いま個別に紐付いているリッチメニュー（OS側ID・null=既定）
   richMenuPinned Boolean   @default(false) // 手動で選んだ＝タグのルールで上書きしない
   rating         Int       @default(0) // ★評価 0〜5（0=未評価）
+  score          Int       @default(0) // 行動スコア（設定タブの点数表で加点）
 
   messages      LineMessage[]
   enrollments   LineScenarioEnrollment[]
   linkClicks    LineLinkClick[]
   formResponses LineFormResponse[]
+  lineScoreLogs LineScoreLog[]
 
   @@unique([accountId, lineUserId])
   @@index([accountId, lastInboundAt(sort: Desc)])
   @@index([accountId, isFollowing])
   @@index([accountId, rating(sort: Desc)])
+  @@index([accountId, score(sort: Desc)])
   @@map("line_friends")
 }
 
@@ -4511,4 +4515,18 @@ model LineRichMenu {
 
   @@index([accountId, priority])
   @@map("line_rich_menus")
+}
+
+/// 行動スコアの履歴
+model LineScoreLog {
+  id        String     @id @default(cuid())
+  friendId  String
+  friend    LineFriend @relation(fields: [friendId], references: [id], onDelete: Cascade)
+  event     String // follow / message / postback / click / form / booking / tag:<name>
+  points    Int
+  note      String?
+  createdAt DateTime   @default(now())
+
+  @@index([friendId, createdAt(sort: Desc)])
+  @@map("line_score_logs")
 }

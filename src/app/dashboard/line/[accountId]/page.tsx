@@ -22,7 +22,9 @@ export default async function LineFriendsPage({
   const { q = "", tag = "", all, sort = "unread", star = "" } = await searchParams;
   const minStar = Math.max(0, Math.min(5, Number(star) || 0));
   const orderBy =
-    sort === "rating"
+    sort === "score"
+      ? [{ score: "desc" as const }, { lastInboundAt: { sort: "desc" as const, nulls: "last" as const } }]
+      : sort === "rating"
       ? [{ rating: "desc" as const }, { lastInboundAt: { sort: "desc" as const, nulls: "last" as const } }]
       : sort === "followed"
         ? [{ followedAt: "desc" as const }]
@@ -61,6 +63,7 @@ export default async function LineFriendsPage({
     activeEnrollments: f._count.enrollments,
     mutedAt: !!f.mutedAt,
     rating: f.rating,
+    score: f.score,
     richMenuName: f.richMenuId ? (menuName.get(f.richMenuId) ?? null) : null,
     richMenuPinned: f.richMenuPinned,
     inboundAgo: fmtAgo(f.lastInboundAt),
@@ -96,6 +99,7 @@ export default async function LineFriendsPage({
         <select name="sort" defaultValue={sort} className="px-2 py-1.5 text-xs border border-zinc-200 rounded-lg bg-white">
           <option value="unread">並び: 未読→最新</option>
           <option value="rating">並び: ★が高い順</option>
+          <option value="score">並び: スコアが高い順</option>
           <option value="recent">並び: 最終受信が新しい順</option>
           <option value="followed">並び: 追加が新しい順</option>
         </select>

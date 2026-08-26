@@ -34,6 +34,7 @@ import {
   applyRichMenuRules,
   setFriendRichMenu,
   rescheduleOverdueEnrollments,
+  parseScoreRules,
 } from "@/lib/line/service";
 import type { LineScenarioTrigger } from "@/generated/prisma/client";
 
@@ -1108,4 +1109,50 @@ export async function bulkSetLineFriendRichMenu(accountId: string, friendIds: st
   }
   revalidatePath(`${BASE}/${accountId}`);
   return { ok: true, message: `${ok}人に適用しました${lastError ? `（一部失敗: ${lastError}）` : ""}` };
+}
+
+
+// ---------------------------------------------------------------
+// 行動スコアの点数表
+// ---------------------------------------------------------------
+export async function saveLineScoreRules(_prev: Result | null, fd: FormData): Promise<Result> {
+  const info = await requireSession();
+  const accountId = str(fd, "accountId");
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const n = (k: string) => Number(str(fd, k));
+  const tagPoints: Record<string, number> = {};
+  for (const line of str(fd, "tagPoints").split(/\n/)) {
+    const m = line.trim().match(/^(.+?)\s*[:=：]\s*(-?\d+)$/);
+    if (m) tagPoints[m[1].trim()] = Number(m[2]);
+  }
+  const thresholds: { score: number; tag: string }[] = [];
+  for (const line of str(fd, "thresholds").split(/\n/)) {
+    const m = line.trim().match(/^(\d+)\s*[:=：]\s*(.+)$/);
+    if (m) thresholds.push({ score: Number(m[1]), tag: m[2].trim() });
+  }
+  const rules = parseScoreRules({ follow: n("follow"), message: n("message"), postback: n("postback"), click: n("click"), form: n("form"), booking: n("booking"), tagPoints, thresholds });
+  await db.lineAccount.update({ where: { id: accountId }, data: { scoreRules: rules } });
+  revalidatePath(`${BASE}/${accountId}/settings`);
+  return { ok: true, message: "保存しました" };
+}
+
+/** 全員のスコアを履歴から再計算（点数表を変えた後に使う） */
+export async function recalcLineScores(accountId: string): Promise<Result> {
+  const info = await requireSession();
+  const account = await getManageableAccount(info, accountId);
+  if (!account) return { error: "権限がありません" };
+  const rules = parseScoreRules(account.scoreRules);
+  const friends = await db.lineFriend.findMany({ where: { accountId }, select: { id: true, scoreLogs: { select: { id: true, event: true } } } });
+  for (const f of friends) {
+    let total = 0;
+    for (const l of f.scoreLogs) {
+      const pts = l.event.startsWith("tag:") ? (rules.tagPoints[l.event.slice(4)] ?? 0) : (rules as unknown as Record<string, number>)[l.event] ?? 0;
+      total += pts;
+      await db.lineScoreLog.update({ where: { id: l.id }, data: { points: pts } });
+    }
+    await db.lineFriend.update({ where: { id: f.id }, data: { score: total } });
+  }
+  revalidatePath(`${BASE}/${accountId}`);
+  return { ok: true, message: `${friends.length}人を再計算しました` };
 }

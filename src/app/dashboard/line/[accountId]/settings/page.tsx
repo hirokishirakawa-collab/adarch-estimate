@@ -11,7 +11,8 @@ import { TagManager } from "@/components/line/tag-manager";
 import { KeywordRuleManager } from "@/components/line/keyword-rules";
 import { LinkManager } from "@/components/line/link-manager";
 import { FormManager } from "@/components/line/form-manager";
-import { parseFormFields } from "@/lib/line/service";
+import { parseFormFields, parseScoreRules } from "@/lib/line/service";
+import { ScoreRulesManager } from "@/components/line/score-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -101,6 +102,7 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
       />
 
       <TagManager accountId={accountId} tags={tags} />
+      <ScoreRulesManager accountId={accountId} rules={parseScoreRules(account.scoreRules)} />
       <KeywordRuleManager accountId={accountId} rules={rules} tagNames={tags.map((t) => t.name)} />
       <LinkManager accountId={accountId} links={links} tagNames={tags.map((t) => t.name)} />
       <FormManager accountId={accountId} forms={forms} tagNames={tags.map((t) => t.name)} />

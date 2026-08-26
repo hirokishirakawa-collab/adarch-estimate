@@ -50,7 +50,15 @@ export function renderText(template: string, friend: Pick<LineFriend, "displayNa
 export async function addFriendTags(friendId: string, fresh: string[]): Promise<LineFriend | null> {
   const clean = [...new Set(fresh.map((t) => t.trim()).filter(Boolean))];
   if (clean.length > 0) {
+    const before = await db.lineFriend.findUnique({ where: { id: friendId }, select: { tags: true, account: { select: { scoreRules: true } } } });
     await db.$executeRaw`UPDATE line_friends SET tags = ARRAY(SELECT DISTINCT x FROM unnest(tags || ${clean}::text[]) AS x), "updatedAt" = NOW() WHERE id = ${friendId}`;
+    // タグごとの加点（点数表にあるタグだけ）
+    if (before) {
+      const rules = parseScoreRules(before.account.scoreRules);
+      for (const t of clean) {
+        if (!before.tags.includes(t) && rules.tagPoints[t]) addScore(friendId, `tag:${t}`, t).catch(() => {});
+      }
+    }
   }
   return db.lineFriend.findUnique({ where: { id: friendId } });
 }
@@ -310,6 +318,8 @@ async function onFollow(account: LineAccount, userId: string, replyToken?: strin
   friend = await attributeEntryPoint(friend, entryPoints, now);
   const quickReply = entryPointQuickReply(entryPoints, now);
 
+  addScore(friend.id, "follow").catch(() => {});
+
   // 友だち追加で始まるシナリオに登録
   const scenarios = await db.lineScenario.findMany({
     where: { accountId: account.id, isActive: true, trigger: "FOLLOW" },
@@ -423,6 +433,8 @@ async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent)
     for (const r of batch) await logOut(friend.id, r.body, r.via);
   }
 
+  addScore(friend.id, "message").catch(() => {});
+
   // 新着通知：未読が0→1になった時だけ（連投で通知を埋めない）。ミュート中は出さない
   if (friend.unreadCount === 0 && !friend.mutedAt) {
     notifyNewInbound(account, friend, body).catch((e) => console.error("[line] notify failed", e));
@@ -480,6 +492,7 @@ async function onPostback(account: LineAccount, userId: string, ev: WebhookEvent
   if (say && friend.unreadCount === 0 && !friend.mutedAt) {
     notifyNewInbound(account, friend, say).catch(() => {});
   }
+  addScore(friend.id, "postback", say ?? undefined).catch(() => {});
 
   if (epRow) {
     await applyEntryPoint(friend, epRow);
@@ -742,6 +755,7 @@ export async function recordLinkClick(token: string, code: string): Promise<stri
     const updated = await addFriendTags(friend.id, fresh);
     if (updated) await enrollByTags(updated, fresh);
   }
+  addScore(friend.id, "click", link.label).catch(() => {});
   // 転送先がOSの予約ページなら、相手トークンを付けて予約を友だちに紐づける
   const base = appBase();
   if (base && link.url.startsWith(`${base}/book/`) && !link.url.includes("t=")) {
@@ -828,6 +842,7 @@ export async function submitFormResponse(
     if (updated) await enrollByTags(updated, fresh);
   }
 
+  addScore(friend.id, "form", form.title).catch(() => {});
   const thankYou = form.thankYouText?.trim() ? await renderForFriend(form.thankYouText, friend) : null;
   if (thankYou && friend.isFollowing && friend.account.isActive) {
     try {
@@ -959,6 +974,7 @@ export async function recordLineBooking(bookingId: string, friendToken: string):
   ]);
   const updated = await addFriendTags(friend.id, ["予約済"]);
   if (updated && !friend.tags.includes("予約済")) await enrollByTags(updated, ["予約済"]);
+  addScore(friend.id, "booking", booking.bookingType.title).catch(() => {});
   notifyNewInbound(friend.account, friend, `${fmtJstShort(booking.startAt)} に予約が入りました（${booking.bookingType.title}）`).catch(() => {});
 }
 
@@ -1010,4 +1026,73 @@ export async function runBookingReminders(): Promise<{ sent: number }> {
     }
   }
   return { sent };
+}
+
+// ---------------------------------------------------------------
+// 行動スコアリング
+// ---------------------------------------------------------------
+export type ScoreRules = {
+  follow: number;
+  message: number;
+  postback: number;
+  click: number;
+  form: number;
+  booking: number;
+  tagPoints: Record<string, number>;
+  thresholds: { score: number; tag: string }[];
+};
+
+export const DEFAULT_SCORE_RULES: ScoreRules = {
+  follow: 1,
+  message: 2,
+  postback: 1,
+  click: 3,
+  form: 5,
+  booking: 10,
+  tagPoints: {},
+  thresholds: [{ score: 20, tag: "ホット" }],
+};
+
+export function parseScoreRules(raw: unknown): ScoreRules {
+  const o = (raw ?? {}) as Partial<ScoreRules> & { tagPoints?: unknown; thresholds?: unknown };
+  const num = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? Math.max(-100, Math.min(100, Math.round(v))) : d);
+  const tagPoints: Record<string, number> = {};
+  if (o.tagPoints && typeof o.tagPoints === "object") {
+    for (const [k, v] of Object.entries(o.tagPoints as Record<string, unknown>)) if (k) tagPoints[k] = num(v, 0);
+  }
+  const thresholds = Array.isArray(o.thresholds)
+    ? (o.thresholds as { score?: unknown; tag?: unknown }[])
+        .map((t) => ({ score: num(t.score, 0), tag: String(t.tag ?? "").trim() }))
+        .filter((t) => t.tag && t.score > 0)
+        .sort((a, b) => a.score - b.score)
+    : DEFAULT_SCORE_RULES.thresholds;
+  return {
+    follow: num(o.follow, DEFAULT_SCORE_RULES.follow),
+    message: num(o.message, DEFAULT_SCORE_RULES.message),
+    postback: num(o.postback, DEFAULT_SCORE_RULES.postback),
+    click: num(o.click, DEFAULT_SCORE_RULES.click),
+    form: num(o.form, DEFAULT_SCORE_RULES.form),
+    booking: num(o.booking, DEFAULT_SCORE_RULES.booking),
+    tagPoints,
+    thresholds,
+  };
+}
+
+type ScoreEvent = "follow" | "message" | "postback" | "click" | "form" | "booking";
+
+/** 行動に点数を加算し、しきい値に達したらタグを付ける */
+export async function addScore(friendId: string, event: ScoreEvent | `tag:${string}`, note?: string): Promise<void> {
+  const friend = await db.lineFriend.findUnique({ where: { id: friendId }, include: { account: { select: { scoreRules: true } } } });
+  if (!friend) return;
+  const rules = parseScoreRules(friend.account.scoreRules);
+  const points = event.startsWith("tag:") ? (rules.tagPoints[event.slice(4)] ?? 0) : rules[event as ScoreEvent];
+  if (!points) return;
+  const rows = (await db.$queryRaw`UPDATE line_friends SET score = score + ${points} WHERE id = ${friendId} RETURNING score`) as { score: number }[];
+  await db.lineScoreLog.create({ data: { friendId, event, points, note: note ?? null } });
+  const score = rows[0]?.score ?? friend.score + points;
+  const reached = rules.thresholds.filter((t) => score >= t.score && !friend.tags.includes(t.tag)).map((t) => t.tag);
+  if (reached.length > 0) {
+    const updated = await addFriendTags(friendId, reached);
+    if (updated) await enrollByTags(updated, reached);
+  }
 }

@@ -30,7 +30,7 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
     await db.lineFriend.update({ where: { id: friend.id }, data: { unreadCount: 0 } });
   }
 
-  const [messages, scenarios, canned, customer, tagDefs, responses, richMenus] = await Promise.all([
+  const [messages, scenarios, canned, customer, tagDefs, responses, richMenus, scoreLogs] = await Promise.all([
     db.lineMessage.findMany({ where: { friendId }, orderBy: { createdAt: "desc" }, take: 300 }).then((r) => r.reverse()),
     db.lineScenario.findMany({ where: { accountId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.lineCannedReply.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { id: true, title: true, text: true } }),
@@ -38,6 +38,7 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
     db.lineTag.findMany({ where: { accountId }, orderBy: { order: "asc" }, select: { name: true, color: true } }),
     db.lineFormResponse.findMany({ where: { friendId }, orderBy: { createdAt: "desc" }, take: 5, include: { form: { select: { title: true, fields: true } } } }),
     db.lineRichMenu.findMany({ where: { accountId, lineRichMenuId: { not: null } }, select: { id: true, name: true }, orderBy: { priority: "asc" } }),
+    db.lineScoreLog.findMany({ where: { friendId }, orderBy: { createdAt: "desc" }, take: 8 }),
   ]);
 
   return (
@@ -109,6 +110,18 @@ export default async function LineChatPage({ params }: { params: Promise<{ accou
           <div className="bg-white rounded-xl border border-zinc-200 p-4">
             <FriendMetaForm accountId={accountId} friendId={friendId} tags={friend.tags} note={friend.note} tagOptions={tagDefs} />
           </div>
+          <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-1.5">
+            <p className="text-[11px] font-bold text-zinc-500">行動スコア <span className="ml-1 text-sm font-bold text-orange-700">{friend.score}pt</span></p>
+            {scoreLogs.length === 0 ? (
+              <p className="text-xs text-zinc-400">まだ行動はありません</p>
+            ) : (
+              scoreLogs.map((l) => (
+                <p key={l.id} className="text-[11px] text-zinc-600">
+                  <span className="text-zinc-400">{fmtJst(l.createdAt)}</span> {scoreEventLabel(l.event)}{l.note ? `（${l.note.slice(0, 20)}）` : ""} <b className={l.points >= 0 ? "text-orange-700" : "text-zinc-500"}>{l.points > 0 ? "+" : ""}{l.points}</b>
+                </p>
+              ))
+            )}
+          </div>
           {responses.length > 0 && (
             <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-2">
               <p className="text-[11px] font-bold text-zinc-500">フォームの回答</p>
@@ -153,4 +166,9 @@ function viaLabel(v: string): string {
   if (v.startsWith("scenario:")) return "ステップ配信";
   if (v.startsWith("broadcast:")) return "一斉配信";
   return v;
+}
+
+function scoreEventLabel(e: string): string {
+  if (e.startsWith("tag:")) return `タグ「${e.slice(4)}」`;
+  return { follow: "友だち追加", message: "メッセージ", postback: "ボタン操作", click: "リンククリック", form: "フォーム回答", booking: "予約" }[e] ?? e;
 }
