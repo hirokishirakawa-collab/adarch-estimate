@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ExternalLink, MapPin, Search, X } from "lucide-react";
-import type { ClientRow } from "@/lib/clients/query";
+import { workCount, type ClientRow } from "@/lib/clients/query";
 import { RATING_BANDS, REGIONS, SIZE_BANDS } from "@/lib/clients/normalize";
 
 const ClientsMap = dynamic(() => import("./clients-map").then((m) => m.ClientsMap), {
@@ -171,8 +171,8 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
     const arr = [...filtered];
     const cmp: Record<SortKey, (a: ClientRow, b: ClientRow) => number> = {
       // 最新の実績年 → 実績本数 → 口コミ。実績の無い会社は後ろ
-      latest: (a, b) => (b.latestYear ?? 0) - (a.latestYear ?? 0) || b.works.length - a.works.length || (b.rating ?? 0) - (a.rating ?? 0),
-      works: (a, b) => b.works.length - a.works.length || (b.rating ?? 0) - (a.rating ?? 0),
+      latest: (a, b) => (b.latestYear ?? 0) - (a.latestYear ?? 0) || b.worksCount - a.worksCount || (b.rating ?? 0) - (a.rating ?? 0),
+      works: (a, b) => b.worksCount - a.worksCount || (b.rating ?? 0) - (a.rating ?? 0),
       rating: (a, b) => (b.rating ?? -1) - (a.rating ?? -1) || (b.ratingCount ?? 0) - (a.ratingCount ?? 0),
       reviews: (a, b) => (b.ratingCount ?? 0) - (a.ratingCount ?? 0),
       size: (a, b) => (b.employeeCount ?? -1) - (a.employeeCount ?? -1),
@@ -185,7 +185,7 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
   const stats = useMemo(() => {
     const rated = filtered.filter((r) => r.rating != null && r.ratingCount);
     const avg = rated.length ? rated.reduce((s, r) => s + (r.rating ?? 0), 0) / rated.length : null;
-    const works = filtered.reduce((s, r) => s + r.works.length, 0);
+    const works = filtered.reduce((s, r) => s + r.worksCount, 0);
     const prefs = new Set(filtered.map((r) => r.prefecture).filter(Boolean));
     const withPhoto = filtered.filter((r) => photoUrl(r)).length;
     const withProfile = filtered.filter((r) => r.employeeCount != null || r.capital || r.representativeName).length;
@@ -198,7 +198,7 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
   const byRating = useMemo(() => countBy(filtered, (r) => r.ratingBand), [filtered]);
   const byYear = useMemo(() => {
     const m = new Map<number, number>();
-    for (const r of filtered) for (const w of r.works) m.set(w.year, (m.get(w.year) ?? 0) + 1);
+    for (const r of filtered) for (const w of r.works) m.set(w.year, (m.get(w.year) ?? 0) + workCount(w));
     return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([y, n]) => ({ label: String(y), n }));
   }, [filtered]);
   const byBranch = useMemo(() => countBy(filtered, (r) => r.branchName), [filtered]);
@@ -379,7 +379,7 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
                 <Photo r={r} className="w-full h-full group-hover:scale-[1.03] transition-transform duration-300" />
                 {r.works.length > 0 && (
                   <span className="absolute left-2 top-2 rounded-full bg-black/65 text-white text-[10px] font-semibold px-2 py-0.5 backdrop-blur">
-                    実績 {r.works.length}本{r.latestYear ? `・最新 ${r.latestYear}` : ""}
+                    実績 {r.worksCount}本{r.latestYear ? `・最新 ${r.latestYear}` : ""}
                   </span>
                 )}
                 {!r.proven && (
@@ -541,7 +541,7 @@ function DetailPanel({ r, onClose }: { r: ClientRow; onClose: () => void }) {
           </section>
 
           <section>
-            <p className="text-xs font-semibold text-zinc-700 mb-2">制作実績 {r.works.length > 0 && <span className="text-zinc-400 font-normal">{r.works.length}本</span>}</p>
+            <p className="text-xs font-semibold text-zinc-700 mb-2">制作実績 {r.works.length > 0 && <span className="text-zinc-400 font-normal">{r.worksCount}本（旧サイト {r.works.filter((w) => w.source !== "drive").length}・Drive {r.works.filter((w) => w.source === "drive").reduce((n, w) => n + workCount(w), 0)}）</span>}</p>
             {r.works.length === 0 ? (
               <p className="text-xs text-zinc-400">
                 実績の記録はありません{r.projectCount > 0 ? `（OSのプロジェクトは ${r.projectCount}件）` : ""}
@@ -568,7 +568,7 @@ function DetailPanel({ r, onClose }: { r: ClientRow; onClose: () => void }) {
                       <li key={w.id} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
                         <span className="rounded bg-zinc-100 text-zinc-500 text-[10px] px-1.5 py-0.5 shrink-0">Drive</span>
                         <span className="min-w-0 flex-1 truncate text-zinc-800" title={w.title}>{w.title}</span>
-                        <span className="text-[10px] text-zinc-400 shrink-0" title="年はDriveフォルダの最終更新年（制作年とは限りません）">{w.year}・{w.category}{w.fileCount != null ? `・${w.fileCount}件` : ""}</span>
+                        <span className="text-[10px] text-zinc-400 shrink-0" title="年はDriveフォルダの最終更新年（制作年とは限りません）">{w.year}・{w.category}{w.fileCount != null ? `・制作物 ${w.fileCount}本` : ""}</span>
                         {w.driveUrl && (
                           <a href={w.driveUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-zinc-500 hover:text-zinc-900" title="Driveで開く">
                             <ExternalLink className="w-3 h-3" />

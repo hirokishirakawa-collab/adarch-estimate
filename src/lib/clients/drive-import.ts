@@ -27,12 +27,21 @@ export async function importDriveWorks(opts: { dry?: boolean } = {}): Promise<Dr
   const dry = !!opts.dry;
   const items = await db.portfolioItem.findMany({
     where: { depth: 2 },
-    select: { driveFileId: true, name: true, itemType: true, driveUrl: true, lastUpdated: true, parentName: true },
+    select: { driveFileId: true, name: true, itemType: true, driveUrl: true, lastUpdated: true, parentName: true, path: true },
     orderBy: { path: "asc" },
   });
-  const children = await db.portfolioItem.findMany({ where: { depth: 3 }, select: { parentName: true } });
-  const childCount = new Map<string, number>();
-  for (const c of children) if (c.parentName) childCount.set(c.parentName, (childCount.get(c.parentName) ?? 0) + 1);
+  // 実績数＝案件フォルダの配下にある制作物ファイル（動画・画像・PDF）の数。階層の深さは問わない。
+  // フォルダ数で数えると「バンダイナムコ 2件」のように、中に大量にある制作物が見えなくなる。
+  const files = await db.portfolioItem.findMany({
+    where: { itemType: "file", depth: { gt: 2 }, OR: [{ mimeType: { startsWith: "video/" } }, { mimeType: { startsWith: "image/" } }, { mimeType: "application/pdf" }] },
+    select: { path: true },
+  });
+  const deliverableCount = (folderPath: string) => {
+    const prefix = folderPath + " / ";
+    let n = 0;
+    for (const f of files) if (f.path.startsWith(prefix)) n++;
+    return n;
+  };
 
   const regular = await db.customer.findMany({ where: { branchId: { not: ARCHIVE_BRANCH_ID }, status: { not: "BLOCKED" } }, select: { id: true, name: true } });
   const archive = await db.customer.findMany({ where: { branchId: ARCHIVE_BRANCH_ID }, select: { id: true, name: true } });
@@ -68,7 +77,7 @@ export async function importDriveWorks(opts: { dry?: boolean } = {}): Promise<Dr
       source: "drive", clientName: it.name.normalize("NFKC"), title, titleJp: null as string | null, category: driveCategoryLabel(it.parentName),
       year: it.lastUpdated ? new Date(it.lastUpdated).getFullYear() : new Date().getFullYear(),
       thumbnail: null as string | null, videoUrl: null as string | null, driveUrl: it.driveUrl,
-      fileCount: it.itemType === "folder" ? childCount.get(it.name) ?? 0 : null, customerId,
+      fileCount: it.itemType === "folder" ? deliverableCount(it.path) : 1, customerId,
     };
     await db.clientWork.upsert({ where: { sourceId: `drive:${it.driveFileId}` }, create: { sourceId: `drive:${it.driveFileId}`, ...data }, update: data });
     stats.upserted++;

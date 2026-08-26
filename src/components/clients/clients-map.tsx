@@ -50,7 +50,7 @@ export function ClientsMap({ rows, onSelect }: Props) {
       const pos = positionOf(r, i);
       if (!pos) return;
       pts.push(pos);
-      const size = 8 + Math.min(r.works.length, 6) * 2;
+      const size = 8 + Math.min(Math.ceil(r.worksCount / 3), 6) * 2;
       const marker = L.circleMarker(pos, {
         radius: size,
         color: "#ffffff",
@@ -59,7 +59,7 @@ export function ClientsMap({ rows, onSelect }: Props) {
         fillOpacity: 0.9,
       });
       const rating = r.rating != null && r.ratingCount ? `★${r.rating.toFixed(1)}（${r.ratingCount}件）` : "口コミなし";
-      marker.bindTooltip(`<b>${r.name}</b><br>${r.prefecture ?? ""}・${rating}${r.works.length ? `<br>実績 ${r.works.length}本` : ""}`, {
+      marker.bindTooltip(`<b>${r.name}</b><br>${r.prefecture ?? ""}・${rating}${r.worksCount ? `<br>実績 ${r.worksCount}本` : ""}`, {
         direction: "top",
         offset: [0, -size],
       });

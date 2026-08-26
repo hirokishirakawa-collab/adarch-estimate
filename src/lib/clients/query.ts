@@ -46,6 +46,8 @@ export interface ClientRow {
   works: ClientWorkRow[];
   /** いちばん新しい実績の年（Drive由来はフォルダの最終更新年）。実績が無ければ null */
   latestYear: number | null;
+  /** 実績数＝旧サイト実績は1本ずつ、Drive由来は配下の制作物ファイル数（動画・画像・PDF） */
+  worksCount: number;
 
   rating: number | null;
   ratingCount: number | null;
@@ -73,6 +75,11 @@ export interface ClientRow {
   canOpen: boolean;
   /** 旧サイト・Drive の実績から起こした会社（データ未整備）。通常の顧客とは別扱い */
   isArchive: boolean;
+}
+
+/** 1行分の実績数。Drive由来は配下の制作物ファイル数（0なら1として数える） */
+export function workCount(w: { source: string; fileCount: number | null }): number {
+  return w.source === "drive" ? Math.max(w.fileCount ?? 0, 1) : 1;
 }
 
 export async function loadClientRows(viewer: {
@@ -121,6 +128,7 @@ export async function loadClientRows(viewer: {
       projectCount: c._count.projects,
       works: c.clientWorks,
       latestYear: c.clientWorks.length ? Math.max(...c.clientWorks.map((w) => w.year)) : null,
+      worksCount: c.clientWorks.reduce((n, w) => n + workCount(w), 0),
       rating: c.googleRating,
       ratingCount: c.googleRatingCount,
       ratingBand: ratingBand(c.googleRating, c.googleRatingCount),
