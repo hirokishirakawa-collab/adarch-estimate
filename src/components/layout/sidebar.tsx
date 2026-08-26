@@ -63,6 +63,7 @@ import {
   Waypoints,
   Radio,
   Award,
+  MapPinned,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -146,6 +147,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/customers",
         label: "顧客管理（起点）",
         icon: Users,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/clients",
+        label: "取引先マップ（実績・口コミ・傾向）",
+        icon: MapPinned,
         minRole: "USER",
       },
       {
@@ -703,6 +710,7 @@ interface SidebarProps {
 // 並び順そのものが導線。上から順に辿れば案件が前に進むように配置する。
 const SELL_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/customers", label: "顧客管理（起点）", icon: Users, minRole: "USER" },
+  { href: "/dashboard/clients", label: "取引先マップ", icon: MapPinned, minRole: "USER" },
   { href: "/dashboard/leads/list", label: "① リード管理", icon: ListChecks, minRole: "USER" },
   { href: "/dashboard/leads/awaiting", label: "返事待ち（結果入力）", icon: MailQuestion, minRole: "USER" },
   { href: "/dashboard/deals", label: "② 商談管理（SFA）", icon: TrendingUp, minRole: "USER" },

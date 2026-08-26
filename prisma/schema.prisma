@@ -516,10 +516,64 @@ model Customer {
   // ---- Studio（制作OS）----
   studioClients StudioClient[] @relation("StudioCustomer")
 
+  // ---- 取引先マップ（/dashboard/clients）の補完情報 ------------------
+  // 口コミ・写真・所在地は Google Places、社内構成は gBizINFO（法人番号あり）か
+  // 相手の会社概要ページから拾う。取れない会社は *CheckedAt だけ押して「未取得」と出す。
+  placeId          String? // Google Places の place id
+  placeName        String? // Places 側の表示名（照合の証跡）
+  placeAddress     String? // Places の住所（都道府県の補完にも使う）
+  googleRating     Float? // 口コミ★（0〜5）
+  googleRatingCount Int? // 口コミ件数
+  googleMapsUrl    String?
+  placeSummary     String? @db.Text // Google の口コミ要約（AI生成の文）
+  lat              Float?
+  lng              Float?
+  photoData        Bytes? // 会社の写真（Places の写真をリサイズして保存。外部URLを貼らない）
+  photoSource      String? // "places" / "og"
+  placeCheckedAt   DateTime?
+
+  employeeCount      Int?
+  capital            BigInt? // 円
+  representativeName String?
+  foundedYear        Int?
+  foundedRaw         String? // 設立・創業の原文（証跡）
+  profileSource      String? // "gbiz" / "site"
+  profileSourceUrl   String?
+  profileCheckedAt   DateTime?
+
+  clientWorks ClientWork[]
+
   @@index([branchId])
   @@index([lockedByUserId])
   @@index([name]) // 顧客名検索
+  @@index([placeCheckedAt])
+  @@index([profileCheckedAt])
   @@map("customers")
+}
+
+// ==============================================================
+// ClientWork（制作実績）
+// ==============================================================
+
+/// 旧コーポレートサイトの制作実績（works.json）を取り込んだもの。
+/// サムネイルは public/works/ に置く（Git管理・デプロイで一緒に出る）。
+model ClientWork {
+  id         String    @id @default(cuid())
+  sourceId   String    @unique // works.json の id
+  clientName String // 実績ページに書かれたクライアント名（原文）
+  title      String
+  titleJp    String?
+  category   String // Production / CM / Global / Ad Media / Sports / TVer
+  year       Int
+  thumbnail  String // 例: /works/Kagawa_nissan.jpg
+  videoUrl   String?
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId])
+  @@index([year])
+  @@map("client_works")
 }
 
 // ==============================================================

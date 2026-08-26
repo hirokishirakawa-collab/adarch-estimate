@@ -52,7 +52,7 @@ function isInternalAddress(ip: string): boolean {
 }
 
 /** http(s) で、名前解決した先が外部アドレスのURLだけ通す。ダメなら null。 */
-async function toSafeUrl(raw: string): Promise<URL | null> {
+export async function toSafeUrl(raw: string): Promise<URL | null> {
   let url: URL;
   try {
     url = new URL(raw);
@@ -76,7 +76,7 @@ async function toSafeUrl(raw: string): Promise<URL | null> {
  * HTMLを取りに行く。リダイレクトは自分で辿り、行き先も毎回検査する
  * （最初のURLだけ見ても、リダイレクトで内部へ飛ばせてしまうため）。
  */
-async function fetchHtml(url: string, timeoutMs = 9000, hops = 3): Promise<string | null> {
+export async function fetchHtml(url: string, timeoutMs = 9000, hops = 3): Promise<string | null> {
   let current = url;
   for (let i = 0; i <= hops; i++) {
     const safe = await toSafeUrl(current);
