@@ -29,7 +29,9 @@ const ALIAS: Record<string, string> = {
   "3x3": "3×3.PREMIER EXE", 高山村メロディ花火: "群馬県高山村", うたメモリーLong: "うたメモリー", 坂下: "坂下国際税理士事務所",
   "VR-learning 髙田工業株式会社": "髙田工業", BENG: "ビジネスエンジニアリング", beng: "ビジネスエンジニアリング", FLOWIN: "Cuore",
   "Johnson and Johnson 新アンバサダー記者会見": "Johnson & Johnson", "SBC-湘南美容外科 北千住院-": "湘南美容クリニック 北千住院",
-  "原田工房株式会社(茨城）": "原田工房株式会社", "PROLOGUE 北千住店": "PROLOGUE", "一社)茨城南青年会議所50周年記念": "茨城南青年会議所",
+  "原田工房株式会社(茨城）": "原田工房株式会社",
+  // 同じホテル（代表確認 8/26）
+  "HOTEL THE MITSUI": "HOTEL THE MITSUI KYOTO", "HOTEL THE KYOTO": "HOTEL THE MITSUI KYOTO", "PROLOGUE 北千住店": "PROLOGUE", "一社)茨城南青年会議所50周年記念": "茨城南青年会議所",
 };
 
 export interface DriveClientGuess {
