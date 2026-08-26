@@ -555,18 +555,22 @@ model Customer {
 // ClientWork（制作実績）
 // ==============================================================
 
-/// 旧コーポレートサイトの制作実績（works.json）を取り込んだもの。
-/// サムネイルは public/works/ に置く（Git管理・デプロイで一緒に出る）。
+/// 制作実績。出所は2つ:
+///   works_site: 旧コーポレートサイト（works.json）。サムネイルは public/works/（Git管理）
+///   drive:      Google Drive の実績フォルダ（portfolio_items の案件フォルダ）。サムネイルは無く、Driveへのリンクを持つ
 model ClientWork {
   id         String    @id @default(cuid())
-  sourceId   String    @unique // works.json の id
-  clientName String // 実績ページに書かれたクライアント名（原文）
+  sourceId   String    @unique // works.json の id ／ "drive:<DriveのフォルダID>"
+  source     String    @default("works_site") // works_site / drive
+  clientName String // 実績ページ・フォルダに書かれたクライアント名（原文）
   title      String
   titleJp    String?
-  category   String // Production / CM / Global / Ad Media / Sports / TVer
+  category   String // Production / CM / Global / Ad Media / Sports / TVer ／ Driveのカテゴリ名
   year       Int
-  thumbnail  String // 例: /works/Kagawa_nissan.jpg
+  thumbnail  String? // 例: /works/Kagawa_nissan.jpg（Drive由来は null）
   videoUrl   String?
+  driveUrl   String? // Drive 由来: フォルダ/ファイルのURL
+  fileCount  Int? // Drive 由来: 配下のファイル数
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdAt  DateTime  @default(now())

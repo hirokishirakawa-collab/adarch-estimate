@@ -111,7 +111,8 @@ function Stars({ rating }: { rating: number }) {
 }
 
 function photoUrl(r: ClientRow): string | null {
-  if (r.works[0]?.thumbnail) return r.works[0].thumbnail;
+  const thumb = r.works.find((w) => w.thumbnail)?.thumbnail;
+  if (thumb) return thumb;
   if (r.hasPhoto) return `/api/clients/photo/${r.id}`;
   return null;
 }
@@ -159,7 +160,7 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
       if (f.size && r.sizeBand !== f.size) return false;
       if (f.rating && r.ratingBand !== f.rating) return false;
       if (f.branch && r.branchName !== f.branch) return false;
-      if (f.worksOnly && r.works.length === 0) return false;
+      if (f.worksOnly && !r.works.some((w) => w.thumbnail)) return false;
       if (q && !`${r.name} ${r.industry ?? ""} ${r.prefecture ?? ""} ${r.placeAddress ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -540,21 +541,41 @@ function DetailPanel({ r, onClose }: { r: ClientRow; onClose: () => void }) {
             <p className="text-xs font-semibold text-zinc-700 mb-2">制作実績 {r.works.length > 0 && <span className="text-zinc-400 font-normal">{r.works.length}本</span>}</p>
             {r.works.length === 0 ? (
               <p className="text-xs text-zinc-400">
-                写真つきの実績はありません{r.projectCount > 0 ? `（OSのプロジェクトは ${r.projectCount}件）` : ""}
+                実績の記録はありません{r.projectCount > 0 ? `（OSのプロジェクトは ${r.projectCount}件）` : ""}
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {r.works.map((w) => (
-                  <figure key={w.id} className="rounded-lg overflow-hidden border border-zinc-200 bg-white">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={w.thumbnail} alt="" loading="lazy" className="w-full aspect-video object-cover" />
-                    <figcaption className="px-2 py-1.5">
-                      <p className="text-[11px] font-medium text-zinc-800 leading-snug line-clamp-2">{w.titleJp ?? w.title}</p>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">{w.year}・{w.category}</p>
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
+              <>
+                {r.works.some((w) => w.thumbnail) && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {r.works.filter((w) => w.thumbnail).map((w) => (
+                      <figure key={w.id} className="rounded-lg overflow-hidden border border-zinc-200 bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={w.thumbnail!} alt="" loading="lazy" className="w-full aspect-video object-cover" />
+                        <figcaption className="px-2 py-1.5">
+                          <p className="text-[11px] font-medium text-zinc-800 leading-snug line-clamp-2">{w.titleJp ?? w.title}</p>
+                          <p className="text-[10px] text-zinc-400 mt-0.5">{w.year}・{w.category}</p>
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                )}
+                {r.works.some((w) => w.source === "drive") && (
+                  <ul className="mt-2 divide-y divide-zinc-100 rounded-lg border border-zinc-200">
+                    {r.works.filter((w) => w.source === "drive").map((w) => (
+                      <li key={w.id} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
+                        <span className="rounded bg-zinc-100 text-zinc-500 text-[10px] px-1.5 py-0.5 shrink-0">Drive</span>
+                        <span className="min-w-0 flex-1 truncate text-zinc-800" title={w.title}>{w.title}</span>
+                        <span className="text-[10px] text-zinc-400 shrink-0">{w.category}{w.fileCount != null ? `・${w.fileCount}件` : ""}</span>
+                        {w.driveUrl && (
+                          <a href={w.driveUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-zinc-500 hover:text-zinc-900" title="Driveで開く">
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </section>
         </div>

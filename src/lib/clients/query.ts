@@ -17,12 +17,16 @@ import {
 
 export interface ClientWorkRow {
   id: string;
+  /** works_site（旧サイト・サムネあり）／ drive（Drive実績フォルダ・リンクのみ） */
+  source: string;
   title: string;
   titleJp: string | null;
   category: string;
   year: number;
-  thumbnail: string;
+  thumbnail: string | null;
   videoUrl: string | null;
+  driveUrl: string | null;
+  fileCount: number | null;
 }
 
 export interface ClientRow {
@@ -84,8 +88,9 @@ export async function loadClientRows(viewer: {
         profileSource: true, profileSourceUrl: true, profileCheckedAt: true,
         _count: { select: { projects: true } },
         clientWorks: {
-          select: { id: true, title: true, titleJp: true, category: true, year: true, thumbnail: true, videoUrl: true },
-          orderBy: { year: "desc" },
+          select: { id: true, source: true, title: true, titleJp: true, category: true, year: true, thumbnail: true, videoUrl: true, driveUrl: true, fileCount: true },
+          // サムネのある旧サイト実績を先に、その中で新しい順
+          orderBy: [{ source: "desc" }, { year: "desc" }],
         },
       },
       orderBy: { name: "asc" },
