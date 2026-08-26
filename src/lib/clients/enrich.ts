@@ -113,6 +113,8 @@ export async function searchPlace(
   homePrefs: string[] = [],
 ): Promise<PlaceHit | null> {
   const hint = prefecture && prefecture !== "海外" ? prefecture : homePrefs[0] ?? null;
+  // 手がかり（県）が無く社名も短い会社（WHO・SEED 等）は、同名の別の店に当たる確率の方が高いので引かない
+  if (!hint && normalizeCompanyName(name).length <= 4) return null;
   const queries = hint ? [`${name} ${hint}`, name] : [name];
   const wantsBranchOffice = BRANCH_OFFICE_RE.test(name);
 
@@ -129,7 +131,11 @@ export async function searchPlace(
       if (m.exact) score += 2;
       if (pf && prefecture && pf === prefecture) score += 2;
       if (pf && homePrefs.includes(pf)) score += 3;
-      if (!wantsBranchOffice && BRANCH_OFFICE_RE.test(displayName)) score -= 3;
+      if (!wantsBranchOffice && BRANCH_OFFICE_RE.test(displayName)) {
+        // 県の手がかりが無いのに「◯◯営業所」「◯◯店」しか出ないときは、本社かどうか確かめようがないので捨てる
+        if (!hint && !m.exact) continue;
+        score -= 3;
+      }
       // 県が分かっている会社で別の県に当たったものは、完全一致でも弱い
       if (pf && prefecture && prefecture !== "海外" && pf !== prefecture) score -= 2;
       const loc = p.location as { latitude?: number; longitude?: number } | undefined;
@@ -199,19 +205,30 @@ export async function fetchOgImage(websiteUrl: string): Promise<Uint8Array<Array
   } catch {
     return null;
   }
-  const safe = await toSafeUrl(abs);
-  if (!safe) return null;
-  try {
-    const res = await fetch(safe, { signal: AbortSignal.timeout(15000), redirect: "follow" });
-    if (!res.ok) return null;
-    const type = res.headers.get("content-type") ?? "";
-    if (!type.startsWith("image/")) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length === 0 || buf.length > 8_000_000) return null;
-    return toThumb(buf);
-  } catch {
-    return null;
+  // リダイレクトは自分で辿り、行き先も毎回検査する（fetchHtml と同じ。最初のURLだけ見ても内部へ飛ばせてしまう）
+  let current = abs;
+  for (let hop = 0; hop <= 3; hop++) {
+    const safe = await toSafeUrl(current);
+    if (!safe) return null;
+    try {
+      const res = await fetch(safe, { signal: AbortSignal.timeout(15000), redirect: "manual" });
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get("location");
+        if (!loc) return null;
+        current = new URL(loc, safe).toString();
+        continue;
+      }
+      if (!res.ok) return null;
+      const type = res.headers.get("content-type") ?? "";
+      if (!type.startsWith("image/")) return null;
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length === 0 || buf.length > 8_000_000) return null;
+      return toThumb(buf);
+    } catch {
+      return null;
+    }
   }
+  return null;
 }
 
 // ---------------------------------------------------------------
@@ -384,7 +401,8 @@ export async function runClientEnrich(opts: EnrichOptions = {}): Promise<EnrichS
           const trusted = hit.exact || (hit.prefecture != null && homePrefs.includes(hit.prefecture));
           const writePref = hit.prefecture && trusted && (!c.prefecture || opts.force) ? hit.prefecture : null;
           if (writePref) prefecture = writePref;
-          if (!website && hit.websiteUrl) website = hit.websiteUrl;
+          // サイトURLも、照合が強いときだけ埋める（弱い照合で他社のサイトを読みに行かない）
+          if (!website && hit.websiteUrl && trusted) website = hit.websiteUrl;
           await db.customer.update({
             where: { id: c.id },
             data: {

@@ -50,7 +50,7 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
               // Google OAuth リダイレクト・アバター画像
-              "img-src 'self' data: https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://images.unsplash.com https://image.mux.com https://*.line-scdn.net",
+              "img-src 'self' data: https://*.tile.openstreetmap.org https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://images.unsplash.com https://image.mux.com https://*.line-scdn.net",
               // Mux 動画ストリーミング（blob: はHLS再生に必要）
               "media-src 'self' blob: https://stream.mux.com https://*.mux.com",
               // worker（MuxPlayer の HLS ワーカー）
