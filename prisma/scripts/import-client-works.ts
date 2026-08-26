@@ -5,7 +5,7 @@
 //
 //   - サムネイルは public/works/ に置いてある前提（Git 管理）
 //   - クライアント名を顧客管理と突合し、一致したら customerId を付ける
-//   - 一致しないクライアントは 本部（branch_hq）の顧客として登録する
+//   - 一致しないクライアントは 実績アーカイブ拠点（branch_archive）の顧客として登録する
 //     （source="WORKS_ARCHIVE"・notes に出所を書く＝後から見分けて消せる）
 //   - 何度実行しても同じ結果（sourceId で upsert）
 // ==============================================================
@@ -18,7 +18,8 @@ import { normalizeCompanyName, isSameCompany } from "../../src/lib/clients/norma
 
 const WORKS_JSON = "/Users/hirokishirakawa/adarch-corporate/works.json";
 const PUBLIC_WORKS = path.join(process.cwd(), "public", "works");
-const HQ_BRANCH_ID = "branch_hq";
+// 実績由来の会社は通常の顧客と混ぜない（データ未整備）＝専用拠点へ
+const HQ_BRANCH_ID = "branch_archive";
 const DRY = process.argv.includes("--dry");
 
 /** 実績ページの表記 → 顧客管理で使う社名（同じ会社の別表記） */

@@ -3,7 +3,7 @@
 // ==============================================================
 
 import { db } from "@/lib/db";
-import { BRANCH_MAP } from "@/lib/data/customers";
+import { ARCHIVE_BRANCH_ID, BRANCH_MAP } from "@/lib/data/customers";
 import {
   formatCapital,
   industryGroup,
@@ -65,6 +65,8 @@ export interface ClientRow {
 
   /** 顧客管理の詳細ページを開ける（本部か自拠点の顧客） */
   canOpen: boolean;
+  /** 旧サイト・Drive の実績から起こした会社（データ未整備）。通常の顧客とは別扱い */
+  isArchive: boolean;
 }
 
 export async function loadClientRows(viewer: {
@@ -132,6 +134,7 @@ export async function loadClientRows(viewer: {
       profileSourceUrl: c.profileSourceUrl,
       profileChecked: c.profileCheckedAt !== null,
       canOpen: isAdmin || viewer.branchIds.includes(c.branchId),
+      isArchive: c.branchId === ARCHIVE_BRANCH_ID,
     };
   });
 }

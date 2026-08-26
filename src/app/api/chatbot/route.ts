@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { searchWikiArticles, formatArticlesForPrompt } from "@/lib/wiki-search";
@@ -211,6 +212,8 @@ async function executeTool(
       const customers = await db.customer.findMany({
         where: {
           ...branchFilter,
+          // 実績アーカイブ（未整備）は通常の顧客検索に出さない
+          NOT: { branchId: ARCHIVE_BRANCH_ID },
           name: { contains: input.query as string, mode: "insensitive" },
         },
         select: {

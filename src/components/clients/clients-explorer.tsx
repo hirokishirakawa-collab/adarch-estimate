@@ -381,6 +381,9 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
                 {!r.proven && (
                   <span className="absolute right-2 top-2 rounded-full bg-white/90 text-zinc-600 text-[10px] font-medium px-2 py-0.5">見込み</span>
                 )}
+                {r.isArchive && (
+                  <span className="absolute right-2 top-2 rounded-full bg-white/90 text-zinc-500 text-[10px] font-medium px-2 py-0.5 border border-dashed border-zinc-300" title="旧サイト・Driveの実績から起こした会社。業種・所在地などは未整備">実績アーカイブ・未整備</span>
+                )}
               </div>
               <div className="p-3 space-y-1.5">
                 <p className="text-sm font-bold text-zinc-900 leading-snug line-clamp-2">{r.name}</p>
@@ -461,6 +464,9 @@ function DetailPanel({ r, onClose }: { r: ClientRow; onClose: () => void }) {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className={`rounded-full text-[10px] px-2 py-0.5 ${r.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-600"}`}>{statusLabel}</span>
+              {r.isArchive && (
+                <span className="rounded-full text-[10px] px-2 py-0.5 bg-zinc-50 text-zinc-500 border border-dashed border-zinc-300">実績アーカイブ・データ未整備（顧客管理には出ません）</span>
+              )}
               <span className="rounded-full bg-orange-50 text-orange-700 text-[10px] px-2 py-0.5">{r.industryGroup}</span>
               <span className="text-[10px] text-zinc-400">{r.branchName}</span>
             </div>

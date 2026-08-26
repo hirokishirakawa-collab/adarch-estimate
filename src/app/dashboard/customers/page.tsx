@@ -5,6 +5,7 @@ import { Plus, Users, UserCheck, ListChecks, FolderKanban, ArrowRight } from "lu
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
+import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
 import { getMockBranchId } from "@/lib/data/customers";
 import type { UserRole } from "@/types/roles";
 import type { CustomerRank, CustomerStatus } from "@/generated/prisma/client";
@@ -59,9 +60,11 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     prefecture?: string;
     status?: CustomerStatus;
     staffName?: string;
+    branchId?: { not: string };
   };
 
-  const where: WhereInput = {};
+  // 実績アーカイブ（旧サイト・Drive由来・未整備）は通常の顧客と混ぜない＝一覧・件数から外す
+  const where: WhereInput = { branchId: { not: ARCHIVE_BRANCH_ID } };
   if (mine === "1") where.staffName = myStaffName;
   if (q) {
     where.OR = [
@@ -100,9 +103,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         }))
       ),
       db.customer.count({ where }),
-      db.customer.count(),
-      db.customer.count({ where: { status: "ACTIVE" } }),
-      db.customer.count({ where: { lockExpiresAt: { gt: new Date() } } }),
+      db.customer.count({ where: { branchId: { not: ARCHIVE_BRANCH_ID } } }),
+      db.customer.count({ where: { status: "ACTIVE", branchId: { not: ARCHIVE_BRANCH_ID } } }),
+      db.customer.count({ where: { lockExpiresAt: { gt: new Date() }, branchId: { not: ARCHIVE_BRANCH_ID } } }),
     ]);
 
   const totalPages = Math.ceil(total / PER_PAGE);

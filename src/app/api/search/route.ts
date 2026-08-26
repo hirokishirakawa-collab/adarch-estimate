@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { ARCHIVE_BRANCH_ID, getMockBranchId } from "@/lib/data/customers";
 import type { UserRole } from "@/types/roles";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +29,8 @@ export async function GET(request: Request) {
       db.customer.findMany({
         where: {
           ...branchFilter,
+          // 実績アーカイブ（未整備）は通常の顧客検索に出さない
+          NOT: { branchId: ARCHIVE_BRANCH_ID },
           OR: [
             { name: { contains: q, mode: "insensitive" } },
             { nameKana: { contains: q, mode: "insensitive" } },

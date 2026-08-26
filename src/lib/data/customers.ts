@@ -27,6 +27,8 @@ export const BRANCH_MAP = {
   branch_ibk: { id: "branch_ibk", name: "茨城",         code: "IBK", badgeClass: "bg-teal-100 text-teal-700 border-teal-200" },
   branch_fku: { id: "branch_fku", name: "福岡",         code: "FKU", badgeClass: "bg-pink-100 text-pink-700 border-pink-200" },
   branch_knw: { id: "branch_knw", name: "神奈川",       code: "KNW", badgeClass: "bg-rose-100 text-rose-700 border-rose-200" },
+  // 実績アーカイブ: 旧サイト・Drive の制作実績から起こした会社。データは未整備＝通常の顧客とは別扱い（取引先マップ専用）
+  branch_archive: { id: "branch_archive", name: "実績アーカイブ（未整備）", code: "ARC", badgeClass: "bg-zinc-100 text-zinc-500 border-dashed border-zinc-300" },
   // ── 47都道府県 ───────────────────────────────────────────────
   pref_hokkaido:  { id: "pref_hokkaido",  name: "北海道",   code: "P01", badgeClass: DEFAULT_BADGE },
   pref_aomori:    { id: "pref_aomori",    name: "青森県",   code: "P02", badgeClass: DEFAULT_BADGE },
@@ -76,6 +78,9 @@ export const BRANCH_MAP = {
   pref_kagoshima: { id: "pref_kagoshima", name: "鹿児島県", code: "P46", badgeClass: DEFAULT_BADGE },
   pref_okinawa:   { id: "pref_okinawa",   name: "沖縄県",   code: "P47", badgeClass: DEFAULT_BADGE },
 } as const;
+
+/** 実績アーカイブ拠点のID。通常の顧客一覧・検索・件数からは外す */
+export const ARCHIVE_BRANCH_ID = "branch_archive";
 
 export type BranchId = keyof typeof BRANCH_MAP;
 export type BranchInfo = (typeof BRANCH_MAP)[BranchId];
