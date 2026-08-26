@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Target, Trophy } from "lucide-react";
 import { db } from "@/lib/db";
 import { nextAnniversary } from "@/lib/anniversary/calc";
+import { AD_AWARDS } from "@/lib/ad-award/curated";
+import { entryWindow } from "@/lib/ad-award/calc";
+import { toFullPrefecture } from "@/lib/constants/crm";
 
 // ----------------------------------------------------------------
 // ダッシュボード「今週の当たり先」＋「グループの受注・反応（匿名）」
@@ -107,9 +110,18 @@ export async function SalesBoost({ userEmail }: { userEmail: string }) {
     return a !== null && a.monthsAway <= 3;
   }).length;
 
+  // いま受付中の広告賞（自分の県の地方賞＋全国。本部は全国の地方賞も含む）。正本はコード内なのでDB問い合わせ不要
+  const fullPref = pref ? toFullPrefecture(pref) : null;
+  const awardOpenCount = AD_AWARDS.filter((a) => {
+    if (a.scope === "INTERNATIONAL") return false;
+    if (a.scope === "REGIONAL" && fullPref && !a.prefectures.includes(fullPref)) return false;
+    return entryWindow(a, now).status === "OPEN";
+  }).length;
+
   const targets = scoped
     ? [
         { label: "3ヶ月以内に周年", count: annivCount, href: "/dashboard/anniversary-finder", hint: "節目の年は「地元で目立つ」が刺さります" },
+        { label: "いま応募できる広告賞", count: awardOpenCount, href: "/dashboard/award-finder", hint: "制作物の箔付け（受賞狙い）のご提案に" },
         { label: "入札（○判定・受付中）", count: tenderCount, href: "/dashboard/tender-finder", hint: "広告・映像・印刷の公的案件" },
         { label: "広告費に使える補助金", count: subsidyCount, href: "/dashboard/subsidy-finder", hint: "クライアントの財源のご提案に" },
         { label: "今週シグナルが立った会社", count: signalCount, href: "/dashboard/leads/list", hint: "買う気配が立った直後に当たる" },

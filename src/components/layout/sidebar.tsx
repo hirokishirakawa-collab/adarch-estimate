@@ -62,6 +62,7 @@ import {
   Workflow,
   Waypoints,
   Radio,
+  Award,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -205,6 +206,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/tender-finder",
         label: "入札ファインダー（自治体の案件）",
         icon: Gavel,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/award-finder",
+        label: "広告賞ファインダー（制作物の箔付け）",
+        icon: Award,
         minRole: "USER",
       },
       {
@@ -705,6 +712,7 @@ const SELL_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/subsidy-finder", label: "補助金ファインダー", icon: Banknote, minRole: "USER" },
   { href: "/dashboard/tender-finder", label: "入札ファインダー", icon: Gavel, minRole: "USER" },
   { href: "/dashboard/anniversary-finder", label: "周年ファインダー", icon: Cake, minRole: "USER" },
+  { href: "/dashboard/award-finder", label: "広告賞ファインダー", icon: Award, minRole: "USER" },
   { href: "/dashboard/video-achievements", label: "競合実績スクレイピング", icon: Target, minRole: "USER" },
   { href: "/dashboard/outreach-pipeline", label: "アウトリーチ", icon: Send, minRole: "ADMIN" },
   { href: "/dashboard/regulars", label: "レギュラー案件", icon: Repeat, minRole: "MANAGER" },
