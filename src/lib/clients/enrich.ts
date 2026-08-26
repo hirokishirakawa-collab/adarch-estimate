@@ -65,7 +65,9 @@ interface PlaceHit {
 }
 
 /** 支店・営業所・店舗など「本社ではない拠点」らしい名前 */
-const BRANCH_OFFICE_RE = /営業所|支店|支社|出張所|事業所|センター|工場|倉庫|店$|店\b|本社$|東京本社|オフィス|ショールーム|プラザ/;
+const BRANCH_OFFICE_RE = /営業所|支店|支社|出張所|事業所|センター|工場|倉庫|研究所|店$|店\b|オフィス|ショールーム|プラザ/;
+/** 本社・本店そのもの。あれば優先する */
+const HEAD_OFFICE_RE = /本社|本店/;
 
 // 日本全体を覆う矩形。これを渡さないと、API を叩いた場所（回線の所在地）の近くに寄る
 const JAPAN_BIAS = { rectangle: { low: { latitude: 24.0, longitude: 122.5 }, high: { latitude: 45.8, longitude: 146.0 } } };
@@ -148,6 +150,7 @@ export async function searchPlace(
       const pf = parsePrefecture(address);
       let score = 0;
       if (m.exact) score += 2;
+      if (HEAD_OFFICE_RE.test(displayName)) score += 1;
       if (pf && prefecture && pf === prefecture) score += 2;
       if (pf && homePrefs.includes(pf)) score += 3;
       if (!wantsBranchOffice && BRANCH_OFFICE_RE.test(displayName)) {
