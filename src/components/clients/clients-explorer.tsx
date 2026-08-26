@@ -29,8 +29,9 @@ interface Filters {
 
 const EMPTY: Filters = { scope: "all", region: "", prefecture: "", industry: "", size: "", rating: "", branch: "", worksOnly: false, q: "" };
 
-type SortKey = "rating" | "works" | "reviews" | "name" | "size";
+type SortKey = "latest" | "rating" | "works" | "reviews" | "name" | "size";
 const SORTS: { value: SortKey; label: string }[] = [
+  { value: "latest", label: "実績が新しい順（2026年分が先頭）" },
   { value: "works", label: "実績が多い順" },
   { value: "rating", label: "口コミ★が高い順" },
   { value: "reviews", label: "口コミ件数が多い順" },
@@ -143,7 +144,7 @@ function Photo({ r, className }: { r: ClientRow; className: string }) {
 // ---------------------------------------------------------------
 export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin: boolean }) {
   const [f, setF] = useState<Filters>(EMPTY);
-  const [sort, setSort] = useState<SortKey>("works");
+  const [sort, setSort] = useState<SortKey>("latest");
   const [view, setView] = useState<"grid" | "map">("grid");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -169,6 +170,8 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
   const sorted = useMemo(() => {
     const arr = [...filtered];
     const cmp: Record<SortKey, (a: ClientRow, b: ClientRow) => number> = {
+      // 最新の実績年 → 実績本数 → 口コミ。実績の無い会社は後ろ
+      latest: (a, b) => (b.latestYear ?? 0) - (a.latestYear ?? 0) || b.works.length - a.works.length || (b.rating ?? 0) - (a.rating ?? 0),
       works: (a, b) => b.works.length - a.works.length || (b.rating ?? 0) - (a.rating ?? 0),
       rating: (a, b) => (b.rating ?? -1) - (a.rating ?? -1) || (b.ratingCount ?? 0) - (a.ratingCount ?? 0),
       reviews: (a, b) => (b.ratingCount ?? 0) - (a.ratingCount ?? 0),
@@ -376,7 +379,7 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
                 <Photo r={r} className="w-full h-full group-hover:scale-[1.03] transition-transform duration-300" />
                 {r.works.length > 0 && (
                   <span className="absolute left-2 top-2 rounded-full bg-black/65 text-white text-[10px] font-semibold px-2 py-0.5 backdrop-blur">
-                    実績 {r.works.length}本
+                    実績 {r.works.length}本{r.latestYear ? `・最新 ${r.latestYear}` : ""}
                   </span>
                 )}
                 {!r.proven && (
@@ -565,7 +568,7 @@ function DetailPanel({ r, onClose }: { r: ClientRow; onClose: () => void }) {
                       <li key={w.id} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
                         <span className="rounded bg-zinc-100 text-zinc-500 text-[10px] px-1.5 py-0.5 shrink-0">Drive</span>
                         <span className="min-w-0 flex-1 truncate text-zinc-800" title={w.title}>{w.title}</span>
-                        <span className="text-[10px] text-zinc-400 shrink-0">{w.category}{w.fileCount != null ? `・${w.fileCount}件` : ""}</span>
+                        <span className="text-[10px] text-zinc-400 shrink-0" title="年はDriveフォルダの最終更新年（制作年とは限りません）">{w.year}・{w.category}{w.fileCount != null ? `・${w.fileCount}件` : ""}</span>
                         {w.driveUrl && (
                           <a href={w.driveUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-zinc-500 hover:text-zinc-900" title="Driveで開く">
                             <ExternalLink className="w-3 h-3" />

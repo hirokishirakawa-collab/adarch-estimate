@@ -44,6 +44,8 @@ export interface ClientRow {
   proven: boolean;
   projectCount: number;
   works: ClientWorkRow[];
+  /** いちばん新しい実績の年（Drive由来はフォルダの最終更新年）。実績が無ければ null */
+  latestYear: number | null;
 
   rating: number | null;
   ratingCount: number | null;
@@ -118,6 +120,7 @@ export async function loadClientRows(viewer: {
       proven,
       projectCount: c._count.projects,
       works: c.clientWorks,
+      latestYear: c.clientWorks.length ? Math.max(...c.clientWorks.map((w) => w.year)) : null,
       rating: c.googleRating,
       ratingCount: c.googleRatingCount,
       ratingBand: ratingBand(c.googleRating, c.googleRatingCount),
