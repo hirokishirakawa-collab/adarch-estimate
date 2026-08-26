@@ -65,6 +65,7 @@ export async function saveLineAccount(_prev: Result | null, fd: FormData): Promi
   const accessToken = str(fd, "accessToken");
   const greetingText = str(fd, "greetingText") || null;
   const autoReplyText = str(fd, "autoReplyText") || null;
+  const conversionTag = str(fd, "conversionTag").replace(/[,\s]+/g, "_").slice(0, 40) || null;
 
   if (!name) return { error: "表示名を入れてください" };
 
@@ -72,7 +73,7 @@ export async function saveLineAccount(_prev: Result | null, fd: FormData): Promi
     if (id) {
       const account = await getManageableAccount(info, id);
       if (!account) return { error: "このアカウントを操作する権限がありません" };
-      const data: Record<string, unknown> = { name, greetingText, autoReplyText };
+      const data: Record<string, unknown> = { name, greetingText, autoReplyText, conversionTag };
       if (channelId) data.channelId = channelId;
       if (channelSecret) data.channelSecretEnc = encryptSecret(channelSecret);
       if (accessToken) data.accessTokenEnc = encryptSecret(accessToken);

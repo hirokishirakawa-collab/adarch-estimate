@@ -4193,6 +4193,7 @@ model LineAccount {
   autoReplyText       String?   @db.Text // 受信時の自動返信（空なら送らない）
   bookingReminderText String?   @db.Text // 予約前日のリマインド文（空なら既定文）
   scoreRules          Json? // 行動スコアの点数表 {follow,message,postback,click,form,booking,tagPoints:{},thresholds:[{score,tag}]}
+  conversionTag       String? // 成約とみなすタグ（CV管理・空なら「成約」）
   webhookLastAt       DateTime? // 最後にWebhookを受けた時刻＝接続確認
   webhookErrorAt      DateTime? // 最後に署名不一致などで弾いた時刻（診断用）
   webhookError        String? // 弾いた理由
@@ -4251,6 +4252,7 @@ model LineFriend {
   linkClicks    LineLinkClick[]
   formResponses LineFormResponse[]
   scoreLogs     LineScoreLog[]
+  events        LineEvent[]
 
   @@unique([accountId, lineUserId])
   @@index([accountId, lastInboundAt(sort: Desc)])
@@ -4529,4 +4531,21 @@ model LineScoreLog {
 
   @@index([friendId, createdAt(sort: Desc)])
   @@map("line_score_logs")
+}
+
+/// 行動イベント（分析用）。sourceVia = その行動の直前7日以内に届いた配信（broadcast:<id> / scenario:<stepId>）
+model LineEvent {
+  id        String     @id @default(cuid())
+  accountId String
+  friendId  String
+  friend    LineFriend @relation(fields: [friendId], references: [id], onDelete: Cascade)
+  type      String // follow / unfollow / message / postback / click / form / booking / booking_cancel / tag
+  refId     String? // link.id / form.id / booking.id / tag名 など
+  sourceVia String? // ラストタッチ配信
+  createdAt DateTime   @default(now())
+
+  @@index([accountId, type, createdAt(sort: Desc)])
+  @@index([friendId, createdAt(sort: Desc)])
+  @@index([sourceVia])
+  @@map("line_events")
 }

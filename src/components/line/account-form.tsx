@@ -17,6 +17,7 @@ type Props = {
     channelId: string;
     greetingText: string | null;
     autoReplyText: string | null;
+    conversionTag?: string | null;
   };
   /** 新規のときの見出し（本部 or 拠点名） */
   ownerLabel: string;
@@ -107,6 +108,12 @@ export function AccountForm({ account, ownerLabel, collapsible = false }: Props)
         </div>
       </div>
 
+      {!isNew && (
+        <div>
+          <label className={labelCls}>成約とみなすタグ（CV管理の「成約」列に使う・空なら「成約」）</label>
+          <input name="conversionTag" defaultValue={account?.conversionTag ?? ""} placeholder="成約" className={inputCls} />
+        </div>
+      )}
       {error && <p className="text-xs text-red-600">{error}</p>}
       {done && !isNew && <p className="text-xs text-emerald-700">保存しました</p>}
       <div className="flex justify-end">

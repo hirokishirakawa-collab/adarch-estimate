@@ -98,6 +98,7 @@ export default async function LineSettingsPage({ params }: { params: Promise<{ a
           channelId: account.channelId,
           greetingText: account.greetingText,
           autoReplyText: account.autoReplyText,
+          conversionTag: account.conversionTag,
         }}
       />
 

@@ -5,6 +5,7 @@ import { NewScenarioToggle, ScenarioEditToggle } from "@/components/line/scenari
 import { ActionButton, ConfirmButton } from "@/components/line/action-buttons";
 import { deleteLineScenario, toggleLineScenario, seedFranchiseScenario, seedClientScenario } from "@/lib/actions/line";
 import { TRIGGER_LABEL } from "@/lib/line/format";
+import { funnelBySource } from "@/lib/line/service";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,9 @@ export default async function LineScenariosPage({ params }: { params: Promise<{ 
     },
   });
   const isHq = info.role === "ADMIN" && account.branchId === null;
+  const conversionTag = account.conversionTag?.trim() || "成約";
+  const funnel = await funnelBySource(accountId, scenarios.flatMap((sc) => sc.steps.map((st) => `scenario:${st.id}`)), conversionTag);
+  const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : "—");
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-5">
@@ -104,7 +108,16 @@ export default async function LineScenariosPage({ params }: { params: Promise<{ 
                     <span className="shrink-0 text-zinc-400 w-28">
                       {st.order}通目: {st.delayDays}日後{st.sendHour === null ? " 即時" : ` ${st.sendHour}:00`}
                     </span>
-                    <span className="whitespace-pre-wrap line-clamp-2">{st.text}</span>
+                    <span className="whitespace-pre-wrap line-clamp-2 flex-1">{st.text}</span>
+                    {(() => {
+                      const f = funnel.get(`scenario:${st.id}`);
+                      if (!f || f.reached === 0) return <span className="shrink-0 text-[10px] text-zinc-400">未送信</span>;
+                      return (
+                        <span className="shrink-0 text-[10px] text-zinc-500 tabular-nums" title="到達→クリック→回答→予約→成約（7日以内・人数）">
+                          {f.reached}人 → ク{f.clicked}({pct(f.clicked, f.reached)}) 回{f.formed} 予{f.booked} <b className="text-emerald-700">成{f.converted}</b>
+                        </span>
+                      );
+                    })()}
                   </li>
                 ))}
               </ol>

@@ -50,13 +50,15 @@ export function renderText(template: string, friend: Pick<LineFriend, "displayNa
 export async function addFriendTags(friendId: string, fresh: string[]): Promise<LineFriend | null> {
   const clean = [...new Set(fresh.map((t) => t.trim()).filter(Boolean))];
   if (clean.length > 0) {
-    const before = await db.lineFriend.findUnique({ where: { id: friendId }, select: { tags: true, account: { select: { scoreRules: true } } } });
+    const before = await db.lineFriend.findUnique({ where: { id: friendId }, select: { tags: true, accountId: true, account: { select: { scoreRules: true } } } });
     await db.$executeRaw`UPDATE line_friends SET tags = ARRAY(SELECT DISTINCT x FROM unnest(tags || ${clean}::text[]) AS x), "updatedAt" = NOW() WHERE id = ${friendId}`;
-    // タグごとの加点（点数表にあるタグだけ）
+    // タグごとの加点（点数表にあるタグだけ）＋イベント記録
     if (before) {
       const rules = parseScoreRules(before.account.scoreRules);
       for (const t of clean) {
-        if (!before.tags.includes(t) && rules.tagPoints[t]) addScore(friendId, `tag:${t}`, t).catch(() => {});
+        if (before.tags.includes(t)) continue;
+        if (rules.tagPoints[t]) addScore(friendId, `tag:${t}`, t).catch(() => {});
+        logEvent(before.accountId, friendId, "tag", t).catch(() => {});
       }
     }
   }
@@ -319,6 +321,7 @@ async function onFollow(account: LineAccount, userId: string, replyToken?: strin
   const quickReply = entryPointQuickReply(entryPoints, now);
 
   addScore(friend.id, "follow").catch(() => {});
+  logEvent(account.id, friend.id, "follow").catch(() => {});
 
   // 友だち追加で始まるシナリオに登録
   const scenarios = await db.lineScenario.findMany({
@@ -370,6 +373,7 @@ async function onUnfollow(account: LineAccount, userId: string): Promise<void> {
     where: { accountId_lineUserId: { accountId: account.id, lineUserId: userId } },
   });
   if (!friend) return;
+  logEvent(account.id, friend.id, "unfollow").catch(() => {});
   await db.$transaction([
     db.lineFriend.update({ where: { id: friend.id }, data: { isFollowing: false, unfollowedAt: new Date() } }),
     db.lineScenarioEnrollment.updateMany({
@@ -434,6 +438,7 @@ async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent)
   }
 
   addScore(friend.id, "message").catch(() => {});
+  logEvent(account.id, friend.id, "message").catch(() => {});
 
   // 新着通知：未読が0→1になった時だけ（連投で通知を埋めない）。ミュート中は出さない
   if (friend.unreadCount === 0 && !friend.mutedAt) {
@@ -493,6 +498,7 @@ async function onPostback(account: LineAccount, userId: string, ev: WebhookEvent
     notifyNewInbound(account, friend, say).catch(() => {});
   }
   addScore(friend.id, "postback", say ?? undefined).catch(() => {});
+  logEvent(account.id, friend.id, "postback", say ?? undefined).catch(() => {});
 
   if (epRow) {
     await applyEntryPoint(friend, epRow);
@@ -756,6 +762,7 @@ export async function recordLinkClick(token: string, code: string): Promise<stri
     if (updated) await enrollByTags(updated, fresh);
   }
   addScore(friend.id, "click", link.label).catch(() => {});
+  logEvent(friend.accountId, friend.id, "click", link.id).catch(() => {});
   // 転送先がOSの予約ページなら、相手トークンを付けて予約を友だちに紐づける
   const base = appBase();
   if (base && link.url.startsWith(`${base}/book/`) && !link.url.includes("t=")) {
@@ -843,6 +850,7 @@ export async function submitFormResponse(
   }
 
   addScore(friend.id, "form", form.title).catch(() => {});
+  logEvent(friend.accountId, friend.id, "form", form.id).catch(() => {});
   const thankYou = form.thankYouText?.trim() ? await renderForFriend(form.thankYouText, friend) : null;
   if (thankYou && friend.isFollowing && friend.account.isActive) {
     try {
@@ -975,6 +983,7 @@ export async function recordLineBooking(bookingId: string, friendToken: string):
   const updated = await addFriendTags(friend.id, ["予約済"]);
   if (updated && !friend.tags.includes("予約済")) await enrollByTags(updated, ["予約済"]);
   addScore(friend.id, "booking", booking.bookingType.title).catch(() => {});
+  logEvent(friend.accountId, friend.id, "booking", booking.id).catch(() => {});
   notifyNewInbound(friend.account, friend, `${fmtJstShort(booking.startAt)} に予約が入りました（${booking.bookingType.title}）`).catch(() => {});
 }
 
@@ -987,6 +996,7 @@ export async function recordLineBookingCancel(bookingId: string): Promise<void> 
   await db.lineMessage.create({
     data: { friendId: friend.id, direction: "IN", type: "form", text: `予約キャンセル: ${fmtJstShort(booking.startAt)}（${booking.bookingType.title}）`, sentVia: `booking:${bookingId}` },
   });
+  logEvent(friend.accountId, friend.id, "booking_cancel", booking.id).catch(() => {});
   const updated = await addFriendTags(friend.id, ["予約キャンセル"]);
   if (updated && !friend.tags.includes("予約キャンセル")) await enrollByTags(updated, ["予約キャンセル"]);
   notifyNewInbound(friend.account, friend, `予約がキャンセルされました（${fmtJstShort(booking.startAt)}）`).catch(() => {});
@@ -1095,4 +1105,58 @@ export async function addScore(friendId: string, event: ScoreEvent | `tag:${stri
     const updated = await addFriendTags(friendId, reached);
     if (updated) await enrollByTags(updated, reached);
   }
+}
+
+// ---------------------------------------------------------------
+// 行動イベント（CV管理・流入分析用）
+// ---------------------------------------------------------------
+const ATTRIBUTION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** 直前7日以内にその人へ届いた配信（broadcast / scenario）を探してラストタッチとして記録 */
+export async function logEvent(accountId: string, friendId: string, type: string, refId?: string | null): Promise<void> {
+  try {
+    const now = new Date();
+    const last = await db.lineMessage.findFirst({
+      where: {
+        friendId,
+        direction: "OUT",
+        createdAt: { gte: new Date(now.getTime() - ATTRIBUTION_WINDOW_MS), lte: now },
+        OR: [{ sentVia: { startsWith: "broadcast:" } }, { sentVia: { startsWith: "scenario:" } }],
+      },
+      orderBy: { createdAt: "desc" },
+      select: { sentVia: true },
+    });
+    await db.lineEvent.create({ data: { accountId, friendId, type, refId: refId ?? null, sourceVia: last?.sentVia ?? null } });
+  } catch (e) {
+    console.error("[line] logEvent failed", type, e);
+  }
+}
+
+export type Funnel = { reached: number; clicked: number; formed: number; booked: number; converted: number };
+
+/** 配信（broadcast:<id> / scenario:<stepId>）ごとのファネル：到達人数→クリック→回答→予約→成約（人数・重複なし） */
+export async function funnelBySource(accountId: string, sources: string[], conversionTag: string): Promise<Map<string, Funnel>> {
+  const out = new Map<string, Funnel>();
+  if (sources.length === 0) return out;
+  const reachedRows = (await db.$queryRaw`
+    SELECT m."sentVia" AS via, COUNT(DISTINCT m."friendId")::int AS n
+    FROM line_messages m
+    WHERE m.direction = 'OUT' AND m."sentVia" = ANY(${sources}::text[])
+    GROUP BY m."sentVia"`) as { via: string; n: number }[];
+  const evRows = (await db.$queryRaw`
+    SELECT e."sourceVia" AS via, e.type AS type, e."refId" AS ref, COUNT(DISTINCT e."friendId")::int AS n
+    FROM line_events e
+    WHERE e."accountId" = ${accountId} AND e."sourceVia" = ANY(${sources}::text[])
+    GROUP BY e."sourceVia", e.type, e."refId"`) as { via: string; type: string; ref: string | null; n: number }[];
+  for (const src of sources) out.set(src, { reached: 0, clicked: 0, formed: 0, booked: 0, converted: 0 });
+  for (const r of reachedRows) out.get(r.via)!.reached = r.n;
+  for (const r of evRows) {
+    const f = out.get(r.via);
+    if (!f) continue;
+    if (r.type === "click") f.clicked = Math.max(f.clicked, r.n);
+    else if (r.type === "form") f.formed = Math.max(f.formed, r.n);
+    else if (r.type === "booking") f.booked = Math.max(f.booked, r.n);
+    else if (r.type === "tag" && r.ref === conversionTag) f.converted = r.n;
+  }
+  return out;
 }
