@@ -494,7 +494,7 @@ function DetailPanel({ r, onClose }: { r: ClientRow; onClose: () => void }) {
                   <MapPin className="w-3 h-3" /> Google マップ
                 </a>
               )}
-              {r.canOpen && (
+              {r.canOpen && !r.isArchive && (
                 <Link href={`/dashboard/customers/${r.id}`} className="inline-flex items-center gap-1 rounded-md bg-zinc-900 px-2 py-1 text-white hover:bg-zinc-800">
                   顧客管理で開く
                 </Link>
