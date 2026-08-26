@@ -33,8 +33,9 @@ export function ClientsMap({ rows, onSelect }: Props) {
       // keyboard:false = コンテナに tabindex を付けない。付けるとクリック時のフォーカスで
       // 外側のレイアウト（overflow-hidden の flex）が横にスクロールし、サイドバーが隠れる
       const map = L.map(ref.current, { scrollWheelZoom: true, keyboard: false }).setView([36.2, 137.5], 5);
-      // 国土地理院の淡色地図（無料・日本語ラベル）。OSM の a/b/c サブドメインは 503 を返すようになったため使わない
-      L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+      // 国土地理院の淡色地図（無料・日本語ラベル）を自社サーバ経由で出す（/api/map-tile）。
+      // 外部ホストへ直接取りに行くと、拡張機能や社内プロキシで画像が止まる環境で地図が灰色になるため
+      L.tileLayer("/api/map-tile/{z}/{x}/{y}.png", {
         attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>',
         maxZoom: 18,
       }).addTo(map);
