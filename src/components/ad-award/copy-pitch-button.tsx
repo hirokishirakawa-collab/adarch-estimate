@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-/** 納品後に先方へ伝える一文をクリップボードへコピーする。文面はサーバー側で組み立て済み。 */
+/** クライアントへ切り出す一文をクリップボードへコピーする。文面はサーバー側で組み立て済み。 */
 export function CopyPitchButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 

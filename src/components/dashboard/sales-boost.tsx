@@ -121,7 +121,7 @@ export async function SalesBoost({ userEmail }: { userEmail: string }) {
   const targets = scoped
     ? [
         { label: "3ヶ月以内に周年", count: annivCount, href: "/dashboard/anniversary-finder", hint: "節目の年は「地元で目立つ」が刺さります" },
-        { label: "いま応募できる広告賞", count: awardOpenCount, href: "/dashboard/award-finder", hint: "納品した作品を「この賞に出しませんか」と追加提案" },
+        { label: "いま応募できる広告賞", count: awardOpenCount, href: "/dashboard/award-finder", hint: "「この賞に出しませんか」をクライアントとの会話のきっかけに" },
         { label: "入札（○判定・受付中）", count: tenderCount, href: "/dashboard/tender-finder", hint: "広告・映像・印刷の公的案件" },
         { label: "広告費に使える補助金", count: subsidyCount, href: "/dashboard/subsidy-finder", hint: "クライアントの財源のご提案に" },
         { label: "今週シグナルが立った会社", count: signalCount, href: "/dashboard/leads/list", hint: "買う気配が立った直後に当たる" },

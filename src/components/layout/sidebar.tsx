@@ -210,7 +210,7 @@ const NAV_SECTIONS: NavSection[] = [
       },
       {
         href: "/dashboard/award-finder",
-        label: "広告賞ファインダー（納品後の追加提案）",
+        label: "広告賞ファインダー（クライアントとの会話のきっかけ）",
         icon: Award,
         minRole: "USER",
       },
