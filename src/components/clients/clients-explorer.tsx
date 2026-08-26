@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ExternalLink, MapPin, Search, X } from "lucide-react";
-import { workCount, type ClientRow } from "@/lib/clients/query";
-import { RATING_BANDS, REGIONS, SIZE_BANDS } from "@/lib/clients/normalize";
+import type { ClientRow } from "@/lib/clients/query";
+import { RATING_BANDS, REGIONS, SIZE_BANDS, workCount } from "@/lib/clients/normalize";
 
 const ClientsMap = dynamic(() => import("./clients-map").then((m) => m.ClientsMap), {
   ssr: false,

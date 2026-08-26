@@ -143,3 +143,8 @@ export function formatCapital(yen: bigint | number | null | undefined): string |
   if (parts.length === 0) return `${n.toLocaleString("ja-JP")}円`;
   return `${parts.join("")}円`;
 }
+
+/** 1行分の実績数。Drive由来は配下の制作物ファイル数（0なら1として数える）。旧サイト実績は1本=1 */
+export function workCount(w: { source: string; fileCount: number | null }): number {
+  return w.source === "drive" ? Math.max(w.fileCount ?? 0, 1) : 1;
+}

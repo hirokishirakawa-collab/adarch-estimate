@@ -11,6 +11,7 @@ import {
   ratingBand,
   regionOf,
   sizeBand,
+  workCount,
   type RatingBand,
   type SizeBand,
 } from "./normalize";
@@ -75,11 +76,6 @@ export interface ClientRow {
   canOpen: boolean;
   /** 旧サイト・Drive の実績から起こした会社（データ未整備）。通常の顧客とは別扱い */
   isArchive: boolean;
-}
-
-/** 1行分の実績数。Drive由来は配下の制作物ファイル数（0なら1として数える） */
-export function workCount(w: { source: string; fileCount: number | null }): number {
-  return w.source === "drive" ? Math.max(w.fileCount ?? 0, 1) : 1;
 }
 
 export async function loadClientRows(viewer: {
