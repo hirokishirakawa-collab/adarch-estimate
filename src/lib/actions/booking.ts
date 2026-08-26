@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { recordLineBookingCancel } from "@/lib/line/service";
 import type { UserRole } from "@/types/roles";
 import { deleteCalendarEvent } from "@/lib/booking/google";
 import { sendBookingCancelledEmails } from "@/lib/booking/emails";
@@ -195,6 +196,9 @@ export async function cancelBookingByAdmin(
       where: { id: booking.id },
       data: { status: "CANCELLED", cancelledAt: new Date() },
     });
+    if (booking.lineFriendId) {
+      recordLineBookingCancel(booking.id).catch((e) => console.error("[book] line cancel record failed", e));
+    }
     await sendBookingCancelledEmails({
       bookingTitle: booking.bookingType.title,
       startAt: booking.startAt,

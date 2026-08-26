@@ -3839,6 +3839,7 @@ model BookingHost {
   googleRefreshToken String?           @db.Text // AES-256-GCM 暗号化済み
   connectToken       String?           @unique // カレンダー接続招待リンク用トークン
   connectedAt        DateTime?
+  lineAccountId      String? // 拠点のLINEアカウントから作ったホスト（null=本部管理）
   bookingTypes       BookingTypeHost[]
   bookings           Booking[]
   createdAt          DateTime          @default(now())
@@ -3861,11 +3862,13 @@ model BookingType {
   businessHours   Json // {"days":[1,2,3,4,5],"start":"10:00","end":"18:00"} JST
   questions       Json // [{id,label,type:"text"|"textarea"|"select",options?,required}]
   isActive        Boolean           @default(true)
+  lineAccountId   String? // LINE公式アカウント（拠点）専用の枠。null=本部/共通
   hosts           BookingTypeHost[]
   bookings        Booking[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
+  @@index([lineAccountId])
   @@map("booking_types")
 }
 
@@ -3883,29 +3886,32 @@ model BookingTypeHost {
 /// 予約レコード。確定時に担当ホストのカレンダーへ Meet 付きイベントを作成し、
 /// Lead + LeadLog(BOOKING_CONFIRMED) にも自動反映する
 model Booking {
-  id            String        @id @default(cuid())
-  bookingTypeId String
-  bookingType   BookingType   @relation(fields: [bookingTypeId], references: [id])
-  hostId        String
-  host          BookingHost   @relation(fields: [hostId], references: [id])
-  status        BookingStatus @default(CONFIRMED)
-  startAt       DateTime
-  endAt         DateTime
-  name          String // 申込者名
-  company       String?
-  email         String
-  phone         String?
-  answers       Json? // スクリーニング質問への回答 [{label,value}]
-  googleEventId String?
-  meetUrl       String?
-  cancelToken   String        @unique @default(cuid())
-  cancelledAt   DateTime?
-  leadId        String? // 作成した Lead への参照（リレーションは張らない）
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  bookingTypeId  String
+  bookingType    BookingType   @relation(fields: [bookingTypeId], references: [id])
+  hostId         String
+  host           BookingHost   @relation(fields: [hostId], references: [id])
+  status         BookingStatus @default(CONFIRMED)
+  startAt        DateTime
+  endAt          DateTime
+  name           String // 申込者名
+  company        String?
+  email          String
+  phone          String?
+  answers        Json? // スクリーニング質問への回答 [{label,value}]
+  googleEventId  String?
+  meetUrl        String?
+  cancelToken    String        @unique @default(cuid())
+  cancelledAt    DateTime?
+  leadId         String? // 作成した Lead への参照（リレーションは張らない）
+  lineFriendId   String? // LINEの友だちから予約された場合（リレーションは張らない）
+  reminderSentAt DateTime? // LINEへの前日リマインド送信済み
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([startAt])
   @@index([hostId, status])
+  @@index([lineFriendId])
   @@map("bookings")
 }
 
@@ -4183,12 +4189,13 @@ model LineAccount {
   basicId          String? // @から始まるベーシックID（友だち追加URLに使う）
   botDisplayName   String?
 
-  greetingText   String?   @db.Text // 友だち追加時の自動返信（空なら送らない）
-  autoReplyText  String?   @db.Text // 受信時の自動返信（空なら送らない）
-  webhookLastAt  DateTime? // 最後にWebhookを受けた時刻＝接続確認
-  webhookErrorAt DateTime? // 最後に署名不一致などで弾いた時刻（診断用）
-  webhookError   String? // 弾いた理由
-  isActive       Boolean   @default(true)
+  greetingText        String?   @db.Text // 友だち追加時の自動返信（空なら送らない）
+  autoReplyText       String?   @db.Text // 受信時の自動返信（空なら送らない）
+  bookingReminderText String?   @db.Text // 予約前日のリマインド文（空なら既定文）
+  webhookLastAt       DateTime? // 最後にWebhookを受けた時刻＝接続確認
+  webhookErrorAt      DateTime? // 最後に署名不一致などで弾いた時刻（診断用）
+  webhookError        String? // 弾いた理由
+  isActive            Boolean   @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

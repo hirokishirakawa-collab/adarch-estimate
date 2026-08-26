@@ -77,7 +77,7 @@ export async function renderForFriend(
   friend: Pick<LineFriend, "id" | "displayName" | "token" | "accountId">,
 ): Promise<string> {
   let out = renderText(template, friend);
-  if (!out.includes("{link:") && !out.includes("{form:")) return out;
+  if (!out.includes("{link:") && !out.includes("{form:") && !out.includes("{book:")) return out;
   let token = friend.token;
   if (!token) {
     token = newFriendToken();
@@ -93,7 +93,22 @@ export async function renderForFriend(
     const forms = await db.lineForm.findMany({ where: { accountId: friend.accountId, code: { in: formCodes }, isActive: true }, select: { code: true } });
     for (const f of forms) out = out.replace(new RegExp(`\\{form:\\s*${escapeRe(f.code)}\\s*\\}`, "g"), `${appBase()}/f/${token}/${encodeURIComponent(f.code)}`);
   }
+  // {book:slug} → 相手ごとの予約URL（この拠点の枠、本部は共通枠）
+  const bookSlugs = [...new Set([...out.matchAll(/\{book:([^}]+)\}/g)].map((m) => m[1].trim()))];
+  if (bookSlugs.length > 0) {
+    const types = await db.bookingType.findMany({
+      where: { slug: { in: bookSlugs }, isActive: true, ...(await bookingTypeScope(friend.accountId)) },
+      select: { slug: true },
+    });
+    for (const t of types) out = out.replace(new RegExp(`\\{book:\\s*${escapeRe(t.slug)}\\s*\\}`, "g"), `${appBase()}/book/${t.slug}?t=${token}`);
+  }
   return out;
+}
+
+/** このLINEアカウントが使える予約枠の条件（拠点=自分の枠／本部=共通枠＋自分の枠） */
+export async function bookingTypeScope(accountId: string): Promise<{ OR: { lineAccountId: string | null }[] }> {
+  const acc = await db.lineAccount.findUnique({ where: { id: accountId }, select: { branchId: true } });
+  return acc?.branchId ? { OR: [{ lineAccountId: accountId }] } : { OR: [{ lineAccountId: accountId }, { lineAccountId: null }] };
 }
 
 function tokenOf(account: LineAccount): string {
@@ -727,6 +742,11 @@ export async function recordLinkClick(token: string, code: string): Promise<stri
     const updated = await addFriendTags(friend.id, fresh);
     if (updated) await enrollByTags(updated, fresh);
   }
+  // 転送先がOSの予約ページなら、相手トークンを付けて予約を友だちに紐づける
+  const base = appBase();
+  if (base && link.url.startsWith(`${base}/book/`) && !link.url.includes("t=")) {
+    return `${link.url}${link.url.includes("?") ? "&" : "?"}t=${token}`;
+  }
   return link.url;
 }
 
@@ -916,4 +936,78 @@ export async function setFriendRichMenu(friendId: string, menuId: string | null)
     await db.lineFriend.update({ where: { id: friendId }, data: { richMenuId: null, richMenuPinned: false } });
     await applyRichMenuRules(friendId);
   }
+}
+
+
+// ---------------------------------------------------------------
+// 予約連携（OS予約システム ↔ LINE友だち）
+// ---------------------------------------------------------------
+function fmtJstShort(d: Date): string {
+  return d.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/** 予約確定時：友だちに紐づけ・タグ・チャット記録・通知 */
+export async function recordLineBooking(bookingId: string, friendToken: string): Promise<void> {
+  const friend = await db.lineFriend.findUnique({ where: { token: friendToken }, include: { account: true } });
+  const booking = await db.booking.findUnique({ where: { id: bookingId }, include: { bookingType: { select: { title: true } } } });
+  if (!friend || !booking) return;
+  await db.booking.update({ where: { id: bookingId }, data: { lineFriendId: friend.id } });
+  const textBody = `予約: ${fmtJstShort(booking.startAt)}〜（${booking.bookingType.title}）${booking.meetUrl ? `\n${booking.meetUrl}` : ""}`;
+  await db.$transaction([
+    db.lineMessage.create({ data: { friendId: friend.id, direction: "IN", type: "form", text: textBody, sentVia: `booking:${bookingId}` } }),
+    db.lineFriend.update({ where: { id: friend.id }, data: { lastInboundAt: new Date() } }),
+  ]);
+  const updated = await addFriendTags(friend.id, ["予約済"]);
+  if (updated && !friend.tags.includes("予約済")) await enrollByTags(updated, ["予約済"]);
+  notifyNewInbound(friend.account, friend, `${fmtJstShort(booking.startAt)} に予約が入りました（${booking.bookingType.title}）`).catch(() => {});
+}
+
+/** 予約キャンセル時：チャット記録・タグ */
+export async function recordLineBookingCancel(bookingId: string): Promise<void> {
+  const booking = await db.booking.findUnique({ where: { id: bookingId }, include: { bookingType: { select: { title: true } } } });
+  if (!booking?.lineFriendId) return;
+  const friend = await db.lineFriend.findUnique({ where: { id: booking.lineFriendId }, include: { account: true } });
+  if (!friend) return;
+  await db.lineMessage.create({
+    data: { friendId: friend.id, direction: "IN", type: "form", text: `予約キャンセル: ${fmtJstShort(booking.startAt)}（${booking.bookingType.title}）`, sentVia: `booking:${bookingId}` },
+  });
+  const updated = await addFriendTags(friend.id, ["予約キャンセル"]);
+  if (updated && !friend.tags.includes("予約キャンセル")) await enrollByTags(updated, ["予約キャンセル"]);
+  notifyNewInbound(friend.account, friend, `予約がキャンセルされました（${fmtJstShort(booking.startAt)}）`).catch(() => {});
+}
+
+/** 前日リマインド：翌日の予約（20〜28時間先）にLINEで1回だけ送る */
+export async function runBookingReminders(): Promise<{ sent: number }> {
+  const now = new Date();
+  const from = new Date(now.getTime() + 20 * 60 * 60 * 1000);
+  const to = new Date(now.getTime() + 28 * 60 * 60 * 1000);
+  const list = await db.booking.findMany({
+    where: { status: "CONFIRMED", lineFriendId: { not: null }, reminderSentAt: null, startAt: { gte: from, lte: to } },
+    include: { bookingType: { select: { title: true } } },
+    take: 100,
+  });
+  let sent = 0;
+  for (const b of list) {
+    const claimed = await db.booking.updateMany({ where: { id: b.id, reminderSentAt: null }, data: { reminderSentAt: now } });
+    if (claimed.count === 0) continue;
+    const friend = await db.lineFriend.findUnique({ where: { id: b.lineFriendId! }, include: { account: true } });
+    if (!friend || !friend.isFollowing || friend.mutedAt || !friend.account.isActive) continue;
+    const template =
+      friend.account.bookingReminderText?.trim() ||
+      "明日 {time} からのご予約のリマインドです。\n{title}\n{meet}\n\n当日はどうぞよろしくお願いいたします。";
+    const body = renderText(template, friend)
+      .replaceAll("{time}", fmtJstShort(b.startAt))
+      .replaceAll("{title}", b.bookingType.title)
+      .replaceAll("{meet}", b.meetUrl ? `Meet: ${b.meetUrl}` : "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    try {
+      await pushMessage(tokenOf(friend.account), friend.lineUserId, [text(body)]);
+      await logOut(friend.id, body, `booking-reminder:${b.id}`);
+      sent++;
+    } catch (e) {
+      console.error("[line] booking reminder failed", b.id, e);
+    }
+  }
+  return { sent };
 }

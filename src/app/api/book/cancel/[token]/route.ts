@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { recordLineBookingCancel } from "@/lib/line/service";
 import { deleteCalendarEvent } from "@/lib/booking/google";
 import { sendBookingCancelledEmails } from "@/lib/booking/emails";
 
@@ -91,6 +92,9 @@ export async function POST(
       where: { id: booking.id },
       data: { status: "CANCELLED", cancelledAt: new Date() },
     });
+    if (booking.lineFriendId) {
+      recordLineBookingCancel(booking.id).catch((e) => console.error("[book] line cancel record failed", e));
+    }
 
     await sendBookingCancelledEmails({
       bookingTitle: booking.bookingType.title,

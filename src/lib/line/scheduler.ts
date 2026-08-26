@@ -18,9 +18,10 @@ export async function runLineTickWithLock(): Promise<{ ran: boolean; scenario?: 
   if (globalThis.__lineTickRunning) return { ran: false };
   globalThis.__lineTickRunning = true;
   try {
-    const { runScenarioTick, runBroadcasts } = await import("@/lib/line/service");
+    const { runScenarioTick, runBroadcasts, runBookingReminders } = await import("@/lib/line/service");
     const scenario = await runScenarioTick();
     const broadcasts = await runBroadcasts();
+    await runBookingReminders().catch((e) => console.error("[line-scheduler] reminders failed", e));
     return { ran: true, scenario, broadcasts };
   } finally {
     globalThis.__lineTickRunning = false;

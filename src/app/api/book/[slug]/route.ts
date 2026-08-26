@@ -12,6 +12,7 @@ import {
   sendBookingConfirmedToHost,
   type BookingMailPayload,
 } from "@/lib/booking/emails";
+import { recordLineBooking } from "@/lib/line/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,6 +72,7 @@ export async function POST(
     email?: string;
     phone?: string;
     answers?: Record<string, string>;
+    lineToken?: string; // LINEの友だちからの予約（相手ごとのトークン）
   };
   try {
     body = await req.json();
@@ -213,6 +215,11 @@ export async function POST(
         meetUrl,
       },
     });
+
+    // LINEの友だちからの予約なら、その友だちに紐づけて記録（タグ・チャット・通知）
+    if (typeof body.lineToken === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(body.lineToken)) {
+      recordLineBooking(booking.id, body.lineToken).catch((e) => console.error("[book] line link failed", e));
+    }
 
     // ※ Lead連携は意図的に行わない（2026-06-11代表判断）。
     //   リード管理は全代表が閲覧できるため、加盟面談の申込情報を流すと

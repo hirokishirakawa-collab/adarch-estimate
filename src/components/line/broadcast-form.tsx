@@ -83,7 +83,7 @@ export function BroadcastForm({ accountId, allTags }: { accountId: string; allTa
       </div>
       <div>
         <label className={labelCls}>本文</label>
-        <textarea name="text" rows={6} className={inputCls} required placeholder="{name}=表示名、{link:名前}=計測リンク、{form:名前}=回答フォーム（設定タブで登録）" />
+        <textarea name="text" rows={6} className={inputCls} required placeholder="{name}=表示名、{link:名前}=計測リンク、{form:名前}=回答フォーム、{book:URL名}=予約" />
       </div>
       <div className="flex items-center justify-between">
         <span className="text-xs text-zinc-600">

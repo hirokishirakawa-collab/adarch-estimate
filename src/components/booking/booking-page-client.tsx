@@ -30,6 +30,7 @@ type Props = {
   description: string | null;
   durationMinutes: number;
   questions: ScreeningQuestion[];
+  lineToken?: string | null;
 };
 
 export function BookingPageClient({
@@ -38,6 +39,7 @@ export function BookingPageClient({
   description,
   durationMinutes,
   questions,
+  lineToken = null,
 }: Props) {
   const [slots, setSlots] = useState<string[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -98,6 +100,7 @@ export function BookingPageClient({
           email: form.email,
           phone: form.phone,
           answers: form.answers,
+          ...(lineToken ? { lineToken } : {}),
         }),
       });
       const data = await res.json();
