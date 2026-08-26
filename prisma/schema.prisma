@@ -4250,7 +4250,7 @@ model LineFriend {
   enrollments   LineScenarioEnrollment[]
   linkClicks    LineLinkClick[]
   formResponses LineFormResponse[]
-  lineScoreLogs LineScoreLog[]
+  scoreLogs     LineScoreLog[]
 
   @@unique([accountId, lineUserId])
   @@index([accountId, lastInboundAt(sort: Desc)])
