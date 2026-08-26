@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Upload, Download, FileSpreadsheet, X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, X, Loader2, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface ImportResult {
@@ -10,6 +10,28 @@ interface ImportResult {
   errors: string[];
 }
 
+// ---------------------------------------------------------------
+// AIに書き出させるときの指示文。
+//   OSの外にあるリスト（名刺・スプレッドシート・メール）を Gemini / ChatGPT / Claude に渡し、
+//   テンプレートと同じ8列のCSVで返させる。列の並びは /api/leads/import/template と同一。
+// ---------------------------------------------------------------
+const AI_CSV_PROMPT = [
+  "あなたは営業リストを整理するアシスタントです。",
+  "この後に貼る私の資料（名刺の一覧・表・メールなど）から会社を抜き出し、",
+  "次の8列のCSVだけを返してください。1行目は必ずこのヘッダーにし、説明文やコードブロック記号は付けないでください。",
+  "",
+  "会社名,住所,電話番号,WebサイトURL,業種,エリア,メモ,担当者名",
+  "",
+  "ルール:",
+  "- 会社名は必須。分からない列は空のままにする（推測で埋めない）",
+  "- 同じ会社は1行にまとめる",
+  "- 住所や社名にカンマが含まれる場合はその項目を\"で囲む",
+  "- エリアは都道府県名、業種は短い一般名（例: 飲食・宿泊 / 建設・リフォーム / 医療・クリニック）",
+  "- 金額・見積額は書かない",
+  "",
+  "以下が資料です:",
+].join("\n");
+
 export function LeadCsvImport() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -17,7 +39,18 @@ export function LeadCsvImport() {
   const [dragOver, setDragOver] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const copyPrompt = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(AI_CSV_PROMPT);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* クリップボード不可の環境では何もしない */
+    }
+  }, []);
 
   const reset = useCallback(() => {
     setFile(null);
@@ -129,6 +162,22 @@ export function LeadCsvImport() {
                 <Download className="w-3.5 h-3.5" />
                 テンプレートをダウンロード
               </a>
+            </div>
+
+            {/* AIに書き出させる */}
+            <div className="bg-violet-50 border border-violet-100 rounded-lg px-4 py-3">
+              <p className="text-xs text-zinc-700 mb-2 leading-relaxed">
+                手元のリスト（名刺・表・メール）を Gemini / ChatGPT / Claude に渡して、
+                この形のCSVを書かせることもできます。返ってきたものを .csv で保存して上に入れてください。
+              </p>
+              <button
+                type="button"
+                onClick={copyPrompt}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-700 hover:text-violet-800 transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                {copied ? "コピーしました" : "AI用の指示文をコピー"}
+              </button>
             </div>
 
             {/* File upload area */}
