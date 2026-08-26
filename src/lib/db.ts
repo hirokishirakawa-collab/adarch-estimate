@@ -41,7 +41,14 @@ function createPrismaClient(): PrismaClient {
     max: process.env.NODE_ENV === "production" ? 5 : 10,
   });
 
-  return new PrismaClient({ adapter });
+  return new PrismaClient({
+    adapter,
+    // 取引先マップ用の列は既定で取らない。
+    //   photoData: 会社写真のバイナリ（一覧で毎回運ぶと重い）
+    //   capital:   BigInt（Server→Client Component へそのまま渡すとシリアライズできず画面が落ちる）
+    // 必要な画面（/dashboard/clients・写真API・補完処理）は select で明示的に取っている。
+    omit: { customer: { photoData: true, capital: true } },
+  });
 }
 
 // Lazy singleton — モジュール読み込み時ではなく、最初に使われた時点で接続する
