@@ -24,7 +24,9 @@ const ALIAS: Record<string, string> = {
   "Johnson and Johnson 新アンバサダー記者会見": "Johnson & Johnson", "SBC-湘南美容外科 北千住院-": "湘南美容クリニック 北千住院",
   "原田工房株式会社(茨城）": "原田工房", "PROLOGUE 北千住店": "PROLOGUE", "一社)茨城南青年会議所50周年記念": "茨城南青年会議所",
 };
-function clientFromFolder(name: string): { client: string | null; reason?: string } {
+function clientFromFolder(rawName: string): { client: string | null; reason?: string } {
+  // Drive（macOS）由来のフォルダ名は濁点・半濁点が分解形（NFD）で入っていることがある＝先に正規化しないと照合が外れる
+  const name = rawName.normalize("NFKC");
   let n = name.replace(/\.(mp4|mov|pdf|jpg|png|zip)$/i, "").replace(/\((1080p|4k|720p)\)/gi, "").trim();
   if (!n || n.startsWith(".")) return { client: null, reason: "空/隠しファイル" };
   const br = n.match(/^[〈<【\[（(]([^〉>】\]）)]+)[〉>】\]）)]/);
