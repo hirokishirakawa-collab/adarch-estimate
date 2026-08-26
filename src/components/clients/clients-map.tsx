@@ -30,9 +30,13 @@ export function ClientsMap({ rows, onSelect }: Props) {
   useEffect(() => {
     if (!ref.current) return;
     if (!mapRef.current) {
-      const map = L.map(ref.current, { scrollWheelZoom: true }).setView([36.2, 137.5], 5);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
+      // keyboard:false = コンテナに tabindex を付けない。付けるとクリック時のフォーカスで
+      // 外側のレイアウト（overflow-hidden の flex）が横にスクロールし、サイドバーが隠れる
+      const map = L.map(ref.current, { scrollWheelZoom: true, keyboard: false }).setView([36.2, 137.5], 5);
+      // 国土地理院の淡色地図（無料・日本語ラベル）。OSM の a/b/c サブドメインは 503 を返すようになったため使わない
+      L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+        attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>',
+        maxZoom: 18,
       }).addTo(map);
       mapRef.current = map;
       layerRef.current = L.layerGroup().addTo(map);
@@ -62,8 +66,11 @@ export function ClientsMap({ rows, onSelect }: Props) {
       marker.addTo(layer);
     });
 
-    if (pts.length > 0 && mapRef.current) {
-      mapRef.current.fitBounds(L.latLngBounds(pts), { padding: [24, 24], maxZoom: 9 });
+    // 表示範囲は日本国内の点だけで決める（海外の会社があっても世界地図にしない）
+    const jp = pts.filter(([lat, lng]) => lat >= 24 && lat <= 46 && lng >= 122 && lng <= 146);
+    const fit = jp.length > 0 ? jp : pts;
+    if (fit.length > 0 && mapRef.current) {
+      mapRef.current.fitBounds(L.latLngBounds(fit), { padding: [24, 24], maxZoom: 9 });
     }
   }, [rows, onSelect]);
 
@@ -74,5 +81,10 @@ export function ClientsMap({ rows, onSelect }: Props) {
     };
   }, []);
 
-  return <div ref={ref} className="h-[520px] w-full rounded-xl overflow-hidden border border-zinc-200 z-0" />;
+  return (
+    // 外側で overflow を切る（タイルが横にはみ出しても scrollWidth が親に伝わらないように）
+    <div className="w-full overflow-hidden rounded-xl border border-zinc-200" style={{ contain: "paint" }}>
+      <div ref={ref} className="h-[520px] w-full z-0 outline-none" />
+    </div>
+  );
 }
