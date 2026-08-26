@@ -4,7 +4,9 @@ import { runClientEnrich } from "../../src/lib/clients/enrich";
 
 const limit = Number(process.argv[2]) || 500;
 const force = process.argv.includes("--force");
+const idsArg = process.argv.find((a) => a.startsWith("--ids="));
+const customerIds = idsArg ? idsArg.slice(6).split(",").filter(Boolean) : undefined;
 const only = process.argv.includes("--places") ? "places" : process.argv.includes("--profile") ? "profile" : undefined;
-runClientEnrich({ limit, force, only, concurrency: 3, log: (l) => console.log(l) })
+runClientEnrich({ limit, force, only, customerIds, concurrency: 3, log: (l) => console.log(l) })
   .then((s) => { console.log("DONE", JSON.stringify(s)); process.exit(0); })
   .catch((e) => { console.error(e); process.exit(1); });

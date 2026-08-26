@@ -89,12 +89,30 @@ async function placesTextSearch(textQuery: string, apiKey: string): Promise<Reco
   return data.places ?? [];
 }
 
-/** 社名の照合。短い社名（WHO・SEED 等）は別の店に化けやすいので、完全一致か「社名で始まる」だけ通す */
-function nameMatches(customerName: string, placeName: string): { ok: boolean; exact: boolean } {
+/**
+ * 社名を除いた残りが「法人格・本社・グループ」程度なら本社と見なせる。
+ * 「ジェトロ横浜」「ロピア湘南プロセスセンター」「JTB ららぽーと店」のように地名や店舗名が残るものは別拠点。
+ */
+const HQ_REMAINDER_RE = /^(株式会社|有限会社|合同会社|一般社団法人|公益社団法人|本社|本店|グループ|ホールディングス|工業|製作所|商事|商店|inc|co|ltd|corporation|corp|japan|日本|の|・)*$/;
+
+function looksLikeHeadOffice(customerName: string, placeName: string): boolean {
+  const x = normalizeCompanyName(customerName);
+  const y = normalizeCompanyName(placeName);
+  if (!x || !y.includes(x)) return false;
+  const remainder = y.replace(x, "");
+  return HQ_REMAINDER_RE.test(remainder);
+}
+
+/**
+ * 社名の照合。短い社名（WHO・SEED 等）は別の店に化けやすいので、完全一致か「社名で始まる」だけ通す。
+ * strict=true（県の手がかりが無い会社）は、残りが法人格・本社程度のものだけ通す。
+ */
+function nameMatches(customerName: string, placeName: string, strict = false): { ok: boolean; exact: boolean } {
   const x = normalizeCompanyName(customerName);
   const y = normalizeCompanyName(placeName);
   if (!x || !y) return { ok: false, exact: false };
   if (x === y) return { ok: true, exact: true };
+  if (strict) return { ok: looksLikeHeadOffice(customerName, placeName), exact: false };
   if (x.length <= 4) return { ok: y.startsWith(x), exact: false };
   return { ok: isSameCompany(customerName, placeName), exact: false };
 }
@@ -123,7 +141,8 @@ export async function searchPlace(
     let best: { hit: PlaceHit; score: number } | null = null;
     for (const p of places) {
       const displayName = (p.displayName as { text?: string })?.text ?? "";
-      const m = nameMatches(name, displayName);
+      // 県の手がかりが無い会社は、本社と見なせる名前だけ通す（別拠点の口コミを付けない）
+      const m = nameMatches(name, displayName, !hint);
       if (!m.ok) continue;
       const address = (p.formattedAddress as string) ?? "";
       const pf = parsePrefecture(address);
