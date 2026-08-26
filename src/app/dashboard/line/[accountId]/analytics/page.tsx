@@ -8,6 +8,10 @@ export const dynamic = "force-dynamic";
 // 流入経路分析：経路（セミナー枠・常設枠・不明）ごとに
 // 友だち数 → ブロック率 → クリック → 回答 → 予約 → 成約 を人数で並べる
 // ---------------------------------------------------------------
+function sinceDate(days: number): Date | null {
+  return days > 0 ? new Date(Date.now() - days * 86_400_000) : null;
+}
+
 type Row = { source: string; friends: number; blocked: number; clicked: number; formed: number; booked: number; converted: number; score: number };
 
 export default async function LineAnalyticsPage({
@@ -21,7 +25,7 @@ export default async function LineAnalyticsPage({
   const { days: daysParam = "90" } = await searchParams;
   const { account } = await loadAccountPage(accountId);
   const days = [30, 90, 365, 0].includes(Number(daysParam)) ? Number(daysParam) : 90;
-  const since = days > 0 ? new Date(Date.now() - days * 86_400_000) : null;
+  const since = sinceDate(days);
   const conversionTag = account.conversionTag?.trim() || "成約";
 
   const friends = await db.lineFriend.findMany({
