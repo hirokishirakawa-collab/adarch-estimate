@@ -32,7 +32,10 @@ function clientFromFolder(rawName: string): { client: string | null; reason?: st
   const br = n.match(/^[〈<【\[（(]([^〉>】\]）)]+)[〉>】\]）)]/);
   if (br) n = br[1];
   n = n.replace(/様$|さま$|御中$/, "").replace(/[_＿].*$/, "").replace(/\s*\d{4}年?.*$/, "").replace(/\(.*?\)|（.*?）/g, "").trim();
+  // 「北辰フーズ〉文鳥…」のように閉じ括弧だけ残った商品名は、括弧の前を会社名にする
+  n = n.split(/[〉>】\]]/)[0].trim();
   if (!n) return { client: null, reason: "空" };
+  if (/^従業員食堂/.test(n)) return { client: n, reason: "会社名ではない（目視）" };
   if (EXCLUDE.has(n)) return { client: n, reason: "会社名ではない（目視）" };
   if (ALIAS[n]) n = ALIAS[n];
   if (TITLE_RE.test(n) || TITLE_RE.test(name)) return { client: n, reason: "動画タイトル・素材名らしい" };
