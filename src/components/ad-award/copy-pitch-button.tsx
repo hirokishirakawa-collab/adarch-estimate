@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-/** 提案書に貼る一文をクリップボードへコピーする。文面はサーバー側で組み立て済み。 */
+/** 納品後に先方へ伝える一文をクリップボードへコピーする。文面はサーバー側で組み立て済み。 */
 export function CopyPitchButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -22,7 +22,7 @@ export function CopyPitchButton({ text }: { text: string }) {
       onClick={onClick}
       className="rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
     >
-      {copied ? "コピーしました" : "提案文をコピー"}
+      {copied ? "コピーしました" : "案内文をコピー"}
     </button>
   );
 }

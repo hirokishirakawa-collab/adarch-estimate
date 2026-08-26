@@ -56,7 +56,7 @@ export interface AdAward {
   /** 日程を確認した回の年 */
   verifiedYear: number | null;
   difficultyNote: string | null;
-  /** 提案書に貼れる一文 */
+  /** 納品後に先方へ「この賞に出しませんか」と伝えるときの材料（受賞後に何が起きるか） */
   pitchNote: string | null;
   confidence: AwardConfidence;
   winTier: AwardWinTier;

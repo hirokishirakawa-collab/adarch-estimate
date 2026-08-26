@@ -34,9 +34,9 @@ async function resolveOwnPrefectures(email: string | null | undefined): Promise<
     .filter((p, i, arr) => p && arr.indexOf(p) === i);
 }
 
-/** 提案書に貼る一文（コピー用）。裏の取れている項目だけを並べる */
+/** 納品後に先方へ「この作品、この賞に出しませんか」と伝えるときの一文（コピー用）。裏の取れている項目だけを並べる */
 function pitchText(a: AdAward, w: EntryWindow): string {
-  const parts = [`${a.name}（主催: ${a.organizer}）`];
+  const parts = [`${a.name}（主催: ${a.organizer}）に出しませんか`];
   if (a.entryPeriodRaw) parts.push(`応募: ${a.entryPeriodRaw}`);
   else parts.push(`応募: ${w.label}`);
   if (a.feeRaw) parts.push(`応募料: ${a.feeRaw}`);
@@ -115,7 +115,7 @@ export default async function AwardFinderPage({
         <div>
           <h2 className="text-lg font-bold text-zinc-900">広告賞ファインダー</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            制作物の箔付けに狙える広告賞を、地域・制作物の種類から探します（全国・地方・国際 {AD_AWARDS.length}件）
+            納品した作品を「この賞に出しませんか」と追加で提案するための一覧です。地域・制作物の種類から探せます（全国・地方・国際 {AD_AWARDS.length}件）
           </p>
         </div>
       </div>
@@ -129,7 +129,7 @@ export default async function AwardFinderPage({
           <span className="font-semibold">「日程は要確認」の賞は、応募前に主催の公式ページか電話で確認してください。</span>
           <br />
           <span className="font-semibold">◎</span> は地元の賞で応募すれば入賞圏（本部の見立て）。
-          提案では「◯◯賞へのエントリーを含めた制作」として、受賞後の地元紙・表彰式・受賞マークの活用まで一緒に出すと通りやすくなります。
+          使いどころは制作の前ではなく<span className="font-semibold">納品のあと</span>です。作品を渡した先に「せっかくなので◯◯賞に出しませんか」と追加で伝え、受賞後の地元紙・表彰式・受賞マークの使い道まで添えます。
         </p>
       </div>
 
@@ -256,7 +256,7 @@ export default async function AwardFinderPage({
 
                 {a.pitchNote && (
                   <p className="mt-2 rounded-lg bg-yellow-50 px-3 py-2 text-xs text-zinc-800 leading-relaxed">
-                    <span className="font-semibold">提案で使う: </span>
+                    <span className="font-semibold">先方へ伝える材料: </span>
                     {a.pitchNote}
                   </p>
                 )}
