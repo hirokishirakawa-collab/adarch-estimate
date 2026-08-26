@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getMockBranchId } from "@/lib/data/customers";
 import { logAudit } from "@/lib/audit";
+import { enrichCustomersAfterResponse } from "@/lib/clients/enqueue";
 import type { UserRole } from "@/types/roles";
 import type { CustomerStatus } from "@/generated/prisma/client";
 
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
   let imported = 0;
   let skipped = 0;
   const errors: string[] = [];
+  const createdIds: string[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const rowNum = i + 1;
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 顧客のみ登録（商談は顧客詳細から内容を入力して手動で作成する）
-      await db.customer.create({
+      const created = await db.customer.create({
         data: {
           name,
           contactName: (rows[i].contactName ?? "").trim() || null,
@@ -112,6 +114,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      createdIds.push(created.id);
       imported++;
     } catch (dbError) {
       // 生のDBエラーは外部に返さず、サーバー側ログにのみ記録する
@@ -120,6 +123,9 @@ export async function POST(req: NextRequest) {
       errors.push(`${rowNum}行目(${name}): 登録に失敗しました`);
     }
   }
+
+  // 取引先マップへ自動で追加（レスポンス後に順次取得）
+  enrichCustomersAfterResponse(createdIds);
 
   if (imported > 0) {
     logAudit({

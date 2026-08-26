@@ -27,7 +27,7 @@ interface Filters {
   q: string;
 }
 
-const EMPTY: Filters = { scope: "proven", region: "", prefecture: "", industry: "", size: "", rating: "", branch: "", worksOnly: false, q: "" };
+const EMPTY: Filters = { scope: "all", region: "", prefecture: "", industry: "", size: "", rating: "", branch: "", worksOnly: false, q: "" };
 
 type SortKey = "rating" | "works" | "reviews" | "name" | "size";
 const SORTS: { value: SortKey; label: string }[] = [
@@ -248,7 +248,7 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
         <div className="min-w-0">
           <h2 className="text-lg font-bold text-zinc-900">取引先マップ</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            グループ全体の取引先・制作実績あり企業を、地域・口コミ・会社の規模から眺めて傾向をつかむ画面です。写真は制作実績のサムネイルか Google の写真、口コミは Google の評価です
+            グループ全体の取引先・制作実績あり企業を、地域・口コミ・会社の規模から眺めて傾向をつかむ画面です。<br />★は <span className="font-semibold">Google マップの口コミ評価</span>（件数つき）、写真は制作実績のサムネイルか Google マップの写真です。新しく登録した顧客は自動で追加されます
           </p>
         </div>
         <div className="ml-auto flex items-center gap-1 rounded-lg bg-zinc-100 p-1 text-xs">
@@ -300,7 +300,7 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
         <BarList title="地域" items={byRegion} active={f.region} onPick={(v) => setF((p) => ({ ...p, region: v, prefecture: "" }))} order={[...REGIONS.map((r) => r.name), "不明"]} max={9} />
         <BarList title="業種" items={byIndustry} active={f.industry} onPick={(v) => set("industry", v)} max={8} />
         <BarList title="会社の規模（従業員数）" items={bySize} active={f.size} onPick={(v) => set("size", v)} order={SIZE_BANDS} />
-        <BarList title="Google 口コミ★" items={byRating} active={f.rating} onPick={(v) => set("rating", v)} order={[...RATING_BANDS, "口コミなし"]} />
+        <BarList title="Google マップの口コミ★" items={byRating} active={f.rating} onPick={(v) => set("rating", v)} order={[...RATING_BANDS, "口コミなし"]} />
         <BarList title="制作実績の年" items={byYear} active="" onPick={() => {}} order={byYear.map((y) => y.label)} max={12} />
         <BarList title="担当拠点" items={byBranch} active={f.branch} onPick={(v) => set("branch", v)} max={8} />
       </div>
@@ -333,7 +333,7 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
           {SIZE_BANDS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <select value={f.rating} onChange={(e) => set("rating", e.target.value)} className={selectClass}>
-          <option value="">口コミ: すべて</option>
+          <option value="">Google口コミ: すべて</option>
           {[...RATING_BANDS, "口コミなし"].map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <label className="flex items-center gap-1.5 text-xs text-zinc-600">
@@ -390,6 +390,7 @@ export function ClientsExplorer({ rows, isAdmin }: { rows: ClientRow[]; isAdmin:
                       <Stars rating={r.rating} />
                       <span className="font-semibold text-zinc-800 tabular-nums">{r.rating.toFixed(1)}</span>
                       <span className="text-zinc-400 tabular-nums">({r.ratingCount})</span>
+                      <span className="text-[10px] text-zinc-400">Google マップ</span>
                     </>
                   ) : (
                     <span className="text-zinc-400">口コミなし</span>
@@ -469,10 +470,10 @@ function DetailPanel({ r, onClose }: { r: ClientRow; onClose: () => void }) {
                 <>
                   <Stars rating={r.rating} />
                   <span className="font-bold text-zinc-900 tabular-nums">{r.rating.toFixed(1)}</span>
-                  <span className="text-zinc-500 tabular-nums">Google 口コミ {r.ratingCount}件</span>
+                  <span className="text-zinc-500 tabular-nums">Google マップの口コミ {r.ratingCount}件</span>
                 </>
               ) : (
-                <span className="text-zinc-400 text-xs">{r.placeChecked ? "Google に口コミがありません" : "口コミはまだ調べていません"}</span>
+                <span className="text-zinc-400 text-xs">{r.placeChecked ? "Google マップに口コミがありません" : "Google マップの口コミはまだ調べていません"}</span>
               )}
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs">
@@ -496,7 +497,7 @@ function DetailPanel({ r, onClose }: { r: ClientRow; onClose: () => void }) {
 
           {r.placeSummary && (
             <div className="rounded-xl bg-amber-50/70 border border-amber-100 px-3 py-2.5 text-xs text-amber-900 leading-relaxed">
-              <p className="font-semibold mb-0.5">Google の口コミ要約</p>
+              <p className="font-semibold mb-0.5">Google マップの口コミ要約（Google が自動生成した文）</p>
               {r.placeSummary}
             </div>
           )}

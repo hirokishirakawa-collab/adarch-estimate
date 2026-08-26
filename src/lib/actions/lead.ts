@@ -1,5 +1,6 @@
 "use server";
 
+import { enrichCustomersAfterResponse } from "@/lib/clients/enqueue";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
@@ -402,6 +403,9 @@ export async function convertLeadToCustomer(
 
       return c;
     });
+
+    // 取引先マップへ自動で追加（口コミ・写真・社内構成の取得はレスポンス後に回す）
+    enrichCustomersAfterResponse([customer.id]);
 
     // Chat通知
     const capturedName = lead.name;

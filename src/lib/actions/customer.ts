@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { sendCustomerNotification, notifyAdmins } from "@/lib/notifications";
 import { logAudit } from "@/lib/audit";
 import { getMockBranchId } from "@/lib/data/customers";
+import { enrichCustomersAfterResponse } from "@/lib/clients/enqueue";
 import type {
   ActivityType,
   DealStatus,
@@ -101,6 +102,8 @@ export async function createCustomer(
 
     customerId = customer.id;
     logAudit({ action: "customer_created", email, name: staffName, entity: "customer", entityId: customer.id, detail: name });
+    // 取引先マップへ自動で追加（口コミ・写真・社内構成の取得はレスポンス後に回す）
+    enrichCustomersAfterResponse([customer.id]);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[createCustomer] DB error:", msg, e);
