@@ -11,6 +11,7 @@ const TABS = [
   { seg: "/broadcasts", label: "一斉配信" },
   { seg: "/richmenus", label: "リッチメニュー" },
   { seg: "/booking", label: "予約" },
+  { seg: "/analytics", label: "分析" },
   { seg: "/settings", label: "設定" },
 ];
 
