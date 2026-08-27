@@ -527,7 +527,7 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-teal-500/80",
     items: [
       {
-        href: "https://calendar.app.google/DvCvNkUvw91Ytq9u8",
+        href: "https://calendar.app.google/pfFBZxmHbNFFp6cs5",
         label: "本部打ち合わせ予約",
         icon: CalendarCheck,
         minRole: "USER",
@@ -786,7 +786,7 @@ const ADMIN_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/admin/sales-overview", label: "代表別 営業ダッシュボード", icon: TrendingUp, minRole: "ADMIN" },
   { href: "/dashboard/partner-status", label: "稼働ステータス申告", icon: Activity, minRole: "MANAGER" },
   {
-    href: "https://calendar.app.google/DvCvNkUvw91Ytq9u8",
+    href: "https://calendar.app.google/pfFBZxmHbNFFp6cs5",
     label: "本部打ち合わせ予約",
     icon: CalendarCheck,
     minRole: "USER",

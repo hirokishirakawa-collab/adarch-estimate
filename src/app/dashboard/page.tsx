@@ -984,7 +984,7 @@ export default async function DashboardPage() {
           <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2">外部リンク</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {[
-              { href: "https://calendar.app.google/DvCvNkUvw91Ytq9u8", label: "本部打ち合わせ予約" },
+              { href: "https://calendar.app.google/pfFBZxmHbNFFp6cs5", label: "本部打ち合わせ予約" },
               { href: "https://drive.google.com/drive/folders/11CJPv-D_37Vn1zntRzI9Qqc2SV89fKPT?usp=drive_link", label: "実績フォルダ（Drive）" },
               { href: "https://drive.google.com/drive/folders/1p9QtqSbPrBAkof5-10jeusyG6T2y7cB8?usp=drive_link", label: "グループ運用データ（Drive）" },
             ].map((link) => (
