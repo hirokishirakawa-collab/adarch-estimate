@@ -168,7 +168,7 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
   const tiles = [
     { n: t?.approach ?? 0, wn: w?.approach ?? 0, l: "アプローチ" },
     { n: t?.deal ?? 0, wn: w?.deal ?? 0, l: "商談が動いた" },
-    { n: t?.won ?? 0, wn: w?.won ?? 0, l: "受注・加盟", hot: true },
+    { n: t?.won ?? 0, wn: w?.won ?? 0, l: "受注", hot: true },
     { n: t?.hq ?? 0, wn: w?.hq ?? 0, l: "本部・自動検出" },
   ];
 

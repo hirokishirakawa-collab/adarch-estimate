@@ -260,7 +260,9 @@ export async function GET() {
     for (const e of events.filter(pred)) {
       if (e.kind === "sent" || e.kind === "move" || e.kind === "log") c.approach++;
       else if (e.kind === "deal") c.deal++;
-      else if (e.kind === "won" || e.kind === "joined") c.won++;
+      // 加盟は「受注」に混ぜない（数字の枠は受注だけ＝2026-08-28 代表決定）。
+      // 本部が検出するイベントなので「本部・自動検出」に入る。
+      else if (e.kind === "won") c.won++;
       else c.hq++;
     }
     return c;
