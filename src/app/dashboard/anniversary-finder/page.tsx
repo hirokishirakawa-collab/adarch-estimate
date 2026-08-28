@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { PREFECTURES } from "@/lib/constants/crm";
@@ -126,9 +127,25 @@ export default async function AnniversaryFinderPage({
         <div>
           <h2 className="text-lg font-bold text-zinc-900">周年ファインダー</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            もうすぐ節目の周年を迎える会社を出します。記念広告・記念動画・記念誌の提案が通りやすいタイミングです
+            リード管理にある会社のうち、もうすぐ節目の周年を迎える会社を出しています。記念広告・記念動画・記念誌の提案が通りやすいタイミングです
           </p>
         </div>
+      </div>
+
+      {/* ── この画面は何か（新しい会社を集めてくる画面ではない、という線引き） */}
+      <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-xs text-zinc-700 leading-relaxed">
+        <p className="font-semibold text-zinc-900">この画面は「リード管理の絞り込み表示」です</p>
+        <p className="mt-1">
+          ここに出ている会社は<span className="font-semibold">すべて、すでに
+          <Link href="/dashboard/leads/list" className="font-semibold underline underline-offset-2">リード管理</Link>
+          に入っている会社</span>です。新しく会社を集めてくる画面ではなく、
+          手持ちのリードを「設立年」で並べ替えて、周年が近い順に見せているだけの画面です。
+          <br />
+          そのため<span className="font-semibold">CSVに書き出してリード管理へ取り込み直しても、全件「重複」でスキップされます</span>
+          （エラーではありません）。そのまま動くなら
+          <span className="font-semibold">「営業フォームへ」「メール送付へ」</span>
+          を使ってください。CSVは、他の代表へ渡す・Excelで加工するときのためのものです。
+        </p>
       </div>
 
       {/* ── 読み方（客先で外さないための線引き） */}

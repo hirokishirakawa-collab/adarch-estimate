@@ -81,6 +81,7 @@ function downloadCsv(rows: AnniversaryRow[]) {
 export function AnniversaryList({ rows }: { rows: AnniversaryRow[] }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [csvNoteShown, setCsvNoteShown] = useState(false);
   const allIds = useMemo(() => rows.map((r) => r.id), [rows]);
   const allChecked = rows.length > 0 && allIds.every((id) => selected.has(id));
   const count = selected.size;
@@ -109,6 +110,9 @@ export function AnniversaryList({ rows }: { rows: AnniversaryRow[] }) {
     const picked = rows.filter((r) => selected.has(r.id));
     if (picked.length === 0) return;
     downloadCsv(picked);
+    // 書き出した直後にだけ出す。「リード管理へ取り込み直せば増える」という
+    // 読み違いがここで起きるので、押した瞬間に打ち消しておく。
+    setCsvNoteShown(true);
   }
 
   return (
@@ -169,12 +173,35 @@ export function AnniversaryList({ rows }: { rows: AnniversaryRow[] }) {
             type="button"
             onClick={exportSelected}
             disabled={count === 0}
+            title="他の代表へ渡す・Excelで加工するためのCSVです。この会社はすでにリード管理に入っているので、同じOSへ取り込み直しても全件「重複」でスキップされます"
             className="rounded-lg bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             CSV書き出し{count > 0 ? `（${count}件）` : ""}
           </button>
         </div>
       </div>
+
+      {/* CSVを書き出した直後だけ出す注意書き */}
+      {csvNoteShown && (
+        <div className="px-4 pb-2.5">
+          <div className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+            <span className="text-zinc-500 text-sm leading-none mt-0.5">ℹ</span>
+            <div className="flex-1 text-xs text-zinc-700 leading-relaxed">
+              このCSVは<span className="font-bold">他の代表へ渡す・Excelで加工する</span>ためのものです。
+              ここに出ている会社はすでに
+              <Link href="/dashboard/leads/list" className="font-bold underline underline-offset-2">リード管理</Link>
+              に入っているので、<span className="font-bold">このOSへ取り込み直しても全件「重複」でスキップされます</span>（エラーではありません）。
+            </div>
+            <button
+              type="button"
+              onClick={() => setCsvNoteShown(false)}
+              className="shrink-0 text-xs text-zinc-400 hover:text-zinc-600"
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* アウトリーチ前の警告（メールアドレスが無い会社が選択に含まれるときだけ出す） */}
       {missingRows.length > 0 && (
