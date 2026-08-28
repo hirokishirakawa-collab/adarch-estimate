@@ -51,7 +51,7 @@ export async function addFriendTags(friendId: string, fresh: string[]): Promise<
   const clean = [...new Set(fresh.map((t) => t.trim()).filter(Boolean))];
   if (clean.length > 0) {
     const before = await db.lineFriend.findUnique({ where: { id: friendId }, select: { tags: true, accountId: true, account: { select: { scoreRules: true } } } });
-    await db.$executeRaw`UPDATE line_friends SET tags = ARRAY(SELECT DISTINCT x FROM unnest(tags || ${clean}::text[]) AS x), "updatedAt" = NOW() WHERE id = ${friendId}`;
+    await db.$executeRaw`UPDATE line_friends SET tags = ARRAY(SELECT DISTINCT x FROM unnest(tags || ${clean}::text[]) AS x) WHERE id = ${friendId}`;
     // タグごとの加点（点数表にあるタグだけ）＋イベント記録
     if (before) {
       const rules = parseScoreRules(before.account.scoreRules);
