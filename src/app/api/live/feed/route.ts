@@ -119,9 +119,19 @@ export async function GET() {
         orderBy: { movedAt: "desc" },
         take: 30,
       }),
+      // 本部宛ての予約はこの面に出さない（加盟面談が混じるため＝2026-08-28 代表決定）。
+      // 拠点のLINEアカウントから作られたホストの予約＝拠点自身の商談だけを流す。
       db.booking.findMany({
-        where: { createdAt: { gte: since }, status: "CONFIRMED" },
-        select: { createdAt: true, company: true },
+        where: {
+          createdAt: { gte: since },
+          status: "CONFIRMED",
+          host: { lineAccountId: { not: null } },
+        },
+        select: {
+          createdAt: true,
+          company: true,
+          host: { select: { lineAccountId: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: 20,
       }),
@@ -193,11 +203,30 @@ export async function GET() {
       ref: { kind: "move", id: m.id },
     });
   }
+  // 予約ホストの LINE アカウントは Prisma のリレーションを張っていないので、
+  // 拠点名を出すぶんだけ後から引く（該当が無いときは問い合わせない）。
+  const lineAccountIds = Array.from(
+    new Set(bookings.map((b) => b.host.lineAccountId).filter((id): id is string => !!id))
+  );
+  const lineAccounts = lineAccountIds.length
+    ? await db.lineAccount.findMany({
+        where: { id: { in: lineAccountIds } },
+        select: { id: true, branch: { select: { name: true } } },
+      })
+    : [];
+  const branchOfLineAccount = new Map(
+    lineAccounts.map((a) => [a.id, a.branch?.name ?? null])
+  );
   for (const b of bookings) {
+    const branchName = b.host.lineAccountId
+      ? branchOfLineAccount.get(b.host.lineAccountId)
+      : null;
+    // 拠点が特定できないもの（本部のLINEアカウント）は出さない
+    if (!branchName) continue;
     events.push({
       at: b.createdAt.toISOString(),
       kind: "booking",
-      actor: "本部",
+      actor: branchName,
       prefs: [],
       text: `${b.company ? `「${b.company}」から` : ""}面談予約が入りました`,
     });
