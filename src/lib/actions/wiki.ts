@@ -91,6 +91,7 @@ export async function updateArticle(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
+  if (!(await canModifyArticle(info, articleId))) return { error: "本部の記事は編集できません" };
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "タイトルは必須です" };
@@ -124,12 +125,20 @@ export async function updateArticle(
   redirect(`/dashboard/wiki/${articleId}`);
 }
 
+/** 本部（branch_hq）の記事は全拠点が読めるが、編集・削除は本部（ADMIN）のみ */
+async function canModifyArticle(info: { role: string }, articleId: string): Promise<boolean> {
+  if (info.role === "ADMIN") return true;
+  const a = await db.wikiArticle.findUnique({ where: { id: articleId }, select: { branchId: true } });
+  return !!a && a.branchId !== "branch_hq";
+}
+
 // ---------------------------------------------------------------
 // Wiki記事を削除する
 // ---------------------------------------------------------------
 export async function deleteArticle(articleId: string): Promise<void> {
   const info = await getSessionInfo();
   if (!info) return;
+  if (!(await canModifyArticle(info, articleId))) return;
 
   try {
     await db.wikiArticle.delete({ where: { id: articleId } });

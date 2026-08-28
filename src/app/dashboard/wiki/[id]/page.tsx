@@ -21,11 +21,13 @@ export default async function WikiArticlePage({ params }: PageProps) {
   const email = session?.user?.email ?? "";
   const userBranchId = getMockBranchId(email, role);
 
+  // 本部（branch_hq）の記事＝ヘルプガイドは全拠点が読める（編集・削除は本部＝ADMINのみ）
   const where =
-    role === "ADMIN" || !userBranchId ? { id } : { id, branchId: userBranchId };
+    role === "ADMIN" || !userBranchId ? { id } : { id, branchId: { in: [userBranchId, "branch_hq"] } };
 
   const article = await db.wikiArticle.findFirst({ where, include: { tags: true } });
   if (!article) notFound();
+  const canEdit = role === "ADMIN" || !userBranchId || article.branchId === userBranchId;
 
   const fmt = (d: Date) =>
     new Intl.DateTimeFormat("ja-JP", {
@@ -80,7 +82,7 @@ export default async function WikiArticlePage({ params }: PageProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          {canEdit && <div className="flex items-center gap-2 flex-shrink-0">
             <Link
               href={`/dashboard/wiki/${article.id}/edit`}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"
@@ -89,7 +91,7 @@ export default async function WikiArticlePage({ params }: PageProps) {
               編集
             </Link>
             <WikiDeleteButton action={deleteAction} />
-          </div>
+          </div>}
         </div>
       </div>
 

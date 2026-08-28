@@ -19,7 +19,8 @@ export default async function WikiPage({ searchParams }: PageProps) {
   const userBranchId = getMockBranchId(email, role);
 
   const where: Prisma.WikiArticleWhereInput = {
-    ...(role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId }),
+    // 本部（branch_hq）の記事＝ヘルプガイドは全拠点が読める
+    ...(role === "ADMIN" || !userBranchId ? {} : { branchId: { in: [userBranchId, "branch_hq"] } }),
     ...(q
       ? {
           OR: [
