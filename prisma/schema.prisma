@@ -4431,6 +4431,7 @@ model LineEntryPoint {
   startsAt    DateTime? // 開催開始（自動タグの時間帯＝開始30分前〜終了2時間後）
   endsAt      DateTime?
   askOnFollow Boolean   @default(true) // 1通目のボタン候補に出す
+  keyword     String? // 合言葉（QRを「この文が入力済みのトーク画面が開くURL」にし、受信文が一致したらこの枠に紐づける）
   isActive    Boolean   @default(true)
   followCount Int       @default(0) // この枠に紐づいた友だち追加数
 

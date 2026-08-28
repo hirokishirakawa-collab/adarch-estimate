@@ -520,11 +520,13 @@ export async function saveLineEntryPoint(_prev: Result | null, fd: FormData): Pr
   const startsAt = parseJstLocal(str(fd, "startsAt"));
   const endsAt = parseJstLocal(str(fd, "endsAt"));
   const askOnFollow = fd.get("askOnFollow") === "on";
+  const keyword = str(fd, "keyword").trim().slice(0, 60) || null;
   if (!name) return { error: "セミナー名を入れてください" };
+  if (keyword && keyword.length < 4) return { error: "合言葉は4文字以上にしてください（通常の会話と間違えないため）" };
   if (str(fd, "startsAt") && !startsAt) return { error: "開始日時の形式が不正です" };
   if (endsAt && startsAt && endsAt < startsAt) return { error: "終了は開始より後にしてください" };
 
-  const data = { name, tag, startsAt, endsAt, askOnFollow };
+  const data = { name, tag, startsAt, endsAt, askOnFollow, keyword };
   if (id) {
     const r = await db.lineEntryPoint.updateMany({ where: { id, accountId }, data });
     if (r.count === 0) return { error: "枠が見つかりません" };

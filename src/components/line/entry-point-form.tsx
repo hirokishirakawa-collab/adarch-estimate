@@ -17,6 +17,7 @@ export type EntryPointInput = {
   startsAt: string; // datetime-local（JST）
   endsAt: string;
   askOnFollow: boolean;
+  keyword?: string;
 };
 
 export function EntryPointForm({ accountId, initial, onClose }: { accountId: string; initial?: EntryPointInput; onClose?: () => void }) {
@@ -66,6 +67,13 @@ export function EntryPointForm({ accountId, initial, onClose }: { accountId: str
           <label className={labelCls}>終了日時（空なら開始+2時間）</label>
           <input name="endsAt" type="datetime-local" defaultValue={initial?.endsAt ?? ""} className={inputCls} />
         </div>
+      </div>
+      <div>
+        <label className={labelCls}>合言葉（DM・チラシなど地域別・媒体別にQRを分けたいとき）</label>
+        <input name="keyword" defaultValue={initial?.keyword ?? ""} className={inputCls} placeholder="例: 萩市のDMを拝見しました" />
+        <p className="text-[11px] text-zinc-400 mt-1">
+          入れると、この枠のQRが「読み取り → 友だち追加 → この文が入力済みのトーク画面が開く」URLになります。相手が送信を押した時点で、時間帯に関係なくこの枠のタグが付きます。
+        </p>
       </div>
       <label className="text-xs text-zinc-700 flex items-center gap-1.5">
         <input type="checkbox" name="askOnFollow" defaultChecked={initial?.askOnFollow ?? true} />

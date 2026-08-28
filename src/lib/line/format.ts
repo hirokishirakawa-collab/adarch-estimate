@@ -34,6 +34,18 @@ export function addFriendUrl(basicId: string | null | undefined): string | null 
   return `https://line.me/R/ti/p/${id}`;
 }
 
+/** 「この文が入力済みのトーク画面が開く」LINE公式URL（未追加なら友だち追加を挟む）。合言葉QR用 */
+export function oaMessageUrl(basicId: string | null | undefined, text: string): string | null {
+  if (!basicId || !text.trim()) return null;
+  const id = basicId.startsWith("@") ? basicId : `@${basicId}`;
+  return `https://line.me/R/oaMessage/${encodeURIComponent(id)}/?${encodeURIComponent(text.trim())}`;
+}
+
+/** 流入枠のQRに入れるURL：合言葉があれば oaMessage、なければ通常の友だち追加URL */
+export function entryPointUrl(basicId: string | null | undefined, ep: { keyword?: string | null }): string | null {
+  return ep.keyword?.trim() ? oaMessageUrl(basicId, ep.keyword) : addFriendUrl(basicId);
+}
+
 export const TRIGGER_LABEL: Record<string, string> = {
   FOLLOW: "友だち追加で開始",
   TAG: "タグが付いたら開始",

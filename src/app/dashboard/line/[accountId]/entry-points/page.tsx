@@ -5,7 +5,7 @@ import { AccountHeader } from "@/components/line/account-header";
 import { NewEntryPointToggle, EntryPointEditToggle } from "@/components/line/entry-point-form";
 import { ActionButton, ConfirmButton } from "@/components/line/action-buttons";
 import { deleteLineEntryPoint, toggleLineEntryPoint } from "@/lib/actions/line";
-import { addFriendUrl, fmtJst } from "@/lib/line/format";
+import { addFriendUrl, entryPointUrl, fmtJst } from "@/lib/line/format";
 import { entryPointWindow } from "@/lib/line/service";
 import { qrSvg } from "@/lib/line/qr";
 
@@ -23,6 +23,12 @@ export default async function LineEntryPointsPage({ params }: { params: Promise<
   const eps = await db.lineEntryPoint.findMany({ where: { accountId }, orderBy: [{ isActive: "desc" }, { startsAt: "desc" }, { createdAt: "desc" }] });
   const url = addFriendUrl(account.basicId);
   const svg = url ? await qrSvg(url, 160) : null;
+  // 合言葉のある枠は枠ごとに別URL（oaMessage）→ 別QR
+  const epQr = new Map<string, { url: string; svg: string }>();
+  for (const ep of eps) {
+    const u = ep.keyword ? entryPointUrl(account.basicId, ep) : null;
+    if (u) epQr.set(ep.id, { url: u, svg: await qrSvg(u, 160) });
+  }
   const now = new Date();
 
   return (
@@ -31,6 +37,7 @@ export default async function LineEntryPointsPage({ params }: { params: Promise<
       <div className="flex items-center justify-between flex-wrap gap-2">
         <p className="text-xs text-zinc-500">
           セミナーごとに枠を登録 → 当日はQRを映す → 追加した人に自動でタグ → 「タグが付いたら開始」のステップ配信でお礼・資料・予約案内まで自動。
+          DM・チラシなど時間帯で判定できない導線は「合言葉」を入れると、枠ごとに別のQRになります。
         </p>
         <NewEntryPointToggle accountId={accountId} />
       </div>
@@ -47,13 +54,15 @@ export default async function LineEntryPointsPage({ params }: { params: Promise<
         <div className="grid md:grid-cols-2 gap-3">
           {eps.map((ep) => {
             const w = entryPointWindow(ep);
-            const live = w ? now >= w.start && now <= w.end : true;
+            const own = epQr.get(ep.id);
+            const live = own ? true : w ? now >= w.start && now <= w.end : true;
+            const cardSvg = own?.svg ?? svg;
             return (
               <div key={ep.id} className="bg-white rounded-xl border border-zinc-200 p-4 flex gap-4">
                 <div className="shrink-0 w-[120px]">
-                  {svg ? (
+                  {cardSvg ? (
                     <Link href={`/dashboard/line/${accountId}/entry-points/${ep.id}/qr`} title="大きく表示（スライド用）">
-                      <div className="w-[120px] h-[120px] [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: svg }} />
+                      <div className="w-[120px] h-[120px] [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: cardSvg }} />
                     </Link>
                   ) : (
                     <div className="w-[120px] h-[120px] bg-zinc-100 rounded" />
@@ -68,13 +77,19 @@ export default async function LineEntryPointsPage({ params }: { params: Promise<
                     <span className={`text-[10px] rounded px-1.5 ${!ep.isActive ? "bg-zinc-100 text-zinc-500" : live ? "bg-emerald-50 text-emerald-700" : "bg-zinc-50 text-zinc-500"}`}>
                       {!ep.isActive ? "停止" : live ? "自動タグ 有効中" : "待機"}
                     </span>
+                    {own && <span className="text-[10px] rounded px-1.5 bg-sky-50 text-sky-700">合言葉QR</span>}
                   </p>
+                  {own && (
+                    <p className="text-[11px] text-zinc-500 break-all">
+                      合言葉「{ep.keyword}」 ・ QRのURL: <code className="bg-zinc-100 rounded px-1 select-all">{own.url}</code>
+                    </p>
+                  )}
                   <p className="text-[11px] text-zinc-500">
                     タグ <code className="bg-zinc-100 rounded px-1">{ep.tag}</code>
                     {ep.askOnFollow ? " ・ 1通目のボタン候補" : ""}
                   </p>
                   <p className="text-[11px] text-zinc-500">
-                    {ep.startsAt ? `${fmtJst(ep.startsAt)} 〜 ${fmtJst(ep.endsAt)}` : "常設（時間帯なし）"}
+                    {ep.startsAt ? `${fmtJst(ep.startsAt)} 〜 ${fmtJst(ep.endsAt)}` : own ? "常設（合言葉で判定）" : "常設（時間帯なし・ボタン選択のみ）"}
                     {w && <span className="text-zinc-400">（自動タグ: {fmtJst(w.start)}〜{fmtJst(w.end)}）</span>}
                   </p>
                   <p className="text-xs text-zinc-800">追加 <b className="tabular-nums">{ep.followCount}</b> 人</p>
@@ -88,7 +103,7 @@ export default async function LineEntryPointsPage({ params }: { params: Promise<
                     />
                     <EntryPointEditToggle
                       accountId={accountId}
-                      initial={{ id: ep.id, name: ep.name, tag: ep.tag, startsAt: toLocalInput(ep.startsAt), endsAt: toLocalInput(ep.endsAt), askOnFollow: ep.askOnFollow }}
+                      initial={{ id: ep.id, name: ep.name, tag: ep.tag, startsAt: toLocalInput(ep.startsAt), endsAt: toLocalInput(ep.endsAt), askOnFollow: ep.askOnFollow, keyword: ep.keyword ?? "" }}
                     />
                     <ConfirmButton
                       label="削除"

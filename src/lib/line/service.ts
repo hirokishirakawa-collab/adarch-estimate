@@ -384,7 +384,7 @@ async function onUnfollow(account: LineAccount, userId: string): Promise<void> {
 }
 
 async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent): Promise<void> {
-  const friend = await upsertFriend(account, userId);
+  let friend = await upsertFriend(account, userId);
   const m = ev.message!;
   // LINEの再送で同じメッセージが二重に届いた場合は捨てる
   if (m.id && (await db.lineMessage.findFirst({ where: { friendId: friend.id, lineMessageId: m.id }, select: { id: true } }))) return;
@@ -407,8 +407,25 @@ async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent)
     }),
   ]);
 
-  // 返信は replyToken 1回にまとめる（自動返信＋キーワード返信・最大5通）
+  // 返信は replyToken 1回にまとめる（合言葉の即時ステップ＋自動返信＋キーワード返信・最大5通）
   const replies: { body: string; via: string }[] = [];
+  const advances: { id: string; step: LineScenarioStep }[] = [];
+
+  // 合言葉：流入枠のQR（oaMessage URL）から送られた文が一致したら、その枠に紐づけてタグを付ける
+  //   → 「タグが付いたら開始」の0日後ステップは replyToken（無料枠）で一緒に返す
+  if (m.type === "text" && body) {
+    const eps = await db.lineEntryPoint.findMany({ where: { accountId: account.id, isActive: true, keyword: { not: null } } });
+    const norm = body.replace(/\s+/g, "");
+    const ep = eps.find((e) => e.keyword && norm.includes(e.keyword.replace(/\s+/g, "")));
+    if (ep) {
+      friend = await applyEntryPoint(friend, ep);
+      for (const { enrollment, step } of (await dueStepsFor(friend.id)).slice(0, 3)) {
+        replies.push({ body: await renderForFriend(step.text, friend), via: `scenario:${step.id}` });
+        advances.push({ id: enrollment.id, step });
+      }
+    }
+  }
+
   if (account.autoReplyText?.trim()) {
     replies.push({ body: await renderForFriend(account.autoReplyText, friend), via: "auto" });
   }
@@ -435,6 +452,7 @@ async function onMessage(account: LineAccount, userId: string, ev: WebhookEvent)
     const batch = replies.slice(0, 5);
     await replyMessage(tokenOf(account), ev.replyToken, batch.map((r) => text(r.body)));
     for (const r of batch) await logOut(friend.id, r.body, r.via);
+    for (const a of advances) if (batch.some((r) => r.via === `scenario:${a.step.id}`)) await advanceEnrollment(a.id, a.step);
   }
 
   addScore(friend.id, "message").catch(() => {});
