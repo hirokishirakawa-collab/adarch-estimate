@@ -32,19 +32,21 @@ export interface AnniversaryRow {
   isMilestone: boolean;
 }
 
+// 見出しはリード管理のCSVインポートがそのまま読める名前に揃えている
+// （会社名／電話番号／WebサイトURL／エリア）。名前を変えると取り込みで落ちる。
 const CSV_COLUMNS: { header: string; pick: (r: AnniversaryRow) => string | number | null }[] = [
-  { header: "社名", pick: (r) => r.name },
+  { header: "会社名", pick: (r) => r.name },
   { header: "周年", pick: (r) => `${r.annivYears}周年` },
   { header: "迎える年", pick: (r) => r.annivOnYear },
   { header: "迎える月", pick: (r) => r.annivOnMonth },
   { header: "節目", pick: (r) => (r.isMilestone ? "◎" : "○") },
-  { header: "地域", pick: (r) => r.area },
+  { header: "エリア", pick: (r) => r.area },
   { header: "住所", pick: (r) => r.address },
   { header: "業種", pick: (r) => r.industry },
   { header: "従業員数", pick: (r) => r.employeeCount },
-  { header: "電話", pick: (r) => r.phone },
+  { header: "電話番号", pick: (r) => r.phone },
   { header: "メール", pick: (r) => r.email },
-  { header: "Webサイト", pick: (r) => r.websiteUrl },
+  { header: "WebサイトURL", pick: (r) => r.websiteUrl },
   { header: "設立年", pick: (r) => r.foundedYear },
   { header: "設立月", pick: (r) => r.foundedMonth },
   { header: "設立の原文", pick: (r) => r.foundedRaw },
