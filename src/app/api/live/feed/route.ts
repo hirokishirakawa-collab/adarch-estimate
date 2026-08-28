@@ -46,9 +46,7 @@ export interface LiveEvent {
     | "won"
     | "log"
     | "move"
-    | "lead"
     | "booking"
-    | "joined"
     | "tender";
   actor: string; // 拠点名・会社名・「本部」
   prefs: string[];
@@ -70,7 +68,7 @@ export async function GET() {
 
   const since = new Date(Date.now() - WINDOW_DAYS * 86400000);
 
-  const [sent, deals, dealLogs, moves, leads, bookings, joined, tenders] =
+  const [sent, deals, dealLogs, moves, bookings, tenders] =
     await Promise.all([
       db.autoSalesSentDomain.findMany({
         where: { sentAt: { gte: since } },
@@ -121,23 +119,11 @@ export async function GET() {
         orderBy: { movedAt: "desc" },
         take: 30,
       }),
-      db.lpView.findMany({
-        where: { createdAt: { gte: since }, event: "lead" },
-        select: { createdAt: true },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-      }),
       db.booking.findMany({
         where: { createdAt: { gte: since }, status: "CONFIRMED" },
         select: { createdAt: true, company: true },
         orderBy: { createdAt: "desc" },
         take: 20,
-      }),
-      db.groupCompany.findMany({
-        where: { createdAt: { gte: since }, isActive: true },
-        select: { createdAt: true, name: true, prefecture: true },
-        orderBy: { createdAt: "desc" },
-        take: 10,
       }),
       db.tender.findMany({
         where: { fitCheckedAt: { gte: since }, fit: "MATCH" },
@@ -207,15 +193,6 @@ export async function GET() {
       ref: { kind: "move", id: m.id },
     });
   }
-  for (const l of leads) {
-    events.push({
-      at: l.createdAt.toISOString(),
-      kind: "lead",
-      actor: "本部",
-      prefs: [],
-      text: "加盟開発LPに資料請求が届きました",
-    });
-  }
   for (const b of bookings) {
     events.push({
       at: b.createdAt.toISOString(),
@@ -223,15 +200,6 @@ export async function GET() {
       actor: "本部",
       prefs: [],
       text: `${b.company ? `「${b.company}」から` : ""}面談予約が入りました`,
-    });
-  }
-  for (const g of joined) {
-    events.push({
-      at: g.createdAt.toISOString(),
-      kind: "joined",
-      actor: "本部",
-      prefs: prefsIn(g.prefecture),
-      text: `${g.name} がグループに加盟しました`,
     });
   }
   for (const t of tenders) {
@@ -260,8 +228,7 @@ export async function GET() {
     for (const e of events.filter(pred)) {
       if (e.kind === "sent" || e.kind === "move" || e.kind === "log") c.approach++;
       else if (e.kind === "deal") c.deal++;
-      // 加盟は「受注」に混ぜない（数字の枠は受注だけ＝2026-08-28 代表決定）。
-      // 本部が検出するイベントなので「本部・自動検出」に入る。
+      // 加盟はこの面に出さない（数字にもフィードにも載せない＝2026-08-28 代表決定）
       else if (e.kind === "won") c.won++;
       else c.hq++;
     }

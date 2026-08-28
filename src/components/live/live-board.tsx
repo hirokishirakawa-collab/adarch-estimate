@@ -74,9 +74,7 @@ const KIND_META: Record<string, { label: string; cls: string }> = {
   won: { label: "受注", cls: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10" },
   log: { label: "活動", cls: "text-sky-300 border-sky-500/30 bg-sky-500/10" },
   move: { label: "動き", cls: "text-sky-300 border-sky-500/30 bg-sky-500/10" },
-  lead: { label: "資料請求", cls: "text-amber-300 border-amber-500/30 bg-amber-500/10" },
   booking: { label: "面談予約", cls: "text-amber-300 border-amber-500/30 bg-amber-500/10" },
-  joined: { label: "新規加盟", cls: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10" },
   tender: { label: "入札○", cls: "text-violet-300 border-violet-500/30 bg-violet-500/10" },
 };
 
@@ -336,7 +334,7 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
                   <div className="min-w-0 text-[12.5px] leading-relaxed">
                     <span className="text-zinc-400">{e.actor}</span>
                     <span className="text-zinc-600 mx-1.5">›</span>
-                    <span className={e.kind === "won" || e.kind === "joined" ? "text-emerald-200" : "text-zinc-200"}>
+                    <span className={e.kind === "won" ? "text-emerald-200" : "text-zinc-200"}>
                       {e.text}
                     </span>
                   </div>
