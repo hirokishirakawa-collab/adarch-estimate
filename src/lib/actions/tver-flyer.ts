@@ -240,7 +240,8 @@ export async function generateFlyerCatchCopy(requestId: string): Promise<{ text?
   try {
     const res = await client.messages.create({
       model: "claude-sonnet-5",
-      max_tokens: 300,
+      thinking: { type: "disabled" }, // 既定の思考モードで max_tokens を使い切ると本文が空になる
+      max_tokens: 600,
       messages: [{ role: "user", content: prompt }],
     });
     const text = res.content
