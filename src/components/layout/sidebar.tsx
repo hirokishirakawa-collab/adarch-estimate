@@ -506,6 +506,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Megaphone,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/tver-flyer",
+        label: "TVerチラシ制作サポート",
+        icon: Tv2,
+        minRole: "MANAGER",
+      },
     ],
   },
 
@@ -762,6 +768,7 @@ const DELIVER_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/tver-review", label: "TVer業態考査申請", icon: Tv2, minRole: "USER" },
   { href: "/dashboard/tver-campaign", label: "TVer配信申請", icon: Tv2, minRole: "USER" },
   { href: "/dashboard/tver-creative-review", label: "TVer クリエイティブ考査申請", icon: Tv2, minRole: "USER" },
+  { href: "/dashboard/tver-flyer", label: "TVerチラシ制作サポート", icon: Tv2, minRole: "MANAGER" },
 ];
 
 // ④ 経理: 請求・支払・ロイヤリティ・月次報告

@@ -203,6 +203,13 @@ enum MediaRequestStatus {
   CANCELLED // キャンセル
 }
 
+enum TverFlyerStatus {
+  PENDING // 依頼受付
+  REVIEWING // 本部作成中
+  DELIVERED // 納品済み
+  CANCELLED // 取り下げ
+}
+
 enum AdvertiserReviewStatus {
   PENDING // 審査中（デフォルト）
   APPROVED // 承認
@@ -315,6 +322,7 @@ model Branch {
   estimations           Estimation[]
   collaborationRequests GroupCollaborationRequest[]
   mediaRequests         MediaRequest[]
+  tverFlyerRequests     TverFlyerRequest[]
   advertiserReviews     AdvertiserReview[]
   tverCampaigns         TverCampaign[]
   tverCreativeReviews   TverCreativeReview[]
@@ -395,6 +403,7 @@ model User {
   groupInvoices               GroupInvoice[]
   collaborationRequests       GroupCollaborationRequest[]
   mediaRequests               MediaRequest[]
+  tverFlyerRequests           TverFlyerRequest[]
   createdAdvertiserReviews    AdvertiserReview[]          @relation("CreatedAdvertiserReview")
   reviewedAdvertiserReviews   AdvertiserReview[]          @relation("ReviewedAdvertiserReview")
   tverCampaigns               TverCampaign[]
@@ -1375,6 +1384,46 @@ model MediaRequest {
   @@index([status])
   @@index([branchId, createdAt(sort: Desc)])
   @@map("media_requests")
+}
+
+// ==============================================================
+// TverFlyerRequest（本部チラシ制作サポート）
+// ==============================================================
+
+/// 加盟代表が商圏（市区町村）を指定して本部へ依頼 → 本部がTVer商圏網羅プランの数値入りチラシ(A4)を作成し納品する。
+/// 数値は src/lib/tver/plan.ts で都度計算する（PDFは保存せず納品後に都度レンダリング）。
+model TverFlyerRequest {
+  id                String          @id @default(cuid())
+  municipalityCodes String[] // 選択した市区町村コード（tver-municipalities.ts）
+  prefName          String // 都道府県名
+  areaLabel         String // 表示用エリア名（例: 唐津市 ／ 高松市・丸亀市）
+  clientName        String? // クライアント名（任意）
+  industry          String? // 業種（任意・AIキャッチ生成に使用）
+  adSeconds         Int             @default(15) // CM秒数 15/30/60
+  budget            Int? // 予算指定（媒体費・円）。指定時はカバー率を主役にする
+  note              String?         @db.Text // 依頼メモ
+  status            TverFlyerStatus @default(PENDING)
+
+  // ---- 本部が仕上げる内容 ----
+  monthlyOverride Int? // 月額の手直し（円）。null=計算値
+  totalOverride   Int? // 3ヶ月総額の手直し（円）。null=計算値
+  catchCopy       String? @db.Text // 業種別の一言（AI生成→本部が手直し可）
+  issuerName      String? // チラシの発行者（拠点社名）
+  issuerContact   String? // 担当・電話・メール（1行）
+  replyNote       String? @db.Text // 代表への申し送り
+  deliveredAt     DateTime?
+
+  branchId    String?
+  branch      Branch? @relation(fields: [branchId], references: [id])
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([status])
+  @@index([branchId, createdAt(sort: Desc)])
+  @@map("tver_flyer_requests")
 }
 
 // ==============================================================
