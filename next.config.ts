@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     },
   },
   // nodemailer など Node.js 専用モジュールをクライアントバンドルから除外
-  serverExternalPackages: ["nodemailer", "googleapis", "fluent-ffmpeg", "sharp"],
+  serverExternalPackages: ["nodemailer", "googleapis", "fluent-ffmpeg", "sharp", "puppeteer-core"],
   // Google アカウントのアバター画像を next/image で表示するため許可
   images: {
     remotePatterns: [

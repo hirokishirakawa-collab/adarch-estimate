@@ -17,6 +17,10 @@ FROM node:24-alpine
 RUN apk add --no-cache openssl ffmpeg python3 py3-pip py3-numpy py3-pillow \
     && pip3 install --break-system-packages yt-dlp scipy
 
+# Chromium（HTML→PDF: TVerチラシ制作サポート等）。puppeteer-core から CHROME_PATH で起動する
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont font-noto-cjk
+ENV CHROME_PATH=/usr/bin/chromium-browser
+
 WORKDIR /app
 
 COPY --from=builder /app/.next/standalone ./

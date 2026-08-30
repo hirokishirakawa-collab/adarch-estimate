@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionInfo, getBranchFilter } from "@/lib/session";
 import { buildFlyerData } from "@/lib/tver/flyer-data";
+import { buildFlyerHtml } from "@/lib/tver/flyer-html";
+import { renderHtmlToPdf } from "@/lib/pdf/chrome";
 
 export const runtime = "nodejs";
 
@@ -23,12 +25,21 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   if (!data) return new NextResponse("商圏データが見つかりません", { status: 422 });
 
   try {
-    const { renderToBuffer } = await import("@react-pdf/renderer");
-    const React = (await import("react")).default;
-    const { TverFlyerDocument } = await import("@/components/tver-flyer/tver-flyer-pdf");
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const buffer = await renderToBuffer(React.createElement(TverFlyerDocument, { data }) as any);
+    // 本線: HTML → Chrome headless（資料デッキと同じデザイン言語）。Chromeが無い環境では react-pdf 版にフォールバック
+    let buffer: Buffer | null = null;
+    try {
+      buffer = await renderHtmlToPdf(buildFlyerHtml(data));
+    } catch (e) {
+      console.error("[tver-flyer-pdf] chrome render failed, falling back:", e instanceof Error ? e.message : e);
+    }
+    if (!buffer) {
+      console.warn("[tver-flyer-pdf] Chrome not available — using react-pdf fallback");
+      const { renderToBuffer } = await import("@react-pdf/renderer");
+      const React = (await import("react")).default;
+      const { TverFlyerDocument } = await import("@/components/tver-flyer/tver-flyer-pdf");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      buffer = await renderToBuffer(React.createElement(TverFlyerDocument, { data }) as any);
+    }
 
     const isPreview = req.nextUrl.searchParams.get("preview") === "1";
     const filename = `TVer_${data.areaLabel}_まるごとプラン${isPreview ? "_下書き" : ""}.pdf`;
