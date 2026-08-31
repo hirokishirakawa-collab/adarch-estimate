@@ -33,6 +33,7 @@ const MEDIA_BUCKET = "media-files";
 const CARD_IMAGE_BUCKET = "card-images";
 const VIDEO_REVIEW_BUCKET = "video-reviews";
 const CREATOR_AVATAR_BUCKET = "creator-avatars";
+const SIGNAGE_BUCKET = "signage-assets"; // デジタルサイネージ素材（動画・画像・サムネ）
 
 // ---------------------------------------------------------------
 // 共通ユーティリティ
@@ -285,4 +286,24 @@ export async function getReviewFrameUrl(
 ): Promise<string | null> {
   if (!filePath) return null;
   return `/api/storage/${VIDEO_REVIEW_BUCKET}/${filePath}`;
+}
+
+// ---------------------------------------------------------------
+// デジタルサイネージ素材（配信は /api/signage/d/<token>/asset/<id> でトークン検証）
+// ---------------------------------------------------------------
+export const SIGNAGE_ASSET_BUCKET = SIGNAGE_BUCKET;
+
+/** Buffer を signage-assets に保存し、保存ファイル名を返す（URLではなく名前） */
+export async function saveSignageAsset(
+  originalName: string,
+  data: Buffer | Uint8Array,
+  fallbackExt = "bin"
+): Promise<string> {
+  const fileName = generateFileName(originalName, fallbackExt);
+  await saveFile(SIGNAGE_BUCKET, fileName, data);
+  return fileName;
+}
+
+export function signageAssetPath(storedName: string): string {
+  return getStorageFilePath(SIGNAGE_BUCKET, storedName);
 }

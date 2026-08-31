@@ -343,6 +343,11 @@ model Branch {
   // LINE公式アカウント連携
   lineAccounts LineAccount[]
 
+  // デジタルサイネージ
+  signageDevices   SignageDevice[]
+  signageAssets    SignageAsset[]
+  signagePlaylists SignagePlaylist[]
+
   @@map("branches")
 }
 
@@ -394,6 +399,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
+  signageDevicesCreated SignageDevice[] @relation("SignageDeviceCreatedBy")
+  signageAssetsUploaded SignageAsset[]  @relation("SignageAssetUploadedBy")
   assignedDeals               Deal[]                      @relation("AssignedTo")
   createdDeals                Deal[]                      @relation("CreatedBy")
   lockedCustomers             Customer[]                  @relation("LockedBy") // 先着ロック中の顧客
@@ -551,6 +558,10 @@ model Customer {
   profileCheckedAt   DateTime?
 
   clientWorks ClientWork[]
+
+  // デジタルサイネージ（設置先／広告主）
+  signageVenueDevices    SignageDevice[]       @relation("SignageVenue")
+  signageAdvertiserItems SignagePlaylistItem[] @relation("SignageAdvertiser")
 
   @@index([branchId])
   @@index([lockedByUserId])
@@ -4661,4 +4672,163 @@ model LineEvent {
   @@index([friendId, createdAt(sort: Desc)])
   @@index([sourceVia])
   @@map("line_events")
+}
+
+// ==============================================================
+// デジタルサイネージ（アドアーチ・サイネージ）— 2026-08-31
+//   無償設置＋広告枠販売モデル。端末(Device)は拠点に紐づき、
+//   スケジュール→プレイリスト→素材(Asset) を版番号付きマニフェストで配信する。
+//   端末は /api/signage/d/<deviceToken>/manifest を定期取得（プル型）。
+// ==============================================================
+
+enum SignageOrientation {
+  LANDSCAPE
+  PORTRAIT
+}
+
+/// 端末（STB/TVスティック）。ペアリング前は branchId=null・isActive=false
+model SignageDevice {
+  id           String             @id @default(cuid())
+  name         String // 端末名（例: 山口井筒屋エントランス）
+  locationName String? // 設置先名（施設・店舗）
+  address      String?
+  orientation  SignageOrientation @default(LANDSCAPE)
+  pollSec      Int                @default(60) // マニフェスト問い合わせ間隔（秒）
+
+  deviceToken String    @unique // 端末認証トークン（URLに載る）
+  pairingCode String?   @unique // 6桁ペアリングコード（ペアリング完了で null）
+  pairedAt    DateTime?
+
+  manifestVersion Int       @default(1) // 内容が変わるたび +1（端末はこれで差分を判断）
+  lastSeenAt      DateTime? // 最終アクセス（manifest/heartbeat）
+  lastDownloadAt  DateTime? // 端末が最後に素材を取り込んだ時刻
+  appVersion      String? // プレイヤーのバージョン
+  storageUsedMb   Int?
+  storageTotalMb  Int?
+  playingAssetId  String? // 直近の再生中素材
+
+  isActive Boolean @default(false)
+  notes    String? @db.Text
+
+  branchId   String?
+  branch     Branch?   @relation(fields: [branchId], references: [id])
+  customerId String? // 設置先（顧客DB）
+  customer   Customer? @relation("SignageVenue", fields: [customerId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User?    @relation("SignageDeviceCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  schedules SignageSchedule[]
+  playLogs  SignagePlayLog[]
+
+  @@index([branchId])
+  @@index([lastSeenAt])
+  @@map("signage_devices")
+}
+
+/// 素材（画像・動画）。ファイル実体は Railway Volume の signage-assets バケット
+model SignageAsset {
+  id           String    @id @default(cuid())
+  originalName String
+  storedName   String    @unique // バケット内ファイル名
+  mimeType     String
+  sizeBytes    Int
+  durationSec  Float? // 動画の長さ（ffprobe）
+  width        Int?
+  height       Int?
+  thumbName    String? // サムネ（jpg）
+  checksum     String // sha256
+  trashedAt    DateTime?
+
+  branchId     String?
+  branch       Branch? @relation(fields: [branchId], references: [id])
+  uploadedById String?
+  uploadedBy   User?   @relation("SignageAssetUploadedBy", fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items    SignagePlaylistItem[]
+  playLogs SignagePlayLog[]
+
+  @@index([branchId, createdAt(sort: Desc)])
+  @@map("signage_assets")
+}
+
+model SignagePlaylist {
+  id   String @id @default(cuid())
+  name String
+
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items     SignagePlaylistItem[]
+  schedules SignageSchedule[]
+
+  @@index([branchId])
+  @@map("signage_playlists")
+}
+
+/// プレイリストの1枠。広告主と掲載期間を枠ごとに持つ＝在庫管理・放映証明の単位
+model SignagePlaylistItem {
+  id          String  @id @default(cuid())
+  playlistId  String
+  playlist    SignagePlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  assetId     String
+  asset       SignageAsset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  order       Int
+  durationSec Int     @default(15) // 画像の表示秒。動画は素材の長さを使う
+
+  advertiserCustomerId String?
+  advertiserCustomer   Customer? @relation("SignageAdvertiser", fields: [advertiserCustomerId], references: [id], onDelete: SetNull)
+  startDate            DateTime? // 掲載期間（null=無期限）
+  endDate              DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([playlistId, order])
+  @@index([advertiserCustomerId])
+  @@map("signage_playlist_items")
+}
+
+/// 端末ごとの放映スケジュール。曜日・時刻・期間で絞る。該当なしは「標準」(条件なし・priority 0) が流れる
+model SignageSchedule {
+  id         String          @id @default(cuid())
+  deviceId   String
+  device     SignageDevice   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  playlistId String
+  playlist   SignagePlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  name       String          @default("標準")
+  daysOfWeek Int[]           @default([]) // 0=日〜6=土。空=毎日
+  startTime  String? // "HH:MM"（null=終日）
+  endTime    String?
+  startDate  DateTime?
+  endDate    DateTime?
+  priority   Int             @default(0) // 大きいほど優先
+  isActive   Boolean         @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deviceId])
+  @@map("signage_schedules")
+}
+
+/// 再生ログ（放映証明の元）。端末が束ねて送る
+model SignagePlayLog {
+  id          String        @id @default(cuid())
+  deviceId    String
+  device      SignageDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  assetId     String
+  asset       SignageAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  playedAt    DateTime
+  durationSec Int
+
+  @@index([deviceId, playedAt(sort: Desc)])
+  @@index([assetId, playedAt(sort: Desc)])
+  @@map("signage_play_logs")
 }

@@ -2,7 +2,7 @@
 set -e
 
 # ストレージディレクトリ作成（Railway Volumeマウント後に実行）
-mkdir -p /data/storage/billing-pdfs /data/storage/group-sync-files /data/storage/media-files /data/storage/card-images /data/storage/video-reviews /data/storage/video-reviews/frames /data/storage/creator-avatars 2>/dev/null || true
+mkdir -p /data/storage/billing-pdfs /data/storage/group-sync-files /data/storage/media-files /data/storage/card-images /data/storage/video-reviews /data/storage/video-reviews/frames /data/storage/creator-avatars /data/storage/signage-assets 2>/dev/null || true
 
 # デバッグ: DATABASE_URL の有無を確認
 if [ -n "$DATABASE_URL" ]; then
