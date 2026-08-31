@@ -39,3 +39,17 @@ export function isFlyerTemplate(v: string): v is FlyerTemplateKey {
 }
 
 export const DEFAULT_FLYER_TEMPLATE: FlyerTemplateKey = "orange";
+
+// ---------------------------------------------------------------
+// 印刷・配布の出口（本部は間に入らない＝代表がそのまま発注する。ロイヤリティで回収）
+// ---------------------------------------------------------------
+export const FLYER_PRINT_SIZES = [
+  { key: "A4", label: "A4（210×297）", desc: "店頭・手配り・同封に" },
+  { key: "A5", label: "A5（148×210）", desc: "ポスティング・折込の標準サイズ" },
+] as const;
+
+export const FLYER_DISTRIBUTION_LINKS = [
+  { key: "print",   label: "チラシ印刷（ラクスル）",  url: "https://raksul.com/print/flyer/",          spec: "コート90kg・片面カラー・A4またはA5。塗り足し3mm付きの入稿用PDFをそのままアップロード" },
+  { key: "posting", label: "ポスティング（ラクスル）", url: "https://raksul.com/posting/estimate/",     spec: "市区町村を選ぶと配布可能世帯数と概算が出ます。TVerと同じ市を指定すると「画面と紙で市をまるごと」" },
+  { key: "orikomi", label: "新聞折込（ラクスル）",    url: "https://raksul.com/shinbun-orikomi/estimate/", spec: "販売店単位で部数指定。高齢層・持ち家層に強い商圏向け" },
+] as const;

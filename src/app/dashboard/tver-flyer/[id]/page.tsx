@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Tv2, ArrowLeft, FileDown, Clock } from "lucide-react";
+import { Tv2, ArrowLeft, FileDown, Clock, Printer, ExternalLink } from "lucide-react";
 import { getTverFlyerById } from "@/lib/actions/tver-flyer";
 import { buildFlyerData } from "@/lib/tver/flyer-data";
-import { getFlyerStatusOption, TVER_FLYER_TEMPLATES } from "@/lib/constants/tver-flyer";
+import { getFlyerStatusOption, TVER_FLYER_TEMPLATES, FLYER_PRINT_SIZES, FLYER_DISTRIBUTION_LINKS } from "@/lib/constants/tver-flyer";
 import { findMunicipality } from "@/lib/tver/plan";
 import { FlyerAdminPanel } from "@/components/tver-flyer/flyer-admin-panel";
 import { FlyerHeroPanel } from "@/components/tver-flyer/flyer-hero-panel";
@@ -72,6 +72,41 @@ export default async function TverFlyerDetailPage({ params }: Props) {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* 印刷・配布する（本部は間に入らない＝そのまま発注） */}
+          <div className="mt-4 pt-4 border-t border-emerald-200">
+            <p className="text-sm font-semibold text-emerald-800 inline-flex items-center gap-1.5"><Printer className="w-4 h-4" />印刷・配布する</p>
+            <p className="text-xs text-emerald-700 mt-1 mb-2">
+              紙で配る場合は、塗り足し3mm付きの<b>入稿用PDF</b>をダウンロードして、そのまま印刷会社の発注ページにアップロードしてください。費用は代表が直接お支払いください（本部の手数料はありません）。
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {FLYER_PRINT_SIZES.map((sz) => (
+                <div key={sz.key} className="bg-white border border-emerald-200 rounded-lg px-4 py-3">
+                  <p className="text-sm font-bold text-zinc-800">入稿用 {sz.label}</p>
+                  <p className="text-[11px] text-zinc-500 mb-2">{sz.desc}</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {TVER_FLYER_TEMPLATES.map((t) => (
+                      <a key={t.key} href={`/api/tver-flyer/${request.id}/pdf?template=${t.key}&bleed=1&size=${sz.key}&dl=1`}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
+                        <FileDown className="w-3.5 h-3.5" />{t.label.replace("（おすすめ）", "")}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 space-y-1.5">
+              {FLYER_DISTRIBUTION_LINKS.map((l) => (
+                <div key={l.key} className="flex flex-col sm:flex-row sm:items-baseline gap-x-3">
+                  <a href={l.url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 hover:underline whitespace-nowrap">
+                    <ExternalLink className="w-3.5 h-3.5" />{l.label}
+                  </a>
+                  <span className="text-[11px] text-zinc-500">{l.spec}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

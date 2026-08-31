@@ -1,6 +1,6 @@
 // 本部チラシ制作サポートのサンプルPDFを書き出す（DB/ログイン不要）
 //   OUT_DIR=/path [HERO_IMAGE=/path/to.jpg] [SKIP_REACTPDF=1] npx tsx scripts/render-tver-flyer-sample.tsx
-//   HERO_IMAGE を渡すと唐津市の3テンプレに上部ビジュアルを差し込んだ版（*_hero.pdf）も出す
+//   HERO_IMAGE を渡すと唐津市の3テンプレに上部ビジュアルを差し込んだ版（*_hero.pdf）も出す／BLEED=1 で入稿用(塗り足し付きA4/A5)も出す
 import React from "react";
 import { renderToFile } from "@react-pdf/renderer";
 import { buildFlyerData, type FlyerSource } from "@/lib/tver/flyer-data";
@@ -20,6 +20,12 @@ async function renderAll(name: string, src: FlyerSource, reactPdf = true) {
   for (const t of TEMPLATES) {
     const buf = await renderHtmlToPdf(buildFlyerHtml(d, t));
     if (buf) fs.writeFileSync(`${out}/flyer_${name}_${t}.pdf`, buf);
+  }
+  if (process.env.BLEED) {
+    for (const size of ["A4", "A5"] as const) {
+      const buf = await renderHtmlToPdf(buildFlyerHtml(d, "orange", { bleed: true, size }));
+      if (buf) fs.writeFileSync(`${out}/flyer_${name}_orange_bleed_${size}.pdf`, buf);
+    }
   }
 }
 

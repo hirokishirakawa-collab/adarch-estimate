@@ -150,11 +150,30 @@ html, body { width:210mm; height:297mm; }
 small { font-size:.55em; font-weight:700; margin:0 .08em; }
 .pt svg, .col h3 svg { vertical-align:-2px; }`;
 
-const shell = (title: string, css: string, body: string) => `<!doctype html>
+/** 入稿用（塗り足し付き）の出力指定。仕上がり寸法＋各辺3mmのページにA4デザインを拡大して収める＝標準的な塗り足しの作り方 */
+export interface PrintOptions {
+  bleed?: boolean;
+  size?: "A4" | "A5";
+}
+const TRIM = { A4: [210, 297], A5: [148, 210] } as const;
+const BLEED = 3;
+
+function printCss(o: PrintOptions | undefined): string {
+  if (!o?.bleed) return "";
+  const [tw, th] = TRIM[o.size ?? "A4"];
+  const pw = tw + BLEED * 2, ph = th + BLEED * 2;
+  const sx = (pw / 210).toFixed(5), sy = (ph / 297).toFixed(5);
+  return `
+@page { size:${pw}mm ${ph}mm; margin:0; }
+html, body { width:${pw}mm; height:${ph}mm; overflow:hidden; }
+.sheet { transform:scale(${sx}, ${sy}); transform-origin:0 0; }`;
+}
+
+const shell = (title: string, css: string, body: string, print?: PrintOptions) => `<!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <title>${title}</title>
 <style>${FONT_FACE}
-${css}</style></head>
+${css}${printCss(print)}</style></head>
 <body>${body}</body></html>`;
 
 /** 上部ビジュアル（写真）＋見出しを重ねたヒーロー。右上に「土地のかたち」（実データの輪郭）を置く */
@@ -174,16 +193,16 @@ const ptsHtml = (bullets: Parts["bullets"], iconColor: string) =>
   bullets.map(([k, t, x]) =>
     `<div class="pt"><i>${icon(k, iconColor)}</i><div><b>${t}</b><p>${x}</p></div></div>`).join("");
 
-export function buildFlyerHtml(d: FlyerData, template: FlyerTemplateKey = "orange"): string {
-  if (template === "classic") return classicHtml(d);
-  if (template === "poster") return posterHtml(d);
-  return orangeHtml(d);
+export function buildFlyerHtml(d: FlyerData, template: FlyerTemplateKey = "orange", print?: PrintOptions): string {
+  if (template === "classic") return classicHtml(d, print);
+  if (template === "poster") return posterHtml(d, print);
+  return orangeHtml(d, print);
 }
 
 // ══════════════════════════════════════════════════════════
 // orange — 白地×オレンジ・柔らかい一般向け（既定）
 // ══════════════════════════════════════════════════════════
-function orangeHtml(d: FlyerData): string {
+function orangeHtml(d: FlyerData, print?: PrintOptions): string {
   const OR = "#F19834", OR_D = "#D97F1C", INK = "#3B372F", MUTE = "#9B948A", LINE = "#F0E7DA", SOFT = "#FFF7EC";
   const p = buildParts(d);
   const css = `
@@ -310,13 +329,13 @@ h1 em { font-style:normal; color:${OR}; }
     <div class="r">${fmtDate(d.date)}<br>TVer ADVERTISING</div>
   </div>
 </div>`;
-  return shell(`${esc(d.areaLabel)}を、まるごと。`, css, body);
+  return shell(`${esc(d.areaLabel)}を、まるごと。`, css, body, print);
 }
 
 // ══════════════════════════════════════════════════════════
 // classic — 紺×金（資料デッキと同じデザイン言語）
 // ══════════════════════════════════════════════════════════
-function classicHtml(d: FlyerData): string {
+function classicHtml(d: FlyerData, print?: PrintOptions): string {
   const NAVY = "#1B3A5C", GOLD = "#C9A961", PAPER = "#FBFAF5", INK = "#243746", MUTE = "#8A94A0", LINE = "#E3DECF";
   const p = buildParts(d);
   const css = `
@@ -438,13 +457,13 @@ h1 { font-size:40px; font-weight:900; line-height:1.18; letter-spacing:-.01em; c
     <div class="r">${fmtDate(d.date)}<br>TVer ADVERTISING</div>
   </div>
 </div>`;
-  return shell(`${esc(d.areaLabel)}を、まるごと。`, css, body);
+  return shell(`${esc(d.areaLabel)}を、まるごと。`, css, body, print);
 }
 
 // ══════════════════════════════════════════════════════════
 // poster — 濃紺全面・数字が主役
 // ══════════════════════════════════════════════════════════
-function posterHtml(d: FlyerData): string {
+function posterHtml(d: FlyerData, print?: PrintOptions): string {
   const BG = "#12283F", GOLD = "#E6C97A", GOLD_D = "#C9A961", SUB = "#9FB3C8", LINE = "rgba(255,255,255,.16)";
   const p = buildParts(d);
   const css = `
@@ -568,5 +587,5 @@ h1 em { font-style:normal; color:${GOLD}; }
     <div class="r">${fmtDate(d.date)}<br>TVer ADVERTISING</div>
   </div>
 </div>`;
-  return shell(`${esc(d.areaLabel)}を、まるごと。`, css, body);
+  return shell(`${esc(d.areaLabel)}を、まるごと。`, css, body, print);
 }
