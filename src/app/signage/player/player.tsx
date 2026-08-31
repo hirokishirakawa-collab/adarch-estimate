@@ -274,6 +274,7 @@ export function SignagePlayer({ initialToken, debug }: { initialToken: string | 
     <div onClick={goFullscreen} style={{ position: "fixed", inset: 0, background: "#000", overflow: "hidden", cursor: "none", fontFamily: "system-ui, sans-serif" }}>
       <div style={{ position: "absolute", top: 0, left: 0, ...rotate }}>
         {current?.item.type === "image" && (
+          // eslint-disable-next-line @next/next/no-img-element -- blob URL（Cache API）を表示するため next/image は使えない
           <img key={current.item.id + current.src} src={current.src} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
         )}
         {current?.item.type === "video" && (

@@ -7,7 +7,7 @@
 //   必ず bump* を呼んで、影響する端末の manifestVersion を +1 する。
 // ---------------------------------------------------------------
 import { db } from "@/lib/db";
-import { randomBytes } from "crypto";
+import { randomBytes, randomInt } from "crypto";
 
 export const PLAYER_APP_VERSION = "1.0.0";
 
@@ -51,8 +51,8 @@ export function newDeviceToken(): string {
 }
 
 export function newPairingCode(): string {
-  // 6桁・先頭0あり
-  return String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
+  // 6桁・先頭0あり（CSPRNG）
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
 }
 
 /** 端末トークンで有効端末を取る（未ペアリングは null） */

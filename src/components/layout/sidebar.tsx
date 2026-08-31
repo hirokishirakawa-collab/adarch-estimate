@@ -18,6 +18,7 @@ import {
   BarChart2,
   CreditCard,
   Megaphone,
+  MonitorPlay,
   CalendarCheck,
   GraduationCap,
   ShieldCheck,
@@ -512,6 +513,16 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Tv2,
         minRole: "MANAGER",
       },
+    ],
+  },
+
+  {
+    section: "サイネージ",
+    color: "text-orange-500/80",
+    items: [
+      { href: "/dashboard/signage", label: "端末・動作状況", icon: MonitorPlay, minRole: "MANAGER" },
+      { href: "/dashboard/signage/playlists", label: "プレイリスト（枠）", icon: MonitorPlay, minRole: "MANAGER" },
+      { href: "/dashboard/signage/assets", label: "素材", icon: MonitorPlay, minRole: "MANAGER" },
     ],
   },
 
