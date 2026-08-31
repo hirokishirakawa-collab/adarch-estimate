@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Tv2, ArrowLeft, FileDown, Clock } from "lucide-react";
 import { getTverFlyerById } from "@/lib/actions/tver-flyer";
 import { buildFlyerData } from "@/lib/tver/flyer-data";
-import { getFlyerStatusOption } from "@/lib/constants/tver-flyer";
+import { getFlyerStatusOption, TVER_FLYER_TEMPLATES } from "@/lib/constants/tver-flyer";
 import { findMunicipality } from "@/lib/tver/plan";
 import { FlyerAdminPanel } from "@/components/tver-flyer/flyer-admin-panel";
 import { FlyerCancelButton } from "@/components/tver-flyer/flyer-cancel-button";
@@ -49,20 +49,27 @@ export default async function TverFlyerDetailPage({ params }: Props) {
 
       {/* 納品済み: ダウンロード */}
       {request.status === "DELIVERED" && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4 mb-5 flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-sm font-semibold text-emerald-800">チラシが納品されました（{fmtDate(request.deliveredAt)}）</p>
-            {request.replyNote && <p className="text-xs text-emerald-700 mt-1 whitespace-pre-wrap">本部より: {request.replyNote}</p>}
-          </div>
-          <div className="flex items-center gap-2">
-            <a href={`/api/tver-flyer/${request.id}/pdf`} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border border-emerald-300 text-emerald-800 bg-white hover:bg-emerald-50">
-              画面で見る
-            </a>
-            <a href={`/api/tver-flyer/${request.id}/pdf?dl=1`}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700">
-              <FileDown className="w-4 h-4" />PDFをダウンロード
-            </a>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4 mb-5">
+          <p className="text-sm font-semibold text-emerald-800">チラシが納品されました（{fmtDate(request.deliveredAt)}）</p>
+          {request.replyNote && <p className="text-xs text-emerald-700 mt-1 whitespace-pre-wrap">本部より: {request.replyNote}</p>}
+          <p className="text-xs text-emerald-700 mt-3 mb-2">
+            デザインは3種類あります。数値は同じなので、お好きなものをお使いください。
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {TVER_FLYER_TEMPLATES.map((t) => (
+              <div key={t.key} className="bg-white border border-emerald-200 rounded-lg px-4 py-3">
+                <p className="text-sm font-bold text-zinc-800">{t.label}</p>
+                <p className="text-[11px] text-zinc-500 mb-2">{t.desc}</p>
+                <div className="flex items-center gap-3">
+                  <a href={`/api/tver-flyer/${request.id}/pdf?template=${t.key}`} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-emerald-700 hover:underline">画面で見る</a>
+                  <a href={`/api/tver-flyer/${request.id}/pdf?template=${t.key}&dl=1`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
+                    <FileDown className="w-3.5 h-3.5" />ダウンロード
+                  </a>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

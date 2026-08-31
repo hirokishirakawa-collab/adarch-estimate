@@ -4,6 +4,7 @@ import { getSessionInfo, getBranchFilter } from "@/lib/session";
 import { buildFlyerData } from "@/lib/tver/flyer-data";
 import { buildFlyerHtml } from "@/lib/tver/flyer-html";
 import { renderHtmlToPdf } from "@/lib/pdf/chrome";
+import { TVER_FLYER_TEMPLATES, isFlyerTemplate, DEFAULT_FLYER_TEMPLATE, type FlyerTemplateKey } from "@/lib/constants/tver-flyer";
 
 export const runtime = "nodejs";
 
@@ -26,9 +27,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
   try {
     // 本線: HTML → Chrome headless（資料デッキと同じデザイン言語）。Chromeが無い環境では react-pdf 版にフォールバック
+    const tRaw = req.nextUrl.searchParams.get("template") ?? DEFAULT_FLYER_TEMPLATE;
+    const template: FlyerTemplateKey = isFlyerTemplate(tRaw) ? tRaw : DEFAULT_FLYER_TEMPLATE;
     let buffer: Buffer | null = null;
     try {
-      buffer = await renderHtmlToPdf(buildFlyerHtml(data));
+      buffer = await renderHtmlToPdf(buildFlyerHtml(data, template));
     } catch (e) {
       console.error("[tver-flyer-pdf] chrome render failed, falling back:", e instanceof Error ? e.message : e);
     }
@@ -42,7 +45,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     }
 
     const isPreview = req.nextUrl.searchParams.get("preview") === "1";
-    const filename = `TVer_${data.areaLabel}_まるごとプラン${isPreview ? "_下書き" : ""}.pdf`;
+    const tLabel = TVER_FLYER_TEMPLATES.find((t) => t.key === template)?.label ?? "";
+    const filename = `TVer_${data.areaLabel}_まるごとプラン_${tLabel}${isPreview ? "_下書き" : ""}.pdf`;
     const disposition = req.nextUrl.searchParams.get("dl") === "1" ? "attachment" : "inline";
 
     return new NextResponse(new Uint8Array(buffer), {

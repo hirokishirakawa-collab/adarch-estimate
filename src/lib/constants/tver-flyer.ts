@@ -25,3 +25,17 @@ export const INDUSTRY_SUGGESTIONS = [
   "リフォーム・建設", "不動産", "自動車販売・整備", "医療・クリニック", "介護・福祉",
   "学習塾・教育", "飲食店", "美容・エステ", "小売・専門店", "士業・保険", "採用（求人）", "その他",
 ] as const;
+
+export const TVER_FLYER_TEMPLATES = [
+  { key: "orange",  label: "オレンジ（おすすめ）", desc: "白地×オレンジ・柔らかい一般向け" },
+  { key: "classic", label: "クラシック", desc: "紺×金・落ち着いた提案書トーン" },
+  { key: "poster",  label: "ポスター",   desc: "濃紺全面・数字が主役" },
+] as const;
+
+export type FlyerTemplateKey = (typeof TVER_FLYER_TEMPLATES)[number]["key"];
+
+export function isFlyerTemplate(v: string): v is FlyerTemplateKey {
+  return TVER_FLYER_TEMPLATES.some((t) => t.key === v);
+}
+
+export const DEFAULT_FLYER_TEMPLATE: FlyerTemplateKey = "orange";

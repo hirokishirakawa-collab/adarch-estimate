@@ -3,7 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { Loader2, Sparkles, Eye, PackageCheck } from "lucide-react";
 import { updateTverFlyerRequest, generateFlyerCatchCopy } from "@/lib/actions/tver-flyer";
-import { TVER_FLYER_STATUS_OPTIONS } from "@/lib/constants/tver-flyer";
+import { TVER_FLYER_STATUS_OPTIONS, TVER_FLYER_TEMPLATES } from "@/lib/constants/tver-flyer";
 
 export interface AdminPanelProps {
   requestId: string;
@@ -134,11 +134,15 @@ export function FlyerAdminPanel({ requestId, status, calc, values }: AdminPanelP
               {TVER_FLYER_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
-          <div className="flex items-center gap-2">
-            <a href={`/api/tver-flyer/${requestId}/pdf?preview=1`} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50">
-              <Eye className="w-4 h-4" />保存済みの内容でPDFを確認
-            </a>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1 text-xs text-zinc-500 font-semibold"><Eye className="w-3.5 h-3.5" />PDF確認:</span>
+            {TVER_FLYER_TEMPLATES.map((t) => (
+              <a key={t.key} href={`/api/tver-flyer/${requestId}/pdf?preview=1&template=${t.key}`}
+                target="_blank" rel="noopener noreferrer" title={t.desc}
+                className="inline-flex items-center px-3 py-2 text-xs font-semibold rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50">
+                {t.label}
+              </a>
+            ))}
             <button type="submit" disabled={isPending}
               className="inline-flex items-center gap-1.5 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60">
               {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackageCheck className="w-4 h-4" />}

@@ -14,12 +14,17 @@ async function main(){
     monthlyOverride:null,totalOverride:null, catchCopy:"「そろそろ家を直したい」と思う瞬間は、夜のテレビの前にあります。地元の会社として名前が思い浮かぶ状態を、3ヶ月かけてつくります。",
     issuerName:"Arete株式会社", issuerContact:"森永 090-0000-0000 / info@example.jp", deliveredAt:new Date(), createdAt:new Date() })!;
   await renderToFile(<TverFlyerDocument data={a} />, `${out}/flyer_karatsu_reactpdf.pdf`);
-  fs.writeFileSync(`${out}/flyer_karatsu.html`, buildFlyerHtml(a));
-  const pa = await renderHtmlToPdf(buildFlyerHtml(a)); if (pa) fs.writeFileSync(`${out}/flyer_karatsu.pdf`, pa);
+  for (const t of ["classic", "poster", "orange"] as const) {
+    const buf = await renderHtmlToPdf(buildFlyerHtml(a, t));
+    if (buf) fs.writeFileSync(`${out}/flyer_karatsu_${t}.pdf`, buf);
+  }
   const b = buildFlyerData({ municipalityCodes:[f("高松市"),f("丸亀市")], adSeconds:15, budget:500000, clientName:null, industry:null,
     monthlyOverride:null,totalOverride:null, catchCopy:null, issuerName:null, issuerContact:null, deliveredAt:null, createdAt:new Date() })!;
   await renderToFile(<TverFlyerDocument data={b} />, `${out}/flyer_takamatsu_reactpdf.pdf`);
-  const pb = await renderHtmlToPdf(buildFlyerHtml(b)); if (pb) fs.writeFileSync(`${out}/flyer_takamatsu.pdf`, pb);
+  for (const t of ["classic", "poster", "orange"] as const) {
+    const buf = await renderHtmlToPdf(buildFlyerHtml(b, t));
+    if (buf) fs.writeFileSync(`${out}/flyer_takamatsu_${t}.pdf`, buf);
+  }
   console.log("ok");
 }
 main();
