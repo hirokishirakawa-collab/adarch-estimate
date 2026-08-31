@@ -1413,6 +1413,11 @@ model TverFlyerRequest {
   replyNote       String? @db.Text // 代表への申し送り
   deliveredAt     DateTime?
 
+  // ---- 上部のビジュアル（業種別ヒーロー画像・AI生成 or アップロード。無ければ従来のSVGイラスト）----
+  heroImage     Bytes? // JPEG（sharpで幅1600pxに縮小して保存）
+  heroImageType String? // image/jpeg
+  heroPrompt    String? @db.Text // 生成に使ったプロンプト（本部が手直し可）
+
   branchId    String?
   branch      Branch? @relation(fields: [branchId], references: [id])
   createdById String?

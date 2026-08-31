@@ -156,6 +156,10 @@ const shell = (title: string, css: string, body: string) => `<!doctype html>
 ${css}</style></head>
 <body>${body}</body></html>`;
 
+/** 上部ビジュアル（写真）＋見出しを重ねたヒーロー。画像が無いテンプレは呼ばない */
+const heroHtml = (src: string, inner: string) =>
+  `<div class="hero"><img src="${src}" alt=""><div class="txt">${inner}</div></div>`;
+
 /** 箇条書き（アイコンチップ付き）共通マークアップ */
 const ptsHtml = (bullets: Parts["bullets"], iconColor: string) =>
   bullets.map(([k, t, x]) =>
@@ -191,6 +195,15 @@ h1 { font-size:38px; font-weight:900; line-height:1.22; letter-spacing:-.01em; c
 h1 em { font-style:normal; color:${OR}; }
 .rule { width:52px; height:3px; background:${OR}; margin:9px auto 0; border-radius:2px; }
 .lead { font-size:10.5px; line-height:1.7; color:#6B655C; margin:9px auto 0; max-width:155mm; text-align:center; }
+.hero { position:relative; margin:9px -16mm 0; height:64mm; overflow:hidden; background:${SOFT}; }
+.hero img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.hero::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(40,28,12,0) 30%, rgba(40,28,12,.74) 100%); }
+.hero .txt { position:absolute; left:16mm; right:16mm; bottom:7.5mm; z-index:1; color:#fff; }
+.hero .eyebrow { color:#FFD9A8; }
+.hero h1 { color:#fff; text-shadow:0 2px 14px rgba(0,0,0,.28); margin-top:4px; }
+.hero h1 em { color:#FFC46E; }
+.hero .rule { margin:8px 0 0; background:#FFC46E; }
+.hero .lead { color:rgba(255,255,255,.93); text-align:left; margin:7px 0 0; max-width:150mm; }
 .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; margin-top:12px; }
 .kpi { background:#fff; border:1px solid ${LINE}; border-radius:12px; padding:11px 10px 10px; text-align:center;
   box-shadow:0 2px 8px rgba(217,127,28,.08); }
@@ -238,12 +251,17 @@ h1 em { font-style:normal; color:${OR}; }
     <div class="grp"><img src="${logoUrl}" alt=""><span>AD ARCH GROUP</span></div>
   </div>
   ${d.clientName ? `<div class="client">${esc(d.clientName)} 御中</div>` : ""}
+  ${d.heroDataUrl ? heroHtml(d.heroDataUrl, `
+    <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
+    <h1>${esc(d.areaLabel)}を、<em>まるごと。</em></h1>
+    <div class="rule"></div>
+    <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。</p>`) : `
   <div class="head">
     <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
     <h1>${esc(d.areaLabel)}を、<em>まるごと。</em></h1>
     <div class="rule"></div>
     <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。<br>民放公式のテレビ配信サービスで、テレビ局の番組が、そのままの品質で配信されています。</p>
-  </div>
+  </div>`}
   <div class="kpis">
     <div class="kpi"><b>${man(d.viewers)}</b><span>TVer視聴者（推計）</span></div>
     <div class="kpi"><b>${man(d.reach)}</b><span>到達する人数（3人に1人）</span></div>
@@ -305,6 +323,13 @@ body { background:${PAPER}; color:${INK}; font-family:"Noto Sans JP","Noto Sans 
 h1 { font-size:40px; font-weight:900; line-height:1.18; letter-spacing:-.01em; color:${NAVY}; margin-top:6px; }
 .rule { width:44px; height:3px; background:${GOLD}; margin-top:10px; }
 .lead { font-size:10.5px; line-height:1.7; color:#4A5A68; margin-top:10px; max-width:150mm; }
+.hero { position:relative; margin:12px -16mm 0 -15mm; height:62mm; overflow:hidden; background:${LINE}; }
+.hero img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.hero::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(14,32,56,0) 28%, rgba(14,32,56,.8) 100%); }
+.hero .txt { position:absolute; left:15mm; right:16mm; bottom:7.5mm; z-index:1; color:#fff; }
+.hero .eyebrow { margin-top:0; color:#E6C97A; }
+.hero h1 { color:#fff; text-shadow:0 2px 14px rgba(0,0,0,.3); }
+.hero .lead { color:#DCE6F0; }
 .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:13px; }
 .kpi { background:#fff; border-top:3px solid ${LINE}; padding:12px 12px 10px; box-shadow:0 1px 3px rgba(27,58,92,.07); }
 .kpi.g { border-top-color:${GOLD}; }
@@ -352,10 +377,15 @@ h1 { font-size:40px; font-weight:900; line-height:1.18; letter-spacing:-.01em; c
     <div class="grp"><img src="${logoUrl}" alt=""><span>AD ARCH GROUP</span></div>
   </div>
   ${d.clientName ? `<div class="client">${esc(d.clientName)} 御中</div>` : ""}
+  ${d.heroDataUrl ? heroHtml(d.heroDataUrl, `
+    <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
+    <h1>${esc(d.areaLabel)}を、まるごと。</h1>
+    <div class="rule"></div>
+    <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。</p>`) : `
   <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
   <h1>${esc(d.areaLabel)}を、<br>まるごと。</h1>
   <div class="rule"></div>
-  <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。<br>民放公式のテレビ配信サービスで、テレビ局の番組が、そのままの品質で配信されています。</p>
+  <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。<br>民放公式のテレビ配信サービスで、テレビ局の番組が、そのままの品質で配信されています。</p>`}
   <div class="kpis">
     <div class="kpi"><b>${man(d.viewers)}</b><span>TVer視聴者（推計）</span></div>
     <div class="kpi g"><b>${man(d.reach)}</b><span>到達する人数（3人に1人）</span></div>
@@ -416,14 +446,21 @@ body { background:${BG}; color:#fff; font-family:"Noto Sans JP","Noto Sans CJK J
 h1 { font-size:46px; font-weight:900; line-height:1.16; letter-spacing:-.01em; color:#fff; margin-top:6px; }
 h1 em { font-style:normal; color:${GOLD}; }
 .lead { font-size:10.5px; line-height:1.7; color:${SUB}; margin-top:10px; max-width:150mm; }
-.hero { display:flex; align-items:center; gap:24px; margin-top:13px; padding:13px 0 14px; border-top:1px solid ${LINE}; border-bottom:1px solid ${LINE}; }
+.hero { position:relative; margin:12px -18mm 0; height:57mm; overflow:hidden; background:#0E2033; }
+.hero img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; opacity:.92; }
+.hero::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(18,40,63,.1) 0%, rgba(18,40,63,0) 30%, ${BG} 100%); }
+.hero .txt { position:absolute; left:18mm; right:18mm; bottom:5mm; z-index:1; }
+.hero .eyebrow { margin-top:0; }
+.hero h1 { text-shadow:0 2px 14px rgba(0,0,0,.35); }
+.hero .lead { margin-top:8px; }
+.price-row { display:flex; align-items:center; gap:24px; margin-top:11px; padding:11px 0 12px; border-top:1px solid ${LINE}; border-bottom:1px solid ${LINE}; }
 .price { flex:1; }
 .price i { font-style:normal; display:block; font-size:9px; letter-spacing:.22em; color:${GOLD_D}; font-weight:700; }
 .price b { display:block; font-size:50px; font-weight:900; letter-spacing:-.02em; line-height:1.08; margin-top:4px; white-space:nowrap; }
 .price em { font-style:normal; display:block; font-size:9.5px; color:${SUB}; margin-top:6px; }
 .price em b2 { color:#fff; font-weight:700; }
-.hero .ring { flex:none; }
-.hero .fam { flex:none; }
+.price-row .ring { flex:none; }
+.price-row .fam { flex:none; }
 .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:11px; }
 .kpi { border-top:2px solid ${GOLD_D}; padding-top:8px; }
 .kpi b { display:block; font-size:20px; font-weight:900; color:#fff; letter-spacing:-.02em; white-space:nowrap; }
@@ -463,10 +500,14 @@ h1 em { font-style:normal; color:${GOLD}; }
     <div class="grp"><img src="${logoUrl}" alt=""><span>AD ARCH GROUP</span></div>
   </div>
   ${d.clientName ? `<div class="client">${esc(d.clientName)} 御中</div>` : ""}
+  ${d.heroDataUrl ? heroHtml(d.heroDataUrl, `
+    <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
+    <h1>${esc(d.areaLabel)}を、<em>まるごと。</em></h1>
+    <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。</p>`) : `
   <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
   <h1>${esc(d.areaLabel)}を、<em>まるごと。</em></h1>
-  <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。民放公式のテレビ配信サービスで、テレビ局の番組が、そのままの品質で配信されています。</p>
-  <div class="hero">
+  <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。民放公式のテレビ配信サービスで、テレビ局の番組が、そのままの品質で配信されています。</p>`}
+  <div class="price-row">
     <div class="price">
       <i>MONTHLY ／ 月額 媒体費（税抜）</i>
       <b>${yen(d.monthly)}</b>

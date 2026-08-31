@@ -1,5 +1,6 @@
 // 本部チラシ制作サポート — DBレコード → チラシ描画用データの組み立て（サーバー専用・純粋）
 import { planForCodes, neighborPlans, coverageAt, type AdSeconds } from "@/lib/tver/plan";
+import { heroDataUrl } from "@/lib/tver/hero-image";
 
 /** DBの TverFlyerRequest から必要な列だけ */
 export interface FlyerSource {
@@ -15,6 +16,8 @@ export interface FlyerSource {
   issuerContact: string | null;
   deliveredAt: Date | null;
   createdAt: Date;
+  heroImage?: Uint8Array | Buffer | null;
+  heroImageType?: string | null;
 }
 
 export interface FlyerData {
@@ -37,6 +40,7 @@ export interface FlyerData {
   issuerName: string;
   issuerContact: string | null;
   date: Date;
+  heroDataUrl: string | null; // 上部ビジュアル（data URL）。null=従来のSVGイラスト
 }
 
 function toSeconds(n: number): AdSeconds {
@@ -77,5 +81,6 @@ export function buildFlyerData(src: FlyerSource): FlyerData | null {
     issuerName: src.issuerName?.trim() || "Ad Archグループ",
     issuerContact: src.issuerContact,
     date: src.deliveredAt ?? src.createdAt,
+    heroDataUrl: heroDataUrl(src.heroImage, src.heroImageType),
   };
 }

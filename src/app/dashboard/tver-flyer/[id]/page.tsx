@@ -5,6 +5,8 @@ import { buildFlyerData } from "@/lib/tver/flyer-data";
 import { getFlyerStatusOption, TVER_FLYER_TEMPLATES } from "@/lib/constants/tver-flyer";
 import { findMunicipality } from "@/lib/tver/plan";
 import { FlyerAdminPanel } from "@/components/tver-flyer/flyer-admin-panel";
+import { FlyerHeroPanel } from "@/components/tver-flyer/flyer-hero-panel";
+import { buildHeroPrompt } from "@/lib/tver/hero-image";
 import { FlyerCancelButton } from "@/components/tver-flyer/flyer-cancel-button";
 
 interface Props { params: Promise<{ id: string }> }
@@ -110,6 +112,17 @@ export default async function TverFlyerDetailPage({ params }: Props) {
       </p>
 
       {/* 本部パネル */}
+      {isAdmin && data && (
+        <div className="mb-5">
+          <FlyerHeroPanel
+            requestId={request.id}
+            hasHero={!!request.heroImage && request.heroImage.byteLength > 0}
+            heroPrompt={request.heroPrompt}
+            defaultPrompt={buildHeroPrompt({ industry: request.industry, areaLabel: data.areaLabel, prefName: data.prefName })}
+            version={new Date(request.updatedAt).getTime()}
+          />
+        </div>
+      )}
       {isAdmin && data && (
         <FlyerAdminPanel
           requestId={request.id}

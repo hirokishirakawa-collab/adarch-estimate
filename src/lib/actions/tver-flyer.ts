@@ -7,6 +7,7 @@ import { getSessionInfo, getBranchFilter } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { notifyAdmins, createInAppNotification } from "@/lib/notifications";
 import { planForCodes, fmtMan, fmtYen, type AdSeconds } from "@/lib/tver/plan";
+import { generateHeroImage, normalizeHeroImage, HERO_MAX_UPLOAD_BYTES } from "@/lib/tver/hero-image";
 import type { Prisma } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 
@@ -257,12 +258,94 @@ export async function generateFlyerCatchCopy(requestId: string): Promise<{ text?
 }
 
 // ---------------------------------------------------------------
+// 上部のビジュアル（ヒーロー画像）— ADMIN のみ。生成／アップロード／外す
+//   画像はOS（DB）に保存し、PDFには data URL で埋め込む。無ければ従来のSVGイラストで出る
+// ---------------------------------------------------------------
+const HERO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+async function requireAdminAndRequest(requestId: string) {
+  const info = await getSessionInfo();
+  if (!info) return { error: "ログインが必要です" as const };
+  if (info.role !== "ADMIN") return { error: "本部のみ操作できます" as const };
+  const r = await db.tverFlyerRequest.findUnique({ where: { id: requestId }, select: { id: true, areaLabel: true } });
+  if (!r) return { error: "対象の依頼が見つかりません" as const };
+  return { info, r };
+}
+
+export async function generateFlyerHeroImage(requestId: string, prompt: string): Promise<{ ok?: true; error?: string }> {
+  const ctx = await requireAdminAndRequest(requestId);
+  if ("error" in ctx) return { error: ctx.error };
+  const p = (prompt ?? "").trim();
+  if (p.length < 10) return { error: "プロンプトが短すぎます（何を描くかを書いてください）" };
+  if (p.length > 2000) return { error: "プロンプトは2000文字以内にしてください" };
+
+  try {
+    const img = await generateHeroImage(p);
+    await db.tverFlyerRequest.update({
+      where: { id: requestId },
+      data: { heroImage: img.data, heroImageType: img.type, heroPrompt: p },
+    });
+    logAudit({ action: "tver_flyer_hero_generated", email: ctx.info.email, name: ctx.info.staffName, entity: "tver_flyer_request", entityId: requestId, detail: ctx.r.areaLabel });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[generateFlyerHeroImage] error:", msg);
+    return { error: `画像の生成に失敗しました: ${msg}` };
+  }
+  revalidatePath(`${BASE}/${requestId}`);
+  return { ok: true };
+}
+
+export async function uploadFlyerHeroImage(
+  requestId: string,
+  _prev: { ok?: boolean; error?: string } | null,
+  formData: FormData
+): Promise<{ ok?: boolean; error?: string }> {
+  const ctx = await requireAdminAndRequest(requestId);
+  if ("error" in ctx) return { error: ctx.error };
+
+  const file = formData.get("file");
+  if (!file || typeof file !== "object" || !("arrayBuffer" in file) || (file as File).size === 0) return { error: "画像ファイルを選択してください" };
+  const f = file as File;
+  if (!HERO_TYPES.has(f.type)) return { error: "JPEG / PNG / WebP の画像を選択してください" };
+  if (f.size > HERO_MAX_UPLOAD_BYTES) return { error: "画像は12MB以内にしてください" };
+
+  try {
+    const img = await normalizeHeroImage(new Uint8Array(await f.arrayBuffer()));
+    await db.tverFlyerRequest.update({
+      where: { id: requestId },
+      data: { heroImage: img.data, heroImageType: img.type },
+    });
+    logAudit({ action: "tver_flyer_hero_uploaded", email: ctx.info.email, name: ctx.info.staffName, entity: "tver_flyer_request", entityId: requestId, detail: f.name });
+  } catch (e) {
+    console.error("[uploadFlyerHeroImage] error:", e instanceof Error ? e.message : e);
+    return { error: "画像の保存に失敗しました（ファイルが壊れていないか確認してください）" };
+  }
+  revalidatePath(`${BASE}/${requestId}`);
+  return { ok: true };
+}
+
+export async function deleteFlyerHeroImage(requestId: string): Promise<{ ok?: true; error?: string }> {
+  const ctx = await requireAdminAndRequest(requestId);
+  if ("error" in ctx) return { error: ctx.error };
+  try {
+    await db.tverFlyerRequest.update({ where: { id: requestId }, data: { heroImage: null, heroImageType: null } });
+    logAudit({ action: "tver_flyer_hero_removed", email: ctx.info.email, name: ctx.info.staffName, entity: "tver_flyer_request", entityId: requestId });
+  } catch (e) {
+    console.error("[deleteFlyerHeroImage] error:", e instanceof Error ? e.message : e);
+    return { error: "更新に失敗しました" };
+  }
+  revalidatePath(`${BASE}/${requestId}`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------
 // 一覧・単件取得
 // ---------------------------------------------------------------
 async function fetchList(where: Prisma.TverFlyerRequestWhereInput) {
   return db.tverFlyerRequest.findMany({
     where,
     orderBy: { createdAt: "desc" },
+    omit: { heroImage: true }, // 一覧に画像バイナリは載せない
     include: {
       createdBy: { select: { name: true } },
       branch: { select: { name: true } },
