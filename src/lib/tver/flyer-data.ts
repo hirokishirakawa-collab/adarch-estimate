@@ -21,6 +21,7 @@ export interface FlyerSource {
 }
 
 export interface FlyerData {
+  municipalityCodes: string[];
   areaLabel: string;
   prefName: string;
   municipalityNames: string[];
@@ -62,6 +63,7 @@ export function buildFlyerData(src: FlyerSource): FlyerData | null {
   }));
 
   return {
+    municipalityCodes: src.municipalityCodes,
     areaLabel: plan.areaLabel,
     prefName: plan.prefName,
     municipalityNames: plan.municipalities.map((m) => m.name),

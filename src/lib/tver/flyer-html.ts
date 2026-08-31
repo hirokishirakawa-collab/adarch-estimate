@@ -7,6 +7,7 @@
 import path from "path";
 import type { FlyerData } from "@/lib/tver/flyer-data";
 import type { FlyerTemplateKey } from "@/lib/constants/tver-flyer";
+import { municipalityShapeSvg } from "@/lib/tver/shape";
 
 const fontDir = path.join(process.cwd(), "public/fonts");
 const fontUrl = (f: string) => "file://" + path.join(fontDir, f);
@@ -156,9 +157,17 @@ const shell = (title: string, css: string, body: string) => `<!doctype html>
 ${css}</style></head>
 <body>${body}</body></html>`;
 
-/** 上部ビジュアル（写真）＋見出しを重ねたヒーロー。画像が無いテンプレは呼ばない */
-const heroHtml = (src: string, inner: string) =>
-  `<div class="hero"><img src="${src}" alt=""><div class="txt">${inner}</div></div>`;
+/** 上部ビジュアル（写真）＋見出しを重ねたヒーロー。右上に「土地のかたち」（実データの輪郭）を置く */
+const heroHtml = (src: string, inner: string, shape: string) =>
+  `<div class="hero"><img src="${src}" alt="">${shape ? `<div class="shape">${shape}</div>` : ""}<div class="txt">${inner}</div></div>`;
+
+/** 土地のかたち（写真の上用＝白の半透明） */
+const heroShape = (d: FlyerData, stroke = "#fff") =>
+  municipalityShapeSvg(d.municipalityCodes, { size: 150, fill: "rgba(255,255,255,.26)", stroke, strokeWidth: 2 });
+
+/** 土地のかたち（画像なし用＝右カラムの透かし） */
+const markShape = (d: FlyerData, fill: string, stroke: string) =>
+  municipalityShapeSvg(d.municipalityCodes, { size: 120, fill, stroke, strokeWidth: 1.6 });
 
 /** 箇条書き（アイコンチップ付き）共通マークアップ */
 const ptsHtml = (bullets: Parts["bullets"], iconColor: string) =>
@@ -204,6 +213,10 @@ h1 em { font-style:normal; color:${OR}; }
 .hero h1 em { color:#FFC46E; }
 .hero .rule { margin:8px 0 0; background:#FFC46E; }
 .hero .lead { color:rgba(255,255,255,.93); text-align:left; margin:7px 0 0; max-width:150mm; }
+.hero .shape { position:absolute; right:12mm; top:6mm; z-index:1; filter:drop-shadow(0 2px 10px rgba(0,0,0,.28)); }
+.hero .shape svg { height:32mm; width:auto; display:block; }
+.mark { position:absolute; right:-2mm; bottom:-2mm; opacity:.85; pointer-events:none; }
+.mark svg { height:26mm; width:auto; display:block; }
 .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; margin-top:12px; }
 .kpi { background:#fff; border:1px solid ${LINE}; border-radius:12px; padding:11px 10px 10px; text-align:center;
   box-shadow:0 2px 8px rgba(217,127,28,.08); }
@@ -218,7 +231,7 @@ h1 em { font-style:normal; color:${OR}; }
 .cov em { display:block; font-style:normal; font-size:8.8px; color:rgba(255,255,255,.92); margin-top:5px; font-weight:400; }
 .cols { display:grid; grid-template-columns:1.15fr 1fr; gap:10px; margin-top:10px; }
 .col { background:#fff; border:1px solid ${LINE}; border-radius:12px; padding:12px 14px; }
-.col.soft { background:${SOFT}; border-color:#F5DFC0; }
+.col.soft { background:${SOFT}; border-color:#F5DFC0; position:relative; overflow:hidden; }
 .col h3 { font-size:11px; font-weight:700; color:${INK}; }
 .col h3::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; background:${OR}; margin-right:6px; }
 .pts { margin-top:7px; display:grid; gap:6px; }
@@ -255,7 +268,7 @@ h1 em { font-style:normal; color:${OR}; }
     <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
     <h1>${esc(d.areaLabel)}を、<em>まるごと。</em></h1>
     <div class="rule"></div>
-    <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。</p>`) : `
+    <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。</p>`, heroShape(d)) : `
   <div class="head">
     <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
     <h1>${esc(d.areaLabel)}を、<em>まるごと。</em></h1>
@@ -278,7 +291,7 @@ h1 em { font-style:normal; color:${OR}; }
       <h3>3ヶ月で、商圏の認知を取り切る</h3>
       <div class="pts">${ptsHtml(p.bullets, OR_D)}</div>
     </div>
-    <div class="col soft"><h3>${p.catchTitle}</h3><p class="copy">${p.catchCopy}</p></div>
+    <div class="col soft">${d.heroDataUrl ? "" : `<div class="mark">${markShape(d, "rgba(241,152,52,.14)", OR)}</div>`}<h3>${p.catchTitle}</h3><p class="copy">${p.catchCopy}</p></div>
   </div>
   ${d.neighbors.length > 0 ? `
   <div class="cmp">
@@ -330,6 +343,10 @@ h1 { font-size:40px; font-weight:900; line-height:1.18; letter-spacing:-.01em; c
 .hero .eyebrow { margin-top:0; color:#E6C97A; }
 .hero h1 { color:#fff; text-shadow:0 2px 14px rgba(0,0,0,.3); }
 .hero .lead { color:#DCE6F0; }
+.hero .shape { position:absolute; right:12mm; top:6mm; z-index:1; filter:drop-shadow(0 2px 10px rgba(0,0,0,.28)); }
+.hero .shape svg { height:32mm; width:auto; display:block; }
+.mark { position:absolute; right:-2mm; bottom:-2mm; opacity:.85; pointer-events:none; }
+.mark svg { height:26mm; width:auto; display:block; }
 .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:13px; }
 .kpi { background:#fff; border-top:3px solid ${LINE}; padding:12px 12px 10px; box-shadow:0 1px 3px rgba(27,58,92,.07); }
 .kpi.g { border-top-color:${GOLD}; }
@@ -351,7 +368,7 @@ h1 { font-size:40px; font-weight:900; line-height:1.18; letter-spacing:-.01em; c
 .pt b { display:block; font-size:10px; font-weight:700; color:${NAVY}; }
 .pt p { font-size:8.5px; line-height:1.5; color:#4A5A68; margin-top:1px; }
 .copy { font-size:10.5px; line-height:1.85; color:${INK}; margin-top:10px; }
-.col.gold { border-left-color:${GOLD}; }
+.col.gold { border-left-color:${GOLD}; position:relative; overflow:hidden; }
 .cmp { background:#fff; margin-top:10px; padding:10px 14px 6px; }
 .cmp h3 { font-size:10px; font-weight:700; color:${NAVY}; letter-spacing:.04em; }
 .tbl { width:100%; border-collapse:collapse; margin-top:6px; font-size:10px; }
@@ -381,7 +398,7 @@ h1 { font-size:40px; font-weight:900; line-height:1.18; letter-spacing:-.01em; c
     <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
     <h1>${esc(d.areaLabel)}を、まるごと。</h1>
     <div class="rule"></div>
-    <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。</p>`) : `
+    <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。</p>`, heroShape(d, "#E6C97A")) : `
   <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
   <h1>${esc(d.areaLabel)}を、<br>まるごと。</h1>
   <div class="rule"></div>
@@ -402,7 +419,7 @@ h1 { font-size:40px; font-weight:900; line-height:1.18; letter-spacing:-.01em; c
       <h3>3ヶ月で、商圏の認知を取り切る</h3>
       <div class="pts">${ptsHtml(p.bullets, NAVY)}</div>
     </div>
-    <div class="col gold"><h3>${p.catchTitle}</h3><p class="copy">${p.catchCopy}</p></div>
+    <div class="col gold">${d.heroDataUrl ? "" : `<div class="mark">${markShape(d, "rgba(201,169,97,.16)", GOLD)}</div>`}<h3>${p.catchTitle}</h3><p class="copy">${p.catchCopy}</p></div>
   </div>
   ${d.neighbors.length > 0 ? `
   <div class="cmp">
@@ -453,6 +470,10 @@ h1 em { font-style:normal; color:${GOLD}; }
 .hero .eyebrow { margin-top:0; }
 .hero h1 { text-shadow:0 2px 14px rgba(0,0,0,.35); }
 .hero .lead { margin-top:8px; }
+.hero .shape { position:absolute; right:12mm; top:6mm; z-index:1; filter:drop-shadow(0 2px 10px rgba(0,0,0,.28)); }
+.hero .shape svg { height:32mm; width:auto; display:block; }
+.mark { position:absolute; right:-2mm; bottom:-2mm; opacity:.85; pointer-events:none; }
+.mark svg { height:26mm; width:auto; display:block; }
 .price-row { display:flex; align-items:center; gap:24px; margin-top:11px; padding:11px 0 12px; border-top:1px solid ${LINE}; border-bottom:1px solid ${LINE}; }
 .price { flex:1; }
 .price i { font-style:normal; display:block; font-size:9px; letter-spacing:.22em; color:${GOLD_D}; font-weight:700; }
@@ -469,6 +490,7 @@ h1 em { font-style:normal; color:${GOLD}; }
 .covline b { color:${GOLD}; font-weight:700; }
 .covline em { display:block; font-style:normal; font-size:8.8px; color:${SUB}; margin-top:4px; }
 .cols { display:grid; grid-template-columns:1.15fr 1fr; gap:12px; margin-top:11px; }
+.col.catch { position:relative; overflow:hidden; }
 .col h3 { font-size:10.5px; font-weight:700; color:#fff; letter-spacing:.06em; padding-bottom:5px; border-bottom:1px solid ${LINE}; }
 .pts { margin-top:7px; display:grid; gap:6px; }
 .pt { display:grid; grid-template-columns:24px 1fr; gap:7px; align-items:start; }
@@ -503,7 +525,7 @@ h1 em { font-style:normal; color:${GOLD}; }
   ${d.heroDataUrl ? heroHtml(d.heroDataUrl, `
     <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
     <h1>${esc(d.areaLabel)}を、<em>まるごと。</em></h1>
-    <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。</p>`) : `
+    <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。</p>`, heroShape(d, "#E6C97A")) : `
   <div class="eyebrow">FOR YOUR AREA ／ 御社の商圏</div>
   <h1>${esc(d.areaLabel)}を、<em>まるごと。</em></h1>
   <p class="lead">${p.areaDesc}の商圏を、TVer広告（${p.secLabel}）で押さえる場合の金額です。民放公式のテレビ配信サービスで、テレビ局の番組が、そのままの品質で配信されています。</p>`}
@@ -527,7 +549,7 @@ h1 em { font-style:normal; color:${GOLD}; }
       <h3>3ヶ月で、商圏の認知を取り切る</h3>
       <div class="pts">${ptsHtml(p.bullets, GOLD)}</div>
     </div>
-    <div class="col"><h3>${p.catchTitle}</h3><p class="copy">${p.catchCopy}</p></div>
+    <div class="col catch">${d.heroDataUrl ? "" : `<div class="mark">${markShape(d, "rgba(201,169,97,.14)", GOLD_D)}</div>`}<h3>${p.catchTitle}</h3><p class="copy">${p.catchCopy}</p></div>
   </div>
   ${d.neighbors.length > 0 ? `
   <div class="cmp">
