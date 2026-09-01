@@ -55,6 +55,19 @@ export async function resolveRef(input: RefInput | null | undefined): Promise<Ch
   if (kind === "url") {
     const href = osPath(input.href);
     if (!href) return null;
+    // OSの案件ページのURLなら、その案件そのものとして紐づける（題名が本物になり、案件別の会話にも入る）
+    const m = /^\/dashboard\/(packages|deals|customers|projects)\/([^/?#]+)/.exec(href);
+    if (m) {
+      const seg = decodeURIComponent(m[2]);
+      if (m[1] === "packages") {
+        const p = await db.salesPackage.findFirst({ where: { OR: [{ slug: seg }, { id: seg }] }, select: { id: true } });
+        if (p) return resolveRef({ kind: "package", id: p.id });
+      } else {
+        const k: RefKind = m[1] === "deals" ? "deal" : m[1] === "customers" ? "customer" : "project";
+        const r = await resolveRef({ kind: k, id: seg });
+        if (r) return r;
+      }
+    }
     const seg = href.split("?")[0].split("/").filter(Boolean);
     return { kind, id: null, title: seg.slice(1).join(" › ") || "ダッシュボード", sub: null, href };
   }
