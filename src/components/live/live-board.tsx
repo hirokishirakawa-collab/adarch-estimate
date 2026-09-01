@@ -188,13 +188,15 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
     const m = refParam ? /^(deal|customer|project|move|sent|tender|package):(.+)$/.exec(refParam) : null;
     if (m) {
       setTab("chat");
+      // 題名は案件ページから ?t= で受け取る（会話がまだ無い案件でも「この案件」にならない）
+      const given = (sp.get("t") ?? "").trim().slice(0, 80) || null;
       fetch(`/api/office/chat?refKind=${m[1]}&refId=${encodeURIComponent(m[2])}`, { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { items?: { ref?: { title: string } | null }[] } | null) => {
-          const title = d?.items?.find((x) => x.ref)?.ref?.title ?? "この案件";
+          const title = given ?? d?.items?.find((x) => x.ref)?.ref?.title ?? "この案件";
           window.dispatchEvent(new CustomEvent("office:filter", { detail: { kind: m[1], id: m[2], title } }));
         })
-        .catch(() => window.dispatchEvent(new CustomEvent("office:filter", { detail: { kind: m[1], id: m[2], title: "この案件" } })));
+        .catch(() => window.dispatchEvent(new CustomEvent("office:filter", { detail: { kind: m[1], id: m[2], title: given ?? "この案件" } })));
     }
   }, [compact]);
 

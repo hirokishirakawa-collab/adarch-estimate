@@ -168,7 +168,15 @@ export async function getLiveDetail(kind: string, id: string): Promise<LiveDetai
     };
     if (sent.source) rows.push({ label: "経路", value: SOURCE_LABEL[sent.source] ?? sent.source });
     if (sent.domain) rows.push({ label: "サイト", value: sent.domain });
-    return { title: sent.companyName ?? sent.domain ?? "送付先", actor: sent.branch?.name ?? "—", rows };
+    const q = sent.companyName ?? sent.domain;
+    return {
+      title: sent.companyName ?? sent.domain ?? "送付先",
+      actor: sent.branch?.name ?? "—",
+      rows,
+      // 送付台帳でその1件を開ける（紐づけカードから飛べるように）
+      href: q ? `/dashboard/auto-sales/history?q=${encodeURIComponent(q)}` : "/dashboard/auto-sales/history",
+      hrefLabel: "送付台帳で見る",
+    };
   }
 
   if (kind === "tender") {

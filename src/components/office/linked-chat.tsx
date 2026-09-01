@@ -20,7 +20,7 @@ export async function LinkedChat({ kind, id, title }: { kind: "deal" | "customer
   } catch {
     rows = [];
   }
-  const liveHref = `/dashboard/live?ref=${kind}:${encodeURIComponent(id)}`;
+  const liveHref = `/dashboard/live?ref=${kind}:${encodeURIComponent(id)}${title ? `&t=${encodeURIComponent(title.slice(0, 80))}` : ""}`;
 
   return (
     <div className="border-t border-zinc-100">

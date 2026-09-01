@@ -128,6 +128,8 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
     (f: { kind: string; id: string; title: string } | null) => {
       filterRef.current = f ? { kind: f.kind, id: f.id } : null;
       setFilter(f);
+      // 案件の会話を開いたら、そのまま書けば紐づく（📎を押し直さなくてよい）
+      setRef(f ? { kind: f.kind, id: f.id, title: f.title } : null);
       setItems([]);
       lastAt.current = null;
       setLoaded(false);
@@ -175,6 +177,8 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
   const send = async () => {
     const t = text.trim();
     if (!t || sending) return;
+    // 案件の会話を見ている間は、外していても必ずその案件に紐づける（紐づかない投稿は後で見つからなくなる）
+    const eff: ComposeRef | null = ref ?? (filter ? { kind: filter.kind, id: filter.id, title: filter.title } : null);
     setSending(true);
     try {
       const r = await fetch("/api/office/chat", {
@@ -182,7 +186,7 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: t,
-          ref: ref ? (ref.kind === "url" ? { kind: "url", href: ref.href } : { kind: ref.kind, id: ref.id }) : null,
+          ref: eff ? (eff.kind === "url" ? { kind: "url", href: eff.href } : { kind: eff.kind, id: eff.id }) : null,
         }),
       });
       const d = (await r.json()) as { item?: ChatDTO; error?: string };
@@ -190,7 +194,8 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
       stickToBottom.current = true;
       merge([d.item]);
       setText("");
-      setRef(null);
+      // 案件の会話の中では紐づけを保つ（次の一言もその案件に残る）
+      setRef(filter ? { kind: filter.kind, id: filter.id, title: filter.title } : null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "送れませんでした");
     } finally {
@@ -295,9 +300,13 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
             <span className="text-[10px] px-1.5 py-px rounded border border-emerald-400/40 text-emerald-200">{REF_LABEL[ref.kind] ?? ref.kind}</span>
             <span className="text-emerald-50 truncate">{ref.title}</span>
             {ref.sub && <span className="text-zinc-500 truncate hidden sm:inline">{ref.sub}</span>}
-            <button type="button" onClick={() => setRef(null)} className="ml-auto p-1 rounded text-zinc-400 hover:text-white" aria-label="紐づけを外す">
-              <X className="w-3.5 h-3.5" />
-            </button>
+            {filter && ref.kind === filter.kind && ref.id === filter.id ? (
+              <span className="ml-auto text-[10.5px] text-emerald-300/80 whitespace-nowrap">この案件に紐づけて送ります</span>
+            ) : (
+              <button type="button" onClick={() => setRef(null)} className="ml-auto p-1 rounded text-zinc-400 hover:text-white" aria-label="紐づけを外す">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         )}
         <div className="flex items-end gap-2">
@@ -357,31 +366,42 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
 function RefCard({ r, onFilter }: { r: ChatRefView; onFilter?: () => void }) {
   const href = safeHref(r.href);
   const external = !!href && /^https?:\/\//i.test(href);
+  // 題名そのものを押せば飛べる（小さなアイコンだけにしない）
+  const body = (
+    <span className="min-w-0 flex-1">
+      <span className={`block text-[12.5px] truncate ${href ? "text-emerald-100 underline decoration-emerald-400/40 underline-offset-2" : "text-zinc-100"}`}>
+        {r.title}
+      </span>
+      {r.sub && <span className="block text-[10.5px] text-zinc-500 truncate">{r.sub}</span>}
+    </span>
+  );
   return (
     <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 max-w-md">
       <span className="text-[10px] px-1.5 py-px rounded border border-emerald-400/40 text-emerald-200 shrink-0">{REF_LABEL[r.kind] ?? r.kind}</span>
-      <span className="min-w-0">
-        <span className="block text-[12.5px] text-zinc-100 truncate">{r.title}</span>
-        {r.sub && <span className="block text-[10.5px] text-zinc-500 truncate">{r.sub}</span>}
-      </span>
-      <span className="ml-auto flex items-center gap-1 shrink-0">
-        {onFilter && (
-          <button type="button" onClick={onFilter} title="この案件の会話だけを見る" className="px-1.5 py-1 rounded text-[10.5px] text-emerald-300 hover:bg-white/[0.08]">
-            会話
-          </button>
-        )}
-        {href && (
-          <a
-            href={href}
-            target={external ? "_blank" : undefined}
-            rel={external ? "noopener noreferrer" : undefined}
-            title="開く"
-            className="p-1 rounded text-zinc-400 hover:text-white hover:bg-white/[0.08]"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        )}
-      </span>
+      {href ? (
+        <a
+          href={href}
+          target={external ? "_blank" : undefined}
+          rel={external ? "noopener noreferrer" : undefined}
+          title="開く"
+          className="min-w-0 flex-1 flex items-center gap-1.5 rounded hover:bg-white/[0.06]"
+        >
+          {body}
+          <ExternalLink className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+        </a>
+      ) : (
+        body
+      )}
+      {onFilter && (
+        <button
+          type="button"
+          onClick={onFilter}
+          title="この案件の会話だけを見る"
+          className="shrink-0 px-1.5 py-1 rounded text-[10.5px] text-emerald-300 hover:bg-white/[0.08] whitespace-nowrap"
+        >
+          会話
+        </button>
+      )}
     </div>
   );
 }

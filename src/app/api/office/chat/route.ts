@@ -92,7 +92,19 @@ export async function POST(req: NextRequest) {
         }));
         const refContext = ref ? await refContextForBot(ref) : null;
         const reply = await composeBotReply({ text, askerName: me.name ?? me.email.split("@")[0], recent, refContext });
-        if (reply) await db.officeChatMessage.create({ data: { userId: bot.id, text: reply } });
+        // 返答も同じ案件に紐づける＝案件ページの「グループチャットでの会話」に答えが残る
+        if (reply)
+          await db.officeChatMessage.create({
+            data: {
+              userId: bot.id,
+              text: reply,
+              refKind: ref?.kind ?? null,
+              refId: ref?.id ?? null,
+              refTitle: ref?.title ?? null,
+              refSub: ref?.sub ?? null,
+              refHref: ref?.href ?? null,
+            },
+          });
       } catch (e) {
         console.error("[office:chat:bot]", e instanceof Error ? e.message : e);
       }
