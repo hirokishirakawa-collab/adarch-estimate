@@ -3,6 +3,9 @@ import { CreditCard, Pencil, ArrowLeft, FileText, ExternalLink } from "lucide-re
 import { getInvoiceRequestWithAuth, submitInvoiceRequest } from "@/lib/actions/billing";
 import { commissionBaseOf, commissionOf } from "@/lib/royalty-monthly";
 import { MediaCommissionForm } from "@/components/billing/media-commission-form";
+import { MfBillingPanel } from "@/components/billing/mf-billing-panel";
+import { getBillingMfStatus } from "@/lib/actions/billing-mf";
+import { db } from "@/lib/db";
 
 const STATUS_CONFIG = {
   DRAFT:     { label: "未提出",  className: "bg-amber-50 text-amber-700 border-amber-200" },
@@ -19,6 +22,27 @@ export default async function BillingDetailPage({ params }: Props) {
 
   const statusCfg  = STATUS_CONFIG[request.status];
   const isAdmin    = role === "ADMIN";
+
+  // ADMIN: MFクラウド請求書パネル用（作成状況・Squareリンク・接続状態）
+  const mfPanel = isAdmin
+    ? await (async () => {
+        const [row, status] = await Promise.all([
+          db.invoiceRequest.findUnique({
+            where: { id },
+            select: { billingDate: true, dueDate: true, amountInclTax: true, mfBillingId: true, mfBillingNumber: true, mfPaymentStatus: true, squareLinkUrl: true, squareLinkAmount: true },
+          }),
+          getBillingMfStatus(),
+        ]);
+        if (!row) return null;
+        const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        return {
+          defaultBillingDate: ymd(new Date(row.billingDate)),
+          dueDate: row.dueDate ? ymd(new Date(row.dueDate)) : null,
+          mf: { billingId: row.mfBillingId, billingNumber: row.mfBillingNumber, paymentStatus: row.mfPaymentStatus, squareUrl: row.squareLinkUrl, squareAmount: row.squareLinkAmount, amountInclTax: Math.round(Number(row.amountInclTax)) },
+          status,
+        };
+      })()
+    : null;
   const fmtAmt     = (n: number | { toString(): string }) =>
     `¥${Number(n).toLocaleString("ja-JP")}`;
   const fmtDate    = (d: Date | null) =>
@@ -270,6 +294,17 @@ export default async function BillingDetailPage({ params }: Props) {
         申請者: {request.createdBy?.name ?? request.creatorEmail} ／
         申請日: {fmtDate(request.createdAt)}
       </p>
+
+      {/* ADMIN 専用: MFクラウド請求書に作成（Squareリンク→MF） */}
+      {isAdmin && request.status === "SUBMITTED" && mfPanel && (
+        <MfBillingPanel
+          requestId={id}
+          defaultBillingDate={mfPanel.defaultBillingDate}
+          dueDate={mfPanel.dueDate}
+          mf={mfPanel.mf}
+          status={mfPanel.status}
+        />
+      )}
 
       {/* ADMIN 専用: 媒体請求の手数料入力（許可の段階で打ち込む） */}
       {isAdmin && isMedia && (

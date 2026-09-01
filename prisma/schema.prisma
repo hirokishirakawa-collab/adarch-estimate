@@ -504,6 +504,10 @@ model Customer {
   postalCode      String?        @db.VarChar(8) // 郵便番号（例: 100-0001）
   prefecture      String? // 都道府県
   address         String? // 住所（番地）
+  // ---- MFクラウド請求書 取引先の対応（2026-09）----
+  mfPartnerName  String? // MF上の取引先名称
+  mfPartnerId    String?
+  mfDepartmentId String? // 請求書作成に使う部署ID
   building        String? // ビル名・部屋番号
   notes           String?        @db.Text // 備考・メモ
   staffName       String? // 社内担当者名（登録者）
@@ -957,6 +961,16 @@ model InvoiceRequest {
   withholdingTaxAmount   Decimal? @db.Decimal(15, 0) // 源泉徴収税額
   nonDeductibleTaxAmount Decimal? @db.Decimal(15, 0) // 控除不可消費税額
   netPaymentAmount       Decimal? @db.Decimal(15, 0) // 差引支払額
+
+  // ── MFクラウド請求書／Square決済リンク（本部がクライアントへ代理請求するとき・2026-09）
+  squareLinkId     String? // Square payment_link.id（この申請の税込額で作成）
+  squareLinkUrl    String?
+  squareLinkAmount Int? // リンク作成時の税込額（金額が変わったら作り直し）
+  mfBillingId      String?   @unique // MF billing id
+  mfBillingNumber  String? // MF 請求書番号
+  mfPdfUrl         String?
+  mfPaymentStatus  Int? // MF payment_status（0未設定/1未入金/2入金済み/3未払い/4振込済み）
+  mfSyncedAt       DateTime?
 
   // ── ステータス
   status        InvoiceRequestStatus @default(DRAFT)
