@@ -160,7 +160,11 @@ export function evaluatePartnerRoyalty(opts: {
     const u = exempt ? { royaltyExclTax: 0, shortfallExclTax: 0 } : evaluateUnit(perMin, rev, c);
     return { label, revenueExclTax: rev, royaltyExclTax: u.royaltyExclTax, commissionExclTax: c, minExclTax: perMin, shortfallExclTax: u.shortfallExclTax, isCovered: u.shortfallExclTax === 0 };
   });
-  const shortfallTotal = branches.reduce((s, b) => s + b.shortfallExclTax, 0);
+  // 県未指定の手数料（県タグ導入前の請求申請など）は、本部が実際に控除＝受領した額なので
+  // 不足合計から差し引く。どの県の最低保証に充てるかは決められないため合計で相殺する。
+  const untagged = Math.max(0, total - taggedSum);
+  const rawShortfall = Math.max(0, branches.reduce((s, b) => s + b.shortfallExclTax, 0) - untagged);
+  const shortfallTotal = rawShortfall < ROYALTY_SHORTFALL_IGNORE_BELOW ? 0 : rawShortfall;
   return {
     revenueExclTax: revenueTotal,
     royaltyExclTax: branches.reduce((s, b) => s + b.royaltyExclTax, 0),
@@ -172,7 +176,7 @@ export function evaluatePartnerRoyalty(opts: {
     isCovered: shortfallTotal === 0,
     isExempt: exempt,
     branches,
-    untaggedCommissionExclTax: Math.max(0, total - taggedSum),
+    untaggedCommissionExclTax: untagged,
   };
 }
 
