@@ -158,6 +158,15 @@ enum GroupInvoiceStatus {
   CANCELLED // 取消（誤発行の取り消し）。発行済・入金済からのみ遷移し、記録は消さずに残す
 }
 
+// ロイヤリティ入金チェック（本部専用台帳）の入金方法
+enum RoyaltyPaymentMethod {
+  BANK_TRANSFER // 銀行振込（三菱UFJ）
+  GMO // GMOあおぞら口座への振込
+  SQUARE // Squareカード決済
+  OFFSET // 支払明細で相殺（本部手数料10%控除で完結）
+  OTHER // その他
+}
+
 enum EstimationStatus {
   DRAFT // 下書き（未発行・通知なし）
   ISSUED // 発行済み（通知送信済み）
@@ -1204,6 +1213,67 @@ model RoyaltyAdjustment {
   @@map("royalty_adjustments")
 }
 
+// ============================================================
+// ロイヤリティ入金チェック（本部専用・パートナーには非公開）
+//
+// 実際のロイヤリティ徴収はOS外（外部請求書＋銀行/Square/GMO入金）で行われるため、
+// GroupInvoice の入金ステータスとは独立に「社×月」で入金の有無を本部が手で記録する台帳。
+// 相殺済み（案件10%で最低保証クリア）・免除・期限超過はロイヤリティ判定から自動導出し、
+// このテーブルには「本部が入金を確認した」事実だけを残す。
+// ============================================================
+model RoyaltyPaymentCheck {
+  id String @id @default(cuid())
+
+  groupCompanyId String
+  groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
+
+  month String // 対象月（"2026-06"）＝ロイヤリティが発生した月。期限は翌々月10日
+
+  paidOn         DateTime // 入金日（本部が確認した日付）
+  method         RoyaltyPaymentMethod @default(BANK_TRANSFER)
+  amountInclTax  Int? // 入金額（税込）。空可
+  note           String?              @db.Text
+
+  checkedById String // 記録した本部ユーザー（監査用・スカラ）
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([groupCompanyId, month])
+  @@index([month])
+  @@map("royalty_payment_checks")
+}
+
+// ============================================================
+// ロイヤリティ カード決済リンク（Square Payment Links API）
+//
+// 請求1本（社×月）につき1本のSquare決済リンクをOSが生成し、MFの請求メールに貼る。
+// リンク名・payment_note に社名と対象月が入るため、入金が誰の何月分か Square 側で特定できる
+// （固定リンク¥55,000運用で起きた「入金者不明」を防ぐ）。金額が変わったら作り直す。
+// ============================================================
+model RoyaltyPaymentLink {
+  id String @id @default(cuid())
+
+  groupCompanyId String
+  groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
+
+  month         String // 対象月（"2026-08"）
+  amountInclTax Int // リンクの金額（税込）
+  name          String // Square上の品名（例: ロイヤリティ 2026年8月分 歌丸翔馬）
+
+  squareLinkId  String  @unique // Square payment_link.id
+  squareOrderId String? // Square order_id
+  url           String // 短縮URL（square.link/...）
+  longUrl       String? // 長いURL
+
+  createdById String // 生成した本部ユーザー（監査用・スカラ）
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([groupCompanyId, month])
+  @@index([month])
+  @@map("royalty_payment_links")
+}
+
 // ==============================================================
 // EstimationTemplate（標準単価マスタ）
 // ==============================================================
@@ -1905,6 +1975,8 @@ model GroupCompany {
   // ---- グループ請求書（本部→当社への請求） ----
   groupInvoices      GroupInvoice[]
   royaltyAdjustments RoyaltyAdjustment[]
+  royaltyPaymentChecks RoyaltyPaymentCheck[]
+  royaltyPaymentLinks  RoyaltyPaymentLink[]
 
   @@index([phase])
   @@map("group_companies")
@@ -4710,6 +4782,11 @@ model SignageDevice {
   isActive Boolean @default(false)
   notes    String? @db.Text
 
+  // L字配信（帯）: メインの周囲に設置先のお知らせを常時表示。有料広告枠は item.fullscreen で外せる
+  frameEnabled     Boolean @default(false)
+  frameSideAssetId String? // サイド帯に出す画像素材
+  frameTicker      String? @db.Text // 下帯ティッカー（改行区切り・1行=1文）
+
   branchId   String?
   branch     Branch?   @relation(fields: [branchId], references: [id])
   customerId String? // 設置先（顧客DB）
@@ -4781,6 +4858,7 @@ model SignagePlaylistItem {
   asset       SignageAsset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
   order       Int
   durationSec Int     @default(15) // 画像の表示秒。動画は素材の長さを使う
+  fullscreen  Boolean @default(false) // この枠はL字を外して全画面（有料広告枠向け）
 
   advertiserCustomerId String?
   advertiserCustomer   Customer? @relation("SignageAdvertiser", fields: [advertiserCustomerId], references: [id], onDelete: SetNull)

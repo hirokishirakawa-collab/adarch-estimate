@@ -21,6 +21,7 @@ const HARD_WATCHDOG_MS = 10 * 60_000;
 type Item = {
   id: string; assetId: string; type: "image" | "video"; url: string; durationSec: number;
   checksum: string; size: number; name: string; startDate: string | null; endDate: string | null;
+  fullscreen?: boolean; // L字を外して全画面
 };
 type Schedule = {
   id: string; name: string; playlistId: string; daysOfWeek: number[];
@@ -29,6 +30,7 @@ type Schedule = {
 type Manifest = {
   version: number; device: { id: string; name: string; orientation: "LANDSCAPE" | "PORTRAIT"; pollSec: number };
   schedules: Schedule[]; playlists: Record<string, Item[]>;
+  frame?: { enabled: boolean; sideUrl: string | null; ticker: string[] } | null; // L字配信（帯）
 };
 type PlayLog = { assetId: string; playedAt: string; durationSec: number };
 
@@ -70,6 +72,7 @@ export function SignagePlayer({ initialToken, debug }: { initialToken: string | 
   const [current, setCurrent] = useState<{ item: Item; src: string } | null>(null);
   const [status, setStatus] = useState<string>("起動中");
   const [progress, setProgress] = useState<string | null>(null);
+  const [sideSrc, setSideSrc] = useState<string | null>(null); // L字サイド帯の画像（キャッシュ→blob）
 
   const manifestRef = useRef<Manifest | null>(null);
   const pendingRef = useRef<Manifest | null>(null); // 取り込み済み・ループ境界で切替待ち
@@ -106,8 +109,9 @@ export function SignagePlayer({ initialToken, debug }: { initialToken: string | 
   // ---- 素材の差分取り込み ----
   const ingest = useCallback(async (m: Manifest) => {
     const cache = await caches.open(CACHE_NAME);
-    const wanted = new Map<string, Item>();
+    const wanted = new Map<string, { url: string; name: string }>();
     for (const items of Object.values(m.playlists)) for (const it of items) wanted.set(it.url, it);
+    if (m.frame?.enabled && m.frame.sideUrl) wanted.set(m.frame.sideUrl, { url: m.frame.sideUrl, name: "サイド帯画像" });
     const keys = await cache.keys();
     const have = new Set(keys.map((k) => k.url));
     const missing = [...wanted.values()].filter((it) => !have.has(it.url));
@@ -232,6 +236,25 @@ export function SignagePlayer({ initialToken, debug }: { initialToken: string | 
 
   useEffect(() => { if (manifest && !current) advance(); }, [manifest, current, advance]);
 
+  // L字サイド帯の画像をキャッシュから blob URL にして保持
+  useEffect(() => {
+    const url = manifest?.frame?.enabled ? manifest.frame.sideUrl : null;
+    let revoked: string | null = null;
+    (async () => {
+      if (!url) { setSideSrc(null); return; }
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        let res = await cache.match(url);
+        if (!res) { const r = await fetch(url, { cache: "no-store" }); if (r.ok) { await cache.put(url, r.clone()); res = r; } }
+        if (!res) { setSideSrc(null); return; }
+        const src = URL.createObjectURL(await res.blob());
+        revoked = src;
+        setSideSrc(src);
+      } catch { setSideSrc(null); }
+    })();
+    return () => { if (revoked) URL.revokeObjectURL(revoked); };
+  }, [manifest]);
+
   // 動画は明示的に play() を呼ぶ（autoplay 属性だけでは端末によって始まらない）
   useEffect(() => {
     if (current?.item.type !== "video") return;
@@ -270,18 +293,45 @@ export function SignagePlayer({ initialToken, debug }: { initialToken: string | 
     ? { width: "100vh", height: "100vw", transform: "rotate(90deg) translateY(-100%)", transformOrigin: "top left" }
     : { width: "100vw", height: "100vh" };
 
+  // L字（帯）: 帯が有効で、今の枠が「全画面」指定でないときだけ
+  const frame = manifest?.frame?.enabled ? manifest.frame : null;
+  const frameOn = !!frame && !!current && !current.item.fullscreen;
+  const tickerText = frame && frame.ticker.length > 0 ? frame.ticker.join("　　◆　　") : "";
+  // 帯の寸法（短辺基準）: サイド帯=幅22%・下帯=高さ9%
+  const sideW = frameOn && frame?.sideUrl ? "22%" : "0%";
+  const tickerH = frameOn && tickerText ? "9%" : "0%";
+
+  const media = current && (
+    current.item.type === "image" ? (
+      // eslint-disable-next-line @next/next/no-img-element -- blob URL（Cache API）を表示するため next/image は使えない
+      <img key={current.item.id + current.src} src={current.src} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+    ) : (
+      <video key={current.item.id + current.src} ref={videoRef} src={current.src} autoPlay muted playsInline preload="auto"
+        onEnded={() => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current); logsRef.current.push({ assetId: current.item.assetId, playedAt: new Date(Date.now() - (videoRef.current?.duration ?? 0) * 1000).toISOString(), durationSec: Math.round(videoRef.current?.duration ?? current.item.durationSec) }); advance(); }}
+        onError={() => advance()}
+        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", background: "#000" }} />
+    )
+  );
+
   return (
     <div onClick={goFullscreen} style={{ position: "fixed", inset: 0, background: "#000", overflow: "hidden", cursor: "none", fontFamily: "system-ui, sans-serif" }}>
-      <div style={{ position: "absolute", top: 0, left: 0, ...rotate }}>
-        {current?.item.type === "image" && (
-          // eslint-disable-next-line @next/next/no-img-element -- blob URL（Cache API）を表示するため next/image は使えない
-          <img key={current.item.id + current.src} src={current.src} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-        )}
-        {current?.item.type === "video" && (
-          <video key={current.item.id + current.src} ref={videoRef} src={current.src} autoPlay muted playsInline preload="auto"
-            onEnded={() => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current); logsRef.current.push({ assetId: current.item.assetId, playedAt: new Date(Date.now() - (videoRef.current?.duration ?? 0) * 1000).toISOString(), durationSec: Math.round(videoRef.current?.duration ?? current.item.durationSec) }); advance(); }}
-            onError={() => advance()}
-            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", background: "#000" }} />
+      <style>{`@keyframes signage-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
+      <div style={{ position: "absolute", top: 0, left: 0, ...rotate, display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+          <div style={{ flex: 1, minWidth: 0, background: "#000" }}>{media}</div>
+          {frameOn && frame?.sideUrl && (
+            <div style={{ width: sideW, flexShrink: 0, background: "#111", overflow: "hidden" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- blob URL */}
+              {sideSrc && <img src={sideSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+            </div>
+          )}
+        </div>
+        {frameOn && tickerText && (
+          <div style={{ height: tickerH, flexShrink: 0, background: "#F19834", color: "#111", display: "flex", alignItems: "center", overflow: "hidden", whiteSpace: "nowrap" }}>
+            <div style={{ display: "inline-block", fontSize: "min(4.2vh, 3vw)", fontWeight: 700, letterSpacing: "0.04em", animation: `signage-ticker ${Math.max(20, tickerText.length * 0.6)}s linear infinite`, paddingLeft: "0" }}>
+              <span style={{ paddingRight: "8vw" }}>{tickerText}</span><span style={{ paddingRight: "8vw" }}>{tickerText}</span>
+            </div>
+          </div>
         )}
       </div>
 

@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Save, Trash2, Wifi, WifiOff } from "lucide-react";
 import { btnDanger, btnGhost, btnPrimary, fmtAgo, input, label } from "./shared";
+import { AssetLibrary, type Asset } from "./asset-library";
 
 type Schedule = { id: string; name: string; playlistId: string; daysOfWeek: number[]; startTime: string | null; endTime: string | null; startDate: string | null; endDate: string | null; priority: number; isActive: boolean; playlist: { id: string; name: string } };
 type Device = {
   id: string; name: string; locationName: string | null; address: string | null; notes: string | null; orientation: "LANDSCAPE" | "PORTRAIT"; pollSec: number;
   lastSeenAt: string | null; lastDownloadAt: string | null; manifestVersion: number; appVersion: string | null; storageUsedMb: number | null; storageTotalMb: number | null; playingAssetId: string | null;
   branch: { id: string; name: string } | null; customer: { id: string; name: string } | null; schedules: Schedule[];
+  frameEnabled: boolean; frameSideAssetId: string | null; frameTicker: string | null;
   plays7d: { assetId: string; count: number; seconds: number }[];
   online?: boolean;
 };
@@ -23,6 +25,8 @@ export function DeviceDetail({ deviceId }: { deviceId: string }) {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [form, setForm] = useState({ name: "", locationName: "", address: "", notes: "", orientation: "LANDSCAPE" as "LANDSCAPE" | "PORTRAIT", pollSec: 60 });
   const [adding, setAdding] = useState(false);
+  const [frame, setFrame] = useState({ enabled: false, sideAssetId: "" as string, ticker: "" });
+  const [pickingSide, setPickingSide] = useState(false);
 
   const load = useCallback(async () => {
     const [r1, r2] = await Promise.all([fetch(`/api/signage/devices/${deviceId}`, { cache: "no-store" }), fetch("/api/signage/playlists", { cache: "no-store" })]);
@@ -31,6 +35,7 @@ export function DeviceDetail({ deviceId }: { deviceId: string }) {
     j.online = !!j.lastSeenAt && Date.now() - Date.parse(j.lastSeenAt) < Math.max(j.pollSec * 3, 300) * 1000;
     setD(j);
     setForm({ name: j.name, locationName: j.locationName ?? "", address: j.address ?? "", notes: j.notes ?? "", orientation: j.orientation, pollSec: j.pollSec });
+    setFrame({ enabled: j.frameEnabled, sideAssetId: j.frameSideAssetId ?? "", ticker: j.frameTicker ?? "" });
     if (r2.ok) setPlaylists(await r2.json());
   }, [deviceId]);
   useEffect(() => { void Promise.resolve().then(load); const t = setInterval(load, 30_000); return () => clearInterval(t); }, [load]);
@@ -38,6 +43,10 @@ export function DeviceDetail({ deviceId }: { deviceId: string }) {
   const saveBasics = async () => {
     const r = await fetch(`/api/signage/devices/${deviceId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
     if (r.ok) { toast.success("保存しました"); load(); } else toast.error("保存に失敗しました");
+  };
+  const saveFrame = async () => {
+    const r = await fetch(`/api/signage/devices/${deviceId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ frameEnabled: frame.enabled, frameSideAssetId: frame.sideAssetId || null, frameTicker: frame.ticker }) });
+    if (r.ok) { toast.success("L字設定を保存しました。次回の問い合わせで端末に反映されます"); load(); } else toast.error("保存に失敗しました");
   };
   const removeDevice = async () => {
     if (!confirm("この端末を無効化しますか？端末側はペアリング待ちに戻ります（再生ログは残ります）")) return;
@@ -80,6 +89,33 @@ export function DeviceDetail({ deviceId }: { deviceId: string }) {
             </div>
           )}
           <p className="text-[11px] text-zinc-400 mt-2">複数ある場合は「優先度が高く、条件に合う」ものが流れます。条件なし・優先度0を「標準」として1本置くのが基本です。</p>
+        </section>
+
+        {/* L字（帯）配信 */}
+        <section className="bg-white border border-zinc-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-zinc-900 text-sm">L字（帯）配信</h3>
+            <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={frame.enabled} onChange={(e) => setFrame({ ...frame, enabled: e.target.checked })} />帯を表示する</label>
+          </div>
+          <p className="text-xs text-zinc-500">メインの周りに設置先のお知らせを常時表示します（右にサイド画像・下に流れる文字）。プレイリストで「全画面」にした枠（有料広告など）の間は帯が消えます。</p>
+          <div className="grid gap-3 md:grid-cols-[220px_1fr]">
+            <div>
+              <label className={label}>サイド帯の画像（縦長推奨）</label>
+              <div className="aspect-[9/16] w-28 bg-zinc-100 rounded-lg overflow-hidden mb-2">
+                {/* eslint-disable-next-line @next/next/no-img-element -- 認証付きサムネAPI */}
+                {frame.sideAssetId && <img src={`/api/signage/assets/${frame.sideAssetId}/thumb`} alt="" className="w-full h-full object-cover" />}
+              </div>
+              <div className="flex gap-1.5">
+                <button className={btnGhost} onClick={() => setPickingSide(true)}>画像を選ぶ</button>
+                {frame.sideAssetId && <button className={btnGhost} onClick={() => setFrame({ ...frame, sideAssetId: "" })}>外す</button>}
+              </div>
+            </div>
+            <div>
+              <label className={label}>下帯に流す文字（1行＝1文・順に流れます）</label>
+              <textarea className={input} rows={5} value={frame.ticker} onChange={(e) => setFrame({ ...frame, ticker: e.target.value })} placeholder={"秋のセール 9/15まで 全館対象\n本日5F催事場で北海道物産展 開催中\n駐車場 2,000円以上のお買い上げで2時間無料"} />
+            </div>
+          </div>
+          <div className="flex justify-end"><button className={btnPrimary} onClick={saveFrame}><Save className="w-3.5 h-3.5" />L字設定を保存</button></div>
         </section>
 
         {/* 基本情報 */}
@@ -130,6 +166,14 @@ export function DeviceDetail({ deviceId }: { deviceId: string }) {
         </section>
       </aside>
 
+      {pickingSide && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setPickingSide(false)}>
+          <div className="bg-white rounded-xl w-full max-w-5xl max-h-[85vh] overflow-auto p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3"><h3 className="font-bold">サイド帯の画像を選ぶ（画像のみ）</h3><button className={btnGhost} onClick={() => setPickingSide(false)}>閉じる</button></div>
+            <AssetLibrary pickMode onPick={(a: Asset) => { if (!a.mimeType.startsWith("image/")) { toast.error("サイド帯は画像のみです"); return; } setFrame({ ...frame, sideAssetId: a.id }); setPickingSide(false); }} />
+          </div>
+        </div>
+      )}
       {adding && <AddScheduleDialog deviceId={deviceId} playlists={playlists} onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
     </div>
   );

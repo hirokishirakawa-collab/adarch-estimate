@@ -9,10 +9,11 @@ import { CustomerPicker, btnDanger, btnGhost, btnPrimary, fmtSec, input, label }
 type Item = {
   key: string; assetId: string; asset: Asset; durationSec: number;
   advertiser: { id: string; name: string } | null; startDate: string; endDate: string;
+  fullscreen: boolean; // L字を外して全画面（有料広告枠向け）
 };
 type Playlist = {
   id: string; name: string;
-  items: { id: string; assetId: string; asset: Asset; durationSec: number; advertiserCustomer: { id: string; name: string } | null; startDate: string | null; endDate: string | null }[];
+  items: { id: string; assetId: string; asset: Asset; durationSec: number; advertiserCustomer: { id: string; name: string } | null; startDate: string | null; endDate: string | null; fullscreen: boolean }[];
   schedules: { id: string; device: { id: string; name: string } }[];
 };
 
@@ -31,7 +32,7 @@ export function PlaylistEditor({ playlistId }: { playlistId: string }) {
     if (!r.ok) { toast.error("プレイリストが見つかりません"); return; }
     const j: Playlist = await r.json();
     setPl(j); setName(j.name);
-    setItems(j.items.map((it) => ({ key: it.id, assetId: it.assetId, asset: it.asset, durationSec: it.durationSec, advertiser: it.advertiserCustomer, startDate: d10(it.startDate), endDate: d10(it.endDate) })));
+    setItems(j.items.map((it) => ({ key: it.id, assetId: it.assetId, asset: it.asset, durationSec: it.durationSec, advertiser: it.advertiserCustomer, startDate: d10(it.startDate), endDate: d10(it.endDate), fullscreen: !!it.fullscreen })));
     setDirty(false);
   }, [playlistId]);
   useEffect(() => { load(); }, [load]);
@@ -43,7 +44,7 @@ export function PlaylistEditor({ playlistId }: { playlistId: string }) {
   };
   const remove = (i: number) => { setItems((arr) => arr.filter((_, k) => k !== i)); setDirty(true); };
   const add = (a: Asset) => {
-    setItems((arr) => [...arr, { key: `new-${Date.now()}-${arr.length}`, assetId: a.id, asset: a, durationSec: 15, advertiser: null, startDate: "", endDate: "" }]);
+    setItems((arr) => [...arr, { key: `new-${Date.now()}-${arr.length}`, assetId: a.id, asset: a, durationSec: 15, advertiser: null, startDate: "", endDate: "", fullscreen: false }]);
     setDirty(true); setPicking(false);
   };
 
@@ -56,7 +57,7 @@ export function PlaylistEditor({ playlistId }: { playlistId: string }) {
       }
       const r = await fetch(`/api/signage/playlists/${playlistId}/items`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: items.map((it) => ({ assetId: it.assetId, durationSec: it.durationSec, advertiserCustomerId: it.advertiser?.id ?? null, startDate: it.startDate || null, endDate: it.endDate ? `${it.endDate}T23:59:59` : null })) }),
+        body: JSON.stringify({ items: items.map((it) => ({ assetId: it.assetId, durationSec: it.durationSec, advertiserCustomerId: it.advertiser?.id ?? null, startDate: it.startDate || null, endDate: it.endDate ? `${it.endDate}T23:59:59` : null, fullscreen: it.fullscreen })) }),
       });
       const j = await r.json();
       if (!r.ok) { toast.error(j.error ?? "保存に失敗しました"); return; }
@@ -83,10 +84,10 @@ export function PlaylistEditor({ playlistId }: { playlistId: string }) {
       <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 text-xs text-zinc-500">
-            <tr><th className="text-left px-3 py-2 w-10">#</th><th className="text-left px-3 py-2">素材</th><th className="text-left px-3 py-2 w-28">秒数</th><th className="text-left px-3 py-2">広告主（枠の売り先）</th><th className="text-left px-3 py-2 w-64">掲載期間</th><th className="w-28"></th></tr>
+            <tr><th className="text-left px-3 py-2 w-10">#</th><th className="text-left px-3 py-2">素材</th><th className="text-left px-3 py-2 w-28">秒数</th><th className="text-left px-3 py-2">広告主（枠の売り先）</th><th className="text-left px-3 py-2 w-64">掲載期間</th><th className="text-left px-3 py-2 w-20" title="L字（帯）を外して全画面で流す。有料広告枠向け">全画面</th><th className="w-28"></th></tr>
           </thead>
           <tbody>
-            {items.length === 0 && <tr><td colSpan={6} className="px-3 py-8 text-center text-zinc-400">枠がありません。「素材を追加」から入れてください</td></tr>}
+            {items.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-zinc-400">枠がありません。「素材を追加」から入れてください</td></tr>}
             {items.map((it, i) => {
               const isVideo = it.asset.mimeType.startsWith("video/");
               return (
@@ -102,6 +103,7 @@ export function PlaylistEditor({ playlistId }: { playlistId: string }) {
                   <td className="px-3 py-2">{isVideo ? <span className="text-xs text-zinc-500">動画の長さ</span> : <input type="number" min={1} max={600} className={input} value={it.durationSec} onChange={(e) => update(i, { durationSec: Number(e.target.value) })} />}</td>
                   <td className="px-3 py-2"><CustomerPicker value={it.advertiser} onChange={(c) => update(i, { advertiser: c })} placeholder="空き枠（広告主を検索して設定）" /></td>
                   <td className="px-3 py-2"><div className="flex items-center gap-1"><input type="date" className={input} value={it.startDate} onChange={(e) => update(i, { startDate: e.target.value })} /><span className="text-zinc-400">〜</span><input type="date" className={input} value={it.endDate} onChange={(e) => update(i, { endDate: e.target.value })} /></div></td>
+                  <td className="px-3 py-2"><label className="inline-flex items-center gap-1 text-xs text-zinc-600"><input type="checkbox" checked={it.fullscreen} onChange={(e) => update(i, { fullscreen: e.target.checked })} />全画面</label></td>
                   <td className="px-3 py-2">
                     <div className="flex gap-1">
                       <button className={btnGhost} onClick={() => move(i, -1)} disabled={i === 0} title="上へ"><ArrowUp className="w-3 h-3" /></button>

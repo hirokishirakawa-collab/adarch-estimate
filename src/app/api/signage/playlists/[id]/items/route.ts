@@ -7,7 +7,7 @@ import { bumpDevicesForPlaylist } from "@/lib/signage/manifest";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type ItemIn = { assetId: string; durationSec?: number; advertiserCustomerId?: string | null; startDate?: string | null; endDate?: string | null };
+type ItemIn = { assetId: string; durationSec?: number; advertiserCustomerId?: string | null; startDate?: string | null; endDate?: string | null; fullscreen?: boolean };
 
 export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { error, info } = await requireSignageUser();
@@ -40,6 +40,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
           order: i,
           durationSec: Math.max(1, Math.min(600, Math.round(it.durationSec ?? 15))),
           advertiserCustomerId: it.advertiserCustomerId || null,
+          fullscreen: !!it.fullscreen,
           startDate: toDate(it.startDate),
           endDate: toDate(it.endDate),
         },

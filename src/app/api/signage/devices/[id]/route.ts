@@ -41,8 +41,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (b.orientation === "PORTRAIT" || b.orientation === "LANDSCAPE") data.orientation = b.orientation;
   if (typeof b.pollSec === "number" && b.pollSec >= 15 && b.pollSec <= 3600) data.pollSec = Math.round(b.pollSec);
   if (info.role === "ADMIN" && "branchId" in b) data.branchId = typeof b.branchId === "string" && b.branchId ? b.branchId : null;
+  // L字（帯）
+  if ("frameEnabled" in b) data.frameEnabled = !!b.frameEnabled;
+  if ("frameSideAssetId" in b) data.frameSideAssetId = typeof b.frameSideAssetId === "string" && b.frameSideAssetId ? b.frameSideAssetId : null;
+  if ("frameTicker" in b) data.frameTicker = typeof b.frameTicker === "string" ? b.frameTicker.slice(0, 2000) : null;
   // 表示に関わる変更は版を上げる
-  if ("orientation" in data || "pollSec" in data) data.manifestVersion = { increment: 1 };
+  if ("orientation" in data || "pollSec" in data || "frameEnabled" in data || "frameSideAssetId" in data || "frameTicker" in data) data.manifestVersion = { increment: 1 };
   const updated = await db.signageDevice.update({ where: { id }, data });
   return NextResponse.json(updated);
 }

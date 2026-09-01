@@ -23,6 +23,7 @@ export type ManifestItem = {
   startDate: string | null;
   endDate: string | null;
   advertiserId: string | null;
+  fullscreen: boolean; // L字を外して全画面
 };
 
 export type ManifestSchedule = {
@@ -43,6 +44,7 @@ export type Manifest = {
   device: { id: string; name: string; orientation: "LANDSCAPE" | "PORTRAIT"; pollSec: number };
   schedules: ManifestSchedule[];
   playlists: Record<string, ManifestItem[]>; // playlistId → items（順序どおり）
+  frame: { enabled: boolean; sideUrl: string | null; ticker: string[] } | null; // L字配信（帯）
   playerVersion: string;
 };
 
@@ -114,8 +116,23 @@ export async function buildManifest(deviceId: string, baseUrl: string): Promise<
           startDate: it.startDate?.toISOString() ?? null,
           endDate: it.endDate?.toISOString() ?? null,
           advertiserId: it.advertiserCustomerId,
+          fullscreen: it.fullscreen,
         };
       });
+  }
+
+  // L字の帯（サイド画像は同じ配信路で渡す）
+  let frame: Manifest["frame"] = null;
+  if (device.frameEnabled) {
+    let sideUrl: string | null = null;
+    if (device.frameSideAssetId) {
+      const side = await db.signageAsset.findUnique({ where: { id: device.frameSideAssetId } });
+      if (side && !side.trashedAt && (!side.branchId || side.branchId === device.branchId)) {
+        sideUrl = `${baseUrl}/api/signage/d/${device.deviceToken}/asset/${side.id}`;
+      }
+    }
+    const ticker = (device.frameTicker ?? "").split("\n").map((t) => t.trim()).filter(Boolean);
+    frame = { enabled: true, sideUrl, ticker };
   }
 
   return {
@@ -124,6 +141,7 @@ export async function buildManifest(deviceId: string, baseUrl: string): Promise<
     device: { id: device.id, name: device.name, orientation: device.orientation, pollSec: device.pollSec },
     schedules,
     playlists,
+    frame,
     playerVersion: PLAYER_APP_VERSION,
   };
 }
