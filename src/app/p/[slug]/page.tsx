@@ -8,6 +8,7 @@
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
   CLIENT_OWNER_LABEL,
@@ -21,11 +22,25 @@ import {
 import { TVER_AREA_CALCULATOR } from "@/lib/packages/tver-area";
 import { TverAreaCalculator } from "@/components/packages/tver-area-calculator";
 
-type Params = { params: Promise<{ slug: string }>; searchParams: Promise<{ from?: string; pref?: string; city?: string }> };
+type Params = { params: Promise<{ slug: string }>; searchParams: Promise<{ from?: string; pref?: string; city?: string; preview?: string }> };
 
-async function loadPackage(slug: string) {
+/** 稼働中だけ。?preview=1 は本部（ログイン済みADMIN）にだけ提案中も見せる＝承認前の確認用 */
+async function loadPackage(slug: string, preview = false) {
   const p = await db.salesPackage.findUnique({ where: { slug } });
-  return p && p.status === "ACTIVE" ? p : null;
+  if (!p) return null;
+  if (p.status === "ACTIVE") return p;
+  if (preview) {
+    try {
+      const session = await auth();
+      if (session?.user?.email) {
+        const me = await db.user.findUnique({ where: { email: session.user.email }, select: { role: true } });
+        if (me?.role === "ADMIN") return p;
+      }
+    } catch {
+      /* 未ログインは 404 */
+    }
+  }
+  return null;
 }
 
 async function loadSender(from?: string) {
@@ -63,8 +78,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function PublicPackagePage({ params, searchParams }: Params) {
   const { slug } = await params;
-  const { from, pref, city } = await searchParams;
-  const [p, sender] = await Promise.all([loadPackage(slug), loadSender(from)]);
+  const { from, pref, city, preview } = await searchParams;
+  const [p, sender] = await Promise.all([loadPackage(slug, preview === "1"), loadSender(from)]);
   if (!p) notFound();
 
   const deliverables = parseDeliverables(p.deliverables);

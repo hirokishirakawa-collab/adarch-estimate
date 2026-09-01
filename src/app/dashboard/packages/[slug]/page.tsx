@@ -141,9 +141,14 @@ export default async function PackageDetailPage({
             <>
               <span className="text-xs text-zinc-500">{pkg.status === "PROPOSED" ? "提案中＝まだ売り物ではありません。本部が承認すると営業フォーム・見積に並びます。" : "終了したパッケージです。記録として残っています。"}</span>
               {isAdmin && pkg.status === "PROPOSED" && (
-                <a href={`/api/packages/${pkg.slug}/pdf?preview=1`} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-zinc-600 border border-zinc-300 rounded-lg hover:bg-zinc-50">
-                  <FileDown className="w-3.5 h-3.5" />資料を下書きで確認
-                </a>
+                <>
+                  <a href={`/p/${pkg.slug}?preview=1`} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-zinc-600 border border-zinc-300 rounded-lg hover:bg-zinc-50">
+                    公開ページを下書きで確認
+                  </a>
+                  <a href={`/api/packages/${pkg.slug}/pdf?preview=1`} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-zinc-600 border border-zinc-300 rounded-lg hover:bg-zinc-50">
+                    <FileDown className="w-3.5 h-3.5" />資料を下書きで確認
+                  </a>
+                </>
               )}
             </>
           )}

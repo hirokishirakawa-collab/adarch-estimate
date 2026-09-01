@@ -21,7 +21,7 @@ export function TverAreaCalculator({
   compact?: boolean;
 }) {
   const area = resolveArea({ pref, city, fallbackPref });
-  const est = area.city ? estimateArea([area.city]) : null;
+  const est = area.city ? estimateArea(area.pref, area.city) : null;
   const muni = area.munis.find((m) => m.code === area.city);
 
   return (
