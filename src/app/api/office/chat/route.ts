@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
     take: PAGE,
   });
 
-  return NextResponse.json({ meId: me.id, items: rows.reverse().map(toChatDTO) });
+  // canDelete: 本部(ADMIN)だけが投稿を指定して消せる
+  return NextResponse.json({ meId: me.id, canDelete: me.role === "ADMIN", items: rows.reverse().map(toChatDTO) });
 }
 
 export async function POST(req: NextRequest) {

@@ -12,6 +12,7 @@ import { GroupThreadCard } from "@/components/dashboard/group-thread-card";
 import { SalesBoost } from "@/components/dashboard/sales-boost";
 import { getMyGroupThread } from "@/lib/actions/group-support";
 import { LiveBoard } from "@/components/live/live-board";
+import { DashboardChatCard } from "@/components/office/dashboard-chat-card";
 import {
   Users,
   FolderKanban,
@@ -219,6 +220,11 @@ export default async function DashboardPage() {
           </span>
         )}
       </div>
+
+      {/* ── みんなのチャット（一番上・投稿0件でも常に出す。本部は投稿を消せる） ── */}
+      {session?.user?.email !== "demo@adarch.co.jp" && session?.user?.isActive !== false && (
+        <DashboardChatCard />
+      )}
 
       <ActivityKpiBar kpi={activityKpi} />
 

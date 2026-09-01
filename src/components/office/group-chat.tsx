@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Send, Paperclip, X, Search, ExternalLink } from "lucide-react";
+import { Send, Paperclip, X, Search, ExternalLink, Trash2 } from "lucide-react";
 import { openOfficeThread, markChatSeen, useOfficeState } from "@/lib/office/store";
 import { Avatar } from "./avatar";
 
@@ -77,6 +77,8 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
   const [sending, setSending] = useState(false);
   const [ref, setRef] = useState<ComposeRef | null>(null);
   const [picker, setPicker] = useState(false);
+  // 本部(ADMIN)だけ投稿を指定して消せる（サーバーが GET で返す）
+  const [canDelete, setCanDelete] = useState(false);
   // 案件別の会話（この案件に紐づく投稿だけを見る）
   const [filter, setFilter] = useState<{ kind: string; id: string; title: string } | null>(null);
   const filterRef = useRef<{ kind: string; id: string } | null>(null);
@@ -109,7 +111,8 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
       const q = params.toString() ? `?${params}` : "";
       const r = await fetch(`/api/office/chat${q}`, { cache: "no-store" });
       if (!r.ok) return;
-      const d = (await r.json()) as { items: ChatDTO[] };
+      const d = (await r.json()) as { items: ChatDTO[]; canDelete?: boolean };
+      if (typeof d.canDelete === "boolean") setCanDelete(d.canDelete);
       merge(d.items);
       setLoaded(true);
     } catch {
@@ -203,6 +206,19 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
     }
   };
 
+  // 本部が投稿を消す（物理削除＝案件ページの会話からも消える）
+  const remove = async (id: string) => {
+    try {
+      const r = await fetch(`/api/office/chat/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const d = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) throw new Error(d.error ?? "消せませんでした");
+      setItems((prev) => prev.filter((m) => m.id !== id));
+      toast.success("消しました");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "消せませんでした");
+    }
+  };
+
   return (
     <div className="flex flex-col">
       {filter && (
@@ -245,7 +261,7 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
           const cont = prev && prev.userId === m.userId && Date.parse(m.createdAt) - Date.parse(prev.createdAt) < 5 * 60_000;
           const mine = m.userId === office.meId || m.isBot;
           return (
-            <div key={m.id} className={`flex gap-2.5 ${cont ? "mt-1" : ""}`}>
+            <div key={m.id} className={`group/msg flex gap-2.5 ${cont ? "mt-1" : ""}`}>
               <div className="w-9 shrink-0">
                 {!cont && (
                   <button
@@ -281,7 +297,10 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
                     <span className="text-[10px] text-zinc-600 tabular-nums ml-auto">{stamp(m.createdAt)}</span>
                   </div>
                 )}
-                <p className="text-[13.5px] text-zinc-200 leading-relaxed whitespace-pre-wrap break-words">{m.text}</p>
+                <div className="flex items-start gap-2">
+                  <p className="min-w-0 flex-1 text-[13.5px] text-zinc-200 leading-relaxed whitespace-pre-wrap break-words">{m.text}</p>
+                  {canDelete && <DeleteButton onConfirm={() => remove(m.id)} />}
+                </div>
                 {m.ref && (
                   <RefCard
                     r={m.ref}
@@ -357,6 +376,41 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
         />
       )}
     </div>
+  );
+}
+
+// ==============================================================
+// 消すボタン（本部のみ表示・2段階＝押し間違い防止。ブラウザの confirm は使わない）
+// ==============================================================
+function DeleteButton({ onConfirm }: { onConfirm: () => void }) {
+  const [arm, setArm] = useState(false);
+  useEffect(() => {
+    if (!arm) return;
+    const t = setTimeout(() => setArm(false), 4000);
+    return () => clearTimeout(t);
+  }, [arm]);
+  if (arm) {
+    return (
+      <span className="shrink-0 inline-flex items-center gap-1 text-[10.5px]">
+        <button type="button" onClick={onConfirm} className="px-1.5 py-0.5 rounded bg-red-600/90 text-white hover:bg-red-500">
+          消す
+        </button>
+        <button type="button" onClick={() => setArm(false)} className="px-1 py-0.5 rounded text-zinc-400 hover:text-white">
+          やめる
+        </button>
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setArm(true)}
+      title="この投稿を消す（本部のみ）"
+      aria-label="この投稿を消す"
+      className="shrink-0 p-1 rounded text-zinc-600 hover:text-red-400 hover:bg-white/[0.08] opacity-0 group-hover/msg:opacity-100 focus:opacity-100 transition-opacity"
+    >
+      <Trash2 className="w-3.5 h-3.5" />
+    </button>
   );
 }
 
