@@ -105,7 +105,7 @@ function extractKeywords(query: string): string[] {
 // ==============================================================
 
 export interface InternalSource {
-  type: "sales_approach" | "highlight" | "deal" | "deal_log" | "customer" | "sales_activity";
+  type: "sales_approach" | "highlight" | "deal" | "deal_log" | "customer" | "sales_activity" | "office_chat";
   title: string;
   content: string;
   meta: Record<string, string>;
@@ -293,6 +293,45 @@ export async function searchInternalKnowledge(
     });
   }
 
+  // --- グループオフィスのチャット（案件に紐づいた会話＝動線・進め方の答えが残る） ---
+  try {
+    const chats = await db.officeChatMessage.findMany({
+      where: {
+        OR: [
+          ...keywords.map((k) => ({ text: { contains: k, mode: "insensitive" as const } })),
+          ...keywords.map((k) => ({ refTitle: { contains: k, mode: "insensitive" as const } })),
+          ...keywords.map((k) => ({ refSub: { contains: k, mode: "insensitive" as const } })),
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: {
+        text: true,
+        createdAt: true,
+        refKind: true,
+        refTitle: true,
+        refSub: true,
+        user: { select: { name: true, email: true, groupCompany: { select: { name: true } } } },
+      },
+    });
+    for (const c of chats) {
+      const who = c.user.email === "arch-kun@adarch.co.jp" ? "アーチくん" : (c.user.name ?? c.user.email.split("@")[0]);
+      results.push({
+        type: "office_chat",
+        title: `【グループチャット】${c.refTitle ? `${c.refTitle}${c.refSub ? `（${c.refSub}）` : ""}` : "みんなのチャット"}`,
+        content: c.text.slice(0, 300),
+        meta: {
+          発言: who,
+          拠点: c.user.groupCompany?.name ?? "本部",
+          日付: c.createdAt.toISOString().slice(0, 10),
+          紐づけ: c.refKind ?? "",
+        },
+      });
+    }
+  } catch {
+    /* テーブル未作成などでも他の検索は返す */
+  }
+
   return results.slice(0, limit);
 }
 
@@ -310,6 +349,7 @@ export function formatInternalSourcesForPrompt(sources: InternalSource[]): strin
     deal_log: "商談活動ログ",
     sales_activity: "営業活動記録",
     customer: "優良顧客情報",
+    office_chat: "グループチャットでの会話（案件に紐づく動線・進め方）",
   };
 
   const grouped: Record<string, InternalSource[]> = {};

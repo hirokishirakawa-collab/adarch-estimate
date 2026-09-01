@@ -12,6 +12,7 @@ import { DealDecisionSection } from "@/components/deals/deal-decision-section";
 import { DealClosingFactorCard } from "@/components/deals/deal-closing-factor-card";
 import { DealRegularCard } from "./deal-regular-card";
 import { WikiArticleContent } from "@/components/wiki/wiki-article-content";
+import { LinkedChat } from "@/components/office/linked-chat";
 import {
   ChevronLeft,
   Pencil,
@@ -283,6 +284,9 @@ export default async function DealDetailPage({ params }: PageProps) {
               </div>
               <DealLogTimeline logs={deal.dealLogs} isAdmin={role === "ADMIN"} />
             </div>
+
+            {/* グループチャットでこの商談に紐づいた会話（動線・進め方の履歴） */}
+            <LinkedChat kind="deal" id={deal.id} title={deal.title} />
           </div>
         </div>
       </div>

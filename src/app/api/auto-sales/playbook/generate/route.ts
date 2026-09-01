@@ -117,6 +117,32 @@ export async function POST(req: NextRequest) {
     )
     .join("\n\n");
 
+  // ── グループチャットで案件に紐づけて語られた「動線・進め方」を反映 ──
+  //   （紐づけ=商談/顧客/動き。金額は元から書かれない場）
+  let chatLearnings = "";
+  try {
+    const chats = await db.officeChatMessage.findMany({
+      where: {
+        refKind: { in: ["deal", "customer", "move", "sent"] },
+        ...(industry
+          ? { OR: [{ refSub: { contains: industry, mode: "insensitive" } }, { text: { contains: industry, mode: "insensitive" } }] }
+          : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: { text: true, refTitle: true, refSub: true, user: { select: { name: true, email: true } } },
+    });
+    chatLearnings = chats
+      .map(
+        (c, i) =>
+          `【グループの会話${i + 1}】${c.refTitle ?? ""}${c.refSub ? `（${c.refSub}）` : ""} / ${c.user.email === "arch-kun@adarch.co.jp" ? "アーチくん" : (c.user.name ?? "代表")}: ${c.text.substring(0, 200)}`,
+      )
+      .join("\n\n");
+  } catch {
+    /* 無くても生成は続ける */
+  }
+  const approachExamplesWithChat = [approachExamples, chatLearnings].filter(Boolean).join("\n\n");
+
   const totalExamples = successApproaches.length + successJobs.length;
   const targetLabel = targetType === "BTOB" ? "法人（BtoB）" : "個人・店舗（BtoC）";
   const senderName = user.name?.trim() || session.user.email.split("@")[0];
@@ -124,8 +150,8 @@ export async function POST(req: NextRequest) {
   // ── データ量に応じてプロンプトを構築 ──
   let dataSection = "";
 
-  if (approachExamples) {
-    dataSection += `【手動営業の成功事例】\n${approachExamples}\n\n`;
+  if (approachExamplesWithChat) {
+    dataSection += `【手動営業の成功事例・グループの会話】\n${approachExamplesWithChat}\n\n`;
   }
   if (jobExamples) {
     dataSection += `【自動営業の反響実績】\n${jobExamples}\n\n`;

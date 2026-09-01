@@ -66,6 +66,8 @@ export async function composeBotReply(input: {
   text: string;
   askerName: string;
   recent: { name: string; text: string; isBot: boolean }[];
+  /** 紐づけられた案件の材料（金額は含まない） */
+  refContext?: string | null;
 }): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
@@ -95,7 +97,7 @@ export async function composeBotReply(input: {
       messages: [
         {
           role: "user",
-          content: `## 直近のチャット\n${context || "（なし）"}\n\n## いま投稿されたもの（${input.askerName}さん）\n${input.text}\n\nこの投稿に、チャットの仲間として返事を1つ書いてください。返事の本文だけを出力してください。`,
+          content: `## 直近のチャット\n${context || "（なし）"}\n\n${input.refContext ? `## 投稿に紐づけられた案件（OSの記録から）\n${input.refContext}\n\n` : ""}## いま投稿されたもの（${input.askerName}さん）\n${input.text}\n\nこの投稿に、チャットの仲間として返事を1つ書いてください。紐づけられた案件がある場合はその材料を踏まえて具体的に答えてください。返事の本文だけを出力してください。`,
         },
       ],
     });

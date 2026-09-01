@@ -179,6 +179,7 @@ export type ChatDTO = {
   pref: string;
   isBot: boolean;
   text: string;
+  ref: { kind: string; id: string | null; title: string; sub: string | null; href: string | null } | null;
   createdAt: string;
 };
 
@@ -197,6 +198,11 @@ export function toChatDTO(m: {
   id: string;
   text: string;
   createdAt: Date;
+  refKind: string | null;
+  refId: string | null;
+  refTitle: string | null;
+  refSub: string | null;
+  refHref: string | null;
   user: {
     id: string;
     email: string;
@@ -219,6 +225,7 @@ export function toChatDTO(m: {
     pref: u.isBot ? "OS" : u.pref,
     isBot: u.isBot,
     text: m.text,
+    ref: m.refKind && m.refTitle ? { kind: m.refKind, id: m.refId, title: m.refTitle, sub: m.refSub, href: m.refHref } : null,
     createdAt: m.createdAt.toISOString(),
   };
 }

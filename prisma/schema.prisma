@@ -3095,6 +3095,15 @@ model OfficeChatMessage {
   text      String   @db.Text
   createdAt DateTime @default(now())
 
+  // ---- 紐づけ（OSで流れている案件をそのまま添えて聞く）----
+  //   kind: deal / move / sent / tender / customer / project / url
+  //   title/sub は投稿時のスナップショット（後で元が消えてもカードは残る）
+  refKind  String?
+  refId    String?
+  refTitle String?
+  refSub   String?
+  refHref  String?
+
   @@index([createdAt(sort: Desc)])
   @@map("office_chat_messages")
 }

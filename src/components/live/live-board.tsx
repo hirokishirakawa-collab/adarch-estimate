@@ -180,8 +180,22 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
 
   useEffect(() => {
     if (compact) return;
-    const withId = new URLSearchParams(window.location.search).get("with");
+    const sp = new URLSearchParams(window.location.search);
+    const withId = sp.get("with");
     if (withId) openOfficeThread(withId);
+    // ?ref=deal:xxx（案件ページの「続きを見る・聞く」）→ チャットタブでその案件の会話を出す
+    const refParam = sp.get("ref");
+    const m = refParam ? /^(deal|customer|project|move|sent|tender):(.+)$/.exec(refParam) : null;
+    if (m) {
+      setTab("chat");
+      fetch(`/api/office/chat?refKind=${m[1]}&refId=${encodeURIComponent(m[2])}`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { items?: { ref?: { title: string } | null }[] } | null) => {
+          const title = d?.items?.find((x) => x.ref)?.ref?.title ?? "この案件";
+          window.dispatchEvent(new CustomEvent("office:filter", { detail: { kind: m[1], id: m[2], title } }));
+        })
+        .catch(() => window.dispatchEvent(new CustomEvent("office:filter", { detail: { kind: m[1], id: m[2], title: "この案件" } })));
+    }
   }, [compact]);
 
   // 在席者を県の位置に並べる（同じ県は横に少しずつずらす）
@@ -600,6 +614,25 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
                   </div>
                 )}
 
+                {picked.ref && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = detail;
+                      window.dispatchEvent(
+                        new CustomEvent("office:compose", {
+                          detail: { kind: picked.ref!.kind, id: picked.ref!.id, title: d?.title ?? picked.text, sub: d?.subtitle ?? d?.actor ?? picked.actor },
+                        }),
+                      );
+                      setTab("chat");
+                      setPicked(null);
+                    }}
+                    className="mt-6 mr-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                               bg-emerald-600 text-white text-[12px] hover:bg-emerald-500 transition-colors"
+                  >
+                    💬 チャットでこれについて聞く
+                  </button>
+                )}
                 {safeHref(detail.href) && (
                   <a
                     href={safeHref(detail.href)}
