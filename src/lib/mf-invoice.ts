@@ -82,16 +82,17 @@ async function accessToken(): Promise<string> {
   return t.access_token;
 }
 
-export async function mfFetch<T = unknown>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
+export async function mfFetch<T = unknown>(path: string, init: RequestInit = {}, attempt = 0): Promise<T> {
   const token = await accessToken();
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
     signal: AbortSignal.timeout(30_000),
   });
-  if (res.status === 429 && retry) {
-    await new Promise((r) => setTimeout(r, 1200));
-    return mfFetch<T>(path, init, false);
+  // レート制限（1秒3回）: 最大3回まで待って再試行
+  if (res.status === 429 && attempt < 3) {
+    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+    return mfFetch<T>(path, init, attempt + 1);
   }
   const text = await res.text();
   let json: unknown = null;
@@ -105,6 +106,11 @@ export async function mfFetch<T = unknown>(path: string, init: RequestInit = {},
 
 // ---------------- 取引先 ----------------
 export type MfPartner = { id: string; name: string; code?: string | null; departments?: { id: string; name?: string | null; person_name?: string | null; email?: string | null }[] };
+
+/// 取引先名の比較用: 全角/半角スペース・株式会社表記の揺れを無視
+export function mfNormalizeName(v: string): string {
+  return (v ?? "").replace(/[\s\u3000]/g, "").replace(/株式会社|（株）|\(株\)|㈱|合同会社|（同）/g, "");
+}
 
 export async function mfSearchPartners(name: string): Promise<MfPartner[]> {
   const q = new URLSearchParams({ name, per_page: "100" });

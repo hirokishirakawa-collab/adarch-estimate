@@ -12,7 +12,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { createSquarePaymentLink, deleteSquarePaymentLink, isSquareConfigured } from "@/lib/square";
-import { isMfConfigured, mfCreateBilling, mfCreatePartner, mfGetBilling, mfGetPartner, mfIsConnected, mfSearchPartners } from "@/lib/mf-invoice";
+import { isMfConfigured, mfCreateBilling, mfCreatePartner, mfGetBilling, mfGetPartner, mfIsConnected, mfNormalizeName, mfSearchPartners } from "@/lib/mf-invoice";
 
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -41,7 +41,7 @@ export async function getBillingMfStatus(): Promise<BillingMfStatus> {
 
 async function resolveCustomerDepartment(c: { id: string; name: string; contactName: string | null; email: string | null; postalCode: string | null; prefecture: string | null; address: string | null; mfPartnerName: string | null; mfDepartmentId: string | null }, fallbackContact: { name: string | null; email: string | null }): Promise<{ departmentId: string; created: boolean; partnerName: string }> {
   if (c.mfDepartmentId) return { departmentId: c.mfDepartmentId, created: false, partnerName: c.mfPartnerName ?? c.name };
-  const norm = (v: string) => v.replace(/[\s　]/g, "").replace(/株式会社|（株）|\(株\)|㈱/g, "");
+  const norm = mfNormalizeName;
   for (const nm of [c.mfPartnerName, c.name].filter((v): v is string => !!v)) {
     const found = await mfSearchPartners(nm);
     const exact = found.find((p) => norm(p.name) === norm(nm)) ?? (found.length === 1 ? found[0] : undefined);

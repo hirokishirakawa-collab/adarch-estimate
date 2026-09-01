@@ -13,7 +13,7 @@ import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { getMonthlyRoyaltyOverview } from "@/lib/actions/group-invoice";
 import { invoiceTotals, royaltyDueDateOf } from "@/lib/royalty-monthly";
-import { isMfConfigured, mfCreateBilling, mfCreatePartner, mfGetBilling, mfIsConnected, mfSearchPartners, mfDisconnect } from "@/lib/mf-invoice";
+import { isMfConfigured, mfCreateBilling, mfCreatePartner, mfGetBilling, mfGetPartner, mfIsConnected, mfNormalizeName, mfSearchPartners, mfDisconnect } from "@/lib/mf-invoice";
 
 const ROYALTY_PATH = "/dashboard/admin/royalty";
 
@@ -57,12 +57,14 @@ export async function disconnectMf(): Promise<{ error?: string }> {
 /// MFの取引先（部署ID）を解決。GroupCompany に保存済みならそれ、無ければ名前で検索→無ければ作成。
 async function resolveDepartmentId(gc: { id: string; name: string; ownerName: string; registeredName: string | null; mfPartnerName: string | null; mfDepartmentId: string | null }, email: string | null): Promise<{ departmentId: string; created: boolean }> {
   if (gc.mfDepartmentId) return { departmentId: gc.mfDepartmentId, created: false };
-  const candidates = [gc.mfPartnerName, gc.registeredName, gc.ownerName].filter((v): v is string => !!v && v.trim().length > 0);
+  // 検索は「姓」など短い語でも当てる（MF側は「宮本　貴史」のように全角スペース入りのことがある）
+  const candidates = [gc.mfPartnerName, gc.registeredName, gc.ownerName, gc.ownerName?.split(/[\s\u3000]/)[0]].filter((v): v is string => !!v && v.trim().length > 0);
   for (const nm of candidates) {
     const found = await mfSearchPartners(nm.trim());
-    const exact = found.find((p) => p.name.replace(/\s/g, "") === nm.replace(/\s/g, "")) ?? (found.length === 1 ? found[0] : undefined);
+    const wanted = [gc.mfPartnerName, gc.registeredName, gc.ownerName].filter((v): v is string => !!v).map(mfNormalizeName);
+    const exact = found.find((p) => wanted.includes(mfNormalizeName(p.name))) ?? (found.length === 1 && nm !== gc.ownerName?.split(/[\s\u3000]/)[0] ? found[0] : undefined);
     if (exact) {
-      const partner = exact.departments?.length ? exact : await (await import("@/lib/mf-invoice")).mfGetPartner(exact.id);
+      const partner = exact.departments?.length ? exact : await mfGetPartner(exact.id);
       const dep = partner.departments?.[0];
       if (dep?.id) {
         await db.groupCompany.update({ where: { id: gc.id }, data: { mfPartnerId: partner.id, mfDepartmentId: dep.id, mfPartnerName: partner.name } });
@@ -154,7 +156,7 @@ export async function createMfBillingsForMonth(month: string, billingDate?: stri
       });
       created++;
       logAudit({ action: "royalty_mf_billing_created", email: info.email, name: info.staffName, entity: "royalty_mf_billing", entityId: `${r.groupCompanyId}:${month}`, detail: `${r.name} ${label} MF請求書 ${b.billing_number ?? b.id} ¥${totals.totalInclTax.toLocaleString("ja-JP")}` });
-      await sleep(400); // 作成系は1秒3回まで
+      await sleep(700); // 作成系は1秒3回まで（検索・取引先作成も含むため余裕を持つ）
     } catch (e) {
       errors.push(`${r.name}: ${e instanceof Error ? e.message : String(e)}`);
     }
