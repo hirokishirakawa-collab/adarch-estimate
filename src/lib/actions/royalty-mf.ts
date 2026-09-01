@@ -29,6 +29,15 @@ function monthLabel(month: string): string {
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/// MFの payment_status は数値("0".."4")でも日本語ラベルでも返るため両対応で 0〜4 に正規化
+const MF_PAY_LABELS: Record<string, number> = { "未設定": 0, "未入金": 1, "入金済み": 2, "入金済": 2, "未払い": 3, "振込済み": 4, "振込済": 4 };
+function parsePayStatus(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const s = String(v).trim();
+  if (/^\d+$/.test(s)) return Number(s);
+  return MF_PAY_LABELS[s] ?? null;
+}
+
 export type MfStatus = { configured: boolean; connected: boolean };
 export async function getMfStatus(): Promise<MfStatus> {
   const info = await getSessionInfo();
@@ -142,7 +151,7 @@ export async function createMfBillingsForMonth(month: string, groupCompanyIds?: 
         items,
       });
       await db.royaltyMfBilling.create({
-        data: { groupCompanyId: r.groupCompanyId, month, mfBillingId: b.id, billingNumber: b.billing_number ?? null, pdfUrl: b.pdf_url ?? null, totalInclTax: totals.totalInclTax, paymentStatus: b.payment_status != null ? Number(b.payment_status) : null, createdById: info.userId },
+        data: { groupCompanyId: r.groupCompanyId, month, mfBillingId: b.id, billingNumber: b.billing_number ?? null, pdfUrl: b.pdf_url ?? null, totalInclTax: totals.totalInclTax, paymentStatus: parsePayStatus(b.payment_status), createdById: info.userId },
       });
       created++;
       logAudit({ action: "royalty_mf_billing_created", email: info.email, name: info.staffName, entity: "royalty_mf_billing", entityId: `${r.groupCompanyId}:${month}`, detail: `${r.name} ${label} MF請求書 ${b.billing_number ?? b.id} ¥${totals.totalInclTax.toLocaleString("ja-JP")}` });
@@ -168,7 +177,7 @@ export async function syncMfPaymentStatus(month: string): Promise<{ error?: stri
   for (const b of billings) {
     try {
       const mb = await mfGetBilling(b.mfBillingId);
-      const st = mb.payment_status != null ? Number(mb.payment_status) : null;
+      const st = parsePayStatus(mb.payment_status);
       await db.royaltyMfBilling.update({ where: { id: b.id }, data: { paymentStatus: st, syncedAt: new Date(), billingNumber: mb.billing_number ?? b.billingNumber, pdfUrl: mb.pdf_url ?? b.pdfUrl } });
       checked++;
       if (st === 2) {
