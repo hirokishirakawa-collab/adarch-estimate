@@ -8,7 +8,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { MessageCircle } from "lucide-react";
 
-export async function LinkedChat({ kind, id, title }: { kind: "deal" | "customer" | "project"; id: string; title?: string }) {
+export async function LinkedChat({ kind, id, title }: { kind: "deal" | "customer" | "project" | "package"; id: string; title?: string }) {
   let rows: { id: string; text: string; createdAt: Date; user: { name: string | null; email: string } }[] = [];
   try {
     rows = await db.officeChatMessage.findMany({

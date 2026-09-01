@@ -189,7 +189,7 @@ async function syncSalesApproach(
   const sentLog = await db.leadLog.findFirst({
     where: { leadId, action: FORM_SENT },
     orderBy: { createdAt: "desc" },
-    select: { detail: true },
+    select: { detail: true, packageId: true },
   });
   if (!sentLog?.detail) return;
 
@@ -200,8 +200,8 @@ async function syncSalesApproach(
   if (existing) {
     await db.salesApproach.update({
       where: { id: existing.id },
-      // 送り直してから結果を入れた場合に備え、文面も最新の送付ログに合わせる
-      data: { result: approachResult, messageBody: sentLog.detail },
+      // 送り直してから結果を入れた場合に備え、文面・パッケージも最新の送付ログに合わせる
+      data: { result: approachResult, messageBody: sentLog.detail, packageId: sentLog.packageId },
     });
     return;
   }
@@ -211,6 +211,8 @@ async function syncSalesApproach(
       groupCompanyId: user.groupCompanyId,
       authorId: user.id,
       leadId,
+      // どのパッケージで当たったか（パッケージ画面の「送付・返信・受注」に戻る）
+      packageId: sentLog.packageId,
       industry: lead.industry ?? "その他",
       targetDesc: [lead.area ?? lead.prefecture, lead.industry].filter(Boolean).join("・") || null,
       method: "FORM",

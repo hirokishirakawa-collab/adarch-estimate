@@ -9,6 +9,7 @@ import { FavoriteButton } from "@/components/layout/favorite-button";
 import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
 import { getActivityKpi } from "@/lib/kpis/activity";
 import { FORM_SKIPPED, parseSkipDetail } from "@/lib/constants/outreach-skip";
+import { getActivePackagesLite } from "@/lib/packages/query";
 
 const MAX_LEADS = 120;
 
@@ -42,6 +43,8 @@ interface PageProps {
     status?: string;
     industry?: string;
     area?: string;
+    /** パッケージ画面の「営業フォームで使う」→ 全カードの訴求をこのパッケージにする */
+    package?: string;
   }>;
 }
 
@@ -94,7 +97,7 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
     if (areaParam) where.area = { contains: areaParam, mode: "insensitive" };
   }
 
-  const [leads, activeCompanies, provenRaw, me] = await Promise.all([
+  const [leads, activeCompanies, provenRaw, me, packages] = await Promise.all([
     db.lead.findMany({
       where,
       select: {
@@ -143,7 +146,10 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
         },
       },
     }),
+    // 稼働中のパッケージ（訴求セレクトに価格入りで並ぶ）
+    getActivePackagesLite(),
   ]);
+  const initialPackageId = params.package && packages.some((p) => p.id === params.package) ? params.package : null;
 
   // 稼働県セット（正規化）
   const activePrefs = new Set<string>();
@@ -243,6 +249,8 @@ export default async function LeadOutreachPage({ searchParams }: PageProps) {
         senderEmail={session.user.email}
         senderCompany={me?.groupCompany?.name ?? "Ad Arch株式会社"}
         initialSamples={me?.outreachSamples ?? []}
+        packages={packages}
+        initialPackageId={initialPackageId}
       />
     </div>
   );

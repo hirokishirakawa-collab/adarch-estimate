@@ -35,6 +35,16 @@ export interface ProvenCopy {
   company: string;
   body: string;
 }
+/** 稼働中のパッケージ（本部が規定した売り物）。訴求セレクトに価格入りで並ぶ */
+export interface OutreachPackage {
+  id: string;
+  slug: string;
+  name: string;
+  tagline: string | null;
+  category: string;
+  priceLabel: string;
+  pitchText: string;
+}
 interface Props {
   leads: OutreachLead[];
   provenCopies: ProvenCopy[];
@@ -42,6 +52,9 @@ interface Props {
   senderEmail: string;
   senderCompany: string;
   initialSamples: MySample[];
+  packages: OutreachPackage[];
+  /** パッケージ画面から来た場合＝全カードの訴求をこのパッケージで始める */
+  initialPackageId: string | null;
 }
 
 // ---------------------------------------------------------------
@@ -75,6 +88,15 @@ interface MySample {
   text: string;
 }
 const MY_PREFIX = "my:";
+// パッケージ（本部規定・稼働中）。訴求セレクトに value="pkg:<id>" で並ぶ。本文の中段＝営業文（価格入り）
+const PKG_PREFIX = "pkg:";
+function packageIdOf(appeal: string): string | null {
+  return appeal.startsWith(PKG_PREFIX) ? appeal.slice(PKG_PREFIX.length) : null;
+}
+// パッケージの営業文が空のときの既定文（価格だけは必ず入れる＝「一定の価格が見える方が反響が出る」）
+function defaultPackagePitch(p: OutreachPackage): string {
+  return `{name}様に、${p.name}（${p.priceLabel}・税抜）のご提案ができればと考えております。${p.tagline ? `${p.tagline}。` : ""}内容と価格を固定したパッケージですので、ご検討いただきやすいかと存じます。御社の状況に合わせた調整も可能です。`;
+}
 
 function clause(area: string, ind: string): string {
   if (area && ind) return `${area}で、${ind}を手がけられていることを拝見し`;
@@ -89,17 +111,22 @@ interface Common {
   email: string;
 }
 
-// 訴求キー → 本文中段のテンプレート文を解決（自作サンプル対応）
-function resolveAppealText(appeal: string, samples: MySample[]): string {
+// 訴求キー → 本文中段のテンプレート文を解決（自作サンプル・パッケージ対応）
+function resolveAppealText(appeal: string, samples: MySample[], packages: OutreachPackage[]): string {
   if (appeal.startsWith(MY_PREFIX)) {
     const s = samples.find((x) => MY_PREFIX + x.id === appeal);
     if (s) return s.text;
   }
+  const pkgId = packageIdOf(appeal);
+  if (pkgId) {
+    const p = packages.find((x) => x.id === pkgId);
+    if (p) return p.pitchText.trim() || defaultPackagePitch(p);
+  }
   return (APPEAL_MAP[appeal] ?? APPEALS[0]).text;
 }
 
-function buildBody(lead: OutreachLead, appeal: string, proximity: boolean, c: Common, samples: MySample[]): string {
-  const para = resolveAppealText(appeal, samples).replace(/\{name\}/g, lead.name);
+function buildBody(lead: OutreachLead, appeal: string, proximity: boolean, c: Common, samples: MySample[], packages: OutreachPackage[]): string {
+  const para = resolveAppealText(appeal, samples, packages).replace(/\{name\}/g, lead.name);
   const lines = [
     `突然のご連絡失礼いたします。${c.company}の${c.name}と申します。${clause(lead.area, lead.industry)}、ご提案がありご連絡しました。`,
     "",
@@ -138,7 +165,7 @@ interface CardState {
   busy: boolean;
 }
 
-export function OutreachForm({ leads, provenCopies, senderName, senderEmail, senderCompany, initialSamples }: Props) {
+export function OutreachForm({ leads, provenCopies, senderName, senderEmail, senderCompany, initialSamples, packages, initialPackageId }: Props) {
   const [common, setCommon] = useState<Common>({
     name: senderName,
     company: senderCompany,
@@ -152,12 +179,12 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
   const [cards, setCards] = useState<Record<string, CardState>>(() => {
     const init: Record<string, CardState> = {};
     for (const l of leads) {
-      const appeal = "media";
+      const appeal = initialPackageId ? PKG_PREFIX + initialPackageId : "media";
       const proximity = !!l.nearbyPref; // 近接が判明していれば既定でON
       init[l.id] = {
         appeal,
         proximity,
-        body: buildBody(l, appeal, proximity, { name: senderName, company: senderCompany, email: senderEmail }, []),
+        body: buildBody(l, appeal, proximity, { name: senderName, company: senderCompany, email: senderEmail }, [], packages),
         sent: l.alreadySent,
         ng: !!l.skip,
         skipReasonLabel: l.skip?.reasonLabel ?? "",
@@ -278,7 +305,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
           const out: Record<string, CardState> = {};
           for (const [id, c] of Object.entries(prev)) {
             const lead = leadById[id];
-            out[id] = lead ? { ...c, body: buildBody(lead, c.appeal, c.proximity, merged, initialSamples) } : c;
+            out[id] = lead ? { ...c, body: buildBody(lead, c.appeal, c.proximity, merged, initialSamples, packages) } : c;
           }
           return out;
         });
@@ -286,7 +313,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
     } catch {
       /* noop */
     }
-  }, [leadById, senderName, senderEmail, senderCompany, initialSamples]);
+  }, [leadById, senderName, senderEmail, senderCompany, initialSamples, packages]);
 
   // 訴求・近接の変更 → そのカードの本文を再生成
   const regen = useCallback(
@@ -299,11 +326,11 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
         const proximity = patch.proximity ?? cur.proximity;
         return {
           ...prev,
-          [id]: { ...cur, appeal, proximity, body: buildBody(lead, appeal, proximity, c, mySamples) },
+          [id]: { ...cur, appeal, proximity, body: buildBody(lead, appeal, proximity, c, mySamples, packages) },
         };
       });
     },
-    [leadById, mySamples],
+    [leadById, mySamples, packages],
   );
 
   // 共通項目の変更 → 全カードの本文を再生成（手入力は上書きされます）＋記憶
@@ -315,12 +342,12 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
         const out: Record<string, CardState> = {};
         for (const [id, c] of Object.entries(prev)) {
           const lead = leadById[id];
-          out[id] = lead ? { ...c, body: buildBody(lead, c.appeal, c.proximity, next, mySamples) } : c;
+          out[id] = lead ? { ...c, body: buildBody(lead, c.appeal, c.proximity, next, mySamples, packages) } : c;
         }
         return out;
       });
     },
-    [leadById, saveProfile, subject, mySamples],
+    [leadById, saveProfile, subject, mySamples, packages],
   );
 
   // 件名の変更 → 記憶（件名は本文には差し込まない）
@@ -338,15 +365,19 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
     if (!cur || cur.busy) return;
     const mark = !cur.sent;
     setCards((p) => ({ ...p, [id]: { ...p[id], busy: true } }));
+    const pkgId = packageIdOf(cur.appeal);
+    const pkg = pkgId ? packages.find((x) => x.id === pkgId) : null;
     try {
       const res = await fetch("/api/leads/outreach/sent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           leadId: id,
-          appeal: APPEAL_MAP[cur.appeal]?.label ?? cur.appeal,
+          appeal: pkg ? `パッケージ: ${pkg.name}` : APPEAL_MAP[cur.appeal]?.label ?? cur.appeal,
           body: cur.body,
           action: mark ? "mark" : "unmark",
+          // どのパッケージで送ったか（パッケージ画面の送付数・受注数に戻る）
+          packageId: pkg?.id ?? null,
         }),
       });
       if (!res.ok) throw new Error("failed");
@@ -473,6 +504,7 @@ export function OutreachForm({ leads, provenCopies, senderName, senderEmail, sen
             state={c}
             provenCopies={provenCopies}
             samples={mySamples}
+            packages={packages}
             onAppeal={(v) => regen(lead.id, { appeal: v }, common)}
             onProximity={(v) => regen(lead.id, { proximity: v }, common)}
             onBody={(v) => setBody(lead.id, v)}
@@ -514,6 +546,7 @@ function OutreachCard({
   state,
   provenCopies,
   samples,
+  packages,
   onAppeal,
   onProximity,
   onBody,
@@ -529,6 +562,7 @@ function OutreachCard({
   state: CardState;
   provenCopies: ProvenCopy[];
   samples: MySample[];
+  packages: OutreachPackage[];
   onAppeal: (v: string) => void;
   onProximity: (v: boolean) => void;
   onBody: (v: string) => void;
@@ -733,6 +767,13 @@ function OutreachCard({
             {APPEALS.map((a) => (
               <option key={a.value} value={a.value}>{a.label}</option>
             ))}
+            {packages.length > 0 && (
+              <optgroup label="パッケージ（価格入り）">
+                {packages.map((p) => (
+                  <option key={p.id} value={PKG_PREFIX + p.id}>{p.name}｜{p.priceLabel}</option>
+                ))}
+              </optgroup>
+            )}
             {samples.length > 0 && (
               <optgroup label="マイサンプル">
                 {samples.map((s) => (
@@ -742,6 +783,15 @@ function OutreachCard({
             )}
           </select>
         </label>
+        {(() => {
+          const pid = packageIdOf(state.appeal);
+          const p = pid ? packages.find((x) => x.id === pid) : null;
+          return p ? (
+            <a href={`/dashboard/packages/${p.slug}`} target="_blank" rel="noopener" className="text-[11px] font-bold text-orange-700 hover:underline">
+              {p.name}の中身・規定を見る↗
+            </a>
+          ) : null;
+        })()}
         {lead.nearbyPref && (
           <label className="flex items-center gap-1.5 text-xs text-emerald-700">
             <input type="checkbox" checked={state.proximity} onChange={(e) => onProximity(e.target.checked)} />

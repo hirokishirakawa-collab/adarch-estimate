@@ -4,14 +4,46 @@ import Link from "next/link";
 import { ChevronLeft, FileText } from "lucide-react";
 import { getMockBranchId } from "@/lib/data/customers";
 import type { UserRole } from "@/types/roles";
-import { EstimateForm } from "@/components/estimates/estimate-form";
+import { EstimateForm, type EstimationInitialData } from "@/components/estimates/estimate-form";
+import { formatPackagePrice, parseDeliverables } from "@/lib/packages/types";
 
-export default async function NewEstimatePage() {
+// パッケージ（稼働中）から見積を起こす: ?package=<slug> → 品目が最初から入る
+//   一括／初期費用＝1行「パッケージ名 一式」（仕様欄に届くものを列挙）、月額＝もう1行「月額運用」
+function packageToInitialData(p: NonNullable<Awaited<ReturnType<typeof db.salesPackage.findUnique>>>): EstimationInitialData {
+  const items = parseDeliverables(p.deliverables);
+  const spec = items.map((d) => `${d.name}×${d.qty}${d.unit}${d.spec ? `（${d.spec}）` : ""}`).join("／");
+  const rows: EstimationInitialData["items"] = [];
+  if (p.priceType !== "MONTHLY") {
+    rows.push({ name: `${p.name}${p.priceType === "INITIAL_PLUS_MONTHLY" ? "（初期費用）" : ""}`, spec, quantity: 1, unit: "式", unitPrice: p.initialPrice ?? 0, costPrice: null, templateId: null });
+  }
+  if (p.priceType !== "ONE_TIME") {
+    rows.push({ name: `${p.name}（月額）`, spec: p.priceType === "MONTHLY" ? spec : "月額運用", quantity: 1, unit: "月", unitPrice: p.monthlyPrice ?? 0, costPrice: null, templateId: null });
+  }
+  return {
+    id: "",
+    title: `${p.name} 見積書`,
+    estimateDate: new Date().toISOString().slice(0, 10),
+    validUntil: null,
+    notes: [p.leadTime ? `納期の目安: ${p.leadTime}` : null, p.priceNote ? `価格の補足: ${p.priceNote}` : null].filter(Boolean).join("\n") || null,
+    customerId: null,
+    projectId: null,
+    discountAmount: 0,
+    discountReason: null,
+    discountReasonNote: null,
+    items: rows,
+  };
+}
+
+export default async function NewEstimatePage({ searchParams }: { searchParams: Promise<{ package?: string }> }) {
   const session = await auth();
   const staffName = session?.user?.name ?? session?.user?.email ?? "不明";
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   const email = session?.user?.email ?? "";
   const userBranchId = getMockBranchId(email, role);
+
+  const sp = await searchParams;
+  const pkg = sp.package ? await db.salesPackage.findUnique({ where: { slug: sp.package } }) : null;
+  const fromPackage = pkg && pkg.status === "ACTIVE" ? pkg : null;
 
   const [templates, customers, projects] = await Promise.all([
     // 標準単価マスタ（全社共通）
@@ -77,6 +109,15 @@ export default async function NewEstimatePage() {
         一覧に戻る
       </Link>
 
+      {/* パッケージから起こした場合 */}
+      {fromPackage && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-xs text-orange-900">
+          <span className="font-bold">📦 {fromPackage.name}</span>（{formatPackagePrice(fromPackage)}・税抜）の内容で品目を入れました。
+          {fromPackage.rules && <span className="block mt-1 whitespace-pre-wrap text-orange-800">規定: {fromPackage.rules}</span>}
+          <Link href={`/dashboard/packages/${fromPackage.slug}`} className="underline ml-1">パッケージを見る</Link>
+        </div>
+      )}
+
       {/* マスタ説明 */}
       <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
         <p className="text-xs text-blue-700 font-medium mb-1">📋 標準単価マスタ（{templates.length}件）</p>
@@ -96,6 +137,7 @@ export default async function NewEstimatePage() {
           templates={templateOptions}
           customers={customers}
           projects={projects}
+          initialData={fromPackage ? packageToInitialData(fromPackage) : undefined}
         />
       </div>
     </div>

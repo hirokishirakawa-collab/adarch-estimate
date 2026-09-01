@@ -105,7 +105,7 @@ function extractKeywords(query: string): string[] {
 // ==============================================================
 
 export interface InternalSource {
-  type: "sales_approach" | "highlight" | "deal" | "deal_log" | "customer" | "sales_activity" | "office_chat";
+  type: "sales_approach" | "highlight" | "deal" | "deal_log" | "customer" | "sales_activity" | "office_chat" | "package";
   title: string;
   content: string;
   meta: Record<string, string>;
@@ -150,6 +150,39 @@ export async function searchInternalKnowledge(
         投稿日: a.createdAt.toISOString().slice(0, 10),
       },
     });
+  }
+
+  // --- SalesPackage（本部が規定した売り物。「何が入ってる？」「誰がやる？」に答える材料） ---
+  try {
+    const packages = await db.salesPackage.findMany({
+      where: {
+        status: { in: ["ACTIVE", "PROPOSED"] },
+        OR: [
+          ...keywords.map((k) => ({ name: { contains: k, mode: "insensitive" as const } })),
+          ...keywords.map((k) => ({ category: { contains: k, mode: "insensitive" as const } })),
+          ...keywords.map((k) => ({ painPoints: { contains: k, mode: "insensitive" as const } })),
+          ...keywords.map((k) => ({ summary: { contains: k, mode: "insensitive" as const } })),
+          ...keywords.map((k) => ({ targetIndustries: { has: k } })),
+        ],
+      },
+      orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+      take: 3,
+    });
+    if (packages.length > 0) {
+      const { parseDeliverables, parseFulfillment } = await import("@/lib/packages/types");
+      for (const p of packages) {
+        const dl = parseDeliverables(p.deliverables).map((d) => `${d.name}×${d.qty}${d.unit}`).join("・");
+        const ff = parseFulfillment(p.fulfillment).map((f) => `${f.task}=${f.owner}`).join("・");
+        results.push({
+          type: "package",
+          title: `【パッケージ】${p.name}（${p.status === "ACTIVE" ? "稼働中" : "提案中"}）`,
+          content: `悩み: ${p.painPoints || "—"}\n届くもの: ${dl || "—"}\n納期: ${p.leadTime || "—"}\n分担: ${ff || "—"}\n切り口: ${(p.talkTrack || "—").slice(0, 240)}\n規定: ${(p.rules || "—").slice(0, 240)}`,
+          meta: { 分類: p.category, 画面: `/dashboard/packages/${p.slug}` },
+        });
+      }
+    }
+  } catch {
+    /* パッケージが引けなくても他の材料で答える */
   }
 
   // --- CollaborationHighlight ---
@@ -350,6 +383,7 @@ export function formatInternalSourcesForPrompt(sources: InternalSource[]): strin
     sales_activity: "営業活動記録",
     customer: "優良顧客情報",
     office_chat: "グループチャットでの会話（案件に紐づく動線・進め方）",
+    package: "パッケージ（本部が規定した売り物・中身と分担）",
   };
 
   const grouped: Record<string, InternalSource[]> = {};

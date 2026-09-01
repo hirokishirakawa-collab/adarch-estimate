@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  let payload: { leadId?: string; appeal?: string; body?: string; action?: string };
+  let payload: { leadId?: string; appeal?: string; body?: string; action?: string; packageId?: string | null };
   try {
     payload = await req.json();
   } catch {
@@ -31,6 +31,12 @@ export async function POST(req: NextRequest) {
   }
 
   const { leadId, appeal, body, action } = payload;
+  // パッケージを選んで送った場合。存在する稼働中のものだけ紐づける（無ければ無視）
+  let packageId: string | null = null;
+  if (typeof payload.packageId === "string" && payload.packageId) {
+    const pkg = await db.salesPackage.findUnique({ where: { id: payload.packageId }, select: { id: true, status: true } });
+    if (pkg && pkg.status === "ACTIVE") packageId = pkg.id;
+  }
   if (typeof leadId !== "string" || !leadId) {
     return NextResponse.json({ error: "leadId required" }, { status: 400 });
   }
@@ -85,7 +91,7 @@ export async function POST(req: NextRequest) {
   });
 
   await db.leadLog.create({
-    data: { action: FORM_SENT, detail, staffName, leadId },
+    data: { action: FORM_SENT, detail, staffName, leadId, packageId },
   });
 
   // 送付日を入れ、前回の結果は消す（送り直した＝また返事待ちに戻る）

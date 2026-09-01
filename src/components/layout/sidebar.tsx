@@ -66,6 +66,7 @@ import {
   Radio,
   Award,
   MapPinned,
+  Package,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -390,6 +391,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/playbook",
         label: "営業プレイブック",
         icon: BookOpen,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/packages",
+        label: "パッケージ",
+        icon: Package,
         minRole: "USER",
       },
     ],
@@ -774,6 +781,7 @@ const PROPOSE_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/group-moves", label: "グループの動き", icon: Waypoints, minRole: "USER" },
   { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
   { href: "/dashboard/playbook", label: "営業プレイブック", icon: BookOpen, minRole: "USER" },
+  { href: "/dashboard/packages", label: "パッケージ", icon: Package, minRole: "USER" },
   { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
   { href: "/dashboard/project-matching", label: "案件マッチング", icon: Handshake, minRole: "USER" },
 ];

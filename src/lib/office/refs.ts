@@ -7,7 +7,7 @@
 import { db } from "@/lib/db";
 import { getLiveDetail, LIVE_DETAIL_KINDS, safeHref, type LiveDetail } from "@/lib/live/detail";
 
-export const REF_KINDS = ["deal", "move", "sent", "tender", "customer", "project", "url"] as const;
+export const REF_KINDS = ["deal", "move", "sent", "tender", "customer", "project", "package", "url"] as const;
 export type RefKind = (typeof REF_KINDS)[number];
 
 export const REF_LABEL: Record<RefKind, string> = {
@@ -17,6 +17,7 @@ export const REF_LABEL: Record<RefKind, string> = {
   tender: "入札○",
   customer: "顧客",
   project: "案件",
+  package: "パッケージ",
   url: "OSの画面",
 };
 
@@ -82,6 +83,13 @@ export async function resolveRef(input: RefInput | null | undefined): Promise<Ch
     if (!p) return null;
     return { kind, id, title: p.title, sub: p.status ?? null, href: `/dashboard/projects/${id}` };
   }
+  if (kind === "package") {
+    // パッケージ＝議論の軸。sub は分類と状態（金額はチャットに出さない）
+    const p = await db.salesPackage.findUnique({ where: { id }, select: { name: true, slug: true, category: true, status: true } });
+    if (!p) return null;
+    const st = p.status === "ACTIVE" ? "稼働中" : p.status === "PROPOSED" ? "提案中" : "終了";
+    return { kind, id, title: p.name, sub: `${p.category} ・ ${st}`, href: `/dashboard/packages/${p.slug}` };
+  }
   return null;
 }
 
@@ -98,6 +106,35 @@ export async function refContextForBot(ref: ChatRef): Promise<string> {
       }
     } catch {
       /* 取れなければ見出しだけ */
+    }
+  }
+  if (ref.id && ref.kind === "package") {
+    // 中身・分担・規定を渡す（価格は渡さない＝チャットは金額を書かない場所）
+    try {
+      const p = await db.salesPackage.findUnique({
+        where: { id: ref.id },
+        select: { painPoints: true, summary: true, deliverables: true, fulfillment: true, rules: true, talkTrack: true, leadTime: true },
+      });
+      if (p) {
+        const { parseDeliverables, parseFulfillment } = await import("@/lib/packages/types");
+        const dl = parseDeliverables(p.deliverables).map((d) => `${d.name}×${d.qty}${d.unit}`).join("・");
+        const ff = parseFulfillment(p.fulfillment).map((f) => `${f.task}=${f.owner}`).join("・");
+        return [
+          head,
+          p.painPoints && `悩み: ${p.painPoints}`,
+          p.summary && `概要: ${p.summary}`,
+          dl && `届くもの: ${dl}`,
+          p.leadTime && `納期: ${p.leadTime}`,
+          ff && `分担: ${ff}`,
+          p.talkTrack && `切り口: ${p.talkTrack}`,
+          p.rules && `規定: ${p.rules}`,
+        ]
+          .filter(Boolean)
+          .join("\n")
+          .slice(0, 2400);
+      }
+    } catch {
+      /* 見出しだけ */
     }
   }
   return head;

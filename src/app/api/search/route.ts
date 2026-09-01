@@ -19,13 +19,13 @@ export async function GET(request: Request) {
   const q = url.searchParams.get("q")?.trim() ?? "";
 
   if (!q || q.length < 2) {
-    return Response.json({ customers: [], projects: [], deals: [] });
+    return Response.json({ customers: [], projects: [], deals: [], packages: [] });
   }
 
   const branchFilter = userBranchId ? { branchId: userBranchId } : {};
 
   try {
-    const [customers, projects, deals] = await Promise.all([
+    const [customers, projects, deals, packages] = await Promise.all([
       db.customer.findMany({
         where: {
           ...branchFilter,
@@ -59,9 +59,23 @@ export async function GET(request: Request) {
         take: 5,
         orderBy: { updatedAt: "desc" },
       }),
+      // パッケージ（全社共通・拠点フィルタなし。終了は出さない）
+      db.salesPackage.findMany({
+        where: {
+          status: { in: ["ACTIVE", "PROPOSED"] },
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { tagline: { contains: q, mode: "insensitive" } },
+            { category: { contains: q, mode: "insensitive" } },
+          ],
+        },
+        select: { id: true, name: true, category: true, slug: true, status: true },
+        take: 5,
+        orderBy: { updatedAt: "desc" },
+      }),
     ]);
 
-    return Response.json({ customers, projects, deals });
+    return Response.json({ customers, projects, deals, packages });
   } catch (e) {
     console.error("[GET /api/search]", e);
     return Response.json({ error: "Internal server error" }, { status: 500 });

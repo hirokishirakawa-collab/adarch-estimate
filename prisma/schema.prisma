@@ -395,8 +395,8 @@ model User {
   learningExempt Boolean @default(false)
 
   // ---- グループオフィス（在席・みんなのチャット・個別ひとこと）----
-  lastSeenAt   DateTime? // OSを開いている最終時刻（15秒ごとの beat で更新）
-  officeAvatar String?   // 選んだ顔アイコン（例: "a07" → /office/avatars/a07.webp）。null は Google の写真
+  lastSeenAt           DateTime? // OSを開いている最終時刻（15秒ごとの beat で更新）
+  officeAvatar         String? // 選んだ顔アイコン（例: "a07" → /office/avatars/a07.webp）。null は Google の写真
   officeKnocksSent     OfficeKnock[]       @relation("OfficeKnockFrom")
   officeKnocksReceived OfficeKnock[]       @relation("OfficeKnockTo")
   officeChatMessages   OfficeChatMessage[]
@@ -415,8 +415,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  signageDevicesCreated SignageDevice[] @relation("SignageDeviceCreatedBy")
-  signageAssetsUploaded SignageAsset[]  @relation("SignageAssetUploadedBy")
+  signageDevicesCreated       SignageDevice[]             @relation("SignageDeviceCreatedBy")
+  signageAssetsUploaded       SignageAsset[]              @relation("SignageAssetUploadedBy")
   assignedDeals               Deal[]                      @relation("AssignedTo")
   createdDeals                Deal[]                      @relation("CreatedBy")
   lockedCustomers             Customer[]                  @relation("LockedBy") // 先着ロック中の顧客
@@ -444,9 +444,10 @@ model User {
   projectApplications   ProjectApplication[] @relation("Applications")
 
   // ---- リード管理 ----
-  assignedLeads   Lead[]           @relation("LeadAssignee")
-  createdLeads    Lead[]           @relation("LeadCreatedBy")
-  outreachSamples OutreachSample[] @relation("UserOutreachSamples")
+  assignedLeads    Lead[]           @relation("LeadAssignee")
+  createdLeads     Lead[]           @relation("LeadCreatedBy")
+  outreachSamples  OutreachSample[] @relation("UserOutreachSamples")
+  proposedPackages SalesPackage[]   @relation("SalesPackageProposer")
 
   // ---- 提案書AI ----
   salesActivities SalesActivity[] @relation("SalesActivities")
@@ -512,9 +513,9 @@ model Customer {
   prefecture      String? // 都道府県
   address         String? // 住所（番地）
   // ---- MFクラウド請求書 取引先の対応（2026-09）----
-  mfPartnerName  String? // MF上の取引先名称
-  mfPartnerId    String?
-  mfDepartmentId String? // 請求書作成に使う部署ID
+  mfPartnerName   String? // MF上の取引先名称
+  mfPartnerId     String?
+  mfDepartmentId  String? // 請求書作成に使う部署ID
   building        String? // ビル名・部屋番号
   notes           String?        @db.Text // 備考・メモ
   staffName       String? // 社内担当者名（登録者）
@@ -555,18 +556,18 @@ model Customer {
   // ---- 取引先マップ（/dashboard/clients）の補完情報 ------------------
   // 口コミ・写真・所在地は Google Places、社内構成は gBizINFO（法人番号あり）か
   // 相手の会社概要ページから拾う。取れない会社は *CheckedAt だけ押して「未取得」と出す。
-  placeId          String? // Google Places の place id
-  placeName        String? // Places 側の表示名（照合の証跡）
-  placeAddress     String? // Places の住所（都道府県の補完にも使う）
-  googleRating     Float? // 口コミ★（0〜5）
+  placeId           String? // Google Places の place id
+  placeName         String? // Places 側の表示名（照合の証跡）
+  placeAddress      String? // Places の住所（都道府県の補完にも使う）
+  googleRating      Float? // 口コミ★（0〜5）
   googleRatingCount Int? // 口コミ件数
-  googleMapsUrl    String?
-  placeSummary     String? @db.Text // Google の口コミ要約（AI生成の文）
-  lat              Float?
-  lng              Float?
-  photoData        Bytes? // 会社の写真（Places の写真をリサイズして保存。外部URLを貼らない）
-  photoSource      String? // "places" / "og"
-  placeCheckedAt   DateTime?
+  googleMapsUrl     String?
+  placeSummary      String?   @db.Text // Google の口コミ要約（AI生成の文）
+  lat               Float?
+  lng               Float?
+  photoData         Bytes? // 会社の写真（Places の写真をリサイズして保存。外部URLを貼らない）
+  photoSource       String? // "places" / "og"
+  placeCheckedAt    DateTime?
 
   employeeCount      Int?
   capital            BigInt? // 円
@@ -1251,10 +1252,10 @@ model RoyaltyPaymentCheck {
 
   month String // 対象月（"2026-06"）＝ロイヤリティが発生した月。期限は翌々月10日
 
-  paidOn         DateTime // 入金日（本部が確認した日付）
-  method         RoyaltyPaymentMethod @default(BANK_TRANSFER)
-  amountInclTax  Int? // 入金額（税込）。空可
-  note           String?              @db.Text
+  paidOn        DateTime // 入金日（本部が確認した日付）
+  method        RoyaltyPaymentMethod @default(BANK_TRANSFER)
+  amountInclTax Int? // 入金額（税込）。空可
+  note          String?              @db.Text
 
   checkedById String // 記録した本部ユーザー（監査用・スカラ）
   createdAt   DateTime @default(now())
@@ -1302,14 +1303,14 @@ model RoyaltyPaymentLink {
 //   請求書の正本はMF。OSは金額を決めて作成を依頼し、番号/PDF/入金状況を持ち帰る。
 // ============================================================
 model MfConnection {
-  id           String   @id @default("default")
-  accessToken  String   @db.Text
-  refreshToken String   @db.Text // 一度使うと無効＝更新のたびに上書き必須
-  expiresAt    DateTime
-  scope        String?
+  id            String   @id @default("default")
+  accessToken   String   @db.Text
+  refreshToken  String   @db.Text // 一度使うと無効＝更新のたびに上書き必須
+  expiresAt     DateTime
+  scope         String?
   connectedById String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@map("mf_connections")
 }
@@ -1321,7 +1322,7 @@ model RoyaltyMfBilling {
   groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
 
   month         String // 対象月（"2026-08"）
-  mfBillingId   String  @unique // MF billing id
+  mfBillingId   String    @unique // MF billing id
   billingNumber String? // MF 請求書番号
   pdfUrl        String? // MF PDF URL（要Bearer）
   totalInclTax  Int // 作成時の税込額
@@ -1551,10 +1552,10 @@ model TverFlyerRequest {
   // ---- 本部が仕上げる内容 ----
   monthlyOverride Int? // 月額の手直し（円）。null=計算値
   totalOverride   Int? // 3ヶ月総額の手直し（円）。null=計算値
-  catchCopy       String? @db.Text // 業種別の一言（AI生成→本部が手直し可）
+  catchCopy       String?   @db.Text // 業種別の一言（AI生成→本部が手直し可）
   issuerName      String? // チラシの発行者（拠点社名）
   issuerContact   String? // 担当・電話・メール（1行）
-  replyNote       String? @db.Text // 代表への申し送り
+  replyNote       String?   @db.Text // 代表への申し送り
   deliveredAt     DateTime?
 
   // ---- 上部のビジュアル（業種別ヒーロー画像・AI生成 or アップロード。無ければ従来のSVGイラスト）----
@@ -1563,9 +1564,9 @@ model TverFlyerRequest {
   heroPrompt    String? @db.Text // 生成に使ったプロンプト（本部が手直し可）
 
   branchId    String?
-  branch      Branch? @relation(fields: [branchId], references: [id])
+  branch      Branch?  @relation(fields: [branchId], references: [id])
   createdById String?
-  createdBy   User?   @relation(fields: [createdById], references: [id])
+  createdBy   User?    @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1981,15 +1982,15 @@ model GroupCompany {
   royaltyExempt     Boolean  @default(false) // ロイヤリティ免除（請求しない）
 
   // ---- 法人区分・経理情報 ----
-  registeredName    String? // 登記名（正式な法人名 or 屋号）
-  entityType        EntityType       @default(UNKNOWN) // 法人 / 個人事業主 / 未確認
-  corporateNumber   String? // 法人番号（13桁）
-  invoiceNumber     String? // インボイス登録番号（T+13桁）
+  registeredName  String? // 登記名（正式な法人名 or 屋号）
+  entityType      EntityType @default(UNKNOWN) // 法人 / 個人事業主 / 未確認
+  corporateNumber String? // 法人番号（13桁）
+  invoiceNumber   String? // インボイス登録番号（T+13桁）
 
   // ---- MFクラウド請求書 連携（取引先の対応・2026-09）----
-  mfPartnerName  String? // MF上の取引先名称（例: TooN合同会社）。未設定なら registeredName → name で検索
-  mfPartnerId    String? // MF partner id
-  mfDepartmentId String? // MF department id（請求書作成に使う）
+  mfPartnerName     String? // MF上の取引先名称（例: TooN合同会社）。未設定なら registeredName → name で検索
+  mfPartnerId       String? // MF partner id
+  mfDepartmentId    String? // MF department id（請求書作成に使う）
   invoiceRegistered Boolean          @default(false) // インボイス登録済みか
   bankName          String? // 銀行名
   bankBranch        String? // 支店名
@@ -2041,8 +2042,8 @@ model GroupCompany {
   paymentStatements PaymentStatement[]
 
   // ---- グループ請求書（本部→当社への請求） ----
-  groupInvoices      GroupInvoice[]
-  royaltyAdjustments RoyaltyAdjustment[]
+  groupInvoices        GroupInvoice[]
+  royaltyAdjustments   RoyaltyAdjustment[]
   royaltyPaymentChecks RoyaltyPaymentCheck[]
   royaltyPaymentLinks  RoyaltyPaymentLink[]
   royaltyMfBillings    RoyaltyMfBilling[]
@@ -2319,9 +2320,85 @@ model LeadLog {
   lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
+  // 営業フォームでパッケージを選んで送った場合（action=FORM_SENT）に入る。送付数の集計元
+  packageId String?
+  package   SalesPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
   @@index([leadId])
   @@index([createdAt])
+  @@index([packageId])
   @@map("lead_logs")
+}
+
+// ==============================================================
+// SalesPackage（パッケージ台帳）— 2026-09
+//   本部が規定する「売り物」。内容・価格・分担・営業文・規定・資料を1か所に持つ。
+//   各代表は「提案中」で起案でき、本部が承認して「稼働中」になる。
+//   稼働中のものだけが 営業フォームの訴求／見積の品目／チャットの紐づけ に並ぶ。
+// ==============================================================
+
+enum SalesPackageStatus {
+  PROPOSED // 提案中（各代表の起案・本部の下書き）
+  ACTIVE // 稼働中（本部承認済み・売ってよい）
+  RETIRED // 終了（もう売らない・履歴として残す）
+}
+
+enum SalesPackagePriceType {
+  ONE_TIME // 一括
+  MONTHLY // 月額
+  INITIAL_PLUS_MONTHLY // 初期＋月額
+}
+
+model SalesPackage {
+  id   String @id @default(cuid())
+  slug String @unique // URL用（例: recruit-video）
+
+  // ---- 顔 ----
+  name             String // パッケージ名
+  tagline          String? // 一言（売り文句・20〜40字）
+  category         String // 分類（例: 採用 / サイネージ / TVer / SNS / 制作）
+  targetIndustries String[] @default([]) // 対象業種
+  painPoints       String?  @db.Text // 想定顧客の悩み（誰の何に効くか）
+  summary          String?  @db.Text // 概要（何が届くか）
+
+  // ---- 中身 ----
+  deliverables Json    @default("[]") // [{ name, qty, unit, spec }]
+  leadTime     String? // 納期（例: 発注から4週間）
+  options      Json    @default("[]") // [{ name, price, note }] 追加オプション
+
+  // ---- 価格（税抜・円）。null = 未設定（提案中で価格が決まっていない）----
+  priceType    SalesPackagePriceType @default(ONE_TIME)
+  initialPrice Int?
+  monthlyPrice Int?
+  priceNote    String? // 価格の補足（例: 交通費別／制作費込み）
+
+  // ---- 分担（誰が何をやるか）----
+  fulfillment Json @default("[]") // [{ task, owner: "HQ" | "BRANCH" | "PRODUCER", note }]
+
+  // ---- 売り方 ----
+  pitchText   String? @db.Text // 営業文（フォーム営業向け・{name} は相手の会社名）
+  talkTrack   String? @db.Text // 商談の切り口
+  rules       String? @db.Text // 統一規定（値引き上限・名称・言ってはいけないこと）
+  caseStudies String? @db.Text // 成功事例
+  docs        Json    @default("[]") // [{ title, url }] 資料リンク
+
+  // ---- 状態・起案 ----
+  status       SalesPackageStatus @default(PROPOSED)
+  proposedById String?
+  proposedBy   User?              @relation("SalesPackageProposer", fields: [proposedById], references: [id], onDelete: SetNull)
+  proposalNote String?            @db.Text // 起案の背景（誰の要望・なぜ売れそうか）
+  approvedAt   DateTime?
+  retiredAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leadLogs        LeadLog[]
+  salesApproaches SalesApproach[]
+
+  @@index([status])
+  @@index([category])
+  @@map("sales_packages")
 }
 
 // ==============================================================
@@ -2608,13 +2685,16 @@ model SalesApproach {
 
   // ── 送り先
   industry   String // 業種
-  targetDesc String?   @db.Text // 送り先の特徴（自由記入）
+  targetDesc String?       @db.Text // 送り先の特徴（自由記入）
   customerId String? // 顧客管理との紐づけ（任意）
-  customer   Customer? @relation("SalesApproachCustomer", fields: [customerId], references: [id])
+  customer   Customer?     @relation("SalesApproachCustomer", fields: [customerId], references: [id])
   // リードの結果ボタンから自動生成された場合の紐づけ。
   // 同じリードで押し直したときに二重投稿せず結果だけ更新するための鍵。
   leadId     String?
-  lead       Lead?     @relation("SalesApproachLead", fields: [leadId], references: [id], onDelete: SetNull)
+  lead       Lead?         @relation("SalesApproachLead", fields: [leadId], references: [id], onDelete: SetNull)
+  // どのパッケージで当たったか（営業フォームでパッケージを選んで送った場合に送付ログから写す）
+  packageId  String?
+  package    SalesPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
 
   // ── アプローチ内容
   method      SalesApproachMethod // 送信方法
@@ -2631,6 +2711,7 @@ model SalesApproach {
   @@index([industry])
   @@index([createdAt(sort: Desc)])
   @@index([leadId])
+  @@index([packageId])
   @@map("sales_approaches")
 }
 
@@ -4933,9 +5014,9 @@ model SignageAsset {
   trashedAt    DateTime?
 
   branchId     String?
-  branch       Branch? @relation(fields: [branchId], references: [id])
+  branch       Branch?  @relation(fields: [branchId], references: [id])
   uploadedById String?
-  uploadedBy   User?   @relation("SignageAssetUploadedBy", fields: [uploadedById], references: [id])
+  uploadedBy   User?    @relation("SignageAssetUploadedBy", fields: [uploadedById], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -4964,14 +5045,14 @@ model SignagePlaylist {
 
 /// プレイリストの1枠。広告主と掲載期間を枠ごとに持つ＝在庫管理・放映証明の単位
 model SignagePlaylistItem {
-  id          String  @id @default(cuid())
+  id          String          @id @default(cuid())
   playlistId  String
   playlist    SignagePlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
   assetId     String
   asset       SignageAsset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
   order       Int
-  durationSec Int     @default(15) // 画像の表示秒。動画は素材の長さを使う
-  fullscreen  Boolean @default(false) // この枠はL字を外して全画面（有料広告枠向け）
+  durationSec Int             @default(15) // 画像の表示秒。動画は素材の長さを使う
+  fullscreen  Boolean         @default(false) // この枠はL字を外して全画面（有料広告枠向け）
 
   advertiserCustomerId String?
   advertiserCustomer   Customer? @relation("SignageAdvertiser", fields: [advertiserCustomerId], references: [id], onDelete: SetNull)

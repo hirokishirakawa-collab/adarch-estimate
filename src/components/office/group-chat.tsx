@@ -49,6 +49,7 @@ const REF_LABEL: Record<string, string> = {
   tender: "入札○",
   customer: "顧客",
   project: "案件",
+  package: "パッケージ",
   url: "OSの画面",
   booking: "面談予約",
 };
@@ -427,8 +428,10 @@ function RefPicker({ onPick, onClose }: { onPick: (r: ComposeRef) => void; onClo
           customers?: { id: string; name: string }[];
           projects?: { id: string; title: string; status?: string }[];
           deals?: { id: string; title: string; status?: string }[];
+          packages?: { id: string; name: string; category?: string }[];
         };
         setHits([
+          ...(d.packages ?? []).map((x) => ({ kind: "package", id: x.id, title: x.name, sub: x.category ?? null })),
           ...(d.deals ?? []).map((x) => ({ kind: "deal", id: x.id, title: x.title, sub: x.status ?? null })),
           ...(d.customers ?? []).map((x) => ({ kind: "customer", id: x.id, title: x.name, sub: null })),
           ...(d.projects ?? []).map((x) => ({ kind: "project", id: x.id, title: x.title, sub: x.status ?? null })),
@@ -462,7 +465,7 @@ function RefPicker({ onPick, onClose }: { onPick: (r: ComposeRef) => void; onClo
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="顧客名・案件名で探す／OSの画面URLを貼る"
+              placeholder="顧客名・案件名・パッケージ名で探す／OSの画面URLを貼る"
               className="flex-1 bg-transparent text-[13.5px] outline-none placeholder:text-zinc-600"
             />
           </div>

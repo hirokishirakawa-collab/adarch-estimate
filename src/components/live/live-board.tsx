@@ -185,7 +185,7 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
     if (withId) openOfficeThread(withId);
     // ?ref=deal:xxx（案件ページの「続きを見る・聞く」）→ チャットタブでその案件の会話を出す
     const refParam = sp.get("ref");
-    const m = refParam ? /^(deal|customer|project|move|sent|tender):(.+)$/.exec(refParam) : null;
+    const m = refParam ? /^(deal|customer|project|move|sent|tender|package):(.+)$/.exec(refParam) : null;
     if (m) {
       setTab("chat");
       fetch(`/api/office/chat?refKind=${m[1]}&refId=${encodeURIComponent(m[2])}`, { cache: "no-store" })
