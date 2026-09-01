@@ -134,7 +134,8 @@ export async function officeGuard() {
   if (!me || !me.isActive) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  return me;
+  // Googleの写真はセッションにしか無く、DBの image は空のことがある（頭文字表示になる原因）
+  return { ...me, sessionImage: session.user.image ?? null };
 }
 
 // ---------------- 直列化 ----------------

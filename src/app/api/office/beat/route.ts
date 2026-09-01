@@ -19,7 +19,12 @@ export async function POST() {
   const now = new Date();
   const since = new Date(now.getTime() - ONLINE_WINDOW_MS);
   const [, inbox, online, latestChat] = await Promise.all([
-    db.user.update({ where: { id: me.id }, data: { lastSeenAt: now }, select: { id: true } }),
+    db.user.update({
+      where: { id: me.id },
+      // DBに写真が無ければ、セッションのGoogle写真を保存（顔を選ばなくても写真が出るように）
+      data: { lastSeenAt: now, ...(!me.image && me.sessionImage ? { image: me.sessionImage } : {}) },
+      select: { id: true },
+    }),
     db.officeKnock.findMany({
       where: { toId: me.id, readAt: null },
       include: { from: { select: { name: true, email: true } } },
