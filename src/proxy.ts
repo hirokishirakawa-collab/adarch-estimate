@@ -358,6 +358,7 @@ export const config = {
     // 自動営業の5ルートは 2026-08-17 の廃止で削除済みのため、除外指定も外した。
     // api/signage/d と signage/player はサイネージ端末用（端末トークンで自前認証・ログイン不要）。
     // api/version はデプロイ反映の確認用。コミットの短縮IDしか返さないので認証を通さない。
-    "/((?!api/auth|api/version|api/cron|api/line/webhook|api/square/webhook|l/|f/|api/contact|api/signage/d|signage/player|api/lp-view|api/franchise-leads/intake|api/franchise-leads/booking-signal|api/group-support|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|move|test-form|p/|partner|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
+    // api/packages/image/<id> はパッケージのサムネイル本体（公開ページ /p/ から読む）。アップロード側 api/packages/image は除外しない。
+    "/((?!api/auth|api/version|api/cron|api/packages/image/|api/line/webhook|api/square/webhook|l/|f/|api/contact|api/signage/d|signage/player|api/lp-view|api/franchise-leads/intake|api/franchise-leads/booking-signal|api/group-support|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|move|test-form|p/|partner|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
   ],
 };

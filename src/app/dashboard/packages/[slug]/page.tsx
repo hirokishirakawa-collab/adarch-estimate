@@ -12,6 +12,7 @@ import {
   formatPackagePrice,
   hasPrice,
   OWNER_LABEL,
+  packageImageSrc,
   parseDeliverables,
   parseDocs,
   parseFulfillment,
@@ -100,10 +101,10 @@ export default async function PackageDetailPage({
       {/* ヘッダー */}
       <div className="bg-white rounded-xl border border-orange-200 p-5">
         <div className="flex flex-wrap items-start gap-4">
-          {pkg.imageUrl && (
+          {packageImageSrc(pkg) && (
             <div className="w-full sm:w-56 aspect-[3/2] rounded-lg overflow-hidden bg-zinc-100 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={pkg.imageUrl} alt="" className="w-full h-full object-cover" />
+              <img src={packageImageSrc(pkg)!} alt="" className="w-full h-full object-cover" />
             </div>
           )}
           <div className="min-w-0 flex-1">

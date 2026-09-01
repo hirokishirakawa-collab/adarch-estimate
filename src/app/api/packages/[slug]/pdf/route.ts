@@ -3,15 +3,12 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { renderHtmlToPdf } from "@/lib/pdf/chrome";
 import { buildPackageCardHtml } from "@/lib/packages/card-html";
-import { readStorageFile } from "@/lib/storage";
 
-/** サムネイルを data: URL に（OS内ストレージの画像だけ。外部URLはChromeが file:// から読めないので出さない） */
-function imageDataUrl(imageUrl: string | null): string | null {
-  if (!imageUrl) return null;
-  const m = /^\/api\/storage\/package-images\/([\w.-]+)$/.exec(imageUrl);
-  if (!m) return null;
-  const buf = readStorageFile("package-images", m[1]);
-  return buf ? `data:image/jpeg;base64,${buf.toString("base64")}` : null;
+/** サムネイルを data: URL に（DB保存の画像だけ。外部URLはChromeが file:// から読めないので出さない） */
+async function imageDataUrl(imageId: string | null): Promise<string | null> {
+  if (!imageId) return null;
+  const row = await db.salesPackageImage.findUnique({ where: { id: imageId }, select: { data: true, type: true } });
+  return row ? `data:${row.type || "image/jpeg"};base64,${Buffer.from(row.data).toString("base64")}` : null;
 }
 
 export const runtime = "nodejs";
@@ -45,7 +42,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
       name: me.name,
       email: me.email,
     },
-    imageDataUrl(pkg.imageUrl),
+    await imageDataUrl(pkg.imageId),
   );
 
   let buffer: Buffer | null = null;

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { savePackageImage } from "@/lib/storage";
-import { generateHeroImage } from "@/lib/tver/hero-image";
+import { generateHeroImage, normalizeHeroImage } from "@/lib/tver/hero-image";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -11,11 +10,18 @@ const MAX_UPLOAD = 12 * 1024 * 1024;
 
 // ---------------------------------------------------------------
 // POST /api/packages/image
-//   multipart: file=<画像>                    → アップロード（横1600pxに収める）
+//   multipart: file=<画像>                    → アップロード（横1600pxのJPEGにしてDBへ）
 //   json:      { generate: true, name, tagline, category, painPoints, summary }
 //                                             → gpt-image-1 で参考イメージを1枚（TVerチラシと同じ経路）
-//   どちらも { url } を返す。保存はパッケージのフォームで imageUrl として送る
+//   どちらも { url: "/api/packages/image/<id>" } を返す。保存はパッケージのフォームで imageUrl として送る
+//   ※ ファイルストレージではなくDBに持つ（Railwayの /data に書けず /tmp に落ちてデプロイで消えるため）
 // ---------------------------------------------------------------
+async function store(input: Uint8Array | Buffer): Promise<string> {
+  const img = await normalizeHeroImage(input);
+  const row = await db.salesPackageImage.create({ data: { data: Buffer.from(img.data), type: img.type }, select: { id: true } });
+  return `/api/packages/image/${row.id}`;
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,9 +36,13 @@ export async function POST(req: NextRequest) {
     if (!(file instanceof File)) return NextResponse.json({ error: "file がありません" }, { status: 400 });
     if (!file.type.startsWith("image/")) return NextResponse.json({ error: "画像ファイルを選んでください" }, { status: 400 });
     if (file.size > MAX_UPLOAD) return NextResponse.json({ error: "12MB以下の画像にしてください" }, { status: 400 });
-    const url = await savePackageImage(Buffer.from(await file.arrayBuffer()));
-    if (!url) return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
-    return NextResponse.json({ url });
+    try {
+      const url = await store(Buffer.from(await file.arrayBuffer()));
+      return NextResponse.json({ url });
+    } catch (e) {
+      console.error("[packages/image] upload failed:", e instanceof Error ? e.message : e);
+      return NextResponse.json({ error: "画像を読み込めませんでした（JPEG/PNG/WebPでお試しください）" }, { status: 400 });
+    }
   }
 
   let body: { generate?: boolean; name?: string; tagline?: string; category?: string; painPoints?: string; summary?: string };
@@ -57,8 +67,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const img = await generateHeroImage(prompt);
-    const url = await savePackageImage(img.data);
-    if (!url) return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
+    const url = await store(img.data);
     return NextResponse.json({ url });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "生成に失敗しました";

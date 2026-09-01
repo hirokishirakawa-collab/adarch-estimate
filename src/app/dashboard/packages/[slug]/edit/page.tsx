@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { PackageForm, type PackageFormValues } from "@/components/packages/package-form";
-import { parseDeliverables, parseDocs, parseFulfillment, parseOptions } from "@/lib/packages/types";
+import { packageImageSrc, parseDeliverables, parseDocs, parseFulfillment, parseOptions } from "@/lib/packages/types";
 
 export default async function EditPackagePage({ params }: { params: Promise<{ slug: string }> }) {
   const session = await auth();
@@ -43,7 +43,7 @@ export default async function EditPackagePage({ params }: { params: Promise<{ sl
     docs: parseDocs(pkg.docs),
     proposalNote: pkg.proposalNote ?? "",
     status: pkg.status,
-    imageUrl: pkg.imageUrl ?? "",
+    imageUrl: packageImageSrc(pkg) ?? "",
     calculator: pkg.calculator ?? "",
   };
 

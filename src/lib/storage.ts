@@ -34,7 +34,6 @@ const CARD_IMAGE_BUCKET = "card-images";
 const VIDEO_REVIEW_BUCKET = "video-reviews";
 const CREATOR_AVATAR_BUCKET = "creator-avatars";
 const SIGNAGE_BUCKET = "signage-assets"; // デジタルサイネージ素材（動画・画像・サムネ）
-const PACKAGE_IMAGE_BUCKET = "package-images"; // パッケージのサムネイル（Public・公開ページにも出る）
 
 // ---------------------------------------------------------------
 // 共通ユーティリティ
@@ -158,27 +157,6 @@ export async function getCardImageSignedUrl(
   // 旧 Supabase URL が DB に残っている場合はそのまま返す
   if (filePath.startsWith("http")) return filePath;
   return `/api/storage/${CARD_IMAGE_BUCKET}/${filePath}`;
-}
-
-// ---------------------------------------------------------------
-// パッケージのサムネイル（Public — 横1600pxに収めて JPEG 保存）
-//   アップロード・AI生成のどちらもここを通る
-// ---------------------------------------------------------------
-export async function savePackageImage(input: Buffer | Uint8Array): Promise<string | null> {
-  try {
-    let out: Buffer | Uint8Array = input;
-    try {
-      const sharp = (await import("sharp")).default;
-      out = await sharp(Buffer.from(input)).rotate().resize({ width: 1600, withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
-    } catch (e) {
-      console.warn("[storage] sharp unavailable, saving original:", e);
-    }
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-    return await saveFile(PACKAGE_IMAGE_BUCKET, fileName, out);
-  } catch (e) {
-    console.error("[storage] Package image save error:", e);
-    return null;
-  }
 }
 
 // ---------------------------------------------------------------

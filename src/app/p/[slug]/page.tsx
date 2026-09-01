@@ -14,6 +14,7 @@ import {
   CLIENT_OWNER_LABEL,
   HQ_CONTACT,
   formatPackagePrice,
+  packageImageSrc,
   parseDeliverables,
   parseFulfillment,
   parseOptions,
@@ -86,6 +87,7 @@ export default async function PublicPackagePage({ params, searchParams }: Params
   const options = parseOptions(p.options);
   const flow = parseFulfillment(p.fulfillment);
   const price = formatPackagePrice(p);
+  const imageSrc = packageImageSrc(p);
   const contactEmail = sender?.email ?? HQ_CONTACT.email;
   const contactName = sender ? `${sender.company}${sender.person ? `　${sender.person}` : ""}` : HQ_CONTACT.company;
   const mailto = `mailto:${contactEmail}?subject=${encodeURIComponent(`【${p.name}】について相談したい`)}&body=${encodeURIComponent(`${contactName} 様\n\n${p.name}のページを拝見しました。\n以下について相談させてください。\n\n会社名：\nご担当者：\nお電話：\nご希望の時期：\nご相談内容：\n`)}`;
@@ -101,15 +103,15 @@ export default async function PublicPackagePage({ params, searchParams }: Params
       </div>
 
       {/* ヒーロー */}
-      {p.imageUrl && (
+      {imageSrc && (
         <div className="max-w-3xl mx-auto px-5 pt-6">
           <div className="aspect-[3/2] sm:aspect-[21/9] rounded-2xl overflow-hidden bg-zinc-100">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+            <img src={imageSrc} alt={p.name} className="w-full h-full object-cover" />
           </div>
         </div>
       )}
-      <header className={`max-w-3xl mx-auto px-5 ${p.imageUrl ? "pt-6" : "pt-10"} pb-8`}>
+      <header className={`max-w-3xl mx-auto px-5 ${imageSrc ? "pt-6" : "pt-10"} pb-8`}>
         <p className="text-[11px] font-bold tracking-[0.2em] text-[#F19834]">{p.category.toUpperCase()} PACKAGE</p>
         <h1 className="text-3xl sm:text-4xl font-extrabold leading-tight mt-2">{p.name}</h1>
         {p.tagline && <p className="text-base sm:text-lg text-zinc-600 mt-3">{p.tagline}</p>}

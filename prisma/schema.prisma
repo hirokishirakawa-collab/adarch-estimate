@@ -2357,11 +2357,13 @@ model SalesPackage {
   name             String // パッケージ名
   tagline          String? // 一言（売り文句・20〜40字）
   category         String // 分類（例: 採用 / サイネージ / TVer / SNS / 制作）
-  imageUrl         String? // サムネイル（参考イメージ）。/api/storage/package-images/... か外部URL
+  imageUrl         String? // サムネイル（外部の https URL を貼った場合）。OS内で持つ画像は imageId
+  imageId          String?            @unique // サムネイル本体（DB保存＝デプロイで消えない）
+  image            SalesPackageImage? @relation(fields: [imageId], references: [id], onDelete: SetNull)
   calculator       String? // エリア別の目安を出す計算機（例: "tver-area"）。null=無し
-  targetIndustries String[] @default([]) // 対象業種
-  painPoints       String?  @db.Text // 想定顧客の悩み（誰の何に効くか）
-  summary          String?  @db.Text // 概要（何が届くか）
+  targetIndustries String[]           @default([]) // 対象業種
+  painPoints       String?            @db.Text // 想定顧客の悩み（誰の何に効くか）
+  summary          String?            @db.Text // 概要（何が届くか）
 
   // ---- 中身 ----
   deliverables Json    @default("[]") // [{ name, qty, unit, spec }]
@@ -2401,6 +2403,20 @@ model SalesPackage {
   @@index([status])
   @@index([category])
   @@map("sales_packages")
+}
+
+/// パッケージのサムネイル本体。Railwayのファイルストレージは appuser で /data に書けず /tmp に落ちて
+/// デプロイで消えるため、TVerチラシのヒーロー写真と同じく DB に持つ（横1600px JPEG・数百KB）。
+/// 公開ページ（ログイン不要）からも読むので GET は認証なし。
+model SalesPackageImage {
+  id        String   @id @default(cuid())
+  data      Bytes
+  type      String   @default("image/jpeg")
+  createdAt DateTime @default(now())
+
+  package SalesPackage?
+
+  @@map("sales_package_images")
 }
 
 // ==============================================================

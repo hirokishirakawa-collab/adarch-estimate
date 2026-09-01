@@ -88,9 +88,15 @@ export async function savePackage(_prev: ActionState, fd: FormData): Promise<Act
     ? statusInput
     : existing?.status ?? "PROPOSED";
 
-  // サムネイル: OS内ストレージのパスか https のURLだけ受ける
+  // サムネイル: DB保存の画像（/api/packages/image/<id>）か https のURLだけ受ける
   const imageRaw = str(fd, "imageUrl", 1000);
-  const imageUrl = /^\/api\/storage\/package-images\/[\w.-]+$/.test(imageRaw) || /^https:\/\//.test(imageRaw) ? imageRaw : null;
+  const imageIdMatch = /^\/api\/packages\/image\/([a-z0-9]{10,40})$/i.exec(imageRaw);
+  let imageId: string | null = null;
+  if (imageIdMatch) {
+    const hit = await db.salesPackageImage.findUnique({ where: { id: imageIdMatch[1] }, select: { id: true } });
+    imageId = hit?.id ?? null;
+  }
+  const imageUrl = !imageId && /^https:\/\//.test(imageRaw) ? imageRaw : null;
   // 計算機（本部だけが設定。今は tver-area のみ）
   const calcRaw = str(fd, "calculator", 40);
   const calculator = isAdmin ? (calcRaw === "tver-area" ? "tver-area" : null) : existing?.calculator ?? null;
@@ -101,6 +107,7 @@ export async function savePackage(_prev: ActionState, fd: FormData): Promise<Act
     tagline: str(fd, "tagline", 80) || null,
     category,
     imageUrl,
+    imageId,
     calculator,
     targetIndustries: str(fd, "targetIndustries", 400)
       .split(/[,、\s]+/)

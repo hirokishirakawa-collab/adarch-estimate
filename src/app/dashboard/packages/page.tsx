@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { FavoriteButton } from "@/components/layout/favorite-button";
 import { listPackages, getPackageStats } from "@/lib/packages/query";
-import { formatPackagePrice, parseDeliverables, STATUS_LABEL } from "@/lib/packages/types";
+import { formatPackagePrice, packageImageSrc, parseDeliverables, STATUS_LABEL } from "@/lib/packages/types";
 import type { SalesPackageStatus } from "@/generated/prisma/client";
 
 export const metadata = { title: "パッケージ | Ad-Arch" };
@@ -94,9 +94,9 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
                 className={`group bg-white rounded-xl border overflow-hidden flex flex-col hover:shadow-md transition-shadow ${p.status === "ACTIVE" ? "border-orange-200" : "border-zinc-200"}`}
               >
                 <div className="aspect-[3/2] bg-zinc-100 overflow-hidden">
-                  {p.imageUrl ? (
+                  {packageImageSrc(p) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform" />
+                    <img src={packageImageSrc(p)!} alt="" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-[11px] text-zinc-400">画像なし</div>
                   )}

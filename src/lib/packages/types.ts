@@ -37,6 +37,12 @@ export const CLIENT_OWNER_LABEL: Record<FulfillmentOwner, string> = {
   HQ: "Ad Arch本部",
 };
 
+/** サムネイルの表示URL（DB保存の画像が優先。無ければ外部URL） */
+export function packageImageSrc(p: { imageId: string | null; imageUrl: string | null }): string | null {
+  if (p.imageId) return `/api/packages/image/${p.imageId}`;
+  return p.imageUrl && /^https:\/\//.test(p.imageUrl) ? p.imageUrl : null;
+}
+
 /** 本部の公開連絡先（公開ページで差出人が無い場合のフォールバック） */
 export const HQ_CONTACT = { company: "Ad Arch株式会社", email: "info@adarch.co.jp", phone: "050-1793-9063" };
 
