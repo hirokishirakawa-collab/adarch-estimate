@@ -1,7 +1,11 @@
 // ==============================================================
 // 地域リーチ固定パッケージ（TVer）— エリア別の目安
-//   「この市だと、月額いくらで住民の何%に届くか」を出す。計算は lib/tver/plan.ts（資料と同じ数字）
-//   ・月額の段（10万/15万/20万/30万）＋ 網羅プラン（3人に1人×月5回・資料の標準）
+//   「この市だと、月額いくらで住民の何%に届くか」を出す。母集団（市内TVer視聴者）は lib/tver/plan.ts（資料と同じ推計）
+//   ・月の再生数 = 月額 ÷ 再生単価（15秒 ¥6.6＝卸値×3・2026-08-10 代表決定）
+//   ・月に届く人数 = 月の再生数 ÷ 実測フリークエンシー 4.78（安藤工事様 2026/6-7・1ヶ月）
+//     ※ 資料の「到達1人あたり単価 ¥37」で月額を割る方式は 2026-09-01 に代表指摘で撤回。
+//        資料側の網羅プラン（3人に1人×月5回を ¥37/人×3ヶ月で売る）は再生単価と整合しない＝代表判断待ち
+//   ・「商圏まるごと」= 市内TVer視聴者の3人に1人へ月平均4.78回 を ¥6.6 で買った月額（正直な計算）
 //   ・住民比 = 到達人数 ÷ 市の総人口。視聴者比 = 到達人数 ÷ 市内TVer視聴者（推計）
 //   ・政令市は区に分かれているので「○○市（全区）」の合算行を先頭に足す（既定はこれ）
 //   ・数字は目安。保証しない（規定どおり「目安」と添えて言う）
@@ -9,7 +13,7 @@
 
 import { MUNICIPALITIES } from "@/data/tver-municipalities";
 import { PREFECTURES } from "@/lib/constants/crm";
-import { coverageAt, planForCodes, type AreaPlan } from "@/lib/tver/plan";
+import { COVER, FREQ, UNIT_PRICE, planForCodes, type AreaPlan } from "@/lib/tver/plan";
 
 export const TVER_AREA_CALCULATOR = "tver-area";
 export const MONTHLY_TIERS = [100_000, 150_000, 200_000, 300_000];
@@ -41,24 +45,39 @@ function expandCodes(prefName: string, code: string): string[] {
   return MUNICIPALITIES.filter((m) => m.prefName === prefName && m.population > 0 && m.name.startsWith(city) && /区$/.test(m.name)).map((m) => m.code);
 }
 
-export type AreaTier = { monthly: number; reach: number; pctResidents: number; pctViewers: number; isFull: boolean };
+export type AreaTier = { monthly: number; impressions: number; reach: number; pctResidents: number; pctViewers: number; isFull: boolean };
 export interface AreaEstimate {
   plan: AreaPlan;
   tiers: AreaTier[];
+  /** 表の前提（画面の注記に使う） */
+  unitPrice: number; // 円/再生（15秒）
+  freq: number; // 月の平均フリークエンシー（実測）
 }
+
+const round1man = (v: number) => Math.round(v / 10_000) * 10_000;
 
 export function estimateArea(prefName: string, code: string): AreaEstimate | null {
   const plan = planForCodes(expandCodes(prefName, code), 15);
   if (!plan) return null;
+  const unit = UNIT_PRICE[15];
   const tier = (monthly: number, isFull: boolean): AreaTier => {
-    const c = coverageAt(plan, monthly);
-    return { monthly, reach: c.reach, pctResidents: Math.min(100, (c.reach / plan.population) * 100), pctViewers: c.pct, isFull };
+    const impressions = monthly / unit;
+    const reach = Math.min(impressions / FREQ, plan.viewers);
+    return {
+      monthly,
+      impressions,
+      reach,
+      pctResidents: Math.min(100, (reach / plan.population) * 100),
+      pctViewers: Math.min(100, (reach / plan.viewers) * 100),
+      isFull,
+    };
   };
   const tiers = MONTHLY_TIERS.map((m) => tier(m, false));
-  // 網羅プラン（資料の標準）。既に同額の段があれば置き換え
-  const full = tier(plan.monthly, true);
+  // 商圏まるごと＝視聴者の3人に1人 × 月4.78回 × ¥6.6（1万円単位）
+  const fullMonthly = Math.max(10_000, round1man(plan.viewers * COVER * FREQ * unit));
+  const full = tier(fullMonthly, true);
   const merged = [...tiers.filter((t) => t.monthly !== full.monthly), full].sort((a, b) => a.monthly - b.monthly);
-  return { plan, tiers: merged };
+  return { plan, tiers: merged, unitPrice: unit, freq: FREQ };
 }
 
 /** URLの pref / city から表示対象を決める（無ければ既定県の最大の市） */

@@ -36,10 +36,11 @@ export function TverAreaCalculator({
             <b>{est.plan.areaLabel}</b>　人口 {fmtMan(est.plan.population)}／TVerを見ている人（推計）{fmtMan(est.plan.viewers)}
           </p>
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm min-w-[520px]">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="text-[11px] text-zinc-500 border-b border-zinc-200">
                   <th className="text-left py-2 font-semibold">月額（税抜）</th>
+                  <th className="text-right py-2 font-semibold">月の再生数</th>
                   <th className="text-right py-2 font-semibold">月に届く人数（目安）</th>
                   <th className="text-right py-2 font-semibold">住民の</th>
                   <th className="text-right py-2 font-semibold">TVer視聴者の</th>
@@ -52,8 +53,9 @@ export function TverAreaCalculator({
                       ¥{t.monthly.toLocaleString("ja-JP")}
                       {t.isFull && <span className="ml-2 text-[10px] font-bold text-[#B8651A] bg-white border border-[#F19834] rounded px-1.5 py-0.5 align-middle">商圏まるごと</span>}
                     </td>
+                    <td className="py-2.5 text-right tabular-nums text-zinc-600">{fmtMan(t.impressions).replace("人", "回")}</td>
                     <td className="py-2.5 text-right tabular-nums">{fmtMan(t.reach)}</td>
-                    <td className="py-2.5 text-right tabular-nums">{t.pctResidents.toFixed(0)}%</td>
+                    <td className="py-2.5 text-right tabular-nums">{t.pctResidents.toFixed(t.pctResidents < 10 ? 1 : 0)}%</td>
                     <td className="py-2.5 text-right tabular-nums">{t.pctViewers.toFixed(0)}%</td>
                   </tr>
                 ))}
@@ -61,7 +63,8 @@ export function TverAreaCalculator({
             </table>
           </div>
           <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">
-            15秒動画・市を中心に配信した場合の目安です。「商圏まるごと」＝市内のTVer視聴者の3人に1人へ月平均5回届く水準（当社の標準）。
+            15秒動画・市を中心に配信した場合の目安です。月の再生数＝月額÷再生単価、届く人数＝再生数÷月の平均視聴回数（当社の実配信の実測 {est.freq}回）。
+            「商圏まるごと」＝市内のTVer視聴者の3人に1人へ月平均{Math.round(est.freq)}回届く水準。
             視聴者数は TVer月間利用者（全国4,470万人）を県・市の人口比で推計した値で、実際の到達を保証するものではありません。
           </p>
         </div>
