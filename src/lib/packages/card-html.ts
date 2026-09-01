@@ -5,14 +5,7 @@
 // ==============================================================
 
 import type { SalesPackage } from "@/generated/prisma/client";
-import { formatPackagePrice, parseDeliverables, parseOptions, parseFulfillment, yen, type FulfillmentOwner } from "./types";
-
-// お客様向けの呼び方（「制作代表」「販売拠点」は内部の言葉なので出さない）
-const CLIENT_OWNER_LABEL: Record<FulfillmentOwner, string> = {
-  BRANCH: "担当窓口",
-  PRODUCER: "制作チーム",
-  HQ: "Ad Arch本部",
-};
+import { formatPackagePrice, parseDeliverables, parseOptions, parseFulfillment, yen, CLIENT_OWNER_LABEL } from "./types";
 
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

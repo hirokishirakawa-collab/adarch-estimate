@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { Calculator, FileDown, MessageCircle, PenLine, Pencil } from "lucide-react";
+import { PackageShareLink } from "@/components/packages/share-link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPackageApproaches, getPackageBySlug, getPackageStats } from "@/lib/packages/query";
@@ -52,10 +54,16 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
   if (!session?.user?.email) redirect("/");
   const { slug } = await params;
   const [me, pkg] = await Promise.all([
-    db.user.findUnique({ where: { email: session.user.email }, select: { id: true, role: true } }),
+    db.user.findUnique({ where: { email: session.user.email }, select: { id: true, role: true, groupCompanyId: true } }),
     getPackageBySlug(slug),
   ]);
   if (!pkg || !me) notFound();
+
+  // 公開ページのURL（差出人＝見ている人の加盟会社。本部は from なし）
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const publicUrl = `${proto}://${host}/p/${pkg.slug}${me.groupCompanyId ? `?from=${me.groupCompanyId}` : ""}`;
   const isAdmin = me.role === "ADMIN";
   const mine = pkg.proposedById === me.id;
   const canEdit = isAdmin || (mine && pkg.status === "PROPOSED");
@@ -133,6 +141,8 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
             <PackageStatusActions id={pkg.id} status={pkg.status} isAdmin={isAdmin} canDelete={isAdmin || (mine && pkg.status === "PROPOSED")} hasPrice={hasPrice(pkg)} />
           </div>
         </div>
+
+        {active && <PackageShareLink url={publicUrl} />}
 
         {/* 実績 */}
         <div className="mt-4 grid grid-cols-3 gap-2 max-w-md">

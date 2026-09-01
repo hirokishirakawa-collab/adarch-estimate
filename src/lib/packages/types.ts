@@ -30,6 +30,16 @@ export const OWNER_LABEL: Record<FulfillmentOwner, string> = {
   PRODUCER: "制作代表",
 };
 
+/** お客様向けの呼び方（資料PDF・公開ページ）。「制作代表」「販売拠点」は内部の言葉なので出さない */
+export const CLIENT_OWNER_LABEL: Record<FulfillmentOwner, string> = {
+  BRANCH: "担当窓口",
+  PRODUCER: "制作チーム",
+  HQ: "Ad Arch本部",
+};
+
+/** 本部の公開連絡先（公開ページで差出人が無い場合のフォールバック） */
+export const HQ_CONTACT = { company: "Ad Arch株式会社", email: "info@adarch.co.jp", phone: "050-1793-9063" };
+
 /** 分類の候補（自由入力も可） */
 export const CATEGORY_SUGGESTIONS = ["採用", "サイネージ", "TVer", "SNS", "動画制作", "Web", "イベント", "その他"];
 
