@@ -39,11 +39,14 @@ export function MfBillingList({ month, dueDate, rows, squareConfigured, mf }: { 
   const linkNeeded = rows.filter((r) => !r.paymentLink || r.paymentLink.amountInclTax !== r.totalInclTax).length;
   const mfNeeded = rows.filter((r) => !r.mfBilling).length;
   const mfMismatch = rows.filter((r) => r.mfBilling && r.mfBilling.totalInclTax !== r.totalInclTax).length;
+  // 請求日（既定＝今日・日本時間）。従来運用は毎月25日
+  const [billingDate, setBillingDate] = useState<string>(() => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }));
 
   function makeMfBillings() {
-    if (!confirm(`MFクラウド請求書に ${mfNeeded} 件の請求書を作成します（作成済みの社はスキップ）。よろしいですか？`)) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(billingDate)) { alert("請求日を入力してください"); return; }
+    if (!confirm(`MFクラウド請求書に ${mfNeeded} 件の請求書を作成します（請求日 ${billingDate.replace(/-/g, "/")}・支払期限 ${dueDate}・作成済みの社はスキップ）。よろしいですか？`)) return;
     startTransition(async () => {
-      const res = await createMfBillingsForMonth(month);
+      const res = await createMfBillingsForMonth(month, billingDate);
       if (res.error) { setResult(`エラー: ${res.error}`); return; }
       setResult(`MF請求書: 作成 ${res.created}・スキップ ${res.skipped}${res.partnersCreated ? `・取引先を新規作成 ${res.partnersCreated}` : ""}${res.errors.length ? `／失敗 ${res.errors.length}: ${res.errors.join(" / ")}` : ""}`);
       router.refresh();
@@ -123,6 +126,10 @@ export function MfBillingList({ month, dueDate, rows, squareConfigured, mf }: { 
             </a>
           ) : (
             <>
+              <label className="inline-flex items-center gap-1 text-[11px] text-zinc-600" title="MF請求書の請求日（売上計上日も同じ）">
+                請求日
+                <input type="date" value={billingDate} onChange={(e) => setBillingDate(e.target.value)} className="px-1.5 py-0.5 text-[11px] border border-zinc-200 rounded bg-white" />
+              </label>
               <button onClick={makeMfBillings} disabled={isPending || mfNeeded === 0} title="MFクラウド請求書に請求書を作成（備考にSquare決済リンク入り）" className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded border bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
                 {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
                 MFに請求書{mfNeeded > 0 ? `を作成（${mfNeeded}件）` : "は作成済"}

@@ -79,11 +79,12 @@ async function resolveDepartmentId(gc: { id: string; name: string; ownerName: st
 }
 
 /// 対象月の「要請求」全社にMF請求書を作成（既に作成済みの社はスキップ）。
-export async function createMfBillingsForMonth(month: string, groupCompanyIds?: string[]): Promise<{ error?: string; created: number; skipped: number; partnersCreated: number; errors: string[] }> {
+export async function createMfBillingsForMonth(month: string, billingDate?: string, groupCompanyIds?: string[]): Promise<{ error?: string; created: number; skipped: number; partnersCreated: number; errors: string[] }> {
   const info = await getSessionInfo();
   const zero = { created: 0, skipped: 0, partnersCreated: 0, errors: [] as string[] };
   if (!info || info.role !== "ADMIN") return { error: "権限がありません", ...zero };
   if (!/^\d{4}-\d{2}$/.test(month)) return { error: "対象月が不正です", ...zero };
+  if (billingDate && !/^\d{4}-\d{2}-\d{2}$/.test(billingDate)) return { error: "請求日が不正です", ...zero };
   if (!isMfConfigured()) return { error: "MF_CLIENT_ID / MF_CLIENT_SECRET が未設定です", ...zero };
   if (!(await mfIsConnected())) return { error: "MF未接続です（「MFに接続」から承認してください）", ...zero };
 
@@ -98,7 +99,8 @@ export async function createMfBillingsForMonth(month: string, groupCompanyIds?: 
   })).map((c) => [c.id, c]));
 
   const due = ymd(royaltyDueDateOf(month));
-  const today = todayJst();
+  const today = billingDate || todayJst(); // 請求日（指定がなければ今日・日本時間）
+  if (today > due) return { error: `請求日（${today}）が支払期限（${due}）より後です`, ...zero };
   const label = monthLabel(month);
   let created = 0, skipped = 0, partnersCreated = 0;
   const errors: string[] = [];
@@ -147,7 +149,7 @@ export async function createMfBillingsForMonth(month: string, groupCompanyIds?: 
         dueDate: due,
         title: `アドアーチグループ ロイヤリティ ${label}`,
         note,
-        memo: `OS自動作成 ${today} / ${r.name}`,
+        memo: `OS自動作成 ${todayJst()} / ${r.name}`,
         items,
       });
       await db.royaltyMfBilling.create({
