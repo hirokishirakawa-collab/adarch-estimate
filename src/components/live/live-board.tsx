@@ -8,7 +8,8 @@
 //   ・このページだけ意図的にダーク1トーン（管制室）。金額は一切出ない
 // ==============================================================
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { openOfficeThread } from "@/lib/office/store";
 
 interface LiveEvent {
   at: string;
@@ -38,6 +39,20 @@ interface Feed {
   counts: { today: Counts; week: Counts };
   prefHeat: Record<string, number>;
   generatedAt: string;
+}
+// グループオフィス: いま OS を開いている人（/api/office/who）
+interface OfficeUser {
+  id: string;
+  name: string;
+  initials: string;
+  company: string;
+  pref: string;
+  isHq: boolean;
+  inCall: boolean;
+}
+interface Who {
+  meId: string;
+  users: OfficeUser[];
 }
 
 // 都道府県庁所在地の座標（緯度, 経度）。地図はこのドットだけで描く
@@ -98,6 +113,7 @@ function safeHref(url: string | undefined): string | undefined {
 
 export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
   const [feed, setFeed] = useState<Feed | null>(null);
+  const [who, setWho] = useState<Who | null>(null);
   const [clock, setClock] = useState("");
   const [error, setError] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -136,6 +152,13 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
       } catch {
         setError(true);
       }
+      // 在席者は別便（取れなくてもフィードは出す）
+      fetch("/api/office/who", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: Who | null) => {
+          if (d) setWho(d);
+        })
+        .catch(() => {});
     };
     load();
     timer.current = setInterval(load, 20000);
@@ -151,6 +174,29 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
       clearInterval(c);
     };
   }, []);
+
+  useEffect(() => {
+    if (compact) return;
+    const withId = new URLSearchParams(window.location.search).get("with");
+    if (withId) openOfficeThread(withId);
+  }, [compact]);
+
+  // 在席者を県の位置に並べる（同じ県は横に少しずつずらす）
+  const placed = useMemo(() => {
+    const byPref: Record<string, OfficeUser[]> = {};
+    for (const u of who?.users ?? []) (byPref[u.pref] ??= []).push(u);
+    const out: { u: OfficeUser; x: number; y: number }[] = [];
+    for (const [pref, list] of Object.entries(byPref)) {
+      const base =
+        pref === "沖縄"
+          ? OKINAWA_XY
+          : PREF_POS[pref]
+            ? project(PREF_POS[pref][0], PREF_POS[pref][1])
+            : project(PREF_POS["東京"][0], PREF_POS["東京"][1]);
+      list.forEach((u, i) => out.push({ u, x: base[0] + (i - (list.length - 1) / 2) * 16, y: base[1] - 12 }));
+    }
+    return out;
+  }, [who]);
 
   const heat = feed?.prefHeat ?? {};
   const DAY = 86400000;
@@ -283,6 +329,43 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
                   </g>
                 );
               })}
+            {/* いま動いている人（グループオフィス）。押すとひとこと */}
+            {placed.map(({ u, x, y }) => {
+              const me = u.id === who?.meId;
+              return (
+                <g
+                  key={u.id}
+                  onClick={() => {
+                    if (!me) openOfficeThread(u.id);
+                  }}
+                  className={me ? "" : "cursor-pointer"}
+                  role={me ? undefined : "button"}
+                >
+                  <title>
+                    {me
+                      ? `${u.name}（自分）`
+                      : `${u.name}（${u.company || "—"}）${u.inCall ? "・話し中" : "・ひとことを送る"}`}
+                  </title>
+                  {u.inCall && (
+                    <circle cx={x} cy={y} r="9" fill="none" stroke="#34d399" strokeOpacity="0.7">
+                      <animate attributeName="r" values="8;14" dur="1.6s" repeatCount="indefinite" />
+                      <animate attributeName="stroke-opacity" values="0.7;0" dur="1.6s" repeatCount="indefinite" />
+                    </circle>
+                  )}
+                  <circle cx={x} cy={y} r="7.5" fill={me ? "#0f172a" : "#064e3b"} stroke={me ? "#a7f3d0" : "#34d399"} strokeWidth="1.2" />
+                  <text
+                    x={x}
+                    y={y + 2.6}
+                    textAnchor="middle"
+                    fontSize={u.initials.length > 1 ? "6" : "7.5"}
+                    fontWeight="700"
+                    fill="#d1fae5"
+                  >
+                    {u.initials}
+                  </text>
+                </g>
+              );
+            })}
           </svg>
           <div className={`${compact ? "hidden" : "flex"} items-center gap-4 px-2 pb-1 text-[10px] text-zinc-500`}>
             <span className="flex items-center gap-1.5">
@@ -294,7 +377,52 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
             <span className="flex items-center gap-1.5">
               <i className="inline-block w-2 h-2 rounded-full bg-[#1e4f74]" />90日以内
             </span>
+            <span className="flex items-center gap-1.5">
+              <i className="inline-block w-2 h-2 rounded-full bg-emerald-400" />いま動いている
+            </span>
           </div>
+
+          {/* いま動いている人の一覧（グループオフィス） */}
+          {!compact && who && (
+            <div className="mt-2 px-1 pb-1">
+              <p className="text-[10px] tracking-[0.15em] text-zinc-500 mb-1.5">
+                いま動いている {who.users.length}人
+                {who.users.length > 1 ? " — 押すとひとこと" : ""}
+              </p>
+              {who.users.length <= 1 ? (
+                <p className="text-[11px] text-zinc-600 leading-relaxed">
+                  いまはあなただけです。ここに灯った人には、ひとことで声をかけられます。
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {who.users.map((u) => {
+                    const me = u.id === who.meId;
+                    return (
+                      <button
+                        key={u.id}
+                        type="button"
+                        disabled={me}
+                        onClick={() => openOfficeThread(u.id)}
+                        className={`flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] transition-colors ${
+                          me
+                            ? "border-white/10 text-zinc-500 cursor-default"
+                            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+                        }`}
+                        title={me ? "自分" : "ひとことを送る"}
+                      >
+                        <span className="w-4 h-4 rounded-full bg-emerald-900 text-emerald-100 text-[8px] font-bold flex items-center justify-center">
+                          {u.initials}
+                        </span>
+                        <span className="font-medium">{u.name}</span>
+                        <span className="text-zinc-500">{u.company ? `${u.company}・` : ""}{u.pref}</span>
+                        {u.inCall && <span className="text-emerald-300">🎙</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* イベントティッカー */}

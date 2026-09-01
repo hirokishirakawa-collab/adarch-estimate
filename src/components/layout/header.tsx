@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/roles";
 import { Menu, Search, Settings } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
+import { PresenceBadge } from "@/components/office/presence-badge";
 import { ArchKunToggle } from "@/components/chatbot/arch-kun-toggle";
 
 // ----------------------------------------------------------------
@@ -73,6 +74,9 @@ export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProp
             <span className="hidden sm:block">検索...</span>
             <kbd className="hidden sm:block text-[10px] bg-zinc-200 px-1.5 py-0.5 rounded">⌘K</kbd>
           </button>
+
+          {/* いま動いている人（グループオフィス） */}
+          <PresenceBadge />
 
           {/* 通知ベル */}
           <NotificationBell />

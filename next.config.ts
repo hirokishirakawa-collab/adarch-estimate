@@ -39,7 +39,8 @@ const nextConfig: NextConfig = {
           // 不要なブラウザ機能の無効化
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(), payment=()",
+            // camera/microphone=(self): グループオフィスの5分音声（LiveKit）で使う。第三者フレームには開けない
+            value: "camera=(self), microphone=(self), geolocation=(), payment=()",
           },
           // XSS 対策（モダンブラウザ向け）
           {
@@ -56,7 +57,8 @@ const nextConfig: NextConfig = {
               // worker（MuxPlayer の HLS ワーカー）
               "worker-src 'self' blob:",
               // Sentry + Mux + Mux Data (litix.io) への送信を許可
-              "connect-src 'self' blob: https://*.ingest.sentry.io https://*.mux.com https://*.production.mux.com https://inferred.litix.io https://*.litix.io",
+              // LiveKit Cloud（グループオフィスの音声）は wss + https の両方に繋ぐ
+              "connect-src 'self' blob: https://*.ingest.sentry.io https://*.mux.com https://*.production.mux.com https://inferred.litix.io https://*.litix.io wss://*.livekit.cloud https://*.livekit.cloud",
               "font-src 'self'",
               // 埋め込み動画（YouTube / Vimeo / Mux Player / Google Drive）を許可
               "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://stream.mux.com https://drive.google.com",

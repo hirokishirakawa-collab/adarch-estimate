@@ -2,13 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Bell,
-  TrendingUp,
-  FolderKanban,
-  Eye,
-  BarChart2,
-} from "lucide-react";
+import { Bell, TrendingUp, FolderKanban, Eye, BarChart2, MessageCircle } from "lucide-react";
 
 // ----------------------------------------------------------------
 // Types
@@ -49,6 +43,8 @@ function typeIcon(type: string) {
       return <Eye className="w-4 h-4 text-amber-500" />;
     case "REPORT_SUBMITTED":
       return <BarChart2 className="w-4 h-4 text-emerald-500" />;
+    case "OFFICE_KNOCK":
+      return <MessageCircle className="w-4 h-4 text-emerald-600" />;
     default:
       return <Bell className="w-4 h-4 text-zinc-400" />;
   }

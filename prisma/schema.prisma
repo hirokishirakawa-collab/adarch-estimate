@@ -394,6 +394,12 @@ model User {
   // ラーニング資格免除フラグ（既存加盟者は true / 新規加盟者はテスト合格が必要）
   learningExempt Boolean @default(false)
 
+  // ---- グループオフィス（在席・ひとこと・5分音声）----
+  lastSeenAt DateTime? // OSを開いている最終時刻（15秒ごとの beat で更新）
+  officeRoom String?   // いま音声で繋がっている部屋（OfficeKnock.id）。未接続は null
+  officeKnocksSent     OfficeKnock[] @relation("OfficeKnockFrom")
+  officeKnocksReceived OfficeKnock[] @relation("OfficeKnockTo")
+
   chatSpaceId String? // Google Chat 個人スペースID
 
   // ---- 通知設定 ----
@@ -3069,7 +3075,43 @@ enum NotificationType {
   REVIEW_REJECTED // レビューが差し戻された
   GROUP_REPLY // グループサポートの返信（本部⇄加盟代表）
   LINE_MESSAGE // LINE公式アカウントに新着メッセージ
+  OFFICE_KNOCK // グループオフィスの「ひとこと」（不在時のみ）
   SYSTEM
+}
+
+// ================================================================
+// グループオフィス — 「いま誰が動いているか」＋ひとこと＋5分の音声
+//   ・kind=TEXT : ひとこと（メッセージ）
+//   ・kind=CALL : 音声の呼びかけ。expiresAt（作成+5分）で必ず終わる
+//   ⚠️ 金額・案件の中身は入れない。ログは相手との会話のみ
+// ================================================================
+enum OfficeKnockKind {
+  TEXT
+  CALL
+}
+
+model OfficeKnock {
+  id      String          @id @default(cuid())
+  kind    OfficeKnockKind @default(TEXT)
+  fromId  String
+  toId    String
+  from    User            @relation("OfficeKnockFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to      User            @relation("OfficeKnockTo", fields: [toId], references: [id], onDelete: Cascade)
+  message String          @db.Text // ひとこと本文（CALLは定型文）
+
+  // ---- kind=CALL のみ ----
+  expiresAt  DateTime? // この時刻で音声は必ず切れる（作成+5分）
+  acceptedAt DateTime? // 相手が「入る」を押した
+  declinedAt DateTime? // 相手が「いま無理」を押した
+  endedAt    DateTime? // どちらかが終了した／時間切れ
+
+  readAt    DateTime? // 受け手が開いた時刻
+  createdAt DateTime  @default(now())
+
+  @@index([toId, readAt])
+  @@index([fromId, toId, createdAt(sort: Desc)])
+  @@index([kind, expiresAt])
+  @@map("office_knocks")
 }
 
 model Notification {

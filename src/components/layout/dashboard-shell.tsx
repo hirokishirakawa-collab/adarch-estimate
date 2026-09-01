@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { TourGuide, TourHelpButton } from "@/components/onboarding/tour-guide";
+import { OfficeAgent } from "@/components/office/office-agent";
 import { AlertTriangle } from "lucide-react";
 import type { UserRole } from "@/types/roles";
 
@@ -56,6 +57,8 @@ export function DashboardShell({ user, reportWarning, isActive = true, contractD
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
       <TourGuide />
       <TourHelpButton />
+      {/* グループオフィス（在席・ひとこと・5分音声）— 全画面に常駐 */}
+      <OfficeAgent />
     </div>
   );
 }
