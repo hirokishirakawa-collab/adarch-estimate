@@ -1,0 +1,192 @@
+"use server";
+
+// ============================================================
+// ロイヤリティ請求書をMFクラウド請求書に作成／入金状況を取り込む（ADMIN専用）
+//   - 請求書の正本はMF。OSは金額（ロイヤリティ状況）を渡すだけ
+//   - 備考(note)にその社・その月のSquare決済リンクを書き込む
+//   - MFの入金済み(payment_status=2)は入金チェック台帳に✅として取り込む
+// ============================================================
+
+import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db";
+import { getSessionInfo } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
+import { getMonthlyRoyaltyOverview } from "@/lib/actions/group-invoice";
+import { HQ_COMMISSION_RATE, invoiceTotals, royaltyDueDateOf } from "@/lib/royalty-monthly";
+import { isMfConfigured, mfCreateBilling, mfCreatePartner, mfGetBilling, mfIsConnected, mfSearchPartners, mfDisconnect } from "@/lib/mf-invoice";
+
+const ROYALTY_PATH = "/dashboard/admin/royalty";
+
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function todayJst(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+}
+function monthLabel(month: string): string {
+  const [y, m] = month.split("-");
+  return `${y}年${parseInt(m, 10)}月分`;
+}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export type MfStatus = { configured: boolean; connected: boolean };
+export async function getMfStatus(): Promise<MfStatus> {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return { configured: false, connected: false };
+  return { configured: isMfConfigured(), connected: await mfIsConnected() };
+}
+
+export async function disconnectMf(): Promise<{ error?: string }> {
+  const info = await getSessionInfo();
+  if (!info || info.role !== "ADMIN") return { error: "権限がありません" };
+  await mfDisconnect();
+  logAudit({ action: "mf_disconnected", email: info.email, name: info.staffName, entity: "mf_connection", entityId: "default", detail: "MF接続を解除" });
+  revalidatePath(ROYALTY_PATH);
+  return {};
+}
+
+/// MFの取引先（部署ID）を解決。GroupCompany に保存済みならそれ、無ければ名前で検索→無ければ作成。
+async function resolveDepartmentId(gc: { id: string; name: string; ownerName: string; registeredName: string | null; mfPartnerName: string | null; mfDepartmentId: string | null }, email: string | null): Promise<{ departmentId: string; created: boolean }> {
+  if (gc.mfDepartmentId) return { departmentId: gc.mfDepartmentId, created: false };
+  const candidates = [gc.mfPartnerName, gc.registeredName, gc.ownerName].filter((v): v is string => !!v && v.trim().length > 0);
+  for (const nm of candidates) {
+    const found = await mfSearchPartners(nm.trim());
+    const exact = found.find((p) => p.name.replace(/\s/g, "") === nm.replace(/\s/g, "")) ?? (found.length === 1 ? found[0] : undefined);
+    if (exact) {
+      const partner = exact.departments?.length ? exact : await (await import("@/lib/mf-invoice")).mfGetPartner(exact.id);
+      const dep = partner.departments?.[0];
+      if (dep?.id) {
+        await db.groupCompany.update({ where: { id: gc.id }, data: { mfPartnerId: partner.id, mfDepartmentId: dep.id, mfPartnerName: partner.name } });
+        return { departmentId: dep.id, created: false };
+      }
+    }
+  }
+  const name = gc.mfPartnerName ?? gc.registeredName ?? gc.ownerName;
+  const created = await mfCreatePartner({ name, personName: gc.ownerName, email });
+  const dep = created.departments?.[0];
+  if (!dep?.id) throw new Error(`MF取引先を作成しましたが部署IDが取れません（${name}）`);
+  await db.groupCompany.update({ where: { id: gc.id }, data: { mfPartnerId: created.id, mfDepartmentId: dep.id, mfPartnerName: created.name } });
+  return { departmentId: dep.id, created: true };
+}
+
+/// 対象月の「要請求」全社にMF請求書を作成（既に作成済みの社はスキップ）。
+export async function createMfBillingsForMonth(month: string, groupCompanyIds?: string[]): Promise<{ error?: string; created: number; skipped: number; partnersCreated: number; errors: string[] }> {
+  const info = await getSessionInfo();
+  const zero = { created: 0, skipped: 0, partnersCreated: 0, errors: [] as string[] };
+  if (!info || info.role !== "ADMIN") return { error: "権限がありません", ...zero };
+  if (!/^\d{4}-\d{2}$/.test(month)) return { error: "対象月が不正です", ...zero };
+  if (!isMfConfigured()) return { error: "MF_CLIENT_ID / MF_CLIENT_SECRET が未設定です", ...zero };
+  if (!(await mfIsConnected())) return { error: "MF未接続です（「MFに接続」から承認してください）", ...zero };
+
+  const rows = (await getMonthlyRoyaltyOverview(month)).filter(
+    (r) => !r.isExempt && !r.isCovered && r.shortfallExclTax > 0 && (!groupCompanyIds || groupCompanyIds.includes(r.groupCompanyId)),
+  );
+  const existing = new Set((await db.royaltyMfBilling.findMany({ where: { month }, select: { groupCompanyId: true } })).map((e) => e.groupCompanyId));
+  const links = new Map((await db.royaltyPaymentLink.findMany({ where: { month }, select: { groupCompanyId: true, url: true, amountInclTax: true } })).map((l) => [l.groupCompanyId, l]));
+  const companies = new Map((await db.groupCompany.findMany({
+    where: { id: { in: rows.map((r) => r.groupCompanyId) } },
+    select: { id: true, name: true, ownerName: true, registeredName: true, mfPartnerName: true, mfDepartmentId: true, linkedUsers: { select: { email: true, isActive: true }, orderBy: { createdAt: "asc" } } },
+  })).map((c) => [c.id, c]));
+
+  const due = ymd(royaltyDueDateOf(month));
+  const today = todayJst();
+  const label = monthLabel(month);
+  let created = 0, skipped = 0, partnersCreated = 0;
+  const errors: string[] = [];
+
+  for (const r of rows) {
+    if (existing.has(r.groupCompanyId)) { skipped++; continue; }
+    const gc = companies.get(r.groupCompanyId);
+    if (!gc) { errors.push(`${r.name}: 会社情報なし`); continue; }
+    try {
+      const email = gc.linkedUsers.find((u) => u.isActive)?.email ?? gc.linkedUsers[0]?.email ?? null;
+      const dep = await resolveDepartmentId(gc, email);
+      if (dep.created) partnersCreated++;
+
+      const totals = invoiceTotals(r.shortfallExclTax);
+      const link = links.get(r.groupCompanyId);
+      const linkLine = link && link.amountInclTax === totals.totalInclTax
+        ? `■ カード払い（Square）はこちら: ${link.url}`
+        : `■ カード払い（Square）リンクは別途ご案内します`;
+      const calc = r.royaltyExclTax > r.minRoyaltyExclTax
+        ? `ロイヤリティ ¥${r.royaltyExclTax.toLocaleString("ja-JP")}（月次報告の売上 ¥${r.revenueExclTax.toLocaleString("ja-JP")} × ${HQ_COMMISSION_RATE}%）`
+        : `ロイヤリティ ¥${r.royaltyExclTax.toLocaleString("ja-JP")}（最低保証）`;
+      const offset = r.commissionTotalExclTax > 0 ? `本部請求分の控除済み手数料 ▲¥${r.commissionTotalExclTax.toLocaleString("ja-JP")}（クライアント入金時に受領済み）` : null;
+      const branchNote = r.branches.length > 0 ? `県別: ${r.branches.map((b) => `${b.label} ¥${b.shortfallExclTax.toLocaleString("ja-JP")}`).join(" / ")}` : null;
+      const note = [
+        `アドアーチグループ ロイヤリティ ${label}`,
+        calc,
+        offset,
+        branchNote,
+        `ご請求額（税抜）¥${totals.subtotalExclTax.toLocaleString("ja-JP")} ＋ 消費税 ¥${totals.taxAmount.toLocaleString("ja-JP")} ＝ 税込 ¥${totals.totalInclTax.toLocaleString("ja-JP")}`,
+        "",
+        linkLine,
+        "■ お振込の場合は本請求書記載の口座へお願いいたします（振込手数料はご負担ください）",
+      ].filter((l): l is string => l !== null).join("\n");
+
+      const items = r.branches.length > 0
+        ? r.branches.filter((b) => b.shortfallExclTax > 0).map((b) => ({ name: `月額ロイヤリティ（${b.label}・${label}）`, price: b.shortfallExclTax, quantity: 1 }))
+        : [{ name: `月額ロイヤリティ（${label}）`, price: totals.subtotalExclTax, quantity: 1 }];
+      // 県未指定の相殺などで県別合計と請求額がズレる場合は1行にまとめる
+      if (items.reduce((s, it) => s + it.price, 0) !== totals.subtotalExclTax) {
+        items.splice(0, items.length, { name: `月額ロイヤリティ（${label}）`, price: totals.subtotalExclTax, quantity: 1 });
+      }
+
+      const b = await mfCreateBilling({
+        departmentId: dep.departmentId,
+        billingDate: today,
+        dueDate: due,
+        title: `アドアーチグループ ロイヤリティ ${label}`,
+        note,
+        memo: `OS自動作成 ${today} / ${r.name}`,
+        items,
+      });
+      await db.royaltyMfBilling.create({
+        data: { groupCompanyId: r.groupCompanyId, month, mfBillingId: b.id, billingNumber: b.billing_number ?? null, pdfUrl: b.pdf_url ?? null, totalInclTax: totals.totalInclTax, paymentStatus: b.payment_status != null ? Number(b.payment_status) : null, createdById: info.userId },
+      });
+      created++;
+      logAudit({ action: "royalty_mf_billing_created", email: info.email, name: info.staffName, entity: "royalty_mf_billing", entityId: `${r.groupCompanyId}:${month}`, detail: `${r.name} ${label} MF請求書 ${b.billing_number ?? b.id} ¥${totals.totalInclTax.toLocaleString("ja-JP")}` });
+      await sleep(400); // 作成系は1秒3回まで
+    } catch (e) {
+      errors.push(`${r.name}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  revalidatePath(ROYALTY_PATH);
+  return { created, skipped, partnersCreated, errors };
+}
+
+/// MFの入金状況を取り込み、入金済み(2)は入金チェック台帳に✅（未記録のみ）。
+export async function syncMfPaymentStatus(month: string): Promise<{ error?: string; checked: number; paid: number; newlyMarked: number; errors: string[] }> {
+  const info = await getSessionInfo();
+  const zero = { checked: 0, paid: 0, newlyMarked: 0, errors: [] as string[] };
+  if (!info || info.role !== "ADMIN") return { error: "権限がありません", ...zero };
+  if (!(await mfIsConnected())) return { error: "MF未接続です", ...zero };
+
+  const billings = await db.royaltyMfBilling.findMany({ where: { month }, include: { groupCompany: { select: { name: true } } } });
+  let checked = 0, paid = 0, newlyMarked = 0;
+  const errors: string[] = [];
+  for (const b of billings) {
+    try {
+      const mb = await mfGetBilling(b.mfBillingId);
+      const st = mb.payment_status != null ? Number(mb.payment_status) : null;
+      await db.royaltyMfBilling.update({ where: { id: b.id }, data: { paymentStatus: st, syncedAt: new Date(), billingNumber: mb.billing_number ?? b.billingNumber, pdfUrl: mb.pdf_url ?? b.pdfUrl } });
+      checked++;
+      if (st === 2) {
+        paid++;
+        const exists = await db.royaltyPaymentCheck.findUnique({ where: { groupCompanyId_month: { groupCompanyId: b.groupCompanyId, month } } });
+        if (!exists) {
+          const [y, m, d] = todayJst().split("-").map(Number);
+          await db.royaltyPaymentCheck.create({ data: { groupCompanyId: b.groupCompanyId, month, paidOn: new Date(Date.UTC(y, m - 1, d)), method: "OTHER", amountInclTax: b.totalInclTax, note: `MFで入金済み（請求書 ${mb.billing_number ?? b.mfBillingId}）。入金日はMFで確認`, checkedById: info.userId } });
+          newlyMarked++;
+        }
+      }
+      await sleep(150);
+    } catch (e) {
+      errors.push(`${b.groupCompany.name}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  revalidatePath(ROYALTY_PATH);
+  revalidatePath("/dashboard/admin/royalty/check");
+  logAudit({ action: "royalty_mf_payment_synced", email: info.email, name: info.staffName, entity: "royalty_mf_billing", entityId: month, detail: `MF入金状況取込 ${month}: 確認${checked}・入金済${paid}・新規✅${newlyMarked}` });
+  return { checked, paid, newlyMarked, errors };
+}

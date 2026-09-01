@@ -7,6 +7,7 @@ import { getMonthlyRoyaltyOverview } from "@/lib/actions/group-invoice";
 import { MIN_ROYALTY_EXCL_TAX, invoiceTotals, royaltyDueDateOf } from "@/lib/royalty-monthly";
 import { MfBillingList } from "./mf-billing-list";
 import { getSquareConfigured } from "@/lib/actions/royalty-payment-link";
+import { getMfStatus } from "@/lib/actions/royalty-mf";
 import { RoyaltyAdjust } from "./royalty-adjust";
 import { RoyaltyExemptToggle } from "./royalty-exempt-toggle";
 
@@ -31,7 +32,7 @@ function fmtMonthLabel(month: string): string {
   return `${y}年${parseInt(m, 10)}月`;
 }
 
-export default async function AdminRoyaltyPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+export default async function AdminRoyaltyPage({ searchParams }: { searchParams: Promise<{ month?: string; mf?: string }> }) {
   const session = await auth();
   const role = (session?.user?.role ?? "USER") as UserRole;
   if (role !== "ADMIN") redirect("/dashboard");
@@ -39,7 +40,8 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
   const sp = await searchParams;
   const month = /^\d{4}-\d{2}$/.test(sp.month ?? "") ? sp.month! : currentMonthKey();
 
-  const [rows, squareConfigured] = await Promise.all([getMonthlyRoyaltyOverview(month), getSquareConfigured()]);
+  const [rows, squareConfigured, mfStatus] = await Promise.all([getMonthlyRoyaltyOverview(month), getSquareConfigured(), getMfStatus()]);
+  const mfNotice = sp.mf === "connected" ? "MFクラウド請求書に接続しました" : sp.mf?.startsWith("error") ? `MF接続に失敗しました（${sp.mf}）` : null;
 
   const needBilling = rows.filter((r) => !r.isCovered && !r.invoice);
   const totalShortfall = needBilling.reduce((s, r) => s + r.shortfallExclTax, 0);
@@ -64,6 +66,7 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
       totalInclTax: t.totalInclTax,
       branchNote: r.branches.filter((b) => b.shortfallExclTax > 0).map((b) => `${b.label}: ¥${b.shortfallExclTax.toLocaleString("ja-JP")}`).join(" / "),
       paymentLink: r.paymentLink,
+      mfBilling: r.mfBilling,
     };
   });
 
@@ -109,7 +112,8 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
         </div>
       </div>
 
-      <MfBillingList month={month} dueDate={dueDateLabel} rows={mfRows} squareConfigured={squareConfigured} />
+      {mfNotice && <p className={`mb-4 px-4 py-2 text-xs rounded-lg border ${sp.mf === "connected" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"}`}>{mfNotice}</p>}
+      <MfBillingList month={month} dueDate={dueDateLabel} rows={mfRows} squareConfigured={squareConfigured} mf={mfStatus} />
 
       {/* マトリクス */}
       <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">

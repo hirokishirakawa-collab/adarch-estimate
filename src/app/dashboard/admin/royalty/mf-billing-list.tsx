@@ -2,8 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Check, Download, Link2, Loader2, ExternalLink, AlertTriangle } from "lucide-react";
+import { Copy, Check, Download, Link2, Loader2, ExternalLink, AlertTriangle, FileText, RefreshCw, Plug } from "lucide-react";
 import { ensureRoyaltyPaymentLinks } from "@/lib/actions/royalty-payment-link";
+import { createMfBillingsForMonth, syncMfPaymentStatus } from "@/lib/actions/royalty-mf";
 
 // 請求書の正本はMFクラウド請求（2026-09-01 代表決定）。
 // OSは金額を決めるところまで＝この一覧をMFに打ち込む（またはCSVを手元に落として突合する）。
@@ -21,18 +22,41 @@ export type MfBillingRow = {
   totalInclTax: number;
   branchNote: string; // 複数拠点の県別内訳（単一拠点は空）
   paymentLink: { url: string; amountInclTax: number } | null; // Square決済リンク
+  mfBilling: { mfBillingId: string; billingNumber: string | null; pdfUrl: string | null; totalInclTax: number; paymentStatus: number | null } | null; // MF請求書
 };
+
+const MF_PAY_LABEL: Record<number, string> = { 0: "未設定", 1: "未入金", 2: "入金済", 3: "未払い", 4: "振込済" };
 
 function fmt(n: number): string {
   return n.toLocaleString("ja-JP");
 }
 
-export function MfBillingList({ month, dueDate, rows, squareConfigured }: { month: string; dueDate: string; rows: MfBillingRow[]; squareConfigured: boolean }) {
+export function MfBillingList({ month, dueDate, rows, squareConfigured, mf }: { month: string; dueDate: string; rows: MfBillingRow[]; squareConfigured: boolean; mf: { configured: boolean; connected: boolean } }) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<string | null>(null);
   const linkNeeded = rows.filter((r) => !r.paymentLink || r.paymentLink.amountInclTax !== r.totalInclTax).length;
+  const mfNeeded = rows.filter((r) => !r.mfBilling).length;
+  const mfMismatch = rows.filter((r) => r.mfBilling && r.mfBilling.totalInclTax !== r.totalInclTax).length;
+
+  function makeMfBillings() {
+    if (!confirm(`MFクラウド請求書に ${mfNeeded} 件の請求書を作成します（作成済みの社はスキップ）。よろしいですか？`)) return;
+    startTransition(async () => {
+      const res = await createMfBillingsForMonth(month);
+      if (res.error) { setResult(`エラー: ${res.error}`); return; }
+      setResult(`MF請求書: 作成 ${res.created}・スキップ ${res.skipped}${res.partnersCreated ? `・取引先を新規作成 ${res.partnersCreated}` : ""}${res.errors.length ? `／失敗 ${res.errors.length}: ${res.errors.join(" / ")}` : ""}`);
+      router.refresh();
+    });
+  }
+  function syncMf() {
+    startTransition(async () => {
+      const res = await syncMfPaymentStatus(month);
+      if (res.error) { setResult(`エラー: ${res.error}`); return; }
+      setResult(`MF入金状況: 確認 ${res.checked}・入金済 ${res.paid}・台帳に新規✅ ${res.newlyMarked}${res.errors.length ? `／失敗: ${res.errors.join(" / ")}` : ""}`);
+      router.refresh();
+    });
+  }
 
   function makeLinks() {
     startTransition(async () => {
@@ -91,6 +115,23 @@ export function MfBillingList({ month, dueDate, rows, squareConfigured }: { mont
           ) : (
             <span className="inline-flex items-center gap-1 text-[11px] text-amber-700" title="SQUARE_ACCESS_TOKEN / SQUARE_LOCATION_ID を環境変数に設定すると使えます"><AlertTriangle className="w-3 h-3" />Square未設定</span>
           )}
+          {!mf.configured ? (
+            <span className="inline-flex items-center gap-1 text-[11px] text-amber-700" title="MF_CLIENT_ID / MF_CLIENT_SECRET を環境変数に設定すると使えます"><AlertTriangle className="w-3 h-3" />MF未設定</span>
+          ) : !mf.connected ? (
+            <a href="/api/mf/connect" className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded border bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50" title="MFクラウド請求書に接続（1回だけ承認）">
+              <Plug className="w-3 h-3" />MFに接続
+            </a>
+          ) : (
+            <>
+              <button onClick={makeMfBillings} disabled={isPending || mfNeeded === 0} title="MFクラウド請求書に請求書を作成（備考にSquare決済リンク入り）" className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded border bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+                {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                MFに請求書{mfNeeded > 0 ? `を作成（${mfNeeded}件）` : "は作成済"}
+              </button>
+              <button onClick={syncMf} disabled={isPending || rows.every((r) => !r.mfBilling)} title="MFの入金ステータスを取り込み、入金済みを入金チェック台帳に✅" className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded border bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50 disabled:opacity-50">
+                {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}MF入金状況を取込
+              </button>
+            </>
+          )}
           <button onClick={copy} disabled={rows.length === 0} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded border bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50 disabled:opacity-50">
             {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}CSVをコピー
           </button>
@@ -100,6 +141,7 @@ export function MfBillingList({ month, dueDate, rows, squareConfigured }: { mont
         </div>
       </div>
       {result && <p className="px-4 py-2 text-[11px] text-zinc-600 bg-zinc-50 border-b border-zinc-100">{result}</p>}
+      {mfMismatch > 0 && <p className="px-4 py-2 text-[11px] text-amber-700 bg-amber-50 border-b border-amber-100">⚠ MF請求書の金額と現在の請求額が違う社が {mfMismatch} 件あります（月次報告や相殺が後から変わったため）。MF側で請求書を修正するか、取消して作り直してください</p>}
       {rows.length === 0 ? (
         <p className="px-4 py-6 text-center text-xs text-zinc-400">この月に請求が必要な社はありません</p>
       ) : (
@@ -116,6 +158,7 @@ export function MfBillingList({ month, dueDate, rows, squareConfigured }: { mont
                 <th className="px-3 py-2 text-right font-semibold">消費税</th>
                 <th className="px-3 py-2 text-right font-semibold">請求額(税込)</th>
                 <th className="px-3 py-2 text-center font-semibold">カード決済</th>
+                <th className="px-3 py-2 text-center font-semibold">MF請求書</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -141,6 +184,20 @@ export function MfBillingList({ month, dueDate, rows, squareConfigured }: { mont
                       ) : (
                         <span className="text-[10px] text-amber-700" title={`リンクは ¥${fmt(r.paymentLink.amountInclTax)} で作成済み。金額が変わったので作り直しが必要`}>金額変更・要再作成</span>
                       )
+                    ) : (
+                      <span className="text-[10px] text-zinc-300">未作成</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    {r.mfBilling ? (
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className={`text-[11px] font-mono ${r.mfBilling.totalInclTax !== r.totalInclTax ? "text-amber-700" : "text-zinc-700"}`} title={r.mfBilling.totalInclTax !== r.totalInclTax ? `MFは ¥${fmt(r.mfBilling.totalInclTax)} で作成済み` : undefined}>
+                          {r.mfBilling.billingNumber ?? r.mfBilling.mfBillingId.slice(0, 8)}
+                        </span>
+                        <span className={`text-[10px] ${r.mfBilling.paymentStatus === 2 ? "text-emerald-700 font-semibold" : "text-zinc-400"}`}>
+                          {r.mfBilling.paymentStatus != null ? (MF_PAY_LABEL[r.mfBilling.paymentStatus] ?? `状態${r.mfBilling.paymentStatus}`) : "—"}
+                        </span>
+                      </div>
                     ) : (
                       <span className="text-[10px] text-zinc-300">未作成</span>
                     )}

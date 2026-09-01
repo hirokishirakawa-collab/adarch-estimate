@@ -471,6 +471,7 @@ export type RoyaltyOverviewRow = {
   manualOverrides: Record<string, number>; // 手入力の相殺額（key=県名 or "" 単一）
   invoice: { id: string; invoiceNo: string; status: string; totalInclTax: number } | null;
   paymentLink: { url: string; amountInclTax: number } | null; // Square決済リンク（社×月）
+  mfBilling: { mfBillingId: string; billingNumber: string | null; pdfUrl: string | null; totalInclTax: number; paymentStatus: number | null } | null; // MF請求書（社×月）
 };
 
 export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyOverviewRow[]> {
@@ -561,6 +562,13 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
   });
   const linkByPartner = new Map(links.map((l) => [l.groupCompanyId, l]));
 
+  // MF請求書（当月分）
+  const mfBillings = await db.royaltyMfBilling.findMany({
+    where: { month, ...(limitToGroupCompanyId ? { groupCompanyId: limitToGroupCompanyId } : {}) },
+    select: { groupCompanyId: true, mfBillingId: true, billingNumber: true, pdfUrl: true, totalInclTax: true, paymentStatus: true },
+  });
+  const mfByPartner = new Map(mfBillings.map((b) => [b.groupCompanyId, b]));
+
   // 手入力の相殺調整（自動集計を上書き）
   const adjustments = await db.royaltyAdjustment.findMany({
     where: { month, ...(limitToGroupCompanyId ? { groupCompanyId: limitToGroupCompanyId } : {}) },
@@ -625,6 +633,7 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
         ? { id: inv.id, invoiceNo: inv.invoiceNo, status: inv.status, totalInclTax: Number(inv.totalInclTax) }
         : null,
       paymentLink: (() => { const l = linkByPartner.get(p.id); return l ? { url: l.url, amountInclTax: l.amountInclTax } : null; })(),
+      mfBilling: (() => { const b = mfByPartner.get(p.id); return b ? { mfBillingId: b.mfBillingId, billingNumber: b.billingNumber, pdfUrl: b.pdfUrl, totalInclTax: b.totalInclTax, paymentStatus: b.paymentStatus } : null; })(),
     };
   });
 }

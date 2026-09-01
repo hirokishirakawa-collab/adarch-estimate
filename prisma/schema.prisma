@@ -1274,6 +1274,47 @@ model RoyaltyPaymentLink {
   @@map("royalty_payment_links")
 }
 
+// ============================================================
+// MFクラウド請求書 連携
+//   接続情報（OAuth2 トークン・1行のみ）と、OSから作成したロイヤリティ請求書の対応。
+//   請求書の正本はMF。OSは金額を決めて作成を依頼し、番号/PDF/入金状況を持ち帰る。
+// ============================================================
+model MfConnection {
+  id           String   @id @default("default")
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text // 一度使うと無効＝更新のたびに上書き必須
+  expiresAt    DateTime
+  scope        String?
+  connectedById String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("mf_connections")
+}
+
+model RoyaltyMfBilling {
+  id String @id @default(cuid())
+
+  groupCompanyId String
+  groupCompany   GroupCompany @relation(fields: [groupCompanyId], references: [id], onDelete: Cascade)
+
+  month         String // 対象月（"2026-08"）
+  mfBillingId   String  @unique // MF billing id
+  billingNumber String? // MF 請求書番号
+  pdfUrl        String? // MF PDF URL（要Bearer）
+  totalInclTax  Int // 作成時の税込額
+  paymentStatus Int? // MF payment_status（0未設定/1未入金/2入金済み/3未払い/4振込済み）
+  syncedAt      DateTime? // 入金状況を最後に取り込んだ時刻
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([groupCompanyId, month])
+  @@index([month])
+  @@map("royalty_mf_billings")
+}
+
 // ==============================================================
 // EstimationTemplate（標準単価マスタ）
 // ==============================================================
@@ -1922,6 +1963,11 @@ model GroupCompany {
   entityType        EntityType       @default(UNKNOWN) // 法人 / 個人事業主 / 未確認
   corporateNumber   String? // 法人番号（13桁）
   invoiceNumber     String? // インボイス登録番号（T+13桁）
+
+  // ---- MFクラウド請求書 連携（取引先の対応・2026-09）----
+  mfPartnerName  String? // MF上の取引先名称（例: TooN合同会社）。未設定なら registeredName → name で検索
+  mfPartnerId    String? // MF partner id
+  mfDepartmentId String? // MF department id（請求書作成に使う）
   invoiceRegistered Boolean          @default(false) // インボイス登録済みか
   bankName          String? // 銀行名
   bankBranch        String? // 支店名
@@ -1977,6 +2023,7 @@ model GroupCompany {
   royaltyAdjustments RoyaltyAdjustment[]
   royaltyPaymentChecks RoyaltyPaymentCheck[]
   royaltyPaymentLinks  RoyaltyPaymentLink[]
+  royaltyMfBillings    RoyaltyMfBilling[]
 
   @@index([phase])
   @@map("group_companies")
