@@ -55,11 +55,24 @@ export function isAvatarId(v: unknown): v is string {
   return n >= 1 && n <= AVATAR_COUNT;
 }
 
-/** 表示に使う画像URL。選んだ顔 → Googleの写真 → null（頭文字で描く） */
+/**
+ * 外部の写真URL（Googleの lh3 等）は Next.js の画像プロキシ経由にする。
+ * ブラウザから lh3.googleusercontent.com を直接読むと 503 で弾かれることがある（2026-09-01 実測）。
+ * サイドバーが表示できているのは next/image 経由だから＝同じ経路に揃える。
+ */
+export function proxiedImageUrl(src: string | null | undefined, width = 128): string | null {
+  const v = (src ?? "").trim();
+  if (!v) return null;
+  if (v.startsWith("/")) return v; // 自前の静的ファイルはそのまま
+  if (!/^https:\/\//i.test(v)) return null;
+  return `/_next/image?url=${encodeURIComponent(v)}&w=${width}&q=80`;
+}
+
+/** 表示に使う画像URL。選んだ顔 → Googleの写真（プロキシ経由） → null（頭文字で描く） */
 export function avatarUrlOf(u: { officeAvatar: string | null; image: string | null }): string | null {
   if (u.officeAvatar === "arch") return "/office/avatars/arch-kun.svg";
   if (u.officeAvatar && isAvatarId(u.officeAvatar)) return `/office/avatars/${u.officeAvatar}.webp`;
-  return u.image || null;
+  return proxiedImageUrl(u.image);
 }
 
 export const meSelect = {

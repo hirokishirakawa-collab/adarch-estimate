@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { NotificationSettingsForm } from "@/components/settings/notification-settings-form";
 import { OfficeAvatarPicker } from "@/components/settings/office-avatar-picker";
+import { proxiedImageUrl } from "@/lib/office/presence";
 
 export default async function SettingsPage() {
   const info = await getSessionInfo();
@@ -44,7 +45,7 @@ export default async function SettingsPage() {
 
         {/* グループオフィスの顔アイコン */}
         <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-6">
-          <OfficeAvatarPicker current={user.officeAvatar} googleImage={user.image} />
+          <OfficeAvatarPicker current={user.officeAvatar} googleImage={proxiedImageUrl(user.image, 64)} />
         </div>
 
         {/* 通知設定 */}
