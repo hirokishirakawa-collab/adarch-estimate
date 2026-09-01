@@ -13,7 +13,8 @@ import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { getMonthlyRoyaltyOverview } from "@/lib/actions/group-invoice";
 import { invoiceTotals, royaltyDueDateOf } from "@/lib/royalty-monthly";
-import { isMfConfigured, mfCreateBilling, mfCreatePartner, mfGetBilling, mfGetPartner, mfIsConnected, mfNormalizeName, mfSearchPartners, mfDisconnect } from "@/lib/mf-invoice";
+import { isMfConfigured, mfCreateBilling, mfCreatePartner, mfGetPartner, mfIsConnected, mfNormalizeName, mfSearchPartners, mfDisconnect } from "@/lib/mf-invoice";
+import { syncRoyaltyMfPayments, parseMfPayStatus } from "@/lib/royalty-mf-sync";
 
 const ROYALTY_PATH = "/dashboard/admin/royalty";
 
@@ -29,14 +30,6 @@ function monthLabel(month: string): string {
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/// MFの payment_status は数値("0".."4")でも日本語ラベルでも返るため両対応で 0〜4 に正規化
-const MF_PAY_LABELS: Record<string, number> = { "未設定": 0, "未入金": 1, "入金済み": 2, "入金済": 2, "未払い": 3, "振込済み": 4, "振込済": 4 };
-function parsePayStatus(v: unknown): number | null {
-  if (v == null || v === "") return null;
-  const s = String(v).trim();
-  if (/^\d+$/.test(s)) return Number(s);
-  return MF_PAY_LABELS[s] ?? null;
-}
 
 export type MfStatus = { configured: boolean; connected: boolean };
 export async function getMfStatus(): Promise<MfStatus> {
@@ -152,7 +145,7 @@ export async function createMfBillingsForMonth(month: string, billingDate?: stri
         items,
       });
       await db.royaltyMfBilling.create({
-        data: { groupCompanyId: r.groupCompanyId, month, mfBillingId: b.id, billingNumber: b.billing_number ?? null, pdfUrl: b.pdf_url ?? null, totalInclTax: totals.totalInclTax, paymentStatus: parsePayStatus(b.payment_status), createdById: info.userId },
+        data: { groupCompanyId: r.groupCompanyId, month, mfBillingId: b.id, billingNumber: b.billing_number ?? null, pdfUrl: b.pdf_url ?? null, totalInclTax: totals.totalInclTax, paymentStatus: parseMfPayStatus(b.payment_status), createdById: info.userId },
       });
       created++;
       logAudit({ action: "royalty_mf_billing_created", email: info.email, name: info.staffName, entity: "royalty_mf_billing", entityId: `${r.groupCompanyId}:${month}`, detail: `${r.name} ${label} MF請求書 ${b.billing_number ?? b.id} ¥${totals.totalInclTax.toLocaleString("ja-JP")}` });
@@ -168,35 +161,11 @@ export async function createMfBillingsForMonth(month: string, billingDate?: stri
 /// MFの入金状況を取り込み、入金済み(2)は入金チェック台帳に✅（未記録のみ）。
 export async function syncMfPaymentStatus(month: string): Promise<{ error?: string; checked: number; paid: number; newlyMarked: number; errors: string[] }> {
   const info = await getSessionInfo();
-  const zero = { checked: 0, paid: 0, newlyMarked: 0, errors: [] as string[] };
-  if (!info || info.role !== "ADMIN") return { error: "権限がありません", ...zero };
-  if (!(await mfIsConnected())) return { error: "MF未接続です", ...zero };
-
-  const billings = await db.royaltyMfBilling.findMany({ where: { month }, include: { groupCompany: { select: { name: true } } } });
-  let checked = 0, paid = 0, newlyMarked = 0;
-  const errors: string[] = [];
-  for (const b of billings) {
-    try {
-      const mb = await mfGetBilling(b.mfBillingId);
-      const st = parsePayStatus(mb.payment_status);
-      await db.royaltyMfBilling.update({ where: { id: b.id }, data: { paymentStatus: st, syncedAt: new Date(), billingNumber: mb.billing_number ?? b.billingNumber, pdfUrl: mb.pdf_url ?? b.pdfUrl } });
-      checked++;
-      if (st === 2) {
-        paid++;
-        const exists = await db.royaltyPaymentCheck.findUnique({ where: { groupCompanyId_month: { groupCompanyId: b.groupCompanyId, month } } });
-        if (!exists) {
-          const [y, m, d] = todayJst().split("-").map(Number);
-          await db.royaltyPaymentCheck.create({ data: { groupCompanyId: b.groupCompanyId, month, paidOn: new Date(Date.UTC(y, m - 1, d)), method: "OTHER", amountInclTax: b.totalInclTax, note: `MFで入金済み（請求書 ${mb.billing_number ?? b.mfBillingId}）。入金日はMFで確認`, checkedById: info.userId } });
-          newlyMarked++;
-        }
-      }
-      await sleep(150);
-    } catch (e) {
-      errors.push(`${b.groupCompany.name}: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
+  if (!info || info.role !== "ADMIN") return { error: "権限がありません", checked: 0, paid: 0, newlyMarked: 0, errors: [] };
+  if (!(await mfIsConnected())) return { error: "MF未接続です", checked: 0, paid: 0, newlyMarked: 0, errors: [] };
+  const r = await syncRoyaltyMfPayments({ month, actorUserId: info.userId });
   revalidatePath(ROYALTY_PATH);
   revalidatePath("/dashboard/admin/royalty/check");
-  logAudit({ action: "royalty_mf_payment_synced", email: info.email, name: info.staffName, entity: "royalty_mf_billing", entityId: month, detail: `MF入金状況取込 ${month}: 確認${checked}・入金済${paid}・新規✅${newlyMarked}` });
-  return { checked, paid, newlyMarked, errors };
+  logAudit({ action: "royalty_mf_payment_synced", email: info.email, name: info.staffName, entity: "royalty_mf_billing", entityId: month, detail: `MF入金状況取込 ${month}: 確認${r.checked}・入金済${r.paid}・新規✅${r.newlyMarked}` });
+  return r;
 }

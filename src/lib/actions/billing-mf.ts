@@ -98,7 +98,7 @@ export async function createMfBillingForInvoiceRequest(input: { id: string; bill
       const res = await createSquarePaymentLink({ name, amountJpy: amountInclTax, paymentNote: `${ir.customer.name} / ${ir.subject}（税込¥${amountInclTax.toLocaleString("ja-JP")}）`, description: `Ad Arch株式会社 ご請求「${ir.subject}」\n税抜 ¥${amountExclTax.toLocaleString("ja-JP")} ＋ 消費税 ＝ 税込 ¥${amountInclTax.toLocaleString("ja-JP")}` });
       if (res.error || !res.link) return { error: `Squareリンク作成に失敗: ${res.error ?? "不明"}` };
       if (ir.squareLinkId) await deleteSquarePaymentLink(ir.squareLinkId).catch(() => undefined);
-      await db.invoiceRequest.update({ where: { id: ir.id }, data: { squareLinkId: res.link.id, squareLinkUrl: res.link.url, squareLinkAmount: amountInclTax } });
+      await db.invoiceRequest.update({ where: { id: ir.id }, data: { squareLinkId: res.link.id, squareOrderId: res.link.orderId, squareLinkUrl: res.link.url, squareLinkAmount: amountInclTax } });
       squareUrl = res.link.url;
     }
   } else {
