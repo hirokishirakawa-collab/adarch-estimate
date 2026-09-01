@@ -114,9 +114,9 @@ export async function createMfBillingForInvoiceRequest(input: { id: string; bill
     if (items.reduce((s, it) => s + it.price, 0) !== amountExclTax) {
       items.splice(0, items.length, { name: ir.subject.slice(0, 450), ...(ir.details ? { detail: ir.details.slice(0, 2000) } : {}), price: amountExclTax, quantity: 1 });
     }
+    // 備考に金額は書かない（明細欄が正・MFの端数処理と食い違わせない）
     const note = [
       ir.details ? `【内訳】\n${ir.details}` : null,
-      `ご請求額（税抜）¥${amountExclTax.toLocaleString("ja-JP")} ＋ 消費税 ¥${Math.round(Number(ir.taxAmount)).toLocaleString("ja-JP")} ＝ 税込 ¥${amountInclTax.toLocaleString("ja-JP")}`,
       "",
       squareUrl ? `■ クレジットカードでのお支払いはこちら: ${squareUrl}` : null,
       squareUrl ? `　※このリンクは本請求書（${ir.customer.name}様・「${ir.subject}」）専用です。他のご請求のお支払いには使えません` : null,

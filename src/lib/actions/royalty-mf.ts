@@ -12,7 +12,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { getMonthlyRoyaltyOverview } from "@/lib/actions/group-invoice";
-import { HQ_COMMISSION_RATE, invoiceTotals, royaltyDueDateOf } from "@/lib/royalty-monthly";
+import { invoiceTotals, royaltyDueDateOf } from "@/lib/royalty-monthly";
 import { isMfConfigured, mfCreateBilling, mfCreatePartner, mfGetBilling, mfIsConnected, mfSearchPartners, mfDisconnect } from "@/lib/mf-invoice";
 
 const ROYALTY_PATH = "/dashboard/admin/royalty";
@@ -123,21 +123,14 @@ export async function createMfBillingsForMonth(month: string, billingDate?: stri
             `　※今回のご請求限りのリンクです。次回以降は毎回新しいリンクをご案内します`,
           ].join("\n")
         : `■ カード払い（Square）リンクは別途ご案内します`;
-      const calc = r.royaltyExclTax > r.minRoyaltyExclTax
-        ? `ロイヤリティ ¥${r.royaltyExclTax.toLocaleString("ja-JP")}（月次報告の売上 ¥${r.revenueExclTax.toLocaleString("ja-JP")} × ${HQ_COMMISSION_RATE}%）`
-        : `ロイヤリティ ¥${r.royaltyExclTax.toLocaleString("ja-JP")}`;
-      const offset = r.commissionTotalExclTax > 0 ? `本部請求分の控除済み手数料 ▲¥${r.commissionTotalExclTax.toLocaleString("ja-JP")}（クライアント入金時に受領済み）` : null;
-      const branchNote = r.branches.length > 0 ? `県別: ${r.branches.map((b) => `${b.label} ¥${b.shortfallExclTax.toLocaleString("ja-JP")}`).join(" / ")}` : null;
+      // 備考は詳細を書かない。金額は明細欄が正＝備考には根拠（OSの月次報告）と支払方法だけ（代表指示 2026-09-01）
       const note = [
         `アドアーチグループ ロイヤリティ ${label}`,
-        calc,
-        offset,
-        branchNote,
-        `ご請求額（税抜）¥${totals.subtotalExclTax.toLocaleString("ja-JP")} ＋ 消費税 ¥${totals.taxAmount.toLocaleString("ja-JP")} ＝ 税込 ¥${totals.totalInclTax.toLocaleString("ja-JP")}`,
+        `金額は Ad Arch OS にご報告いただいた月次報告（売上）に基づいて算定しています。`,
         "",
         linkLine,
         "■ お振込の場合は本請求書記載の口座へお願いいたします（振込手数料はご負担ください）",
-      ].filter((l): l is string => l !== null).join("\n");
+      ].join("\n");
 
       const items = r.branches.length > 0
         ? r.branches.filter((b) => b.shortfallExclTax > 0).map((b) => ({ name: `月額ロイヤリティ（${b.label}・${label}）`, price: b.shortfallExclTax, quantity: 1 }))
