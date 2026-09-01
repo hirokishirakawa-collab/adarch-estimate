@@ -152,7 +152,7 @@ export function TverFlyerDocument({ data }: { data: FlyerData }) {
           <View style={s.col}>
             <Text style={s.colTitle}>3ヶ月で、商圏の認知を取り切る</Text>
             {[
-              "商圏のTVer視聴者の3人に1人へ、月平均約5回。",
+              "商圏のTVer視聴者の3人に1人へ、3ヶ月で約5回。",
               "単月でなく標準3ヶ月で、認知を取り切ります。",
               "スマホ・PC・テレビ画面（CTV）に届きます。",
               "最寄りの担当が直接お伺いし、対面で伴走します。",

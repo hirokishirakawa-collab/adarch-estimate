@@ -103,7 +103,7 @@ function buildParts(d: FlyerData): Parts {
     catchCopy,
     catchTitle: d.industry ? `${esc(d.industry)}の皆さまへ` : "地元の企業の皆さまへ",
     bullets: [
-      ["people", "3人に1人へ、月平均約5回", `${scope}のTVer視聴者の3人に1人に、ひと月に平均約5回お届けします。`],
+      ["people", "3人に1人へ、3ヶ月で約5回", `${scope}のTVer視聴者の3人に1人に、3ヶ月で平均約5回（月約2回）お届けします。`],
       ["calendar", "標準3ヶ月で、認知を取り切る", "単月で判断せず、3ヶ月続けて商圏での認知を取り切ってから効果を見ます。"],
       ["tv", "テレビ画面にも届く", "スマホ・PCに加え、テレビ画面（コネクテッドTV）で番組と同じ品質で流れます。"],
       ["pin", "最寄りの担当が対面で伴走", "企画から配信・報告まで、地元の担当が直接お伺いして進めます。"],
@@ -560,7 +560,7 @@ h1 em { font-style:normal; color:${GOLD}; }
   <div class="kpis">
     <div class="kpi"><b>${man(d.viewers)}</b><span>TVer視聴者（推計）</span></div>
     <div class="kpi"><b>${man(d.reach)}</b><span>到達する人数（3人に1人）</span></div>
-    <div class="kpi"><b>月5回<small>×3ヶ月</small></b><span>ひと月平均の接触回数 × 標準期間</span></div>
+    <div class="kpi"><b>約5回<small>／3ヶ月</small></b><span>3人に1人への接触回数（標準期間）</span></div>
   </div>
   <p class="covline">${p.covSentence}<em>${p.covNote}</em></p>
   <div class="cols">
