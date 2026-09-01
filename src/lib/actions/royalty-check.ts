@@ -68,8 +68,17 @@ export type RoyaltyYearCheck = {
   latestDueMonth: string | null;
 };
 
-function isoDate(d: Date): string {
+/// 日付だけを扱う（タイムゾーンで前日にずれないよう、保存は UTC 0時・表示は UTC の年月日）
+function isoDateUtc(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+/// 期限などローカル日付として作った Date を YYYY-MM-DD に
+function isoDateLocal(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+/// 今日（日本時間）を YYYY-MM-DD で。サーバーがUTCでも日本の日付で期限判定する
+function todayKeyJst(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 }
 
 /// 年間の入金チェック表を組み立てる（ADMIN専用）。
@@ -78,8 +87,7 @@ export async function getRoyaltyYearCheck(year: number): Promise<RoyaltyYearChec
   if (!info || info.role !== "ADMIN") return null;
 
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
-  const today = new Date();
-  const todayKey = isoDate(today);
+  const todayKey = todayKeyJst();
   const currentMonth = todayKey.slice(0, 7);
 
   // 本部自身（ADMINユーザーが紐づく社）はロイヤリティの対象外＝行に出さない
@@ -155,14 +163,14 @@ export async function getRoyaltyYearCheck(year: number): Promise<RoyaltyYearChec
   const checkMap = new Map<string, RoyaltyCheckRecord>();
   for (const c of checks) {
     checkMap.set(`${c.groupCompanyId}:${c.month}`, {
-      paidOn: isoDate(new Date(c.paidOn)),
+      paidOn: isoDateUtc(new Date(c.paidOn)),
       method: c.method,
       amountInclTax: c.amountInclTax,
       note: c.note,
     });
   }
 
-  const monthMeta = months.map((month) => ({ month, dueDate: isoDate(royaltyDueDateOf(month)) }));
+  const monthMeta = months.map((month) => ({ month, dueDate: isoDateLocal(royaltyDueDateOf(month)) }));
   const latestDueMonth = [...monthMeta].reverse().find((m) => m.dueDate <= todayKey)?.month ?? null;
 
   const rows: RoyaltyCheckRow[] = partners.map((p) => {
@@ -231,7 +239,7 @@ export async function setRoyaltyPaymentCheck(input: {
   if (!/^\d{4}-\d{2}$/.test(input.month)) return { error: "対象月が不正です" };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.paidOn)) return { error: "入金日が不正です" };
   const [y, m, d] = input.paidOn.split("-").map(Number);
-  const paidOn = new Date(y, m - 1, d);
+  const paidOn = new Date(Date.UTC(y, m - 1, d)); // 日付だけ（UTC 0時）
   if (Number.isNaN(paidOn.getTime())) return { error: "入金日が不正です" };
   const amount = input.amountInclTax == null || Number.isNaN(input.amountInclTax) ? null : Math.max(0, Math.round(input.amountInclTax));
   const note = (input.note ?? "").trim() || null;
