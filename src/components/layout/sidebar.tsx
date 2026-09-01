@@ -747,6 +747,7 @@ const SELL_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/deals", label: "② 商談管理（SFA）", icon: TrendingUp, minRole: "USER" },
   { href: "/dashboard/projects/new", label: "③ プロジェクト登録", icon: FolderKanban, minRole: "USER" },
   { href: "/dashboard/sales", label: "営業フロー", icon: Workflow, minRole: "USER" },
+  { href: "/dashboard/packages", label: "パッケージ", icon: Package, minRole: "USER" },
   { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, minRole: "USER" },
   { href: "/dashboard/subsidy-finder", label: "補助金ファインダー", icon: Banknote, minRole: "USER" },
   { href: "/dashboard/tender-finder", label: "入札ファインダー", icon: Gavel, minRole: "USER" },
@@ -781,7 +782,6 @@ const PROPOSE_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/group-moves", label: "グループの動き", icon: Waypoints, minRole: "USER" },
   { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
   { href: "/dashboard/playbook", label: "営業プレイブック", icon: BookOpen, minRole: "USER" },
-  { href: "/dashboard/packages", label: "パッケージ", icon: Package, minRole: "USER" },
   { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
   { href: "/dashboard/project-matching", label: "案件マッチング", icon: Handshake, minRole: "USER" },
 ];

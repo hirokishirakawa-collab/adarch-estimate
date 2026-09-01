@@ -43,6 +43,8 @@ export default async function EditPackagePage({ params }: { params: Promise<{ sl
     docs: parseDocs(pkg.docs),
     proposalNote: pkg.proposalNote ?? "",
     status: pkg.status,
+    imageUrl: pkg.imageUrl ?? "",
+    calculator: pkg.calculator ?? "",
   };
 
   return (

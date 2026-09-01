@@ -11,6 +11,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Loader2, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 import { savePackage } from "@/lib/actions/packages";
+import { PackageImageField } from "./image-field";
 import {
   CATEGORY_SUGGESTIONS,
   OWNER_LABEL,
@@ -48,6 +49,8 @@ export type PackageFormValues = {
   docs: PackageDoc[];
   proposalNote: string;
   status: SalesPackageStatus;
+  imageUrl: string;
+  calculator: string;
 };
 
 export function emptyPackageValues(): PackageFormValues {
@@ -56,6 +59,8 @@ export function emptyPackageValues(): PackageFormValues {
     name: "",
     tagline: "",
     category: "",
+    imageUrl: "",
+    calculator: "",
     targetIndustries: "",
     painPoints: "",
     summary: "",
@@ -232,6 +237,14 @@ export function PackageForm({ initial, isAdmin, mode, basePackages }: Props) {
               パッケージ名 <span className="text-red-500">*</span>
             </label>
             <input name="name" required maxLength={80} value={v.name} onChange={(e) => set("name", e.target.value)} className={inputCls} placeholder="例: 採用動画パッケージ" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelCls}>サムネイル（参考イメージ）</label>
+            <PackageImageField
+              value={v.imageUrl}
+              onChange={(url) => set("imageUrl", url)}
+              context={{ name: v.name, tagline: v.tagline, category: v.category, painPoints: v.painPoints, summary: v.summary }}
+            />
           </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>一言（売り文句）</label>
@@ -413,15 +426,25 @@ export function PackageForm({ initial, isAdmin, mode, basePackages }: Props) {
         <h3 className="text-sm font-bold text-zinc-800">⑥ 起案の背景{isAdmin ? "・状態" : ""}</h3>
         <textarea name="proposalNote" rows={3} value={v.proposalNote} onChange={(e) => set("proposalNote", e.target.value)} className={inputCls} placeholder="誰の要望か・なぜ売れそうか・どの地域で試すか" />
         {isAdmin ? (
-          <label className="flex items-center gap-2 text-xs text-zinc-600">
-            状態
-            <select name="status" value={v.status} onChange={(e) => set("status", e.target.value as SalesPackageStatus)} className={`${smallCls} w-40`}>
-              {(Object.keys(STATUS_LABEL) as SalesPackageStatus[]).map((k) => (
-                <option key={k} value={k}>{STATUS_LABEL[k]}</option>
-              ))}
-            </select>
-            <span className="text-zinc-400">稼働中＝営業フォーム・見積・チャットに並びます</span>
-          </label>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-xs text-zinc-600">
+              状態
+              <select name="status" value={v.status} onChange={(e) => set("status", e.target.value as SalesPackageStatus)} className={`${smallCls} w-40`}>
+                {(Object.keys(STATUS_LABEL) as SalesPackageStatus[]).map((k) => (
+                  <option key={k} value={k}>{STATUS_LABEL[k]}</option>
+                ))}
+              </select>
+              <span className="text-zinc-400">稼働中＝営業フォーム・見積・チャットに並びます</span>
+            </label>
+            <label className="flex items-center gap-2 text-xs text-zinc-600">
+              エリア別の目安
+              <select name="calculator" value={v.calculator} onChange={(e) => set("calculator", e.target.value)} className={`${smallCls} w-56`}>
+                <option value="">出さない</option>
+                <option value="tver-area">TVer（市を選ぶと月額別の到達人数・住民比）</option>
+              </select>
+              <span className="text-zinc-400">詳細画面と公開ページに、県・市を選ぶ表が出ます</span>
+            </label>
+          </div>
         ) : (
           <p className="text-[11px] text-zinc-500">保存すると「提案中」として全員に見えます。本部が承認すると稼働中になります。</p>
         )}

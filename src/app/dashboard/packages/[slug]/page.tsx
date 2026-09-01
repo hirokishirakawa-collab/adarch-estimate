@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { Calculator, FileDown, MessageCircle, PenLine, Pencil } from "lucide-react";
 import { PackageShareLink } from "@/components/packages/share-link";
+import { TverAreaCalculator } from "@/components/packages/tver-area-calculator";
+import { TVER_AREA_CALCULATOR } from "@/lib/packages/tver-area";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPackageApproaches, getPackageBySlug, getPackageStats } from "@/lib/packages/query";
@@ -49,12 +51,22 @@ function Section({ title, children, aside }: { title: string; children: React.Re
 const Empty = ({ text = "未記入" }: { text?: string }) => <p className="text-sm text-zinc-400">{text}</p>;
 const Pre = ({ text }: { text: string | null }) => (text ? <p className="text-sm text-zinc-800 leading-relaxed whitespace-pre-wrap">{text}</p> : <Empty />);
 
-export default async function PackageDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function PackageDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ pref?: string; city?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.email) redirect("/");
   const { slug } = await params;
+  const sp = await searchParams;
   const [me, pkg] = await Promise.all([
-    db.user.findUnique({ where: { email: session.user.email }, select: { id: true, role: true, groupCompanyId: true } }),
+    db.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, role: true, groupCompanyId: true, groupCompany: { select: { prefecture: true } } },
+    }),
     getPackageBySlug(slug),
   ]);
   if (!pkg || !me) notFound();
@@ -88,6 +100,12 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
       {/* ヘッダー */}
       <div className="bg-white rounded-xl border border-orange-200 p-5">
         <div className="flex flex-wrap items-start gap-4">
+          {pkg.imageUrl && (
+            <div className="w-full sm:w-56 aspect-[3/2] rounded-lg overflow-hidden bg-zinc-100 shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={pkg.imageUrl} alt="" className="w-full h-full object-cover" />
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-bold tracking-widest text-orange-600">{pkg.category}</span>
@@ -158,6 +176,12 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
           ))}
         </div>
       </div>
+
+      {pkg.calculator === TVER_AREA_CALCULATOR && (
+        <Section title="エリア別の目安（市を選ぶと、月額ごとの到達人数・住民の何%か）">
+          <TverAreaCalculator pref={sp.pref} city={sp.city} fallbackPref={me.groupCompany?.prefecture} compact />
+        </Section>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-4">
         <Section title="こんな方に（想定顧客の悩み）"><Pre text={pkg.painPoints} /></Section>

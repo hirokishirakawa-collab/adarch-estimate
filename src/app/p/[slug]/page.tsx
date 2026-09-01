@@ -18,8 +18,10 @@ import {
   parseOptions,
   yen,
 } from "@/lib/packages/types";
+import { TVER_AREA_CALCULATOR } from "@/lib/packages/tver-area";
+import { TverAreaCalculator } from "@/components/packages/tver-area-calculator";
 
-type Params = { params: Promise<{ slug: string }>; searchParams: Promise<{ from?: string }> };
+type Params = { params: Promise<{ slug: string }>; searchParams: Promise<{ from?: string; pref?: string; city?: string }> };
 
 async function loadPackage(slug: string) {
   const p = await db.salesPackage.findUnique({ where: { slug } });
@@ -61,7 +63,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function PublicPackagePage({ params, searchParams }: Params) {
   const { slug } = await params;
-  const { from } = await searchParams;
+  const { from, pref, city } = await searchParams;
   const [p, sender] = await Promise.all([loadPackage(slug), loadSender(from)]);
   if (!p) notFound();
 
@@ -84,7 +86,15 @@ export default async function PublicPackagePage({ params, searchParams }: Params
       </div>
 
       {/* ヒーロー */}
-      <header className="max-w-3xl mx-auto px-5 pt-10 pb-8">
+      {p.imageUrl && (
+        <div className="max-w-3xl mx-auto px-5 pt-6">
+          <div className="aspect-[3/2] sm:aspect-[21/9] rounded-2xl overflow-hidden bg-zinc-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+          </div>
+        </div>
+      )}
+      <header className={`max-w-3xl mx-auto px-5 ${p.imageUrl ? "pt-6" : "pt-10"} pb-8`}>
         <p className="text-[11px] font-bold tracking-[0.2em] text-[#F19834]">{p.category.toUpperCase()} PACKAGE</p>
         <h1 className="text-3xl sm:text-4xl font-extrabold leading-tight mt-2">{p.name}</h1>
         {p.tagline && <p className="text-base sm:text-lg text-zinc-600 mt-3">{p.tagline}</p>}
@@ -106,6 +116,13 @@ export default async function PublicPackagePage({ params, searchParams }: Params
 
       {/* 本文 */}
       <div className="max-w-3xl mx-auto px-5 py-10 space-y-12">
+        {p.calculator === TVER_AREA_CALCULATOR && (
+          <section>
+            <h2 className="text-xs font-bold tracking-[0.2em] text-zinc-500 mb-3">御社のエリアだと、いくらで何人に届くか</h2>
+            <TverAreaCalculator pref={pref} city={city} fallbackPref={sender?.prefecture} />
+          </section>
+        )}
+
         {p.painPoints && (
           <section>
             <h2 className="text-xs font-bold tracking-[0.2em] text-zinc-500 mb-3">こんな方に</h2>

@@ -11,7 +11,12 @@ const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const nl = (s: string) => esc(s).replace(/\n/g, "<br>");
 
-export function buildPackageCardHtml(p: SalesPackage, seller: { company: string; name?: string | null; email?: string | null; phone?: string | null }): string {
+export function buildPackageCardHtml(
+  p: SalesPackage,
+  seller: { company: string; name?: string | null; email?: string | null; phone?: string | null },
+  /** サムネイル（data: URL）。無ければ画像なしのレイアウト */
+  imageDataUrl?: string | null,
+): string {
   const deliverables = parseDeliverables(p.deliverables);
   const options = parseOptions(p.options);
   const flow = parseFulfillment(p.fulfillment);
@@ -24,8 +29,9 @@ export function buildPackageCardHtml(p: SalesPackage, seller: { company: string;
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body { width: 210mm; height: 297mm; font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif; color: #1a1a1a; background: #fff; }
-  .page { width: 210mm; height: 297mm; padding: 16mm 16mm 14mm; display: flex; flex-direction: column; }
-  .head { border-bottom: 3px solid #F19834; padding-bottom: 6mm; margin-bottom: 7mm; }
+  .page { width: 210mm; height: 297mm; padding: ${imageDataUrl ? "10mm" : "16mm"} 16mm 14mm; display: flex; flex-direction: column; }
+  .hero { width: 100%; height: 52mm; object-fit: cover; border-radius: 3mm; margin-bottom: 5mm; display: block; }
+  .head { border-bottom: 3px solid #F19834; padding-bottom: ${imageDataUrl ? "4mm" : "6mm"}; margin-bottom: ${imageDataUrl ? "5mm" : "7mm"}; }
   .cat { display: inline-block; font-size: 9pt; letter-spacing: .18em; color: #F19834; font-weight: 700; margin-bottom: 2mm; }
   h1 { font-size: 24pt; margin: 0 0 2mm; line-height: 1.25; letter-spacing: .02em; }
   .tag { font-size: 12pt; color: #444; margin: 0; }
@@ -51,6 +57,7 @@ export function buildPackageCardHtml(p: SalesPackage, seller: { company: string;
   .brand { font-size: 8.5pt; color: #999; letter-spacing: .1em; }
 </style></head>
 <body><div class="page">
+  ${imageDataUrl ? `<img class="hero" src="${imageDataUrl}" alt="">` : ""}
   <div class="head">
     <span class="cat">${esc(p.category.toUpperCase())} PACKAGE</span>
     <h1>${esc(p.name)}</h1>

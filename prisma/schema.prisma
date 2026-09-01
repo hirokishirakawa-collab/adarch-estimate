@@ -2357,6 +2357,8 @@ model SalesPackage {
   name             String // パッケージ名
   tagline          String? // 一言（売り文句・20〜40字）
   category         String // 分類（例: 採用 / サイネージ / TVer / SNS / 制作）
+  imageUrl         String? // サムネイル（参考イメージ）。/api/storage/package-images/... か外部URL
+  calculator       String? // エリア別の目安を出す計算機（例: "tver-area"）。null=無し
   targetIndustries String[] @default([]) // 対象業種
   painPoints       String?  @db.Text // 想定顧客の悩み（誰の何に効くか）
   summary          String?  @db.Text // 概要（何が届くか）

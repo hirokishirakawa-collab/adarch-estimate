@@ -91,8 +91,17 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
               <Link
                 key={p.id}
                 href={`/dashboard/packages/${p.slug}`}
-                className={`group bg-white rounded-xl border p-4 flex flex-col gap-3 hover:shadow-md transition-shadow ${p.status === "ACTIVE" ? "border-orange-200" : "border-zinc-200"}`}
+                className={`group bg-white rounded-xl border overflow-hidden flex flex-col hover:shadow-md transition-shadow ${p.status === "ACTIVE" ? "border-orange-200" : "border-zinc-200"}`}
               >
+                <div className="aspect-[3/2] bg-zinc-100 overflow-hidden">
+                  {p.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[11px] text-zinc-400">画像なし</div>
+                  )}
+                </div>
+                <div className="p-4 flex flex-col gap-3 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold tracking-widest text-orange-600">{p.category}</span>
                   <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_CHIP[p.status]}`}>{STATUS_LABEL[p.status]}</span>
@@ -112,6 +121,7 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
                   {p.status === "PROPOSED" && p.proposedBy && (
                     <span className="ml-auto truncate">起案: {p.proposedBy.groupCompany?.name ?? p.proposedBy.name ?? "—"}</span>
                   )}
+                </div>
                 </div>
               </Link>
             );

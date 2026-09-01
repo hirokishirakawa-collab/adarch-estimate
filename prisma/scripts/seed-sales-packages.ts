@@ -97,6 +97,7 @@ const PACKAGES = [
   },
   {
     slug: "local-reach-tver",
+    calculator: "tver-area", // 詳細・公開ページに「市を選ぶと月額別の到達人数・住民比」の表を出す
     name: "地域リーチ固定パッケージ",
     tagline: "「○○市に、月に何回届けるか」を固定額で",
     category: "TVer",

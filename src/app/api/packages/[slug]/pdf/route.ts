@@ -3,6 +3,16 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { renderHtmlToPdf } from "@/lib/pdf/chrome";
 import { buildPackageCardHtml } from "@/lib/packages/card-html";
+import { readStorageFile } from "@/lib/storage";
+
+/** サムネイルを data: URL に（OS内ストレージの画像だけ。外部URLはChromeが file:// から読めないので出さない） */
+function imageDataUrl(imageUrl: string | null): string | null {
+  if (!imageUrl) return null;
+  const m = /^\/api\/storage\/package-images\/([\w.-]+)$/.exec(imageUrl);
+  if (!m) return null;
+  const buf = readStorageFile("package-images", m[1]);
+  return buf ? `data:image/jpeg;base64,${buf.toString("base64")}` : null;
+}
 
 export const runtime = "nodejs";
 
@@ -28,11 +38,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
     return new NextResponse("稼働中のパッケージだけ資料を出せます", { status: 403 });
   }
 
-  const html = buildPackageCardHtml(pkg, {
-    company: me.groupCompany?.name ?? "Ad Arch株式会社",
-    name: me.name,
-    email: me.email,
-  });
+  const html = buildPackageCardHtml(
+    pkg,
+    {
+      company: me.groupCompany?.name ?? "Ad Arch株式会社",
+      name: me.name,
+      email: me.email,
+    },
+    imageDataUrl(pkg.imageUrl),
+  );
 
   let buffer: Buffer | null = null;
   try {
