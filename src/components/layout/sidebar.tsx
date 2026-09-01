@@ -43,6 +43,7 @@ import {
   Crosshair,
   Handshake,
   ListChecks,
+  ClipboardCheck,
   MailQuestion,
   Activity,
   CalendarClock,
@@ -626,6 +627,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/admin/royalty",
         label: "ロイヤリティ状況",
         icon: TrendingUp,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/admin/royalty/check",
+        label: "ロイヤリティ入金チェック",
+        icon: ClipboardCheck,
         minRole: "ADMIN",
       },
       {

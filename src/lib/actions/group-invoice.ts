@@ -7,11 +7,14 @@ import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { createInAppNotification, notifyAdmins } from "@/lib/notifications";
 import { sendGroupInvoiceEmailById } from "@/lib/group-invoice-email";
+import { fetchReportedRevenue } from "@/lib/royalty-revenue";
 import {
   commissionOf,
   evaluatePartnerRoyalty,
+  HQ_COMMISSION_RATE,
   invoiceTotals,
   MIN_ROYALTY_EXCL_TAX,
+  resolveEffectiveCommission,
 } from "@/lib/royalty-monthly";
 
 // 請求書番号 採番: AA-YYYY-NNNN（年内連番）
@@ -452,17 +455,22 @@ export type RoyaltyOverviewRow = {
   ownerName: string;
   units: number;                  // 拠点数
   minRoyaltyExclTax: number;      // 最低ロイヤリティ合計（税抜）= 5万 × 拠点数
-  commissionTotalExclTax: number; // 当月の手数料(10%)合計（税抜）
+  revenueExclTax: number;         // 月次報告の売上（税抜・自社請求＋本部請求）
+  selfRevenueExclTax: number;     // うち自社請求（税抜）＝ロイヤリティ請求書に載る側
+  hqRevenueExclTax: number;       // うち本部請求（税抜）＝クライアント入金時に控除済みの側
+  royaltyExclTax: number;         // ロイヤリティ = max(最低保証, 売上×10%, 手数料)（税抜）
+  commissionTotalExclTax: number; // 当月の手数料(10%)合計（税抜）＝相殺
   shortfallExclTax: number;       // 請求差額（税抜・県別不足の合計）
   isCovered: boolean;             // 全県クリア（貢献感謝）
   isExempt: boolean;              // ロイヤリティ免除（恒久 or 当月）
   isExemptPermanent: boolean;     // 恒久免除（経理管理設定）
   isMonthExempt: boolean;         // 当月のみ免除（ワンボタン）
-  branches: { label: string; commissionExclTax: number; shortfallExclTax: number; isCovered: boolean }[]; // 県別内訳（単一拠点は空）
+  branches: { label: string; revenueExclTax: number; royaltyExclTax: number; commissionExclTax: number; shortfallExclTax: number; isCovered: boolean }[]; // 県別内訳（単一拠点は空）
   untaggedCommissionExclTax: number; // 県未指定の手数料（要再割当）
   branchLabels: string[];         // 県名（手入力UI用。単一拠点は空）
   manualOverrides: Record<string, number>; // 手入力の相殺額（key=県名 or "" 単一）
   invoice: { id: string; invoiceNo: string; status: string; totalInclTax: number } | null;
+  paymentLink: { url: string; amountInclTax: number } | null; // Square決済リンク（社×月）
 };
 
 export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyOverviewRow[]> {
@@ -525,6 +533,14 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
     }
   }
 
+  // 月次報告の売上（税抜）＝売上連動10%の基礎
+  const revenueMap = await fetchReportedRevenue({
+    from: monthStart,
+    to: monthEnd,
+    groupCompanyId: limitToGroupCompanyId,
+    branchLabelsByCompany: new Map(partners.map((p) => [p.id, (p.branchLabels ?? []).filter(Boolean)])),
+  });
+
   // 既存のロイヤリティ請求書（当月分）。
   // 取消済みは「請求書なし」として扱い、正しい内容で再発行できるようにする。
   const invoices = await db.groupInvoice.findMany({
@@ -537,6 +553,13 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
     select: { id: true, groupCompanyId: true, invoiceNo: true, status: true, totalInclTax: true },
   });
   const invoiceByPartner = new Map(invoices.map((i) => [i.groupCompanyId, i]));
+
+  // Square決済リンク（当月分）
+  const links = await db.royaltyPaymentLink.findMany({
+    where: { month, ...(limitToGroupCompanyId ? { groupCompanyId: limitToGroupCompanyId } : {}) },
+    select: { groupCompanyId: true, url: true, amountInclTax: true },
+  });
+  const linkByPartner = new Map(links.map((l) => [l.groupCompanyId, l]));
 
   // 手入力の相殺調整（自動集計を上書き）
   const adjustments = await db.royaltyAdjustment.findMany({
@@ -557,25 +580,23 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
     const autoByLabel = byPartnerLabel.get(p.id) ?? {};
     const autoTotal = totalByPartner.get(p.id) ?? 0;
     const ov = overrideByPartner.get(p.id) ?? {};
-    const hasOverride = Object.keys(ov).length > 0;
 
     // 手入力があればそれで上書き（無い県は自動集計）
-    let commissionByLabel: Record<string, number> = autoByLabel;
-    let total = autoTotal;
-    if (labels.length > 1) {
-      const eff: Record<string, number> = {};
-      for (const l of labels) eff[l] = ov[l] ?? autoByLabel[l] ?? 0;
-      commissionByLabel = eff;
-      total = hasOverride ? Object.values(eff).reduce((s, v) => s + v, 0) : autoTotal;
-    } else {
-      total = ov[""] != null ? ov[""] : autoTotal;
-    }
+    const { commissionByLabel, total } = resolveEffectiveCommission({
+      branchLabels: labels,
+      autoByLabel,
+      autoTotal,
+      overrides: ov,
+    });
 
     const monthExempt = monthExemptByPartner.has(p.id);
+    const rev = revenueMap.get(`${p.id}:${month}`);
     const evald = evaluatePartnerRoyalty({
       branchLabels: p.branchLabels,
       commissionByLabel,
       totalCommissionExclTax: total,
+      revenueByLabel: rev?.byLabel,
+      totalRevenueExclTax: rev?.total,
       minExclTax: p.royaltyMinExclTax ?? undefined,
       exempt: p.royaltyExempt || monthExempt,
     });
@@ -586,19 +607,24 @@ export async function getMonthlyRoyaltyOverview(month: string): Promise<RoyaltyO
       ownerName: p.ownerName,
       units: evald.units,
       minRoyaltyExclTax: evald.minRoyaltyExclTax,
+      revenueExclTax: evald.revenueExclTax,
+      selfRevenueExclTax: rev?.selfTotal ?? 0,
+      hqRevenueExclTax: rev?.hqTotal ?? 0,
+      royaltyExclTax: evald.royaltyExclTax,
       commissionTotalExclTax: evald.commissionTotalExclTax,
       shortfallExclTax: evald.shortfallExclTax,
       isCovered: evald.isCovered,
       isExempt: evald.isExempt,
       isExemptPermanent: p.royaltyExempt,
       isMonthExempt: monthExempt,
-      branches: evald.branches.map((b) => ({ label: b.label, commissionExclTax: b.commissionExclTax, shortfallExclTax: b.shortfallExclTax, isCovered: b.isCovered })),
+      branches: evald.branches.map((b) => ({ label: b.label, revenueExclTax: b.revenueExclTax, royaltyExclTax: b.royaltyExclTax, commissionExclTax: b.commissionExclTax, shortfallExclTax: b.shortfallExclTax, isCovered: b.isCovered })),
       untaggedCommissionExclTax: evald.untaggedCommissionExclTax,
       branchLabels: labels,
       manualOverrides: ov,
       invoice: inv
         ? { id: inv.id, invoiceNo: inv.invoiceNo, status: inv.status, totalInclTax: Number(inv.totalInclTax) }
         : null,
+      paymentLink: (() => { const l = linkByPartner.get(p.id); return l ? { url: l.url, amountInclTax: l.amountInclTax } : null; })(),
     };
   });
 }
@@ -631,24 +657,24 @@ export async function createRoyaltyInvoiceForMonth(
   const shortBranches = row.branches.filter((b) => b.shortfallExclTax > 0);
   const itemsCreate = isMulti
     ? shortBranches.map((b, i) => ({
-        name: `月額ロイヤリティ（${b.label}・最低保証差額・${y}年${mLabel}月分）`,
-        detail: `最低保証 ¥${MIN_ROYALTY_EXCL_TAX.toLocaleString()} − ${b.label}の手数料 ¥${b.commissionExclTax.toLocaleString()}`,
+        name: `月額ロイヤリティ（${b.label}・${y}年${mLabel}月分）`,
+        detail: `ロイヤリティ ¥${b.royaltyExclTax.toLocaleString()}（最低保証 ¥${row.minRoyaltyExclTax > 0 ? Math.round(row.minRoyaltyExclTax / row.units).toLocaleString() : MIN_ROYALTY_EXCL_TAX.toLocaleString()} と売上 ¥${b.revenueExclTax.toLocaleString()}×${HQ_COMMISSION_RATE}% の大きい方）− ${b.label}の本部請求分（クライアント入金時に控除済み）¥${b.commissionExclTax.toLocaleString()}`,
         quantity: 1,
         unitPrice: b.shortfallExclTax,
         amount: b.shortfallExclTax,
         sortOrder: i,
       }))
     : [{
-        name: `月額ロイヤリティ（最低保証差額・${y}年${mLabel}月分）`,
-        detail: `最低保証 ¥${row.minRoyaltyExclTax.toLocaleString()} − 案件手数料 ¥${row.commissionTotalExclTax.toLocaleString()}`,
+        name: `月額ロイヤリティ（${y}年${mLabel}月分）`,
+        detail: `ロイヤリティ ¥${row.royaltyExclTax.toLocaleString()}（最低保証 ¥${row.minRoyaltyExclTax.toLocaleString()} と売上 ¥${row.revenueExclTax.toLocaleString()}×${HQ_COMMISSION_RATE}% の大きい方）− 本部請求分（クライアント入金時に控除済み）¥${row.commissionTotalExclTax.toLocaleString()}`,
         quantity: 1,
         unitPrice: totals.subtotalExclTax,
         amount: totals.subtotalExclTax,
         sortOrder: 0,
       }];
   const description = isMulti
-    ? `県ごとに最低保証 ¥${MIN_ROYALTY_EXCL_TAX.toLocaleString()}（税抜）を独立判定し、未達の県の差額を合算しています。${shortBranches.map((b) => `${b.label}: 手数料¥${b.commissionExclTax.toLocaleString()}→差額¥${b.shortfallExclTax.toLocaleString()}`).join(" / ")}`
-    : `最低保証ロイヤリティ ¥${row.minRoyaltyExclTax.toLocaleString()}（税抜）と当月の案件由来手数料 ¥${row.commissionTotalExclTax.toLocaleString()}（税抜）の差額です。`;
+    ? `県ごとに ロイヤリティ＝max(最低保証, 月次報告の売上×${HQ_COMMISSION_RATE}%)（税抜）を独立判定し、本部が代理請求で控除済みの案件手数料を差し引いた不足分を合算しています。${shortBranches.map((b) => `${b.label}: ロイヤリティ¥${b.royaltyExclTax.toLocaleString()}−手数料¥${b.commissionExclTax.toLocaleString()}→差額¥${b.shortfallExclTax.toLocaleString()}`).join(" / ")}`
+    : `当月ロイヤリティ ¥${row.royaltyExclTax.toLocaleString()}（税抜・最低保証 ¥${row.minRoyaltyExclTax.toLocaleString()} と月次報告の売上 ¥${row.revenueExclTax.toLocaleString()}×${HQ_COMMISSION_RATE}% の大きい方）から、本部請求分としてクライアント入金時に控除済みの ¥${row.commissionTotalExclTax.toLocaleString()}（税抜）を差し引いた額です。自社請求分の売上 ¥${row.selfRevenueExclTax.toLocaleString()}（税抜）に対するロイヤリティは本請求書でお支払いください。`;
 
   let createdId = "";
   const year = new Date().getFullYear();

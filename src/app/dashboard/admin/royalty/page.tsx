@@ -4,8 +4,9 @@ import { ChevronLeft, ChevronRight, TrendingUp, Sparkles } from "lucide-react";
 import { auth } from "@/lib/auth";
 import type { UserRole } from "@/types/roles";
 import { getMonthlyRoyaltyOverview } from "@/lib/actions/group-invoice";
-import { MIN_ROYALTY_EXCL_TAX } from "@/lib/royalty-monthly";
-import { CreateRoyaltyInvoiceButton } from "./create-royalty-invoice-button";
+import { MIN_ROYALTY_EXCL_TAX, invoiceTotals, royaltyDueDateOf } from "@/lib/royalty-monthly";
+import { MfBillingList } from "./mf-billing-list";
+import { getSquareConfigured } from "@/lib/actions/royalty-payment-link";
 import { RoyaltyAdjust } from "./royalty-adjust";
 import { RoyaltyExemptToggle } from "./royalty-exempt-toggle";
 
@@ -38,12 +39,33 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
   const sp = await searchParams;
   const month = /^\d{4}-\d{2}$/.test(sp.month ?? "") ? sp.month! : currentMonthKey();
 
-  const rows = await getMonthlyRoyaltyOverview(month);
+  const [rows, squareConfigured] = await Promise.all([getMonthlyRoyaltyOverview(month), getSquareConfigured()]);
 
   const needBilling = rows.filter((r) => !r.isCovered && !r.invoice);
   const totalShortfall = needBilling.reduce((s, r) => s + r.shortfallExclTax, 0);
   const coveredCount = rows.filter((r) => r.isCovered && !r.isExempt).length;
   const exemptCount = rows.filter((r) => r.isExempt).length;
+
+  // MF入力用一覧（請求書の正本はMFクラウド請求・2026-09-01 代表決定）
+  const due = royaltyDueDateOf(month);
+  const dueDateLabel = `${due.getFullYear()}/${String(due.getMonth() + 1).padStart(2, "0")}/${String(due.getDate()).padStart(2, "0")}`;
+  const mfRows = needBilling.map((r) => {
+    const t = invoiceTotals(r.shortfallExclTax);
+    return {
+      groupCompanyId: r.groupCompanyId,
+      name: r.name,
+      ownerName: r.ownerName,
+      selfRevenueExclTax: r.selfRevenueExclTax,
+      hqRevenueExclTax: r.hqRevenueExclTax,
+      royaltyExclTax: r.royaltyExclTax,
+      commissionExclTax: r.commissionTotalExclTax,
+      shortfallExclTax: t.subtotalExclTax,
+      taxAmount: t.taxAmount,
+      totalInclTax: t.totalInclTax,
+      branchNote: r.branches.filter((b) => b.shortfallExclTax > 0).map((b) => `${b.label}: ¥${b.shortfallExclTax.toLocaleString("ja-JP")}`).join(" / "),
+      paymentLink: r.paymentLink,
+    };
+  });
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
@@ -54,10 +76,13 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">ロイヤリティ状況</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">最低保証 max(¥{MIN_ROYALTY_EXCL_TAX.toLocaleString()}, 案件手数料10%)。未達のみ差額を請求</p>
+            <p className="text-xs text-zinc-500 mt-0.5">ロイヤリティ＝max(最低保証 ¥{MIN_ROYALTY_EXCL_TAX.toLocaleString()}, 月次報告の売上×10%)。本部請求分は入金時に控除済み＝相殺、自社請求分の不足のみ請求書へ</p>
           </div>
         </div>
-        <Link href="/dashboard/admin/group-invoices" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">請求書一覧 →</Link>
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/admin/royalty/check" className="text-xs text-emerald-700 hover:text-emerald-800 font-medium">入金チェック（年間） →</Link>
+          <Link href="/dashboard/admin/group-invoices" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">請求書一覧 →</Link>
+        </div>
       </div>
 
       {/* 月ナビ */}
@@ -84,6 +109,8 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
         </div>
       </div>
 
+      <MfBillingList month={month} dueDate={dueDateLabel} rows={mfRows} squareConfigured={squareConfigured} />
+
       {/* マトリクス */}
       <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
@@ -92,10 +119,12 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
               <tr className="bg-zinc-50 border-b border-zinc-200">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600">パートナー</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-600">最低保証（税抜）</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-600">当月手数料（10%・税抜）</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-600">月次報告 売上（税抜）</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-600">ロイヤリティ（税抜）</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-600">相殺＝本部請求分の控除済み手数料（税抜）</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-zinc-600">判定</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-600">請求差額（税抜）</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-zinc-600">請求書</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-zinc-600">請求書（MF）</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -113,7 +142,7 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
                       <div className="flex flex-wrap gap-1 mt-1">
                         {r.branches.map((b) => (
                           <span key={b.label} className={`inline-block px-1.5 py-0.5 text-[10px] rounded border ${b.isCovered ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
-                            {b.label} ¥{b.commissionExclTax.toLocaleString("ja-JP")}{b.isCovered ? " ✓" : ` → 要¥${b.shortfallExclTax.toLocaleString("ja-JP")}`}
+                            {b.label} 売上¥{b.revenueExclTax.toLocaleString("ja-JP")}→ロイヤリティ¥{b.royaltyExclTax.toLocaleString("ja-JP")}／相殺¥{b.commissionExclTax.toLocaleString("ja-JP")}{b.isCovered ? " ✓" : ` → 要¥${b.shortfallExclTax.toLocaleString("ja-JP")}`}
                           </span>
                         ))}
                       </div>
@@ -123,6 +152,24 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
                     )}
                   </td>
                   <td className="px-4 py-3 text-right text-zinc-500">{r.isExempt ? <span className="text-zinc-300">免除</span> : `¥${r.minRoyaltyExclTax.toLocaleString("ja-JP")}`}</td>
+                  <td className="px-4 py-3 text-right">
+                    {r.revenueExclTax > 0 ? (
+                      <>
+                        <span className="text-zinc-800">¥{r.revenueExclTax.toLocaleString("ja-JP")}</span>
+                        <p className="text-[10px] text-zinc-400">自社 ¥{r.selfRevenueExclTax.toLocaleString("ja-JP")}／本部 ¥{r.hqRevenueExclTax.toLocaleString("ja-JP")}</p>
+                      </>
+                    ) : (
+                      <span className="text-zinc-300" title="月次報告が未提出または売上0">未報告</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {r.isExempt ? <span className="text-zinc-300">—</span> : (
+                      <>
+                        <span className="font-medium text-zinc-900">¥{r.royaltyExclTax.toLocaleString("ja-JP")}</span>
+                        {r.royaltyExclTax > r.minRoyaltyExclTax && <p className="text-[10px] text-indigo-500">売上連動</p>}
+                      </>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-zinc-700">
                     {r.isExempt ? (
                       <span className="block text-right">¥{r.commissionTotalExclTax.toLocaleString("ja-JP")}</span>
@@ -161,7 +208,7 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
                         ) : r.isCovered ? (
                           <span className="text-[11px] text-zinc-400">不要</span>
                         ) : (
-                          <CreateRoyaltyInvoiceButton groupCompanyId={r.groupCompanyId} month={month} />
+                          <span className="text-[11px] text-amber-700 font-medium" title="請求書はMFクラウド請求で発行（上のMF入力用一覧）">MFで発行</span>
                         )}
                         <RoyaltyExemptToggle groupCompanyId={r.groupCompanyId} month={month} isMonthExempt={r.isMonthExempt} />
                       </div>
@@ -170,7 +217,7 @@ export default async function AdminRoyaltyPage({ searchParams }: { searchParams:
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-zinc-400">対象パートナーがいません</td></tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-zinc-400">対象パートナーがいません</td></tr>
               )}
             </tbody>
           </table>
