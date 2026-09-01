@@ -117,11 +117,15 @@ export async function createMfBillingsForMonth(month: string, billingDate?: stri
       const totals = invoiceTotals(r.shortfallExclTax);
       const link = links.get(r.groupCompanyId);
       const linkLine = link && link.amountInclTax === totals.totalInclTax
-        ? `■ カード払い（Square）はこちら: ${link.url}`
+        ? [
+            `■ カード払い（Square）はこちら: ${link.url}`,
+            `　※このリンクは本請求書（${r.name}様・${label}）専用です。他の方・他の月のお支払いには使えません`,
+            `　※今回のご請求限りのリンクです。次回以降は毎回新しいリンクをご案内します`,
+          ].join("\n")
         : `■ カード払い（Square）リンクは別途ご案内します`;
       const calc = r.royaltyExclTax > r.minRoyaltyExclTax
         ? `ロイヤリティ ¥${r.royaltyExclTax.toLocaleString("ja-JP")}（月次報告の売上 ¥${r.revenueExclTax.toLocaleString("ja-JP")} × ${HQ_COMMISSION_RATE}%）`
-        : `ロイヤリティ ¥${r.royaltyExclTax.toLocaleString("ja-JP")}（最低保証）`;
+        : `ロイヤリティ ¥${r.royaltyExclTax.toLocaleString("ja-JP")}`;
       const offset = r.commissionTotalExclTax > 0 ? `本部請求分の控除済み手数料 ▲¥${r.commissionTotalExclTax.toLocaleString("ja-JP")}（クライアント入金時に受領済み）` : null;
       const branchNote = r.branches.length > 0 ? `県別: ${r.branches.map((b) => `${b.label} ¥${b.shortfallExclTax.toLocaleString("ja-JP")}`).join(" / ")}` : null;
       const note = [

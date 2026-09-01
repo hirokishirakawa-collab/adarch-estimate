@@ -119,6 +119,8 @@ export async function createMfBillingForInvoiceRequest(input: { id: string; bill
       `ご請求額（税抜）¥${amountExclTax.toLocaleString("ja-JP")} ＋ 消費税 ¥${Math.round(Number(ir.taxAmount)).toLocaleString("ja-JP")} ＝ 税込 ¥${amountInclTax.toLocaleString("ja-JP")}`,
       "",
       squareUrl ? `■ クレジットカードでのお支払いはこちら: ${squareUrl}` : null,
+      squareUrl ? `　※このリンクは本請求書（${ir.customer.name}様・「${ir.subject}」）専用です。他のご請求のお支払いには使えません` : null,
+      squareUrl ? `　※今回のご請求限りのリンクです。次回以降は毎回新しいリンクをご案内します` : null,
       "■ お振込の場合は本請求書記載の口座へお願いいたします（振込手数料はご負担ください）",
     ].filter((l): l is string => l !== null).join("\n");
 
