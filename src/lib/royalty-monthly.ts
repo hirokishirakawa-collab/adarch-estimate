@@ -181,13 +181,16 @@ export function evaluatePartnerRoyalty(opts: {
 }
 
 /// 税抜小計から 消費税(10%) と 税込合計 を求める（請求書共通）。
+/// 端数は**切り上げ**＝MFクラウド請求書の事業者設定（rounding_consumption_tax: round_up）に合わせる（2026-09-01 代表決定）。
+/// 整数演算で率を掛けてから割り、浮動小数の誤差で1円狂わないようにする。
 export function invoiceTotals(subtotalExclTax: number): {
   subtotalExclTax: number;
   taxAmount: number;
   totalInclTax: number;
 } {
   const sub = Math.max(0, Math.round(subtotalExclTax || 0));
-  const tax = Math.floor(sub * TAX_RATE);
+  const ratePct = Math.round(TAX_RATE * 100);
+  const tax = Math.ceil((sub * ratePct) / 100);
   return { subtotalExclTax: sub, taxAmount: tax, totalInclTax: sub + tax };
 }
 
