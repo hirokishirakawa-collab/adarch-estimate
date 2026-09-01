@@ -65,7 +65,7 @@ export function proxiedImageUrl(src: string | null | undefined, width = 128): st
   if (!v) return null;
   if (v.startsWith("/")) return v; // 自前の静的ファイルはそのまま
   if (!/^https:\/\//i.test(v)) return null;
-  return `/_next/image?url=${encodeURIComponent(v)}&w=${width}&q=80`;
+  return `/_next/image?url=${encodeURIComponent(v)}&w=${width}&q=75`; // Next 16 は既定で q=75 しか許可しない（q=80 は 400）
 }
 
 /** 表示に使う画像URL。選んだ顔 → Googleの写真（プロキシ経由） → null（頭文字で描く） */
