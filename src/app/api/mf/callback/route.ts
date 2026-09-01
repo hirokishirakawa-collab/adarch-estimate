@@ -18,7 +18,9 @@ export async function GET(req: NextRequest) {
   const expected = jar.get("mf_oauth_state")?.value;
   jar.delete("mf_oauth_state");
 
-  const back = new URL("/dashboard/admin/royalty", url.origin);
+  // 戻り先は公開URL（AUTH_URL）を使う。req.url はコンテナ内部のホスト（0.0.0.0:8080）になるため使わない
+  const publicOrigin = (process.env.AUTH_URL ?? "").replace(/\/$/, "") || url.origin;
+  const back = new URL("/dashboard/admin/royalty", publicOrigin);
   if (err) { back.searchParams.set("mf", `error:${err}`); return NextResponse.redirect(back); }
   if (!code || !state || !expected || state !== expected) { back.searchParams.set("mf", "error:state"); return NextResponse.redirect(back); }
 
