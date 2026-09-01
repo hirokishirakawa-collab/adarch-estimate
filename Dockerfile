@@ -14,7 +14,7 @@ RUN npm run build
 # ---- Production stage ----
 FROM node:24-alpine
 
-RUN apk add --no-cache openssl ffmpeg python3 py3-pip py3-numpy py3-pillow \
+RUN apk add --no-cache openssl ffmpeg python3 py3-pip py3-numpy py3-pillow su-exec \
     && pip3 install --break-system-packages yt-dlp scipy
 
 # Chromium（HTML→PDF: TVerチラシ制作サポート等）。puppeteer-core から CHROME_PATH で起動する
@@ -37,10 +37,14 @@ ENV PORT=8080
 COPY scripts/start.sh /start.sh
 RUN chmod +x /start.sh
 
-ENV STORAGE_PATH=/tmp/storage
+# ファイル保存先は Railway Volume（/data）。Railway の環境変数 STORAGE_PATH が同じ値で上書きする
+ENV STORAGE_PATH=/data/storage
 
 RUN mkdir -p /app/.next/cache && chmod 777 /app/.next/cache
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
+# ⚠️ USER appuser はここでは付けない。
+#   Volume は起動時に root 所有でマウントされるため、appuser のままだと /data/storage に書けず
+#   /tmp/storage に落ちてデプロイで消えていた（2026-09-01 発見）。
+#   start.sh が root で所有者を直してから su-exec で appuser に落として node を起動する（非root運用は維持）。
 
 CMD ["/start.sh"]
