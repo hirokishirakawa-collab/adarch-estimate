@@ -5,7 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { officeGuard, meSelect, toOfficeUser, ONLINE_WINDOW_MS, voiceConfigured } from "@/lib/office/presence";
+import { officeGuard, meSelect, toOfficeUser, ONLINE_WINDOW_MS } from "@/lib/office/presence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,11 +16,7 @@ export async function GET() {
 
   const since = new Date(Date.now() - ONLINE_WINDOW_MS);
   const users = await db.user.findMany({
-    where: {
-      isActive: true,
-      lastSeenAt: { gte: since },
-      email: { not: "demo@adarch.co.jp" },
-    },
+    where: { isActive: true, lastSeenAt: { gte: since }, email: { not: "demo@adarch.co.jp" } },
     select: meSelect,
     orderBy: { lastSeenAt: "desc" },
     take: 100,
@@ -28,7 +24,6 @@ export async function GET() {
 
   return NextResponse.json({
     meId: me.id,
-    voice: voiceConfigured(),
     users: users.map(toOfficeUser),
     generatedAt: new Date().toISOString(),
   });

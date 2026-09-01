@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { officeGuard, meSelect, toOfficeUser, toKnockDTO } from "@/lib/office/presence";
+import { officeGuard, meSelect, toOfficeUser, toKnockDTO, BOT_EMAIL } from "@/lib/office/presence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "userId が必要です" }, { status: 400 });
   }
   const peer = await db.user.findUnique({ where: { id: userId }, select: meSelect });
-  if (!peer || !peer.isActive || peer.email === "demo@adarch.co.jp") {
+  if (!peer || !peer.isActive || peer.email === "demo@adarch.co.jp" || peer.email === BOT_EMAIL) {
     return NextResponse.json({ error: "相手が見つかりません" }, { status: 404 });
   }
 

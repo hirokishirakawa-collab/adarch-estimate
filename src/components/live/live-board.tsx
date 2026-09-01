@@ -10,6 +10,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { openOfficeThread } from "@/lib/office/store";
+import { GroupChat } from "@/components/office/group-chat";
+import { Avatar } from "@/components/office/avatar";
 
 interface LiveEvent {
   at: string;
@@ -45,10 +47,10 @@ interface OfficeUser {
   id: string;
   name: string;
   initials: string;
+  avatar: string | null;
   company: string;
   pref: string;
   isHq: boolean;
-  inCall: boolean;
 }
 interface Who {
   meId: string;
@@ -114,6 +116,7 @@ function safeHref(url: string | undefined): string | undefined {
 export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
   const [feed, setFeed] = useState<Feed | null>(null);
   const [who, setWho] = useState<Who | null>(null);
+  const [tab, setTab] = useState<"chat" | "feed">("chat");
   const [clock, setClock] = useState("");
   const [error, setError] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -193,7 +196,7 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
           : PREF_POS[pref]
             ? project(PREF_POS[pref][0], PREF_POS[pref][1])
             : project(PREF_POS["東京"][0], PREF_POS["東京"][1]);
-      list.forEach((u, i) => out.push({ u, x: base[0] + (i - (list.length - 1) / 2) * 16, y: base[1] - 12 }));
+      list.forEach((u, i) => out.push({ u, x: base[0] + (i - (list.length - 1) / 2) * 30, y: base[1] - 18 }));
     }
     return out;
   }, [who]);
@@ -329,7 +332,14 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
                   </g>
                 );
               })}
-            {/* いま動いている人（グループオフィス）。押すとひとこと */}
+            {/* いま動いている人（グループオフィス）。押すと個別ひとこと */}
+            <defs>
+              {placed.map(({ u, x, y }) => (
+                <clipPath key={`clip-${u.id}`} id={`lv-clip-${u.id}`}>
+                  <circle cx={x} cy={y} r="13" />
+                </clipPath>
+              ))}
+            </defs>
             {placed.map(({ u, x, y }) => {
               const me = u.id === who?.meId;
               return (
@@ -340,28 +350,32 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
                   }}
                   className={me ? "" : "cursor-pointer"}
                   role={me ? undefined : "button"}
+                  style={{ pointerEvents: "all" }}
                 >
-                  <title>
-                    {me
-                      ? `${u.name}（自分）`
-                      : `${u.name}（${u.company || "—"}）${u.inCall ? "・話し中" : "・ひとことを送る"}`}
-                  </title>
-                  {u.inCall && (
-                    <circle cx={x} cy={y} r="9" fill="none" stroke="#34d399" strokeOpacity="0.7">
-                      <animate attributeName="r" values="8;14" dur="1.6s" repeatCount="indefinite" />
-                      <animate attributeName="stroke-opacity" values="0.7;0" dur="1.6s" repeatCount="indefinite" />
-                    </circle>
+                  <title>{me ? `${u.name}（自分）` : `${u.name}（${u.company || "—"}）— 押すと個別ひとこと`}</title>
+                  {/* 当たり判定（見えない大きめの円） */}
+                  <circle cx={x} cy={y} r="20" fill="transparent" />
+                  <circle cx={x} cy={y} r="14.5" fill="#0a0d13" stroke={me ? "#a7f3d0" : "#34d399"} strokeWidth="1.6" />
+                  {u.avatar ? (
+                    <image
+                      href={u.avatar}
+                      x={x - 13}
+                      y={y - 13}
+                      width="26"
+                      height="26"
+                      clipPath={`url(#lv-clip-${u.id})`}
+                      preserveAspectRatio="xMidYMid slice"
+                    />
+                  ) : (
+                    <>
+                      <circle cx={x} cy={y} r="13" fill={me ? "#0f172a" : "#064e3b"} />
+                      <text x={x} y={y + 3.5} textAnchor="middle" fontSize={u.initials.length > 1 ? "8.5" : "11"} fontWeight="700" fill="#d1fae5">
+                        {u.initials}
+                      </text>
+                    </>
                   )}
-                  <circle cx={x} cy={y} r="7.5" fill={me ? "#0f172a" : "#064e3b"} stroke={me ? "#a7f3d0" : "#34d399"} strokeWidth="1.2" />
-                  <text
-                    x={x}
-                    y={y + 2.6}
-                    textAnchor="middle"
-                    fontSize={u.initials.length > 1 ? "6" : "7.5"}
-                    fontWeight="700"
-                    fill="#d1fae5"
-                  >
-                    {u.initials}
+                  <text x={x} y={y + 23} textAnchor="middle" fontSize="7.5" fill="#bbf7d0" style={{ paintOrder: "stroke", stroke: "#0a0d13", strokeWidth: 2 }}>
+                    {u.name.split(/[\s　]+/)[0]}
                   </text>
                 </g>
               );
@@ -394,7 +408,7 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
                   いまはあなただけです。ここに灯った人には、ひとことで声をかけられます。
                 </p>
               ) : (
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {who.users.map((u) => {
                     const me = u.id === who.meId;
                     return (
@@ -403,19 +417,16 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
                         type="button"
                         disabled={me}
                         onClick={() => openOfficeThread(u.id)}
-                        className={`flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] transition-colors ${
+                        className={`flex items-center gap-2 rounded-full border pl-1 pr-3 py-1 text-[12.5px] transition-colors ${
                           me
                             ? "border-white/10 text-zinc-500 cursor-default"
-                            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+                            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20 active:bg-emerald-500/30"
                         }`}
-                        title={me ? "自分" : "ひとことを送る"}
+                        title={me ? "自分" : "個別にひとことを送る"}
                       >
-                        <span className="w-4 h-4 rounded-full bg-emerald-900 text-emerald-100 text-[8px] font-bold flex items-center justify-center">
-                          {u.initials}
-                        </span>
+                        <Avatar src={u.avatar} initials={u.initials} size={28} />
                         <span className="font-medium">{u.name}</span>
-                        <span className="text-zinc-500">{u.company ? `${u.company}・` : ""}{u.pref}</span>
-                        {u.inCall && <span className="text-emerald-300">🎙</span>}
+                        <span className="text-zinc-500 text-[11px]">{u.company ? `${u.company}・` : ""}{u.pref}</span>
                       </button>
                     );
                   })}
@@ -425,12 +436,38 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
           )}
         </div>
 
-        {/* イベントティッカー */}
+        {/* 右側: みんなのチャット／動き */}
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-white/[0.06] text-[11px] tracking-[0.15em] text-zinc-500">
-            ACTIVITY FEED
-          </div>
-          <div className={`${compact ? "max-h-[300px]" : "max-h-[560px]"} overflow-y-auto divide-y divide-white/[0.04]`}>
+          {compact ? (
+            <div className="px-4 py-2.5 border-b border-white/[0.06] text-[11px] tracking-[0.15em] text-zinc-500">
+              ACTIVITY FEED
+            </div>
+          ) : (
+            <div className="flex items-center border-b border-white/[0.06]">
+              {(
+                [
+                  { k: "chat", l: "みんなのチャット" },
+                  { k: "feed", l: "動き" },
+                ] as const
+              ).map((t2) => (
+                <button
+                  key={t2.k}
+                  type="button"
+                  onClick={() => setTab(t2.k)}
+                  className={`px-4 py-3 text-[12px] font-semibold tracking-wide border-b-2 -mb-px transition-colors ${
+                    tab === t2.k ? "border-emerald-400 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  {t2.l}
+                </button>
+              ))}
+              <span className="ml-auto pr-4 text-[10px] text-zinc-600">
+                {tab === "chat" ? "全員に見えます" : "商談・送付台帳から自動生成"}
+              </span>
+            </div>
+          )}
+          {!compact && tab === "chat" && <GroupChat />}
+          <div className={`${compact ? "max-h-[300px]" : "max-h-[560px]"} overflow-y-auto divide-y divide-white/[0.04] ${!compact && tab !== "feed" ? "hidden" : ""}`}>
             {!feed && (
               <div className="px-4 py-8 text-center text-[12px] text-zinc-500">読み込み中…</div>
             )}
