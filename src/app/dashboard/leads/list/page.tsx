@@ -15,7 +15,8 @@ import type { UserRole } from "@/types/roles";
 import { FavoriteButton } from "@/components/layout/favorite-button";
 import { ActivityKpiBar } from "@/components/dashboard/activity-kpi-bar";
 import { getActivityKpi } from "@/lib/kpis/activity";
-import { releaseStaleAssignedLeads, RELEASE_AFTER_DAYS, RELEASE_UNTOUCHED_AFTER_DAYS } from "@/lib/leads/release-stale";
+import { releaseStaleAssignedLeads, RELEASE_AFTER_DAYS, RELEASE_UNTOUCHED_AFTER_DAYS, SAVE_CAP_UNSENT } from "@/lib/leads/release-stale";
+import { parsePrefecture } from "@/lib/clients/normalize";
 
 const PER_PAGE = 20;
 
@@ -168,6 +169,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     recentLogs,
     industries,
     areas,
+    poolRows,
   ] = await Promise.all([
     db.lead.findMany({
       where,
@@ -208,7 +210,35 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     // 業種・エリアの選択肢を取得
     db.lead.findMany({ select: { industry: true }, distinct: ["industry"], where: { industry: { not: null } }, orderBy: { industry: "asc" } }),
     db.lead.findMany({ select: { area: true }, distinct: ["area"], where: { area: { not: null } }, orderBy: { area: "asc" } }),
+    // 解放中（担当なし・未対応）のリード。県別と「声をかけられるか」を数えるためだけに軽い列だけ取る
+    db.lead.findMany({
+      where: { status: "UNTOUCHED", assigneeId: null, source: { not: "PR_TIMES_TVCM" } },
+      select: { area: true, websiteUrl: true, email: true, phone: true },
+    }),
   ]);
+
+  // ---------------------------------------------------------------
+  // 解放中プール: 「棚」ではなく「誰でも取れる在庫」として見せる
+  // - 送れる = サイトかメールがある（営業フォームで当たれる）
+  // - 電話のみ = フォームは送れないが架電はできる
+  // - 連絡手段なし = サイト・メール・電話が全て無い（gBizINFO由来がほとんど）。在庫に数えない
+  // 県は area の文字列から取る（一覧の area 絞り込みと同じ土俵に乗せるため address は見ない）
+  // ---------------------------------------------------------------
+  const pool = { sendable: 0, phoneOnly: 0, noContact: 0 };
+  const poolByPref = new Map<string, { sendable: number; phoneOnly: number }>();
+  for (const r of poolRows) {
+    const kind = r.websiteUrl || r.email ? "sendable" : r.phone ? "phoneOnly" : "noContact";
+    pool[kind] += 1;
+    if (kind === "noContact") continue;
+    const pref = parsePrefecture(r.area) ?? "その他";
+    const g = poolByPref.get(pref) ?? { sendable: 0, phoneOnly: 0 };
+    g[kind] += 1;
+    poolByPref.set(pref, g);
+  }
+  const poolPrefs = Array.from(poolByPref.entries())
+    .map(([pref, c]) => ({ pref, ...c }))
+    .sort((a, b) => b.sendable - a.sendable || b.phoneOnly - a.phoneOnly);
+  const isPoolView = statusParam === "UNTOUCHED" && assigneeIdParam === "unassigned";
 
   const totalPages = Math.ceil(total / PER_PAGE);
   const hasFilter = !!(q || statusParam || assigneeIdParam);
@@ -396,6 +426,55 @@ export default async function LeadListPage({ searchParams }: PageProps) {
           </Link>
         </div>
 
+        {/* 解放中プール: 担当なしの未対応。誰でも取れる在庫を県別に見せ、送れないものは数えない */}
+        {(pool.sendable + pool.phoneOnly + pool.noContact) > 0 && (
+          <div
+            className={`rounded-xl border px-5 py-4 ${
+              isPoolView ? "bg-emerald-50 border-emerald-400 ring-2 ring-emerald-200" : "bg-white border-emerald-200"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <Link href="/dashboard/leads/list?status=UNTOUCHED&assigneeId=unassigned" className="hover:underline">
+                  <p className="text-xs font-semibold text-emerald-700">🟢 解放中（誰でも取れる）</p>
+                </Link>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  担当が付いていない未対応。県を押して一覧→全選択→「担当」で自分のものにできます
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-3xl font-black text-emerald-600 leading-none">{pool.sendable.toLocaleString()}</p>
+                <p className="text-[10px] text-zinc-400 mt-1">送れる（サイト/メールあり）</p>
+              </div>
+            </div>
+            {poolPrefs.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {poolPrefs.filter((p) => p.pref !== "その他").slice(0, 16).map((p) => (
+                  <Link
+                    key={p.pref}
+                    href={`/dashboard/leads/list?status=UNTOUCHED&assigneeId=unassigned&area=${encodeURIComponent(p.pref)}`}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] transition-colors ${
+                      isPoolView && areaParam === p.pref
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "bg-white text-zinc-700 border-zinc-200 hover:border-emerald-400"
+                    }`}
+                    title={`送れる ${p.sendable}件${p.phoneOnly ? ` ／ 電話のみ ${p.phoneOnly}件` : ""}`}
+                  >
+                    {p.pref}
+                    <span className="font-bold">{p.sendable}</span>
+                    {p.phoneOnly > 0 && <span className="text-zinc-400">+📞{p.phoneOnly}</span>}
+                  </Link>
+                ))}
+              </div>
+            )}
+            <div className="mt-2 pt-2 border-t border-emerald-100 flex items-center gap-3 text-[11px] text-zinc-400">
+              <span>電話のみ {pool.phoneOnly.toLocaleString()}件</span>
+              <span className="text-zinc-300">/</span>
+              <span title="サイト・メール・電話のいずれも無い。声をかける手段がないので在庫に数えていません">連絡手段なし {pool.noContact.toLocaleString()}件（在庫に数えない）</span>
+            </div>
+          </div>
+        )}
+
         {/* 成果（アポ・商談化）＋ 在庫（控えめ） */}
         <div className="grid grid-cols-3 gap-3">
           <Link
@@ -544,6 +623,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
       {/* 声かけ解放ルールの注釈 */}
       <p className="text-[11px] text-zinc-400 px-1">
         ※ 担当を取って{RELEASE_UNTOUCHED_AFTER_DAYS}日 声かけがない、または声かけ（連絡済み）後{RELEASE_AFTER_DAYS}日 動きがないリードは自動で解放され、担当が外れて別の代表が声かけ可能になります（直前の担当は「過去:◯◯」タグで表示）。
+        また、未送付の担当付きリードが{SAVE_CAP_UNSENT}件以上ある間は新しい検索結果を保存できません（送るか担当を外して在庫を空けてから取得）。
       </p>
 
       {/* ===== テーブル ===== */}

@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { checkSaveCap } from "@/lib/leads/release-stale";
 import { parse } from "csv-parse/sync";
 import iconv from "iconv-lite";
 
@@ -103,6 +104,15 @@ export async function POST(req: NextRequest) {
   }
 
   const staffName = user.name ?? email;
+
+  // 取得の蓋: 未送付を抱えたまま新しく取り込めない
+  const cap = await checkSaveCap(user.id);
+  if (cap.blocked) {
+    return NextResponse.json(
+      { imported: 0, skipped: 0, errors: [cap.message] },
+      { status: 400 }
+    );
+  }
 
   try {
     const formData = await req.formData();

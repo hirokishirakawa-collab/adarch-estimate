@@ -13,6 +13,7 @@ import type { ScoredCinemaLead } from "@/lib/constants/cinema-leads";
 import type { TvcmLeadCandidate } from "@/lib/constants/tvcm-leads";
 import type { LeadStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
+import { checkSaveCap } from "@/lib/leads/release-stale";
 import { parseSignalDate, resolveSignal, shouldReplaceSignal } from "@/lib/leads/signal";
 import {
   buildPlaceLeadMemo,
@@ -43,6 +44,12 @@ export async function saveLeadsFromSearch(
     where: { email },
     select: { id: true },
   });
+
+  // 取得の蓋: 未送付を抱えたまま新しく取れない
+  if (user) {
+    const cap = await checkSaveCap(user.id);
+    if (cap.blocked) return { saved: 0, error: cap.message };
+  }
 
   let savedCount = 0;
 
@@ -592,6 +599,12 @@ export async function saveBtoBLeadsFromSearch(
     select: { id: true },
   });
 
+  // 取得の蓋: 未送付を抱えたまま新しく取れない
+  if (user) {
+    const cap = await checkSaveCap(user.id);
+    if (cap.blocked) return { saved: 0, error: cap.message };
+  }
+
   let savedCount = 0;
 
   // BigIntの安全な変換（undefinedや不正な値でクラッシュしないように）
@@ -700,6 +713,12 @@ export async function saveCinemaLeadsFromSearch(
     select: { id: true },
   });
 
+  // 取得の蓋: 未送付を抱えたまま新しく取れない
+  if (user) {
+    const cap = await checkSaveCap(user.id);
+    if (cap.blocked) return { saved: 0, error: cap.message };
+  }
+
   let savedCount = 0;
 
   try {
@@ -793,6 +812,12 @@ export async function saveRecruitLeadsFromSearch(
     where: { email },
     select: { id: true },
   });
+
+  // 取得の蓋: 未送付を抱えたまま新しく取れない
+  if (user) {
+    const cap = await checkSaveCap(user.id);
+    if (cap.blocked) return { saved: 0, error: cap.message };
+  }
 
   let savedCount = 0;
 

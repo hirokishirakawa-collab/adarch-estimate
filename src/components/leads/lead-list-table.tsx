@@ -872,6 +872,15 @@ function LeadRow({
               <Phone className="w-3 h-3 shrink-0" />
               {lead.phone}
             </a>
+          ) : !lead.email && !lead.websiteUrl ? (
+            // サイト・メール・電話が全て無い＝声をかける手段がない。在庫として数えない印
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 border border-zinc-200 text-[10px] font-medium"
+              title="サイト・メール・電話のいずれも無く、声をかける手段がありません（gBizINFO由来に多い）。解放中の在庫には数えていません"
+            >
+              <AlertTriangle className="w-3 h-3 shrink-0" />
+              連絡手段なし
+            </span>
           ) : (
             <span className="text-xs text-zinc-300">-</span>
           )}

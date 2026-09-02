@@ -169,6 +169,9 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
         );
         if (!result.error) {
           setSavedNames((prev) => new Set(prev).add(name));
+        } else {
+          // 取得の蓋などで保存を止められた場合は理由を見せる（黙って落とさない）
+          alert(result.error);
         }
       } finally {
         setSavingName(null);
@@ -194,6 +197,11 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
           );
           if (!result.error) {
             setSavedNames((prev) => new Set(prev).add(name));
+          } else {
+            // 取得の蓋などで止められたら残りも保存できないので理由を見せて中断
+            alert(result.error);
+            setSavingName(null);
+            return;
           }
         } catch {
           // continue with remaining

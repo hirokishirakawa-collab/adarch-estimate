@@ -18,6 +18,46 @@ export const RELEASE_AFTER_DAYS = 60;
  *  取って放置は声かけ済みより悪質なので短く設定。 */
 export const RELEASE_UNTOUCHED_AFTER_DAYS = 14;
 
+// ----------------------------------------------------------------
+// 取得の蓋
+//
+// 「取るだけ取って声をかけない」を止めるための上限。
+// 未送付のまま担当付きで抱えている未対応リードがこの件数以上ある人は、
+// 新しい検索結果を保存できない（送るか解放して在庫を空けてから取る）。
+// 対象の入口: 店舗検索 / BtoB / シネマ / 採用検索 / CSV取込。
+// TVerプールの先着claimは「案件を取りに行く行為」なので対象外。
+// ----------------------------------------------------------------
+
+/** 未送付の担当付きリードがこの件数以上なら新規保存を止める */
+export const SAVE_CAP_UNSENT = 100;
+
+/** 取得の蓋にかかったときのメッセージ（各入口で共通） */
+export function saveCapMessage(unsent: number): string {
+  return `未送付のリードが${unsent}件あります（上限${SAVE_CAP_UNSENT}件）。営業フォームで送るか、担当を外して在庫を空けてから取得してください。`;
+}
+
+/**
+ * 取得の蓋の判定。
+ * 自分が担当で、未対応（UNTOUCHED）のまま一度も送っていないリードを数える。
+ * 上限に達していれば { blocked: true, message } を返す。
+ */
+export async function checkSaveCap(
+  userId: string,
+): Promise<{ blocked: boolean; unsent: number; message?: string }> {
+  const unsent = await db.lead.count({
+    where: {
+      assigneeId: userId,
+      status: "UNTOUCHED",
+      sentAt: null,
+      source: { not: "PR_TIMES_TVCM" },
+    },
+  });
+  if (unsent >= SAVE_CAP_UNSENT) {
+    return { blocked: true, unsent, message: saveCapMessage(unsent) };
+  }
+  return { blocked: false, unsent };
+}
+
 // 解放ルール: 状態ごとに「動きなし」とみなす日数を変える。
 // 解放後も status 自体は変えない（連絡済み/未対応の別が一覧で分かる）。
 const RELEASE_RULES: Array<{ status: "CALLED" | "UNTOUCHED"; days: number }> = [
