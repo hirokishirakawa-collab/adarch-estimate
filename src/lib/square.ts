@@ -80,6 +80,38 @@ export async function createSquarePaymentLink(input: {
   }
 }
 
+export type SquarePaymentRecord = {
+  id: string;
+  status?: string;
+  order_id?: string | null;
+  created_at?: string;
+  note?: string | null;
+  amount_money?: { amount?: number; currency?: string };
+  card_details?: { card?: { last_4?: string; card_brand?: string } };
+};
+
+/// 決済一覧（新しい順）。見張り役（ウェブフック取りこぼしの照合）用。
+export async function listSquarePayments(opts: { beginTime: string; maxPages?: number }): Promise<{ payments?: SquarePaymentRecord[]; error?: string }> {
+  if (!isSquareConfigured()) return { error: "Squareが未設定です" };
+  const out: SquarePaymentRecord[] = [];
+  let cursor: string | undefined;
+  try {
+    for (let page = 0; page < (opts.maxPages ?? 3); page++) {
+      const q = new URLSearchParams({ begin_time: opts.beginTime, sort_order: "DESC", limit: "100" });
+      if (cursor) q.set("cursor", cursor);
+      const r = await squareFetch(`/v2/payments?${q.toString()}`, { method: "GET" });
+      if (!r.ok) return { error: errorMessage(r.json, r.status) };
+      const j = r.json as { payments?: SquarePaymentRecord[]; cursor?: string };
+      out.push(...(j.payments ?? []));
+      cursor = j.cursor;
+      if (!cursor) break;
+    }
+    return { payments: out };
+  } catch (e) {
+    return { error: `Square接続エラー: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
 /// 決済リンクを削除（作り直し時）。既に無い場合も成功扱い。
 export async function deleteSquarePaymentLink(id: string): Promise<{ error?: string }> {
   if (!isSquareConfigured()) return { error: "Squareが未設定です" };

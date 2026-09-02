@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { syncRoyaltyMfPayments, syncInvoiceRequestMfPayments } from "@/lib/royalty-mf-sync";
+import { watchSquarePayments } from "@/lib/square-watch";
 
 export const maxDuration = 300;
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest) {
 
   const royalty = await syncRoyaltyMfPayments({ actorUserId: admin.id });
   const requests = await syncInvoiceRequestMfPayments();
-  logAudit({ action: "royalty_mf_payment_synced_cron", email: admin.email, name: "cron", entity: "royalty_mf_billing", entityId: "all", detail: `ロイヤリティ: 確認${royalty.checked}・入金済${royalty.paid}・新規✅${royalty.newlyMarked} / 請求申請: 確認${requests.checked}・支払済${requests.newlyMarked}${royalty.errors.length + requests.errors.length ? ` / エラー ${[...royalty.errors, ...requests.errors].join(" | ").slice(0, 500)}` : ""}` });
-  return NextResponse.json({ ok: true, royalty, requests });
+  // Square入金の見張り（ウェブフック取りこぼしの自己修復＋引き当て不能の通知）
+  const square = await watchSquarePayments(admin.id, admin.email);
+  logAudit({ action: "royalty_mf_payment_synced_cron", email: admin.email, name: "cron", entity: "royalty_mf_billing", entityId: "all", detail: `ロイヤリティ: 確認${royalty.checked}・入金済${royalty.paid}・新規✅${royalty.newlyMarked} / 請求申請: 確認${requests.checked}・支払済${requests.newlyMarked} / Square見張り: 走査${square.scanned}・補完${square.healedRoyalty + square.healedRequests}・要確認${square.unmatchedNew}${royalty.errors.length + requests.errors.length + square.errors.length ? ` / エラー ${[...royalty.errors, ...requests.errors, ...square.errors].join(" | ").slice(0, 500)}` : ""}` });
+  return NextResponse.json({ ok: true, royalty, requests, square });
 }
