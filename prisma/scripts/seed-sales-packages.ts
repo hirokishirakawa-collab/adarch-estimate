@@ -115,7 +115,7 @@ const PACKAGES = [
     options: [
       { name: "15秒動画の制作", price: null, note: "動画がない場合。採用動画パッケージからの切り出しも可" },
       { name: "隣接市の追加", price: null, note: "商圏を広げる" },
-      { name: "30秒への延長", price: null, note: "単価は本部規定（15秒の2倍）" },
+      { name: "30秒への延長", price: null, note: "単価は本部規定（30秒 ¥7.8/再生）" },
     ],
     priceType: "MONTHLY" as const,
     fulfillment: [

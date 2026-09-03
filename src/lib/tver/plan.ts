@@ -36,8 +36,8 @@ export const MONTHS = 3; // 標準期間
 export const FREQ = 4.78; // 実測平均フリークエンシー（安藤工事様 2026/6-7）
 const MULT = 3; // 卸値×3
 
-/** 秒数別 再生単価（円/再生）。15秒 ¥6.6 が基準 */
-export const UNIT_PRICE: Record<15 | 30 | 60, number> = { 15: 2.2 * MULT, 30: 4.4 * MULT, 60: 8.8 * MULT };
+/** 秒数別 再生単価（円/再生）。15秒 ¥6.6／30秒 ¥7.8／60秒 ¥11.1 */
+export const UNIT_PRICE: Record<15 | 30 | 60, number> = { 15: 2.2 * MULT, 30: 2.6 * MULT, 60: 3.7 * MULT }; // 卸値=TVerフロア価格表(2026-03): 15秒¥2.2/30秒¥2.6/60秒¥3.7 → 売値 ¥6.6/¥7.8/¥11.1（2026-09-03 代表確認: シミュレーターと同じ「各秒数の原価×3」）
 export type AdSeconds = 15 | 30 | 60;
 
 /** 県内TVer月間利用者数（推計） */
