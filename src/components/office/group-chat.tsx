@@ -10,7 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Send, Paperclip, X, Search, ExternalLink, Trash2, SmilePlus } from "lucide-react";
 import { openOfficeThread, markChatSeen, useOfficeState } from "@/lib/office/store";
-import { REACTION_EMOJIS } from "@/lib/office/reactions";
+import { REACTION_EMOJIS } from "@/lib/office/reaction-emojis";
 import { Avatar } from "./avatar";
 
 const POLL_MS = 5_000;

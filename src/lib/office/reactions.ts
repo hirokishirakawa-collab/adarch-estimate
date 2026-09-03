@@ -1,17 +1,14 @@
 // ==============================================================
-// みんなのチャットの絵文字リアクション（共通）
-//   ・固定セット6種（増やすときはここだけ）
+// みんなのチャットの絵文字リアクション（サーバー側の集計）
+//   ・固定セットは reaction-emojis.ts（ブラウザ側と共有・DBを読まない）
 //   ・一覧取得で「投稿ID → リアクション集計」を作る（数・自分が押したか・押した人）
+//   ⚠️ このファイルは db を読む＝クライアント部品から import しない（Turbopackで pg がブラウザに混ざり本番ビルドが落ちる 2026-09-03）
 // ==============================================================
 
 import { db } from "@/lib/db";
+import { REACTION_EMOJIS } from "./reaction-emojis";
 
-export const REACTION_EMOJIS = ["👍", "❤️", "🔥", "👏", "😂", "🙏"] as const;
-export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
-
-export function isReactionEmoji(v: unknown): v is ReactionEmoji {
-  return typeof v === "string" && (REACTION_EMOJIS as readonly string[]).includes(v);
-}
+export { REACTION_EMOJIS, isReactionEmoji, type ReactionEmoji } from "./reaction-emojis";
 
 export type ReactionView = {
   emoji: string;
