@@ -194,6 +194,7 @@ export type ChatDTO = {
   isBot: boolean;
   text: string;
   ref: { kind: string; id: string | null; title: string; sub: string | null; href: string | null } | null;
+  reactions: { emoji: string; count: number; mine: boolean; names: string[] }[];
   createdAt: string;
 };
 
@@ -227,7 +228,7 @@ export function toChatDTO(m: {
     branch: { name: string } | null;
     groupCompany: { name: string; prefecture: string | null; branchLabels: string[] } | null;
   };
-}): ChatDTO {
+}, reactions: ChatDTO["reactions"] = []): ChatDTO {
   const u = toOfficeUser({ ...m.user, lastSeenAt: null });
   return {
     id: m.id,
@@ -240,6 +241,7 @@ export function toChatDTO(m: {
     isBot: u.isBot,
     text: m.text,
     ref: m.refKind && m.refTitle ? { kind: m.refKind, id: m.refId, title: m.refTitle, sub: m.refSub, href: m.refHref } : null,
+    reactions,
     createdAt: m.createdAt.toISOString(),
   };
 }

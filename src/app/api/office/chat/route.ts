@@ -1,6 +1,7 @@
 // ==============================================================
 // /api/office/chat — みんなのチャット（全員に見えるタイムライン）
 //   GET  ?after=<ISO>  … after より新しい分だけ返す（省略時は直近80件）
+//                        ＋ reactions: 画面に出ている直近80件のリアクション集計（他の人が押した分を反映）
 //   POST { text }      … 投稿（300文字まで）
 //   ⚠️ 金額は書かない前提の場（UI にも注記）。デモ・停止中は見えない
 // ==============================================================
@@ -10,6 +11,7 @@ import { db } from "@/lib/db";
 import { officeGuard, chatUserSelect, toChatDTO, BOT_EMAIL } from "@/lib/office/presence";
 import { ensureBotUser, isMention, isQuestionish, othersOnline, composeBotReply } from "@/lib/office/arch-kun";
 import { resolveRef, refContextForBot, type RefInput } from "@/lib/office/refs";
+import { reactionsForMessages } from "@/lib/office/reactions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,8 +37,19 @@ export async function GET(req: NextRequest) {
     take: PAGE,
   });
 
+  // リアクションは差分でなく「直近80件ぶん」を毎回返す＝既に出ている投稿に他の人が押した分も反映される
+  const windowIds = after
+    ? (await db.officeChatMessage.findMany({ where: refFilter, select: { id: true }, orderBy: { createdAt: "desc" }, take: PAGE })).map((r) => r.id)
+    : rows.map((r) => r.id);
+  const reactions = await reactionsForMessages(Array.from(new Set([...windowIds, ...rows.map((r) => r.id)])), me.id);
+
   // canDelete: 本部(ADMIN)だけが投稿を指定して消せる
-  return NextResponse.json({ meId: me.id, canDelete: me.role === "ADMIN", items: rows.reverse().map(toChatDTO) });
+  return NextResponse.json({
+    meId: me.id,
+    canDelete: me.role === "ADMIN",
+    items: rows.reverse().map((r) => toChatDTO(r, reactions[r.id] ?? [])),
+    reactions,
+  });
 }
 
 export async function POST(req: NextRequest) {

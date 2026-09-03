@@ -8,8 +8,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Send, Paperclip, X, Search, ExternalLink, Trash2 } from "lucide-react";
+import { Send, Paperclip, X, Search, ExternalLink, Trash2, SmilePlus } from "lucide-react";
 import { openOfficeThread, markChatSeen, useOfficeState } from "@/lib/office/store";
+import { REACTION_EMOJIS } from "@/lib/office/reactions";
 import { Avatar } from "./avatar";
 
 const POLL_MS = 5_000;
@@ -25,7 +26,14 @@ interface ChatDTO {
   isBot: boolean;
   text: string;
   ref: ChatRefView | null;
+  reactions: ReactionView[];
   createdAt: string;
+}
+interface ReactionView {
+  emoji: string;
+  count: number;
+  mine: boolean;
+  names: string[];
 }
 interface ChatRefView {
   kind: string;
@@ -87,14 +95,17 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
   const lastAt = useRef<string | null>(null);
   const stickToBottom = useRef(true);
 
-  const merge = useCallback((incoming: ChatDTO[]) => {
-    if (incoming.length === 0) return;
+  const merge = useCallback((incoming: ChatDTO[], reactions?: Record<string, ReactionView[]>) => {
+    if (incoming.length === 0 && !reactions) return;
     setItems((prev) => {
       const ids = new Set(prev.map((m) => m.id));
-      const next = [...prev, ...incoming.filter((m) => !ids.has(m.id))];
+      // 既に出ている投稿は、他の人が押したリアクションを取り込む（直近80件ぶんが毎回来る）
+      const kept = reactions ? prev.map((m) => (m.id in reactions ? { ...m, reactions: reactions[m.id] } : m)) : prev;
+      const next = [...kept, ...incoming.filter((m) => !ids.has(m.id))];
       next.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
       return next.slice(-200);
     });
+    if (incoming.length === 0) return;
     const newest = incoming[incoming.length - 1].createdAt;
     if (!lastAt.current || Date.parse(newest) > Date.parse(lastAt.current)) lastAt.current = newest;
     markChatSeen(newest);
@@ -111,9 +122,9 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
       const q = params.toString() ? `?${params}` : "";
       const r = await fetch(`/api/office/chat${q}`, { cache: "no-store" });
       if (!r.ok) return;
-      const d = (await r.json()) as { items: ChatDTO[]; canDelete?: boolean };
+      const d = (await r.json()) as { items: ChatDTO[]; canDelete?: boolean; reactions?: Record<string, ReactionView[]> };
       if (typeof d.canDelete === "boolean") setCanDelete(d.canDelete);
-      merge(d.items);
+      merge(d.items, d.reactions);
       setLoaded(true);
     } catch {
       /* 次で拾う */
@@ -219,6 +230,24 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
     }
   };
 
+  // 絵文字リアクション（押す／外すのトグル・先に画面を変えてから送る）
+  const react = async (id: string, emoji: string) => {
+    setItems((prev) => prev.map((m) => (m.id === id ? { ...m, reactions: toggleLocal(m.reactions, emoji) } : m)));
+    try {
+      const r = await fetch(`/api/office/chat/${encodeURIComponent(id)}/react`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emoji }),
+      });
+      const d = (await r.json().catch(() => ({}))) as { reactions?: ReactionView[]; error?: string };
+      if (!r.ok) throw new Error(d.error ?? "送れませんでした");
+      if (d.reactions) setItems((prev) => prev.map((m) => (m.id === id ? { ...m, reactions: d.reactions! } : m)));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "送れませんでした");
+      load();
+    }
+  };
+
   return (
     <div className="flex flex-col">
       {filter && (
@@ -299,6 +328,7 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
                 )}
                 <div className="flex items-start gap-2">
                   <p className="min-w-0 flex-1 text-[13.5px] text-zinc-200 leading-relaxed whitespace-pre-wrap break-words">{m.text}</p>
+                  <ReactionPicker onPick={(emoji) => react(m.id, emoji)} />
                   {canDelete && <DeleteButton onConfirm={() => remove(m.id)} />}
                 </div>
                 {m.ref && (
@@ -307,6 +337,7 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
                     onFilter={m.ref.id ? () => applyFilter({ kind: m.ref!.kind, id: m.ref!.id!, title: m.ref!.title }) : undefined}
                   />
                 )}
+                {m.reactions.length > 0 && <ReactionChips list={m.reactions} onToggle={(emoji) => react(m.id, emoji)} />}
               </div>
             </div>
           );
@@ -374,6 +405,89 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
           }}
           onClose={() => setPicker(false)}
         />
+      )}
+    </div>
+  );
+}
+
+// ==============================================================
+// 絵文字リアクション（固定6種・押す／外す・数と押した人が見える・通知は出さない）
+// ==============================================================
+function toggleLocal(list: ReactionView[], emoji: string): ReactionView[] {
+  const cur = list.find((r) => r.emoji === emoji);
+  if (cur?.mine) {
+    return list.map((r) => (r.emoji === emoji ? { ...r, mine: false, count: r.count - 1, names: r.names.filter((n) => n !== "自分") } : r)).filter((r) => r.count > 0);
+  }
+  const next = cur
+    ? list.map((r) => (r.emoji === emoji ? { ...r, mine: true, count: r.count + 1, names: [...r.names, "自分"] } : r))
+    : [...list, { emoji, count: 1, mine: true, names: ["自分"] }];
+  const order = (e: string) => (REACTION_EMOJIS as readonly string[]).indexOf(e);
+  return next.sort((a, b) => order(a.emoji) - order(b.emoji));
+}
+
+function ReactionChips({ list, onToggle }: { list: ReactionView[]; onToggle: (emoji: string) => void }) {
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {list.map((r) => (
+        <button
+          key={r.emoji}
+          type="button"
+          onClick={() => onToggle(r.emoji)}
+          title={r.names.length > 0 ? r.names.join("、") : undefined}
+          aria-pressed={r.mine}
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[12px] leading-none transition-colors ${
+            r.mine ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-100" : "border-white/10 bg-white/[0.04] text-zinc-300 hover:border-white/25"
+          }`}
+        >
+          <span>{r.emoji}</span>
+          <span className="tabular-nums text-[11px]">{r.count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+  return (
+    <div ref={boxRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title="リアクションする"
+        aria-label="リアクションする"
+        className={`p-1 rounded text-zinc-600 hover:text-emerald-300 hover:bg-white/[0.08] transition-opacity ${
+          open ? "opacity-100 text-emerald-300" : "opacity-0 group-hover/msg:opacity-100 focus:opacity-100"
+        }`}
+      >
+        <SmilePlus className="w-3.5 h-3.5" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-20 mt-1 flex gap-0.5 rounded-full border border-white/10 bg-[#0d1119] px-1.5 py-1 shadow-xl">
+          {REACTION_EMOJIS.map((e) => (
+            <button
+              key={e}
+              type="button"
+              onClick={() => {
+                onPick(e);
+                setOpen(false);
+              }}
+              className="h-7 w-7 rounded-full text-[16px] leading-none hover:bg-white/[0.1] active:scale-110 transition"
+              aria-label={e}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

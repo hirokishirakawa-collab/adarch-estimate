@@ -400,6 +400,7 @@ model User {
   officeKnocksSent     OfficeKnock[]       @relation("OfficeKnockFrom")
   officeKnocksReceived OfficeKnock[]       @relation("OfficeKnockTo")
   officeChatMessages   OfficeChatMessage[]
+  officeChatReactions  OfficeChatReaction[]
 
   chatSpaceId String? // Google Chat 個人スペースID
 
@@ -3231,8 +3232,26 @@ model OfficeChatMessage {
   refSub   String?
   refHref  String?
 
+  reactions OfficeChatReaction[]
+
   @@index([createdAt(sort: Desc)])
   @@map("office_chat_messages")
+}
+
+// 投稿への絵文字リアクション（👍❤️🔥👏😂🙏 の固定セット・1人1投稿1絵文字につき1件）
+//   通知は出さない＝声かけの場を騒がしくしない（2026-09-03）
+model OfficeChatReaction {
+  id        String            @id @default(cuid())
+  messageId String
+  message   OfficeChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String
+  createdAt DateTime          @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@map("office_chat_reactions")
 }
 
 model OfficeKnock {
