@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { Calculator, FileDown, MessageCircle, PenLine, Pencil } from "lucide-react";
+import { Calculator, FileDown, MessageCircle, MessageSquareHeart, PenLine, Pencil } from "lucide-react";
 import { PackageShareLink } from "@/components/packages/share-link";
 import { TverAreaCalculator } from "@/components/packages/tver-area-calculator";
 import { TVER_AREA_CALCULATOR } from "@/lib/packages/tver-area";
@@ -81,7 +81,18 @@ export default async function PackageDetailPage({
   const mine = pkg.proposedById === me.id;
   const canEdit = isAdmin || (mine && pkg.status === "PROPOSED");
 
-  const [stats, approaches] = await Promise.all([getPackageStats([pkg.id]), getPackageApproaches(pkg.id)]);
+  const [stats, approaches, feedbacks] = await Promise.all([
+    getPackageStats([pkg.id]),
+    getPackageApproaches(pkg.id),
+    // フィードバック: 本部は全部、各社は自分の拠点の分だけ
+    db.packageFeedback.findMany({
+      where: { packageId: pkg.id, ...(isAdmin ? {} : { groupCompanyId: me.groupCompanyId ?? "__none__" }) },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: { id: true, senderName: true, usedFor: true, usability: true, body: true, createdAt: true, groupCompany: { select: { name: true } } },
+    }),
+  ]);
+  const feedbackUrl = `/feedback/${pkg.slug}${me.groupCompanyId ? `?from=${me.groupCompanyId}` : ""}`;
   const s = stats[pkg.id];
   const deliverables = parseDeliverables(pkg.deliverables);
   const options = parseOptions(pkg.options);
@@ -156,6 +167,11 @@ export default async function PackageDetailPage({
           <Link href={`/dashboard/live?ref=package:${pkg.id}`} className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100">
             <MessageCircle className="w-3.5 h-3.5" />チャットでこれについて聞く
           </Link>
+          {active && (
+            <a href={feedbackUrl} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-orange-700 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100">
+              <MessageSquareHeart className="w-3.5 h-3.5" />使ってみた感想を送る
+            </a>
+          )}
           <div className="ml-auto flex items-center gap-2">
             {canEdit && (
               <Link href={`/dashboard/packages/${pkg.slug}/edit`} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-zinc-700 border border-zinc-300 rounded-lg hover:bg-zinc-50">
@@ -288,6 +304,33 @@ export default async function PackageDetailPage({
           </ul>
         )}
       </Section>
+
+      {/* フィードバック（AI用データ・パッケージを使った感想）。本部=全部／各社=自分の分 */}
+      <div id="feedback">
+        <Section
+          title={`使ってみた感想（${feedbacks.length}）${isAdmin ? "" : "＝自分の拠点の分"}`}
+          aside={active ? <a href={feedbackUrl} target="_blank" rel="noopener" className="text-xs font-bold text-orange-700 hover:underline">感想を送る ↗</a> : undefined}
+        >
+          {feedbacks.length === 0 ? (
+            <Empty text="まだ感想はありません。AI用データを使ったら「使ってみた感想を送る」から1分で送れます。" />
+          ) : (
+            <ul className="divide-y divide-zinc-100">
+              {feedbacks.map((f) => (
+                <li key={f.id} className="py-2.5 text-sm">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap ${f.usability === "そのまま使えた" ? "bg-emerald-600 text-white" : f.usability === "使えなかった" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>{f.usability}</span>
+                    <span className="font-semibold text-zinc-800">{f.senderName}</span>
+                    {f.groupCompany && <span className="text-xs text-zinc-500">{f.groupCompany.name}</span>}
+                    <span className="text-xs text-zinc-500">{f.usedFor.join("・")}</span>
+                    <span className="text-[11px] text-zinc-400 ml-auto">{new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeZone: "Asia/Tokyo" }).format(f.createdAt)}</span>
+                  </div>
+                  {f.body && <p className="text-zinc-700 mt-1 whitespace-pre-wrap">{f.body}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      </div>
 
       <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
         <LinkedChat kind="package" id={pkg.id} title={pkg.name} />

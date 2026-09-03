@@ -2030,6 +2030,7 @@ model GroupCompany {
   applications         ProjectApplication[]           @relation("Applications")
   salesInsights        SalesInsight[]
   salesApproaches      SalesApproach[]
+  packageFeedbacks     PackageFeedback[]              @relation("PackageFeedbacks")
   groupMoves           GroupMove[]                    @relation("GroupMoves")
 
   // ---- 稼働ステータス管理 ----
@@ -2399,6 +2400,7 @@ model SalesPackage {
 
   leadLogs        LeadLog[]
   salesApproaches SalesApproach[]
+  feedbacks       PackageFeedback[]
 
   @@index([status])
   @@index([category])
@@ -2408,6 +2410,32 @@ model SalesPackage {
 /// パッケージのサムネイル本体。Railwayのファイルストレージは appuser で /data に書けず /tmp に落ちて
 /// デプロイで消えるため、TVerチラシのヒーロー写真と同じく DB に持つ（横1600px JPEG・数百KB）。
 /// 公開ページ（ログイン不要）からも読むので GET は認証なし。
+// ==============================================================
+// パッケージのフィードバック（AI用データ・パッケージを使った感想）
+//   /feedback/<slug>?from=<加盟会社ID> のログイン不要フォームから入る。
+//   Googleフォーム（2026-09）と同じ4問。本部はCEOアラートChatで即時に知る
+// ==============================================================
+model PackageFeedback {
+  id String @id @default(cuid())
+
+  packageId String
+  package   SalesPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  groupCompanyId String? // from= で特定できた拠点（無ければ null＝名前欄だけ）
+  groupCompany   GroupCompany? @relation("PackageFeedbacks", fields: [groupCompanyId], references: [id], onDelete: SetNull)
+
+  senderName String // お名前（拠点）
+  usedFor    String[] @default([]) // 何に使ったか（提案メール(A) など複数）
+  usability  String // そのまま使えた / 少し直して使えた / かなり直した / 使えなかった
+  body       String? @db.Text // 結果・違和感・困った点・欲しいデータ
+
+  createdAt DateTime @default(now())
+
+  @@index([packageId, createdAt])
+  @@index([groupCompanyId])
+  @@map("package_feedbacks")
+}
+
 model SalesPackageImage {
   id        String   @id @default(cuid())
   data      Bytes
