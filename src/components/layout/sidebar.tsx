@@ -67,6 +67,7 @@ import {
   Award,
   MapPinned,
   Package,
+  Palette,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -542,6 +543,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/vault",
         label: "AdArch Vault（素材コピー）",
         icon: ShieldCheck,
+        minRole: "USER",
+      },
+      {
+        href: "/dashboard/brand-kit",
+        label: "ブランドキット（資料の型・AI用材料）",
+        icon: Palette,
         minRole: "USER",
       },
     ],
