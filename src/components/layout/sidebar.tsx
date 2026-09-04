@@ -823,6 +823,7 @@ const CONTENT_TAB_ITEMS: Record<string, NavItem[]> = {
 
 // ⑤ 管理: 申告・連絡・参照（外部リンク対応の別レンダラ）
 const ADMIN_TAB_ITEMS: NavItem[] = [
+  { href: "/dashboard/brand-kit", label: "ブランドキット（資料の型・AI用材料）", icon: Palette, minRole: "USER" },
   { href: "/dashboard/admin/sales-overview", label: "代表別 営業ダッシュボード", icon: TrendingUp, minRole: "ADMIN" },
   { href: "/dashboard/partner-status", label: "稼働ステータス申告", icon: Activity, minRole: "MANAGER" },
   {
@@ -836,7 +837,6 @@ const ADMIN_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/business-cards", label: "名刺管理", icon: ContactRound, minRole: "USER" },
   { href: "/dashboard/wiki", label: "社内Wiki", icon: BookOpen, minRole: "USER" },
   { href: "/dashboard/learning", label: "ラーニング", icon: GraduationCap, minRole: "USER" },
-  { href: "/dashboard/brand-kit", label: "ブランドキット（資料の型・AI用材料）", icon: Palette, minRole: "USER" },
 ];
 
 type SidebarTab = "sell" | "propose" | "deliver" | "money" | "admin" | "all";
