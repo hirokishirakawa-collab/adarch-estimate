@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { promises as fs } from "fs";
 import path from "path";
 import { Palette, Download, FileText, Presentation, Info } from "lucide-react";
-import { BrandKitTabs, type KitMaterial } from "./BrandKitTabs";
-import { buildPackageMaterials, buildMediaMaterials } from "@/lib/brand-kit/materials";
+import { BrandKitPicker, type KitMaterial } from "./BrandKitPicker";
+import { buildPackageMaterials, buildMediaMaterials, resolveViewer } from "@/lib/brand-kit/materials";
 
 export const metadata = {
   title: "ブランドキット | Ad Arch OS",
@@ -49,12 +49,15 @@ export default async function BrandKitPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const [staticMaterials, packageMaterials, mediaMaterials] = await Promise.all([
+  const email = session.user.email ?? "";
+  const [staticMaterials, packageMaterials, mediaMaterials, viewer] = await Promise.all([
     Promise.all(MATERIALS.map(async (m) => ({ ...m, body: await readKitFile(m.downloadHref) }))),
-    buildPackageMaterials(session.user.email ?? ""),
-    buildMediaMaterials(session.user.email ?? ""),
+    buildPackageMaterials(email),
+    buildMediaMaterials(email),
+    resolveViewer(email),
   ]);
   const materials: KitMaterial[] = [...staticMaterials, ...packageMaterials, ...mediaMaterials];
+  const sender = { company: viewer?.sender?.company ?? null, prefecture: viewer?.sender?.prefecture ?? null };
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-5">
@@ -66,7 +69,7 @@ export default async function BrandKitPage() {
         <div>
           <h2 className="text-lg font-bold text-zinc-900">ブランドキット</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            資料の型（色・書体・写真の決まり）と、お使いのAIに貼るための材料。メニュー別・媒体別の材料は、開くたびにOSのパッケージ台帳・シミュレーターの料金・貴社の拠点・グループの実データから組み直します
+            材料を選んで持っていくと、お使いのAIがアドアーチグループ仕様になります。メニュー別・媒体別の材料は、開くたびにOSの台帳・シミュレーターの料金・貴社の拠点・グループの実データから組み直します
           </p>
         </div>
       </div>
@@ -77,19 +80,19 @@ export default async function BrandKitPage() {
           <Info className="w-4 h-4 text-zinc-400 mt-0.5 shrink-0" />
           <div className="text-sm text-zinc-700 leading-relaxed space-y-1">
             <p>
-              <strong>1.</strong> 下の材料を「全文をコピー」して、お使いのAI（Claude / ChatGPT / Gemini）に貼る。
-              <strong className="ml-2">2.</strong> 材料の最後にある「指示文」のどれかを送る。
-              <strong className="ml-2">3.</strong> 出てきた文面を、テンプレの資料に入れる。
+              <strong>1.</strong> 使う材料にチェックを入れる。
+              <strong className="ml-2">2.</strong> 下の「AIをアドアーチ仕様にする」でコピーし、お使いのAI（Claude / ChatGPT / Gemini）に貼る。
+              <strong className="ml-2">3.</strong> 材料の末尾にある「指示文」のどれかを送る。出てきた文面をテンプレの資料に入れる。
             </p>
             <p className="text-xs text-zinc-500">
-              数字・価格の正本は Ad Arch OS のパッケージ公開ページです。メニュー別の材料は開くたびに最新なので、使う直前にここからコピーしてください。
+              コピーの冒頭には「AIへの指示」（差出人・数字の扱い・言ってはいけないこと・見た目の決まり）が自動で付きます。数字・価格の正本は Ad Arch OS です。使う直前にここから取り直してください。
             </p>
           </div>
         </div>
       </div>
 
       {/* AIに貼る材料 */}
-      <BrandKitTabs materials={materials} />
+      <BrandKitPicker materials={materials} sender={sender} />
 
       {/* ダウンロード */}
       <div className="space-y-3">
