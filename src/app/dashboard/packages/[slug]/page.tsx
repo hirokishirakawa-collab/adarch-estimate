@@ -22,6 +22,7 @@ import {
 } from "@/lib/packages/types";
 import { PackageStatusActions } from "@/components/packages/package-status-actions";
 import { CopyTextButton } from "@/components/packages/copy-text-button";
+import { buildOnePackageMaterial } from "@/lib/brand-kit/materials";
 import { LinkedChat } from "@/components/office/linked-chat";
 import type { SalesPackageStatus, SalesApproachResult } from "@/generated/prisma/client";
 
@@ -100,6 +101,8 @@ export default async function PackageDetailPage({
   const docs = parseDocs(pkg.docs);
   const active = pkg.status === "ACTIVE";
   const pitch = pkg.pitchText ?? "";
+  // AI用の材料（ブランドキットと同じ生成器。稼働中、または本部の確認用）
+  const material = active || isAdmin ? await buildOnePackageMaterial(session!.user!.email!, pkg.slug) : null;
 
   return (
     <div className="px-6 py-6 space-y-5 max-w-5xl mx-auto w-full">
@@ -183,6 +186,17 @@ export default async function PackageDetailPage({
         </div>
 
         {active && <PackageShareLink url={publicUrl} />}
+        {material && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-orange-200 bg-orange-50/60 px-3 py-2">
+            <span className="text-[11px] font-bold text-orange-700">AI用の材料</span>
+            <span className="text-[11px] text-zinc-600">このパッケージの事実・貴社の県の目安・営業の型・指示文を1枚に。お使いのAIに貼ってから指示文を送ってください</span>
+            <div className="ml-auto flex items-center gap-2">
+              <CopyTextButton text={material} label="AI用の材料をコピー" className="bg-white" />
+              <a href={`/api/brand-kit/material/${pkg.slug}`} className="text-[11px] font-bold text-zinc-600 underline underline-offset-2 hover:text-zinc-900">.md</a>
+              <Link href="/dashboard/brand-kit" className="text-[11px] font-bold text-zinc-600 underline underline-offset-2 hover:text-zinc-900">ブランドキット</Link>
+            </div>
+          </div>
+        )}
 
         {/* 実績 */}
         <div className="mt-4 grid grid-cols-3 gap-2 max-w-md">

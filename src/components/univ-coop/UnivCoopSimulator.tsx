@@ -5,32 +5,15 @@ import { ChevronDown, ChevronRight, RotateCcw, GraduationCap, AlertTriangle } fr
 import { cn } from "@/lib/utils";
 import { UNIV_STORES, UNIV_PREF_ORDER } from "@/data/univ-stores";
 import { SimulatorPDFButton } from "@/components/simulator/simulator-pdf-button";
+import { PRINT_TIERS, getPrintUnitPrice, PLACEMENT_UNIT, SHIPPING_UNIT, DESIGN_FEE } from "@/lib/media/univ-coop";
 
 // ────────────────────────────────────────────────────────────────
 // 価格テーブル
 // ────────────────────────────────────────────────────────────────
 
 // 印刷費：総印刷枚数で tier を決め、全量に同一単価を適用
-const PRINT_TIERS: { min: number; max: number; unitPrice: number }[] = [
-  { min: 100,  max: 299,      unitPrice: 1800 },
-  { min: 300,  max: 399,      unitPrice:  670 },
-  { min: 400,  max: 499,      unitPrice:  500 },
-  { min: 500,  max: 999,      unitPrice:  430 },
-  { min: 1000, max: 1499,     unitPrice:  230 },
-  { min: 1500, max: 1999,     unitPrice:  175 },
-  { min: 2000, max: 2999,     unitPrice:  155 },
-  { min: 3000, max: 4999,     unitPrice:  130 },
-  { min: 5000, max: Infinity, unitPrice:  110 },
-];
 
-function getPrintUnitPrice(totalSheets: number): number | null {
-  const tier = PRINT_TIERS.find(t => totalSheets >= t.min && totalSheets <= t.max);
-  return tier?.unitPrice ?? null;
-}
 
-const PLACEMENT_UNIT = 700;   // 掲載費 ¥700/枚
-const SHIPPING_UNIT  = 2600;  // 発送費 ¥2,600/食堂
-const DESIGN_FEE     = 150000; // デザイン制作費 ¥150,000/案
 
 function formatYen(n: number) {
   return "¥" + Math.round(n).toLocaleString("ja-JP");

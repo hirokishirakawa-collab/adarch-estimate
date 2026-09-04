@@ -5,43 +5,19 @@ import { ChevronDown, ChevronRight, Search, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SELECTABLE_MUNICIPALITIES, PREFECTURES } from "@/data/tver-municipalities";
 import { SimulatorPDFButton } from "@/components/simulator/simulator-pdf-button";
+import { TVER_PENETRATION, TAX_RATE, type AdSeconds, AD_FORMATS, sellCpm, calcAdArchFees } from "@/lib/media/tver-sim";
 
 // ----------------------------------------------------------------
 // 定数
 // ----------------------------------------------------------------
-const TVER_PENETRATION = 0.30; // TVer普及率（約30%）
-const TAX_RATE = 0.10;
 
-type AdSeconds = 6 | 15 | 30 | 45 | 60;
 
 // CPMフロア価格（ネット）/ 令和最新版
-const AD_FORMATS: { seconds: AdSeconds; label: string; cpm: number; note?: string }[] = [
-  { seconds: 6,  label: "6秒",  cpm: 3200, note: "バンパー" },
-  { seconds: 15, label: "15秒", cpm: 4400, note: "標準" },
-  { seconds: 30, label: "30秒", cpm: 5200 },
-  { seconds: 45, label: "45秒", cpm: 6000 },
-  { seconds: 60, label: "60秒", cpm: 7400 },
-];
 
-// TVer再生単価 = フロア価格 × 1.5（卸値×3）/ 秒数別
-const SELL_MULTIPLIER = 1.5;
-const sellCpm = (seconds: AdSeconds) =>
-  (AD_FORMATS.find((f) => f.seconds === seconds)?.cpm ?? 0) * SELL_MULTIPLIER;
 
 // ----------------------------------------------------------------
 // アドアーチ手数料ルール
 // ----------------------------------------------------------------
-function calcAdArchFees(mediaBudget: number, isFirstTransaction: boolean, creativeCount: number) {
-  // 媒体管理費: 50万以下→10万固定, 50万超→20%
-  const managementFee = mediaBudget <= 500000 ? 100000 : mediaBudget * 0.20;
-  // クリエイティブ考査費（1本3万円 × 本数、0本なら無し）
-  const creativeFee = 30000 * creativeCount;
-  // 初期取引（業態考査含む）
-  const initialFee = isFirstTransaction ? 150000 : 0;
-
-  const subtotal = managementFee + creativeFee + initialFee;
-  return { managementFee, creativeFee, creativeCount, initialFee, subtotal };
-}
 
 // ----------------------------------------------------------------
 // ユーティリティ

@@ -11,7 +11,14 @@ export interface KitMaterial {
   version: string;
   body: string;
   downloadHref: string;
+  group: "static" | "package" | "media";
 }
+
+const GROUP_LABEL: Record<KitMaterial["group"], string> = {
+  static: "共通の決まり",
+  package: "メニュー別（パッケージ台帳から自動生成）",
+  media: "媒体別（シミュレーターから自動生成）",
+};
 
 export function BrandKitTabs({ materials }: { materials: KitMaterial[] }) {
   const [active, setActive] = useState(materials[0]?.id ?? "");
@@ -29,37 +36,42 @@ export function BrandKitTabs({ materials }: { materials: KitMaterial[] }) {
     }
   };
 
+  const groups = (["static", "package", "media"] as const).map((g) => ({ g, items: materials.filter((m) => m.group === g) })).filter((x) => x.items.length);
+
   return (
     <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-      {/* タブ */}
-      <div className="flex items-center gap-1 px-3 pt-3 border-b border-zinc-200 overflow-x-auto">
-        {materials.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => {
-              setActive(m.id);
-              setCopied(false);
-            }}
-            className={[
-              "px-3 py-2 text-xs font-bold rounded-t-lg whitespace-nowrap transition-colors border-b-2",
-              m.id === active
-                ? "text-zinc-900 border-orange-500"
-                : "text-zinc-500 border-transparent hover:text-zinc-800",
-            ].join(" ")}
-          >
-            {m.label}
-          </button>
+      {/* タブ（グループごと） */}
+      <div className="px-4 pt-3 border-b border-zinc-200 space-y-2">
+        {groups.map(({ g, items }) => (
+          <div key={g} className="flex items-center gap-1 overflow-x-auto">
+            <span className="text-[10px] font-bold tracking-wider text-zinc-400 whitespace-nowrap mr-2 shrink-0">{GROUP_LABEL[g]}</span>
+            {items.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  setActive(m.id);
+                  setCopied(false);
+                }}
+                className={[
+                  "px-3 py-2 text-xs font-bold rounded-t-lg whitespace-nowrap transition-colors border-b-2",
+                  m.id === active ? "text-zinc-900 border-orange-500" : "text-zinc-500 border-transparent hover:text-zinc-800",
+                ].join(" ")}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
         ))}
       </div>
 
       {/* 操作行 */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-zinc-50 border-b border-zinc-200">
-        <div className="text-xs text-zinc-600">
+        <div className="text-xs text-zinc-600 min-w-0">
           <span className="font-bold text-zinc-800">{current.version}</span>
           <span className="mx-2 text-zinc-300">|</span>
           {current.note}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <a
             href={current.downloadHref}
             download

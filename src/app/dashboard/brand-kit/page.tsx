@@ -4,6 +4,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { Palette, Download, FileText, Presentation, Info } from "lucide-react";
 import { BrandKitTabs, type KitMaterial } from "./BrandKitTabs";
+import { buildPackageMaterials, buildMediaMaterials } from "@/lib/brand-kit/materials";
 
 export const metadata = {
   title: "ブランドキット | Ad Arch OS",
@@ -19,13 +20,7 @@ const MATERIALS: Omit<KitMaterial, "body">[] = [
     note: "色・書体・写真・組み方。AIに貼ってから指示文を送る",
     version: "2026-09-04版",
     downloadHref: "/downloads/kit/brand-rules_2026-09-04.md",
-  },
-  {
-    id: "local-reach",
-    label: "地域リーチ固定パッケージ（TVer）",
-    note: "パッケージの事実・エリア別の目安・言ってよいこと・指示文",
-    version: "2026-09-03版（サンプル）",
-    downloadHref: "/downloads/kit/local-reach-package_2026-09-03.md",
+    group: "static",
   },
 ];
 
@@ -54,9 +49,12 @@ export default async function BrandKitPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const materials: KitMaterial[] = await Promise.all(
-    MATERIALS.map(async (m) => ({ ...m, body: await readKitFile(m.downloadHref) }))
-  );
+  const [staticMaterials, packageMaterials, mediaMaterials] = await Promise.all([
+    Promise.all(MATERIALS.map(async (m) => ({ ...m, body: await readKitFile(m.downloadHref) }))),
+    buildPackageMaterials(session.user.email ?? ""),
+    buildMediaMaterials(session.user.email ?? ""),
+  ]);
+  const materials: KitMaterial[] = [...staticMaterials, ...packageMaterials, ...mediaMaterials];
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-5">
@@ -68,7 +66,7 @@ export default async function BrandKitPage() {
         <div>
           <h2 className="text-lg font-bold text-zinc-900">ブランドキット</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            資料の型（色・書体・写真の決まり）と、お使いのAIに貼るための材料。ここにあるものが常に最新版です
+            資料の型（色・書体・写真の決まり）と、お使いのAIに貼るための材料。メニュー別・媒体別の材料は、開くたびにOSのパッケージ台帳・シミュレーターの料金・貴社の拠点・グループの実データから組み直します
           </p>
         </div>
       </div>
@@ -84,7 +82,7 @@ export default async function BrandKitPage() {
               <strong className="ml-2">3.</strong> 出てきた文面を、テンプレの資料に入れる。
             </p>
             <p className="text-xs text-zinc-500">
-              数字・価格の正本は Ad Arch OS のパッケージ公開ページです。材料は月1回このページから取り直してください。
+              数字・価格の正本は Ad Arch OS のパッケージ公開ページです。メニュー別の材料は開くたびに最新なので、使う直前にここからコピーしてください。
             </p>
           </div>
         </div>
