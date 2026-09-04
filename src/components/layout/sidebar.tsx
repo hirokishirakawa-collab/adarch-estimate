@@ -836,6 +836,7 @@ const ADMIN_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/business-cards", label: "名刺管理", icon: ContactRound, minRole: "USER" },
   { href: "/dashboard/wiki", label: "社内Wiki", icon: BookOpen, minRole: "USER" },
   { href: "/dashboard/learning", label: "ラーニング", icon: GraduationCap, minRole: "USER" },
+  { href: "/dashboard/brand-kit", label: "ブランドキット（資料の型・AI用材料）", icon: Palette, minRole: "USER" },
 ];
 
 type SidebarTab = "sell" | "propose" | "deliver" | "money" | "admin" | "all";
