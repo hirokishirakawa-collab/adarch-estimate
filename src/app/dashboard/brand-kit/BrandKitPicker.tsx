@@ -12,13 +12,18 @@ export interface KitMaterial {
   version: string;
   body: string;
   downloadHref: string;
-  group: "static" | "package" | "media";
+  group: "static" | "company" | "sales" | "package" | "media" | "finder" | "wiki";
 }
 
+const GROUP_ORDER: KitMaterial["group"][] = ["static", "company", "sales", "package", "media", "finder", "wiki"];
 const GROUP_LABEL: Record<KitMaterial["group"], { title: string; sub: string }> = {
   static: { title: "共通の決まり", sub: "色・書体・写真・組み方。どの材料と一緒に貼ってもよい" },
+  company: { title: "会社紹介", sub: "公開情報とOSの拠点データ。提案の「私たちは誰か」を一定にする" },
+  sales: { title: "営業の言い回し", sub: "本部の型と、グループの記録からの学び（匿名）" },
   package: { title: "メニュー別", sub: "パッケージ台帳から自動生成。貴社の拠点と県の数字が入っています" },
   media: { title: "媒体別", sub: "シミュレーターと同じ料金から自動生成。金額はシミュレーターで組んでからお客様へ" },
+  finder: { title: "切り口", sub: "周年・補助金・入札・広告賞。財源と送り時のほうから話を持っていく" },
+  wiki: { title: "本部Wikiから", sub: "タグ「AI材料」を付けた本部の記事。記事が増えれば材料も増える" },
 };
 
 const dateTag = () => new Date().toISOString().slice(0, 10);
@@ -48,7 +53,7 @@ export function BrandKitPicker({ materials, sender }: { materials: KitMaterial[]
 
   const preview = materials.find((m) => m.id === previewId) ?? materials[0];
   const chosen = useMemo(() => materials.filter((m) => selected.has(m.id)), [materials, selected]);
-  const groups = (["static", "package", "media"] as const).map((g) => ({ g, items: materials.filter((m) => m.group === g) })).filter((x) => x.items.length);
+  const groups = GROUP_ORDER.map((g) => ({ g, items: materials.filter((m) => m.group === g) })).filter((x) => x.items.length);
 
   const toggle = (id: string) =>
     setSelected((prev) => {

@@ -4,7 +4,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { Palette, Download, FileText, Presentation, Info } from "lucide-react";
 import { BrandKitPicker, type KitMaterial } from "./BrandKitPicker";
-import { buildPackageMaterials, buildMediaMaterials, resolveViewer } from "@/lib/brand-kit/materials";
+import { buildPackageMaterials, buildMediaMaterials, buildExtraMaterials, resolveViewer } from "@/lib/brand-kit/materials";
 
 export const metadata = {
   title: "ブランドキット | Ad Arch OS",
@@ -50,13 +50,14 @@ export default async function BrandKitPage() {
   if (!session?.user) redirect("/login");
 
   const email = session.user.email ?? "";
-  const [staticMaterials, packageMaterials, mediaMaterials, viewer] = await Promise.all([
+  const [staticMaterials, packageMaterials, mediaMaterials, extraMaterials, viewer] = await Promise.all([
     Promise.all(MATERIALS.map(async (m) => ({ ...m, body: await readKitFile(m.downloadHref) }))),
     buildPackageMaterials(email),
     buildMediaMaterials(email),
+    buildExtraMaterials(email),
     resolveViewer(email),
   ]);
-  const materials: KitMaterial[] = [...staticMaterials, ...packageMaterials, ...mediaMaterials];
+  const materials: KitMaterial[] = [...staticMaterials, ...extraMaterials.filter((m) => m.group === "company" || m.group === "sales"), ...packageMaterials, ...mediaMaterials, ...extraMaterials.filter((m) => m.group === "finder" || m.group === "wiki")];
   const sender = { company: viewer?.sender?.company ?? null, prefecture: viewer?.sender?.prefecture ?? null };
 
   return (
