@@ -24,6 +24,8 @@ function actionBadgeColor(action: string): string {
     return "bg-violet-50 text-violet-700 border-violet-200";
   if (action === "member_registered" || action === "feature_toggled")
     return "bg-blue-50 text-blue-700 border-blue-200";
+  if (action === "brand_kit_download" || action === "brand_kit_copy")
+    return "bg-orange-50 text-orange-700 border-orange-200";
   return "bg-zinc-50 text-zinc-600 border-zinc-200";
 }
 
@@ -68,6 +70,8 @@ const ACTION_OPTIONS: { value: string; label: string }[] = [
   { value: "project_updated", label: "PJ更新" },
   { value: "estimation_created", label: "見積作成" },
   { value: "invoice_created", label: "請求書作成" },
+  { value: "brand_kit_download", label: "ブランドキットDL（md/ZIP）" },
+  { value: "brand_kit_copy", label: "ブランドキットコピー" },
 ];
 
 // ----------------------------------------------------------------
@@ -271,7 +275,7 @@ export default async function AuditLogsPage({ searchParams }: PageProps) {
 
                   {/* 詳細 */}
                   <td className="px-4 py-3">
-                    <div className="text-zinc-600 text-xs max-w-[300px] truncate">
+                    <div className="text-zinc-600 text-xs max-w-[300px] truncate" title={log.detail ?? undefined}>
                       {log.detail ?? "-"}
                     </div>
                     {log.entity && (

@@ -45,6 +45,20 @@ function triggerDownload(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+/** 持ち出し（コピー・DL）を本部の監査ログへ記録する。失敗しても操作は止めない */
+function track(event: "download" | "copy", kind: "material" | "combined" | "zip" | "copy_one" | "copy_all", items: KitMaterial[]) {
+  try {
+    void fetch("/api/brand-kit/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event, kind, items: items.map((m) => m.label) }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    /* noop */
+  }
+}
+
 export function BrandKitPicker({ materials, sender }: { materials: KitMaterial[]; sender: { company: string | null; prefecture: string | null } }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set(materials.filter((m) => m.group === "static").map((m) => m.id)));
   const [previewId, setPreviewId] = useState<string>(materials.find((m) => m.group === "package")?.id ?? materials[0]?.id ?? "");
@@ -76,7 +90,8 @@ export function BrandKitPicker({ materials, sender }: { materials: KitMaterial[]
     setCopied(key);
     setTimeout(() => setCopied(""), 1800);
   };
-  const copyText = async (text: string, key: string) => {
+  const copyText = async (text: string, key: string, kind: "copy_one" | "copy_all", items: KitMaterial[]) => {
+    track("copy", kind, items);
     try {
       await navigator.clipboard.writeText(text);
       flash(key);
@@ -86,10 +101,12 @@ export function BrandKitPicker({ materials, sender }: { materials: KitMaterial[]
   };
   const downloadCombined = () => {
     if (!chosen.length) return;
+    track("download", "combined", chosen);
     triggerDownload(new Blob([combine(chosen, sender)], { type: "text/markdown;charset=utf-8" }), `アドアーチ仕様_AI設定_${dateTag()}.md`);
   };
   const downloadZip = async () => {
     if (!chosen.length) return;
+    track("download", "zip", chosen);
     setBusy(true);
     try {
       const JSZip = (await import("jszip")).default;
@@ -150,10 +167,10 @@ export function BrandKitPicker({ materials, sender }: { materials: KitMaterial[]
                           <button onClick={() => setPreviewId(m.id)} title="プレビュー" className={`${btn} px-2 py-1.5 border ${isPrev ? "border-orange-300 text-orange-700 bg-white" : "border-zinc-200 text-zinc-600 hover:bg-white"}`}>
                             <Eye className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => copyText(m.body, m.id)} title="この材料だけコピー" className={`${btn} px-2 py-1.5 border border-zinc-200 text-zinc-600 hover:bg-white`}>
+                          <button onClick={() => copyText(m.body, m.id, "copy_one", [m])} title="この材料だけコピー" className={`${btn} px-2 py-1.5 border border-zinc-200 text-zinc-600 hover:bg-white`}>
                             {copied === m.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
-                          <a href={m.downloadHref} download title=".md をダウンロード" className={`${btn} px-2 py-1.5 border border-zinc-200 text-zinc-600 hover:bg-white`}>
+                          <a href={m.downloadHref} download onClick={() => m.downloadHref.startsWith("/downloads/") && track("download", "material", [m])} title=".md をダウンロード" className={`${btn} px-2 py-1.5 border border-zinc-200 text-zinc-600 hover:bg-white`}>
                             <FileText className="w-3.5 h-3.5" />
                           </a>
                         </div>
@@ -176,10 +193,10 @@ export function BrandKitPicker({ materials, sender }: { materials: KitMaterial[]
                   <p className="text-[11px] text-zinc-500 truncate">{preview.version}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <a href={preview.downloadHref} download className={`${btn} px-3 py-1.5 border border-zinc-300 text-zinc-700 hover:bg-zinc-50`}>
+                  <a href={preview.downloadHref} download onClick={() => preview.downloadHref.startsWith("/downloads/") && track("download", "material", [preview])} className={`${btn} px-3 py-1.5 border border-zinc-300 text-zinc-700 hover:bg-zinc-50`}>
                     <FileText className="w-3.5 h-3.5" />.md
                   </a>
-                  <button onClick={() => copyText(preview.body, "preview")} className={`${btn} px-3 py-1.5 bg-zinc-900 text-white hover:bg-zinc-800`}>
+                  <button onClick={() => copyText(preview.body, "preview", "copy_one", [preview])} className={`${btn} px-3 py-1.5 bg-zinc-900 text-white hover:bg-zinc-800`}>
                     {copied === "preview" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     {copied === "preview" ? "コピーしました" : "この材料をコピー"}
                   </button>
@@ -204,7 +221,7 @@ export function BrandKitPicker({ materials, sender }: { materials: KitMaterial[]
             <span className="text-zinc-400 text-xs">選択中{chosen.length ? `：${chosen.map((m) => m.label).join("／")}` : ""}</span>
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <button disabled={!chosen.length} onClick={() => copyText(combine(chosen, sender), "all")} className={`${btn} px-4 py-2 bg-orange-500 text-zinc-900 hover:bg-orange-400 disabled:opacity-40`}>
+            <button disabled={!chosen.length} onClick={() => copyText(combine(chosen, sender), "all", "copy_all", chosen)} className={`${btn} px-4 py-2 bg-orange-500 text-zinc-900 hover:bg-orange-400 disabled:opacity-40`}>
               {copied === "all" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               {copied === "all" ? "コピーしました" : "AIをアドアーチ仕様にする（全文コピー）"}
             </button>
