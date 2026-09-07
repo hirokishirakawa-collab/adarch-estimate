@@ -6,7 +6,8 @@ import { createHmac } from "crypto";
 // ----------------------------------------------------------------
 
 export const DOC_PDF_URL = "https://adarch.co.jp/intro/AdArch-overview.pdf";
-export const BOOKING_URL = "https://timerex.net/s/AdArch/b42bc7ae";
+// 2026-09-07: TimeRex解約に伴い、面談は「LINEで問い合わせ→やり取りで日程調整」へ（合言葉「加盟案内」＝OSの流入枠「LP /intro/」）
+export const BOOKING_URL = "https://line.me/R/oaMessage/%40496hvpcm/?%E5%8A%A0%E7%9B%9F%E6%A1%88%E5%86%85";
 
 export function partnershipTrackSign(kind: string, email: string): string {
   const secret = process.env.AUTH_SECRET ?? "";

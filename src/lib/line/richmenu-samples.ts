@@ -21,7 +21,7 @@ export const RICH_MENU_SAMPLES: RichMenuSample[] = [
     forHq: true,
     note: "本部の加盟促進用（予約／資料／質問）",
     areas: [
-      { type: "uri", value: "https://timerex.net/s/AdArch/b42bc7ae", label: "15分相談を予約", tags: ["予約クリック"] },
+      { type: "uri", value: "https://adarch-estimate-production.up.railway.app/book/group", label: "面談を予約", tags: ["予約クリック"] },
       { type: "uri", value: "https://adarch.co.jp/intro/", label: "資料を見る", tags: ["資料希望"] },
       { type: "message", value: "質問があります", label: "質問する", tags: [] },
     ],

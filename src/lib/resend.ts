@@ -959,10 +959,10 @@ export async function sendPartnershipAutoReply(params: {
               </p>
               <p style="margin:0 0 16px;font-size:14px;">
                 オンライン・約30分で、私から直接ご説明いたします。<br />
-                ご都合のよい日時をお選びください。
+                LINEでご連絡いただければ、日程はやり取りしながら決めていきます。
               </p>
               <p style="margin:0 0 18px;text-align:center;">
-                ${linkBtn(partnershipTrackedUrl("booking", email), "▶ 日程を選ぶ", false)}
+                ${linkBtn(partnershipTrackedUrl("booking", email), "▶ LINEで相談する", false)}
               </p>
             </div>
 

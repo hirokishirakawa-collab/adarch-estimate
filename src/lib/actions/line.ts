@@ -377,7 +377,7 @@ export async function seedFranchiseScenario(accountId: string): Promise<Result> 
   const exists = await db.lineScenario.findFirst({ where: { accountId, name: "加盟促進（友だち追加後）" } });
   if (exists) return { error: "すでに投入済みです" };
 
-  const booking = "https://timerex.net/s/AdArch/b42bc7ae";
+  const booking = "https://adarch-estimate-production.up.railway.app/book/group";
   await db.lineScenario.create({
     data: {
       accountId,
