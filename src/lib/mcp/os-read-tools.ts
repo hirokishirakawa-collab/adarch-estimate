@@ -1,9 +1,9 @@
 // ==============================================================
 // MCP: OS読み取りツール（scope = os:read）
-//   各代表のAIが「自分の拠点の分だけ」読める。書き込みは一切しない。
-//   拠点の絞り込みは session.ts の getBranchFilter（第2拠点・旧拠点IDも含む）に統一。
-//   売上の数字（商談金額・見積の金額・月次報告の額）と本部向けの内部項目（原価・値引き・本部メモ・口座 等）は
-//   ADMIN（本部）以外に出さない（2026-09-08 代表決定「売り上げは皆に見えないように」）。
+//   顧客・商談・見積はグループ全社分を読める（2026-09-08 代表決定「他拠点の売上だけ見えなければ、あとは全部連携」）。
+//   隠すのは「他拠点の売上・金額」だけ＝商談金額・見積の金額は 本部(ADMIN) か その記録の拠点の人 にだけ出す。
+//   月次報告の額は本部のみ。本部向けの内部項目（原価・値引き・本部メモ・口座 等）も本部以外に出さない。
+//   自拠点の判定は session.ts の getBranchFilter（第2拠点・旧拠点IDも含む）に統一。書き込みは os-write-tools.ts。
 // ==============================================================
 
 import type { Prisma } from "@/generated/prisma/client";
@@ -39,12 +39,25 @@ const day = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : 
 const yen = (n: number | Prisma.Decimal | null | undefined) => (n == null ? null : `¥${Number(n).toLocaleString("ja-JP")}`);
 const clampLimit = (n: number | undefined, def = 20, max = 50) => Math.min(max, Math.max(1, Math.floor(n ?? def)));
 const HQ_ONLY = "（本部のみ）";
+const OTHER_BRANCH = "（他拠点のため非表示）";
 const isHq = (v: McpViewer) => v.role === "ADMIN";
+
+/** 自拠点の拠点ID（第2拠点・旧拠点IDを含む）。本部は空＝全部自分の範囲 */
+export function ownBranchIds(v: McpViewer): string[] {
+  const f = getBranchFilter(v) as { branchId?: string | { in: string[] } };
+  if (!f.branchId) return [];
+  return typeof f.branchId === "string" ? [f.branchId] : f.branchId.in;
+}
+/** 金額を見せてよいか＝本部 か その記録が自拠点 */
+export const canSeeAmount = (v: McpViewer, branchId: string) => isHq(v) || ownBranchIds(v).includes(branchId);
+const amountOrMask = (v: McpViewer, branchId: string, n: number | Prisma.Decimal | null | undefined) => (canSeeAmount(v, branchId) ? yen(n) : OTHER_BRANCH);
+const branchSel = { select: { id: true, name: true } } as const;
 
 // ---- 顧客 -------------------------------------------------------------------
 
 export async function searchCustomers(v: McpViewer, input: { query?: string; status?: string; limit?: number }) {
-  const where: Prisma.CustomerWhereInput = { ...getBranchFilter(v), NOT: { branchId: ARCHIVE_BRANCH_ID } };
+  // 全社分（拠点の壁なし）。書庫拠点だけ除く
+  const where: Prisma.CustomerWhereInput = { NOT: { branchId: ARCHIVE_BRANCH_ID } };
   if (input.query) {
     where.OR = [
       { name: { contains: input.query, mode: "insensitive" } },
@@ -58,7 +71,7 @@ export async function searchCustomers(v: McpViewer, input: { query?: string; sta
     where,
     select: {
       id: true, name: true, nameKana: true, industry: true, status: true, rank: true, contactName: true, email: true, phone: true,
-      website: true, prefecture: true, address: true, notes: true, staffName: true, updatedAt: true,
+      website: true, prefecture: true, address: true, notes: true, staffName: true, updatedAt: true, branchId: true, branch: branchSel,
       _count: { select: { deals: true } },
     },
     orderBy: { updatedAt: "desc" },
@@ -68,13 +81,14 @@ export async function searchCustomers(v: McpViewer, input: { query?: string; sta
     id: c.id, name: c.name, nameKana: c.nameKana, industry: c.industry, status: c.status, rank: c.rank,
     contactName: c.contactName, email: c.email, phone: c.phone, website: c.website, prefecture: c.prefecture, address: c.address,
     notes: stripSensitiveLines(c.notes) || null, staffName: c.staffName, dealCount: c._count.deals, updatedAt: day(c.updatedAt),
+    branch: c.branch.name, isMine: canSeeAmount(v, c.branchId),
   }));
 }
 
 // ---- 商談 -------------------------------------------------------------------
 
 export async function listDeals(v: McpViewer, input: { query?: string; status?: string; customerId?: string; limit?: number }) {
-  const where: Prisma.DealWhereInput = { ...getBranchFilter(v) };
+  const where: Prisma.DealWhereInput = {}; // 全社分。金額だけ拠点で出し分け
   if (input.query) {
     where.OR = [
       { title: { contains: input.query, mode: "insensitive" } },
@@ -85,33 +99,32 @@ export async function listDeals(v: McpViewer, input: { query?: string; status?: 
   if (input.customerId) where.customerId = input.customerId;
   const rows = await db.deal.findMany({
     where,
-    include: { customer: { select: { id: true, name: true } }, assignedTo: { select: { name: true } } },
+    include: { customer: { select: { id: true, name: true } }, assignedTo: { select: { name: true } }, branch: branchSel },
     orderBy: { updatedAt: "desc" },
     take: clampLimit(input.limit),
   });
-  const showAmount = isHq(v);
   return rows.map((d) => ({
     id: d.id, title: d.title, customer: d.customer.name, customerId: d.customer.id, status: d.status,
-    amount: showAmount ? yen(d.amount) : HQ_ONLY, probability: d.probability, expectedCloseDate: day(d.expectedCloseDate), closedAt: day(d.closedAt),
-    assignedTo: d.assignedTo?.name ?? null, isRegular: d.isRegular, regularMonthlyAmount: showAmount ? yen(d.regularMonthlyAmount) : null,
-    updatedAt: day(d.updatedAt),
+    amount: amountOrMask(v, d.branchId, d.amount), probability: d.probability, expectedCloseDate: day(d.expectedCloseDate), closedAt: day(d.closedAt),
+    assignedTo: d.assignedTo?.name ?? null, isRegular: d.isRegular, regularMonthlyAmount: canSeeAmount(v, d.branchId) ? yen(d.regularMonthlyAmount) : null,
+    branch: d.branch.name, isMine: canSeeAmount(v, d.branchId), updatedAt: day(d.updatedAt),
   }));
 }
 
 export async function getDeal(v: McpViewer, id: string) {
   const d = await db.deal.findFirst({
-    where: { id, ...getBranchFilter(v) },
+    where: { id },
     include: {
       customer: { select: { id: true, name: true, contactName: true, phone: true, email: true } },
       assignedTo: { select: { name: true } },
+      branch: branchSel,
       dealLogs: { orderBy: { createdAt: "desc" }, take: 20, select: { type: true, content: true, staffName: true, createdAt: true } },
     },
   });
   if (!d) return null;
-  const showAmount = isHq(v);
   return {
-    id: d.id, title: d.title, status: d.status, customer: d.customer, assignedTo: d.assignedTo?.name ?? null,
-    amount: showAmount ? yen(d.amount) : HQ_ONLY, probability: d.probability, expectedCloseDate: day(d.expectedCloseDate), closedAt: day(d.closedAt),
+    id: d.id, title: d.title, status: d.status, customer: d.customer, assignedTo: d.assignedTo?.name ?? null, branch: d.branch.name, isMine: canSeeAmount(v, d.branchId),
+    amount: amountOrMask(v, d.branchId, d.amount), probability: d.probability, expectedCloseDate: day(d.expectedCloseDate), closedAt: day(d.closedAt),
     closingFactor: d.closingFactor, notes: stripSensitiveLines(d.notes) || null, isRegular: d.isRegular,
     logs: d.dealLogs.map((l) => ({ type: l.type, content: stripSensitiveLines(l.content), staffName: l.staffName, at: day(l.createdAt) })),
   };
@@ -120,7 +133,7 @@ export async function getDeal(v: McpViewer, id: string) {
 // ---- 見積 -------------------------------------------------------------------
 
 export async function listEstimates(v: McpViewer, input: { query?: string; status?: string; limit?: number }) {
-  const where: Prisma.EstimationWhereInput = { ...getBranchFilter(v) };
+  const where: Prisma.EstimationWhereInput = {}; // 全社分。金額だけ拠点で出し分け
   if (input.query) {
     where.OR = [
       { title: { contains: input.query, mode: "insensitive" } },
@@ -130,20 +143,20 @@ export async function listEstimates(v: McpViewer, input: { query?: string; statu
   if (input.status) where.status = input.status as Prisma.EstimationWhereInput["status"];
   const rows = await db.estimation.findMany({
     where,
-    include: { customer: { select: { name: true } }, items: { select: { amount: true } } },
+    include: { customer: { select: { name: true } }, items: { select: { amount: true } }, branch: branchSel },
     orderBy: { updatedAt: "desc" },
     take: clampLimit(input.limit),
   });
   return rows.map((e) => {
     const subtotal = e.items.reduce((s, i) => s + Number(i.amount ?? 0), 0);
-    return { id: e.id, title: e.title, customer: e.customer?.name ?? null, status: e.status, estimateDate: day(e.estimateDate), validUntil: day(e.validUntil), subtotalExclTax: isHq(v) ? yen(subtotal) : HQ_ONLY, staffName: e.staffName };
+    return { id: e.id, title: e.title, customer: e.customer?.name ?? null, status: e.status, estimateDate: day(e.estimateDate), validUntil: day(e.validUntil), subtotalExclTax: amountOrMask(v, e.branchId, subtotal), staffName: e.staffName, branch: e.branch.name, isMine: canSeeAmount(v, e.branchId) };
   });
 }
 
 export async function getEstimate(v: McpViewer, id: string) {
   const e = await db.estimation.findFirst({
-    where: { id, ...getBranchFilter(v) },
-    include: { customer: { select: { name: true } }, items: { orderBy: { sortOrder: "asc" } } },
+    where: { id },
+    include: { customer: { select: { name: true } }, items: { orderBy: { sortOrder: "asc" } }, branch: branchSel },
   });
   if (!e) return null;
   const subtotal = e.items.reduce((s, i) => s + Number(i.amount ?? 0), 0);
@@ -151,17 +164,19 @@ export async function getEstimate(v: McpViewer, id: string) {
   const discounted = Math.max(0, subtotal - discount);
   const tax = Math.round(discounted * 0.1);
   const hq = isHq(v);
-  const head = { id: e.id, title: e.title, customer: e.customer?.name ?? null, status: e.status, estimateDate: day(e.estimateDate), validUntil: day(e.validUntil), staffName: e.staffName, notes: stripSensitiveLines(e.notes) || null };
-  if (!hq) {
-    // 本部以外: 品目と数量だけ。金額は出さない
-    return { ...head, items: e.items.map((i) => ({ name: i.name, spec: i.spec, quantity: Number(i.quantity), unit: i.unit })), amounts: HQ_ONLY };
+  const mine = canSeeAmount(v, e.branchId);
+  const head = { id: e.id, title: e.title, customer: e.customer?.name ?? null, status: e.status, estimateDate: day(e.estimateDate), validUntil: day(e.validUntil), staffName: e.staffName, notes: stripSensitiveLines(e.notes) || null, branch: e.branch.name, isMine: mine };
+  if (!mine) {
+    // 他拠点の見積: 品目と数量だけ。金額は出さない
+    return { ...head, items: e.items.map((i) => ({ name: i.name, spec: i.spec, quantity: Number(i.quantity), unit: i.unit })), amounts: OTHER_BRANCH };
   }
   return {
     ...head,
-    items: e.items.map((i) => ({ name: i.name, spec: i.spec, quantity: Number(i.quantity), unit: i.unit, unitPrice: yen(i.unitPrice), amount: yen(i.amount), costPrice: yen(i.costPrice) })),
+    // 原価は本部だけ（自拠点でも原価は本部向け項目）
+    items: e.items.map((i) => ({ name: i.name, spec: i.spec, quantity: Number(i.quantity), unit: i.unit, unitPrice: yen(i.unitPrice), amount: yen(i.amount), ...(hq ? { costPrice: yen(i.costPrice) } : {}) })),
     subtotalExclTax: yen(subtotal),
-    discountAmount: yen(discount),
-    discountReason: e.discountReason,
+    // 値引きの内訳は本部向け項目。自拠点には税・合計だけ
+    ...(hq ? { discountAmount: yen(discount), discountReason: e.discountReason } : {}),
     taxAmount: yen(tax),
     totalInclTax: yen(discounted + tax),
   };
@@ -256,7 +271,7 @@ export async function mySummary(v: McpViewer, input: { months?: number }) {
     company,
     deals: dealCounts.map((d) => ({ status: d.status, count: d._count })),
     monthlyReports: hq ? [...byMonth.entries()].map(([month, m]) => ({ month, totalExclTax: yen(m.total), selfExclTax: yen(m.self), hqExclTax: yen(m.hq), projects: m.projects })) : HQ_ONLY,
-    note: hq ? "月次報告は提出分の集計。商談件数は拠点の分" : "商談件数は貴社拠点の分。売上の数字は本部のみ",
+    note: hq ? "月次報告は提出分の集計。商談件数は拠点の分" : "商談件数は貴社拠点の分。月次報告の売上額は本部のみ",
   };
 }
 
@@ -270,4 +285,47 @@ export async function listGroupCompanies() {
     orderBy: { name: "asc" },
   });
   return rows.map((c) => ({ id: c.id, name: c.name, ownerName: c.ownerName, prefecture: c.prefecture, genre: c.genre, specialty: c.specialty, websiteUrl: c.websiteUrl }));
+}
+
+// ---- リード（全社分。OS画面のリード管理と同じ除外条件） ------------------------------
+
+export async function listLeads(v: McpViewer, input: { query?: string; status?: string; mine?: boolean; waitingReply?: boolean; limit?: number }) {
+  const where: Prisma.LeadWhereInput = {
+    status: { notIn: ["SKIPPED", "ARCHIVED"] },
+    NOT: { source: "PR_TIMES_TVCM", assigneeId: null }, // 未claimのTVerプール案件はプール画面だけ
+  };
+  if (input.query) {
+    where.OR = [
+      { name: { contains: input.query, mode: "insensitive" } },
+      { address: { contains: input.query, mode: "insensitive" } },
+      { memo: { contains: input.query, mode: "insensitive" } },
+    ];
+  }
+  if (input.status) where.status = input.status as Prisma.LeadWhereInput["status"];
+  if (input.mine) {
+    const mineOr: Prisma.LeadWhereInput[] = [{ assigneeId: v.id }, { createdById: v.id }];
+    if (where.OR) {
+      where.AND = [{ OR: where.OR }, { OR: mineOr }];
+      delete where.OR;
+    } else {
+      where.OR = mineOr;
+    }
+  }
+  if (input.waitingReply) Object.assign(where, { sentAt: { not: null }, outreachResult: null });
+  const rows = await db.lead.findMany({
+    where,
+    orderBy: [{ updatedAt: "desc" }],
+    take: clampLimit(input.limit),
+    select: {
+      id: true, name: true, address: true, phone: true, email: true, websiteUrl: true, industry: true, area: true, prefecture: true, status: true, source: true,
+      memo: true, sentAt: true, outreachResult: true, outreachResultAt: true, signalKind: true, signalAt: true, updatedAt: true,
+      assignee: { select: { id: true, name: true } }, convertedCustomerId: true,
+    },
+  });
+  return rows.map((l) => ({
+    id: l.id, name: l.name, address: l.address, phone: l.phone, email: l.email, website: l.websiteUrl, industry: l.industry, area: l.area ?? l.prefecture,
+    status: l.status, source: l.source, memo: stripSensitiveLines(l.memo) || null, sentAt: day(l.sentAt), outreachResult: l.outreachResult, outreachResultAt: day(l.outreachResultAt),
+    signal: l.signalKind ? { kind: l.signalKind, at: day(l.signalAt) } : null, assignee: l.assignee?.name ?? null, isMine: l.assignee?.id === v.id,
+    convertedCustomerId: l.convertedCustomerId, updatedAt: day(l.updatedAt),
+  }));
 }

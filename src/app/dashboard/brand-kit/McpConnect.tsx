@@ -34,11 +34,11 @@ export async function McpConnect({ email }: { email: string }) {
             <li>AIに「ブランドキットの材料一覧を出して」「◯◯社向けにTVerの提案文を書いて」と頼む</li>
           </ol>
           <p className="mt-2 text-[11px] text-zinc-500">
-            AIが読めるのは:{" "}
+            AIにできること:{" "}
             {Object.values(SCOPES)
               .map((s) => s.label)
               .join("・")}
-            。売上・金額の数字は本部のみで、書き込みはできません。呼び出しは本部の記録に残ります。
+            。顧客・商談・リードはグループ全社分が見えますが、他拠点の売上・金額は見えません。営業の記録（活動・結果）はAIから貴社の記録として書けます。呼び出しは本部の記録に残ります。
           </p>
         </div>
       </div>
