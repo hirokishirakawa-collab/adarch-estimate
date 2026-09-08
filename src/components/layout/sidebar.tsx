@@ -400,6 +400,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Package,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/tver-order-link",
+        label: "TVer申込リンク",
+        icon: Tv2,
+        minRole: "USER",
+      },
     ],
   },
   {
@@ -761,6 +767,7 @@ const SELL_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/projects/new", label: "③ プロジェクト登録", icon: FolderKanban, minRole: "USER" },
   { href: "/dashboard/sales", label: "営業フロー", icon: Workflow, minRole: "USER" },
   { href: "/dashboard/packages", label: "パッケージ", icon: Package, minRole: "USER" },
+  { href: "/dashboard/tver-order-link", label: "TVer申込リンク（お客様に渡す）", icon: Tv2, minRole: "USER" },
   { href: "/dashboard/leads", label: "リード獲得AI", icon: Crosshair, minRole: "USER" },
   { href: "/dashboard/subsidy-finder", label: "補助金ファインダー", icon: Banknote, minRole: "USER" },
   { href: "/dashboard/tender-finder", label: "入札ファインダー", icon: Gavel, minRole: "USER" },
