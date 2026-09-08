@@ -32,6 +32,7 @@ export async function McpConnect({ email }: { email: string }) {
             <li>Claude: 設定 → コネクタ → 「カスタムコネクタを追加」 → 名前「Ad Arch OS」・URLに上を貼る。ChatGPT: 設定 → コネクタ → 「作成」 → 同じURL</li>
             <li>OSのGoogleアカウントでログインし、「許可する」を押す</li>
             <li>AIに「ブランドキットの材料一覧を出して」「◯◯社向けにTVerの提案文を書いて」と頼む</li>
+            <li>営業のやり取りは、AIに「◯◯社に電話した。来週提案になった」「△△は失注」と話すだけでOSに記録されます（記録者は貴社・[AI記録]の印つき）。相手先の話をする前に「◯◯社の過去のやり取りを見せて」と聞くと、グループ全社の履歴をAIが読みます</li>
           </ol>
           <p className="mt-2 text-[11px] text-zinc-500">
             AIにできること:{" "}
