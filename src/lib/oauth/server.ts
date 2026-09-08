@@ -31,8 +31,12 @@ function secret(): Uint8Array {
   return new TextEncoder().encode(`mcp:${s}`);
 }
 
-/** 公開URL（issuer）。プロキシ越しでも正しいホストを返す */
+/** 公開URL（issuer）。ログイン（NextAuth）が動くホスト＝AUTH_URL に固定する。
+ *  リクエストのホスト（proposals.adarch.co.jp 等）で返すと、同意画面の前のGoogleログインが
+ *  AUTH_URL 側へ戻ってセッションCookieが別ホストに残り、同意画面に戻れない（2026-09-08 発覚） */
 export async function issuer(): Promise<string> {
+  const fixed = (process.env.AUTH_URL ?? "").replace(/\/$/, "");
+  if (/^https?:\/\//.test(fixed)) return fixed;
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
