@@ -26,7 +26,7 @@ function actionBadgeColor(action: string): string {
     return "bg-blue-50 text-blue-700 border-blue-200";
   if (action === "brand_kit_download" || action === "brand_kit_copy" || action === "brand_kit_mcp")
     return "bg-orange-50 text-orange-700 border-orange-200";
-  if (action === "mcp_os_read" || action === "mcp_connected" || action === "mcp_disconnected")
+  if (action === "mcp_os_read" || action === "mcp_os_write" || action === "mcp_connected" || action === "mcp_disconnected")
     return "bg-sky-50 text-sky-700 border-sky-200";
   return "bg-zinc-50 text-zinc-600 border-zinc-200";
 }
@@ -76,6 +76,7 @@ const ACTION_OPTIONS: { value: string; label: string }[] = [
   { value: "brand_kit_copy", label: "ブランドキットコピー" },
   { value: "brand_kit_mcp", label: "ブランドキット（AI連携で取得）" },
   { value: "mcp_os_read", label: "AI連携: OS読み取り" },
+  { value: "mcp_os_write", label: "AI連携: OS書き込み（AI記録）" },
   { value: "mcp_connected", label: "AI連携: 接続" },
   { value: "mcp_disconnected", label: "AI連携: 解除" },
 ];

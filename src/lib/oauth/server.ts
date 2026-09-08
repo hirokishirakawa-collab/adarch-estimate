@@ -152,6 +152,28 @@ export async function sweepExpiredCodes(): Promise<void> {
   }
 }
 
+/**
+ * 古い接続行・コネクタ登録行を消す（新しい接続が作られるついでに。専用cronは置かない）
+ * - 接続（oauth_grants）: 解除から30日／期限切れから30日を過ぎたもの。画面の「接続中のAI」には既に出ない
+ * - コネクタ登録（oauth_clients）: 登録から7日過ぎても接続が1件も無いもの（同意まで進まなかった登録）。
+ *   接続が残っているクライアントは消さない（リフレッシュに必要）
+ */
+export async function sweepStaleGrantsAndClients(): Promise<void> {
+  try {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    await db.oAuthGrant.deleteMany({
+      where: { OR: [{ revokedAt: { lt: cutoff } }, { expiresAt: { lt: cutoff } }] },
+    });
+    const clientCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const used = await db.oAuthGrant.findMany({ select: { clientId: true }, distinct: ["clientId"] });
+    await db.oAuthClient.deleteMany({
+      where: { createdAt: { lt: clientCutoff }, id: { notIn: used.map((g) => g.clientId) } },
+    });
+  } catch {
+    /* noop */
+  }
+}
+
 /** JSONレスポンス（OAuthエラー形式） */
 export function oauthError(error: string, description: string, status = 400): Response {
   return Response.json({ error, error_description: description }, { status, headers: { "Cache-Control": "no-store", ...corsHeaders() } });

@@ -12,6 +12,7 @@ import {
   sha256,
   signAccessToken,
   sweepExpiredCodes,
+  sweepStaleGrantsAndClients,
   verifyPkce,
 } from "@/lib/oauth/server";
 
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
     if (!code || !verifier) return oauthError("invalid_request", "code と code_verifier が必要です");
 
     await sweepExpiredCodes();
+    void sweepStaleGrantsAndClients();
     const row = await db.oAuthAuthCode.findUnique({ where: { code } });
     // 1回使い切り。見つかったら成否に関わらず消す
     if (row) await db.oAuthAuthCode.delete({ where: { code } }).catch(() => {});
