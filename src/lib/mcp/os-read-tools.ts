@@ -14,6 +14,7 @@ import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
 import { formatPackagePrice, parseDeliverables, parseOptions } from "@/lib/packages/types";
 import { estimateArea, municipalitiesOf, prefectureOptions, resolveArea } from "@/lib/packages/tver-area";
 import { searchWikiArticles } from "@/lib/wiki-search";
+import { nextAnniversary } from "@/lib/anniversary/calc";
 import type { UserRole } from "@/types/roles";
 
 export interface McpViewer {
@@ -328,4 +329,156 @@ export async function listLeads(v: McpViewer, input: { query?: string; status?: 
     signal: l.signalKind ? { kind: l.signalKind, at: day(l.signalAt) } : null, assignee: l.assignee?.name ?? null, isMine: l.assignee?.id === v.id,
     convertedCustomerId: l.convertedCustomerId, updatedAt: day(l.updatedAt),
   }));
+}
+
+// ---- 今日の一手 -----------------------------------------------------------------
+//   「今日何する」に答える材料。呼んだ本人の拠点（本部は本部拠点）に絞る。金額は返さない。
+//   4〜6 はダッシュボード「今週の当たり先」(components/dashboard/sales-boost.tsx) と同じ判定＝画面と数が一致する。
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const OPEN_DEAL: Prisma.DealWhereInput = { status: { in: ["PROSPECTING", "QUALIFYING", "PROPOSAL", "NEGOTIATION"] } };
+/** 都道府県の末尾（都府県）を落とす。北海道はそのまま。sales-boost.tsx と同じ */
+const prefBase = (s: string) => (s.startsWith("北海道") ? "北海道" : s.trim().replace(/[都府県]$/, ""));
+const daysSince = (d: Date, now: Date) => Math.floor((now.getTime() - d.getTime()) / DAY_MS);
+
+export async function myNextActions(v: McpViewer, input: { limit?: number }) {
+  const take = clampLimit(input.limit, 5, 10);
+  const now = new Date();
+  const branch = getBranchFilter(v);
+  const company = v.groupCompanyId ? await db.groupCompany.findUnique({ where: { id: v.groupCompanyId }, select: { name: true, prefecture: true } }) : null;
+  const pref = !isHq(v) && company?.prefecture ? company.prefecture : null;
+  const base = pref ? prefBase(pref) : null;
+  const prefFilter: Prisma.LeadWhereInput = base ? { prefecture: { contains: base } } : {};
+  const leadAlive: Prisma.LeadWhereInput = { status: { notIn: ["SKIPPED", "ARCHIVED", "DEAL_CONVERTED"] } };
+  // リードは「自分の担当」か「担当なし（自県）」。本部は自分の担当だけ
+  const leadMine: Prisma.LeadWhereInput = isHq(v) ? { assigneeId: v.id } : { OR: [{ assigneeId: v.id }, { assigneeId: null, ...prefFilter }] };
+
+  const [waiting, overdue, openDeals, foundedLeads, subsidies, signals] = await Promise.all([
+    // 1. 返事待ちが7日超（送付済み・結果未入力）
+    db.lead.findMany({
+      where: { ...leadAlive, ...leadMine, sentAt: { not: null, lt: new Date(now.getTime() - 7 * DAY_MS) }, outreachResult: null },
+      orderBy: { sentAt: "asc" },
+      take,
+      select: { id: true, name: true, industry: true, sentAt: true },
+    }),
+    // 2. 見込み日を過ぎた商談
+    db.deal.findMany({
+      where: { ...branch, ...OPEN_DEAL, expectedCloseDate: { lt: new Date(now.getFullYear(), now.getMonth(), now.getDate()) } },
+      orderBy: { expectedCloseDate: "asc" },
+      take,
+      select: { id: true, title: true, status: true, expectedCloseDate: true, customer: { select: { name: true } } },
+    }),
+    // 3. 30日動いていない商談（提案中/交渉中/検討中）＝最終ログか更新日で判定
+    db.deal.findMany({
+      where: { ...branch, status: { in: ["QUALIFYING", "PROPOSAL", "NEGOTIATION"] }, updatedAt: { lt: new Date(now.getTime() - 30 * DAY_MS) } },
+      orderBy: { updatedAt: "asc" },
+      take: take * 2,
+      select: { id: true, title: true, status: true, updatedAt: true, customer: { select: { name: true } }, dealLogs: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } } },
+    }),
+    // 4. 3か月以内に周年（自県のリード・創業年あり）
+    base
+      ? db.lead.findMany({
+          where: { ...leadAlive, ...prefFilter, foundedYear: { not: null } },
+          select: { id: true, name: true, industry: true, foundedYear: true, foundedMonth: true, assignee: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
+    // 5. 使える補助金（有効・広告費OK・自県か全国）
+    db.subsidy.findMany({
+      where: { isActive: true, adCostFit: { in: ["CONFIRMED", "LIKELY"] }, ...(pref ? { targetAreas: { hasSome: [pref, "全国"] } } : {}), OR: [{ acceptanceEnd: null }, { acceptanceEnd: { gte: now } }] },
+      orderBy: [{ acceptanceEnd: "asc" }],
+      take,
+      select: { id: true, title: true, institutionName: true, industry: true, acceptanceEnd: true, fitReason: true, detailUrl: true },
+    }),
+    // 6. 今週シグナルが立った会社（自県）
+    base
+      ? db.lead.findMany({
+          where: { ...leadAlive, ...prefFilter, signalAt: { gte: new Date(now.getTime() - 7 * DAY_MS) } },
+          orderBy: { signalAt: "desc" },
+          take,
+          select: { id: true, name: true, industry: true, signalAt: true, signalKind: true, assignee: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const stalled = openDeals
+    .map((d) => ({ d, last: d.dealLogs[0]?.createdAt ?? d.updatedAt }))
+    .filter((x) => daysSince(x.last, now) >= 30)
+    .sort((a, b) => a.last.getTime() - b.last.getTime())
+    .slice(0, take);
+
+  const anniversaries = foundedLeads
+    .map((l) => ({ l, a: nextAnniversary(l.foundedYear as number, l.foundedMonth ?? null, now) }))
+    .filter((x): x is { l: (typeof foundedLeads)[number]; a: NonNullable<ReturnType<typeof nextAnniversary>> } => x.a !== null && x.a.monthsAway <= 3)
+    .sort((x, y) => x.a.monthsAway - y.a.monthsAway)
+    .slice(0, take);
+
+  return {
+    for: { name: v.name, company: company?.name ?? (isHq(v) ? "本部" : null), prefecture: pref },
+    asOf: day(now),
+    order: "1→6 の順に優先。1〜3 は今日中に動く。4〜6 は声をかける先の候補",
+    sections: [
+      {
+        no: 1,
+        title: "返事待ちが7日超",
+        count: waiting.length,
+        next: "返事が来ていれば record_lead_result(leadId, result)。来ていなければ追い連絡→ log_activity",
+        items: waiting.map((l) => ({ leadId: l.id, name: l.name, industry: l.industry, sentAt: day(l.sentAt), daysWaiting: l.sentAt ? daysSince(l.sentAt, now) : null })),
+      },
+      {
+        no: 2,
+        title: "見込み日を過ぎた商談",
+        count: overdue.length,
+        next: "結果が出ていれば update_deal(status) か受注ならOS画面。延びたなら update_deal(expectedCloseDate)",
+        items: overdue.map((d) => ({ dealId: d.id, customer: d.customer.name, title: d.title, status: d.status, expectedCloseDate: day(d.expectedCloseDate), daysOver: d.expectedCloseDate ? daysSince(d.expectedCloseDate, now) : null })),
+      },
+      {
+        no: 3,
+        title: "30日以上動いていない商談",
+        count: stalled.length,
+        next: "動かすなら連絡→ log_activity。動かないなら update_deal(status: DORMANT か CLOSED_LOST)",
+        items: stalled.map(({ d, last }) => ({ dealId: d.id, customer: d.customer.name, title: d.title, status: d.status, lastMoved: day(last), daysIdle: daysSince(last, now) })),
+      },
+      {
+        no: 4,
+        title: "3か月以内に周年（自県のリード）",
+        count: anniversaries.length,
+        next: "記念広告・記念動画の切り口で声をかける。着手したら log_activity か create_deal",
+        items: anniversaries.map(({ l, a }) => ({ leadId: l.id, name: l.name, industry: l.industry, anniversary: `${a.years}周年`, monthsAway: a.monthsAway, assignee: l.assignee?.name ?? null })),
+      },
+      {
+        no: 5,
+        title: "広告費に使える補助金",
+        count: subsidies.length,
+        next: "対象業種の顧客・リードに「財源」として添える",
+        items: subsidies.map((s) => ({ subsidyId: s.id, title: s.title, institution: s.institutionName, industry: s.industry, acceptanceEnd: day(s.acceptanceEnd), why: s.fitReason, url: s.detailUrl })),
+      },
+      {
+        no: 6,
+        title: "今週シグナルが立った会社（自県）",
+        count: signals.length,
+        next: "買う気配が立った直後に当たる。連絡したら log_activity",
+        items: signals.map((l) => ({ leadId: l.id, name: l.name, industry: l.industry, signal: l.signalKind, signalAt: day(l.signalAt), assignee: l.assignee?.name ?? null })),
+      },
+    ],
+  };
+}
+
+// ---- Wiki（一覧・全文） ----------------------------------------------------------------
+
+const wikiVisible = (v: McpViewer): Prisma.WikiArticleWhereInput => (isHq(v) ? {} : { NOT: { OR: [{ title: { contains: "ADMIN向け" } }, { title: { contains: "ADMIN専用" } }, { title: { contains: "本部のみ" } }] } });
+
+export async function listWiki(v: McpViewer, input: { tag?: string; limit?: number }) {
+  const rows = await db.wikiArticle.findMany({
+    where: { ...wikiVisible(v), ...(input.tag ? { tags: { some: { name: { contains: input.tag } } } } : {}) },
+    orderBy: { updatedAt: "desc" },
+    take: clampLimit(input.limit, 50, 100),
+    select: { id: true, title: true, updatedAt: true, tags: { select: { name: true } }, body: true },
+  });
+  return rows.map((a) => ({ id: a.id, title: a.title, tags: a.tags.map((t) => t.name), updatedAt: day(a.updatedAt), chars: a.body.length, lead: a.body.replace(/\s+/g, " ").slice(0, 120) }));
+}
+
+export async function getWiki(v: McpViewer, id: string) {
+  const a = await db.wikiArticle.findFirst({ where: { id, ...wikiVisible(v) }, select: { id: true, title: true, body: true, authorName: true, updatedAt: true, tags: { select: { name: true } } } });
+  if (!a) return { error: "記事が見つからないか、閲覧できません" };
+  return { id: a.id, title: a.title, tags: a.tags.map((t) => t.name), author: a.authorName, updatedAt: day(a.updatedAt), body: a.body };
 }

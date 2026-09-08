@@ -188,8 +188,28 @@ const handler = createMcpHandler(
     );
     osTool(
       "search_wiki",
-      { title: "本部Wikiを検索", description: "OSのWiki記事をキーワードで検索（手順・決まり・事例）。", inputSchema: z.object({ query: z.string(), limit: z.number().int().optional() }) },
+      { title: "本部Wikiを検索", description: "OSのWiki記事をキーワードで検索（手順・決まり・事例）。本文は先頭4,000字。全文は get_wiki(id)。", inputSchema: z.object({ query: z.string(), limit: z.number().int().optional() }) },
       (v, a) => os.searchWiki(v, a),
+    );
+    osTool(
+      "list_wiki",
+      { title: "Wikiの目次", description: "OSのWiki記事の一覧（題名・タグ・更新日・冒頭120字）。「Wikiに何がある？」に答える。tag で絞れる。全文は get_wiki(id)。", inputSchema: z.object({ tag: z.string().optional(), limit: z.number().int().optional().describe("既定50・最大100") }) },
+      (v, a) => os.listWiki(v, a),
+    );
+    osTool(
+      "get_wiki",
+      { title: "Wiki記事を全文で読む", description: "Wiki記事1本の全文。id は list_wiki / search_wiki のもの。", inputSchema: z.object({ id: z.string() }) },
+      (v, a) => os.getWiki(v, a.id),
+    );
+    osTool(
+      "my_next_actions",
+      {
+        title: "今日の一手",
+        description:
+          "「今日何する」「朝の確認」に答える材料。自分の拠点に絞って 1) 返事待ちが7日超 2) 見込み日を過ぎた商談 3) 30日動いていない商談 4) 3か月以内に周年（自県） 5) 使える補助金 6) 今週シグナルが立った会社（自県）を返す。1→6 の順に優先し、3〜8行にまとめて提案する。各項目の next に次に呼ぶツールが入っている。金額は含まない。",
+        inputSchema: z.object({ limit: z.number().int().optional().describe("各項目の件数（既定5・最大10）") }),
+      },
+      (v, a) => os.myNextActions(v, a),
     );
     osTool(
       "my_summary",
@@ -305,7 +325,7 @@ const handler = createMcpHandler(
     serverInfo: { name: "adarch-os", version: "1.0.0" },
     instructions:
       "Ad Arch（アドアーチ）グループOSのツール。提案文・資料を作るときは list_materials → get_material/get_full_kit でブランドキットを読んでから書く。数字は取得したものだけを使い「目安・税抜」を添える。価格の正本はOS。" +
-      "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。" +
+      "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。" +
       "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注の確定はOS画面で行うよう案内する。",
     capabilities: { tools: {} },
     onEvent: (ev) => {
