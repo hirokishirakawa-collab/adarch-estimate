@@ -1741,6 +1741,52 @@ model TverCreativeReview {
 }
 
 // ==============================================================
+// OAuth（ブランドキットMCP連携）— Claude / ChatGPT 等のAIが各代表の代理で
+// /api/mcp を呼ぶための認可。アクセストークンはJWT（DBに持たない）、
+// リフレッシュトークン＝「接続」1本（OAuthGrant）。2026-09-08
+// ==============================================================
+
+model OAuthClient {
+  id           String   @id @default(cuid()) // = client_id
+  name         String? // 動的登録時の client_name（Claude / ChatGPT など）
+  secretHash   String? // token_endpoint_auth_method が none 以外のときだけ
+  redirectUris String[]
+  createdAt    DateTime @default(now())
+
+  @@map("oauth_clients")
+}
+
+model OAuthAuthCode {
+  code          String   @id // ランダム。10分で失効・1回使い切り
+  clientId      String
+  userEmail     String
+  redirectUri   String
+  codeChallenge String // PKCE S256
+  scope         String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([expiresAt])
+  @@map("oauth_auth_codes")
+}
+
+model OAuthGrant {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique // リフレッシュトークンの sha256
+  clientId   String
+  clientName String?
+  userEmail  String
+  scope      String
+  lastUsedAt DateTime?
+  expiresAt  DateTime // 最終利用から30日
+  revokedAt  DateTime? // 代表が画面で解除
+  createdAt  DateTime  @default(now())
+
+  @@index([userEmail])
+  @@map("oauth_grants")
+}
+
+// ==============================================================
 // VideoAchievement — 競合制作会社の実績データ（自動収集）
 // ==============================================================
 

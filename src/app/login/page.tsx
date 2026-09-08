@@ -2,7 +2,16 @@ import { signIn } from "@/lib/auth";
 import Image from "next/image";
 import { DemoLoginForm } from "./demo-login-form";
 
-export default function LoginPage() {
+/** ログイン後の戻り先。OS内の相対パスだけ受ける（外部URLへは飛ばさない）。
+ *  今は AI連携の同意画面（/oauth/authorize?…）が使う */
+function safeCallback(raw: string | string[] | undefined): string {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  if (v && v.startsWith("/") && !v.startsWith("//")) return v;
+  return "/dashboard";
+}
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const redirectTo = safeCallback((await searchParams).callbackUrl);
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Left: Visual / Branding */}
@@ -49,7 +58,7 @@ export default function LoginPage() {
           <form
             action={async () => {
               "use server";
-              await signIn("google", { redirectTo: "/dashboard" });
+              await signIn("google", { redirectTo });
             }}
           >
             <button

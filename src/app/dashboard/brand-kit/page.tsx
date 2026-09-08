@@ -1,28 +1,13 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { promises as fs } from "fs";
-import path from "path";
 import { Palette, Download, FileText, Presentation, Info } from "lucide-react";
-import { BrandKitPicker, type KitMaterial } from "./BrandKitPicker";
-import { buildPackageMaterials, buildMediaMaterials, buildExtraMaterials, resolveViewer } from "@/lib/brand-kit/materials";
+import { BrandKitPicker } from "./BrandKitPicker";
+import { buildAllMaterials } from "@/lib/brand-kit/all-materials";
+import { McpConnect } from "./McpConnect";
 
 export const metadata = {
   title: "ブランドキット | Ad Arch OS",
 };
-
-// 配布物は public/downloads/kit/ に日付つきで置く。差し替えたらここのファイル名と版を更新する
-const KIT_DIR = path.join(process.cwd(), "public", "downloads", "kit");
-
-const MATERIALS: Omit<KitMaterial, "body">[] = [
-  {
-    id: "brand-rules",
-    label: "ブランドの決まり（資料の型）",
-    note: "色・書体・写真・組み方。AIに貼ってから指示文を送る",
-    version: "2026-09-04版",
-    downloadHref: "/downloads/kit/brand-rules_2026-09-04.md",
-    group: "static",
-  },
-];
 
 const FILES = [
   {
@@ -36,29 +21,12 @@ const FILES = [
   },
 ];
 
-async function readKitFile(href: string): Promise<string> {
-  const file = path.join(KIT_DIR, path.basename(href));
-  try {
-    return await fs.readFile(file, "utf8");
-  } catch {
-    return "（ファイルが見つかりません。本部にお知らせください）";
-  }
-}
-
 export default async function BrandKitPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const email = session.user.email ?? "";
-  const [staticMaterials, packageMaterials, mediaMaterials, extraMaterials, viewer] = await Promise.all([
-    Promise.all(MATERIALS.map(async (m) => ({ ...m, body: await readKitFile(m.downloadHref) }))),
-    buildPackageMaterials(email),
-    buildMediaMaterials(email),
-    buildExtraMaterials(email),
-    resolveViewer(email),
-  ]);
-  const materials: KitMaterial[] = [...staticMaterials, ...extraMaterials.filter((m) => m.group === "company" || m.group === "sales"), ...packageMaterials, ...mediaMaterials, ...extraMaterials.filter((m) => m.group === "finder" || m.group === "wiki")];
-  const sender = { company: viewer?.sender?.company ?? null, prefecture: viewer?.sender?.prefecture ?? null };
+  const { materials, sender } = await buildAllMaterials(email);
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-5">
@@ -94,6 +62,9 @@ export default async function BrandKitPage() {
 
       {/* AIに貼る材料 */}
       <BrandKitPicker materials={materials} sender={sender} />
+
+      {/* AIと直接つなぐ（MCP） */}
+      <McpConnect email={email} />
 
       {/* ダウンロード */}
       <div className="space-y-3">
