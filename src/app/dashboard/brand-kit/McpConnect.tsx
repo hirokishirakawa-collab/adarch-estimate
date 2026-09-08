@@ -38,7 +38,7 @@ export async function McpConnect({ email }: { email: string }) {
             {Object.values(SCOPES)
               .map((s) => s.label)
               .join("・")}
-            。書き込みはできません。呼び出しは本部の記録に残ります。
+            。売上・金額の数字は本部のみで、書き込みはできません。呼び出しは本部の記録に残ります。
           </p>
         </div>
       </div>

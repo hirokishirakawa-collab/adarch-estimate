@@ -2,7 +2,8 @@
 // MCP: OS読み取りツール（scope = os:read）
 //   各代表のAIが「自分の拠点の分だけ」読める。書き込みは一切しない。
 //   拠点の絞り込みは session.ts の getBranchFilter（第2拠点・旧拠点IDも含む）に統一。
-//   本部向けの内部項目（原価・値引き理由・本部メモ・口座 等）は ADMIN 以外に出さない。
+//   売上の数字（商談金額・見積の金額・月次報告の額）と本部向けの内部項目（原価・値引き・本部メモ・口座 等）は
+//   ADMIN（本部）以外に出さない（2026-09-08 代表決定「売り上げは皆に見えないように」）。
 // ==============================================================
 
 import type { Prisma } from "@/generated/prisma/client";
@@ -37,6 +38,8 @@ export async function loadViewer(email: string): Promise<McpViewer | null> {
 const day = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
 const yen = (n: number | Prisma.Decimal | null | undefined) => (n == null ? null : `¥${Number(n).toLocaleString("ja-JP")}`);
 const clampLimit = (n: number | undefined, def = 20, max = 50) => Math.min(max, Math.max(1, Math.floor(n ?? def)));
+const HQ_ONLY = "（本部のみ）";
+const isHq = (v: McpViewer) => v.role === "ADMIN";
 
 // ---- 顧客 -------------------------------------------------------------------
 
@@ -86,10 +89,10 @@ export async function listDeals(v: McpViewer, input: { query?: string; status?: 
     orderBy: { updatedAt: "desc" },
     take: clampLimit(input.limit),
   });
-  const showAmount = v.role !== "USER";
+  const showAmount = isHq(v);
   return rows.map((d) => ({
     id: d.id, title: d.title, customer: d.customer.name, customerId: d.customer.id, status: d.status,
-    amount: showAmount ? yen(d.amount) : "（権限なし）", probability: d.probability, expectedCloseDate: day(d.expectedCloseDate), closedAt: day(d.closedAt),
+    amount: showAmount ? yen(d.amount) : HQ_ONLY, probability: d.probability, expectedCloseDate: day(d.expectedCloseDate), closedAt: day(d.closedAt),
     assignedTo: d.assignedTo?.name ?? null, isRegular: d.isRegular, regularMonthlyAmount: showAmount ? yen(d.regularMonthlyAmount) : null,
     updatedAt: day(d.updatedAt),
   }));
@@ -105,10 +108,10 @@ export async function getDeal(v: McpViewer, id: string) {
     },
   });
   if (!d) return null;
-  const showAmount = v.role !== "USER";
+  const showAmount = isHq(v);
   return {
     id: d.id, title: d.title, status: d.status, customer: d.customer, assignedTo: d.assignedTo?.name ?? null,
-    amount: showAmount ? yen(d.amount) : "（権限なし）", probability: d.probability, expectedCloseDate: day(d.expectedCloseDate), closedAt: day(d.closedAt),
+    amount: showAmount ? yen(d.amount) : HQ_ONLY, probability: d.probability, expectedCloseDate: day(d.expectedCloseDate), closedAt: day(d.closedAt),
     closingFactor: d.closingFactor, notes: stripSensitiveLines(d.notes) || null, isRegular: d.isRegular,
     logs: d.dealLogs.map((l) => ({ type: l.type, content: stripSensitiveLines(l.content), staffName: l.staffName, at: day(l.createdAt) })),
   };
@@ -133,7 +136,7 @@ export async function listEstimates(v: McpViewer, input: { query?: string; statu
   });
   return rows.map((e) => {
     const subtotal = e.items.reduce((s, i) => s + Number(i.amount ?? 0), 0);
-    return { id: e.id, title: e.title, customer: e.customer?.name ?? null, status: e.status, estimateDate: day(e.estimateDate), validUntil: day(e.validUntil), subtotalExclTax: yen(subtotal), staffName: e.staffName };
+    return { id: e.id, title: e.title, customer: e.customer?.name ?? null, status: e.status, estimateDate: day(e.estimateDate), validUntil: day(e.validUntil), subtotalExclTax: isHq(v) ? yen(subtotal) : HQ_ONLY, staffName: e.staffName };
   });
 }
 
@@ -147,16 +150,18 @@ export async function getEstimate(v: McpViewer, id: string) {
   const discount = Number(e.discountAmount ?? 0);
   const discounted = Math.max(0, subtotal - discount);
   const tax = Math.round(discounted * 0.1);
-  const isAdmin = v.role === "ADMIN";
+  const hq = isHq(v);
+  const head = { id: e.id, title: e.title, customer: e.customer?.name ?? null, status: e.status, estimateDate: day(e.estimateDate), validUntil: day(e.validUntil), staffName: e.staffName, notes: stripSensitiveLines(e.notes) || null };
+  if (!hq) {
+    // 本部以外: 品目と数量だけ。金額は出さない
+    return { ...head, items: e.items.map((i) => ({ name: i.name, spec: i.spec, quantity: Number(i.quantity), unit: i.unit })), amounts: HQ_ONLY };
+  }
   return {
-    id: e.id, title: e.title, customer: e.customer?.name ?? null, status: e.status, estimateDate: day(e.estimateDate), validUntil: day(e.validUntil),
-    staffName: e.staffName, notes: e.notes,
-    items: e.items.map((i) => ({
-      name: i.name, spec: i.spec, quantity: Number(i.quantity), unit: i.unit, unitPrice: yen(i.unitPrice), amount: yen(i.amount),
-      ...(isAdmin ? { costPrice: yen(i.costPrice) } : {}),
-    })),
+    ...head,
+    items: e.items.map((i) => ({ name: i.name, spec: i.spec, quantity: Number(i.quantity), unit: i.unit, unitPrice: yen(i.unitPrice), amount: yen(i.amount), costPrice: yen(i.costPrice) })),
     subtotalExclTax: yen(subtotal),
-    ...(v.role !== "USER" ? { discountAmount: yen(discount), discountReason: e.discountReason } : {}),
+    discountAmount: yen(discount),
+    discountReason: e.discountReason,
     taxAmount: yen(tax),
     totalInclTax: yen(discounted + tax),
   };
@@ -230,10 +235,11 @@ export async function mySummary(v: McpViewer, input: { months?: number }) {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
   const branch = getBranchFilter(v);
-  const reportWhere: Prisma.RevenueReportWhereInput = v.role === "ADMIN" ? { targetMonth: { gte: from } } : { createdById: v.id, targetMonth: { gte: from } };
+  const reportWhere: Prisma.RevenueReportWhereInput = { targetMonth: { gte: from } };
+  const hq = isHq(v);
   const [dealCounts, reports, company] = await Promise.all([
     db.deal.groupBy({ by: ["status"], where: branch, _count: true }),
-    db.revenueReport.findMany({ where: reportWhere, orderBy: { targetMonth: "desc" }, select: { targetMonth: true, amount: true, selfAmount: true, hqAmount: true, projectName: true, memo: true } }),
+    hq ? db.revenueReport.findMany({ where: reportWhere, orderBy: { targetMonth: "desc" }, select: { targetMonth: true, amount: true, selfAmount: true, hqAmount: true, projectName: true, memo: true } }) : Promise.resolve([]),
     v.groupCompanyId ? db.groupCompany.findUnique({ where: { id: v.groupCompanyId }, select: { name: true, prefecture: true, ownerName: true } }) : Promise.resolve(null),
   ]);
   const byMonth = new Map<string, { total: number; self: number; hq: number; projects: string[] }>();
@@ -249,8 +255,8 @@ export async function mySummary(v: McpViewer, input: { months?: number }) {
   return {
     company,
     deals: dealCounts.map((d) => ({ status: d.status, count: d._count })),
-    monthlyReports: [...byMonth.entries()].map(([month, m]) => ({ month, totalExclTax: yen(m.total), selfExclTax: yen(m.self), hqExclTax: yen(m.hq), projects: m.projects })),
-    note: "月次報告は本人が提出した分の集計。商談件数は貴社拠点の分",
+    monthlyReports: hq ? [...byMonth.entries()].map(([month, m]) => ({ month, totalExclTax: yen(m.total), selfExclTax: yen(m.self), hqExclTax: yen(m.hq), projects: m.projects })) : HQ_ONLY,
+    note: hq ? "月次報告は提出分の集計。商談件数は拠点の分" : "商談件数は貴社拠点の分。売上の数字は本部のみ",
   };
 }
 

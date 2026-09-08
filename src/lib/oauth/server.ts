@@ -18,7 +18,7 @@ export const AUTH_CODE_TTL_SEC = 10 * 60; // 10分
 /** 権限（同意画面に出す単位）。順番＝同意画面の表示順 */
 export const SCOPES = {
   brand_kit: { label: "ブランドキット", desc: "AI用材料（決まり・会社紹介・メニュー別/媒体別の数字・切り口・Wiki材料）を読む" },
-  "os:read": { label: "OSの読み取り", desc: "貴社の顧客・商談・見積・パッケージ台帳・媒体料金・Wiki・拠点一覧を読む（書き込みはしない）" },
+  "os:read": { label: "OSの読み取り", desc: "貴社の顧客・商談・見積（品目）・パッケージ台帳・TVerプラン・Wiki・拠点一覧を読む。売上や金額の数字は本部のみ。書き込みはしない" },
 } as const;
 export type Scope = keyof typeof SCOPES;
 export const ALL_SCOPES = Object.keys(SCOPES) as Scope[];

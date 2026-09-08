@@ -150,7 +150,7 @@ const handler = createMcpHandler(
     );
     osTool(
       "list_deals",
-      { title: "商談一覧", description: "貴社拠点の商談。status: PROSPECTING / QUALIFYING / PROPOSAL / NEGOTIATION / CLOSED_WON / CLOSED_LOST / DORMANT / DEFERRED。", inputSchema: z.object({ query: z.string().optional(), status: z.string().optional(), customerId: z.string().optional(), limit: z.number().int().optional() }) },
+      { title: "商談一覧", description: "貴社拠点の商談（金額は本部のみ）。status: PROSPECTING / QUALIFYING / PROPOSAL / NEGOTIATION / CLOSED_WON / CLOSED_LOST / DORMANT / DEFERRED。", inputSchema: z.object({ query: z.string().optional(), status: z.string().optional(), customerId: z.string().optional(), limit: z.number().int().optional() }) },
       (v, a) => os.listDeals(v, a),
     );
     osTool(
@@ -165,7 +165,7 @@ const handler = createMcpHandler(
     );
     osTool(
       "get_estimate",
-      { title: "見積の詳細", description: "見積1件（明細・小計・税・合計）。id は list_estimates のもの。", inputSchema: z.object({ id: z.string() }) },
+      { title: "見積の詳細", description: "見積1件（品目・数量。金額は本部のみ）。id は list_estimates のもの。", inputSchema: z.object({ id: z.string() }) },
       (v, a) => os.getEstimate(v, a.id),
     );
     osTool(
@@ -190,7 +190,7 @@ const handler = createMcpHandler(
     );
     osTool(
       "my_summary",
-      { title: "自分の数字", description: "商談の状況別件数と、直近数か月の月次報告（自分が提出した分）。", inputSchema: z.object({ months: z.number().int().optional().describe("何か月分（既定3・最大12）") }) },
+      { title: "自分の数字", description: "商談の状況別件数（月次報告の売上額は本部のみ）。", inputSchema: z.object({ months: z.number().int().optional().describe("何か月分（既定3・最大12）") }) },
       (v, a) => os.mySummary(v, a),
     );
     osTool(
