@@ -219,6 +219,24 @@ enum TverFlyerStatus {
   CANCELLED // 取り下げ
 }
 
+// TVer小口申込（Web完結・/order/tver）の状態
+enum TverOrderStatus {
+  AWAITING_PAYMENT // 規約同意済み・決済待ち
+  PAID // 決済完了＝契約成立（考査前）
+  REVIEWING // 本部がTVerへ業態考査を申請中
+  MATERIAL_WAITING // 考査OK・動画の到着待ち
+  MATERIAL_RECEIVED // 動画受領・入稿準備中
+  LIVE // 配信中
+  COMPLETED // 配信終了・レポート送付済み
+  CANCELLED // 決済前の取り下げ
+  REFUNDED // 考査不可等で全額返金
+}
+
+enum TverOrderPaymentMethod {
+  CARD // Squareカード決済（決済完了＝契約成立）
+  BANK_TRANSFER // 銀行振込（MF請求書を自動発行・入金確認＝契約成立）
+}
+
 enum AdvertiserReviewStatus {
   PENDING // 審査中（デフォルト）
   APPROVED // 承認
@@ -397,8 +415,8 @@ model User {
   // ---- グループオフィス（在席・みんなのチャット・個別ひとこと）----
   lastSeenAt           DateTime? // OSを開いている最終時刻（15秒ごとの beat で更新）
   officeAvatar         String? // 選んだ顔アイコン（例: "a07" → /office/avatars/a07.webp）。null は Google の写真
-  officeKnocksSent     OfficeKnock[]       @relation("OfficeKnockFrom")
-  officeKnocksReceived OfficeKnock[]       @relation("OfficeKnockTo")
+  officeKnocksSent     OfficeKnock[]        @relation("OfficeKnockFrom")
+  officeKnocksReceived OfficeKnock[]        @relation("OfficeKnockTo")
   officeChatMessages   OfficeChatMessage[]
   officeChatReactions  OfficeChatReaction[]
 
@@ -2078,6 +2096,7 @@ model GroupCompany {
   salesInsights        SalesInsight[]
   salesApproaches      SalesApproach[]
   packageFeedbacks     PackageFeedback[]              @relation("PackageFeedbacks")
+  tverOrders           TverOrder[]                    @relation("TverOrders")
   groupMoves           GroupMove[]                    @relation("GroupMoves")
 
   // ---- 稼働ステータス管理 ----
@@ -2474,13 +2493,128 @@ model PackageFeedback {
   senderName String // お名前（拠点）
   usedFor    String[] @default([]) // 何に使ったか（提案メール(A) など複数）
   usability  String // そのまま使えた / 少し直して使えた / かなり直した / 使えなかった
-  body       String? @db.Text // 結果・違和感・困った点・欲しいデータ
+  body       String?  @db.Text // 結果・違和感・困った点・欲しいデータ
 
   createdAt DateTime @default(now())
 
   @@index([packageId, createdAt])
   @@index([groupCompanyId])
   @@map("package_feedbacks")
+}
+
+// ==============================================================
+// TVer小口申込（お客様がWebで完結: エリア→プラン→広告主→規約同意→Square決済）
+//   /order/tver?from=<拠点ID> で申込、/order/tver/<token> で進捗。ログイン不要。
+//   契約当事者は 広告主 ⇔ Ad Arch本部。拠点は紹介元として groupCompanyId に残る。
+// ==============================================================
+model TverOrder {
+  id     String @id @default(cuid())
+  token  String @unique // 進捗ページ・PDF取得用（推測不能な長い文字列）
+  number Int    @unique @default(autoincrement()) // 表示用の申込番号（TV-2026-0042 の 0042）
+
+  groupCompanyId String? // ?from= で特定できた紹介元の拠点
+  groupCompany   GroupCompany? @relation("TverOrders", fields: [groupCompanyId], references: [id], onDelete: SetNull)
+
+  // ── エリア・プラン
+  prefName         String
+  municipalityCode String
+  areaLabel        String
+  planKey          String // light / standard / full
+  adSeconds        Int     @default(15)
+  months           Int     @default(3) // 契約期間（3 / 6 / 12ヶ月）
+  mediaFeeExclTax  Int // 媒体費（税抜・月額）
+  setupFeeExclTax  Int // 初期登録費（税抜・初回のみ 30,000／月額20万以上と2回目以降は 0）。初月の請求に乗る
+  totalInclTax     Int // 契約総額（税込・月額×期間＋初期登録費）
+  estImpressions   Int // 月の再生数の目安
+  estReach         Int // 月に届く人数の目安
+  hasVideo         Boolean @default(true)
+
+  // ── 広告主（法人のみ。決済前は会社名・担当者・メール・電話だけ。残りは決済後に進捗ページで記入）
+  advertiserName     String
+  contactName        String
+  email              String
+  phone              String
+  corporateNumber    String? // 決済後の詳細で必須（13桁）
+  postalCode         String?
+  address            String?
+  representativeName String?
+  industry           String?
+  landingPageUrl     String?
+  notes              String?   @db.Text
+  detailsCompletedAt DateTime? // 詳細の記入が済んだ日時（＝契約書PDFを作れる）
+
+  // ── 規約同意（電子契約の記録）
+  termsVersion String
+  signerName   String
+  agreedAt     DateTime
+  agreedIp     String?
+  agreedUa     String?
+
+  // ── 支払い（月払い・2026-09-09 代表決定）: 明細は TverOrderInvoice（契約期間ぶん月ごとに1行）
+  paymentMethod TverOrderPaymentMethod @default(CARD)
+  paidAt        DateTime? // 初月（＋初期登録費）の入金確認＝契約成立
+  paidAmount    Int? // 初月に受け取った税込額
+  paymentNote   String? // 初月の決済メモ（カード種別・末尾など）
+  invoices      TverOrderInvoice[]
+
+  // ── 進行（本部が進める）
+  status        TverOrderStatus @default(AWAITING_PAYMENT)
+  adminNote     String?         @db.Text // 本部メモ（内部）
+  customerNote  String?         @db.Text // 広告主に見せる連絡（進捗ページに出る）
+  materialUrl   String? // 動画（アップロード先URL or 広告主が貼ったURL）
+  materialNote  String?
+  liveStartDate DateTime?
+  liveEndDate   DateTime?
+  reportUrl     String?
+  refundedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([groupCompanyId, createdAt])
+  @@index([email])
+  @@map("tver_orders")
+}
+
+enum TverOrderInvoiceStatus {
+  UNPAID // 請求済み・入金待ち
+  PAID // 入金確認済み
+  CANCELLED // 取り消し
+}
+
+// 月ごとの請求（seq=1 が初月＝初期登録費込み。以降は毎月、cron が期日7日前に発行）
+model TverOrderInvoice {
+  id      String    @id @default(cuid())
+  orderId String
+  order   TverOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  seq     Int // 1..months
+
+  amountExclTax    Int
+  amountInclTax    Int
+  includesSetupFee Boolean                @default(false)
+  method           TverOrderPaymentMethod
+  dueDate          DateTime // 支払期限（初月＝申込から7日、以降＝配信開始日の月次応当日）
+  issuedAt         DateTime               @default(now())
+
+  squareLinkId    String?
+  squareOrderId   String? @unique
+  squareLinkUrl   String?
+  mfBillingId     String?
+  mfBillingNumber String?
+  mfPdfUrl        String?
+
+  status      TverOrderInvoiceStatus @default(UNPAID)
+  paidAt      DateTime?
+  paidAmount  Int?
+  paymentNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([orderId, seq])
+  @@index([status, dueDate])
+  @@map("tver_order_invoices")
 }
 
 model SalesPackageImage {

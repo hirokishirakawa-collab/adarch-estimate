@@ -7,6 +7,7 @@
 
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { confirmInvoicePayment } from "@/lib/tver-order/service";
 import { notifyAdmins } from "@/lib/notifications";
 import { isSquareConfigured, listSquarePayments } from "@/lib/square";
 
@@ -49,6 +50,14 @@ export async function watchSquarePayments(actorUserId: string, adminEmail: strin
           await db.invoiceRequest.update({ where: { id: ir.id }, data: { paymentStatus: "PAID", paidAt: new Date(p.created_at ?? Date.now()) } });
           res.healedRequests++;
           logAudit({ action: "invoice_request_paid_via_square_watch", email: adminEmail, name: "square-watch", entity: "invoice_request", entityId: ir.id, detail: `「${ir.subject}」 ¥${amount.toLocaleString("ja-JP")}（ウェブフック取りこぼしを補完）` });
+          continue;
+        }
+        // TVer申込（/order/tver・月払いの請求ごと）
+        const ti = await db.tverOrderInvoice.findFirst({ where: { squareOrderId: p.order_id }, select: { id: true, status: true } });
+        if (ti) {
+          if (ti.status === "PAID") { res.alreadyOk++; continue; }
+          await confirmInvoicePayment(ti.id, { amount, note: `Squareカード決済（${brand} ****${last4}・決済ID ${p.id}・見張りcronで補完）`, paidAt: new Date(p.created_at ?? Date.now()), actorEmail: adminEmail });
+          res.healedRequests++;
           continue;
         }
       }

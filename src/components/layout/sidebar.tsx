@@ -650,6 +650,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "ADMIN",
       },
       {
+        href: "/dashboard/admin/tver-orders",
+        label: "TVer小口申込",
+        icon: MonitorPlay,
+        minRole: "ADMIN",
+      },
+      {
         href: "/dashboard/admin/partner-billing",
         label: "パートナー経理管理",
         icon: Building2,

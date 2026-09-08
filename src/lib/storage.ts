@@ -34,6 +34,7 @@ const CARD_IMAGE_BUCKET = "card-images";
 const VIDEO_REVIEW_BUCKET = "video-reviews";
 const CREATOR_AVATAR_BUCKET = "creator-avatars";
 const SIGNAGE_BUCKET = "signage-assets"; // デジタルサイネージ素材（動画・画像・サムネ）
+const TVER_ORDER_BUCKET = "tver-order-materials"; // TVer小口申込の動画素材（お客様アップロード・ファイル名は乱数）
 
 // ---------------------------------------------------------------
 // 共通ユーティリティ
@@ -306,4 +307,18 @@ export async function saveSignageAsset(
 
 export function signageAssetPath(storedName: string): string {
   return getStorageFilePath(SIGNAGE_BUCKET, storedName);
+}
+
+// ---------------------------------------------------------------
+// TVer小口申込の動画素材（お客様が進捗ページから上げる）
+// ---------------------------------------------------------------
+export async function uploadTverOrderMaterial(file: File): Promise<string | null> {
+  try {
+    const fileName = generateFileName(file.name, "mp4");
+    const buf = Buffer.from(await file.arrayBuffer());
+    return await saveFile(TVER_ORDER_BUCKET, fileName, buf);
+  } catch (e) {
+    console.error("[storage] tver order material upload error:", e);
+    return null;
+  }
 }

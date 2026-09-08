@@ -47,6 +47,11 @@ function expandCodes(prefName: string, code: string): string[] {
   return MUNICIPALITIES.filter((m) => m.prefName === prefName && m.population > 0 && m.name.startsWith(city) && /区$/.test(m.name)).map((m) => m.code);
 }
 
+/** 1つの選択（市区町村 or 「○○市（全区）」）の商圏プラン。小口申込（/order/tver）の目安計算にも使う */
+export function areaPlanFor(prefName: string, code: string): AreaPlan | null {
+  return planForCodes(expandCodes(prefName, code), 15);
+}
+
 export type AreaTier = {
   monthly: number;
   impressions: number;

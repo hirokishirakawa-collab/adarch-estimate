@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { confirmInvoicePayment } from "@/lib/tver-order/service";
 
 /**
  * Square Webhook（payment.created / payment.updated）
@@ -59,6 +60,19 @@ export async function POST(req: NextRequest) {
       if (ir.paymentStatus !== "PAID") await db.invoiceRequest.update({ where: { id: ir.id }, data: { paymentStatus: "PAID", paidAt: new Date(p.created_at ?? Date.now()) } });
       logAudit({ action: "invoice_request_paid_via_square_webhook", email: admin?.email ?? "", name: "square-webhook", entity: "invoice_request", entityId: ir.id, detail: `「${ir.subject}」 ¥${amount.toLocaleString("ja-JP")} Square ${brand ?? ""} ****${last4 ?? ""} 決済ID ${p.id}` });
       return NextResponse.json({ ok: true, matched: "invoice_request", id: ir.id });
+    }
+    // ③ TVer申込（/order/tver・月払い）＝請求（月）ごとに Square リンクを持つ。初月の入金＝契約成立
+    const ti = await db.tverOrderInvoice.findFirst({ where: { squareOrderId: p.order_id }, select: { id: true, status: true, orderId: true } });
+    if (ti) {
+      if (ti.status !== "PAID") {
+        await confirmInvoicePayment(ti.id, {
+          amount,
+          note: `Squareカード決済（${brand ?? "CARD"} ****${last4 ?? "----"}・決済ID ${p.id}）`,
+          paidAt: new Date(p.created_at ?? Date.now()),
+          actorEmail: admin?.email ?? "square-webhook",
+        });
+      }
+      return NextResponse.json({ ok: true, matched: "tver_order", id: ti.orderId });
     }
   }
   // 引き当てられない決済（旧固定リンクなど）は記録だけ

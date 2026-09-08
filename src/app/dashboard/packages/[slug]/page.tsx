@@ -22,6 +22,8 @@ import {
 } from "@/lib/packages/types";
 import { PackageStatusActions } from "@/components/packages/package-status-actions";
 import { CopyTextButton } from "@/components/packages/copy-text-button";
+import { TVER_ORDER_STATUS_LABEL } from "@/lib/tver-order/service";
+import { orderNumberLabel, planByKey } from "@/lib/tver-order/plans";
 import { buildOnePackageMaterial } from "@/lib/brand-kit/materials";
 import { LinkedChat } from "@/components/office/linked-chat";
 import type { SalesPackageStatus, SalesApproachResult } from "@/generated/prisma/client";
@@ -94,6 +96,17 @@ export default async function PackageDetailPage({
     }),
   ]);
   const feedbackUrl = `/feedback/${pkg.slug}${me.groupCompanyId ? `?from=${me.groupCompanyId}` : ""}`;
+  // TVer小口申込（Web完結）: 地域リーチ系だけ。本部は全部、各社は自拠点経由の分
+  const isTverOrderPackage = pkg.calculator === "tver-area";
+  const orderUrl = `${proto}://${host}/order/tver${me.groupCompanyId ? `?from=${me.groupCompanyId}` : ""}`;
+  const tverOrders = isTverOrderPackage
+    ? await db.tverOrder.findMany({
+        where: isAdmin ? {} : { groupCompanyId: me.groupCompanyId ?? "__none__" },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: { id: true, number: true, token: true, createdAt: true, status: true, advertiserName: true, prefName: true, areaLabel: true, planKey: true, months: true, totalInclTax: true, paidAt: true, hasVideo: true, groupCompany: { select: { name: true } } },
+      })
+    : [];
   const s = stats[pkg.id];
   const deliverables = parseDeliverables(pkg.deliverables);
   const options = parseOptions(pkg.options);
@@ -186,6 +199,16 @@ export default async function PackageDetailPage({
         </div>
 
         {active && <PackageShareLink url={publicUrl} />}
+        {active && isTverOrderPackage && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+            <span className="text-[11px] font-bold text-zinc-800">TVer申込ページ（Web完結）</span>
+            <span className="text-[11px] text-zinc-600">お客様がエリア・プランを選び、規約に同意してカードか振込で申込。契約・請求・考査・配信は本部。貴社は案内元（商談中の代表）として記録され、申込・入金の通知が届きます</span>
+            <div className="ml-auto flex items-center gap-2">
+              <CopyTextButton text={orderUrl} label="申込URLをコピー" className="bg-white" />
+              <a href={orderUrl} target="_blank" rel="noopener" className="text-[11px] font-bold text-zinc-600 underline underline-offset-2 hover:text-zinc-900">開く ↗</a>
+            </div>
+          </div>
+        )}
         {material && (
           <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-orange-200 bg-orange-50/60 px-3 py-2">
             <span className="text-[11px] font-bold text-orange-700">AI用の材料</span>
@@ -318,6 +341,31 @@ export default async function PackageDetailPage({
           </ul>
         )}
       </Section>
+
+      {isTverOrderPackage && (
+        <Section
+          title={`小口申込（${tverOrders.length}）${isAdmin ? "" : "＝自分の拠点経由の分"}`}
+          aside={isAdmin ? <Link href="/dashboard/admin/tver-orders" className="text-xs font-bold text-orange-700 hover:underline">本部の管理画面 →</Link> : undefined}
+        >
+          {tverOrders.length === 0 ? (
+            <Empty text="まだ申込はありません。上の「申込URLをコピー」をお客様に渡すと、ここに並びます。" />
+          ) : (
+            <ul className="divide-y divide-zinc-100">
+              {tverOrders.map((o) => (
+                <li key={o.id} className="py-2.5 text-sm flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{TVER_ORDER_STATUS_LABEL[o.status]}</span>
+                  <span className="font-semibold text-zinc-800">{o.advertiserName}</span>
+                  <span className="text-xs text-zinc-500">{o.prefName} {o.areaLabel}・{planByKey(o.planKey)?.name ?? o.planKey}・{o.months}ヶ月・税込 ¥{o.totalInclTax.toLocaleString("ja-JP")}</span>
+                  {!o.hasVideo && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-50 text-orange-700">動画なし＝制作の相談を</span>}
+                  {isAdmin && o.groupCompany && <span className="text-xs text-zinc-500">{o.groupCompany.name}</span>}
+                  <span className="text-[11px] text-zinc-400 ml-auto">{orderNumberLabel(o.number, o.createdAt)}・{new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeZone: "Asia/Tokyo" }).format(o.createdAt)}</span>
+                  <a href={`/order/tver/${o.token}`} target="_blank" rel="noopener" className="text-[11px] font-bold text-orange-700 underline underline-offset-2">進捗 ↗</a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      )}
 
       {/* フィードバック（AI用データ・パッケージを使った感想）。本部=全部／各社=自分の分 */}
       <div id="feedback">

@@ -50,6 +50,7 @@ export async function createSquarePaymentLink(input: {
   amountJpy: number; // 税込
   paymentNote?: string; // 支払いに付くメモ（入金特定用）
   description?: string; // チェックアウト画面の説明
+  redirectUrl?: string; // 決済完了後に戻るURL（TVer小口申込の進捗ページなど）
 }): Promise<{ link?: SquarePaymentLink; error?: string }> {
   if (!isSquareConfigured()) return { error: "Squareが未設定です（SQUARE_ACCESS_TOKEN / SQUARE_LOCATION_ID）" };
   const amount = Math.max(0, Math.round(input.amountJpy));
@@ -67,6 +68,7 @@ export async function createSquarePaymentLink(input: {
     checkout_options: {
       ask_for_shipping_address: false,
       allow_tipping: false,
+      ...(input.redirectUrl ? { redirect_url: input.redirectUrl } : {}),
     },
   };
   try {
