@@ -14,12 +14,15 @@ const PUBLIC_PATHS = ["/login", "/partner"];
 /**
  * ロールごとの保護パス
  *
- * /admin       → ADMIN（本部）のみ
- * /sales-report → MANAGER以上（代表は自拠点のみ、Phase 2で branchId フィルタ）
+ * /dashboard/admin        → ADMIN（本部）のみ。本部ページはここで一括で守る（各ページの個別チェックは二重の保険）
+ * /dashboard/sales-report → MANAGER以上（代表は自拠点のみ）
+ *
+ * ⚠️ 2026-09-09 まで接頭辞が "/admin" になっており実パス "/dashboard/admin/…" に一致せず、
+ *    この層のガードは空振りだった（各ページの個別チェックだけで守られていた）。接頭辞を実パスに修正。
  */
 const PROTECTED_PATHS: { prefix: string; role: UserRole }[] = [
-  { prefix: "/admin", role: "ADMIN" },
-  { prefix: "/sales-report", role: "MANAGER" },
+  { prefix: "/dashboard/admin", role: "ADMIN" },
+  { prefix: "/dashboard/sales-report", role: "MANAGER" },
 ];
 
 // ----------------------------------------------------------------
@@ -296,7 +299,7 @@ export default auth((req: NextAuthRequest) => {
     }
 
     // 通常の未認証アクセス（センシティブなパスのみログ記録、Telegram webhookは除外）
-    if ((pathname.startsWith("/admin") || pathname.startsWith("/api/")) && !pathname.startsWith("/api/telegram")) {
+    if ((pathname.startsWith("/dashboard/admin") || pathname.startsWith("/api/")) && !pathname.startsWith("/api/telegram")) {
       recordSecurityEvent(
         "unauthenticated_access",
         `path=${pathname}`,
