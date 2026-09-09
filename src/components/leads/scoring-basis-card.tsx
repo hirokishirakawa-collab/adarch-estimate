@@ -13,7 +13,7 @@ interface Rule { id: string; family: string; prefecture?: string; delta: number;
 interface BasisView {
   day: string;
   windowDays: number;
-  wins: { total: number; byFamily: Record<string, number>; closingFactors: string[] };
+  wins: { total: number; deals: number; byFamily: Record<string, number>; closingFactors: string[] };
   outreach: { total: number };
   rules: Rule[];
   fixed: string[];
@@ -53,7 +53,7 @@ export function ScoringBasisCard({ applied }: { applied?: BasisApplied | null })
         <span className="text-xs font-semibold text-zinc-800">今日の判定基準</span>
         <span className="text-[11px] text-zinc-500">{fmtDay(basis.day)} 更新・直近{basis.windowDays}日の実績から自動生成</span>
         <span className="text-[11px] text-zinc-500">
-          受注 {basis.wins.total}件／送付結果 {basis.outreach.total}件／効いている補正 {basis.rules.length}本
+          受注 {basis.wins.total}社（{basis.wins.deals}件）／送付結果 {basis.outreach.total}件／効いている補正 {basis.rules.length}本
           {diff !== null && diff !== 0 && (
             <span className={diff > 0 ? "text-emerald-600" : "text-amber-600"}>（昨日比 {diff > 0 ? "+" : ""}{diff}）</span>
           )}
@@ -82,7 +82,7 @@ export function ScoringBasisCard({ applied }: { applied?: BasisApplied | null })
           <div>
             <p className="text-[11px] text-zinc-500 mb-1">効いている補正（業種・エリアが合う検索にだけ掛かる。合計 -6〜+8点）</p>
             {basis.rules.length === 0 ? (
-              <p className="text-zinc-500">なし。根拠が閾値（受注3件・送付結果10件）に届いた項目がまだありません</p>
+              <p className="text-zinc-500">なし。根拠が閾値（受注3社・送付結果10件）に届いた項目がまだありません</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {basis.rules.map((r) => (
@@ -109,7 +109,7 @@ export function ScoringBasisCard({ applied }: { applied?: BasisApplied | null })
               <p className="text-zinc-500">{basis.fixed.slice(0, 8).join("／")}{basis.fixed.length > 8 ? ` ほか${basis.fixed.length - 8}件` : ""}</p>
             </div>
           )}
-          <p className="text-[11px] text-zinc-400">材料＝受注した顧客の業種・県／送付後の結果ボタン／アポ・商談化とスキップ。金額は使いません。結果ボタンを押すほど翌日の基準に反映されます</p>
+          <p className="text-[11px] text-zinc-400">材料＝受注した顧客の業種・県（受注日基準・同じ会社は1社。業種が未入力の顧客は社名・案件名から推定し「推定」と明記）／送付後の結果ボタン／アポ・商談化とスキップ。金額は使いません。結果ボタンを押すほど翌日の基準に反映されます</p>
         </div>
       )}
     </div>

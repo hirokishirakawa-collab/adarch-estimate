@@ -17,6 +17,7 @@
 import { db } from "@/lib/db";
 import { PREFECTURES } from "@/lib/constants/crm";
 import type { Prisma } from "@/generated/prisma/client";
+import { normalizeCompanyName } from "@/lib/leads/match-score";
 
 export const BASIS_WINDOW_DAYS = 180;
 export const BASIS_MIN_DELTA = -6;
@@ -26,9 +27,11 @@ export const BASIS_MAX_DELTA = 8;
 // 業種の「家族」= 顧客管理・リード・アプローチ事例で語彙がばらばらなので、キーワードで束ねる
 // ---------------------------------------------------------------
 const FAMILY_RULES: [string, RegExp][] = [
+  // 団体・自治体は「観光協会」等が観光に吸われないよう先に判定する
+  ["自治体・団体", /協会|商工会|振興会|市役所|市民局|県庁|町役場|役場|一般社団|公益社団|公益財団|一般財団|財団法人|NPO|組合|事務局|コミッション|自治体|官公庁|公共|青年会議所/],
   ["飲食", /飲食|レストラン|カフェ|居酒屋|フード|食堂|ラーメン|焼肉|寿司|バー|restaurant|cafe/i],
   ["美容・健康", /美容|エステ|ヘア|サロン|ネイル|理容|整体|整骨|鍼灸|マッサージ|フィットネス|ジム|ヨガ|beauty|salon|gym/i],
-  ["住宅・建設・不動産", /住宅|建設|建築|工務|リフォーム|不動産|ハウス|土木|設備|塗装|外構|construction|real_estate|estate/i],
+  ["住宅・建設・不動産", /住宅|建設|建築|工務|工法|建材|リフォーム|不動産|ハウス|土木|設備|塗装|外構|construction|real_estate|estate/i],
   ["医療・介護", /医療|クリニック|病院|歯科|眼科|介護|福祉|薬局|dental|clinic|hospital|doctor/i],
   ["教育", /教育|塾|スクール|学校|教室|保育|幼稚園|school/i],
   ["自動車", /自動車|カー用品|車|バイク|ディーラー|car_|automotive/i],
@@ -47,6 +50,17 @@ export function industryFamily(raw: string | null | undefined): string {
   if (!v) return "その他";
   for (const [fam, re] of FAMILY_RULES) if (re.test(v)) return fam;
   return "その他";
+}
+
+/**
+ * 顧客の家族。顧客管理の業種が「その他」「未入力」のときだけ、社名＋案件名から推定する（代表指示 2026-09-09）。
+ * 推定した分は inferred=true で返し、画面・理由文に「推定含む」と明記する。
+ */
+export function familyForCustomer(industry: string | null | undefined, name: string, dealTitle?: string | null): { family: string; inferred: boolean } {
+  const fam = industryFamily(industry);
+  if (fam !== "その他") return { family: fam, inferred: false };
+  const guess = industryFamily(`${name} ${dealTitle ?? ""}`);
+  return { family: guess, inferred: guess !== "その他" };
 }
 
 /** 「高松市 香川県」「香川県高松市」等から都道府県名を拾う */
@@ -72,10 +86,13 @@ export interface ScoringBasis {
   computedAt: string;
   windowDays: number;
   wins: {
-    total: number;
+    total: number; // 受注した社数（同じ会社は1）
+    deals: number; // 受注商談の件数
     byFamily: Record<string, number>;
+    byFamilyInferred: Record<string, number>; // 家族ごとの「推定で入れた社数」
     byFamilyPref: Record<string, number>; // "家族|県"
     byPref: Record<string, number>;
+    unclassified: number; // 推定しても家族が付かなかった社数
     closingFactors: string[]; // 決め手（直近5件・60字まで）
   };
   outreach: {
@@ -108,9 +125,13 @@ export async function buildScoringBasis(now = new Date()): Promise<ScoringBasis>
 
   const [won, outreach, successLeads, skippedLeads] = await Promise.all([
     db.deal.findMany({
-      where: { status: "CLOSED_WON", updatedAt: { gte: since } },
+      // 受注日（closedAt）で窓を切る。closedAt が無い古い記録だけ updatedAt で代用
+      where: {
+        status: "CLOSED_WON",
+        OR: [{ closedAt: { gte: since } }, { closedAt: null, updatedAt: { gte: since } }],
+      },
       // amount は取らない（判定基準に金額は使わない）
-      select: { closingFactor: true, updatedAt: true, customer: { select: { industry: true, prefecture: true } } },
+      select: { title: true, closingFactor: true, updatedAt: true, closedAt: true, customerId: true, customer: { select: { name: true, industry: true, prefecture: true } } },
       orderBy: { updatedAt: "desc" },
     }),
     db.lead.findMany({
@@ -133,18 +154,26 @@ export async function buildScoringBasis(now = new Date()): Promise<ScoringBasis>
     m[k] = (m[k] ?? 0) + by;
   };
 
-  // 受注
-  const wins: ScoringBasis["wins"] = { total: won.length, byFamily: {}, byFamilyPref: {}, byPref: {}, closingFactors: [] };
+  // 受注: 同じ会社の複数商談は1社として数える（「どの業種が決まりやすいか」は社数で見る）。deals には商談数を残す
+  const wins: ScoringBasis["wins"] = { total: 0, deals: won.length, byFamily: {}, byFamilyInferred: {}, byFamilyPref: {}, byPref: {}, unclassified: 0, closingFactors: [] };
+  // 同名の顧客レコードが複数あることがある（例: 観光協会が2件）ので、社名の正規化で同一視する
+  const seenCustomer = new Set<string>();
   for (const d of won) {
-    const fam = industryFamily(d.customer.industry);
+    const cf = (d.closingFactor ?? "").trim();
+    if (cf && wins.closingFactors.length < 5) wins.closingFactors.push(cf.slice(0, 60));
+    const key = normalizeCompanyName(d.customer.name) || d.customerId;
+    if (seenCustomer.has(key)) continue;
+    seenCustomer.add(key);
+    wins.total++;
+    const { family: fam, inferred } = familyForCustomer(d.customer.industry, d.customer.name, d.title);
+    if (fam === "その他") wins.unclassified++;
+    if (inferred) bump(wins.byFamilyInferred, fam);
     const pref = prefectureIn(d.customer.prefecture);
     bump(wins.byFamily, fam);
     if (pref) {
       bump(wins.byPref, pref);
       bump(wins.byFamilyPref, `${fam}|${pref}`);
     }
-    const cf = (d.closingFactor ?? "").trim();
-    if (cf && wins.closingFactors.length < 5) wins.closingFactors.push(cf.slice(0, 60));
   }
 
   // 送付結果
@@ -173,16 +202,18 @@ export async function buildScoringBasis(now = new Date()): Promise<ScoringBasis>
   const rules: BasisRule[] = [];
   const fixed: string[] = [];
 
+  const inf = (fam: string) => (wins.byFamilyInferred[fam] ? `・うち推定${wins.byFamilyInferred[fam]}` : "");
   for (const [fam, n] of Object.entries(wins.byFamily)) {
     if (fam === "その他") continue;
-    if (n >= 8) rules.push({ id: `win:${fam}`, family: fam, delta: 5, reason: `受注実績 ${fam} ${n}件`, n });
-    else if (n >= 3) rules.push({ id: `win:${fam}`, family: fam, delta: 3, reason: `受注実績 ${fam} ${n}件`, n });
-    else fixed.push(`受注 ${fam} ${n}件（3件未満のため固定）`);
+    if (n >= 8) rules.push({ id: `win:${fam}`, family: fam, delta: 5, reason: `受注実績 ${fam} ${n}社${inf(fam)}`, n });
+    else if (n >= 3) rules.push({ id: `win:${fam}`, family: fam, delta: 3, reason: `受注実績 ${fam} ${n}社${inf(fam)}`, n });
+    else fixed.push(`受注 ${fam} ${n}社${inf(fam)}（3社未満のため固定）`);
   }
+  if (wins.unclassified) fixed.push(`業種を推定できなかった受注 ${wins.unclassified}社（顧客管理の業種が入れば反映）`);
   for (const [key, n] of Object.entries(wins.byFamilyPref)) {
     const [fam, pref] = key.split("|");
     if (fam === "その他" || n < 2) continue;
-    rules.push({ id: `winpref:${key}`, family: fam, prefecture: pref, delta: 2, reason: `受注実績 ${fam}×${pref} ${n}件`, n });
+    rules.push({ id: `winpref:${key}`, family: fam, prefecture: pref, delta: 2, reason: `受注実績 ${fam}×${pref} ${n}社`, n });
   }
   for (const [fam, s] of Object.entries(outreachStat.byFamily)) {
     if (fam === "その他") continue;
@@ -217,7 +248,7 @@ export async function buildScoringBasis(now = new Date()): Promise<ScoringBasis>
 export function summarizeBasis(b: ScoringBasis): string {
   const top = Object.entries(b.wins.byFamily).sort((a, c) => c[1] - a[1]).slice(0, 3).map(([f, n]) => `${f} ${n}`).join("・");
   return [
-    `受注 ${b.wins.total}件（${top || "—"}）／送付結果 ${b.outreach.total}件／効いている補正 ${b.rules.length}本`,
+    `受注 ${b.wins.total}社・${b.wins.deals}件（${top || "—"}）／送付結果 ${b.outreach.total}件／効いている補正 ${b.rules.length}本`,
     b.rules.length ? b.rules.slice(0, 4).map((r) => `${r.delta > 0 ? "+" : ""}${r.delta} ${r.reason}`).join("、") : "補正なし（根拠不足のため素点のまま）",
   ].join("\n");
 }
@@ -278,7 +309,7 @@ export function basisPromptText(basis: ScoringBasis, industryInput: string, area
   const pref = prefectureIn(areaText);
   const lines: string[] = [];
   const w = basis.wins.byFamily[fam] ?? 0;
-  if (w) lines.push(`- 同じ業種（${fam}）で直近${basis.windowDays}日に${w}件受注している${pref && basis.wins.byFamilyPref[`${fam}|${pref}`] ? `（うち${pref} ${basis.wins.byFamilyPref[`${fam}|${pref}`]}件）` : ""}`);
+  if (w) lines.push(`- 同じ業種（${fam}）で直近${basis.windowDays}日に${w}社から受注している${pref && basis.wins.byFamilyPref[`${fam}|${pref}`] ? `（うち${pref} ${basis.wins.byFamilyPref[`${fam}|${pref}`]}社）` : ""}`);
   const o = basis.outreach.byFamily[fam];
   if (o && o.sent >= 5) lines.push(`- 同じ業種への送付 ${o.sent}件: 返信あり${o.replied}・無反応${o.noReply}・断り${o.rejected}`);
   if (basis.wins.closingFactors.length) lines.push(`- 最近の受注の決め手: ${basis.wins.closingFactors.slice(0, 3).join("／")}`);

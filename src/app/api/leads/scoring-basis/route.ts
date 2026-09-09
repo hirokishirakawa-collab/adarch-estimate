@@ -18,7 +18,7 @@ export async function GET() {
       day: basis.day,
       computedAt: basis.computedAt,
       windowDays: basis.windowDays,
-      wins: { total: basis.wins.total, byFamily: basis.wins.byFamily, closingFactors: basis.wins.closingFactors },
+      wins: { total: basis.wins.total, deals: basis.wins.deals ?? basis.wins.total, byFamily: basis.wins.byFamily, closingFactors: basis.wins.closingFactors },
       outreach: { total: basis.outreach.total },
       rules: basis.rules,
       fixed: basis.fixed,
