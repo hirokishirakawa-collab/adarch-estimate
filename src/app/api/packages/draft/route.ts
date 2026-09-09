@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       where: { status: { in: ["ACTIVE", "PROPOSED"] } },
       orderBy: { updatedAt: "desc" },
       take: 8,
-      select: { slug: true, name: true, tagline: true, category: true, deliverables: true, fulfillment: true, options: true, priceType: true, initialPrice: true, monthlyPrice: true, rules: true, pitchText: true },
+      select: { slug: true, name: true, tagline: true, category: true, deliverables: true, fulfillment: true, options: true, priceType: true, initialPrice: true, monthlyPrice: true, calculator: true, rules: true, pitchText: true },
     }),
     db.salesGuideline.findMany(),
     db.salesApproach.findMany({

@@ -145,9 +145,9 @@ export default async function PackageDetailPage({
             <h2 className="text-2xl font-extrabold text-zinc-900 mt-1.5">{pkg.name}</h2>
             {pkg.tagline && <p className="text-sm text-zinc-600 mt-0.5">{pkg.tagline}</p>}
           </div>
-          <div className="text-right">
+          <div className="w-full sm:w-auto sm:max-w-[260px] sm:shrink-0 sm:text-right">
             <p className="text-2xl font-extrabold text-zinc-900 tabular-nums">{formatPackagePrice(pkg)}</p>
-            <p className="text-[11px] text-zinc-500">税抜{pkg.priceNote ? `／${pkg.priceNote}` : ""}{pkg.leadTime ? `／納期 ${pkg.leadTime}` : ""}</p>
+            <p className="text-[11px] text-zinc-500 leading-snug">税抜{pkg.priceNote ? `／${pkg.priceNote}` : ""}{pkg.leadTime ? `／納期 ${pkg.leadTime}` : ""}</p>
           </div>
         </div>
 

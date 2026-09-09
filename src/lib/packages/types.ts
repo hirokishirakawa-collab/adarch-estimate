@@ -91,17 +91,19 @@ export function parseDocs(v: unknown): PackageDoc[] {
 // ---------------------------------------------------------------
 export const yen = (v: number) => `¥${v.toLocaleString("ja-JP")}`;
 
-/** 「¥350,000」「月額 ¥150,000」「初期 ¥150,000 ＋ 月額 ¥15,000」。未設定なら「価格未設定」 */
+/** 「¥350,000」「月額 ¥150,000」「初期 ¥150,000 ＋ 月額 ¥15,000」。未設定なら「価格未設定」（エリア別計算機を持つパッケージは「価格は地域別」） */
 export function formatPackagePrice(p: {
   priceType: SalesPackagePriceType;
   initialPrice: number | null;
   monthlyPrice: number | null;
+  calculator?: string | null;
 }): string {
   const i = p.initialPrice;
   const m = p.monthlyPrice;
-  if (p.priceType === "ONE_TIME") return i != null ? yen(i) : "価格未設定";
-  if (p.priceType === "MONTHLY") return m != null ? `月額 ${yen(m)}` : "価格未設定";
-  if (i == null && m == null) return "価格未設定";
+  const unset = p.calculator === "tver-area" ? "価格は地域別" : "価格未設定";
+  if (p.priceType === "ONE_TIME") return i != null ? yen(i) : unset;
+  if (p.priceType === "MONTHLY") return m != null ? `月額 ${yen(m)}` : unset;
+  if (i == null && m == null) return unset;
   return [i != null ? `初期 ${yen(i)}` : null, m != null ? `月額 ${yen(m)}` : null].filter(Boolean).join(" ＋ ");
 }
 
