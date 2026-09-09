@@ -15,6 +15,9 @@ import {
   ACTIVITY_LABEL,
   MOVE_STAGE_LABEL,
   MOVE_METHOD_LABEL,
+  LIVE_LEAD_LOG_WHERE,
+  leadLogKind,
+  leadLogText,
 } from "@/lib/live/labels";
 import { NextResponse } from "next/server";
 
@@ -47,12 +50,13 @@ export interface LiveEvent {
     | "log"
     | "move"
     | "booking"
-    | "tender";
+    | "tender"
+    | "lead";
   actor: string; // 拠点名・会社名・「本部」
   prefs: string[];
   text: string;
   /** 押したときに詳細を引くための参照。無い種別はフィードの情報だけ出す */
-  ref?: { kind: "deal" | "move" | "sent" | "tender"; id: string };
+  ref?: { kind: "deal" | "move" | "sent" | "tender" | "lead"; id: string };
 }
 
 export async function GET() {
@@ -68,7 +72,7 @@ export async function GET() {
 
   const since = new Date(Date.now() - WINDOW_DAYS * 86400000);
 
-  const [sent, deals, dealLogs, moves, bookings, tenders] =
+  const [sent, deals, dealLogs, moves, bookings, tenders, leadLogs] =
     await Promise.all([
       db.autoSalesSentDomain.findMany({
         where: { sentAt: { gte: since } },
@@ -146,6 +150,32 @@ export async function GET() {
         },
         orderBy: { fitCheckedAt: "desc" },
         take: 20,
+      }),
+      // リードの操作（取得・連絡・アポ・営業フォーム送付・返信あり）＝2026-09-09 代表選択。
+      // 作成・クロール・プール投入・却下・自動の担当設定は流さない（数だけ多く、人の動きではない）。
+      // detail の自由記述（送付本文・メモ）は出さない＝種別から文言を組む。
+      db.leadLog.findMany({
+        where: { createdAt: { gte: since }, ...LIVE_LEAD_LOG_WHERE },
+        select: {
+          id: true,
+          createdAt: true,
+          action: true,
+          detail: true,
+          staffName: true,
+          lead: {
+            select: {
+              id: true,
+              name: true,
+              industry: true,
+              area: true,
+              prefecture: true,
+              assignee: { select: { branch: { select: { name: true } } } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        // 一括操作が1回で10〜20件使うので多めに取る（畳んだ後は数行）
+        take: 200,
       }),
     ]);
 
@@ -243,6 +273,72 @@ export async function GET() {
     });
   }
 
+  // ---- リードの操作 ----
+  // 営業フォーム送付は、サイトURLがある相手だと送付台帳（sent）にも同じ1件が載る。
+  // 台帳に載っている分はそちらに任せ、ここからは流さない（同じ送付が2行に見えないように）。
+  const formSentLeadIds = leadLogs.filter((l) => l.action === "FORM_SENT").map((l) => l.lead.id);
+  const inLedger = new Set(
+    formSentLeadIds.length
+      ? (
+          await db.autoSalesSentDomain.findMany({
+            where: { source: "LEAD_FORM", sourceId: { in: formSentLeadIds } },
+            select: { sourceId: true },
+          })
+        ).map((r) => r.sourceId)
+      : []
+  );
+  // 担当が付いていないリードは、操作した人の名前から拠点を引く（拠点の共有アカウントで操作することが多い）
+  const staffNames = Array.from(
+    new Set(leadLogs.filter((l) => !l.lead.assignee?.branch?.name).map((l) => l.staffName))
+  );
+  const staffUsers = staffNames.length
+    ? await db.user.findMany({
+        where: { OR: [{ name: { in: staffNames } }, { email: { in: staffNames } }] },
+        select: { name: true, email: true, branch: { select: { name: true } } },
+      })
+    : [];
+  const branchOfStaff = new Map<string, string>();
+  for (const u of staffUsers) {
+    if (!u.branch?.name) continue;
+    if (u.name) branchOfStaff.set(u.name, u.branch.name);
+    branchOfStaff.set(u.email, u.branch.name);
+  }
+  // 同じリードへ同じ操作を短時間に押し直した記録（連絡済み→未対応→連絡済み 等）は最新の1件だけ残し、
+  // 同じ拠点が同じ操作を数分内に続けた分（一括操作で11社を「連絡済み」等）は1行に畳む＝フィードを埋めないため
+  const seenLead = new Map<string, number>();
+  type LeadGroup = { at: number; kind: ReturnType<typeof leadLogKind>; actor: string; leads: { id: string; name: string; industry: string | null; prefs: string[] }[] };
+  const groups: LeadGroup[] = [];
+  for (const l of leadLogs) {
+    if (l.action === "FORM_SENT" && inLedger.has(l.lead.id)) continue;
+    const kind = leadLogKind(l.action, l.detail);
+    if (!kind) continue;
+    const key = `${l.lead.id}:${kind}`;
+    const t = l.createdAt.getTime();
+    const prev = seenLead.get(key);
+    if (prev !== undefined && prev - t < 30 * 60_000) continue;
+    seenLead.set(key, t);
+    const actor = l.lead.assignee?.branch?.name ?? branchOfStaff.get(l.staffName) ?? "グループ";
+    const prefs = [...new Set([...prefsIn(actor), ...prefsIn(l.lead.prefecture ?? l.lead.area)])];
+    const last = groups[groups.length - 1];
+    if (last && last.kind === kind && last.actor === actor && last.at - t < 5 * 60_000) {
+      last.leads.push({ id: l.lead.id, name: l.lead.name, industry: l.lead.industry, prefs });
+    } else {
+      groups.push({ at: t, kind, actor, leads: [{ id: l.lead.id, name: l.lead.name, industry: l.lead.industry, prefs }] });
+    }
+  }
+  for (const g of groups) {
+    const head = g.leads[0];
+    const who = `「${head.name}」${head.industry ? `（${head.industry}）` : ""}${g.leads.length > 1 ? `ほか${g.leads.length - 1}社` : ""}`;
+    events.push({
+      at: new Date(g.at).toISOString(),
+      kind: "lead",
+      actor: g.actor,
+      prefs: [...new Set(g.leads.flatMap((x) => x.prefs))],
+      text: leadLogText(g.kind!, who),
+      ref: { kind: "lead", id: head.id },
+    });
+  }
+
   events.sort((a, b) => b.at.localeCompare(a.at));
   const top = events.slice(0, MAX_EVENTS);
 
@@ -255,7 +351,7 @@ export async function GET() {
   const countBy = (pred: (e: LiveEvent) => boolean) => {
     const c = { approach: 0, deal: 0, won: 0, hq: 0 };
     for (const e of events.filter(pred)) {
-      if (e.kind === "sent" || e.kind === "move" || e.kind === "log") c.approach++;
+      if (e.kind === "sent" || e.kind === "move" || e.kind === "log" || e.kind === "lead") c.approach++;
       else if (e.kind === "deal") c.deal++;
       // 加盟はこの面に出さない（数字にもフィードにも載せない＝2026-08-28 代表決定）
       else if (e.kind === "won") c.won++;

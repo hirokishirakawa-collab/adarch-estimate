@@ -4,7 +4,18 @@
 // ==============================================================
 
 import { db } from "@/lib/db";
-import { DEAL_STATUS_LABEL, ACTIVITY_LABEL, MOVE_STAGE_LABEL, MOVE_METHOD_LABEL } from "@/lib/live/labels";
+import {
+  DEAL_STATUS_LABEL,
+  ACTIVITY_LABEL,
+  MOVE_STAGE_LABEL,
+  MOVE_METHOD_LABEL,
+  LEAD_STATUS_LABEL,
+  LEAD_SOURCE_LABEL,
+  OUTREACH_RESULT_LABEL,
+  LIVE_LEAD_LOG_WHERE,
+  leadLogKind,
+  leadLogText,
+} from "@/lib/live/labels";
 
 export interface LiveDetail {
   title: string;
@@ -16,8 +27,8 @@ export interface LiveDetail {
   hrefLabel?: string;
 }
 
-export type LiveDetailKind = "deal" | "move" | "sent" | "tender";
-export const LIVE_DETAIL_KINDS: LiveDetailKind[] = ["deal", "move", "sent", "tender"];
+export type LiveDetailKind = "deal" | "move" | "sent" | "tender" | "lead";
+export const LIVE_DETAIL_KINDS: LiveDetailKind[] = ["deal", "move", "sent", "tender", "lead"];
 
 // 外部データ由来のURLをそのままリンクにしない（javascript: 等を弾く）
 export function safeHref(url: string | null | undefined): string | undefined {
@@ -202,6 +213,54 @@ export async function getLiveDetail(kind: string, id: string): Promise<LiveDetai
       rows,
       href: safeHref(t.documentUrl) ?? "/dashboard/tender-finder",
       hrefLabel: safeHref(t.documentUrl) ? "公告を開く" : "入札ファインダーへ",
+    };
+  }
+
+  if (kind === "lead") {
+    // メモ（memo）・送付本文（FORM_SENT の detail）・資本金などは取らない＝ライブは社名・業種・段階まで
+    const lead = await db.lead.findUnique({
+      where: { id },
+      select: {
+        name: true,
+        industry: true,
+        area: true,
+        prefecture: true,
+        status: true,
+        source: true,
+        sentAt: true,
+        outreachResult: true,
+        updatedAt: true,
+        assignee: { select: { name: true, branch: { select: { name: true } } } },
+        logs: {
+          where: LIVE_LEAD_LOG_WHERE,
+          select: { createdAt: true, action: true, detail: true },
+          orderBy: { createdAt: "desc" },
+          take: 3,
+        },
+      },
+    });
+    if (!lead) return null;
+    const rows = [
+      { label: "状態", value: LEAD_STATUS_LABEL[lead.status] ?? lead.status },
+      { label: "最終更新", value: fmt(lead.updatedAt) },
+    ];
+    if (lead.assignee?.name) rows.push({ label: "担当", value: lead.assignee.name });
+    rows.push({ label: "入口", value: LEAD_SOURCE_LABEL[lead.source] ?? lead.source });
+    if (lead.sentAt) rows.push({ label: "送った日", value: fmt(lead.sentAt) });
+    if (lead.outreachResult) rows.push({ label: "返事", value: OUTREACH_RESULT_LABEL[lead.outreachResult] ?? lead.outreachResult });
+    return {
+      title: lead.name,
+      subtitle: [lead.industry, lead.prefecture ?? lead.area].filter(Boolean).join(" ・ "),
+      actor: lead.assignee?.branch?.name ?? "—",
+      rows,
+      timeline: lead.logs
+        .map((l) => {
+          const k = leadLogKind(l.action, l.detail);
+          return k ? { at: fmt(l.createdAt), text: leadLogText(k, "").trim() } : null;
+        })
+        .filter((x): x is { at: string; text: string } => !!x),
+      href: `/dashboard/leads/list?q=${encodeURIComponent(lead.name)}`,
+      hrefLabel: "リードを開く",
     };
   }
 

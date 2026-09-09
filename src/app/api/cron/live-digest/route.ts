@@ -4,6 +4,7 @@ export const maxDuration = 60;
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendChatMessage } from "@/lib/google-chat";
+import { LIVE_LEAD_LOG_WHERE } from "@/lib/live/labels";
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 // 商談・リード・アプローチ事例が既に流れている案件進捗スペース
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
   const dry = req.nextUrl.searchParams.get("dry") === "1";
 
   try {
-    const [users, deals, dealLogs, moves, sent, leads, bookings] = await Promise.all([
+    const [users, deals, dealLogs, moves, sent, leads, bookings, leadLogs] = await Promise.all([
       db.user.findMany({
         select: { id: true, email: true, groupCompany: { select: { name: true } } },
       }),
@@ -82,6 +83,15 @@ export async function GET(req: NextRequest) {
       }),
       db.lpView.count({ where: { createdAt: { gte: start, lt: end }, event: "lead" } }),
       db.booking.count({ where: { createdAt: { gte: start, lt: end }, status: "CONFIRMED" } }),
+      // リードの操作（取得・連絡・アポ・営業フォーム送付・返信あり）。ライブと同じ絞り込み
+      db.leadLog.findMany({
+        where: { createdAt: { gte: start, lt: end }, ...LIVE_LEAD_LOG_WHERE },
+        select: {
+          action: true,
+          leadId: true,
+          lead: { select: { assigneeId: true, assignee: { select: { branch: { select: { name: true } } } } } },
+        },
+      }),
     ]);
 
     // 名前を1本に寄せる。
@@ -120,8 +130,29 @@ export async function GET(req: NextRequest) {
     for (const s of sent) {
       bump((s.sentBy ? companyByEmail.get(s.sentBy) : null) ?? s.branch.name);
     }
+    // 営業フォーム送付は送付台帳（sent）と同じ1件になりうるので、台帳に載っている分は数えない
+    const formSentIds = leadLogs.filter((l) => l.action === "FORM_SENT").map((l) => l.leadId);
+    const inLedger = new Set(
+      formSentIds.length
+        ? (
+            await db.autoSalesSentDomain.findMany({
+              where: { source: "LEAD_FORM", sourceId: { in: formSentIds } },
+              select: { sourceId: true },
+            })
+          ).map((r) => r.sourceId)
+        : []
+    );
+    let leadActions = 0;
+    for (const l of leadLogs) {
+      if (l.action === "FORM_SENT" && inLedger.has(l.leadId)) continue;
+      leadActions++;
+      const actor =
+        (l.lead.assigneeId ? companyByUserId.get(l.lead.assigneeId) : null) ??
+        l.lead.assignee?.branch?.name;
+      if (actor) bump(actor);
+    }
 
-    const approach = moves.length + sent.length + dealLogs;
+    const approach = moves.length + sent.length + dealLogs + leadActions;
     const dealMoved = deals.length;
     const total = approach + dealMoved + leads + bookings;
 

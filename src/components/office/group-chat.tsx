@@ -55,6 +55,7 @@ const REF_LABEL: Record<string, string> = {
   move: "動き",
   sent: "送付",
   tender: "入札○",
+  lead: "リード",
   customer: "顧客",
   project: "案件",
   package: "パッケージ",

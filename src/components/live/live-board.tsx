@@ -93,6 +93,7 @@ const KIND_META: Record<string, { label: string; cls: string }> = {
   move: { label: "動き", cls: "text-sky-300 border-sky-500/30 bg-sky-500/10" },
   booking: { label: "面談予約", cls: "text-amber-300 border-amber-500/30 bg-amber-500/10" },
   tender: { label: "入札○", cls: "text-violet-300 border-violet-500/30 bg-violet-500/10" },
+  lead: { label: "リード", cls: "text-teal-300 border-teal-500/30 bg-teal-500/10" },
 };
 
 function ago(iso: string): string {
@@ -478,7 +479,7 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
                 </button>
               ))}
               <span className="ml-auto pr-4 text-[10px] text-zinc-600">
-                {tab === "chat" ? "全員に見えます" : "商談・送付台帳から自動生成"}
+                {tab === "chat" ? "全員に見えます" : "商談・リード・送付台帳から自動生成"}
               </span>
             </div>
           )}
