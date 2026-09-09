@@ -18,10 +18,14 @@ import { db } from "@/lib/db";
 import { PREFECTURES } from "@/lib/constants/crm";
 import type { Prisma } from "@/generated/prisma/client";
 import { normalizeCompanyName } from "@/lib/leads/match-score";
+import Anthropic from "@anthropic-ai/sdk";
 
 export const BASIS_WINDOW_DAYS = 180;
 export const BASIS_MIN_DELTA = -6;
 export const BASIS_MAX_DELTA = 8;
+/** 同業（競合）＝実績があっても加点しない家族 */
+export const COMPETITOR_FAMILIES = new Set(["広告・メディア"]);
+export const FAMILY_NAMES = ["自治体・団体", "飲食", "美容・健康", "住宅・建設・不動産", "医療・介護", "教育", "自動車", "観光・宿泊・レジャー", "冠婚葬祭", "小売・EC", "製造", "運輸・物流", "広告・メディア", "IT", "サービス・BtoB", "その他"] as const;
 
 // ---------------------------------------------------------------
 // 業種の「家族」= 顧客管理・リード・アプローチ事例で語彙がばらばらなので、キーワードで束ねる
@@ -40,7 +44,9 @@ const FAMILY_RULES: [string, RegExp][] = [
   ["小売・EC", /小売|物販|EC|ショップ|販売店|store|shop|retail/i],
   ["製造", /製造|工場|メーカー|加工|manufactur/i],
   ["運輸・物流", /運輸|物流|運送|郵便|倉庫|logistic/i],
-  ["IT・広告・メディア", /IT|情報通信|Web|ソフト|広告|メディア|マーケ|テクノロジー|software|advertis/i],
+  // 広告・メディアは同業（競合）＝加点しない（2026-09-09 代表指示）。判定のためだけに家族として拾う
+  ["広告・メディア", /広告|メディア|マーケティング|映像制作|動画制作|プロダクション|advertis|agency/i],
+  ["IT", /IT|情報通信|Web|ソフト|システム|テクノロジー|アプリ|software|tech/i],
   ["サービス・BtoB", /士業|税理士|弁護士|司法書士|社労士|コンサル|サービス業|協会|団体|組合|卸売|商社/i],
 ];
 
@@ -102,6 +108,14 @@ export interface ScoringBasis {
   decisions: {
     byFamily: Record<string, { success: number; skipped: number }>;
   };
+  /** 過去取引（180日より前のOS受注＋顧客管理の取引中/休眠で商談の無い顧客）。弱い別枠 +1 */
+  past: {
+    total: number; // 社数（直近180日の受注社は除く）
+    byFamily: Record<string, number>;
+    guessed: number; // 社名からAIで推定した社数
+  };
+  /** 業種未入力の顧客の推定結果（customerId→家族）。翌日以降はここから引き継いで再推定しない */
+  guesses: Record<string, string>;
   rules: BasisRule[];
   /** 根拠不足で固定にした項目の説明（画面に出す） */
   fixed: string[];
@@ -120,10 +134,68 @@ function jstDayKey(d = new Date()): string {
   return jst.toISOString().slice(0, 10);
 }
 
-export async function buildScoringBasis(now = new Date()): Promise<ScoringBasis> {
+/**
+ * 業種未入力の顧客を社名から家族に分類する（1回だけ・結果は basis.guesses に持ち回す）。
+ * 失敗したら空＝その社は「その他」のまま。顧客管理には書かない（2026-09-09 代表決定）。
+ */
+async function guessFamiliesByName(items: { id: string; name: string }[]): Promise<Record<string, string>> {
+  if (!items.length) return {};
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return {};
+  const client = new Anthropic({ apiKey });
+  const out: Record<string, string> = {};
+  const fams = FAMILY_NAMES.join("／");
+  for (let i = 0; i < items.length; i += 60) {
+    const batch = items.slice(i, i + 60);
+    try {
+      const res = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 4000,
+        messages: [
+          {
+            role: "user",
+            content: `次の会社・団体名を業種の家族に分類してください。家族は次のどれか1つ: ${fams}。分からなければ「その他」。\n${batch.map((b) => `${b.id}\t${b.name}`).join("\n")}`,
+          },
+        ],
+        tools: [
+          {
+            name: "classify",
+            description: "会社名ごとの家族を返す",
+            input_schema: {
+              type: "object" as const,
+              properties: {
+                items: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: { id: { type: "string" }, family: { type: "string", enum: [...FAMILY_NAMES] } },
+                    required: ["id", "family"],
+                  },
+                },
+              },
+              required: ["items"],
+            },
+          },
+        ],
+        tool_choice: { type: "tool", name: "classify" },
+      });
+      const block = res.content.find((c): c is Anthropic.Messages.ToolUseBlock => c.type === "tool_use");
+      const items = ((block?.input as { items?: { id: string; family: string }[] } | undefined)?.items) ?? [];
+      const ids = new Set(batch.map((b) => b.id));
+      for (const it of items) {
+        if (ids.has(it.id) && (FAMILY_NAMES as readonly string[]).includes(it.family)) out[it.id] = it.family;
+      }
+    } catch (e) {
+      console.error("[scoring-basis] guess failed:", e instanceof Error ? e.message : e);
+    }
+  }
+  return out;
+}
+
+export async function buildScoringBasis(now = new Date(), prevGuesses: Record<string, string> = {}): Promise<ScoringBasis> {
   const since = new Date(now.getTime() - BASIS_WINDOW_DAYS * 86400_000);
 
-  const [won, outreach, successLeads, skippedLeads] = await Promise.all([
+  const [won, outreach, successLeads, skippedLeads, pastWon, pastCustomers] = await Promise.all([
     db.deal.findMany({
       // 受注日（closedAt）で窓を切る。closedAt が無い古い記録だけ updatedAt で代用
       where: {
@@ -147,6 +219,16 @@ export async function buildScoringBasis(now = new Date()): Promise<ScoringBasis>
       by: ["industry"],
       where: { status: "SKIPPED", scoreTotal: { gt: 0 }, updatedAt: { gte: since } },
       _count: { _all: true },
+    }),
+    // 過去取引①: 180日より前のOS受注
+    db.deal.findMany({
+      where: { status: "CLOSED_WON", OR: [{ closedAt: { lt: since } }, { closedAt: null, updatedAt: { lt: since } }] },
+      select: { title: true, customerId: true, customer: { select: { name: true, industry: true } } },
+    }),
+    // 過去取引②: 顧客管理で取引中/休眠なのにOSに商談が無い顧客（OS以前の取引先）
+    db.customer.findMany({
+      where: { status: { in: ["ACTIVE", "INACTIVE"] }, deals: { none: {} } },
+      select: { id: true, name: true, industry: true },
     }),
   ]);
 
@@ -198,6 +280,28 @@ export async function buildScoringBasis(now = new Date()): Promise<ScoringBasis>
     (decisions.byFamily[fam] ??= { success: 0, skipped: 0 }).skipped += r._count._all;
   }
 
+  // 過去取引（弱い別枠）。直近180日で受注した社は除く。業種未入力は社名からAIで推定（前日までの推定を引き継ぐ）
+  const past: ScoringBasis["past"] = { total: 0, byFamily: {}, guessed: 0 };
+  const guesses: Record<string, string> = { ...prevGuesses };
+  type PastRow = { key: string; id: string; name: string; industry: string | null; title?: string | null };
+  const pastRows: PastRow[] = [
+    ...pastWon.map((d) => ({ key: normalizeCompanyName(d.customer.name) || d.customerId, id: d.customerId, name: d.customer.name, industry: d.customer.industry, title: d.title })),
+    ...pastCustomers.map((c) => ({ key: normalizeCompanyName(c.name) || c.id, id: c.id, name: c.name, industry: c.industry })),
+  ].filter((r) => !seenCustomer.has(r.key));
+  const pastSeen = new Set<string>();
+  const uniquePast = pastRows.filter((r) => (pastSeen.has(r.key) ? false : (pastSeen.add(r.key), true)));
+  const needGuess = uniquePast.filter((r) => familyForCustomer(r.industry, r.name, r.title).family === "その他" && !guesses[r.id]);
+  Object.assign(guesses, await guessFamiliesByName(needGuess.map((r) => ({ id: r.id, name: r.name }))));
+  for (const r of uniquePast) {
+    let { family: fam } = familyForCustomer(r.industry, r.name, r.title);
+    if (fam === "その他" && guesses[r.id]) {
+      fam = guesses[r.id];
+      past.guessed++;
+    }
+    past.total++;
+    bump(past.byFamily, fam);
+  }
+
   // ルール化（閾値に届いたものだけ）
   const rules: BasisRule[] = [];
   const fixed: string[] = [];
@@ -205,14 +309,25 @@ export async function buildScoringBasis(now = new Date()): Promise<ScoringBasis>
   const inf = (fam: string) => (wins.byFamilyInferred[fam] ? `・うち推定${wins.byFamilyInferred[fam]}` : "");
   for (const [fam, n] of Object.entries(wins.byFamily)) {
     if (fam === "その他") continue;
+    if (COMPETITOR_FAMILIES.has(fam)) {
+      fixed.push(`受注 ${fam} ${n}社（同業のため加点対象外）`);
+      continue;
+    }
     if (n >= 8) rules.push({ id: `win:${fam}`, family: fam, delta: 5, reason: `受注実績 ${fam} ${n}社${inf(fam)}`, n });
     else if (n >= 3) rules.push({ id: `win:${fam}`, family: fam, delta: 3, reason: `受注実績 ${fam} ${n}社${inf(fam)}`, n });
     else fixed.push(`受注 ${fam} ${n}社${inf(fam)}（3社未満のため固定）`);
   }
   if (wins.unclassified) fixed.push(`業種を推定できなかった受注 ${wins.unclassified}社（顧客管理の業種が入れば反映）`);
+  // 過去取引: 3社以上で +1（直近の受注より弱い別枠。上限は変えない）
+  for (const [fam, n] of Object.entries(past.byFamily)) {
+    if (fam === "その他" || COMPETITOR_FAMILIES.has(fam)) continue;
+    if (n >= 3) rules.push({ id: `past:${fam}`, family: fam, delta: 1, reason: `過去取引あり ${fam} ${n}社`, n });
+    else fixed.push(`過去取引 ${fam} ${n}社（3社未満のため固定）`);
+  }
+  if (past.byFamily["その他"]) fixed.push(`過去取引で業種を推定できなかった ${past.byFamily["その他"]}社`);
   for (const [key, n] of Object.entries(wins.byFamilyPref)) {
     const [fam, pref] = key.split("|");
-    if (fam === "その他" || n < 2) continue;
+    if (fam === "その他" || COMPETITOR_FAMILIES.has(fam) || n < 2) continue;
     rules.push({ id: `winpref:${key}`, family: fam, prefecture: pref, delta: 2, reason: `受注実績 ${fam}×${pref} ${n}社`, n });
   }
   for (const [fam, s] of Object.entries(outreachStat.byFamily)) {
@@ -240,6 +355,8 @@ export async function buildScoringBasis(now = new Date()): Promise<ScoringBasis>
     wins,
     outreach: outreachStat,
     decisions,
+    past,
+    guesses,
     rules,
     fixed,
   };
@@ -248,7 +365,7 @@ export async function buildScoringBasis(now = new Date()): Promise<ScoringBasis>
 export function summarizeBasis(b: ScoringBasis): string {
   const top = Object.entries(b.wins.byFamily).sort((a, c) => c[1] - a[1]).slice(0, 3).map(([f, n]) => `${f} ${n}`).join("・");
   return [
-    `受注 ${b.wins.total}社・${b.wins.deals}件（${top || "—"}）／送付結果 ${b.outreach.total}件／効いている補正 ${b.rules.length}本`,
+    `受注 ${b.wins.total}社・${b.wins.deals}件（${top || "—"}）／過去取引 ${b.past.total}社／送付結果 ${b.outreach.total}件／効いている補正 ${b.rules.length}本`,
     b.rules.length ? b.rules.slice(0, 4).map((r) => `${r.delta > 0 ? "+" : ""}${r.delta} ${r.reason}`).join("、") : "補正なし（根拠不足のため素点のまま）",
   ].join("\n");
 }
@@ -260,7 +377,10 @@ export async function getTodayScoringBasis(): Promise<ScoringBasis> {
   const day = jstDayKey();
   const row = await db.leadScoringBasis.findUnique({ where: { day } }).catch(() => null);
   if (row) return row.data as unknown as ScoringBasis;
-  const basis = await buildScoringBasis();
+  // 前日までの推定（業種未入力の顧客→家族）を引き継ぐ＝毎日AIに聞き直さない
+  const prev = await db.leadScoringBasis.findFirst({ orderBy: { day: "desc" }, select: { data: true } }).catch(() => null);
+  const prevGuesses = ((prev?.data as unknown as ScoringBasis | undefined)?.guesses) ?? {};
+  const basis = await buildScoringBasis(new Date(), prevGuesses);
   await db.leadScoringBasis
     .upsert({
       where: { day },
@@ -310,6 +430,8 @@ export function basisPromptText(basis: ScoringBasis, industryInput: string, area
   const lines: string[] = [];
   const w = basis.wins.byFamily[fam] ?? 0;
   if (w) lines.push(`- 同じ業種（${fam}）で直近${basis.windowDays}日に${w}社から受注している${pref && basis.wins.byFamilyPref[`${fam}|${pref}`] ? `（うち${pref} ${basis.wins.byFamilyPref[`${fam}|${pref}`]}社）` : ""}`);
+  const pw = basis.past.byFamily[fam] ?? 0;
+  if (pw && !COMPETITOR_FAMILIES.has(fam)) lines.push(`- 同じ業種（${fam}）と過去に${pw}社の取引がある（グループの実績として切り口に使える）`);
   const o = basis.outreach.byFamily[fam];
   if (o && o.sent >= 5) lines.push(`- 同じ業種への送付 ${o.sent}件: 返信あり${o.replied}・無反応${o.noReply}・断り${o.rejected}`);
   if (basis.wins.closingFactors.length) lines.push(`- 最近の受注の決め手: ${basis.wins.closingFactors.slice(0, 3).join("／")}`);

@@ -20,6 +20,7 @@ export async function GET() {
       windowDays: basis.windowDays,
       wins: { total: basis.wins.total, deals: basis.wins.deals ?? basis.wins.total, byFamily: basis.wins.byFamily, closingFactors: basis.wins.closingFactors },
       outreach: { total: basis.outreach.total },
+      past: { total: basis.past?.total ?? 0, guessed: basis.past?.guessed ?? 0 },
       rules: basis.rules,
       fixed: basis.fixed,
       recent: recent.map((r) => ({ day: r.day, ruleCount: r.ruleCount })),
