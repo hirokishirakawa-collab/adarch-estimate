@@ -240,6 +240,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
       "市を指定して、Facebook/Instagram に地域限定（中心から半径km）の少額広告を貴社の広告アカウントで作る。例: 唐津市に日額500円で7日、LPへ誘導。バナーは省略するとOSの数字で描く /api/banner/tver を使う。作成は PAUSED（配信ONは人が広告マネージャで／activate: true で最初からON）。貴社のMeta広告アカウントがOSに未接続（/dashboard/meta-ads）なら、送る内容の組み立て（dryRun）だけ返す。費用・運用は貴社のアカウント。",
     input: z.object({ name: z.string().describe("キャンペーン名"), prefecture: z.string(), city: z.string(), dailyBudgetJpy: z.number().int().describe("日額（円・100以上）"), days: z.number().int().describe("配信日数（1〜90）"), landingUrl: z.string().describe("LPかTVer申込ページのURL"), headline: z.string().describe("見出し（40字以内）"), primaryText: z.string().describe("本文（125字以内が目安）"), bannerUrl: z.string().optional().describe("PNG/JPGのURL。省略でOSの型バナー（SVG＝ドライラン用）"), radiusKm: z.number().optional(), activate: z.boolean().optional() }),
     run: async (v, a) => {
+      if (v.role === "USER") throw new osw.WriteError("地域限定広告の作成は代表（MANAGER以上）のみです");
       const banner = a.bannerUrl ?? `${appUrl()}/api/banner/tver?${new URLSearchParams({ pref: a.prefecture, city: a.city, headline: a.headline }).toString()}`;
       const cfg = await resolveMetaConfig(v); // 呼んだ人の拠点の接続（本部は本部の行）。無ければ dryRun
       const r = await createLocalCampaign({ name: a.name, prefecture: a.prefecture, cityName: a.city, dailyBudgetJpy: a.dailyBudgetJpy, days: a.days, landingUrl: a.landingUrl, headline: a.headline, primaryText: a.primaryText, bannerUrl: banner, radiusKm: a.radiusKm, activate: a.activate }, cfg);

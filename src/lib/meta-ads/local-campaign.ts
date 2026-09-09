@@ -63,8 +63,8 @@ export async function geocodeCity(prefecture: string, cityName: string): Promise
 async function graph<T>(cfg: MetaConfig, path: string, body: Record<string, unknown>): Promise<T> {
   const form = new URLSearchParams();
   for (const [k, v] of Object.entries(body)) form.set(k, typeof v === "string" ? v : JSON.stringify(v));
-  form.set("access_token", cfg.accessToken);
-  const res = await fetch(`${GRAPH}/${path}`, { method: "POST", body: form });
+  // トークンはURL・本文に載せず Authorization ヘッダーで
+  const res = await fetch(`${GRAPH}/${path}`, { method: "POST", body: form, headers: { Authorization: `Bearer ${cfg.accessToken}` } });
   const j = (await res.json()) as T & { error?: { message: string; code?: number } };
   if (!res.ok || j.error) throw new Error(`Meta API ${path}: ${j.error?.message ?? res.status}`);
   return j;

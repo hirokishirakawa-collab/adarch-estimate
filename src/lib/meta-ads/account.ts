@@ -20,10 +20,12 @@ export const normalizeAdAccountId = (s: string) => {
 /** 接続テスト＝広告アカウントの名前・通貨と、ページ名を取れるか */
 export async function verifyMetaAccess(accessToken: string, adAccountId: string, pageId: string): Promise<{ adAccountName: string; currency: string; pageName: string }> {
   const act = normalizeAdAccountId(adAccountId);
-  const r1 = await fetch(`${GRAPH}/${act}?fields=name,currency,account_status&access_token=${encodeURIComponent(accessToken)}`, { cache: "no-store" });
+  // トークンはURLに載せず Authorization ヘッダーで（ログ・履歴に残さない）
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const r1 = await fetch(`${GRAPH}/${act}?fields=name,currency,account_status`, { cache: "no-store", headers });
   const j1 = (await r1.json()) as { name?: string; currency?: string; account_status?: number; error?: { message: string } };
   if (!r1.ok || j1.error) throw new Error(`広告アカウントに届きません: ${j1.error?.message ?? r1.status}`);
-  const r2 = await fetch(`${GRAPH}/${encodeURIComponent(pageId)}?fields=name&access_token=${encodeURIComponent(accessToken)}`, { cache: "no-store" });
+  const r2 = await fetch(`${GRAPH}/${encodeURIComponent(pageId)}?fields=name`, { cache: "no-store", headers });
   const j2 = (await r2.json()) as { name?: string; error?: { message: string } };
   if (!r2.ok || j2.error) throw new Error(`Facebookページに届きません: ${j2.error?.message ?? r2.status}`);
   return { adAccountName: j1.name ?? act, currency: j1.currency ?? "JPY", pageName: j2.name ?? pageId };
