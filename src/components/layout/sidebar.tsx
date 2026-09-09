@@ -129,6 +129,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: MessageCircle,
         minRole: "MANAGER",
       },
+      {
+        href: "/dashboard/meta-ads",
+        label: "Meta広告（地域限定）",
+        icon: Megaphone,
+        minRole: "MANAGER",
+      },
     ],
   },
   {

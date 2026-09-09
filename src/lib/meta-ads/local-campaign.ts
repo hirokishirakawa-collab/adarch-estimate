@@ -4,7 +4,7 @@
 //   ・市の中心座標（Google Geocoding）＋半径で地域限定
 //   ・キャンペーン → 広告セット → 画像 → クリエイティブ → 広告 の順に Marketing API を叩く
 //   ・作成時は PAUSED（配信は人が Ads Manager で ON にするか、activate: true を明示）
-//   ・META_ACCESS_TOKEN / META_AD_ACCOUNT_ID / META_PAGE_ID が無ければ dryRun＝送るはずの内容だけ返す
+//   ・接続は拠点ごと（meta_ad_accounts・/dashboard/meta-ads）。未接続なら dryRun＝送るはずの内容だけ返す。環境変数は本部の予備
 //   ・バナーは /api/banner/tver（OSの数字から型で描く）。Metaは PNG/JPG を要求するため、
 //     実出稿時は bannerUrl に PNG を渡す（SVG は下書き確認用）
 // ==============================================================
@@ -120,12 +120,13 @@ export interface LocalCampaignResult {
   note: string;
 }
 
-export async function createLocalCampaign(input: LocalCampaignInput): Promise<LocalCampaignResult> {
-  const cfg = metaConfig();
+/** account を渡さない時は環境変数（本部の予備）。通常は拠点ごとの接続（resolveMetaConfig）を渡す */
+export async function createLocalCampaign(input: LocalCampaignInput, account?: MetaConfig | null): Promise<LocalCampaignResult> {
+  const cfg = account ?? metaConfig();
   const geo = await geocodeCity(input.prefecture, input.cityName).catch(() => null);
   const payloads = buildPayloads(input, geo, cfg);
   if (!cfg) {
-    return { dryRun: true, status: "DRY_RUN", payloads, note: "MetaのAPIキー（META_ACCESS_TOKEN / META_AD_ACCOUNT_ID / META_PAGE_ID）が未設定のため、送る内容の組み立てだけ行いました。本部でMeta広告アカウントを接続すると、この内容でそのまま作成できます" };
+    return { dryRun: true, status: "DRY_RUN", payloads, note: "貴社のMeta広告アカウントがOSに未接続のため、送る内容の組み立てだけ行いました。OSの「Meta広告（地域限定）」画面で広告アカウントID・ページID・アクセストークンを貼ると、この内容でそのまま作成できます（費用・運用は貴社のアカウント）" };
   }
   if (!/\.(png|jpe?g)(\?|$)/i.test(input.bannerUrl)) {
     throw new Error("bannerUrl は PNG か JPG にしてください（Metaの画像要件）。/api/banner/tver?format=png を使うか、画像URLを渡してください");

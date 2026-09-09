@@ -368,7 +368,8 @@ model Branch {
   autoSalesTargets   AutoSalesTarget[]
 
   // LINE公式アカウント連携
-  lineAccounts LineAccount[]
+  lineAccounts  LineAccount[]
+  metaAdAccount MetaAdAccount?
 
   // デジタルサイネージ
   signageDevices   SignageDevice[]
@@ -5392,4 +5393,29 @@ model LandingPage {
   @@index([industry])
   @@index([createdAt(sort: Desc)])
   @@map("landing_pages")
+}
+
+// ==============================================================
+// MetaAdAccount — 拠点ごとの Meta（Facebook/Instagram）広告アカウント接続（2026-09-09 代表決定）
+//   出稿は各拠点のアカウント・費用・責任で行う。本部は関与しない（接続状況だけ見える）
+//   LINE公式と同じく、トークンは AES-256-GCM で暗号化して保存
+// ==============================================================
+
+model MetaAdAccount {
+  id             String    @id @default(cuid())
+  branchId       String?   @unique // null = 本部（本部が自分の広告を出す時だけ）
+  branch         Branch?   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name           String // 表示名（例: 佐賀 ○○社）
+  adAccountId    String // act_XXXX
+  pageId         String // 広告の名義になる Facebookページ
+  accessTokenEnc String // AES-256-GCM 暗号化（システムユーザートークン等・ads_management 権限）
+  adAccountName  String? // 接続テストで取得
+  currency       String? // 接続テストで取得（JPY想定）
+  isActive       Boolean   @default(true)
+  lastVerifiedAt DateTime?
+  createdByEmail String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("meta_ad_accounts")
 }
