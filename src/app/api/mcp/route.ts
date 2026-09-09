@@ -29,7 +29,7 @@ import * as osw from "@/lib/mcp/os-write-tools";
 import { OS_AI_RULES, OS_TOOLS, UI_DEAL_CARD, UI_NEXT_ACTIONS, type OsToolDef } from "@/lib/mcp/tool-catalog";
 import { DEAL_CARD_HTML, NEXT_ACTIONS_HTML } from "@/lib/mcp/widgets";
 
-export const maxDuration = 60;
+export const maxDuration = 120; // discover_leads（検索→採点→保存）が長い
 
 type Ctx = {
   http?: { authInfo?: AuthInfo };

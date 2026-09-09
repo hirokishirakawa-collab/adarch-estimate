@@ -14,6 +14,7 @@ import * as camp from "./os-campaign-tools";
 import { createLocalCampaign } from "@/lib/meta-ads/local-campaign";
 import { resolveMetaConfig } from "@/lib/meta-ads/account";
 import { appUrl } from "@/lib/tver-order/service";
+import { discoverLeads } from "@/lib/leads/discover";
 
 export type ToolKind = "read" | "write";
 
@@ -226,6 +227,14 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     confirm: (a) => `リードの結果を記録します: ${[a.result && `結果=${a.result}`, a.status && `状態=${a.status}`, a.note && `メモ「${a.note.slice(0, 120)}」`].filter(Boolean).join(" / ")}`,
   }),
   def({
+    name: "discover_leads", kind: "write", title: "新規リードを探す（リード獲得AI＝Google検索→AI採点→保存）",
+    description:
+      "OSにまだ無い会社を、市区町村×業種で新しく探す。OS画面の「リード獲得AI」と同じ＝Google Placesで企業を集め、Webサイト分析と全社の成功プロファイル・今日の判定基準でAIが採点し、リードとして保存する（担当は本人・同名＋同住所は1件・既存は採点だけ更新）。未送付のリードが100件以上あると保存は止まる。dryRun: true で採点だけ見る。1回10社が目安（最大20）。続けて plan_campaign → prepare_outreach。",
+    input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市"), industry: z.string().describe("例: 歯科医院 / 工務店 / 飲食店"), keywords: z.string().optional().describe("検索語を変えたい時（例: 矯正歯科）"), count: z.number().int().optional().describe("既定10・最大20"), dryRun: z.boolean().optional() }),
+    run: (v, a) => discoverLeads({ id: v.id, email: v.email, name: v.name, branchId: v.branchId, branchId2: v.branchId2 }, a),
+    confirm: (a) => `${[a.prefecture, a.city].filter(Boolean).join("")}の「${a.industry}」を${a.count ?? 10}社、Googleから探してAI採点し、${a.dryRun ? "保存せずに見せます" : "貴社のリードとして保存します"}`,
+  }),
+  def({
     name: "prepare_outreach", kind: "write", title: "営業メールをGmailの下書きにする（送付を記録）",
     description:
       "AIが書いた件名と本文を、そのリード宛の Gmail 下書きリンクにする。同時にOSの送付フローと同じ記録（全社の送付済み台帳・リードの送付日・事例DBの元）を残す。送信ボタンは人が押す（無人送信はしない）。営業お断り・他拠点の送付済みは止まる。金額は本文に書かない。メールが無い会社はフォーム用の本文として返す。",
@@ -272,5 +281,5 @@ export const OS_AI_RULES =
   "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。" +
   "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。" +
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。" +
-  "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。" +
+  "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。" +
   "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注の確定はOS画面で行うよう案内する。受注が決まったら set_closing_factor で決め手を残す。";

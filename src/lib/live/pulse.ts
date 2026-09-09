@@ -46,6 +46,7 @@ const AI_TOOL_TEXT: Record<string, (args: Record<string, unknown>) => string> = 
   update_deal: () => "AIで商談を更新した",
   set_closing_factor: () => "AIで受注の決め手を残した",
   create_lead: () => "AIでリードを登録した",
+  discover_leads: (a) => `AIが${[a.prefecture, a.city].filter(Boolean).join("")}の${a.industry ?? "企業"}を新しく探して採点した`,
   record_lead_result: () => "AIでリードの結果を記録した",
   create_local_ad: (a) => `AIで${[a.prefecture, a.city].filter(Boolean).join("")}の地域限定広告を組んだ`,
   tver_area_plan: (a) => `AIで${[a.prefecture, a.city].filter(Boolean).join("")}のTVerプランを引いた`,
