@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Search, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { TverAreaCitySelect } from "@/components/leads/tver-area-city-select";
 
 interface RecruitSearchFormProps {
   onSubmit: (params: {
@@ -21,6 +22,8 @@ interface RecruitSearchFormProps {
 }
 
 export function RecruitSearchForm({ onSubmit, loading }: RecruitSearchFormProps) {
+  const [selectedPref, setSelectedPref] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
   const [freeText, setFreeText] = useState("");
   const [selectedPreset, setSelectedPreset] = useState("");
 
@@ -70,6 +73,11 @@ export function RecruitSearchForm({ onSubmit, loading }: RecruitSearchFormProps)
           <select
             name="prefecture"
             required
+            value={selectedPref}
+            onChange={(e) => {
+              setSelectedPref(e.target.value);
+              setSelectedCity("");
+            }}
             className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
           >
             <option value="">選択してください</option>
@@ -81,18 +89,8 @@ export function RecruitSearchForm({ onSubmit, loading }: RecruitSearchFormProps)
           </select>
         </div>
 
-        {/* 市区町村 */}
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">
-            市区町村（任意）
-          </label>
-          <input
-            name="city"
-            type="text"
-            placeholder="例: 渋谷区"
-            className="w-full h-9 px-3 rounded-md border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-          />
-        </div>
+        {/* 市区町村（TVer配信エリアから選択） */}
+        <TverAreaCitySelect prefecture={selectedPref} value={selectedCity} onChange={setSelectedCity} focusClass="focus:ring-amber-500" />
 
         {/* 業種・検索キーワード */}
         <div className="sm:col-span-2">
