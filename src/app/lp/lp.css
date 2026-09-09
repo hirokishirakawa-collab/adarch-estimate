@@ -1,0 +1,21 @@
+/* 業種×市 営業用LP — ブランドの決まり（2026-09-04・橙は合図だけ） */
+.aa-lp{--p:#fff;--alt:#f7f6f4;--k:#111;--s:#6a6a6a;--rule:#e6e4e0;--ac:#f19834;--ac2:#d97f18;font-family:'IBM Plex Sans JP','IBM Plex Sans',sans-serif;color:var(--k);background:var(--p);font-size:16px;line-height:1.85;font-weight:400}
+.aa-lp *{box-sizing:border-box}.aa-lp h1,.aa-lp h2,.aa-lp h3,.aa-lp p{margin:0}.aa-lp h1,.aa-lp h2,.aa-lp h3,.aa-lp b,.aa-lp strong{font-weight:600}
+.aa-lp .page{max-width:880px;margin:auto;padding:0 24px}
+.aa-lp .brand{display:flex;justify-content:space-between;align-items:center;padding:22px 0;border-bottom:1px solid var(--rule);gap:16px}
+.aa-lp .brand b{font-family:'IBM Plex Sans',sans-serif;font-size:24px;letter-spacing:-.05em}.aa-lp .brand b span{display:block;font-size:11px;letter-spacing:.04em;font-weight:400}
+.aa-lp .brand small{font-size:11px;color:var(--s);text-align:right}
+.aa-lp .eyebrow{display:flex;align-items:center;gap:10px;color:var(--s);font:400 11px/1.5 'IBM Plex Sans',sans-serif;letter-spacing:.18em;text-transform:uppercase;margin:0 0 14px}.aa-lp .eyebrow:before{content:'';width:22px;height:2px;background:var(--ac)}
+.aa-lp .hero{padding:44px 0 32px;border-bottom:1px solid var(--rule)}.aa-lp .hero h1{font-size:30px;line-height:1.45;letter-spacing:.02em}.aa-lp .hero .sub{font-size:15px;color:var(--s);margin-top:16px;line-height:1.9}
+.aa-lp .cta{display:inline-flex;align-items:center;justify-content:center;background:var(--ac);color:var(--k);text-decoration:none;font-weight:600;font-size:15px;padding:16px 26px;border-radius:3px;margin-top:24px;min-height:52px}.aa-lp .cta:hover{background:var(--ac2)}
+.aa-lp .cta-line{background:var(--p);border:1px solid var(--k);margin-left:12px}.aa-lp .cta-line:hover{background:var(--alt)}
+.aa-lp .numbers{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--k);border-bottom:1px solid var(--rule);margin:36px 0 0}
+.aa-lp .numbers div{padding:20px 16px 18px;border-right:1px solid var(--rule)}.aa-lp .numbers div:last-child{border:0}.aa-lp .numbers small{display:block;font-size:11px;color:var(--s);letter-spacing:.06em}
+.aa-lp .numbers b{display:block;font-family:'IBM Plex Sans',sans-serif;font-size:34px;line-height:1.3;letter-spacing:-.03em;margin-top:6px}.aa-lp .numbers b span{font-size:14px;margin-left:3px;font-family:'IBM Plex Sans JP'}
+.aa-lp .numbers-note{font-size:12px;color:var(--s);padding:12px 0 0}
+.aa-lp section.sec{padding:36px 0;border-bottom:1px solid var(--rule)}.aa-lp section.sec h2{font-size:21px;line-height:1.5;margin-bottom:12px}.aa-lp section.sec p{font-size:15px;color:var(--k);white-space:pre-wrap}
+.aa-lp .pkg{background:var(--alt);padding:22px 24px;margin-top:36px}.aa-lp .pkg h3{font-size:15px;margin-bottom:8px}.aa-lp .pkg ul{margin:8px 0 0;padding-left:18px;font-size:14px}.aa-lp .pkg li{margin:2px 0}.aa-lp .pkg small{display:block;font-size:12px;color:var(--s);margin-top:10px}
+.aa-lp .close{padding:40px 0;text-align:left}.aa-lp .close h2{font-size:22px;margin-bottom:8px}.aa-lp .close p{font-size:14px;color:var(--s)}
+.aa-lp .referrer{font-size:12px;color:var(--s);padding:20px 0;border-top:1px solid var(--rule)}
+.aa-lp footer{padding:28px 0 60px;font-size:11px;color:var(--s);border-top:1px solid var(--rule)}
+@media(max-width:599px){.aa-lp .hero h1{font-size:24px}.aa-lp .numbers{grid-template-columns:1fr}.aa-lp .numbers div{border-right:0;border-bottom:1px solid var(--rule)}.aa-lp .cta-line{margin:12px 0 0}}

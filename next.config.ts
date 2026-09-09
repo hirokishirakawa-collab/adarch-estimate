@@ -48,7 +48,8 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               // Next.js の inline script / style を許可
               "script-src 'self' 'unsafe-inline'",
-              "style-src 'self' 'unsafe-inline'",
+              // Google Fonts（IBM Plex Sans JP）は申込ページ・営業用LPで使う（2026-09-09）
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               // Google OAuth リダイレクト・アバター画像／blob: はサイネージプレイヤー（Cache API→blob URL）の画像表示に必要
               "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://cyberjapandata.gsi.go.jp https://lh3.googleusercontent.com https://lh4.googleusercontent.com https://images.unsplash.com https://image.mux.com https://*.line-scdn.net",
               // Mux 動画ストリーミング（blob: はHLS再生に必要）
@@ -57,7 +58,7 @@ const nextConfig: NextConfig = {
               "worker-src 'self' blob:",
               // Sentry + Mux + Mux Data (litix.io) への送信を許可
               "connect-src 'self' blob: https://*.ingest.sentry.io https://*.mux.com https://*.production.mux.com https://inferred.litix.io https://*.litix.io",
-              "font-src 'self'",
+              "font-src 'self' https://fonts.gstatic.com",
               // 埋め込み動画（YouTube / Vimeo / Mux Player / Google Drive）を許可
               "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://stream.mux.com https://drive.google.com",
               // iframe で本サイトを埋め込まれない（X-Frame-Options と二重防御）

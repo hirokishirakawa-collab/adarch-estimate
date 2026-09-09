@@ -5349,3 +5349,47 @@ model SignagePlayLog {
   @@index([assetId, playedAt(sort: Desc)])
   @@map("signage_play_logs")
 }
+
+// ==============================================================
+// LandingPage — AIが作る業種×市の営業用LP（2026-09-09）
+//   AIが文面（見出し・本文の段落）を書き、数字（TVerの視聴者数・標準プラン）は表示時にOSから引く
+//   ＝情報の間違いが起きない。着地は TVer申込ページ か 公式LINE か 任意URL。
+//   関係は貼らない（拠点・会社はIDで持つだけ。消えても LP は残す）
+// ==============================================================
+
+enum LandingPageStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model LandingPage {
+  id             String            @id @default(cuid())
+  slug           String            @unique // URL: /lp/<slug>
+  status         LandingPageStatus @default(PUBLISHED)
+  title          String // ブラウザタイトル
+  headline       String // 大見出し（相手の困りごと・切り口）
+  subheadline    String?           @db.Text
+  industry       String? // 対象業種
+  prefecture     String? // 県名（TVer数字の表示に使う）
+  cityCode       String? // 市区町村コード（TVer数字の表示に使う）
+  cityName       String?
+  packageSlug    String? // 紐づけるパッケージ（内容物・納期を表示）
+  sections       Json // [{ heading, body }] 3〜6段落。AIが書く
+  ctaLabel       String            @default("エリア限定プランを見る")
+  ctaUrl         String // TVer申込ページ／LINE／任意URL
+  lineUrl        String? // 公式LINEの友だち追加URL（あれば2つ目のボタン）
+  showTverPlan   Boolean           @default(true) // 市の視聴者数・標準プランをOSから引いて出す
+  branchId       String?
+  groupCompanyId String?
+  createdByEmail String
+  createdByName  String?
+  views          Int               @default(0)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([branchId])
+  @@index([industry])
+  @@index([createdAt(sort: Desc)])
+  @@map("landing_pages")
+}

@@ -10,6 +10,9 @@ import { z } from "zod";
 import * as os from "./os-read-tools";
 import * as osw from "./os-write-tools";
 import * as ins from "./os-insight-tools";
+import * as camp from "./os-campaign-tools";
+import { createLocalCampaign } from "@/lib/meta-ads/local-campaign";
+import { appUrl } from "@/lib/tver-order/service";
 
 export type ToolKind = "read" | "write";
 
@@ -147,6 +150,19 @@ export const OS_READ_TOOLS: OsToolDef[] = [
     input: z.object({ customerId: z.string(), packageSlug: z.string().optional(), materialIds: z.array(z.string()).optional().describe("ブランドキットの材料id（既定: brand-rules, company, sales, pkg-<slug>）"), tverPrefecture: z.string().optional(), tverCity: z.string().optional() }),
     run: (v, a) => ins.draftProposal(v, a),
   }),
+  def({
+    name: "plan_campaign", kind: "read", title: "市×業界で、まとめて当たる計画",
+    description:
+      "「◯◯市の◯◯業界に営業したい」に1コールで答える。OSのリード（担当なし／自分）を、今週のシグナル・周年・AIスコア・連絡手段で「当たりやすい順」に並べ、営業お断りと全社の送付済み台帳で除外し、訴求の型（全社の受注の決め手・返信が来た文面）、勧めるパッケージ、財源になる補助金、着地URL（TVer申込ページ・公式LINE・LP）を返す。次は prepare_outreach。",
+    input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市（省略で県全体）"), industry: z.string().describe("例: 歯科 / 工務店 / 飲食"), packageSlug: z.string().optional(), limit: z.number().int().optional().describe("既定20・最大50") }),
+    run: (v, a) => camp.planCampaign(v, a),
+  }),
+  def({
+    name: "list_landing_pages", kind: "read", title: "営業用LPの一覧",
+    description: "AIが作った業種×市のLP（/lp/…）の一覧。mine: true で自拠点だけ。",
+    input: z.object({ mine: z.boolean().optional(), limit: z.number().int().optional() }),
+    run: (v, a) => camp.listLandingPages(v, a),
+  }),
 ];
 
 // ---------------- 書き込み ----------------
@@ -201,6 +217,35 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     run: (v, a) => osw.recordLeadResult(v, a),
     confirm: (a) => `リードの結果を記録します: ${[a.result && `結果=${a.result}`, a.status && `状態=${a.status}`, a.note && `メモ「${a.note.slice(0, 120)}」`].filter(Boolean).join(" / ")}`,
   }),
+  def({
+    name: "prepare_outreach", kind: "write", title: "営業メールをGmailの下書きにする（送付を記録）",
+    description:
+      "AIが書いた件名と本文を、そのリード宛の Gmail 下書きリンクにする。同時にOSの送付フローと同じ記録（全社の送付済み台帳・リードの送付日・事例DBの元）を残す。送信ボタンは人が押す（無人送信はしない）。営業お断り・他拠点の送付済みは止まる。金額は本文に書かない。メールが無い会社はフォーム用の本文として返す。",
+    input: z.object({ leadId: z.string(), subject: z.string().describe("件名（120字以内）"), body: z.string().describe("本文（4000字以内・金額なし）"), appeal: z.string().optional().describe("訴求の切り口を一言（例: 周年×TVer）"), packageSlug: z.string().optional() }),
+    run: (v, a) => camp.prepareOutreach(v, a),
+    confirm: (a) => `営業メールを下書きにし、送付として記録します:\n件名: ${a.subject}\n${a.body.slice(0, 200)}…`,
+  }),
+  def({
+    name: "create_landing_page", kind: "write", title: "業種×市の営業用LPを作る",
+    description:
+      "AIが文面（大見出し・サブ・2〜6段落）を書き、/lp/<slug> として公開する。市のTVer視聴者数・標準プラン・月額目安とパッケージの内容物は表示のたびにOSから引くので、文面に数字を書かない。着地は既定でTVer申込ページ（自拠点が案内元）。useLine: true で自拠点の公式LINEボタンも付く。返ったURLを prepare_outreach の本文に添える。",
+    input: z.object({ title: z.string(), headline: z.string(), subheadline: z.string().optional(), industry: z.string().optional(), prefecture: z.string().optional(), city: z.string().optional(), packageSlug: z.string().optional(), sections: z.array(z.object({ heading: z.string(), body: z.string() })), ctaLabel: z.string().optional(), ctaUrl: z.string().optional(), useLine: z.boolean().optional(), slug: z.string().optional().describe("URLの末尾（英小文字・数字・ハイフン。例: karatsu-dental）") }),
+    run: (v, a) => camp.createLandingPage(v, a),
+    confirm: (a) => `LPを公開します: ${a.title}（${[a.prefecture, a.city, a.industry].filter(Boolean).join("・")}・${a.sections.length}段落）`,
+  }),
+  def({
+    name: "create_local_ad", kind: "write", title: "地域限定のMeta広告を作る（少額・本部アカウント）",
+    description:
+      "市を指定して、Facebook/Instagram に地域限定（中心から半径km）の少額広告を作る。例: 唐津市に日額500円で7日、LPへ誘導。バナーは省略するとOSの数字で描く /api/banner/tver を使う。作成は PAUSED（配信ONは人が Ads Manager で／activate: true で最初からON）。本部のMeta広告アカウントが未接続なら、送る内容の組み立て（dryRun）だけ返す。本部（ADMIN）のみ。",
+    input: z.object({ name: z.string().describe("キャンペーン名"), prefecture: z.string(), city: z.string(), dailyBudgetJpy: z.number().int().describe("日額（円・100以上）"), days: z.number().int().describe("配信日数（1〜90）"), landingUrl: z.string().describe("LPかTVer申込ページのURL"), headline: z.string().describe("見出し（40字以内）"), primaryText: z.string().describe("本文（125字以内が目安）"), bannerUrl: z.string().optional().describe("PNG/JPGのURL。省略でOSの型バナー（SVG＝ドライラン用）"), radiusKm: z.number().optional(), activate: z.boolean().optional() }),
+    run: async (v, a) => {
+      if (v.role !== "ADMIN") throw new osw.WriteError("地域限定広告の作成は本部（ADMIN）のみです。ご希望は本部へお伝えください");
+      const banner = a.bannerUrl ?? `${appUrl()}/api/banner/tver?${new URLSearchParams({ pref: a.prefecture, city: a.city, headline: a.headline }).toString()}`;
+      const r = await createLocalCampaign({ name: a.name, prefecture: a.prefecture, cityName: a.city, dailyBudgetJpy: a.dailyBudgetJpy, days: a.days, landingUrl: a.landingUrl, headline: a.headline, primaryText: a.primaryText, bannerUrl: banner, radiusKm: a.radiusKm, activate: a.activate });
+      return { ...r, bannerUrl: banner };
+    },
+    confirm: (a) => `Meta広告を作ります: ${a.prefecture}${a.city}・日額¥${a.dailyBudgetJpy}×${a.days}日・${a.activate ? "作成後すぐ配信" : "PAUSEDで作成"}`,
+  }),
 ];
 
 export const OS_TOOLS: OsToolDef[] = [...OS_READ_TOOLS, ...OS_WRITE_TOOLS];
@@ -218,4 +263,5 @@ export const OS_AI_RULES =
   "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。" +
   "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。" +
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。" +
+  "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。" +
   "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注の確定はOS画面で行うよう案内する。受注が決まったら set_closing_factor で決め手を残す。";

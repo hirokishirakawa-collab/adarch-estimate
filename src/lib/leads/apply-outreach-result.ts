@@ -7,6 +7,7 @@
 // ==============================================================
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { sendChatMessage } from "@/lib/google-chat";
 import type { getOutreachResultOption } from "@/lib/constants/outreach-result";
 import type { LeadStatus } from "@/generated/prisma/client";
 
@@ -77,6 +78,10 @@ export async function applyOutreachResult(
 
     await syncSalesApproach(leadId, option.approachResult, user, lead);
 
+    // 前向きな結果（返信あり・受注）は、記録した瞬間にグループの案件進捗スペースへ1行（2026-09-09 代表指示＝リアルタイム共有）。
+    // 金額は書かない。無反応・NG・断りは流さない（8/24「イベントごとの通知はしない」の趣旨＝無風で埋めない）
+    if (option.approachResult === "REPLIED_OK" || option.approachResult === "DEAL") void shareReplyRealtime(lead, option.label, user);
+
     logAudit({
       action: "outreach_result_recorded",
       email,
@@ -142,3 +147,31 @@ async function syncSalesApproach(
   });
 }
 
+
+// ---------------------------------------------------------------
+// 返信・受注の即時共有（Google Chat 案件進捗スペース）。失敗しても本体は止めない
+// ---------------------------------------------------------------
+const DEAL_CHAT_SPACE_ID = process.env.DEAL_CHAT_SPACE_ID ?? "AAQAp6XvXqE";
+
+async function shareReplyRealtime(
+  lead: { id: string; name: string; industry: string | null; area: string | null; prefecture: string | null },
+  resultLabel: string,
+  user: { id: string; name: string | null; groupCompanyId: string | null },
+) {
+  try {
+    const [gc, sentLog] = await Promise.all([
+      user.groupCompanyId ? db.groupCompany.findUnique({ where: { id: user.groupCompanyId }, select: { name: true } }) : null,
+      db.leadLog.findFirst({ where: { leadId: lead.id, action: FORM_SENT }, orderBy: { createdAt: "desc" }, select: { detail: true } }),
+    ]);
+    const appeal = /【訴求】([^\n]*)/.exec(sentLog?.detail ?? "")?.[1]?.trim();
+    const lines = [
+      `🔔 ${resultLabel}: ${lead.name}（${[lead.industry, lead.area ?? lead.prefecture].filter(Boolean).join("・") || "業種・地域未設定"}）`,
+      `拠点: ${gc?.name ?? "本部"}${user.name ? `／${user.name}` : ""}`,
+      appeal ? `訴求: ${appeal.slice(0, 80)}` : null,
+      "この文面は事例DBに入りました。AIに「同じ業種で効いた文面は？」と聞くと引けます",
+    ].filter(Boolean);
+    await sendChatMessage(DEAL_CHAT_SPACE_ID, lines.join("\n"));
+  } catch (e) {
+    console.error("[shareReplyRealtime]", e instanceof Error ? e.message : e);
+  }
+}
