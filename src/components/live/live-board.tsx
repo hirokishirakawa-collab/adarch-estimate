@@ -38,6 +38,8 @@ interface Counts {
 }
 interface Feed {
   events: LiveEvent[];
+  /** AI ACTIVITY FEED（匿名・県なし＝AIが動いていることだけ） */
+  ai?: { at: string; text: string }[];
   counts: { today: Counts; week: Counts };
   prefHeat: Record<string, number>;
   generatedAt: string;
@@ -94,9 +96,7 @@ const KIND_META: Record<string, { label: string; cls: string }> = {
   booking: { label: "面談予約", cls: "text-amber-300 border-amber-500/30 bg-amber-500/10" },
   tender: { label: "入札○", cls: "text-violet-300 border-violet-500/30 bg-violet-500/10" },
   lead: { label: "リード", cls: "text-teal-300 border-teal-500/30 bg-teal-500/10" },
-  // 脈（2026-09-09）: 使う・AIに聞く・OSの自動検知・お客様の閲覧
-  ai: { label: "AI", cls: "text-orange-300 border-orange-500/30 bg-orange-500/10" },
-  use: { label: "OS", cls: "text-zinc-300 border-zinc-500/30 bg-zinc-500/10" },
+  // 脈（2026-09-09）: OSの自動検知・お客様の閲覧（AIの動きは別枠 AI ACTIVITY FEED）
   auto: { label: "自動検知", cls: "text-fuchsia-300 border-fuchsia-500/30 bg-fuchsia-500/10" },
   visit: { label: "お客様", cls: "text-lime-300 border-lime-500/30 bg-lime-500/10" },
 };
@@ -532,9 +532,30 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
         </div>
       </div>
 
+      {/* AI ACTIVITY FEED（2026-09-09 代表指示）: AIの動きだけを別枠で。誰が・どの県かは出さない＝「AIが動いている」ことだけ */}
+      {feed?.ai && feed.ai.length > 0 && (
+        <div className="relative mt-3 rounded-xl border border-orange-500/20 bg-orange-500/[0.04] overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-orange-500/15">
+            <span className="text-[11px] tracking-[0.15em] text-orange-300/80 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+              AI ACTIVITY FEED
+            </span>
+            <span className="text-[10px] text-zinc-600">匿名・グループ全体のAIの動き</span>
+          </div>
+          <div className={`${compact ? "max-h-[132px]" : "max-h-[220px]"} overflow-y-auto divide-y divide-white/[0.04]`}>
+            {feed.ai.slice(0, compact ? 6 : 24).map((a, i) => (
+              <div key={a.at + i} className="flex items-start gap-3 px-4 py-2">
+                <span className="font-mono text-[10px] text-zinc-500 tabular-nums whitespace-nowrap mt-0.5 w-14">{ago(a.at)}</span>
+                <span className="text-[12.5px] text-zinc-300 leading-relaxed">{a.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {!compact && (
         <p className="relative mt-4 text-[10.5px] text-zinc-600">
-          商談・送付台帳などから自動生成（20秒ごと更新）。金額と週次共有は表示されません。
+          商談・送付台帳などから自動生成（20秒ごと更新）。金額と週次共有は表示されません。AIの動きは匿名です。
         </p>
       )}
 

@@ -2,24 +2,28 @@
 // グループライブ「脈」— OSを使う・AIに聞く・OSが自動で見つける・お客様が見る、を随時フィードに流す
 //   （2026-09-09 代表指示「使う・探る・書くが随時反映されると、みんな自分も動こうとなる」）
 //   材料は全部、既に残っている記録から組む。作った動きは流さない。
-//     ai    : AI連携（MCP／アーチくん）の呼び出し（監査ログ mcp_os_read / mcp_os_write / brand_kit_mcp）
-//     use   : OSの利用（ログイン・リード探索・AI採点・営業文面・提案書AI・顧客登録・LINE/Meta接続・月次報告）
-//     auto  : OSの自動検知（買う気配のシグナル・補助金の新着・TVer案件プールの新着）
-//     visit : お客様側（LPの閲覧・LINE友だち追加）
+//     ai    : AI ACTIVITY FEED（別枠）＝AI連携（MCP／アーチくん）の呼び出しと提案書AI等。匿名・県なし＝「AIが動いている」ことだけ
+//     auto  : OSの自動検知（買う気配のシグナル・補助金の新着・TVer案件プールの新着）→ 本体フィード
+//     visit : お客様側（LPの閲覧・LINE友だち追加）→ 本体フィード（匿名）
 //   ⚠️ 金額・自由記述は出さない。AI呼び出しの引数は「市・業種」だけ拾う。相手先名は出さない。
-//   ⚠️ AI連携・OS利用・LINE友だちの行は匿名＝「代表」（名前・社名なし。県だけ地図に）。本部は「本部」（9/9 代表指示）
+//   ⚠️ 9/9 代表指示: AIの動きは別枠・匿名・県も出さない。OS利用（ログイン等）は流さない。お客様側の行は「代表」（名前・社名なし）
 //   同じ人の同じ動きは短時間で1行に畳む（ログイン=3時間・AI読み取り=15分・探索=10分）
 // ==============================================================
 
 import { db } from "@/lib/db";
 import { SIGNAL_KIND_LABEL, type SignalKind } from "@/lib/leads/signal";
 
-export type PulseKind = "ai" | "use" | "auto" | "visit";
+export type PulseKind = "auto" | "visit";
 export interface PulseEvent {
   at: string;
   kind: PulseKind;
   actor: string;
   prefs: string[];
+  text: string;
+}
+/** AI ACTIVITY FEED の1行＝時刻と文だけ（誰が・どの県かは持たない） */
+export interface AiPulse {
+  at: string;
   text: string;
 }
 
@@ -66,42 +70,28 @@ function usageText(feature: string): string | null {
   return null;
 }
 
-/** 監査ログの action → 一行（AI以外） */
-const AUDIT_TEXT: Record<string, string> = {
-  login_success: "OSを開いた",
-  customer_created: "顧客を登録した",
-  deal_created: "商談を起こした",
-  deal_status_updated: "商談の状態を動かした",
-  estimate_created: "見積を作った",
-  revenue_report_created: "月次報告を提出した",
-  line_account_created: "LINE公式をOSにつないだ",
-  meta_ads_connected: "Meta広告をOSにつないだ",
-  mcp_connected: "AIをOSにつないだ",
-  brand_kit_download: "ブランドキットを持ち出した",
-  brand_kit_copy: "ブランドキットをAIに貼った",
-};
 /** 畳む間隔（ミリ秒）。無いものは畳まない */
-const FOLD_MS: Record<string, number> = { login_success: 3 * 3_600_000, mcp_os_read: 15 * 60_000, brand_kit_mcp: 15 * 60_000, usage: 10 * 60_000 };
+const FOLD_MS: Record<string, number> = { mcp_os_read: 15 * 60_000, brand_kit_mcp: 15 * 60_000, usage: 10 * 60_000 };
 
 interface Who { actor: string; prefs: string[] }
 
-export async function buildPulseEvents(opts: { days?: number } = {}): Promise<PulseEvent[]> {
+export async function buildPulseEvents(opts: { days?: number } = {}): Promise<{ events: PulseEvent[]; ai: AiPulse[] }> {
   const since = new Date(Date.now() - (opts.days ?? 7) * DAY_MS);
   const [audits, usages, signals, subsidies, tvcm, lps, lineFriends] = await Promise.all([
     db.auditLog.findMany({
-      where: { createdAt: { gte: since }, action: { in: ["mcp_os_read", "mcp_os_write", "brand_kit_mcp", "mcp_connected", ...Object.keys(AUDIT_TEXT)] } },
+      where: { createdAt: { gte: since }, action: { in: ["mcp_os_read", "mcp_os_write", "brand_kit_mcp", "mcp_connected"] } },
       orderBy: { createdAt: "desc" },
       take: 600,
       select: { action: true, email: true, entityId: true, detail: true, createdAt: true },
     }),
-    db.apiUsageLog.findMany({ where: { createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, take: 400, select: { email: true, feature: true, createdAt: true } }),
+    db.apiUsageLog.findMany({ where: { createdAt: { gte: since }, feature: { in: ["chatbot", "proposals/generate", "outreach/draft", "leads/draft", "leads/advise", "strategy-advisor"] } }, orderBy: { createdAt: "desc" }, take: 300, select: { email: true, feature: true, createdAt: true } }),
     db.lead.findMany({
       where: { signalAt: { gte: since }, signalKind: { notIn: ["MANUAL", "FOUND"] }, status: { notIn: ["SKIPPED", "ARCHIVED"] } },
       orderBy: { signalAt: "desc" },
       take: 300,
       select: { signalAt: true, signalKind: true, prefecture: true, area: true, industry: true },
     }),
-    db.subsidy.findMany({ where: { createdAt: { gte: since }, isActive: true }, orderBy: { createdAt: "desc" }, take: 60, select: { title: true, targetAreas: true, createdAt: true, adCostFit: true } }),
+    db.subsidy.findMany({ where: { createdAt: { gte: since }, isActive: true, adCostFit: "CONFIRMED" }, orderBy: { createdAt: "desc" }, take: 60, select: { title: true, targetAreas: true, createdAt: true, adCostFit: true } }),
     db.lead.findMany({ where: { createdAt: { gte: since }, source: "PR_TIMES_TVCM" }, orderBy: { createdAt: "desc" }, take: 200, select: { createdAt: true, prefecture: true } }),
     db.landingPage.findMany({ where: { updatedAt: { gte: since }, views: { gt: 0 }, status: "PUBLISHED" }, orderBy: { updatedAt: "desc" }, take: 40, select: { title: true, industry: true, prefecture: true, cityName: true, views: true, updatedAt: true, groupCompanyId: true } }),
     db.lineFriend.findMany({ where: { followedAt: { gte: since }, isFollowing: true }, orderBy: { followedAt: "desc" }, take: 200, select: { followedAt: true, account: { select: { name: true, branch: { select: { name: true } } } } } }),
@@ -134,46 +124,43 @@ export async function buildPulseEvents(opts: { days?: number } = {}): Promise<Pu
     try { return m ? (JSON.parse(m[0]) as Record<string, unknown>) : {}; } catch { return {}; }
   };
 
-  // ---- AI連携 / OS利用（監査ログ） ----
+  // ---- AI ACTIVITY FEED（匿名・県なし＝「AIが動いている」ことだけ） ----
+  const ai: AiPulse[] = [];
   for (const a of audits) {
     const who = whoOf.get(a.email);
     if (!who) continue;
     const client = /^\[([^\]]+)\]/.exec(a.detail ?? "")?.[1];
     const via = client === "アーチくん" ? "アーチくん" : "AI";
-    if (a.action === "mcp_os_read" || a.action === "mcp_os_write" || a.action === "brand_kit_mcp") {
-      const tool = a.entityId ?? "";
-      const fn = AI_TOOL_TEXT[tool];
-      if (!fn && a.action === "mcp_os_read") {
-        if (fold(`${a.email}:airead`, a.createdAt, FOLD_MS.mcp_os_read)) continue;
-        events.push({ at: a.createdAt.toISOString(), kind: "ai", actor: who.actor, prefs: who.prefs, text: AI_READ_GENERIC.replace("AI", via) });
-        continue;
-      }
-      if (a.action === "brand_kit_mcp") {
-        if (fold(`${a.email}:kit`, a.createdAt, FOLD_MS.brand_kit_mcp)) continue;
-        events.push({ at: a.createdAt.toISOString(), kind: "ai", actor: who.actor, prefs: who.prefs, text: `${via}がブランドキットを読んだ` });
-        continue;
-      }
-      const args = parseArgs(a.detail);
-      const text = fn ? fn(args).replace(/^AI/, via) : `${via}でOSに書いた`;
-      if (fold(`${a.email}:${tool}`, a.createdAt, 5 * 60_000)) continue;
-      const prefs = [...new Set([...who.prefs, ...prefsIn(String(args.prefecture ?? ""))])];
-      events.push({ at: a.createdAt.toISOString(), kind: "ai", actor: who.actor, prefs, text });
+    if (a.action === "mcp_connected") {
+      if (fold(`${a.email}:connected`, a.createdAt, 60 * 60_000)) continue;
+      ai.push({ at: a.createdAt.toISOString(), text: "新しくAIがOSにつながった" });
       continue;
     }
-    const text = AUDIT_TEXT[a.action];
-    if (!text) continue;
-    if (fold(`${a.email}:${a.action}`, a.createdAt, FOLD_MS[a.action] ?? 60_000)) continue;
-    events.push({ at: a.createdAt.toISOString(), kind: "use", actor: who.actor, prefs: who.prefs, text });
+    if (a.action === "brand_kit_mcp") {
+      if (fold(`${a.email}:kit`, a.createdAt, FOLD_MS.brand_kit_mcp)) continue;
+      ai.push({ at: a.createdAt.toISOString(), text: `${via}がブランドキットを読んだ` });
+      continue;
+    }
+    const tool = a.entityId ?? "";
+    const fn = AI_TOOL_TEXT[tool];
+    if (!fn && a.action === "mcp_os_read") {
+      if (fold(`${a.email}:airead`, a.createdAt, FOLD_MS.mcp_os_read)) continue;
+      ai.push({ at: a.createdAt.toISOString(), text: AI_READ_GENERIC.replace("AI", via) });
+      continue;
+    }
+    const args = parseArgs(a.detail);
+    const text = fn ? fn(args).replace(/^AI/, via) : `${via}でOSに書いた`;
+    if (fold(`${a.email}:${tool}`, a.createdAt, 5 * 60_000)) continue;
+    ai.push({ at: a.createdAt.toISOString(), text });
   }
-
-  // ---- OS利用（AI機能の利用ログ） ----
   for (const u of usages) {
     const who = whoOf.get(u.email);
     const text = usageText(u.feature);
     if (!who || !text) continue;
     if (fold(`${u.email}:${text}`, u.createdAt, FOLD_MS.usage)) continue;
-    events.push({ at: u.createdAt.toISOString(), kind: "use", actor: who.actor, prefs: who.prefs, text });
+    ai.push({ at: u.createdAt.toISOString(), text });
   }
+  ai.sort((x, y) => y.at.localeCompare(x.at));
 
   // ---- 自動検知: シグナル（県×日で束ねる） ----
   const sigGroups = new Map<string, { at: Date; n: number; kinds: Set<string>; prefs: string[] }>();
@@ -195,7 +182,7 @@ export async function buildPulseEvents(opts: { days?: number } = {}): Promise<Pu
   // ---- 自動検知: 補助金・TVer案件プール ----
   for (const s of subsidies) {
     const prefs = s.targetAreas.flatMap((t) => prefsIn(t));
-    events.push({ at: s.createdAt.toISOString(), kind: "auto", actor: "補助金ファインダー", prefs, text: `広告費に使える補助金が新着${prefs.length ? `（${prefs.slice(0, 2).join("・")}）` : "（全国）"}: ${s.title.slice(0, 28)}${s.adCostFit === "CONFIRMED" ? " ✓広告費OK" : ""}` });
+    events.push({ at: s.createdAt.toISOString(), kind: "auto", actor: "補助金ファインダー", prefs, text: `広告費に使える補助金が新着${prefs.length ? `（${prefs.slice(0, 2).join("・")}）` : "（全国）"}: ${s.title.slice(0, 28)}` });
   }
   const tvGroups = new Map<string, { at: Date; n: number; prefs: Set<string> }>();
   for (const l of tvcm) {
@@ -213,7 +200,7 @@ export async function buildPulseEvents(opts: { days?: number } = {}): Promise<Pu
   const lpCompanies = lpCompanyIds.length ? await db.groupCompany.findMany({ where: { id: { in: lpCompanyIds } }, select: { id: true, name: true } }) : [];
   const lpCompanyName = new Map(lpCompanies.map((c) => [c.id, c.name]));
   for (const p of lps) {
-    const actor = (p.groupCompanyId && lpCompanyName.get(p.groupCompanyId)) || "グループ";
+    const actor = p.groupCompanyId && lpCompanyName.has(p.groupCompanyId) ? "代表" : "本部"; // 匿名
     events.push({ at: p.updatedAt.toISOString(), kind: "visit", actor, prefs: prefsIn(p.prefecture), text: `${[p.cityName, p.industry].filter(Boolean).join("×") || "営業用"}のLPが読まれた（累計${p.views}回）` });
   }
   const lfGroups = new Map<string, { at: Date; n: number; actor: string; prefs: string[] }>();
@@ -228,5 +215,5 @@ export async function buildPulseEvents(opts: { days?: number } = {}): Promise<Pu
   }
   for (const g of lfGroups.values()) events.push({ at: g.at.toISOString(), kind: "visit", actor: g.actor, prefs: g.prefs, text: `LINE公式の友だちが${g.n}人増えた` });
 
-  return events;
+  return { events, ai };
 }

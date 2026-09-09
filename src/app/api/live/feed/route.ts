@@ -343,9 +343,11 @@ export async function GET() {
 
   // 「脈」＝OSを使う・AIに聞く・OSが自動で見つける・お客様が見る（直近7日・2026-09-09）。
   // 人の営業の動き（上の各種）と同じ列に混ぜる。失敗しても本体は止めない
+  let ai: { at: string; text: string }[] = [];
   try {
     const pulse = await buildPulseEvents({ days: 7 });
-    for (const p of pulse) events.push(p);
+    for (const p of pulse.events) events.push(p);
+    ai = pulse.ai.slice(0, 40); // AI ACTIVITY FEED（別枠・匿名・県なし）
   } catch (e) {
     console.error("[live/feed] pulse failed:", e instanceof Error ? e.message : e);
   }
@@ -360,15 +362,13 @@ export async function GET() {
   const in7d = (e: LiveEvent) => now - Date.parse(e.at) < 7 * 86400000;
   const today = (e: LiveEvent) => Date.parse(e.at) >= dayStart.getTime();
   const countBy = (pred: (e: LiveEvent) => boolean) => {
-    const c = { approach: 0, deal: 0, won: 0, hq: 0, ai: 0, os: 0, auto: 0, visit: 0 };
+    const c = { approach: 0, deal: 0, won: 0, hq: 0, auto: 0, visit: 0 };
     for (const e of events.filter(pred)) {
       if (e.kind === "sent" || e.kind === "move" || e.kind === "log" || e.kind === "lead") c.approach++;
       else if (e.kind === "deal") c.deal++;
       // 加盟はこの面に出さない（数字にもフィードにも載せない＝2026-08-28 代表決定）
       else if (e.kind === "won") c.won++;
       // 脈は既存の4カウンタ（人の営業の動き）に混ぜない
-      else if (e.kind === "ai") c.ai++;
-      else if (e.kind === "use") c.os++;
       else if (e.kind === "auto") c.auto++;
       else if (e.kind === "visit") c.visit++;
       else c.hq++;
@@ -387,6 +387,7 @@ export async function GET() {
 
   return NextResponse.json({
     events: top,
+    ai,
     counts: { today: countBy(today), week: countBy(in7d) },
     prefHeat,
     generatedAt: new Date().toISOString(),
