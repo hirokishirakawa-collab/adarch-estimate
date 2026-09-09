@@ -6,6 +6,7 @@ import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { normalizeCompanyName } from "@/lib/leads/match-score";
 import { getSuccessProfileDual } from "@/lib/leads/success-profile";
+import { getTodayScoringBasis, applyBasis, adjustScores, basisPromptText } from "@/lib/leads/scoring-basis";
 import { getSessionInfo } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -189,6 +190,12 @@ BtoB企業リストを受け取り、動画制作・広告営業のリード（�
   const profileSection = successProfile
     ? `\n${successProfile.promptText}\n`
     : "";
+  // 今日の判定基準（受注・送付結果から1日1回生成）。加減点は code 側、AI にはコメントの文脈として渡す
+  const scoringBasis = await getTodayScoringBasis().catch((e) => {
+    console.error("[score] scoring basis unavailable:", e instanceof Error ? e.message : e);
+    return null;
+  });
+  const basisSection = scoringBasis ? `\n${basisPromptText(scoringBasis, body.industry, body.area)}\n` : "";
 
   try {
     const client = new Anthropic({ apiKey });
@@ -200,7 +207,7 @@ BtoB企業リストを受け取り、動画制作・広告営業のリード（�
 
       const userMessage = `【対象業種】${body.industry}
 【対象エリア】${body.area}
-${profileSection}
+${profileSection}${basisSection}
 【企業リスト（エンリッチメント付き）】
 ${batchSummary}
 
@@ -227,10 +234,16 @@ ${batchSummary}
 
     // 並列実行してマージ
     const batchResults = await Promise.all(batches.map(scoreBatch));
-    const scores = batchResults.flat();
+    const rawScores = batchResults.flat() as { name: string; total: number; breakdown: Record<string, number>; comment: string }[];
+    // 今日の判定基準で加減点（-6〜+8）。理由はコメント末尾と breakdown.basisAdjust に残す
+    const basisApplied = scoringBasis ? applyBasis(scoringBasis, body.industry, body.area) : { delta: 0, reasons: [] as string[] };
+    const scores = adjustScores(rawScores, basisApplied);
 
     return NextResponse.json({
       scores,
+      scoringBasis: scoringBasis
+        ? { day: scoringBasis.day, delta: basisApplied.delta, reasons: basisApplied.reasons, ruleCount: scoringBasis.rules.length }
+        : null,
       successProfile: successProfile
         ? {
             successCount: successProfile.successCount,

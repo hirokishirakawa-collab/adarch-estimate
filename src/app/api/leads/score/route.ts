@@ -7,6 +7,7 @@ import type { PlaceLead, YouTubeChannelInfo } from "@/lib/constants/leads";
 import { analyzeWebsite } from "@/lib/leads/analyze-website";
 import { searchYouTubeChannel } from "@/lib/leads/search-youtube";
 import { getSuccessProfileDual } from "@/lib/leads/success-profile";
+import { getTodayScoringBasis, applyBasis, adjustScores, basisPromptText } from "@/lib/leads/scoring-basis";
 import { getSessionInfo } from "@/lib/session";
 import { db } from "@/lib/db";
 import { normalizeCompanyName } from "@/lib/leads/match-score";
@@ -175,6 +176,12 @@ export async function POST(req: NextRequest) {
   const profileSection = successProfile
     ? `\n${successProfile.promptText}\n`
     : "";
+  // 今日の判定基準（受注・送付結果から1日1回生成）。加減点は code 側、AI にはコメントの文脈として渡す
+  const scoringBasis = await getTodayScoringBasis().catch((e) => {
+    console.error("[score] scoring basis unavailable:", e instanceof Error ? e.message : e);
+    return null;
+  });
+  const basisSection = scoringBasis ? `\n${basisPromptText(scoringBasis, body.industry, body.area)}\n` : "";
 
   const SCORE_TOOLS = [{
     name: "output_scores" as const,
@@ -228,7 +235,7 @@ export async function POST(req: NextRequest) {
 
       const userMessage = `【対象業種】${body.industry}
 【対象エリア】${body.area}
-${profileSection}
+${profileSection}${basisSection}
 【企業リスト（Webサイト分析結果付き）】
 ${batchSummary}
 
@@ -255,7 +262,10 @@ ${batchSummary}
 
     // 並列実行してマージ
     const batchResults = await Promise.all(batches.map(scoreBatch));
-    const scores = batchResults.flat();
+    const rawScores = batchResults.flat() as { name: string; total: number; breakdown: Record<string, number>; comment: string }[];
+    // 今日の判定基準で加減点（-6〜+8）。理由はコメント末尾と breakdown.basisAdjust に残す
+    const basisApplied = scoringBasis ? applyBasis(scoringBasis, body.industry, body.area) : { delta: 0, reasons: [] as string[] };
+    const scores = adjustScores(rawScores, basisApplied);
 
     // 各企業のWebサイト分析結果とYouTube情報をインデックス付きで返す
     const analysisMap: Record<string, typeof analyses[number]> = {};
@@ -267,6 +277,9 @@ ${batchSummary}
 
     return NextResponse.json({
       scores,
+      scoringBasis: scoringBasis
+        ? { day: scoringBasis.day, delta: basisApplied.delta, reasons: basisApplied.reasons, ruleCount: scoringBasis.rules.length }
+        : null,
       analyses: analysisMap,
       youtube: youtubeMap,
       successProfile: successProfile

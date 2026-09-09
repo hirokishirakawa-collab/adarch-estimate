@@ -2375,6 +2375,21 @@ model Lead {
 }
 
 // ==============================================================
+// LeadScoringBasis（リード獲得AIの「今日の判定基準」）
+//   受注・送付結果・アポ/スキップの実績から1日1回組み立てる。スコアAPIが読む。
+//   根拠件数を一緒に残し、画面で「なぜ今日はこう判定するか」を見せる（2026-09-09 代表決定）
+// ==============================================================
+model LeadScoringBasis {
+  day        String   @id // JSTの日付 "2026-09-09"
+  data       Json // wins / outreach / decisions / rules（scoring-basis.ts の ScoringBasis）
+  summary    String   @db.Text // 画面・ログ用の1〜3行
+  ruleCount  Int      @default(0)
+  computedAt DateTime @default(now())
+
+  @@map("lead_scoring_basis")
+}
+
+// ==============================================================
 // LeadLog（リード活動ログ）
 // ==============================================================
 

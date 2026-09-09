@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { ScoringBasisCard, type BasisApplied } from "@/components/leads/scoring-basis-card";
 import Link from "next/link";
 import type {
   PlaceLead,
@@ -21,6 +22,7 @@ type Phase = "form" | "searching" | "enriching" | "scoring" | "done" | "error";
 
 export function RecruitSearchPanel() {
   const [phase, setPhase] = useState<Phase>("form");
+  const [basisApplied, setBasisApplied] = useState<BasisApplied | null>(null);
   const [leads, setLeads] = useState<ScoredRecruitLead[]>([]);
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
   const [savingName, setSavingName] = useState<string | null>(null);
@@ -118,6 +120,7 @@ export function RecruitSearchPanel() {
         if (scoreRes.ok) {
           const scoreData = await scoreRes.json();
           scores = scoreData.scores ?? [];
+          setBasisApplied(scoreData.scoringBasis ?? null);
         }
 
         // 4) マージ
@@ -236,6 +239,9 @@ export function RecruitSearchPanel() {
 
   return (
     <div className="space-y-5">
+      {/* 今日の判定基準（受注・送付結果から1日1回生成） */}
+      <ScoringBasisCard applied={basisApplied} />
+
       {/* 検索フォーム */}
       {(phase === "form" || phase === "done" || phase === "error") && (
         <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">

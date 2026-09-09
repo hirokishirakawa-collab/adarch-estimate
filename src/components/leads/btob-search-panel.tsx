@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { ScoringBasisCard, type BasisApplied } from "@/components/leads/scoring-basis-card";
 import Link from "next/link";
 import type { BtoBCompanyLead, ScoredBtoBLead, BtoBLeadScore, WebsiteAnalysis, YouTubeChannelInfo } from "@/lib/constants/leads";
 import { BtoBSearchForm } from "./btob-search-form";
@@ -14,6 +15,7 @@ type Phase = "form" | "searching" | "enriching" | "scoring" | "done" | "error";
 
 export function BtoBSearchPanel() {
   const [phase, setPhase] = useState<Phase>("form");
+  const [basisApplied, setBasisApplied] = useState<BasisApplied | null>(null);
   const [leads, setLeads] = useState<ScoredBtoBLead[]>([]);
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
   const [savingName, setSavingName] = useState<string | null>(null);
@@ -108,6 +110,7 @@ export function BtoBSearchPanel() {
           }
           const scoreData = await scoreRes.json();
           scores = scoreData.scores ?? [];
+          setBasisApplied(scoreData.scoringBasis ?? null);
         } else {
           // URL有り企業が0件 → エンリッチなしでスコアリングのみ
           setPhase("scoring");
@@ -129,6 +132,7 @@ export function BtoBSearchPanel() {
           }
           const scoreData = await scoreRes.json();
           scores = scoreData.scores ?? [];
+          setBasisApplied(scoreData.scoringBasis ?? null);
         }
 
         // 4) マージ
@@ -246,6 +250,9 @@ export function BtoBSearchPanel() {
 
   return (
     <div className="space-y-5">
+      {/* 今日の判定基準（受注・送付結果から1日1回生成） */}
+      <ScoringBasisCard applied={basisApplied} />
+
       {/* 検索フォーム（formまたはdone時に表示） */}
       {(phase === "form" || phase === "done" || phase === "error") && (
         <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">

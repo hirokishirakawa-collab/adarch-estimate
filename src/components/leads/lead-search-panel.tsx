@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { ScoringBasisCard, type BasisApplied } from "@/components/leads/scoring-basis-card";
 import Link from "next/link";
 import type { PlaceLead, ScoredLead, LeadScore, WebsiteAnalysis, SuccessProfileInfo, GroupProfileInfo } from "@/lib/constants/leads";
 import { LeadSearchForm } from "./lead-search-form";
@@ -30,6 +31,7 @@ interface LeadSearchPanelProps {
 
 export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
   const [phase, setPhase] = useState<Phase>("form");
+  const [basisApplied, setBasisApplied] = useState<BasisApplied | null>(null);
   const [leads, setLeads] = useState<ScoredLead[]>([]);
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
   const [savingName, setSavingName] = useState<string | null>(null);
@@ -93,7 +95,7 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
           throw new Error((err.error || "スコアリングに失敗しました") + detail);
         }
 
-        const { scores, analyses, successProfile, groupProfile } = (await scoreRes.json()) as {
+        const { scores, analyses, successProfile, groupProfile, scoringBasis } = (await scoreRes.json()) as {
           scores: Array<{
             name: string;
             total: number;
@@ -103,8 +105,10 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
           analyses: Record<string, WebsiteAnalysis>;
           successProfile: SuccessProfileInfo | null;
           groupProfile: GroupProfileInfo | null;
+          scoringBasis: BasisApplied | null;
         };
         setSuccessProfileInfo(successProfile ?? null);
+        setBasisApplied(scoringBasis ?? null);
         setGroupProfileInfo(groupProfile ?? null);
 
         // 3) マージ
@@ -220,6 +224,9 @@ export function LeadSearchPanel({ suggestions = [] }: LeadSearchPanelProps) {
 
   return (
     <div className="space-y-5">
+      {/* 今日の判定基準（受注・送付結果から1日1回生成） */}
+      <ScoringBasisCard applied={basisApplied} />
+
       {/* 検索フォーム（formまたはdone時に表示） */}
       {(phase === "form" || phase === "done" || phase === "error") && (
         <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">

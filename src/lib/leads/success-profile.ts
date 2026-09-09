@@ -198,7 +198,8 @@ export async function getSuccessProfile(
 
 function calcAvgBreakdown(breakdowns: ScoreBreakdown[]): ScoreBreakdown {
   if (breakdowns.length === 0) return {};
-  const keys = Object.keys(breakdowns[0]);
+  // basisAdjust（今日の判定基準の加減点）は素点の内訳ではないので平均から外す
+  const keys = Object.keys(breakdowns[0]).filter((k) => k !== "basisAdjust");
   const result: ScoreBreakdown = {};
   for (const key of keys) {
     const sum = breakdowns.reduce((s, b) => s + (b[key] ?? 0), 0);
