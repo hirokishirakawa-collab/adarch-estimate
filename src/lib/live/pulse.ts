@@ -6,7 +6,8 @@
 //     use   : OSの利用（ログイン・リード探索・AI採点・営業文面・提案書AI・顧客登録・LINE/Meta接続・月次報告）
 //     auto  : OSの自動検知（買う気配のシグナル・補助金の新着・TVer案件プールの新着）
 //     visit : お客様側（LPの閲覧・LINE友だち追加）
-//   ⚠️ 金額・自由記述は出さない。AI呼び出しの引数は「市・業種」だけ拾う。相手先名は出さない（AI/使用は拠点まで）
+//   ⚠️ 金額・自由記述は出さない。AI呼び出しの引数は「市・業種」だけ拾う。相手先名は出さない。
+//   ⚠️ AI連携・OS利用・LINE友だちの行は匿名＝「代表」（名前・社名なし。県だけ地図に）。本部は「本部」（9/9 代表指示）
 //   同じ人の同じ動きは短時間で1行に畳む（ログイン=3時間・AI読み取り=15分・探索=10分）
 // ==============================================================
 
@@ -113,8 +114,9 @@ export async function buildPulseEvents(opts: { days?: number } = {}): Promise<Pu
     : [];
   const whoOf = new Map<string, Who>();
   for (const u of users) {
-    const actor = u.role === "ADMIN" ? "本部" : (u.groupCompany?.name ?? u.branch?.name ?? null);
-    if (!actor) continue; // 拠点未割当は流さない
+    if (u.role !== "ADMIN" && !u.groupCompany && !u.branch) continue; // 拠点未割当は流さない
+    // AI連携・OS利用の行は匿名（2026-09-09 代表指示「赤裸々すぎる」）＝名前・社名を出さず「代表」。本部だけ「本部」。県は地図のために残す
+    const actor = u.role === "ADMIN" ? "本部" : "代表";
     whoOf.set(u.email, { actor, prefs: [...new Set([...prefsIn(u.groupCompany?.prefecture), ...prefsIn(u.branch?.name)])] });
   }
 
@@ -216,9 +218,10 @@ export async function buildPulseEvents(opts: { days?: number } = {}): Promise<Pu
   }
   const lfGroups = new Map<string, { at: Date; n: number; actor: string; prefs: string[] }>();
   for (const f of lineFriends) {
-    const actor = f.account.branch?.name ?? "本部";
-    const key = `${actor}:${f.followedAt.toISOString().slice(0, 13)}`; // 拠点×時間で束ねる
-    const g = lfGroups.get(key) ?? { at: f.followedAt, n: 0, actor, prefs: prefsIn(actor) };
+    const branch = f.account.branch?.name ?? null;
+    const actor = branch ? "代表" : "本部"; // 匿名（どの拠点かは県の光り方だけ）
+    const key = `${branch ?? "hq"}:${f.followedAt.toISOString().slice(0, 13)}`; // 拠点×時間で束ねる
+    const g = lfGroups.get(key) ?? { at: f.followedAt, n: 0, actor, prefs: prefsIn(branch) };
     g.n += 1;
     if (f.followedAt > g.at) g.at = f.followedAt;
     lfGroups.set(key, g);
