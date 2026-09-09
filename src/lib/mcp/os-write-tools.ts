@@ -201,6 +201,120 @@ export async function createCustomer(v: McpViewer, input: CreateCustomerInput) {
   return { id: c.id, name: c.name, status: c.status, rank: c.rank, next: "商談を起こすなら create_deal(customerId)、やり取りを残すなら log_activity(customerId)" };
 }
 
+export interface UpdateCustomerInput {
+  id: string;
+  name?: string;
+  nameKana?: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  industry?: string;
+  prefecture?: string;
+  address?: string;
+  status?: string;
+  rank?: string;
+  appendNote?: string;
+}
+
+/** 顧客の基本情報を更新する。渡した項目だけ変える（空文字で消す）。備考は追記のみ。変更はOS画面と同じ形で活動履歴(SYSTEM)に残す */
+const CUSTOMER_FIELD_LABELS: Record<string, string> = {
+  name: "会社名", nameKana: "フリガナ", contactName: "担当者名", email: "メールアドレス", phone: "電話番号", website: "企業URL",
+  industry: "業種", rank: "顧客ランク", status: "取引ステータス", prefecture: "都道府県", address: "住所", notes: "備考",
+};
+const CUSTOMER_RANK_LABELS: Record<string, string> = { A: "A（重要）", B: "B（通常）", C: "C（見込み）", D: "D（取引回避）" };
+const CUSTOMER_STATUS_LABELS: Record<string, string> = { PROSPECT: "見込み", ACTIVE: "取引中", INACTIVE: "休眠", BLOCKED: "取引回避" };
+function humanizeCustomerField(field: string, value: string | null): string {
+  if (!value) return "（未設定）";
+  if (field === "rank") return CUSTOMER_RANK_LABELS[value] ?? value;
+  if (field === "status") return CUSTOMER_STATUS_LABELS[value] ?? value;
+  return value;
+}
+
+export async function updateCustomer(v: McpViewer, input: UpdateCustomerInput) {
+  need(input.id, "id は必須です（search_customers で探せます）");
+  const owned = await ownedCustomer(v, input.id);
+  const current = await db.customer.findUnique({
+    where: { id: owned.id },
+    select: { id: true, name: true, nameKana: true, contactName: true, phone: true, email: true, website: true, industry: true, prefecture: true, address: true, status: true, rank: true, notes: true, branchId: true },
+  });
+  need(current, "顧客が見つかりません");
+  need(current.status !== "BLOCKED", "取引回避（BLOCKED）の顧客はAIからは変更できません。OS画面で扱ってください");
+
+  const data: Prisma.CustomerUpdateInput = {};
+  const changed: string[] = [];
+  const logs: string[] = [];
+  const setText = (key: keyof UpdateCustomerInput & keyof typeof current, max: number) => {
+    const raw = input[key];
+    if (raw === undefined) return;
+    const next = trimOrNull(raw as string);
+    maxLen(next, max, CUSTOMER_FIELD_LABELS[key]);
+    if ((current[key] ?? null) === next) return;
+    (data as Record<string, unknown>)[key] = next;
+    changed.push(`${key}: ${current[key] ?? "（未設定）"} → ${next ?? "（未設定）"}`);
+    logs.push(`${CUSTOMER_FIELD_LABELS[key]} を「${humanizeCustomerField(key, current[key] ?? null)}」から「${humanizeCustomerField(key, next)}」に変更しました`);
+  };
+
+  if (input.name !== undefined) {
+    const name = input.name.trim();
+    need(name, "会社名（name）を空にはできません");
+    maxLen(name, 64, "会社名");
+    if (name !== current.name) {
+      const dup = await db.customer.findFirst({ where: { branchId: current.branchId, name, NOT: { id: current.id } }, select: { id: true } });
+      need(!dup, `同じ名前の顧客「${name}」が既にあります（id: ${dup?.id}）`);
+      data.name = name;
+      changed.push(`name: ${current.name} → ${name}`);
+      logs.push(`会社名 を「${current.name}」から「${name}」に変更しました`);
+    }
+  }
+  setText("nameKana", 64);
+  setText("contactName", 64);
+  setText("phone", 20);
+  setText("email", 256);
+  setText("website", 256);
+  setText("industry", 64);
+  setText("prefecture", 8);
+  setText("address", 256);
+
+  if (input.status !== undefined) {
+    const status = input.status.toUpperCase() as CustomerStatus;
+    need(CUSTOMER_STATUSES.includes(status), `status は ${CUSTOMER_STATUSES.join(" / ")} のどれかにしてください`);
+    if (status !== current.status) {
+      data.status = status;
+      changed.push(`status: ${current.status} → ${status}`);
+      logs.push(`取引ステータス を「${humanizeCustomerField("status", current.status)}」から「${humanizeCustomerField("status", status)}」に変更しました`);
+    }
+  }
+  if (input.rank !== undefined) {
+    const rank = input.rank.toUpperCase() as CustomerRank;
+    need(CUSTOMER_RANKS.includes(rank), `rank は ${CUSTOMER_RANKS.join(" / ")} のどれかにしてください`);
+    if (rank !== current.rank) {
+      data.rank = rank;
+      changed.push(`rank: ${current.rank} → ${rank}`);
+      logs.push(`顧客ランク を「${humanizeCustomerField("rank", current.rank)}」から「${humanizeCustomerField("rank", rank)}」に変更しました`);
+    }
+  }
+  const note = trimOrNull(input.appendNote);
+  if (note) {
+    const stamp = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" });
+    const line = `${AI_PREFIX}${stamp} ${note}`;
+    const notes = current.notes?.trim() ? `${current.notes.trimEnd()}\n${line}` : line;
+    maxLen(notes, 1000, "備考（既存分を含む）");
+    data.notes = notes;
+    changed.push("notes: 追記");
+    logs.push(`備考 に追記しました: ${note.slice(0, 120)}`);
+  }
+  need(changed.length > 0, "変更する項目がありません（渡した値が今と同じか、項目が指定されていません）");
+
+  const staffName = staffOf(v);
+  const u = await db.$transaction(async (tx) => {
+    const row = await tx.customer.update({ where: { id: current.id }, data, select: { id: true, name: true, status: true, rank: true, contactName: true, industry: true, prefecture: true } });
+    await tx.activityLog.createMany({ data: logs.map((content) => ({ customerId: current.id, type: "SYSTEM" as ActivityType, content: withPrefix(content), staffName })) });
+    return row;
+  });
+  return { id: u.id, name: u.name, status: u.status, rank: u.rank, contactName: u.contactName, industry: u.industry, prefecture: u.prefecture, changed };
+}
+
 // ---- 商談の作成・更新 -------------------------------------------------------------
 
 export interface CreateDealInput {

@@ -111,7 +111,7 @@ Ad-Arch Group OS は広告代理店グループ「アドアーチ」の業務統
 
 ## OSの読み書き（2026-09-09・各代表のClaude/ChatGPTコネクタと同じツール）
 ${OS_AI_RULES}
-書き込み（log_activity / create_customer / create_deal / update_deal / set_closing_factor / create_lead / record_lead_result）は、ログインしている本人の権限で本人の名前で残る。書いた内容は末尾に「OSに記録しました: 〜」と1行で示す。`;
+書き込み（log_activity / create_customer / update_customer / create_deal / update_deal / set_closing_factor / create_lead / record_lead_result）は、ログインしている本人の権限で本人の名前で残る。書いた内容は末尾に「OSに記録しました: 〜」と1行で示す。`;
 
 // ----------------------------------------------------------------
 // Tool Use: アーチくんが OS データベースを検索できるツール定義

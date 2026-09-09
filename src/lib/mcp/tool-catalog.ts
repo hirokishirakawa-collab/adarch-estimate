@@ -184,6 +184,13 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     confirm: (a) => `顧客「${a.name}」を登録します（${a.industry ?? "業種未設定"}・${a.prefecture ?? ""}）`,
   }),
   def({
+    name: "update_customer", kind: "write", title: "顧客を更新（社名・担当者・連絡先・状態・備考追記）",
+    description: "既存顧客（id）の name / nameKana / contactName / phone / email / website / industry / prefecture / address / status / rank を更新する。渡した項目だけ変わる（空文字で消す）。備考は appendNote で追記（上書きしない）。社名変更・担当者交代・住所移転・取引状態の変更に使う。変更はOS画面と同じ形で活動履歴に残る。取引回避（BLOCKED）はOS画面で。金額は入れない。",
+    input: z.object({ id: z.string(), name: z.string().optional(), nameKana: z.string().optional(), contactName: z.string().optional(), phone: z.string().optional(), email: z.string().optional(), website: z.string().optional(), industry: z.string().optional(), prefecture: z.string().optional(), address: z.string().optional(), status: z.string().optional(), rank: z.string().optional(), appendNote: z.string().optional() }),
+    run: (v, a) => osw.updateCustomer(v, a),
+    confirm: (a) => `顧客を更新します: ${[a.name && `社名→${a.name}`, a.contactName && `担当者→${a.contactName}`, a.status && `状態→${a.status}`, a.rank && `ランク→${a.rank}`, a.phone && `電話→${a.phone}`, a.email && `メール→${a.email}`, a.address && `住所→${a.address}`, a.appendNote && `備考追記「${a.appendNote.slice(0, 120)}」`].filter(Boolean).join(" / ") || "その他の項目"}`,
+  }),
+  def({
     name: "create_deal", kind: "write", title: "商談を起こす",
     description: "既存顧客（customerId）に商談を1件作る。status: PROSPECTING / QUALIFYING / PROPOSAL / NEGOTIATION（受注はOS画面で）。probability は 0〜100、expectedCloseDate は YYYY-MM-DD。進行中の商談が既にある顧客は止まるので、別件なら allowDuplicate: true。金額は入れない。",
     input: z.object({ customerId: z.string(), title: z.string(), status: z.string().optional(), probability: z.number().int().optional(), expectedCloseDate: z.string().optional(), notes: z.string().optional(), allowDuplicate: z.boolean().optional() }),
