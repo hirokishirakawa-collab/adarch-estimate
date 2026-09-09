@@ -20,12 +20,13 @@ import {
   leadLogText,
 } from "@/lib/live/labels";
 import { NextResponse } from "next/server";
+import { buildPulseEvents, type PulseKind } from "@/lib/live/pulse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const WINDOW_DAYS = 90;
-const MAX_EVENTS = 120;
+const MAX_EVENTS = 160;
 
 // 都道府県名の抽出（拠点名「香川・岡山」「東京（片桐）」等から拾う）
 const PREFS = [
@@ -51,7 +52,8 @@ export interface LiveEvent {
     | "move"
     | "booking"
     | "tender"
-    | "lead";
+    | "lead"
+    | PulseKind;
   actor: string; // 拠点名・会社名・「本部」
   prefs: string[];
   text: string;
@@ -339,6 +341,15 @@ export async function GET() {
     });
   }
 
+  // 「脈」＝OSを使う・AIに聞く・OSが自動で見つける・お客様が見る（直近7日・2026-09-09）。
+  // 人の営業の動き（上の各種）と同じ列に混ぜる。失敗しても本体は止めない
+  try {
+    const pulse = await buildPulseEvents({ days: 7 });
+    for (const p of pulse) events.push(p);
+  } catch (e) {
+    console.error("[live/feed] pulse failed:", e instanceof Error ? e.message : e);
+  }
+
   events.sort((a, b) => b.at.localeCompare(a.at));
   const top = events.slice(0, MAX_EVENTS);
 
@@ -349,12 +360,17 @@ export async function GET() {
   const in7d = (e: LiveEvent) => now - Date.parse(e.at) < 7 * 86400000;
   const today = (e: LiveEvent) => Date.parse(e.at) >= dayStart.getTime();
   const countBy = (pred: (e: LiveEvent) => boolean) => {
-    const c = { approach: 0, deal: 0, won: 0, hq: 0 };
+    const c = { approach: 0, deal: 0, won: 0, hq: 0, ai: 0, os: 0, auto: 0, visit: 0 };
     for (const e of events.filter(pred)) {
       if (e.kind === "sent" || e.kind === "move" || e.kind === "log" || e.kind === "lead") c.approach++;
       else if (e.kind === "deal") c.deal++;
       // 加盟はこの面に出さない（数字にもフィードにも載せない＝2026-08-28 代表決定）
       else if (e.kind === "won") c.won++;
+      // 脈は既存の4カウンタ（人の営業の動き）に混ぜない
+      else if (e.kind === "ai") c.ai++;
+      else if (e.kind === "use") c.os++;
+      else if (e.kind === "auto") c.auto++;
+      else if (e.kind === "visit") c.visit++;
       else c.hq++;
     }
     return c;

@@ -94,6 +94,11 @@ const KIND_META: Record<string, { label: string; cls: string }> = {
   booking: { label: "面談予約", cls: "text-amber-300 border-amber-500/30 bg-amber-500/10" },
   tender: { label: "入札○", cls: "text-violet-300 border-violet-500/30 bg-violet-500/10" },
   lead: { label: "リード", cls: "text-teal-300 border-teal-500/30 bg-teal-500/10" },
+  // 脈（2026-09-09）: 使う・AIに聞く・OSの自動検知・お客様の閲覧
+  ai: { label: "AI", cls: "text-orange-300 border-orange-500/30 bg-orange-500/10" },
+  use: { label: "OS", cls: "text-zinc-300 border-zinc-500/30 bg-zinc-500/10" },
+  auto: { label: "自動検知", cls: "text-fuchsia-300 border-fuchsia-500/30 bg-fuchsia-500/10" },
+  visit: { label: "お客様", cls: "text-lime-300 border-lime-500/30 bg-lime-500/10" },
 };
 
 function ago(iso: string): string {
