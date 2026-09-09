@@ -32,7 +32,7 @@ const FAMILY_RULES: [string, RegExp][] = [
   ["飲食", /飲食|レストラン|カフェ|居酒屋|フード|食堂|ラーメン|焼肉|寿司|バー|restaurant|cafe/i],
   ["美容・健康", /美容|エステ|ヘア|サロン|ネイル|理容|整体|整骨|鍼灸|マッサージ|フィットネス|ジム|ヨガ|beauty|salon|gym/i],
   ["住宅・建設・不動産", /住宅|建設|建築|工務|工法|建材|リフォーム|不動産|ハウス|土木|設備|塗装|外構|construction|real_estate|estate/i],
-  ["医療・介護", /医療|クリニック|病院|歯科|眼科|介護|福祉|薬局|dental|clinic|hospital|doctor/i],
+  ["医療・介護", /医療|クリニック|病院|歯科|眼科|介護|福祉|薬局|コンタクト|レンズ|眼鏡|メガネ|医薬|dental|clinic|hospital|doctor|pharma/i],
   ["教育", /教育|塾|スクール|学校|教室|保育|幼稚園|school/i],
   ["自動車", /自動車|カー用品|車|バイク|ディーラー|car_|automotive/i],
   ["観光・宿泊・レジャー", /ホテル|旅館|宿泊|観光|レジャー|温泉|リゾート|遊園|hotel|lodging|tourist/i],
