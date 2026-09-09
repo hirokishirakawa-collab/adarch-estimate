@@ -3,11 +3,21 @@
 //   各代表の Claude / ChatGPT が「カスタムコネクタ」でここに繋ぐ。
 //   認証 = OS内蔵OAuthのアクセストークン（Bearer）。呼び出しは全部 監査ログへ。
 //   scope brand_kit : ブランドキット（材料一覧・1件・束ね）
-//   scope os:read   : 全社の顧客・商談・見積・リード・活動履歴（他拠点の金額は非表示）・パッケージ台帳・TVerプラン・Wiki・自分の数字・拠点一覧
+//   scope os:read   : 全社の顧客・商談・見積・リード・活動履歴（他拠点の金額は非表示）・パッケージ台帳・TVerプラン・Wiki・
+//                     自分の数字・拠点一覧・似た案件の勝ち筋(find_similar_wins)・提案書の材料束(draft_proposal)
 //   scope os:write  : 営業の記録（活動・顧客/商談/リードの登録・商談更新・決め手・リードの結果）＝各拠点のデータの吸い上げ
+//
+//   2026-09-09 第2段:
+//   ・ツール定義は src/lib/mcp/tool-catalog.ts に一本化（OS内のアーチくんと共用）
+//   ・Prompts: /proposal /after_meeting /morning（Claude側でスラッシュ一発）
+//   ・ChatGPT Apps SDK: 商談カード・今日の一手のウィジェット資源（ui://…）＋ outputTemplate
+//   ・書き込み前の確認（Elicitation）: 2026-07-28 仕様の多段往復（inputRequired）に対応したクライアントにだけ出す。
+//     非対応（Claude.ai / ChatGPT の現行コネクタ・2025年仕様）は従来通りそのまま書く
+//   ・書き込みのレート上限（1人あたり 20回/分・300回/日）
 // ==============================================================
 
-import type { AuthInfo } from "@modelcontextprotocol/server";
+import type { AuthInfo, ClientCapabilities } from "@modelcontextprotocol/server";
+import { acceptedContent, inputRequired, inputResponse } from "@modelcontextprotocol/server";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
@@ -16,10 +26,16 @@ import { trackBrandKit } from "@/lib/brand-kit/track";
 import { issuer, verifyAccessToken, type Scope } from "@/lib/oauth/server";
 import * as os from "@/lib/mcp/os-read-tools";
 import * as osw from "@/lib/mcp/os-write-tools";
+import { OS_AI_RULES, OS_TOOLS, UI_DEAL_CARD, UI_NEXT_ACTIONS, type OsToolDef } from "@/lib/mcp/tool-catalog";
+import { DEAL_CARD_HTML, NEXT_ACTIONS_HTML } from "@/lib/mcp/widgets";
 
 export const maxDuration = 60;
 
-type Ctx = { http?: { authInfo?: AuthInfo } };
+type Ctx = {
+  http?: { authInfo?: AuthInfo };
+  mcpReq?: { envelope?: unknown; inputResponses?: Record<string, unknown> };
+};
+
 interface Who {
   email: string;
   name: string | null;
@@ -35,7 +51,10 @@ function who(ctx: Ctx): Who | null {
 }
 
 const text = (s: string) => ({ content: [{ type: "text" as const, text: s }] });
-const json = (v: unknown) => text(JSON.stringify(v, null, 1));
+const json = (v: unknown, structured?: boolean) => ({
+  content: [{ type: "text" as const, text: JSON.stringify(v, null, 1) }],
+  ...(structured && v && typeof v === "object" && !Array.isArray(v) ? { structuredContent: v as Record<string, unknown> } : {}),
+});
 const fail = (s: string) => ({ content: [{ type: "text" as const, text: s }], isError: true });
 
 const NEED_BRAND = "この接続には「ブランドキット」の権限がありません。OSのブランドキット画面から接続し直してください。";
@@ -52,6 +71,35 @@ function logOs(w: Who, tool: string, input: unknown, action: "mcp_os_read" | "mc
     entityId: tool,
     detail: `[${w.clientName ?? "AI"}] ${JSON.stringify(input ?? {})}`.slice(0, 1000),
   });
+}
+
+// ---- 書き込みのレート上限（プロセス内・1人あたり） ----------------------------------
+const WRITE_PER_MINUTE = 20;
+const WRITE_PER_DAY = 300;
+const writeMinute = new Map<string, { n: number; until: number }>();
+const writeDay = new Map<string, { n: number; until: number }>();
+function bump(store: Map<string, { n: number; until: number }>, key: string, windowMs: number): number {
+  const now = Date.now();
+  const e = store.get(key);
+  if (!e || e.until < now) {
+    store.set(key, { n: 1, until: now + windowMs });
+    return 1;
+  }
+  e.n += 1;
+  return e.n;
+}
+function writeAllowed(email: string): string | null {
+  if (bump(writeMinute, email, 60_000) > WRITE_PER_MINUTE) return `書き込みが多すぎます（1分に${WRITE_PER_MINUTE}回まで）。少し待ってからお試しください`;
+  if (bump(writeDay, email, 24 * 3_600_000) > WRITE_PER_DAY) return `本日の書き込み上限（${WRITE_PER_DAY}回）に達しました。明日以降にお試しください`;
+  return null;
+}
+
+// ---- 書き込み前の確認（対応クライアントだけ） ------------------------------------------
+/** 2026-07-28 仕様（リクエスト封筒あり）で、フォーム型の Elicitation を名乗るクライアントか */
+function canConfirm(ctx: Ctx, caps: ClientCapabilities | undefined): boolean {
+  if (!ctx.mcpReq || ctx.mcpReq.envelope === undefined) return false; // 2025年仕様＝ステートレスでは往復できない
+  const el = caps?.elicitation as { form?: unknown } | undefined;
+  return !!el && (el.form !== undefined || Object.keys(el).length === 0);
 }
 
 const handler = createMcpHandler(
@@ -119,215 +167,109 @@ const handler = createMcpHandler(
       },
     );
 
-    // ---------------- OS 読み取り ----------------
-    // 共通の前処理（認証→scope→利用者→監査ログ→実行）を1か所に。型はSDKの多重定義に合わせて呼び出し側でキャスト
-    const osTool = <A extends z.ZodType>(
-      name: string,
-      cfg: { title: string; description: string; inputSchema: A },
-      run: (viewer: os.McpViewer, args: z.infer<A>) => Promise<unknown> | unknown,
-    ) => {
-      const cb = async (args: z.infer<A>, ctx: Ctx) => {
+    // ---------------- OS 読み取り／書き込み（台帳から一括登録） ----------------
+    // 共通の前処理（認証→scope→利用者→監査ログ→（書き込みは上限・確認）→実行）を1か所に。
+    // 型はSDKの多重定義に合わせて呼び出し側でキャスト
+    type Reg = Parameters<typeof server.registerTool>;
+    const register = (t: OsToolDef) => {
+      const isWrite = t.kind === "write";
+      const cb = async (args: Record<string, unknown>, ctx: Ctx) => {
         const w = who(ctx);
         if (!w) return fail("認証されていません");
-        if (!w.scopes.includes("os:read")) return fail(NEED_OS);
+        if (isWrite && !w.scopes.includes("os:write")) return fail(NEED_WRITE);
+        if (!isWrite && !w.scopes.includes("os:read")) return fail(NEED_OS);
         const viewer = await os.loadViewer(w.email);
         if (!viewer) return fail("このアカウントは利用できません");
-        logOs(w, name, args);
-        try {
-          const out = await run(viewer, args);
-          if (out == null) return fail("見つかりませんでした（貴社の拠点の範囲外か、存在しないIDです）");
-          return json(out);
-        } catch (e) {
-          console.error(`[MCP] ${name} 失敗:`, e);
-          return fail("取得に失敗しました。時間をおいて再度お試しください");
+
+        if (isWrite) {
+          const limited = writeAllowed(w.email);
+          if (limited) return fail(limited);
+          // 対応クライアントには書き込み前に確認を出す（多段往復）。返答が無ければ確認を要求し、断られたら書かない
+          if (t.confirm && canConfirm(ctx, server.server.getClientCapabilities())) {
+            const view = inputResponse(ctx.mcpReq?.inputResponses, "confirm");
+            if (view.kind === "missing") {
+              return inputRequired({
+                inputRequests: {
+                  confirm: inputRequired.elicit({
+                    message: `${t.confirm(args)}\n\nOSに書き込んでよいですか？`,
+                    requestedSchema: { type: "object", properties: { ok: { type: "boolean", title: "書き込む", description: "はい＝OSに記録する" } }, required: ["ok"] },
+                  }),
+                },
+              });
+            }
+            const ok = view.kind === "elicit" && view.action === "accept" && acceptedContent<{ ok?: boolean }>(ctx.mcpReq?.inputResponses, "confirm")?.ok === true;
+            if (!ok) return text("書き込みを取りやめました（確認で「いいえ」が選ばれました）");
+          }
         }
-      };
-      type Reg = Parameters<typeof server.registerTool>;
-      server.registerTool(name, { ...cfg, annotations: { readOnlyHint: true } } as unknown as Reg[1], cb as unknown as Reg[2]);
-    };
 
-    osTool(
-      "search_customers",
-      { title: "顧客を検索", description: "貴社拠点の顧客（取引先）を名前・担当者・業種で検索する。status: PROSPECT / ACTIVE / INACTIVE / BLOCKED。", inputSchema: z.object({ query: z.string().optional(), status: z.string().optional(), limit: z.number().int().optional() }) },
-      (v, a) => os.searchCustomers(v, a),
-    );
-    osTool(
-      "list_deals",
-      { title: "商談一覧", description: "貴社拠点の商談（金額は本部のみ）。status: PROSPECTING / QUALIFYING / PROPOSAL / NEGOTIATION / CLOSED_WON / CLOSED_LOST / DORMANT / DEFERRED。", inputSchema: z.object({ query: z.string().optional(), status: z.string().optional(), customerId: z.string().optional(), limit: z.number().int().optional() }) },
-      (v, a) => os.listDeals(v, a),
-    );
-    osTool(
-      "get_deal",
-      { title: "商談の詳細", description: "商談1件（メモ・活動ログ最新20件つき）。id は list_deals のもの。", inputSchema: z.object({ id: z.string() }) },
-      (v, a) => os.getDeal(v, a.id),
-    );
-    osTool(
-      "list_estimates",
-      { title: "見積一覧", description: "貴社拠点の見積。status: DRAFT / ISSUED / SENT / ACCEPTED / REJECTED。", inputSchema: z.object({ query: z.string().optional(), status: z.string().optional(), limit: z.number().int().optional() }) },
-      (v, a) => os.listEstimates(v, a),
-    );
-    osTool(
-      "get_estimate",
-      { title: "見積の詳細", description: "見積1件（品目・数量。金額は本部のみ）。id は list_estimates のもの。", inputSchema: z.object({ id: z.string() }) },
-      (v, a) => os.getEstimate(v, a.id),
-    );
-    osTool(
-      "list_packages",
-      { title: "パッケージ台帳（稼働中）", description: "グループ共通の販売パッケージ一覧（slug・名前・価格・対象業種）。詳細は get_package(slug)。", inputSchema: z.object({}) },
-      () => os.listPackagesLite(),
-    );
-    osTool(
-      "get_package",
-      { title: "パッケージの詳細", description: "パッケージ1件（課題・内容物・オプション・トーク・ルール・事例）。", inputSchema: z.object({ slug: z.string() }) },
-      (v, a) => os.getPackage(v, a.slug),
-    );
-    osTool(
-      "tver_area_plan",
-      { title: "TVer エリア別プラン", description: "都道府県＋市区町村のTVer広告プラン（税抜・推計）。商圏のTVer視聴者数、3人に1人に届ける標準プラン、月額別の到達目安を返す。", inputSchema: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市（省略で県内の先頭）") }) },
-      (_v, a) => os.tverAreaPlan(a),
-    );
-    osTool(
-      "search_wiki",
-      { title: "本部Wikiを検索", description: "OSのWiki記事をキーワードで検索（手順・決まり・事例）。本文は先頭4,000字。全文は get_wiki(id)。", inputSchema: z.object({ query: z.string(), limit: z.number().int().optional() }) },
-      (v, a) => os.searchWiki(v, a),
-    );
-    osTool(
-      "list_wiki",
-      { title: "Wikiの目次", description: "OSのWiki記事の一覧（題名・タグ・更新日・冒頭120字）。「Wikiに何がある？」に答える。tag で絞れる。全文は get_wiki(id)。", inputSchema: z.object({ tag: z.string().optional(), limit: z.number().int().optional().describe("既定50・最大100") }) },
-      (v, a) => os.listWiki(v, a),
-    );
-    osTool(
-      "get_wiki",
-      { title: "Wiki記事を全文で読む", description: "Wiki記事1本の全文。id は list_wiki / search_wiki のもの。", inputSchema: z.object({ id: z.string() }) },
-      (v, a) => os.getWiki(v, a.id),
-    );
-    osTool(
-      "my_next_actions",
-      {
-        title: "今日の一手",
-        description:
-          "「今日何する」「朝の確認」に答える材料。自分の拠点に絞って 1) 返事待ちが7日超 2) 見込み日を過ぎた商談 3) 30日動いていない商談 4) 3か月以内に周年（自県） 5) 使える補助金 6) 今週シグナルが立った会社（自県）を返す。1→6 の順に優先し、3〜8行にまとめて提案する。各項目の next に次に呼ぶツールが入っている。金額は含まない。",
-        inputSchema: z.object({ limit: z.number().int().optional().describe("各項目の件数（既定5・最大10）") }),
-      },
-      (v, a) => os.myNextActions(v, a),
-    );
-    osTool(
-      "my_summary",
-      { title: "自分の数字", description: "商談の状況別件数（月次報告の売上額は本部のみ）。", inputSchema: z.object({ months: z.number().int().optional().describe("何か月分（既定3・最大12）") }) },
-      (v, a) => os.mySummary(v, a),
-    );
-    osTool(
-      "list_group_companies",
-      { title: "グループ拠点一覧", description: "稼働中の加盟各社（社名・代表・県・得意分野・サイト）。", inputSchema: z.object({}) },
-      () => os.listGroupCompanies(),
-    );
-    osTool(
-      "list_leads",
-      { title: "リード一覧", description: "グループのリード（見込み先）。mine: true で自分の担当だけ、waitingReply: true で「送付済み・結果未入力」だけ。status: UNTOUCHED / CALLED / APPOINTMENT / DEAL_CONVERTED。結果の記録は record_lead_result。", inputSchema: z.object({ query: z.string().optional(), status: z.string().optional(), mine: z.boolean().optional(), waitingReply: z.boolean().optional(), limit: z.number().int().optional() }) },
-      (v, a) => os.listLeads(v, a),
-    );
-    osTool(
-      "list_activities",
-      { title: "活動履歴（会話の記録）", description: "顧客または商談の過去のやり取りを新しい順に返す。customerId なら顧客の活動履歴＋その顧客の全商談ログ、dealId なら商談ログだけ。提案や連絡の前に必ず読む。", inputSchema: z.object({ customerId: z.string().optional(), dealId: z.string().optional(), limit: z.number().int().optional().describe("既定30・最大100") }) },
-      (v, a) => osw.listActivities(v, a),
-    );
-
-    // ---------------- OS 書き込み（営業の記録＝吸い上げ） ----------------
-    const osWriteTool = <A extends z.ZodType>(
-      name: string,
-      cfg: { title: string; description: string; inputSchema: A },
-      run: (viewer: os.McpViewer, args: z.infer<A>) => Promise<unknown>,
-    ) => {
-      const cb = async (args: z.infer<A>, ctx: Ctx) => {
-        const w = who(ctx);
-        if (!w) return fail("認証されていません");
-        if (!w.scopes.includes("os:write")) return fail(NEED_WRITE);
-        const viewer = await os.loadViewer(w.email);
-        if (!viewer) return fail("このアカウントは利用できません");
-        logOs(w, name, args, "mcp_os_write");
+        logOs(w, t.name, args, isWrite ? "mcp_os_write" : "mcp_os_read");
         try {
-          return json(await run(viewer, args));
+          const out = await t.run(viewer, args);
+          if (out == null) return fail("見つかりませんでした（貴社の拠点の範囲外か、存在しないIDです）");
+          return json(out, !!t.uiTemplate);
         } catch (e) {
           if (e instanceof osw.WriteError) return fail(e.message);
-          console.error(`[MCP] ${name} 失敗:`, e);
-          return fail("保存に失敗しました。時間をおいて再度お試しください");
+          console.error(`[MCP] ${t.name} 失敗:`, e);
+          return fail(isWrite ? "保存に失敗しました。時間をおいて再度お試しください" : "取得に失敗しました。時間をおいて再度お試しください");
         }
       };
-      type Reg = Parameters<typeof server.registerTool>;
-      server.registerTool(name, { ...cfg, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false } } as unknown as Reg[1], cb as unknown as Reg[2]);
+      const cfg = {
+        title: t.title,
+        description: t.description,
+        inputSchema: t.input,
+        annotations: isWrite ? { readOnlyHint: false, destructiveHint: false, idempotentHint: false } : { readOnlyHint: true },
+        ...(t.uiTemplate
+          ? { _meta: { "openai/outputTemplate": t.uiTemplate, "openai/toolInvocation/invoking": "Ad Arch OS を確認中…", "openai/toolInvocation/invoked": "Ad Arch OS から取得しました", "openai/widgetAccessible": false } }
+          : {}),
+      };
+      server.registerTool(t.name, cfg as unknown as Reg[1], cb as unknown as Reg[2]);
     };
+    OS_TOOLS.forEach(register);
 
-    osWriteTool(
-      "log_activity",
-      {
-        title: "活動を記録（会話の要約を残す）",
-        description: "電話・メール・訪問・Web会議・その他のやり取りを、顧客（customerId）または商談（dealId）に1件記録する。会話で営業のやり取りが出たら、相手・要点・次の一手を3〜8行にまとめて残す。type: CALL / EMAIL / VISIT / MEETING / OTHER。occurredAt は YYYY-MM-DD（省略で今日）。",
-        inputSchema: z.object({ customerId: z.string().optional(), dealId: z.string().optional(), type: z.string().optional(), content: z.string(), occurredAt: z.string().optional() }),
-      },
-      (v, a) => osw.logActivity(v, a),
+    // ---------------- ウィジェット資源（ChatGPT Apps SDK） ----------------
+    const widget = (name: string, uri: string, title: string, html: string) =>
+      server.registerResource(
+        name,
+        uri,
+        { title, description: `${title}（ChatGPT のチャット内に描くカード）`, mimeType: "text/html+skybridge", _meta: { "openai/widgetPrefersBorder": true, "openai/widgetDescription": title } },
+        async () => ({ contents: [{ uri, mimeType: "text/html+skybridge", text: html }] }),
+      );
+    widget("deal-card", UI_DEAL_CARD, "商談カード", DEAL_CARD_HTML);
+    widget("next-actions", UI_NEXT_ACTIONS, "今日の一手", NEXT_ACTIONS_HTML);
+
+    // ---------------- Prompts（Claude側でスラッシュ一発） ----------------
+    const prompt = (name: string, title: string, description: string, args: Record<string, z.ZodString | z.ZodOptional<z.ZodString>>, build: (a: Record<string, string | undefined>) => string) => {
+      type P = Parameters<typeof server.registerPrompt>;
+      server.registerPrompt(
+        name,
+        { title, description, argsSchema: z.object(args) } as unknown as P[1],
+        ((a: Record<string, string | undefined>) => ({ messages: [{ role: "user" as const, content: { type: "text" as const, text: build(a ?? {}) } }] })) as unknown as P[2],
+      );
+    };
+    prompt(
+      "proposal", "提案文・提案資料を書く", "顧客名（とパッケージ）を渡すと、OSの材料を束ねて提案文を書く",
+      { customer: z.string().describe("顧客名（OSに登録済み）"), package: z.string().optional().describe("パッケージ名や slug（任意）"), format: z.string().optional().describe("メール / A4一枚 / スライド のどれか（既定: メール）") },
+      (a) =>
+        `「${a.customer}」向けの提案${a.format ? `（${a.format}）` : "（メール文）"}を作ってください。手順: 1) search_customers で「${a.customer}」の id を確認 2) ${a.package ? `list_packages で「${a.package}」の slug を確認し、` : ""}draft_proposal(customerId${a.package ? ", packageSlug" : ""}) を1回呼ぶ 3) 返った writingGuide の順に書く。数字には「目安・税抜」を添え、金額の正本はOSと明記。最後に、提案を送ったら log_activity で記録する旨を一言添える。`,
     );
-    osWriteTool(
-      "create_customer",
-      {
-        title: "顧客を登録",
-        description: "会話に出た新しい取引先・見込み客を貴社の顧客として登録する。登録前に search_customers で重複を確認する。status: PROSPECT / ACTIVE / INACTIVE、rank: A / B / C。金額は入れない。",
-        inputSchema: z.object({ name: z.string(), nameKana: z.string().optional(), contactName: z.string().optional(), phone: z.string().optional(), email: z.string().optional(), website: z.string().optional(), industry: z.string().optional(), prefecture: z.string().optional(), address: z.string().optional(), notes: z.string().optional(), status: z.string().optional(), rank: z.string().optional() }),
-      },
-      (v, a) => osw.createCustomer(v, a),
+    prompt(
+      "after_meeting", "面談後の記録（OSに残す）", "面談・電話・訪問の内容を貼ると、要点を3〜8行にまとめてOSに記録する",
+      { customer: z.string().describe("相手先の名前"), notes: z.string().describe("面談メモ（箇条書きや走り書きでよい）") },
+      (a) =>
+        `「${a.customer}」との面談の記録をOSに残してください。メモ:\n${a.notes}\n\n手順: 1) search_customers → 無ければ create_customer 2) 進行中の商談があれば list_deals(customerId) で確認 3) 要点（相手・出た話・懸念・次の一手・期日）を3〜8行にまとめ「OSに記録します」と一言添えてから log_activity 4) 状態・確度・見込み日が動いたら update_deal 5) 受注が決まっていたら set_closing_factor で決め手も残す（受注の確定はOS画面で）。金額は書かない。`,
     );
-    osWriteTool(
-      "create_deal",
-      {
-        title: "商談を起こす",
-        description: "既存顧客（customerId）に商談を1件作る。status: PROSPECTING / QUALIFYING / PROPOSAL / NEGOTIATION（受注はOS画面で）。probability は 0〜100、expectedCloseDate は YYYY-MM-DD。進行中の商談が既にある顧客は止まるので、別件なら allowDuplicate: true。金額は入れない。",
-        inputSchema: z.object({ customerId: z.string(), title: z.string(), status: z.string().optional(), probability: z.number().int().optional(), expectedCloseDate: z.string().optional(), notes: z.string().optional(), allowDuplicate: z.boolean().optional() }),
-      },
-      (v, a) => osw.createDeal(v, a),
-    );
-    osWriteTool(
-      "update_deal",
-      {
-        title: "商談を更新（状態・確度・予定日・メモ追記）",
-        description: "商談（id）の status / probability / expectedCloseDate を更新し、appendNote でメモを追記する（上書きはしない）。失注は CLOSED_LOST。受注（CLOSED_WON）はOS画面で行う。",
-        inputSchema: z.object({ id: z.string(), status: z.string().optional(), probability: z.number().int().optional(), expectedCloseDate: z.string().optional(), appendNote: z.string().optional() }),
-      },
-      (v, a) => osw.updateDeal(v, a),
-    );
-    osWriteTool(
-      "set_closing_factor",
-      {
-        title: "受注の決め手を記録",
-        description: "受注した（またはほぼ決まった）商談（id）に「何が決め手だったか」を残す。文面・提案内容・関係性・タイミングなど。グループの成功事例学習に使う。",
-        inputSchema: z.object({ id: z.string(), closingFactor: z.string() }),
-      },
-      (v, a) => osw.setClosingFactor(v, a),
-    );
-    osWriteTool(
-      "create_lead",
-      {
-        title: "OS外で取ったリードを登録",
-        description: "紹介・飛び込み・自分で見つけた等、OSを使わずに得た見込み先をリードとして登録する（担当は自分）。同名＋同住所が既にあればそれを返す。status: UNTOUCHED / CALLED / APPOINTMENT。",
-        inputSchema: z.object({ name: z.string(), address: z.string().optional(), phone: z.string().optional(), email: z.string().optional(), website: z.string().optional(), industry: z.string().optional(), area: z.string().optional().describe("例: 佐賀県唐津市"), memo: z.string().optional(), status: z.string().optional() }),
-      },
-      (v, a) => osw.createLead(v, a),
-    );
-    osWriteTool(
-      "record_lead_result",
-      {
-        title: "リードの結果を記録",
-        description: "リード（leadId）の結果をOSに残す。result: REPLIED（返信あり）/ REPLIED_NG（返信NG）/ NO_REPLY（無反応）/ REJECTED（断り）/ WON（受注）＝OS画面の結果ボタンと同じ処理（ステータス移動・グループ事例DBへの反映）。status で APPOINTMENT（アポ獲得）等に直接進められる。note で経緯を残す。会話でリードの結果が分かったら、聞かれなくても記録する。",
-        inputSchema: z.object({ leadId: z.string(), result: z.string().optional(), status: z.string().optional(), note: z.string().optional() }),
-      },
-      (v, a) => osw.recordLeadResult(v, a),
+    prompt(
+      "morning", "朝の一手", "今日やることを 1→6 の順で 3〜8 行に",
+      {},
+      () => "my_next_actions を呼び、返った sections を 1→6 の順に、3〜8行で「今日の一手」として提案してください。各行は「相手先 → 何をするか」の形。1〜3 は今日中に動くもの、4〜6 は声をかける候補。金額は書かない。",
     );
   },
   {
-    serverInfo: { name: "adarch-os", version: "1.0.0" },
+    serverInfo: { name: "adarch-os", version: "1.1.0" },
     instructions:
       "Ad Arch（アドアーチ）グループOSのツール。提案文・資料を作るときは list_materials → get_material/get_full_kit でブランドキットを読んでから書く。数字は取得したものだけを使い「目安・税抜」を添える。価格の正本はOS。" +
-      "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。" +
-      "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注の確定はOS画面で行うよう案内する。",
-    capabilities: { tools: {} },
+      OS_AI_RULES,
+    capabilities: { tools: {}, resources: {}, prompts: {} },
     onEvent: (ev) => {
       if (ev.type === "ERROR") console.error("[MCP]", ev.error, ev.context ?? "");
     },

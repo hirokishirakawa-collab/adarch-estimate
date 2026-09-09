@@ -276,6 +276,17 @@ export async function toggleUserActive(
       entityId: userId,
       detail: `${user.email}: ${user.isActive ? "停止" : "復活"}${newState === false ? ` (理由: ${reason ?? "OTHER"})` : ""}`,
     });
+    // 停止したら AI連携（MCP）の接続も同時に失効させる（2026-09-09）。
+    // トークン検証は毎回 isActive を見るので停止だけでも呼び出しは止まるが、接続一覧に残さない
+    if (newState === false) {
+      const grants = await db.oAuthGrant.findMany({ where: { userEmail: user.email, revokedAt: null }, select: { id: true, clientName: true } });
+      if (grants.length > 0) {
+        await db.oAuthGrant.updateMany({ where: { id: { in: grants.map((g) => g.id) } }, data: { revokedAt: new Date() } });
+        for (const g of grants) {
+          logAudit({ action: "mcp_disconnected", email: user.email, entity: "oauth_grant", entityId: g.id, detail: `${g.clientName ?? "AIクライアント"}（利用停止に伴い本部が解除）` });
+        }
+      }
+    }
   } catch (e) {
     console.error("[toggleUserActive] DB error:", e instanceof Error ? e.message : e);
     return { error: "更新に失敗しました" };

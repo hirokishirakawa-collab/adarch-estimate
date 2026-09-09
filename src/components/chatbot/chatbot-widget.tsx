@@ -194,6 +194,8 @@ export function ChatbotWidget() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  // OSのツールを呼んでいる間の一言（「商談一覧を確認中…」）。返事の本文が来たら消す
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -259,7 +261,9 @@ export function ChatbotWidget() {
           try {
             const data = JSON.parse(part.slice(6));
             if (data.conversationId) setConversationId(data.conversationId);
+            if (data.tool) setToolStatus(`${data.kind === "write" ? "OSに記録中" : "OSを確認中"}: ${data.title}`);
             if (data.text) {
+              setToolStatus(null);
               if (!assistantAdded) {
                 setMessages((prev) => [...prev, { role: "assistant", content: data.text }]);
                 assistantAdded = true;
@@ -289,6 +293,7 @@ export function ChatbotWidget() {
       ]);
     } finally {
       setLoading(false);
+      setToolStatus(null);
     }
   };
 
@@ -404,8 +409,9 @@ export function ChatbotWidget() {
                 <div className="flex-shrink-0 mt-0.5">
                   <AssistantAvatarSmall />
                 </div>
-                <div className="bg-zinc-100 rounded-2xl rounded-bl-md px-4 py-2">
+                <div className="bg-zinc-100 rounded-2xl rounded-bl-md px-4 py-2 flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
+                  {toolStatus && <span className="text-xs text-zinc-500">{toolStatus}</span>}
                 </div>
               </div>
             )}

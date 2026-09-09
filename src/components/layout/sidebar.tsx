@@ -698,6 +698,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "ADMIN",
       },
       {
+        href: "/dashboard/admin/ai-usage",
+        label: "AI活用度",
+        icon: Bot,
+        minRole: "ADMIN",
+      },
+      {
         href: "/dashboard/admin/chatbot-logs",
         label: "チャットボット履歴",
         icon: MessageCircle,

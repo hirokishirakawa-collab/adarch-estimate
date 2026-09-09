@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { searchWikiArticles, formatArticlesForPrompt } from "@/lib/wiki-search";
@@ -10,6 +9,10 @@ import {
   searchInternalKnowledge,
   formatInternalSourcesForPrompt,
 } from "@/lib/internal-knowledge-search";
+import { OS_AI_RULES, OS_TOOLS, toAnthropicTools } from "@/lib/mcp/tool-catalog";
+import { loadViewer } from "@/lib/mcp/os-read-tools";
+import { WriteError } from "@/lib/mcp/os-write-tools";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -104,42 +107,17 @@ Ad-Arch Group OS は広告代理店グループ「アドアーチ」の業務統
 
 ## ツール活用
 データベースを検索するツールが利用可能です。ユーザーが具体的な商談・顧客・実績について質問した場合は、ツールを使って実データを取得してから回答してください。
-ツールで取得したデータは件数や具体名を引用して回答に含めてください。`;
+ツールで取得したデータは件数や具体名を引用して回答に含めてください。
+
+## OSの読み書き（2026-09-09・各代表のClaude/ChatGPTコネクタと同じツール）
+${OS_AI_RULES}
+書き込み（log_activity / create_customer / create_deal / update_deal / set_closing_factor / create_lead / record_lead_result）は、ログインしている本人の権限で本人の名前で残る。書いた内容は末尾に「OSに記録しました: 〜」と1行で示す。`;
 
 // ----------------------------------------------------------------
 // Tool Use: アーチくんが OS データベースを検索できるツール定義
 // ----------------------------------------------------------------
-const CHATBOT_TOOLS: Anthropic.Messages.Tool[] = [
-  {
-    name: "search_deals",
-    description: "商談を検索する。顧客名・タイトル・ステータスで絞り込み可能。",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        query: { type: "string", description: "顧客名やタイトルのキーワード" },
-        status: { type: "string", description: "ステータス: PROSPECTING, PROPOSAL, NEGOTIATION, WON, LOST" },
-      },
-    },
-  },
-  {
-    name: "search_customers",
-    description: "顧客（取引先）を名前で検索する。",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        query: { type: "string", description: "顧客名のキーワード" },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "get_my_stats",
-    description: "自分（またはログインユーザー）の商談件数・売上サマリーを取得する。",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-    },
-  },
+// 旧来のヘルプ用ツール（月次報告・契約満了・TVerプール）。顧客・商談・自分の数字は OS_TOOLS（MCPと同じ台帳）に一本化
+const LEGACY_TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "check_report_status",
     description: "月次報告（売上報告）の提出状況を確認する。管理者のみ全拠点の提出状況を取得可能。",
@@ -176,6 +154,8 @@ const CHATBOT_TOOLS: Anthropic.Messages.Tool[] = [
     },
   },
 ];
+const OS_TOOL_NAMES = new Set(OS_TOOLS.map((t) => t.name));
+const CHATBOT_TOOLS: Anthropic.Messages.Tool[] = [...toAnthropicTools(OS_TOOLS), ...LEGACY_TOOLS];
 
 // ----------------------------------------------------------------
 // ツール実行関数
@@ -183,103 +163,28 @@ const CHATBOT_TOOLS: Anthropic.Messages.Tool[] = [
 async function executeTool(
   name: string,
   input: Record<string, unknown>,
-  user: { id: string; branchId: string | null; role: string },
+  user: { id: string; email: string; name: string | null; branchId: string | null; role: string },
 ): Promise<unknown> {
+  // OS台帳のツール（MCPと同じ実装・同じ線引き）。監査ログはクライアント名「アーチくん」で MCP と同じ action に残す
+  if (OS_TOOL_NAMES.has(name)) {
+    const def = OS_TOOLS.find((t) => t.name === name)!;
+    const viewer = await loadViewer(user.email);
+    if (!viewer) return { error: "このアカウントは利用できません" };
+    void logAudit({ action: def.kind === "write" ? "mcp_os_write" : "mcp_os_read", email: user.email, name: user.name, entity: "mcp_tool", entityId: name, detail: `[アーチくん] ${JSON.stringify(input ?? {})}`.slice(0, 1000) });
+    try {
+      const parsed = def.input.safeParse(input ?? {});
+      if (!parsed.success) return { error: `入力が不正です: ${parsed.error.issues.map((i) => i.message).join(" / ")}` };
+      const out = await def.run(viewer, parsed.data as never);
+      return out ?? { error: "見つかりませんでした（貴社の拠点の範囲外か、存在しないIDです）" };
+    } catch (e) {
+      if (e instanceof WriteError) return { error: e.message };
+      console.error(`[chatbot] ${name} 失敗:`, e instanceof Error ? e.message : e);
+      return { error: def.kind === "write" ? "保存に失敗しました" : "取得に失敗しました" };
+    }
+  }
   const isAdmin = user.role === "ADMIN";
-  const branchFilter = isAdmin ? {} : user.branchId ? { branchId: user.branchId } : {};
 
   switch (name) {
-    case "search_deals": {
-      const where: Record<string, unknown> = { ...branchFilter };
-      if (input.query) {
-        where.OR = [
-          { title: { contains: input.query as string, mode: "insensitive" } },
-          { customer: { name: { contains: input.query as string, mode: "insensitive" } } },
-        ];
-      }
-      if (input.status) where.status = input.status;
-
-      const deals = await db.deal.findMany({
-        where,
-        include: { customer: { select: { name: true } }, assignedTo: { select: { name: true } } },
-        orderBy: { updatedAt: "desc" },
-        take: 10,
-      });
-
-      return deals.map((d) => ({
-        title: d.title,
-        customer: d.customer.name,
-        assignedTo: d.assignedTo?.name || "未割当",
-        amount: d.amount ? `¥${Number(d.amount).toLocaleString()}` : "未設定",
-        status: d.status,
-        probability: d.probability ? `${d.probability}%` : null,
-        expectedClose: d.expectedCloseDate?.toISOString().split("T")[0],
-        updated: d.updatedAt.toISOString().split("T")[0],
-      }));
-    }
-
-    case "search_customers": {
-      const customers = await db.customer.findMany({
-        where: {
-          ...branchFilter,
-          // 実績アーカイブ（未整備）は通常の顧客検索に出さない
-          NOT: { branchId: ARCHIVE_BRANCH_ID },
-          name: { contains: input.query as string, mode: "insensitive" },
-        },
-        select: {
-          name: true,
-          industry: true,
-          status: true,
-          contactName: true,
-          phone: true,
-          prefecture: true,
-          _count: { select: { deals: true } },
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 10,
-      });
-
-      return customers.map((c) => ({
-        name: c.name,
-        industry: c.industry || "未設定",
-        status: c.status,
-        contactName: c.contactName,
-        phone: c.phone,
-        prefecture: c.prefecture,
-        dealCount: c._count.deals,
-      }));
-    }
-
-    case "get_my_stats": {
-      const [dealCounts, thisMonthRevenue] = await Promise.all([
-        db.deal.groupBy({
-          by: ["status"],
-          where: branchFilter,
-          _count: true,
-        }),
-        db.revenueReport.aggregate({
-          where: {
-            ...branchFilter,
-            targetMonth: {
-              gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-            },
-          },
-          _sum: { amount: true },
-          _count: true,
-        }),
-      ]);
-
-      return {
-        deals: dealCounts.map((d) => ({ status: d.status, count: d._count })),
-        thisMonth: {
-          revenue: thisMonthRevenue._sum.amount
-            ? `¥${Number(thisMonthRevenue._sum.amount).toLocaleString()}`
-            : "¥0",
-          reportCount: thisMonthRevenue._count,
-        },
-      };
-    }
-
     case "check_report_status": {
       if (!isAdmin) return { error: "この機能は管理者のみ利用可能です" };
 
@@ -538,11 +443,11 @@ export async function POST(req: NextRequest) {
       let currentMessages: Anthropic.Messages.MessageParam[] = [...history];
       let iterations = 0;
 
-      while (iterations < 3) {
+      while (iterations < 6) {
         const stream = client.messages.stream({
           model: "claude-sonnet-5",
           thinking: { type: "disabled" },
-          max_tokens: 1024,
+          max_tokens: 1500,
           system: systemPrompt,
           messages: currentMessages,
           tools: CHATBOT_TOOLS,
@@ -566,6 +471,10 @@ export async function POST(req: NextRequest) {
           (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use",
         );
 
+        for (const b of toolBlocks) {
+          const def = OS_TOOLS.find((t) => t.name === b.name);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ tool: b.name, title: def?.title ?? b.name, kind: def?.kind ?? "read" })}\n\n`));
+        }
         const toolResults: Anthropic.Messages.ToolResultBlockParam[] = await Promise.all(
           toolBlocks.map(async (block) => ({
             type: "tool_result" as const,
@@ -574,7 +483,7 @@ export async function POST(req: NextRequest) {
               await executeTool(
                 block.name,
                 block.input as Record<string, unknown>,
-                { id: user.id, branchId: user.branchId, role: user.role },
+                { id: user.id, email: user.email, name: user.name, branchId: user.branchId, role: user.role },
               ),
             ),
           })),
