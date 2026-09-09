@@ -5,6 +5,7 @@ import {
   detectMajorAgency,
   isTargetIndustry,
   isExcludedArea,
+  isSameIndustryTvcm,
   type TvcmLeadCandidate,
   type TvcmLeadResult,
 } from "@/lib/constants/tvcm-leads";
@@ -29,9 +30,10 @@ import {
 import { normalizeCompanyName } from "@/lib/leads/match-score";
 
 export interface TvcmCrawlOptions {
-  // "both" は YouTube + PR TIMES（後方互換、@Press 含まず）
-  // "all"  は YouTube + PR TIMES + @Press
-  source: "youtube" | "prtimes" | "atpress" | "both" | "all";
+  // "both"  は YouTube + PR TIMES（後方互換、@Press 含まず）
+  // "all"   は YouTube + PR TIMES + @Press
+  // "press" は PR TIMES + @Press（YouTube なし。2026-09-09 から cron と手動の標準）
+  source: "youtube" | "prtimes" | "atpress" | "both" | "all" | "press";
   keywords?: string[];
   maxPerKeyword: number;
   totalLimit: number;
@@ -63,6 +65,7 @@ export interface TvcmCrawlOutcome {
     youtubeRateLimited: boolean; // YouTubeが429（レート/クォータ上限）で全滅したか
     youtubeSkippedQuota: boolean; // 日次クォータガードでYouTube検索を見送ったか
     youtubeDroppedPersonal: number; // YouTubeで個人YouTuber/個人発信として保存前に除外した件数
+    droppedSameIndustry: number; // 同業（動画制作会社）として保存前に除外した件数（全ソース）
     prTimesRaw: number;
     atPressRaw: number;
     // AI呼び出し診断
@@ -207,8 +210,14 @@ PR TIMES / @Press プレスリリースまたは YouTube 動画情報を受け�
 - YouTubeなら原則チャンネル名から判断
 - 個人名・タレント名チャンネルだけは false（isVideoAnnouncement=false）
 
+【本部の判断傾向（2026-09 実測）— 候補に残すかは変えず、industryGuess と prefecture の精度に反映する】
+- 却下されやすい: 発信元が動画制作会社・映像プロダクション（同業）／個人発信／映画・エンタメの解説チャンネル／市場調査・コンサル／出版・メディア／音楽配信／東京本社の大型案件
+- 採用されやすい: 東京以外の地方の 製造業・食品・医療（病院/クリニック）・大学/教育・自治体/公共・保育・観光・小売・住宅/建設
+- 所在地不明は本部にほぼ却下される（308件中3件）。prefecture は必ず埋める努力をする（下記）
+- 発信元が動画制作会社なら isProductionCompany=true を確実に付け、industryGuess にも「映像制作」「動画制作」の語を入れる
+
 【他フィールド（不明はすべて空文字でOK）】
-- prefecture / address: 本社・拠点の所在地。記事や概要欄から推定
+- prefecture / address: 本社・拠点の所在地。記事や概要欄から推定。本文の「所在地」「本社」「会社概要」だけでなく、社名に含まれる地名（例:「○○ 福岡」「信州○○」）、電話番号の市外局番（011=北海道、022=宮城、052=愛知、06=大阪、075=京都、078=兵庫、082=広島、087=香川、092=福岡、096=熊本、098=沖縄 等）、店舗・工場の住所、地元メディア名からも推定する。複数拠点なら本社を優先。根拠が何も無いときだけ空文字
 - videoUrl: 動画のURL
 - productionCompany: クレジット表記から抽出
 - agencyDetected: 大手代理店名（電通・博報堂等）が出てきたら記載
@@ -292,9 +301,12 @@ export async function runTvcmCrawl(
   const wantsPrTimes =
     options.source === "prtimes" ||
     options.source === "both" ||
-    options.source === "all";
+    options.source === "all" ||
+    options.source === "press";
   const wantsAtPress =
-    options.source === "atpress" || options.source === "all";
+    options.source === "atpress" ||
+    options.source === "all" ||
+    options.source === "press";
 
   if (options.source === "youtube" && !youtubeApiKey) {
     throw new Error(
@@ -312,6 +324,7 @@ export async function runTvcmCrawl(
   let youtubeRateLimited = false;
   let youtubeSkippedQuota = false; // 日次クォータガードでYouTube検索を見送ったか
   let youtubeDroppedPersonal = 0; // YouTubeで個人YouTuber/個人発信として保存前に弾いた件数
+  let droppedSameIndustry = 0; // 同業（動画制作会社・映像プロダクション）として保存前に弾いた件数
   let prTimesRaw = 0;
   let atPressRaw = 0;
   // AI呼び出し診断: 試行回数 / API成功 / API失敗 / 空のcompanyName で除外
@@ -715,7 +728,14 @@ ${article.bodyText}`;
     const key = r.companyName;
     if (!dedupedMap.has(key)) dedupedMap.set(key, r);
   }
-  const results = Array.from(dedupedMap.values());
+  // 同業（動画制作会社・映像プロダクション）は保存しない。
+  // 本部の却下傾向（2026-09-09 実測・120日）: 理由付き却下の最多＝94件、プール投入0件＝見せるだけ無駄。
+  const results = Array.from(dedupedMap.values()).filter((r) => {
+    if (!isSameIndustryTvcm(r.industryGuess, r.isProductionCompany, r.companyName)) return true;
+    droppedSameIndustry++;
+    console.log(`[tvcm-crawler] 同業（制作会社）を除外: ${r.companyName}（${r.industryGuess ?? "業種不明"}）`);
+    return false;
+  });
 
   // DB自動保存
   let newlyCreated = 0;
@@ -906,6 +926,7 @@ ${article.bodyText}`;
       youtubeRateLimited,
       youtubeSkippedQuota,
       youtubeDroppedPersonal,
+      droppedSameIndustry,
       prTimesRaw,
       atPressRaw,
       aiAttempts,

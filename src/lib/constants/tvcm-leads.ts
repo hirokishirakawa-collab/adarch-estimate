@@ -170,6 +170,47 @@ export function isExcludedArea(
   return EXCLUDED_AREA_KEYWORDS.some((kw) => target.includes(kw));
 }
 
+/**
+ * 同業（動画制作会社・映像プロダクション）か。
+ * 本部の却下傾向（2026-09-09 実測・120日）: 理由付き却下で最多＝94件、プール投入は0件。
+ * AIの isProductionCompany に加え、業種の語でも拾う（AIが flag を落とした分を補う）。
+ */
+export const SAME_INDUSTRY_PATTERN =
+  /映像制作|動画制作|ビデオ制作|映像プロダクション|動画プロダクション|映像クリエイティブ|動画マーケティング|モーショングラフィック|CM制作/;
+/** 社名側の手がかり（動物病院の業種欄に「動画制作」が混ざる等の誤爆を防ぐため、業種だけでは落とさない） */
+export const SAME_INDUSTRY_NAME_PATTERN =
+  /映像|動画|ムービー|フィルム|プロダクション|スタジオ|クリエイティブ|ビジュアル|[Ff]ilms?|[Ss]tudio|[Pp]roduction|[Vv]ideo|[Mm]ovie|[Cc]reative|[Vv]isual/;
+/**
+ * AI判定・業種・社名の3つのうち2つ以上が「制作会社」を示すときだけ同業とみなす。
+ * 実測（全1,502件）: 業種だけで判定すると171件中4件がプール済（うち1件は動物病院＝誤爆）。
+ */
+export function isSameIndustryTvcm(
+  industryGuess: string | null | undefined,
+  isProductionCompany?: boolean,
+  companyName?: string | null,
+): boolean {
+  let signals = 0;
+  if (isProductionCompany) signals++;
+  if (SAME_INDUSTRY_PATTERN.test(industryGuess ?? "")) signals++;
+  if (companyName && SAME_INDUSTRY_NAME_PATTERN.test(companyName)) signals++;
+  return signals >= 2;
+}
+
+/**
+ * 本部の確認順（小さいほど先）。地方 → 大阪・名古屋 → 東京 → 所在地不明。
+ * 実測（90日）: 地方 215件→採用12／大阪名古屋 70→15／東京 177→3／不明 308→3。
+ */
+export function tvcmAreaRank(
+  prefecture: string | null | undefined,
+  address: string | null | undefined,
+): number {
+  const target = `${prefecture ?? ""} ${address ?? ""}`.trim();
+  if (!target) return 3;
+  if (target.includes("東京")) return 2;
+  if (/大阪|名古屋|愛知/.test(target)) return 1;
+  return 0;
+}
+
 /** 情報元プラットフォーム */
 export type TvcmSourcePlatform = "youtube" | "prtimes" | "atpress" | "unknown";
 

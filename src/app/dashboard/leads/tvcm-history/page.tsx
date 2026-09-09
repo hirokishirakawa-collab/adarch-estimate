@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { type TvcmHistoryLead } from "@/components/leads/tvcm-history-card";
 import { TvcmHistoryList } from "@/components/leads/tvcm-history-list";
+import { tvcmAreaRank, isSameIndustryTvcm } from "@/lib/constants/tvcm-leads";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -73,11 +74,20 @@ export default async function TvcmHistoryPage({ searchParams }: SearchParams) {
   }
 
   // フィルタ適用
-  const filtered = allLeads.filter((l) => {
-    if (filter === "all") return true;
-    if (filter === "ACTIVE") return l.status === "CALLED" || l.status === "APPOINTMENT";
-    return l.status === filter;
-  });
+  const filtered = allLeads
+    .filter((l) => {
+      if (filter === "all") return true;
+      if (filter === "ACTIVE") return l.status === "CALLED" || l.status === "APPOINTMENT";
+      return l.status === filter;
+    })
+    // 本部の確認順（2026-09-09 代表決定）: 地方 → 大阪・名古屋 → 東京 → 所在地不明。
+    // 同じ地域の中では、業種不明・同業（制作会社）を末尾に沈め、あとは新しい順。
+    .sort((a, b) => {
+      const ra = tvcmAreaRank(a.prefecture, a.address) * 2 + (!a.industry || isSameIndustryTvcm(a.industry, false, a.name) ? 1 : 0);
+      const rb = tvcmAreaRank(b.prefecture, b.address) * 2 + (!b.industry || isSameIndustryTvcm(b.industry, false, b.name) ? 1 : 0);
+      if (ra !== rb) return ra - rb;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
 
   const leads: TvcmHistoryLead[] = filtered.map((l) => ({
     id: l.id,
@@ -119,7 +129,7 @@ export default async function TvcmHistoryPage({ searchParams }: SearchParams) {
           <div>
             <h2 className="text-lg font-bold text-zinc-900">TVer広告 案件 クロール履歴</h2>
             <p className="text-xs text-zinc-500">
-              全クロール候補をデータ保全。後からプール投入・却下を判断できます（本部のみ）
+              全クロール候補をデータ保全。後からプール投入・却下を判断できます（本部のみ）。並びは 地方 → 大阪・名古屋 → 東京 → 所在地不明
             </p>
           </div>
         </div>

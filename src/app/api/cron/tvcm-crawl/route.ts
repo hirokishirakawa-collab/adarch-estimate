@@ -23,7 +23,9 @@ export async function GET(req: NextRequest) {
   try {
     const outcome = await runTvcmCrawl(
       {
-        source: "all", // YouTube + PR TIMES + @Press
+        // PR TIMES + @Press のみ。YouTube は外す（2026-09-09 代表決定）。
+        // 実測90日: YouTube 559件クロール→本部が536件却下・所在地不明の大半がYouTube由来。手動画面では選べば使える
+        source: "press",
         maxPerKeyword: 6,
         totalLimit: 40,
         // ローカル小規模狙い: 登録者3,000以下のチャンネルのみ

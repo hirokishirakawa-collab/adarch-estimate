@@ -12,7 +12,7 @@ import { TvcmResultsTable } from "./tvcm-results-table";
 import { saveTvcmLeadsFromSearch } from "@/lib/actions/lead";
 
 type Phase = "form" | "crawling" | "done" | "error";
-type Source = "youtube" | "prtimes" | "atpress" | "both" | "all";
+type Source = "youtube" | "prtimes" | "atpress" | "both" | "all" | "press";
 
 interface CrawlStats {
   fetched: number;
@@ -22,6 +22,7 @@ interface CrawlStats {
   hidden?: number; // 直近に判断済みで除外した件数
   filteredIndividual?: number; // 個人・個人YouTubeとして非表示にした件数
   filteredAlreadyPicked?: number; // 既にピックアップ済として非表示にした件数
+  droppedSameIndustry?: number; // 同業（動画制作会社）として保存前に除外した件数
   youtubeRaw?: number;
   youtubeRateLimited?: boolean;
   youtubeSkippedQuota?: boolean;
@@ -41,15 +42,16 @@ function clampInt(raw: string, min: number, max: number, fallback: number): numb
 }
 
 const SOURCE_OPTIONS: { value: Source; label: string; icon: typeof Youtube; desc: string }[] = [
-  { value: "youtube", label: "YouTube", icon: Youtube, desc: "中小企業特化（登録者5万以下フィルタ）" },
+  { value: "press", label: "PR TIMES＋@Press", icon: Newspaper, desc: "標準（毎朝の自動クロールと同じ）" },
   { value: "prtimes", label: "PR TIMES", icon: FileText, desc: "プレスリリース系（大手寄り）" },
   { value: "atpress", label: "@Press", icon: Newspaper, desc: "中小・地方寄りのリリース" },
+  { value: "youtube", label: "YouTube", icon: Youtube, desc: "却下率が高いため標準から外した。必要時のみ" },
   { value: "all", label: "全部", icon: Globe, desc: "3ソース全体。APIコスト最大" },
 ];
 
 export function TvcmSearchPanel() {
   const [phase, setPhase] = useState<Phase>("form");
-  const [source, setSource] = useState<Source>("all");
+  const [source, setSource] = useState<Source>("press");
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>(
     Array.from(TVCM_SEARCH_KEYWORDS).slice(0, 4),
   );
@@ -458,8 +460,12 @@ export function TvcmSearchPanel() {
           </div>
 
           {/* 本部調整での非表示件数（個人 / 既にピックアップ済） */}
-          {((stats.filteredIndividual ?? 0) > 0 || (stats.filteredAlreadyPicked ?? 0) > 0) && (
-            <div className="grid grid-cols-2 gap-3 text-center pt-3 border-t border-zinc-100">
+          {((stats.filteredIndividual ?? 0) > 0 || (stats.filteredAlreadyPicked ?? 0) > 0 || (stats.droppedSameIndustry ?? 0) > 0) && (
+            <div className="grid grid-cols-3 gap-3 text-center pt-3 border-t border-zinc-100">
+              <div title="動画制作会社・映像プロダクション（同業）として保存せず除外した件数。本部の却下傾向から自動化">
+                <div className="text-[10px] text-zinc-500 mb-0.5">同業（制作会社） 除外</div>
+                <div className="text-base font-semibold text-zinc-700">{stats.droppedSameIndustry ?? 0}</div>
+              </div>
               <div title="個人クリエイター・個人YouTubeとして自動非表示にした件数">
                 <div className="text-[10px] text-zinc-500 mb-0.5">個人 / 個人YouTube 非表示</div>
                 <div className="text-base font-semibold text-zinc-700">{stats.filteredIndividual ?? 0}</div>

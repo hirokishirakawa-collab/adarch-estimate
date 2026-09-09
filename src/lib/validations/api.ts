@@ -93,9 +93,9 @@ export const cinemaSearchSchema = z.object({
 // POST /api/leads/tvcm/crawl
 export const tvcmCrawlSchema = z.object({
   source: z
-    .enum(["youtube", "prtimes", "atpress", "both", "all"])
+    .enum(["youtube", "prtimes", "atpress", "both", "all", "press"])
     .optional()
-    .default("youtube"),
+    .default("press"),
   keywords: z.array(z.string().min(1)).max(12).optional(),
   maxPerKeyword: z.number().int().min(1).max(20).optional().default(8),
   totalLimit: z.number().int().min(1).max(60).optional().default(30),
