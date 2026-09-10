@@ -68,6 +68,7 @@ import {
   MapPinned,
   Package,
   Palette,
+  Brain,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -479,6 +480,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/knowledge",
+        label: "資料ライブラリ（OSの頭脳）",
+        icon: Brain,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/portfolio",
         label: "実績フォルダ検索",
         icon: HardDrive,
@@ -812,6 +819,7 @@ const PROPOSE_TAB_ITEMS: NavItem[] = [
   },
   { href: "/dashboard/live", label: "グループライブ", icon: Radio, minRole: "USER" },
   { href: "/dashboard/group-moves", label: "グループの動き", icon: Waypoints, minRole: "USER" },
+  { href: "/dashboard/knowledge", label: "資料ライブラリ（OSの頭脳）", icon: Brain, minRole: "USER" },
   { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
   { href: "/dashboard/playbook", label: "営業プレイブック", icon: BookOpen, minRole: "USER" },
   { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
@@ -850,6 +858,7 @@ const CONTENT_TAB_ITEMS: Record<string, NavItem[]> = {
 const ADMIN_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/brand-kit", label: "ブランドキット（資料の型・AI用材料）", icon: Palette, minRole: "USER" },
   { href: "/dashboard/admin/sales-overview", label: "代表別 営業ダッシュボード", icon: TrendingUp, minRole: "ADMIN" },
+  { href: "/dashboard/admin/knowledge", label: "資料ライブラリの登録（本部）", icon: Brain, minRole: "ADMIN" },
   { href: "/dashboard/partner-status", label: "稼働ステータス申告", icon: Activity, minRole: "MANAGER" },
   {
     href: "https://calendar.app.google/pfFBZxmHbNFFp6cs5",

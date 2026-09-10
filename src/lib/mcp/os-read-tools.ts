@@ -13,6 +13,8 @@ import { stripSensitiveLines } from "@/lib/brand-kit/common";
 import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
 import { formatPackagePrice, parseDeliverables, parseOptions } from "@/lib/packages/types";
 import { estimateArea, municipalitiesOf, prefectureOptions, resolveArea } from "@/lib/packages/tver-area";
+import { searchKnowledge } from "@/lib/knowledge/search";
+import { KNOWLEDGE_USE_RULES, ORIGIN_SHORT } from "@/lib/knowledge/rules";
 import { searchWikiArticles } from "@/lib/wiki-search";
 import { nextAnniversary } from "@/lib/anniversary/calc";
 import type { UserRole } from "@/types/roles";
@@ -242,6 +244,76 @@ export function tverAreaPlan(input: { prefecture?: string; city?: string }) {
 export async function searchWiki(v: McpViewer, input: { query: string; limit?: number }) {
   const rows = await searchWikiArticles(input.query, clampLimit(input.limit, 5, 10), { isAdmin: v.role === "ADMIN" });
   return rows.map((a) => ({ id: a.id, title: a.title, body: a.body.slice(0, 4000) }));
+}
+
+// ---- 資料ライブラリ（OSの頭脳・NotebookLM相当） ---------------------------------------
+//   自社=そのまま応用可／他社・媒体=仕組みは参考・価格は卸値・実績は他社分。hqOnly は本部だけ
+
+const KNOWLEDGE_PART_CHARS = 12_000;
+
+export async function searchKnowledgeTool(v: McpViewer, input: { query: string; origin?: string; limit?: number }) {
+  const origin = input.origin === "OWN" ? "OWN" : input.origin === "EXTERNAL" ? "EXTERNAL" : undefined;
+  const hits = await searchKnowledge(input.query, clampLimit(input.limit, 5, 10), { isAdmin: isHq(v), origin });
+  return {
+    rules: KNOWLEDGE_USE_RULES,
+    results: hits.map((h) => ({
+      id: h.id,
+      origin: h.origin,
+      originLabel: ORIGIN_SHORT[h.origin],
+      title: h.title,
+      publisher: h.publisher,
+      publishedAt: h.publishedAt,
+      pageCount: h.pageCount,
+      summary: h.summary,
+      digest: h.digest,
+      excerpt: h.excerpt,
+      url: `/dashboard/knowledge/${h.id}`,
+      next: "全文は get_knowledge(id, part)",
+    })),
+    note: hits.length === 0 ? "当たる資料がありません。媒体名・商品名・エリア名など別の語で。目次は list_knowledge" : undefined,
+  };
+}
+
+export async function listKnowledge(v: McpViewer, input: { origin?: string; limit?: number }) {
+  const origin = input.origin === "OWN" ? "OWN" : input.origin === "EXTERNAL" ? "EXTERNAL" : undefined;
+  const rows = await db.knowledgeSource.findMany({
+    where: { status: "READY", ...(isHq(v) ? {} : { hqOnly: false }), ...(origin ? { origin } : {}) },
+    orderBy: { createdAt: "desc" },
+    take: clampLimit(input.limit, 50, 100),
+    select: { id: true, title: true, origin: true, publisher: true, publishedAt: true, pageCount: true, summary: true, createdAt: true },
+  });
+  return {
+    rules: KNOWLEDGE_USE_RULES,
+    items: rows.map((r) => ({ id: r.id, origin: r.origin, originLabel: ORIGIN_SHORT[r.origin], title: r.title, publisher: r.publisher, publishedAt: r.publishedAt, pageCount: r.pageCount, summary: r.summary, createdAt: day(r.createdAt) })),
+  };
+}
+
+export async function getKnowledge(v: McpViewer, id: string, part?: number) {
+  const r = await db.knowledgeSource.findUnique({
+    where: { id },
+    select: { id: true, title: true, origin: true, publisher: true, publishedAt: true, pageCount: true, summary: true, digest: true, note: true, content: true, hqOnly: true, status: true },
+  });
+  if (!r || r.status !== "READY" || (r.hqOnly && !isHq(v))) return null;
+  const parts = Math.max(1, Math.ceil(r.content.length / KNOWLEDGE_PART_CHARS));
+  const p = Math.min(parts, Math.max(1, Math.floor(part ?? 1)));
+  const text = r.content.slice((p - 1) * KNOWLEDGE_PART_CHARS, p * KNOWLEDGE_PART_CHARS);
+  return {
+    id: r.id,
+    origin: r.origin,
+    originLabel: ORIGIN_SHORT[r.origin],
+    title: r.title,
+    publisher: r.publisher,
+    publishedAt: r.publishedAt,
+    pageCount: r.pageCount,
+    summary: r.summary,
+    digest: r.digest,
+    note: r.note,
+    part: p,
+    parts,
+    content: text,
+    rules: KNOWLEDGE_USE_RULES,
+    next: p < parts ? `続きは get_knowledge(id, part=${p + 1})` : undefined,
+  };
 }
 
 // ---- 自分の数字 -----------------------------------------------------------------

@@ -35,6 +35,7 @@ const VIDEO_REVIEW_BUCKET = "video-reviews";
 const CREATOR_AVATAR_BUCKET = "creator-avatars";
 const SIGNAGE_BUCKET = "signage-assets"; // デジタルサイネージ素材（動画・画像・サムネ）
 const TVER_ORDER_BUCKET = "tver-order-materials"; // TVer小口申込の動画素材（お客様アップロード・ファイル名は乱数）
+const KNOWLEDGE_BUCKET = "knowledge-files"; // 資料ライブラリの原本（PDF/PPTX/DOCX。他社・媒体社の資料＝認証必須）
 
 // ---------------------------------------------------------------
 // 共通ユーティリティ
@@ -321,4 +322,22 @@ export async function uploadTverOrderMaterial(file: File): Promise<string | null
     console.error("[storage] tver order material upload error:", e);
     return null;
   }
+}
+
+// ---------------------------------------------------------------
+// 資料ライブラリ（KnowledgeSource）の原本
+// ---------------------------------------------------------------
+export const KNOWLEDGE_FILE_BUCKET = KNOWLEDGE_BUCKET;
+
+/** 原本を knowledge-files に保存し、配信パス（/api/storage/knowledge-files/…）を返す */
+export async function saveKnowledgeFile(originalName: string, data: Buffer, fallbackExt = "bin"): Promise<string> {
+  const fileName = generateFileName(originalName, fallbackExt);
+  return saveFile(KNOWLEDGE_BUCKET, fileName, data);
+}
+
+/** 配信パス（/api/storage/knowledge-files/xxx）から原本を読む */
+export function readKnowledgeFile(fileUrl: string): Buffer | null {
+  const name = fileUrl.split("/").pop();
+  if (!name) return null;
+  return readStorageFile(KNOWLEDGE_BUCKET, name);
 }

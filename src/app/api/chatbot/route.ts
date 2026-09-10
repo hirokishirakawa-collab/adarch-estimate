@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { searchWikiArticles, formatArticlesForPrompt } from "@/lib/wiki-search";
+import { searchKnowledge, formatKnowledgeForPrompt } from "@/lib/knowledge/search";
+import { KNOWLEDGE_USE_RULES } from "@/lib/knowledge/rules";
 import {
   detectQueryIntent,
   searchInternalKnowledge,
@@ -47,6 +49,7 @@ Ad-Arch Group OS は広告代理店グループ「アドアーチ」の業務統
 - **コンプライアンス相談**（旧:違反通報） (/dashboard/violation-report)
 
 ## 2026年8〜9月に追加された機能
+- **資料ライブラリ（OSの頭脳）** (/dashboard/knowledge・サイドバー「グループ共有」) — 本部が登録した媒体資料・提案書・他社資料を、全員が検索し「資料に聞く」で出典つきの答えを得られる（NotebookLM相当）。資料は【自社】（価格・実績・手順をそのまま応用可）と【他社・媒体】（仕組み・仕様は参考。価格は卸値＝販売価格はOSの正本、実績は他社分）に分けて格納。ツール search_knowledge / list_knowledge / get_knowledge で引ける。登録は本部（/dashboard/admin/knowledge）
 - **パッケージ台帳** (/dashboard/packages・サイドバー「営業」→「パッケージ」) — 「何を・いくらで・誰が納品するか」が決まった売り物の台帳。各代表が「提案中」で起案し、本部が承認すると「稼働中」になる（稼働中の編集は本部のみ）。詳細画面から「営業フォームで使う（価格入り訴求）」「この内容で見積を作る（品目が最初から入る）」「お客様向け資料(A4)」「チャットでこれについて聞く（📎紐づけ）」へ進める。送付・返信・受注の記録がパッケージに紐づく。新規作成はAIで下書きできるが価格は人が入れる。公開ページ /p/<slug>、ログイン不要のフィードバック受け皿 /feedback/<slug>
 - **LINE公式アカウント** (/dashboard/line・MANAGER以上) — 各拠点のLINE公式アカウントをOSにつなぐ（Lステップ等の代替）。接続（3つの値を貼る）／友だち一覧（検索・タグ・未読）／1:1チャット／タグ・メモ／ステップ配信（友だち追加・タグ・手動起点でN日後H時）／一斉配信（タグ絞り・予約）／あいさつ・自動返信／セミナー等の流入枠と地域別QR。本部は各拠点の接続状況と件数しか見ない（会話・友だち名は見ない）。Wiki「【新機能】LINE公式アカウントをOSにつなぐ（5分）」
 - **TVerチラシ制作サポート** (/dashboard/tver-flyer・「広告申請」内・MANAGER以上) — 商圏（都道府県→市区町村・複数市の合算可）とクライアント・業種・秒数・予算を送ると、本部が数値を確定してA4縦1枚・拠点社名入りのチラシPDFを納品する（通知とメールで届く）。納品後はテンプレ3種（orange=既定・classic・poster）を代表がどれでもDLでき、業種に合ったヒーロー写真入り。印刷用の入稿PDF（塗り足し付き）も出せるので、印刷・配布は代表が印刷会社へ直接手配する（本部は間に入らない）。下書きは代表に見せず本部が作ってから渡す
@@ -380,13 +383,15 @@ export async function POST(req: NextRequest) {
   const internalLimit = intent === "howto" ? 4 : 10;
 
   const isAdmin = user.role === "ADMIN";
-  const [wikiArticles, internalSources] = await Promise.all([
+  const [wikiArticles, internalSources, knowledgeHits] = await Promise.all([
     searchWikiArticles(searchQuery, wikiLimit, { isAdmin }),
     searchInternalKnowledge(message.trim(), internalLimit),
+    searchKnowledge(message.trim(), 3, { isAdmin }).catch(() => []),
   ]);
 
   const wikiContext = formatArticlesForPrompt(wikiArticles);
   const internalContext = formatInternalSourcesForPrompt(internalSources);
+  const knowledgeContext = formatKnowledgeForPrompt(knowledgeHits, 1500);
 
   // 動的コンテキストを構築（BASE_SYSTEM_PROMPTはキャッシュ対象として分離）
   let dynamicContext = `\n\n---\n\n# 検出された質問タイプ: ${intent}\n# 見つかった社内データ件数: ${internalSources.length}件\n# 見つかったWiki記事: ${wikiArticles.length}件`;
@@ -399,7 +404,11 @@ export async function POST(req: NextRequest) {
     dynamicContext += `\n\n---\n\n# 社内ナレッジ（グループ内の実例データ）\n\n**これらを根拠として引用・類推し、具体的なアドバイスを返してください。件数が少なくても必ず活用してください。**\n\n${internalContext}`;
   }
 
-  if (!wikiContext && !internalContext) {
+  if (knowledgeContext) {
+    dynamicContext += `\n\n---\n\n# 資料ライブラリ（当たった資料のAI整理）\n\n${KNOWLEDGE_USE_RULES}\n\n${knowledgeContext}\n\n全文が要るときは get_knowledge(id) を呼ぶ。答えには資料名とリンク（/dashboard/knowledge/<id>）を添える。`;
+  }
+
+  if (!wikiContext && !internalContext && !knowledgeContext) {
     dynamicContext += `\n\n---\n\n# 情報源\n\n関連する社内データは今回見つかりませんでした。一般的な広告営業・映像制作のベストプラクティスで回答してください。末尾に「社内で〇〇の事例が増えるとより具体的にお答えできます」と添えてください。`;
   }
 
@@ -432,6 +441,7 @@ export async function POST(req: NextRequest) {
     intent,
     sources: {
       wiki: wikiArticles.map((a) => ({ id: a.id, title: a.title })),
+      knowledge: knowledgeHits.map((h) => ({ id: h.id, title: h.title, origin: h.origin })),
       internal: internalSources.map((s) => ({ type: s.type, title: s.title })),
     },
   };

@@ -9,6 +9,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { searchWikiArticles, formatArticlesForPrompt } from "@/lib/wiki-search";
+import { searchKnowledge, formatKnowledgeForPrompt } from "@/lib/knowledge/search";
+import { KNOWLEDGE_USE_RULES } from "@/lib/knowledge/rules";
 import { ONLINE_WINDOW_MS, DEMO_EMAIL } from "./presence";
 
 export const BOT_EMAIL = "arch-kun@adarch.co.jp";
@@ -53,6 +55,7 @@ const SYSTEM = `あなたは「アーチくん」。広告代理店グループ�
 - 丁寧語。短く（2〜5文・200文字以内が目安）。チャットなので見出しや箇条書きは使わない
 - 相手は経営者。前置きや過剰な励ましは要らない。聞かれたことに真っ直ぐ答える
 - OSの使い方は、渡された社内Wikiの内容に基づいて答え、画面のパス（例: /dashboard/leads）を1つ添える
+- 媒体の仕様・条件・他社の提案の仕組みは、渡された資料ライブラリの整理に基づいて答え、資料名を添える。他社・媒体の資料の価格・実績はそのまま言わない（価格は卸値・実績は他社分。「資料ライブラリ /dashboard/knowledge で確認を」と案内）
 - 分からないことは正直に「分かりません」と言い、本部（白川代表）に聞く・該当画面を見るなど次の一手を1つ示す
 - 金額・単価・売上の数字は書かない（このチャットは金額を書かない場所）
 - 自分がAIであることは隠さない。ただし毎回名乗らない
@@ -80,11 +83,16 @@ export async function composeBotReply(input: {
   if (!apiKey) return null;
 
   let wiki = "";
+  let knowledge = "";
   try {
-    const articles = await searchWikiArticles(input.text, 3, { isAdmin: false });
+    const [articles, hits] = await Promise.all([
+      searchWikiArticles(input.text, 3, { isAdmin: false }),
+      searchKnowledge(input.text, 3, { isAdmin: false }), // みんなのチャット＝本部限定は出さない
+    ]);
     wiki = formatArticlesForPrompt(articles);
+    knowledge = formatKnowledgeForPrompt(hits, 1200);
   } catch {
-    /* Wikiが引けなくても答える */
+    /* Wiki・資料が引けなくても答える */
   }
 
   const context = input.recent
@@ -100,6 +108,7 @@ export async function composeBotReply(input: {
       system: [
         { type: "text", text: SYSTEM },
         ...(wiki ? [{ type: "text" as const, text: `## 社内Wiki（参考）\n${wiki}` }] : []),
+        ...(knowledge ? [{ type: "text" as const, text: `${KNOWLEDGE_USE_RULES}\n\n## 資料ライブラリ（参考・当たった資料の整理）\n${knowledge}` }] : []),
       ],
       messages: [
         {

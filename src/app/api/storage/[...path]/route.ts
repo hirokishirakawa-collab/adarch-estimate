@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth";
 const STORAGE_ROOT = process.env.STORAGE_PATH || "/data/storage";
 
 // Private バケット（認証必須）
-const PRIVATE_BUCKETS = new Set(["card-images", "video-reviews"]);
+const PRIVATE_BUCKETS = new Set(["card-images", "video-reviews", "knowledge-files"]);
 
 // MIME タイプ推定
 const MIME_MAP: Record<string, string> = {

@@ -1487,6 +1487,73 @@ model WikiTag {
 }
 
 // ==============================================================
+// KnowledgeSource（資料ライブラリ＝OSの頭脳・NotebookLM相当）2026-09-10
+//   本部が登録し、全員が読む。他社・媒体社の資料が中心なので
+//   origin で「自社（全て応用可）」と「他社（参考・価格は卸値・実績は他社分）」を分けて格納する。
+// ==============================================================
+
+/// 資料の出どころ。OWN=自社の資料（価格・実績・手順をそのまま使える）／EXTERNAL=他社・媒体社の資料（仕組み・仕様は参考。価格は卸値＝販売価格はOSの正本。実績は他社分）
+enum KnowledgeOrigin {
+  OWN
+  EXTERNAL
+}
+
+/// 資料の形。FILE=PDF/PPTX/DOCX等のアップロード／URL=Webページ／TEXT=貼り付け
+enum KnowledgeKind {
+  FILE
+  URL
+  TEXT
+}
+
+/// 取り込み状態。PENDING=文字起こし・整理中／READY=検索・質問に使える／FAILED=失敗（理由は errorMessage）
+enum KnowledgeStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+/// 資料ライブラリの1件。content=全文（Markdown・ページ印つき）、digest=AIが整理した「使える中身／価格の扱い／実績の扱い／注意」
+model KnowledgeSource {
+  id           String          @id @default(cuid())
+  title        String
+  origin       KnowledgeOrigin @default(EXTERNAL)
+  kind         KnowledgeKind
+  /// 発行元（媒体社名・会社名）
+  publisher    String?
+  /// 資料の年月など（自由記述: 2026年4月版 等）
+  publishedAt  String?
+  /// 保存したファイルの配信パス（/api/storage/knowledge-files/…）
+  fileUrl      String?
+  fileName     String?
+  mimeType     String?
+  fileSize     Int?
+  sourceUrl    String?
+  /// 本部限定（加盟条件・原価表など）。ADMIN以外の検索・質問・一覧に出さない
+  hqOnly       Boolean         @default(false)
+  status       KnowledgeStatus @default(PENDING)
+  errorMessage String?
+  content      String          @default("") @db.Text
+  summary      String?         @db.Text
+  digest       String?         @db.Text
+  keywords     String[]        @default([])
+  pageCount    Int?
+  charCount    Int             @default(0)
+  /// 登録者（Userへの外部キーは持たない＝退会後も資料は残る）
+  createdByName  String
+  createdByEmail String
+  /// 本部メモ（登録時の注意・使いどころ）。全員に見える
+  note         String?         @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([origin])
+  @@index([createdAt])
+  @@map("knowledge_sources")
+}
+
+// ==============================================================
 // GroupCollaborationRequest（グループ連携依頼）
 // ==============================================================
 

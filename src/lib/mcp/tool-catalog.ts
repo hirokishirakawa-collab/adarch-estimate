@@ -108,6 +108,24 @@ export const OS_READ_TOOLS: OsToolDef[] = [
     run: (v, a) => os.getWiki(v, a.id),
   }),
   def({
+    name: "search_knowledge", kind: "read", title: "資料ライブラリを検索（OSの頭脳）",
+    description: "本部が登録した媒体資料・提案書・他社資料をキーワードで検索し、AIの整理（使える中身／価格の扱い／実績の扱い）を返す。origin: OWN=自社（そのまま応用可）/ EXTERNAL=他社・媒体社（仕組みは参考。価格は卸値＝販売価格はOSの正本。実績は他社分）。全文は get_knowledge(id)。",
+    input: z.object({ query: z.string(), origin: z.string().optional().describe("OWN / EXTERNAL（省略で両方）"), limit: z.number().int().optional().describe("既定5・最大10") }),
+    run: (v, a) => os.searchKnowledgeTool(v, a),
+  }),
+  def({
+    name: "list_knowledge", kind: "read", title: "資料ライブラリの目次",
+    description: "資料ライブラリの一覧（題名・出どころ・発行元・年月・要約）。「どんな資料がある？」に答える。全文は get_knowledge(id)。",
+    input: z.object({ origin: z.string().optional().describe("OWN / EXTERNAL"), limit: z.number().int().optional().describe("既定50・最大100") }),
+    run: (v, a) => os.listKnowledge(v, a),
+  }),
+  def({
+    name: "get_knowledge", kind: "read", title: "資料を全文で読む",
+    description: "資料ライブラリの1件（要約・AIの整理・全文）。全文は12,000字ずつ part で分けて返す（parts が総数）。id は search_knowledge / list_knowledge のもの。",
+    input: z.object({ id: z.string(), part: z.number().int().optional().describe("1始まり（既定1）") }),
+    run: (v, a) => os.getKnowledge(v, a.id, a.part),
+  }),
+  def({
     name: "my_next_actions", kind: "read", title: "今日の一手",
     description:
       "「今日何する」「朝の確認」に答える材料。自分の拠点に絞って 1) 返事待ちが7日超 2) 見込み日を過ぎた商談 3) 30日動いていない商談 4) 3か月以内に周年（自県） 5) 使える補助金 6) 今週シグナルが立った会社（自県）を返す。1→6 の順に優先し、3〜8行にまとめて提案する。各項目の next に次に呼ぶツールが入っている。金額は含まない。",
@@ -301,7 +319,7 @@ export function toAnthropicTools(defs: OsToolDef[]): { name: string; description
 /** AIへの共通の決まり（MCPの instructions と アーチくんの system で同じ文を使う） */
 export const OS_AI_RULES =
   "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。" +
-  "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。" +
+  "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。媒体の仕様・配信面・条件・他社の提案の仕組みは search_knowledge（資料ライブラリ）で引き、返った rules（自社=そのまま／他社・媒体=価格は卸値・実績は他社分）を必ず守る。" +
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。" +
   "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。" +
   "「週次を出して」「今週の週次」「本部への週次共有」には my_week を1回呼び、返った記録だけから Q1〜Q5 の下書きを作って本人に見せ、直しを受けてから submit_weekly_share で提出する（Q1・Q5 は本人に選んでもらう。OSに無い活動は本人に聞いて足す。盛らない）。" +
