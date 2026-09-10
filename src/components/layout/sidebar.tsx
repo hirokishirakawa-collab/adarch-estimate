@@ -1096,8 +1096,8 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
           )}
         >
           <Plug className="w-4 h-4 text-orange-600 flex-shrink-0" />
-          <span className="text-[12px] font-bold flex-1 min-w-0 truncate">AIと直接つなぐ（MCP）</span>
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-600 text-white flex-shrink-0">新</span>
+          <span className="text-[12px] font-bold flex-1 min-w-0 truncate">AIと直接つなぐ</span>
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-600 text-white flex-shrink-0">MCP</span>
         </Link>
 
         {/* タブ切り替え */}
