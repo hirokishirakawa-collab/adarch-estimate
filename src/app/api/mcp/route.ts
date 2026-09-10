@@ -259,13 +259,19 @@ const handler = createMcpHandler(
         `「${a.customer}」との面談の記録をOSに残してください。メモ:\n${a.notes}\n\n手順: 1) search_customers → 無ければ create_customer 2) 進行中の商談があれば list_deals(customerId) で確認 3) 要点（相手・出た話・懸念・次の一手・期日）を3〜8行にまとめ「OSに記録します」と一言添えてから log_activity 4) 状態・確度・見込み日が動いたら update_deal 5) 受注が決まっていたら set_closing_factor で決め手も残す（受注の確定はOS画面で）。金額は書かない。`,
     );
     prompt(
+      "weekly", "週次を出す（本部への週次共有）", "この1週間のOSの記録から週次共有の下書きを作り、確認してから提出する",
+      { extra: z.string().optional().describe("OSに残っていない今週の動き（任意・箇条書きでよい）") },
+      (a) =>
+        `本部への週次共有を出してください。手順: 1) my_week を1回呼ぶ 2) 返った記録${a.extra ? `と、次の補足「${a.extra}」` : ""}だけから Q2（先週やったこと＝声をかけた先・返事・動いた商談・活動記録を3〜6行）と Q3（来週やること＝先週の予定の続き・受注候補への次の一手）と Q4（共有・相談。なければ「特になし」）を下書きし、Q1（いい感じ / ちょっと苦戦中 / 手が止まっている）と Q5（今は大丈夫 / あると助かる / できれば早めに欲しい）は私に選ばせてください 3) 下書きを見せて直しを受ける 4) 確認が取れたら submit_weekly_share で提出。数字と相手先名は記録にあるものだけ。金額は書かない。`,
+    );
+    prompt(
       "morning", "朝の一手", "今日やることを 1→6 の順で 3〜8 行に",
       {},
       () => "my_next_actions を呼び、返った sections を 1→6 の順に、3〜8行で「今日の一手」として提案してください。各行は「相手先 → 何をするか」の形。1〜3 は今日中に動くもの、4〜6 は声をかける候補。金額は書かない。",
     );
   },
   {
-    serverInfo: { name: "adarch-os", version: "1.1.0" },
+    serverInfo: { name: "adarch-os", version: "1.2.0" },
     instructions:
       "Ad Arch（アドアーチ）グループOSのツール。提案文・資料を作るときは list_materials → get_material/get_full_kit でブランドキットを読んでから書く。数字は取得したものだけを使い「目安・税抜」を添える。価格の正本はOS。" +
       OS_AI_RULES,

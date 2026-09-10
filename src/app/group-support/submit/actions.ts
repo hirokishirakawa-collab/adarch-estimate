@@ -1,10 +1,9 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { calculateStatus, getWeekId } from "@/lib/constants/group-support";
 import { logAudit } from "@/lib/audit";
-import { sendGroupSupportAlertEmail, sendGroupSupportAlertChat } from "@/lib/resend";
 import { notifyCeo } from "@/lib/google-chat";
+import { saveWeeklyShare, validateWeeklyAnswers } from "@/lib/group-support/submit-weekly";
 
 export type SubmitState = {
   success?: boolean;
@@ -73,15 +72,19 @@ export async function submitWeeklyShare(
 ): Promise<SubmitState> {
   try {
     const chatSpaceId = formData.get("chatSpaceId") as string;
-    const q1 = formData.get("q1") as string;
-    const q2 = formData.get("q2") as string;
-    const q3 = formData.get("q3") as string;
-    const q4 = formData.get("q4") as string;
-    const q5 = formData.get("q5") as string;
+    const answers = {
+      q1: formData.get("q1") as string,
+      q2: formData.get("q2") as string,
+      q3: formData.get("q3") as string,
+      q4: formData.get("q4") as string,
+      q5: formData.get("q5") as string,
+    };
 
-    if (!chatSpaceId || !q1 || !q2 || !q3 || !q4 || !q5) {
+    if (!chatSpaceId) {
       return { error: "すべての項目を入力してください" };
     }
+    const invalid = validateWeeklyAnswers(answers);
+    if (invalid) return { error: invalid };
 
     const company = await db.groupCompany.findUnique({
       where: { chatSpaceId },
@@ -91,66 +94,13 @@ export async function submitWeeklyShare(
       return { error: "企業情報が見つかりません" };
     }
 
-    const weekId = getWeekId();
-    const status = calculateStatus(q1, q5);
-
-    const submission = await db.weeklySubmission.upsert({
-      where: {
-        groupCompanyId_weekId: {
-          groupCompanyId: company.id,
-          weekId,
-        },
-      },
-      update: { q1, q2, q3, q4, q5, status },
-      create: {
-        groupCompanyId: company.id,
-        weekId,
-        q1,
-        q2,
-        q3,
-        q4,
-        q5,
-        status,
-      },
+    // 保存・履歴・監査ログ・Q5アラートは共通コア（AI連携の submit_weekly_share と同じ処理）
+    await saveWeeklyShare({
+      company,
+      answers,
+      source: "FORM",
+      actorEmail: "form@group-support",
     });
-
-    await db.contactHistory.create({
-      data: {
-        groupCompanyId: company.id,
-        type: "WEEKLY_SUBMISSION",
-        content: `週次共有 (${weekId}): ${q1}`,
-        actorName: company.ownerName,
-        weekId,
-      },
-    });
-
-    logAudit({
-      action: "group_weekly_submitted",
-      email: "form@group-support",
-      name: company.name,
-      entity: "weekly_submission",
-      entityId: submission.id,
-      detail: `${weekId} status=${status}`,
-    });
-
-    // Q5がサポート要請の場合、即時通知（メール＋Chat）
-    if (q5 === "あると助かる" || q5 === "できれば早めに欲しい") {
-      const alertPayload = {
-        companyName: company.name,
-        ownerName: company.ownerName,
-        companyId: company.id,
-        q1,
-        q5,
-        q4,
-        weekId,
-      };
-      sendGroupSupportAlertEmail(alertPayload).catch((e) =>
-        console.error("[group-support/submit] Alert email error:", e)
-      );
-      sendGroupSupportAlertChat(alertPayload).catch((e) =>
-        console.error("[group-support/submit] Alert chat error:", e)
-      );
-    }
 
     return { success: true, companyName: company.name };
   } catch (e) {

@@ -65,7 +65,10 @@ export default async function GroupSupportPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-zinc-900">グループサポート</h1>
-          <p className="text-xs text-zinc-500 mt-0.5">{weekId}</p>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            {weekId}
+            <span className="ml-2 text-violet-700">AI連携 {rows.filter((r) => r.aiConnected).length}社 / {rows.length}社</span>
+          </p>
           <WikiHelpLink query="グループサポート" />
         </div>
         <div data-tour="support-report">
@@ -153,6 +156,14 @@ export default async function GroupSupportPage() {
                       >
                         {row.name}
                       </Link>
+                      {row.aiConnected && (
+                        <span
+                          title="AI連携（MCP）接続中＝AIから週次を出せる"
+                          className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-50 text-violet-700 border border-violet-200 align-middle"
+                        >
+                          AI連携
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-zinc-700">
                       {row.ownerName}
@@ -191,6 +202,14 @@ export default async function GroupSupportPage() {
                     </td>
                     <td className="px-3 py-2 text-zinc-500">
                       {fmt(lastSub?.createdAt)}
+                      {row.weeklyViaAi && (
+                        <span
+                          title="今週の週次はAI連携から提出"
+                          className="ml-1 inline-flex items-center px-1 py-0.5 rounded text-[10px] bg-violet-50 text-violet-700 border border-violet-200 align-middle"
+                        >
+                          AI記録
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-zinc-500">
                       {fmt(row.lastContact)}

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { getWeekId } from "@/lib/constants/group-support";
+import { WEEKLY_AI_MARK } from "@/lib/group-support/submit-weekly";
 import { createInAppNotification } from "@/lib/notifications";
 import { notifyUser } from "@/lib/push-notification";
 import { sendChatMessage } from "@/lib/google-chat";
@@ -57,10 +58,26 @@ export async function getGroupCompanies() {
         take: 1,
       },
       linkedUsers: {
-        select: { branchId: true },
+        select: { branchId: true, email: true },
       },
     },
   });
+
+  // AI連携（MCP）の接続中メール＝有効な OAuth 接続が1本でもある人
+  const activeGrants = await db.oAuthGrant.findMany({
+    where: { revokedAt: null, expiresAt: { gt: now } },
+    select: { userEmail: true },
+    distinct: ["userEmail"],
+  });
+  const aiConnectedEmails = new Set(activeGrants.map((g) => g.userEmail.toLowerCase()));
+
+  // 今週の週次が AI連携から出たか（履歴の印で判定・スキーマ変更なし）
+  const aiWeeklyRows = await db.contactHistory.findMany({
+    where: { weekId, type: "WEEKLY_SUBMISSION", content: { startsWith: WEEKLY_AI_MARK } },
+    select: { groupCompanyId: true },
+    distinct: ["groupCompanyId"],
+  });
+  const aiWeeklyCompanyIds = new Set(aiWeeklyRows.map((r) => r.groupCompanyId));
 
   // 当月＋前月の売上報告を一括取得（branchId別）
   const [currentMonthReports, prevMonthReports] = await Promise.all([
@@ -87,10 +104,13 @@ export async function getGroupCompanies() {
       .filter((id): id is string => !!id);
     const hasCurrentReport = branchIds.some((id) => currentReportedBranches.has(id));
     const hasPrevReport = branchIds.some((id) => prevReportedBranches.has(id));
+    const aiConnected = c.linkedUsers.some((u) => aiConnectedEmails.has(u.email.toLowerCase()));
     return {
       ...c,
       prevMonthReportSubmitted: hasPrevReport,
       currentMonthReportSubmitted: hasCurrentReport,
+      aiConnected,
+      weeklyViaAi: aiWeeklyCompanyIds.has(c.id),
     };
   });
 

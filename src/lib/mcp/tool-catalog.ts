@@ -11,6 +11,7 @@ import * as os from "./os-read-tools";
 import * as osw from "./os-write-tools";
 import * as ins from "./os-insight-tools";
 import * as camp from "./os-campaign-tools";
+import * as wk from "./os-weekly-tools";
 import { createLocalCampaign } from "@/lib/meta-ads/local-campaign";
 import { resolveMetaConfig } from "@/lib/meta-ads/account";
 import { appUrl } from "@/lib/tver-order/service";
@@ -165,6 +166,13 @@ export const OS_READ_TOOLS: OsToolDef[] = [
     input: z.object({ mine: z.boolean().optional(), limit: z.number().int().optional() }),
     run: (v, a) => camp.listLandingPages(v, a),
   }),
+  def({
+    name: "my_week", kind: "read", title: "この1週間の自拠点の事実（週次共有の材料）",
+    description:
+      "「週次を出して」「今週の週次」に答える材料。過去7日の自拠点の記録＝声をかけた先（送付済みリード）・返事とアポ・活動記録（顧客/商談/営業活動）・動いた商談・いちばん近い受注候補・先週の週次で書いた『来週やること』・今週の提出の有無を1コールで返す。返った材料から Q1〜Q5 の下書きを作り、本人に見せて直してもらってから submit_weekly_share で提出する。金額は含まない。加盟代表のみ。",
+    input: z.object({ days: z.number().int().optional().describe("さかのぼる日数（既定7・3〜14）") }),
+    run: (v, a) => wk.myWeek(v, a),
+  }),
 ];
 
 // ---------------- 書き込み ----------------
@@ -227,6 +235,20 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     confirm: (a) => `リードの結果を記録します: ${[a.result && `結果=${a.result}`, a.status && `状態=${a.status}`, a.note && `メモ「${a.note.slice(0, 120)}」`].filter(Boolean).join(" / ")}`,
   }),
   def({
+    name: "submit_weekly_share", kind: "write", title: "週次共有を提出（グループサポート）",
+    description:
+      "本部のグループサポートに週次共有を出す＝OS画面の週次フォームと同じ処理（同じ週は上書き・サポート要請なら本部に即時通知）。先に my_week で材料を読み、下書きを本人に見せて直してもらってから呼ぶ。q1 は「いい感じ / ちょっと苦戦中 / 手が止まっている」、q5 は「今は大丈夫 / あると助かる / できれば早めに欲しい」のどれか。q2=先週やったこと、q3=来週やること、q4=共有・相談（なければ「特になし」）。数字と相手先名は記録にあるものだけ。金額は書かない。加盟代表のみ。",
+    input: z.object({
+      q1: z.string().describe("いい感じ / ちょっと苦戦中 / 手が止まっている"),
+      q2: z.string().describe("先週やったこと（箇条書き可・2000字以内）"),
+      q3: z.string().describe("来週やること（2000字以内）"),
+      q4: z.string().describe("共有・相談したいこと（なければ「特になし」）"),
+      q5: z.string().describe("今は大丈夫 / あると助かる / できれば早めに欲しい"),
+    }),
+    run: (v, a) => wk.submitWeeklyShare(v, a),
+    confirm: (a) => `週次共有を本部に提出します:\nQ1 ${a.q1} / Q5 ${a.q5}\nQ2 ${a.q2.slice(0, 200)}\nQ3 ${a.q3.slice(0, 200)}\nQ4 ${a.q4.slice(0, 200)}`,
+  }),
+  def({
     name: "discover_leads", kind: "write", title: "新規リードを探す（リード獲得AI＝Google検索→AI採点→保存）",
     description:
       "OSにまだ無い会社を、市区町村×業種で新しく探す。OS画面の「リード獲得AI」と同じ＝Google Placesで企業を集め、Webサイト分析と全社の成功プロファイル・今日の判定基準でAIが採点し、リードとして保存する（担当は本人・同名＋同住所は1件・既存は採点だけ更新）。未送付のリードが100件以上あると保存は止まる。dryRun: true で採点だけ見る。1回10社が目安（最大20）。続けて plan_campaign → prepare_outreach。",
@@ -282,4 +304,5 @@ export const OS_AI_RULES =
   "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。" +
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。" +
   "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。" +
+  "「週次を出して」「今週の週次」「本部への週次共有」には my_week を1回呼び、返った記録だけから Q1〜Q5 の下書きを作って本人に見せ、直しを受けてから submit_weekly_share で提出する（Q1・Q5 は本人に選んでもらう。OSに無い活動は本人に聞いて足す。盛らない）。" +
   "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注の確定はOS画面で行うよう案内する。受注が決まったら set_closing_factor で決め手を残す。";
