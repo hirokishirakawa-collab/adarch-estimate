@@ -114,12 +114,12 @@ export default async function AdBuyerFinderPage({
             <span className="text-xs font-medium text-zinc-600">確認日 まで</span>
             <input type="date" name="to" defaultValue={to} className={`mt-1 ${selectClass}`} />
           </label>
-          <div className="flex items-end gap-2">
+          <div className="col-span-2 sm:col-span-3 lg:col-span-7 flex items-end justify-end gap-3">
             <label className="flex items-center gap-1.5 text-xs text-zinc-600 pb-2.5 whitespace-nowrap">
               <input type="checkbox" name="mine" value="1" defaultChecked={mine} className="h-4 w-4 rounded border-zinc-300" />
               自分の分だけ
             </label>
-            <button type="submit" className="ml-auto rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">絞り込む</button>
+            <button type="submit" className="shrink-0 whitespace-nowrap rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">絞り込む</button>
           </div>
         </div>
         {hasFilter && (
