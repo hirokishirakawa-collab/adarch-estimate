@@ -17,4 +17,5 @@ export async function revokeMcpGrant(formData: FormData): Promise<void> {
   await db.oAuthGrant.update({ where: { id: g.id }, data: { revokedAt: new Date() } });
   await logAudit({ action: "mcp_disconnected", email, name: session?.user?.name ?? null, entity: "oauth_grant", entityId: g.id, detail: g.clientName ?? "AIクライアント" });
   revalidatePath("/dashboard/brand-kit");
+  revalidatePath("/dashboard/ai-connect");
 }

@@ -23,7 +23,7 @@ export async function McpConnect({ email }: { email: string }) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-zinc-900">AIと直接つなぐ（コピー不要）</p>
           <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-            お使いのAIにこのURLを登録すると、材料を貼らなくてもAIが最新の材料と貴社の数字を自分で取りに来ます。ChatGPT・Claude とも同じURLです（有料プランのカスタムコネクタ機能が必要）。
+            お使いのAIにこのURLを登録すると、材料を貼らなくてもAIが最新の材料と貴社の数字を自分で取りに来ます。ChatGPT・Claude とも同じURLです。Claudeは無料プランでも可（コネクタ1つまで）。ChatGPTはPlus以上で、記録の書き込みまで使うならBusiness。迷ったらClaudeで。
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <code className="text-xs bg-[#f7f6f4] border border-zinc-200 rounded-lg px-3 py-2 text-zinc-800 select-all break-all">{url}</code>

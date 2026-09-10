@@ -41,7 +41,7 @@ import {
   Upload,
   Download,
   ListChecks,
- MessageCircle } from "lucide-react";
+ MessageCircle, Plug } from "lucide-react";
 
 // ----------------------------------------------------------------
 // ページ本体
@@ -52,6 +52,16 @@ export default async function DashboardPage() {
   const name = session?.user?.name ?? null;
 
   const now = new Date();
+
+  // ── AI接続（MCP）の状態＝本人の有効な接続 ──
+  const myEmail = session?.user?.email ?? "";
+  const mcpGrants = myEmail
+    ? await db.oAuthGrant.findMany({
+        where: { userEmail: myEmail, revokedAt: null, expiresAt: { gt: now } },
+        select: { clientName: true },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
 
   // ── ダイジェスト ──
   const digest = await getOrGenerateDigest();
@@ -220,6 +230,35 @@ export default async function DashboardPage() {
           </span>
         )}
       </div>
+
+      {/* ── AIと直接つなぐ（MCP）— 最上段 ── */}
+      {mcpGrants.length === 0 ? (
+        <Link
+          href="/dashboard/ai-connect"
+          className="flex items-center gap-4 rounded-xl border border-orange-200 bg-white px-5 py-3.5 transition group hover:border-orange-300 hover:shadow-sm"
+        >
+          <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
+            <Plug className="w-[18px] h-[18px] text-orange-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-zinc-800">AIと直接つなぐ（MCP）</p>
+            <p className="text-xs text-zinc-500 mt-0.5">いつもの Claude／ChatGPT がOSを読み書き。つなぐのは一度だけ・5分。Claudeは無料プランで可</p>
+          </div>
+          <span className="text-xs text-orange-700 font-medium">つなぐ →</span>
+        </Link>
+      ) : (
+        <Link
+          href="/dashboard/ai-connect"
+          className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-5 py-2.5 transition hover:border-orange-300"
+        >
+          <Plug className="w-4 h-4 text-orange-600 flex-shrink-0" />
+          <p className="text-xs text-zinc-600 flex-1 min-w-0 truncate">
+            <span className="font-bold text-zinc-800">AI接続中：</span>
+            {Array.from(new Set(mcpGrants.map((g) => g.clientName ?? "AIクライアント"))).join("・")}
+          </p>
+          <span className="text-[11px] text-zinc-400">設定 →</span>
+        </Link>
+      )}
 
       {/* ── みんなのチャット（一番上・投稿0件でも常に出す。本部は投稿を消せる） ── */}
       {session?.user?.email !== "demo@adarch.co.jp" && session?.user?.isActive !== false && (
@@ -757,6 +796,12 @@ export default async function DashboardPage() {
           {[
             {
               date: "2026.09.10",
+              title: "「AIと直接つなぐ（MCP）」の入口を最上段に — 左メニューの一番上と、ダッシュボードの先頭",
+              desc: "いつもの Claude／ChatGPT をOSにつなぐ画面（/dashboard/ai-connect）を、左メニューのタブの上（どのタブでも見える）と、ダッシュボードの挨拶の直下に置きました。中身はブランドキット画面の「AIと直接つなぐ」と同じです。接続済みの方には「AI接続中：Claude」のように短く出ます。あわせてプランの記述を公式ヘルプの実測に直しました＝Claudeは無料プランでも可（コネクタ1つまで）。ChatGPTはPlus以上で、記録の書き込みまで使うならBusiness。迷ったらClaudeで",
+              tag: "NEW",
+            },
+            {
+              date: "2026.09.10",
               title: "広告出稿者ファインダー — 「すでに広告費を払っている地元の店」を県・市・業種で一覧に",
               desc: "ホットペッパービューティーなど有料媒体に載っている店＝今か過去に広告費を払っている店を、Google の店舗情報と自社サイトの媒体リンクから機械的に見つけて一覧にします（サイドバー「営業」→「広告出稿者ファインダー」・/dashboard/ad-buyer-finder）。初回は美容系（美容室・ネイル・エステ・まつげ・リラク）のプリセット入り。見つけた店は掲載ページの根拠リンクつきでリード管理に保存され、そのまま「営業フォームへ」「郵送DMへ」に進めます。媒体の確度（HPB・SUUMO・HOME'S は高／食べログ等は無料枠があるため中）を並べて出すので、声をかける前に根拠リンクで一度ご確認ください。AI連携（MCP）には list_ad_buyers（保存済みの一覧）が入りました",
               tag: "NEW",
@@ -818,7 +863,7 @@ export default async function DashboardPage() {
             {
               date: "2026.09.08",
               title: "AI連携（MCP）— お使いのAIがOSの材料を直接読み、営業の記録をOSに残す",
-              desc: "ブランドキット画面の「AIと直接つなぐ」にあるURLを Claude / ChatGPT のカスタムコネクタに登録し、OSのGoogleアカウントで許可すると、材料をコピーして貼らなくてもAIが最新の材料を自分で読みます。あわせて、グループ全社の顧客・商談・リード・活動履歴、見積の品目、パッケージ台帳、TVerエリア別プラン、本部WikiもAIから読めます（他拠点の売上・金額は出ません）。さらに、AIとの会話で「◯◯社に電話した」「来週提案になった」「失注した」と話すだけで、AIが活動・商談の進み具合・リードの結果を貴社の記録としてOSに残します（[AI記録]の印つき・金額は書かない・受注の確定はOS画面で）。接続は同じ画面からいつでも解除できます。有料プランのカスタムコネクタ機能が必要です",
+              desc: "ブランドキット画面の「AIと直接つなぐ」にあるURLを Claude / ChatGPT のカスタムコネクタに登録し、OSのGoogleアカウントで許可すると、材料をコピーして貼らなくてもAIが最新の材料を自分で読みます。あわせて、グループ全社の顧客・商談・リード・活動履歴、見積の品目、パッケージ台帳、TVerエリア別プラン、本部WikiもAIから読めます（他拠点の売上・金額は出ません）。さらに、AIとの会話で「◯◯社に電話した」「来週提案になった」「失注した」と話すだけで、AIが活動・商談の進み具合・リードの結果を貴社の記録としてOSに残します（[AI記録]の印つき・金額は書かない・受注の確定はOS画面で）。接続は同じ画面からいつでも解除できます。Claudeは無料プランでも可（コネクタ1つまで）、ChatGPTはPlus以上（書き込みはBusiness）",
               tag: "NEW",
             },
             {

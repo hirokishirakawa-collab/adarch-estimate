@@ -58,6 +58,7 @@ import {
   Rocket,
   Paintbrush,
   Briefcase,
+  Plug,
   Banknote,
   Gavel,
   Cake,
@@ -1083,6 +1084,21 @@ export function Sidebar({ user, isOpen, onClose, reportWarning, isSuspended }: S
             </span>
           </Link>
         )}
+
+        {/* AIと直接つなぐ（MCP）— どのタブでも最上段に常時表示 */}
+        <Link
+          href="/dashboard/ai-connect"
+          className={cn(
+            "mx-3 mt-2 mb-1 px-3 py-2.5 rounded-[10px] flex items-center gap-2.5 border transition-all",
+            pathname === "/dashboard/ai-connect"
+              ? "bg-orange-50 border-orange-300 text-orange-700"
+              : "bg-white border-orange-200 text-slate-800 hover:bg-orange-50 hover:border-orange-300"
+          )}
+        >
+          <Plug className="w-4 h-4 text-orange-600 flex-shrink-0" />
+          <span className="text-[12px] font-bold flex-1 min-w-0 truncate">AIと直接つなぐ（MCP）</span>
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-600 text-white flex-shrink-0">新</span>
+        </Link>
 
         {/* タブ切り替え */}
         <div className="relative mx-3 mt-2 mb-1 grid grid-cols-3 rounded-[10px] bg-black/[0.03] p-[3px] gap-0.5">
