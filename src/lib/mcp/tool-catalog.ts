@@ -296,7 +296,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   def({
     name: "prepare_dm", kind: "write", title: "郵送DM（チラシDM）の材料を揃える（送付を記録）",
     description:
-      "選んだリード（最大200件）に紙のチラシDMを送るための材料を1回で返す: ①Webレター（日本郵便）用の宛先CSV（Shift-JIS・見出しなし・そのままアップロード） ②汎用の宛名CSV（ラクスルDM等） ③A4チラシPDF（OSのTVerチラシの型・貴社名入り・landingUrl のQR付き） ④発送先リンクと手順と概算。同時にメール・フォームと同じ送付記録（送付台帳・リードの送付日・【DM・郵送】）を残す。住所の無い会社・営業お断り・他拠点送付済みは除く。郵便番号は住所から取り、無ければGoogleで補完し、取れないものは needsFix で返す。発送ボタンは人が押す（本部は間に入らない・費用は貴社）。",
+      "選んだリード（最大200件）に紙のチラシDMを送るための材料を1回で返す: ①Webレター（日本郵便）用の宛先CSV（Shift-JIS・見出しなし・そのままアップロード） ②汎用の宛名CSV（ラクスルDM等） ③A4チラシPDF（OSのTVerチラシの型・貴社名入り・landingUrl のQR付き） ④発送先リンクと手順と概算。同時にメール・フォームと同じ送付記録（送付台帳・リードの送付日・【DM・郵送】）を残す。住所の無い会社・営業お断り・他拠点送付済みは除く。郵便番号は住所から取り、無ければGoogleで補完し、取れないものは needsFix で返す。発送は貴社（使っている代表本人）がWebレターかラクスルDMから行う。本部は送らない・費用は貴社。",
     input: z.object({
       leadIds: z.array(z.string()).min(1).max(200).describe("plan_campaign / list_leads の id"),
       prefecture: z.string().describe("チラシの商圏の県（例: 佐賀県）"),
