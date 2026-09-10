@@ -30,13 +30,13 @@ function need(cond: unknown, msg: string): asserts cond {
 }
 
 /** 県名の揺れ（「佐賀」「佐賀県」）を正式名に */
-function resolvePref(input: string | undefined): string | null {
+export function resolvePref(input: string | undefined): string | null {
   if (!input) return null;
   const prefs = prefectureOptions();
   const t = input.trim();
   return prefs.find((p) => p === t) ?? prefs.find((p) => prefBase(p) === prefBase(t)) ?? null;
 }
-function resolveCity(pref: string, input: string | undefined) {
+export function resolveCity(pref: string, input: string | undefined) {
   if (!input) return null;
   const munis = municipalitiesOf(pref);
   const t = input.trim();

@@ -16,6 +16,7 @@ import { createLocalCampaign } from "@/lib/meta-ads/local-campaign";
 import { resolveMetaConfig } from "@/lib/meta-ads/account";
 import { appUrl } from "@/lib/tver-order/service";
 import { discoverLeads } from "@/lib/leads/discover";
+import { prepareDm } from "@/lib/dm/prepare-dm";
 
 export type ToolKind = "read" | "write";
 
@@ -293,6 +294,24 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     confirm: (a) => `LPを公開します: ${a.title}（${[a.prefecture, a.city, a.industry].filter(Boolean).join("・")}・${a.sections.length}段落）`,
   }),
   def({
+    name: "prepare_dm", kind: "write", title: "郵送DM（チラシDM）の材料を揃える（送付を記録）",
+    description:
+      "選んだリード（最大200件）に紙のチラシDMを送るための材料を1回で返す: ①Webレター（日本郵便）用の宛先CSV（Shift-JIS・見出しなし・そのままアップロード） ②汎用の宛名CSV（ラクスルDM等） ③A4チラシPDF（OSのTVerチラシの型・貴社名入り・landingUrl のQR付き） ④発送先リンクと手順と概算。同時にメール・フォームと同じ送付記録（送付台帳・リードの送付日・【DM・郵送】）を残す。住所の無い会社・営業お断り・他拠点送付済みは除く。郵便番号は住所から取り、無ければGoogleで補完し、取れないものは needsFix で返す。発送ボタンは人が押す（本部は間に入らない・費用は貴社）。",
+    input: z.object({
+      leadIds: z.array(z.string()).min(1).max(200).describe("plan_campaign / list_leads の id"),
+      prefecture: z.string().describe("チラシの商圏の県（例: 佐賀県）"),
+      city: z.string().describe("チラシの商圏の市区町村（例: 唐津市）"),
+      industry: z.string().optional().describe("相手の業種（チラシの見出しに使う）"),
+      catchCopy: z.string().optional().describe("チラシのひとこと（40字以内・金額なし）"),
+      landingUrl: z.string().optional().describe("QRの飛び先（create_landing_page のURL か TVer申込ページ）"),
+      template: z.enum(["orange", "classic", "poster"]).optional().describe("チラシの型（既定 orange）"),
+      adSeconds: z.number().int().optional().describe("15/30/60（既定15）"),
+      budgetJpy: z.number().int().optional().describe("チラシに載せる想定媒体費（省略で標準）"),
+    }),
+    run: (v, a) => prepareDm(v, a),
+    confirm: (a) => `郵送DMの材料を作り、${a.leadIds.length}件を送付として記録します（${a.prefecture} ${a.city}${a.catchCopy ? `／${a.catchCopy}` : ""}）`,
+  }),
+  def({
     name: "create_local_ad", kind: "write", title: "地域限定のMeta広告を作る（少額・貴社の広告アカウントで）",
     description:
       "市を指定して、Facebook/Instagram に地域限定（中心から半径km）の少額広告を貴社の広告アカウントで作る。例: 唐津市に日額500円で7日、LPへ誘導。バナーは省略するとOSの数字で描く /api/banner/tver を使う。作成は PAUSED（配信ONは人が広告マネージャで／activate: true で最初からON）。貴社のMeta広告アカウントがOSに未接続（/dashboard/meta-ads）なら、送る内容の組み立て（dryRun）だけ返す。費用・運用は貴社のアカウント。",
@@ -323,6 +342,6 @@ export const OS_AI_RULES =
   "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。" +
   "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。媒体の仕様・配信面・条件・他社の提案の仕組みは search_knowledge（資料ライブラリ）で引き、返った rules（自社=そのまま／他社・媒体=価格は卸値・実績は他社分）を必ず守る。" +
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。" +
-  "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。" +
+  "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad。" +
   "「週次を出して」「今週の週次」「本部への週次共有」には my_week を1回呼び、返った記録だけから 声かけ数・返事数・いちばん近い受注候補 を埋めて本人に見せ、先週の『次の一手』が動いたか（DONE/PARTIAL/NOT）と 本部に頼みたいこと（hqRequest）を本人に選んでもらってから submit_weekly_share で提出する（OSに無い声かけは本人に聞いて足す。盛らない）。" +
   "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注の確定はOS画面で行うよう案内する。受注が決まったら set_closing_factor で決め手を残す。";

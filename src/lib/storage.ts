@@ -35,7 +35,8 @@ const VIDEO_REVIEW_BUCKET = "video-reviews";
 const CREATOR_AVATAR_BUCKET = "creator-avatars";
 const SIGNAGE_BUCKET = "signage-assets"; // デジタルサイネージ素材（動画・画像・サムネ）
 const TVER_ORDER_BUCKET = "tver-order-materials"; // TVer小口申込の動画素材（お客様アップロード・ファイル名は乱数）
-const KNOWLEDGE_BUCKET = "knowledge-files"; // 資料ライブラリの原本（PDF/PPTX/DOCX。他社・媒体社の資料＝認証必須）
+const KNOWLEDGE_BUCKET = "knowledge-files";
+const DM_KIT_BUCKET = "dm-kits"; // 郵送DMの材料（宛名CSV・チラシPDF）。認証必須 // 資料ライブラリの原本（PDF/PPTX/DOCX。他社・媒体社の資料＝認証必須）
 
 // ---------------------------------------------------------------
 // 共通ユーティリティ
@@ -340,4 +341,12 @@ export function readKnowledgeFile(fileUrl: string): Buffer | null {
   const name = fileUrl.split("/").pop();
   if (!name) return null;
   return readStorageFile(KNOWLEDGE_BUCKET, name);
+}
+
+// ---------------------------------------------------------------
+// 郵送DMの材料（prepare_dm）
+// ---------------------------------------------------------------
+export async function saveDmKitFile(originalName: string, data: Buffer, fallbackExt = "bin"): Promise<string> {
+  const fileName = generateFileName(originalName, fallbackExt);
+  return saveFile(DM_KIT_BUCKET, fileName, data);
 }

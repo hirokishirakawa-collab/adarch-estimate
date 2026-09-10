@@ -326,7 +326,7 @@ h1 em { font-style:normal; color:${OR}; }
       <b>${d.issuerContact ? `お問い合わせ: ${esc(d.issuerContact)}` : esc(d.issuerName)}</b>
       <span>${p.issuerSub}</span>
     </div>
-    <div class="r">${fmtDate(d.date)}<br>TVer ADVERTISING</div>
+    <div class="r">${d.qr ? `<img src="${d.qr.dataUrl}" alt="" style="width:19mm;height:19mm;display:block;margin:0 0 1.5mm auto"><span style="letter-spacing:0;font-size:7px">${esc(d.qr.label)}</span><br>` : ""}${fmtDate(d.date)}<br>TVer ADVERTISING</div>
   </div>
 </div>`;
   return shell(`${esc(d.areaLabel)}を、まるごと。`, css, body, print);
@@ -454,7 +454,7 @@ h1 { font-size:40px; font-weight:900; line-height:1.18; letter-spacing:-.01em; c
       <b>${d.issuerContact ? `お問い合わせ: ${esc(d.issuerContact)}` : esc(d.issuerName)}</b>
       <span>${p.issuerSub}</span>
     </div>
-    <div class="r">${fmtDate(d.date)}<br>TVer ADVERTISING</div>
+    <div class="r">${d.qr ? `<img src="${d.qr.dataUrl}" alt="" style="width:19mm;height:19mm;display:block;margin:0 0 1.5mm auto"><span style="letter-spacing:0;font-size:7px">${esc(d.qr.label)}</span><br>` : ""}${fmtDate(d.date)}<br>TVer ADVERTISING</div>
   </div>
 </div>`;
   return shell(`${esc(d.areaLabel)}を、まるごと。`, css, body, print);
@@ -584,7 +584,7 @@ h1 em { font-style:normal; color:${GOLD}; }
       <b>${d.issuerContact ? `お問い合わせ: ${esc(d.issuerContact)}` : esc(d.issuerName)}</b>
       <span>${p.issuerSub}</span>
     </div>
-    <div class="r">${fmtDate(d.date)}<br>TVer ADVERTISING</div>
+    <div class="r">${d.qr ? `<img src="${d.qr.dataUrl}" alt="" style="width:19mm;height:19mm;display:block;margin:0 0 1.5mm auto"><span style="letter-spacing:0;font-size:7px">${esc(d.qr.label)}</span><br>` : ""}${fmtDate(d.date)}<br>TVer ADVERTISING</div>
   </div>
 </div>`;
   return shell(`${esc(d.areaLabel)}を、まるごと。`, css, body, print);

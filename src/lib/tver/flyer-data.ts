@@ -42,6 +42,8 @@ export interface FlyerData {
   issuerContact: string | null;
   date: Date;
   heroDataUrl: string | null; // 上部ビジュアル（data URL）。null=従来のSVGイラスト
+  /** 郵送DM用: 右下にQR（LP／申込ページ）。無ければ従来どおり */
+  qr?: { dataUrl: string; label: string } | null;
 }
 
 function toSeconds(n: number): AdSeconds {

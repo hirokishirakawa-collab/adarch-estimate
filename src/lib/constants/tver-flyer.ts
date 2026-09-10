@@ -53,3 +53,23 @@ export const FLYER_DISTRIBUTION_LINKS = [
   { key: "posting", label: "ポスティング（ラクスル）", url: "https://raksul.com/posting/estimate/",     spec: "市区町村を選ぶと配布可能世帯数と概算が出ます。TVerと同じ市を指定すると「画面と紙で市をまるごと」" },
   { key: "orikomi", label: "新聞折込（ラクスル）",    url: "https://raksul.com/shinbun-orikomi/estimate/", spec: "販売店単位で部数指定。高齢層・持ち家層に強い商圏向け" },
 ] as const;
+
+// ---------------------------------------------------------------
+// 郵送DMの出口（AI連携 prepare_dm が案内する。本部は間に入らない＝代表が自分で入稿・支払い）
+// ---------------------------------------------------------------
+export const DM_SEND_LINKS = [
+  {
+    key: "webletter",
+    label: "Webレター（日本郵便）",
+    url: "https://www.post.japanpost.jp/service/send/domestic/web/webletter/",
+    spec: "1通から。チラシPDF（A4）と宛先CSV（Shift-JIS・見出し行なし・15列）を上げると印刷・封入・投函まで日本郵便が行う。料金の目安: カラー1枚 ¥190／通、モノクロ1枚 ¥129／通（税込・2026年9月時点の公式表示）",
+    csvNote: "アドレス帳 → CSVアップロードに『Webレター用CSV』をそのまま。差込差出しなら最大9,999通",
+  },
+  {
+    key: "raksul",
+    label: "ラクスルDM（印刷〜投函一括）",
+    url: "https://raksul.com/dm/",
+    spec: "ハガキ・圧着ハガキ・封書から選べて、数十通〜数千通の大口向き。単価は通数と仕様で変わるので画面で見積る",
+    csvNote: "宛名データはラクスルの宛名テンプレートに合わせて貼り替える（『汎用CSV』の列を使う）",
+  },
+] as const;

@@ -34,6 +34,7 @@
     "google-auth-library": "^10.6.2",
     "googleapis": "^171.4.0",
     "html2canvas-pro": "^2.0.2",
+    "iconv-lite": "^0.6.3",
     "jose": "^6.2.2",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
