@@ -55,7 +55,7 @@ export function DmKitForm({ leads, prefectures, municipalities, defaultPrefectur
       setError("チラシに載せる商圏（県・市区町村）を選んでください");
       return;
     }
-    if (!confirm(`${usable.length}件を「送付」として記録し、宛先CSVとチラシPDFを作ります。よろしいですか？（発送はこのあと代表が行います）`)) return;
+    if (!confirm(`${usable.length}件を「送付」として記録し、宛先CSVとチラシPDFを作ります。よろしいですか？（発送はこのあと、あなたがWebレターかラクスルDMから行います。本部は送りません）`)) return;
     setLoading(true);
     setError(null);
     setResult(null);

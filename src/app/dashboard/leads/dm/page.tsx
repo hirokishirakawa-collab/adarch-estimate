@@ -54,7 +54,7 @@ export default async function LeadDmPage({ searchParams }: PageProps) {
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">郵送DM（チラシDM）</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">選んだ会社に紙のチラシを送る材料（宛先CSV・チラシPDF・発送先）を揃えます。発送は日本郵便のWebレターかラクスルDMで、費用は貴社</p>
+            <p className="text-xs text-zinc-500 mt-0.5">選んだ会社に紙のチラシを送る材料（宛先CSV・チラシPDF・発送先）を揃えます。発送はあなたが日本郵便のWebレターかラクスルDMから行い、費用は貴社（本部は送りません）</p>
           </div>
         </div>
         <Link href="/dashboard/leads/list" className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-800">
@@ -68,7 +68,7 @@ export default async function LeadDmPage({ searchParams }: PageProps) {
           <ol className="list-decimal pl-5 text-xs text-zinc-500 space-y-1">
             <li>宛先CSV（日本郵便Webレター用・そのままアップロード）と汎用CSVができます</li>
             <li>貴社名入りのA4チラシPDF（TVerチラシの型・LP／申込ページのQR付き）ができます</li>
-            <li>発送先のリンクと手順、概算が出ます。発送ボタンは代表が押します</li>
+            <li>発送先のリンクと手順、概算が出ます。発送はあなたが行います（本部は送りません）</li>
             <li>送付として記録され、返事は「返事待ち」で入力できます（メール・フォームと同じ）</li>
           </ol>
           <p className="text-xs text-zinc-400">AI連携（Claude／ChatGPT）からは「◯◯市の◯◯にチラシDMを送りたい」で同じものが作れます。</p>

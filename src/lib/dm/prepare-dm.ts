@@ -199,9 +199,9 @@ export async function prepareDm(v: McpViewer, input: PrepareDmInput) {
     steps: [
       "1) flyerPdf を開いて中身を確認（拠点社名・QR・市の数字）",
       "2) Webレターにログイン → アドレス帳 → CSVアップロードに webletterCsv（Shift-JIS・見出しなし）",
-      "3) 差出し → 本文に flyerPdf（A4・カラー）→ 宛先をアドレス帳のグループから選ぶ → 支払い",
+      "3) 差出し → 本文に flyerPdf（A4・カラー）→ 宛先をアドレス帳のグループから選ぶ → 支払い（あなたのアカウントで。本部は送らない）",
       "4) needsFix の会社は郵便番号・住所を手で補ってから追加。届いたら record_lead_result(leadId, result)",
     ],
-    next: "発送ボタンは人が押す。反応が来たら record_lead_result で結果を記録（メール・フォームと同じ）",
+    next: "発送はあなた（この拠点）がWebレターかラクスルDMから行う。本部は送らない。反応が来たら record_lead_result で結果を記録（メール・フォームと同じ）",
   };
 }
