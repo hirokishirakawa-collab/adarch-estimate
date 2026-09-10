@@ -5572,3 +5572,27 @@ model MetaAdAccount {
 
   @@map("meta_ad_accounts")
 }
+
+/// セミナー録画ライブラリ（グループ全社で共有）。置き場はYouTube限定公開URL。どの拠点も自社の窓口付き（/r/<id>?from=<加盟会社ID>）で送れる
+model SeminarRecording {
+  id             String   @id @default(cuid())
+  title          String
+  videoUrl       String // YouTube限定公開（youtu.be／watch?v=／live／shorts）
+  presenterName  String // 登壇者名（本人の看板＝必ず表示）
+  ownerEmail     String // 登録者
+  ownerCompanyId String? // 登録者の加盟会社（null=本部）
+  ownerCompany   String // 表示用の会社名（本部 or 加盟会社名）
+  prefecture     String? // 登壇拠点の県
+  audience       String? // 誰向けか（例: 地方の飲食店・美容室）
+  summary        String?  @db.Text // 内容の一言（3行まで）
+  durationMin    Int? // 分
+  recordedAt     DateTime? // 開催日
+  isActive       Boolean  @default(true)
+  viewCount      Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, createdAt])
+  @@map("seminar_recordings")
+}
