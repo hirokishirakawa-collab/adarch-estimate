@@ -209,7 +209,7 @@ export async function extractFile(buf: Buffer, ext: string): Promise<ExtractResu
     case "txt":
     case "md":
     case "csv":
-      return { content: buf.toString("utf8"), pageCount: null };
+      return { content: buf.toString("utf8").replace(/^\uFEFF/, ""), pageCount: null }; // Excel/Sheets由来のBOMを除く
     default:
       throw new Error(`対応していない形式です: ${ext}`);
   }

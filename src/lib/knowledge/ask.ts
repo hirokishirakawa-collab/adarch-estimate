@@ -30,6 +30,7 @@ export interface AskResult {
 
 const TOTAL_CHAR_BUDGET = 160_000; // 1回の質問で渡す全文の上限（費用の蓋）
 const MIN_PER_DOC = 20_000;
+const PINNED_CHAR_BUDGET = 420_000; // 資料を指定して聞くとき（2件まで）は全文を渡す＝表・掲載実績CSVを切らない
 
 const SYSTEM = `あなたは広告代理店グループ「アドアーチ」の資料ライブラリ（OSの頭脳）の司書です。
 渡された資料だけを根拠に、加盟代表（みんな社長）の質問に日本語で答えます。
@@ -44,6 +45,21 @@ ${KNOWLEDGE_USE_RULES}
 - 最後に「そのまま使える点」と「参考にとどめる点」を1〜3行ずつ分けて書く
 - 見出し（#）は使わない。全体で長くても600字程度`;
 
+/** 空行の無い長い塊を、行を壊さずに 600〜800字のまとまりへ割る（CSVなら約10行ずつ） */
+function splitLongByLines(text: string): string[] {
+  const out: string[] = [];
+  let buf = "";
+  for (const line of text.split("\n")) {
+    if (buf.length + line.length + 1 > 800 && buf.length >= 300) {
+      out.push(buf);
+      buf = "";
+    }
+    buf += (buf ? "\n" : "") + line;
+  }
+  if (buf.trim()) out.push(buf);
+  return out;
+}
+
 /**
  * 全文を「ページ→段落」のブロックに割る（citations を段落単位で返させるため）。
  * 「## p.N」で区切り、空行で段落に割り、短い段落は前後とまとめる（1ブロック 200〜700字目安）。
@@ -57,7 +73,12 @@ export function splitIntoBlocks(content: string): { text: string; page: number |
     const pm = sec.match(/^## p\.(\d+)/);
     const page = pm ? Number(pm[1]) : null;
     const body = pm ? sec.slice(pm[0].length) : sec;
-    const paras = body.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+    // 空行で段落に割る。空行の無い長い塊（CSV・表・ログ）は行のまとまりで割る
+    const paras = body
+      .split(/\n\s*\n/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .flatMap((para) => (para.length <= 1500 ? [para] : splitLongByLines(para)));
     let buf = "";
     const flush = () => {
       if (buf.trim()) out.push({ text: (page ? `（p.${page}）` : "") + buf.trim(), page });
@@ -109,7 +130,9 @@ export async function askKnowledge(input: {
   }
 
   // 2) 費用の蓋: 合計文字数を抑える。ページ→段落のブロックに割って渡す（出典が段落単位で返る）
-  let budget = TOTAL_CHAR_BUDGET;
+  //    資料を指定して聞く（2件まで）ときは全文を渡す（掲載実績の表など、切ると答えが欠ける）
+  const pinned = Boolean(input.sourceIds && input.sourceIds.length > 0 && input.sourceIds.length <= 2);
+  let budget = pinned ? PINNED_CHAR_BUDGET : TOTAL_CHAR_BUDGET;
   const docs = ordered.map((r) => {
     const allow = Math.max(MIN_PER_DOC, Math.min(r.content.length, budget));
     const truncated = r.content.length > allow;
