@@ -1,13 +1,13 @@
 // ==============================================================
-// POST /api/group-support/webhook — 週次共有受信
+// POST /api/group-support/webhook — 週次共有受信（旧 v1 形式・q1〜q5）
+//   外部（Bot/フォーム連携）からの受け口。設問 v2（2026-09-10）以降も v1 のまま受け、
+//   formVersion=1 / source=WEBHOOK で保存する。保存の中身は共通コア（saveWeeklyShare）。
 // ==============================================================
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyWebhookApiKey } from "@/lib/webhook-auth";
-import { calculateStatus, getWeekId } from "@/lib/constants/group-support";
-import { logAudit } from "@/lib/audit";
-import { sendGroupSupportAlertEmail, sendGroupSupportAlertChat } from "@/lib/resend";
+import { saveWeeklyShare, validateWeeklyAnswers } from "@/lib/group-support/submit-weekly";
 
 export async function POST(req: NextRequest) {
   // 認証
@@ -17,8 +17,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { chatSpaceId, q1, q2, q3, q4, q5 } = body;
+    const answers = { q1, q2, q3, q4, q5 };
 
-    if (!chatSpaceId || !q1 || !q2 || !q3 || !q4 || !q5) {
+    if (!chatSpaceId || validateWeeklyAnswers(answers)) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -37,74 +38,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const weekId = getWeekId();
-    const status = calculateStatus(q1, q5);
-
-    // 週次共有を upsert
-    const submission = await db.weeklySubmission.upsert({
-      where: {
-        groupCompanyId_weekId: {
-          groupCompanyId: company.id,
-          weekId,
-        },
-      },
-      update: { q1, q2, q3, q4, q5, status },
-      create: {
-        groupCompanyId: company.id,
-        weekId,
-        q1,
-        q2,
-        q3,
-        q4,
-        q5,
-        status,
-      },
+    const r = await saveWeeklyShare({
+      company,
+      answers,
+      source: "WEBHOOK",
+      actorEmail: "bot@group-support",
     });
-
-    // コンタクト履歴に記録
-    await db.contactHistory.create({
-      data: {
-        groupCompanyId: company.id,
-        type: "WEEKLY_SUBMISSION",
-        content: `週次共有 (${weekId}): ${q1}`,
-        actorName: company.ownerName,
-        weekId,
-      },
-    });
-
-    // 監査ログ
-    logAudit({
-      action: "group_weekly_submitted",
-      email: "bot@group-support",
-      name: company.name,
-      entity: "weekly_submission",
-      entityId: submission.id,
-      detail: `${weekId} status=${status}`,
-    });
-
-    // Q5がサポート要請の場合、即時通知（メール＋Chat）
-    if (q5 === "あると助かる" || q5 === "できれば早めに欲しい") {
-      const alertPayload = {
-        companyName: company.name,
-        ownerName: company.ownerName,
-        companyId: company.id,
-        q1,
-        q5,
-        q4,
-        weekId,
-      };
-      sendGroupSupportAlertEmail(alertPayload).catch((e) =>
-        console.error("[group-support/webhook] Alert email error:", e)
-      );
-      sendGroupSupportAlertChat(alertPayload).catch((e) =>
-        console.error("[group-support/webhook] Alert chat error:", e)
-      );
-    }
 
     return NextResponse.json({
       ok: true,
-      weekId,
-      status,
+      weekId: r.weekId,
+      status: r.status,
       companyName: company.name,
     });
   } catch (e) {

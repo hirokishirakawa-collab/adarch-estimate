@@ -49,9 +49,10 @@ export async function getGroupCompanies() {
     where: { isActive: true },
     orderBy: { name: "asc" },
     include: {
+      // 今週＋先週（2週連続🔴の判定用）。新しい週から2件
       weeklySubmissions: {
-        where: { weekId },
-        take: 1,
+        orderBy: { weekId: "desc" },
+        take: 2,
       },
       contactHistories: {
         orderBy: { createdAt: "desc" },
@@ -105,8 +106,16 @@ export async function getGroupCompanies() {
     const hasCurrentReport = branchIds.some((id) => currentReportedBranches.has(id));
     const hasPrevReport = branchIds.some((id) => prevReportedBranches.has(id));
     const aiConnected = c.linkedUsers.some((u) => aiConnectedEmails.has(u.email.toLowerCase()));
+    const currentSub = c.weeklySubmissions.find((w) => w.weekId === weekId) ?? null;
+    const prevSub = c.weeklySubmissions.find((w) => w.weekId < weekId) ?? null;
+    // 2週連続🔴（v2: 声かけ0が2週）＝要フォロー
+    const redStreak = currentSub?.status === "RED" && prevSub?.status === "RED";
     return {
       ...c,
+      weeklySubmissions: currentSub ? [currentSub] : [],
+      currentSub,
+      prevSub,
+      redStreak,
       prevMonthReportSubmitted: hasPrevReport,
       currentMonthReportSubmitted: hasCurrentReport,
       aiConnected,

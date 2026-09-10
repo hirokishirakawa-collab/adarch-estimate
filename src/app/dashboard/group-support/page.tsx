@@ -6,6 +6,8 @@ import { getGroupCompanies } from "@/lib/actions/group-support";
 import {
   STATUS_CONFIG,
   PHASE_OPTIONS,
+  weeklySummaryLine,
+  hasHqRequest,
 } from "@/lib/constants/group-support";
 import type { WeeklyStatus } from "@/generated/prisma/client";
 import { GenerateReportButton } from "./GenerateReportButton";
@@ -122,6 +124,9 @@ export default async function GroupSupportPage() {
                 <th className="text-center px-3 py-2 text-zinc-500 font-medium">
                   今週
                 </th>
+                <th className="text-left px-3 py-2 text-zinc-500 font-medium">
+                  声かけ・依頼
+                </th>
                 <th className="text-center px-3 py-2 text-zinc-500 font-medium">
                   {currentMonthLabel}
                 </th>
@@ -177,6 +182,21 @@ export default async function GroupSupportPage() {
                       >
                         {cfg.emoji} {cfg.label}
                       </span>
+                      {row.redStreak && (
+                        <span title="2週連続🔴＝要フォロー" className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-600 text-white align-middle">
+                          2週
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-zinc-600 max-w-[260px]">
+                      {lastSub ? (
+                        <span className="truncate block" title={weeklySummaryLine(lastSub)}>
+                          {weeklySummaryLine(lastSub)}
+                          {hasHqRequest(lastSub.hqRequest) && <span className="ml-1 text-amber-700">🙏</span>}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-300">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-center">
                       {row.currentMonthReportSubmitted ? (

@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { notifyCeo } from "@/lib/google-chat";
-import { saveWeeklyShare, validateWeeklyAnswers } from "@/lib/group-support/submit-weekly";
+import { saveWeeklyShareV2, validateWeeklyAnswersV2 } from "@/lib/group-support/submit-weekly";
 
 export type SubmitState = {
   success?: boolean;
@@ -72,19 +72,17 @@ export async function submitWeeklyShare(
 ): Promise<SubmitState> {
   try {
     const chatSpaceId = formData.get("chatSpaceId") as string;
-    const answers = {
-      q1: formData.get("q1") as string,
-      q2: formData.get("q2") as string,
-      q3: formData.get("q3") as string,
-      q4: formData.get("q4") as string,
-      q5: formData.get("q5") as string,
-    };
-
     if (!chatSpaceId) {
       return { error: "すべての項目を入力してください" };
     }
-    const invalid = validateWeeklyAnswers(answers);
-    if (invalid) return { error: invalid };
+
+    // v2（2026-09-10〜）: 未連携の代表＝声かけ数＋本部に頼みたいこと の2問
+    const v = validateWeeklyAnswersV2({
+      outreachCount: Number(formData.get("outreachCount")),
+      hqRequest: (formData.get("hqRequest") as string) ?? "",
+      hqNote: (formData.get("hqNote") as string) ?? "",
+    });
+    if ("error" in v) return { error: v.error };
 
     const company = await db.groupCompany.findUnique({
       where: { chatSpaceId },
@@ -94,10 +92,10 @@ export async function submitWeeklyShare(
       return { error: "企業情報が見つかりません" };
     }
 
-    // 保存・履歴・監査ログ・Q5アラートは共通コア（AI連携の submit_weekly_share と同じ処理）
-    await saveWeeklyShare({
+    // 保存・履歴・監査ログ・本部依頼アラートは共通コア（AI連携の submit_weekly_share と同じ処理）
+    await saveWeeklyShareV2({
       company,
-      answers,
+      answers: v.ok,
       source: "FORM",
       actorEmail: "form@group-support",
     });

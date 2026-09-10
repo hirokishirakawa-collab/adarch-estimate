@@ -1,7 +1,7 @@
 // ==============================================================
 // MCP: 週次共有（グループサポート）を AI から出す
 //   my_week            = この1週間の自拠点の事実を1コールで返す（声かけ・返事・活動記録・動いた商談・受注候補・先週の予定）
-//   submit_weekly_share = Q1〜Q5 を受け取り、フォームと同じ処理で提出する（共通コア saveWeeklyShare）
+//   submit_weekly_share = v2（声かけ数・返事数・受注候補・先週の答え合わせ・本部依頼）を受け取り、フォームと同じ処理で提出する（共通コア saveWeeklyShareV2）
 //   決まり:
 //     - 加盟代表（groupCompanyId あり）だけ。本部ユーザーは対象外
 //     - 数字は OS にある記録だけ（AIが盛らない）。金額は返さない
@@ -11,8 +11,8 @@
 import { db } from "@/lib/db";
 import { getBranchFilter } from "@/lib/session";
 import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
-import { getWeekId, Q1_OPTIONS, Q5_OPTIONS } from "@/lib/constants/group-support";
-import { saveWeeklyShare, validateWeeklyAnswers } from "@/lib/group-support/submit-weekly";
+import { getWeekId, HQ_REQUEST_OPTIONS, FOLLOW_UP_OPTIONS, OUTREACH_GREEN_MIN, weeklySummaryLine } from "@/lib/constants/group-support";
+import { saveWeeklyShareV2, validateWeeklyAnswersV2 } from "@/lib/group-support/submit-weekly";
 import type { McpViewer } from "./os-read-tools";
 import { WriteError } from "./os-write-tools";
 
@@ -65,8 +65,8 @@ export async function myWeek(v: McpViewer, input: { days?: number }) {
       take: 3,
     }),
     db.salesActivity.findMany({ where: { userId: v.id, date: { gte: from } }, select: { companyName: true, note: true, date: true }, orderBy: { date: "desc" }, take: 30 }),
-    db.weeklySubmission.findUnique({ where: { groupCompanyId_weekId: { groupCompanyId: company.id, weekId } }, select: { q1: true, q2: true, q3: true, q4: true, q5: true, status: true, updatedAt: true } }),
-    db.weeklySubmission.findFirst({ where: { groupCompanyId: company.id, weekId: { not: weekId } }, orderBy: { weekId: "desc" }, select: { weekId: true, q1: true, q3: true, q4: true, status: true } }),
+    db.weeklySubmission.findUnique({ where: { groupCompanyId_weekId: { groupCompanyId: company.id, weekId } }, select: { formVersion: true, q1: true, q2: true, q3: true, outreachCount: true, repliedCount: true, candidate: true, followUp: true, hqRequest: true, hqNote: true, status: true, updatedAt: true } }),
+    db.weeklySubmission.findFirst({ where: { groupCompanyId: company.id, weekId: { not: weekId } }, orderBy: { weekId: "desc" }, select: { weekId: true, formVersion: true, q1: true, q3: true, outreachCount: true, candidate: true, followUp: true, status: true } }),
   ]);
 
   const replied = resultLeads.filter((l) => l.outreachResult === "REPLIED" || l.outreachResult === "REPLIED_NG" || l.outreachResult === "WON");
@@ -77,10 +77,17 @@ export async function myWeek(v: McpViewer, input: { days?: number }) {
     weekId,
     period: { from: day(from), to: day(new Date()), days },
     alreadySubmittedThisWeek: thisWeek
-      ? { status: thisWeek.status, q1: thisWeek.q1, q2: thisWeek.q2, q3: thisWeek.q3, q4: thisWeek.q4, q5: thisWeek.q5, updatedAt: day(thisWeek.updatedAt), note: "今週は提出済み。submit_weekly_share を呼ぶと上書きになる" }
+      ? { status: thisWeek.status, summary: weeklySummaryLine(thisWeek), updatedAt: day(thisWeek.updatedAt), note: "今週は提出済み。submit_weekly_share を呼ぶと上書きになる" }
       : null,
     lastWeek: lastWeekly
-      ? { weekId: lastWeekly.weekId, q1: lastWeekly.q1, plannedForThisWeek: lastWeekly.q3, shared: lastWeekly.q4, status: lastWeekly.status, note: "先週の『来週やること』。今週やれたかを Q2 に書く材料" }
+      ? {
+          weekId: lastWeekly.weekId,
+          status: lastWeekly.status,
+          // v2 なら先週書いた「いちばん近い1件（次の一手）」、v1 なら「来週やること」
+          plannedNextStep: (lastWeekly.formVersion ?? 1) >= 2 ? lastWeekly.candidate : lastWeekly.q3,
+          outreachCount: lastWeekly.outreachCount,
+          note: "先週の『次の一手』。今週動いたかを本人に聞き followUp（DONE / PARTIAL / NOT）に入れる",
+        }
       : null,
     outreach: {
       sentCount: sentLeads.length,
@@ -100,27 +107,31 @@ export async function myWeek(v: McpViewer, input: { days?: number }) {
     movedDeals: movedDeals.map((d) => ({ customer: d.customer.name, title: d.title, status: d.status, probability: d.probability, expectedClose: day(d.expectedCloseDate), updatedAt: day(d.updatedAt) })),
     closestCandidates: candidates.map((d) => ({ customer: d.customer.name, title: d.title, status: d.status, probability: d.probability, expectedClose: day(d.expectedCloseDate) })),
     form: {
-      q1: { label: "今週の調子はいかがですか？", options: [...Q1_OPTIONS] },
-      q2: { label: "先週やったこと（箇条書きでOK）" },
-      q3: { label: "来週やること" },
-      q4: { label: "共有・相談したいこと（なければ「特になし」）" },
-      q5: { label: "本部からのサポートは必要ですか？", options: [...Q5_OPTIONS] },
+      outreachCount: { label: "今週、新しく声をかけた先（件）", auto: "outreach.sentCount（OSの送付記録）。OSに無い声かけは本人に聞いて足す" },
+      repliedCount: { label: "そのうち返事があった・会えた（件）", auto: "outreach.repliedCount + appointmentCount" },
+      candidate: { label: "いちばん受注に近い1件（相手・次の一手・いつまで）", auto: "closestCandidates の先頭を提案し本人が確定。無ければ null" },
+      followUp: { label: "先週の『次の一手』は動いた？", options: FOLLOW_UP_OPTIONS.map((o) => `${o.value}=${o.label}`), auto: "lastWeek.plannedNextStep を見せて本人に選んでもらう。先週が無ければ null" },
+      hqRequest: { label: "本部に頼みたいこと", options: HQ_REQUEST_OPTIONS.map((o) => `${o.value}=${o.label}`), auto: "本人に選んでもらう（提案書・見積・文面はAIで自分でやる前提）" },
+      hqNote: { label: "依頼の一言（任意）" },
+      status: `声かけ数で自動判定: 🟢${OUTREACH_GREEN_MIN}件以上 / 🟡1〜2件 / 🔴0件`,
     },
     howTo:
-      "この材料から Q1〜Q5 の下書きを作り、本人に見せて直してもらってから submit_weekly_share を呼ぶ。数字と相手先名は上の記録にあるものだけを使う（OSに無い活動は本人に聞いて足す）。金額は書かない。Q1 と Q5 は本人に選んでもらう。",
+      "1) outreachCount / repliedCount / candidate を上の記録から埋める（本人に見せて直す）2) lastWeek.plannedNextStep があれば「先週の次の一手は動きましたか？」と聞いて followUp を決める 3) hqRequest を本人に選んでもらう 4) 確認が取れたら submit_weekly_share。数字と相手先名は記録にあるものだけ。金額は書かない。",
   };
 }
 
-/** 週次共有を提出（フォームと同じ処理） */
-export async function submitWeeklyShare(v: McpViewer, input: { q1: string; q2: string; q3: string; q4: string; q5: string }) {
+/** 週次共有を提出（v2・フォームと同じ処理） */
+export async function submitWeeklyShare(
+  v: McpViewer,
+  input: { outreachCount: number; hqRequest: string; hqNote?: string; repliedCount?: number; candidate?: string; followUp?: string; followUpNote?: string },
+) {
   const company = await myCompany(v);
-  const answers = { q1: input.q1?.trim(), q2: input.q2?.trim(), q3: input.q3?.trim(), q4: input.q4?.trim(), q5: input.q5?.trim() };
-  const invalid = validateWeeklyAnswers(answers);
-  if (invalid) throw new WriteError(invalid);
+  const r0 = validateWeeklyAnswersV2(input);
+  if ("error" in r0) throw new WriteError(r0.error);
 
-  const r = await saveWeeklyShare({
+  const r = await saveWeeklyShareV2({
     company,
-    answers,
+    answers: r0.ok,
     source: "AI",
     actorEmail: v.email,
     actorName: v.name ?? company.ownerName,
@@ -130,7 +141,8 @@ export async function submitWeeklyShare(v: McpViewer, input: { q1: string; q2: s
     ok: true,
     weekId: r.weekId,
     status: r.status,
+    summary: r.summary,
     company: company.name,
-    message: `${company.name} の週次共有（${r.weekId}）を提出しました。本部のグループサポート画面に「AI記録」の印つきで出ます${answers.q5 !== "今は大丈夫" ? "。サポート要請として本部に通知しました" : ""}`,
+    message: `${company.name} の週次共有（${r.weekId}）を提出しました＝${r.summary}。本部のグループサポート画面に「AI記録」の印つきで出ます${r0.ok.hqRequest !== "NONE" ? "。本部への依頼として通知しました" : ""}`,
   };
 }

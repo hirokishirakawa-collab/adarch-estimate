@@ -6,6 +6,10 @@ import { getGroupCompanyDetail } from "@/lib/actions/group-support";
 import {
   STATUS_CONFIG,
   PHASE_OPTIONS,
+  hqRequestLabel,
+  followUpLabel,
+  hasHqRequest,
+  weeklySummaryLine,
 } from "@/lib/constants/group-support";
 import type { WeeklyStatus, ContactType } from "@/generated/prisma/client";
 import { GroupCompanyEditForm } from "./edit-form";
@@ -104,6 +108,15 @@ export default async function GroupCompanyDetailPage({
           今週の共有 ({weekId})
         </h2>
         {currentSub ? (
+          (currentSub.formVersion ?? 1) >= 2 ? (
+            <div className="space-y-2 text-xs">
+              <Field label="声をかけた先" value={`${currentSub.outreachCount ?? 0}件${currentSub.repliedCount != null ? `（返事・会えた ${currentSub.repliedCount}件）` : ""}`} />
+              {currentSub.candidate && <Field label="いちばん近い1件" value={currentSub.candidate} />}
+              {currentSub.followUp && <Field label="先週の次の一手" value={`${followUpLabel(currentSub.followUp)}${currentSub.followUpNote ? ` — ${currentSub.followUpNote}` : ""}`} />}
+              <Field label="本部への依頼" value={hasHqRequest(currentSub.hqRequest) ? `${hqRequestLabel(currentSub.hqRequest)}${currentSub.hqNote ? `\n${currentSub.hqNote}` : ""}` : "なし"} />
+              <p className="text-[10px] text-zinc-400">{currentSub.source === "AI" ? "AI連携から提出（AI記録）" : currentSub.source === "WEBHOOK" ? "Bot経由" : "フォームから提出"}</p>
+            </div>
+          ) : (
           <div className="space-y-2 text-xs">
             <Field label="調子" value={currentSub.q1} />
             <Field label="先週やったこと" value={currentSub.q2} />
@@ -111,6 +124,7 @@ export default async function GroupCompanyDetailPage({
             <Field label="共有・相談" value={currentSub.q4} />
             <Field label="サポート" value={currentSub.q5} />
           </div>
+          )
         ) : (
           <p className="text-xs text-zinc-400">まだ共有されていません</p>
         )}
@@ -137,9 +151,10 @@ export default async function GroupCompanyDetailPage({
               {company.weeklySubmissions.map((sub) => {
                 const sl = STATUS_LIGHT[sub.status];
                 const sc = STATUS_CONFIG[sub.status];
-                const hasWriting = [sub.q2, sub.q3, sub.q4].some(
-                  (v) => v.trim() !== ""
-                );
+                const isV2 = (sub.formVersion ?? 1) >= 2;
+                const hasWriting = isV2
+                  ? !!(sub.candidate || sub.followUp || hasHqRequest(sub.hqRequest))
+                  : [sub.q2, sub.q3, sub.q4].some((v) => v.trim() !== "");
                 const row = (
                   <>
                     <span className="text-zinc-400 w-16 flex-shrink-0">
@@ -151,7 +166,7 @@ export default async function GroupCompanyDetailPage({
                       {sc.emoji} {sc.label}
                     </span>
                     <span className="text-zinc-600 truncate">
-                      {sub.q1}
+                      {weeklySummaryLine(sub)}
                     </span>
                   </>
                 );
@@ -177,16 +192,25 @@ export default async function GroupCompanyDetailPage({
                       </span>
                     </summary>
                     <div className="mt-1.5 mb-2 ml-2 pl-3 border-l-2 border-zinc-200 space-y-1.5">
-                      {sub.q2.trim() !== "" && (
+                      {isV2 && sub.candidate && (
+                        <Field label="いちばん近い1件" value={sub.candidate} />
+                      )}
+                      {isV2 && sub.followUp && (
+                        <Field label="先週の次の一手" value={`${followUpLabel(sub.followUp)}${sub.followUpNote ? ` — ${sub.followUpNote}` : ""}`} />
+                      )}
+                      {isV2 && hasHqRequest(sub.hqRequest) && (
+                        <Field label="本部への依頼" value={`${hqRequestLabel(sub.hqRequest)}${sub.hqNote ? ` — ${sub.hqNote}` : ""}`} />
+                      )}
+                      {!isV2 && sub.q2.trim() !== "" && (
                         <Field label="先週やったこと" value={sub.q2} />
                       )}
-                      {sub.q3.trim() !== "" && (
+                      {!isV2 && sub.q3.trim() !== "" && (
                         <Field label="来週やること" value={sub.q3} />
                       )}
-                      {sub.q4.trim() !== "" && (
+                      {!isV2 && sub.q4.trim() !== "" && (
                         <Field label="共有・相談" value={sub.q4} />
                       )}
-                      {sub.q5.trim() !== "" && (
+                      {!isV2 && sub.q5.trim() !== "" && (
                         <Field label="サポート" value={sub.q5} />
                       )}
                     </div>

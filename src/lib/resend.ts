@@ -328,59 +328,55 @@ export async function sendTverCampaignCreatedEmail(
 }
 
 // ---------------------------------------------------------------
-// グループサポート サポート要請 Google Chat 通知
-// Q5 が「あると助かる」または「できれば早めに欲しい」の場合に即時送信
+// グループサポート 本部への依頼 Google Chat 通知
+// v2: hqRequest が NONE 以外のとき即時送信（v1 の Q5 サポート要請も同じ形で通す）
 // ---------------------------------------------------------------
 export async function sendGroupSupportAlertChat(
   payload: GroupSupportAlertPayload
 ): Promise<void> {
-  const { companyName, ownerName, companyId, q1, q5, q4, weekId } = payload;
-  const isUrgent = q5 === "できれば早めに欲しい";
-  const emoji = isUrgent ? "🆘" : "🙏";
+  const { companyName, ownerName, companyId, weekId, requestLabel, note, summary } = payload;
   const url = appUrl(`/dashboard/group-support/${companyId}`);
 
   const text =
-    `${emoji} *サポート要請* — ${companyName}（${ownerName}）\n\n` +
+    `🙏 *本部への依頼* — ${companyName}（${ownerName}）\n\n` +
     `📅 ${weekId}\n` +
-    `Q1. 今週の調子: ${q1}\n` +
-    `Q5. サポート: *${q5}*\n` +
-    `Q4. 相談内容: ${q4 || "（記載なし）"}\n\n` +
+    `依頼: *${requestLabel}*\n` +
+    `一言: ${note || "（記載なし）"}\n` +
+    `今週: ${summary}\n\n` +
     `👉 ${url}`;
 
   await notifyCeo(text);
 }
 
 // ---------------------------------------------------------------
-// グループサポート サポート要請アラート メール（→ 管理者）
-// Q5 が「あると助かる」または「できれば早めに欲しい」の場合に即時送信
+// グループサポート 本部への依頼アラート メール（→ 管理者）
 // ---------------------------------------------------------------
 export type GroupSupportAlertPayload = {
   companyName: string;
   ownerName: string;
   companyId: string;
-  q1: string;
-  q5: string;
-  q4: string;
   weekId: string;
+  requestLabel: string; // 依頼の種別（v2: HQ_REQUEST の日本語 / v1: 「サポート: あると助かる」等）
+  note: string; // 依頼の一言（v2: hqNote / v1: Q4）
+  summary: string; // 今週の要約（v2: 声かけ◯件… / v1: Q1）
 };
 
 export async function sendGroupSupportAlertEmail(
   payload: GroupSupportAlertPayload
 ): Promise<void> {
-  const { companyName, ownerName, companyId, q1, q5, q4, weekId } = payload;
+  const { companyName, ownerName, companyId, weekId, requestLabel, note, summary } = payload;
   const url = appUrl(`/dashboard/group-support/${companyId}`);
 
-  const isUrgent = q5 === "できれば早めに欲しい";
-  const urgencyLabel = isUrgent ? "🆘 至急" : "🙏 サポート希望";
-  const subject = `【グループサポート${isUrgent ? "・至急」" : "】"}${companyName}（${ownerName}）からサポート要請`;
+  const urgencyLabel = "🙏 本部への依頼";
+  const subject = `【グループサポート】${companyName}（${ownerName}）から本部への依頼`;
 
   const rows = [
     ["企業", companyName],
     ["代表者", ownerName],
     ["週", weekId],
-    ["Q1. 今週の調子", q1],
-    ["Q5. サポート要請", `${urgencyLabel}  ${q5}`],
-    ["Q4. 共有・相談", q4 || "（記載なし）"],
+    ["依頼", requestLabel],
+    ["一言", note || "（記載なし）"],
+    ["今週", summary],
   ]
     .map(
       ([label, value]) => `
@@ -401,7 +397,7 @@ export async function sendGroupSupportAlertEmail(
       <table width="580" cellpadding="0" cellspacing="0"
              style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
         <tr>
-          <td style="background:${isUrgent ? "#dc2626" : "#f59e0b"};padding:20px 28px;">
+          <td style="background:#f59e0b;padding:20px 28px;">
             <span style="color:#ffffff;font-size:18px;font-weight:700;">${urgencyLabel}</span>
             <span style="color:rgba(255,255,255,0.85);font-size:13px;margin-left:8px;">グループサポート通知</span>
           </td>
@@ -409,7 +405,7 @@ export async function sendGroupSupportAlertEmail(
         <tr>
           <td style="padding:28px;">
             <p style="margin:0 0 20px;font-size:14px;color:#3f3f46;">
-              ${escHtml(companyName)}の${escHtml(ownerName)}さんから、本部サポートの要請がありました。
+              ${escHtml(companyName)}の${escHtml(ownerName)}さんから、本部への依頼がありました。
             </p>
             <table width="100%" cellpadding="0" cellspacing="0"
                    style="border-collapse:collapse;font-size:14px;">

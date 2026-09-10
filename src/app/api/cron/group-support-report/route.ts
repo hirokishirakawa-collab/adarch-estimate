@@ -4,7 +4,7 @@ export const maxDuration = 60;
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
-import { getWeekId, STATUS_CONFIG } from "@/lib/constants/group-support";
+import { STATUS_CONFIG, getWeekId, hasHqRequest, hqRequestLabel, followUpLabel } from "@/lib/constants/group-support";
 import { sendGroupWeeklyReportEmail } from "@/lib/notifications";
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
@@ -58,18 +58,24 @@ export async function GET(req: NextRequest) {
   // 注目企業（🟡🔴 or サポート要請あり）
   const notable = submitted.filter((c) => {
     const sub = c.weeklySubmissions[0];
+    const v2 = (sub.formVersion ?? 1) >= 2;
     return (
       sub.status === "YELLOW" ||
       sub.status === "RED" ||
-      sub.q5 !== "今は大丈夫"
+      (v2 ? hasHqRequest(sub.hqRequest) : sub.q5 !== "今は大丈夫")
     );
   });
 
-  // Claude Haiku で週報生成
+  // Claude Haiku で週報生成（v2=行動量型 / v1=旧設問 を併記）
   const promptData = submitted
     .map((c) => {
       const sub = c.weeklySubmissions[0];
-      return `【${c.name}（${c.ownerName}）】ステータス: ${STATUS_CONFIG[sub.status].emoji}${STATUS_CONFIG[sub.status].label}
+      const head = `【${c.name}（${c.ownerName}）】ステータス: ${STATUS_CONFIG[sub.status].emoji}${STATUS_CONFIG[sub.status].label}${sub.source === "AI" ? "（AI連携から提出）" : ""}`;
+      if ((sub.formVersion ?? 1) >= 2) {
+        return `${head}
+声かけ: ${sub.outreachCount ?? 0}件${sub.repliedCount != null ? ` / 返事・会えた: ${sub.repliedCount}件` : ""} / いちばん近い1件: ${sub.candidate ?? "なし"} / 先週の次の一手: ${followUpLabel(sub.followUp)}${sub.followUpNote ? `（${sub.followUpNote}）` : ""} / 本部への依頼: ${hasHqRequest(sub.hqRequest) ? `${hqRequestLabel(sub.hqRequest)}${sub.hqNote ? `—${sub.hqNote}` : ""}` : "なし"}`;
+      }
+      return `${head}
 Q1(調子): ${sub.q1} / Q2(先週やったこと): ${sub.q2} / Q3(来週やること): ${sub.q3} / Q4(共有・相談): ${sub.q4} / Q5(サポート): ${sub.q5}`;
     })
     .join("\n\n");
@@ -92,7 +98,7 @@ ${notSubmitted.map((c) => `- ${c.name}（${c.ownerName}）`).join("\n") || "な�
 
 【出力形式】
 1. 全体サマリー（3〜5行）: 共有率、全体の傾向、ポジティブな動き
-2. 注目すべき会社（苦戦中🟡・要フォロー🔴・サポート要請ありの会社のみ）: 各社について、何が起きているか・どう対応すべきかを2〜3行で要約
+2. 注目すべき会社（🟡・🔴・本部への依頼ありの会社のみ）: 各社について、声かけの量と受注候補の状況、本部が動くべきこと（依頼の中身）を2〜3行で要約。🔴は「声かけ0件」＝営業として動いていない事実として書く
 3. 未共有企業リスト（あれば）
 
 トーンは社長への内部ブリーフィング。簡潔かつ的確に。マークダウンは使わず、プレーンテキストで出力してください。`;

@@ -2,23 +2,21 @@
 
 import { useActionState } from "react";
 import { submitWeeklyShare, submitConsult, type SubmitState } from "./actions";
+import { HQ_REQUEST_OPTIONS } from "@/lib/constants/group-support";
 
-const q1Options = [
-  { value: "いい感じ", label: "いい感じ 👍" },
-  { value: "ちょっと苦戦中", label: "ちょっと苦戦中 💪" },
-  { value: "手が止まっている", label: "手が止まっている 🤔" },
-];
-
-const q5Options = [
-  { value: "今は大丈夫", label: "今は大丈夫 😊" },
-  { value: "あると助かる", label: "あると助かる 🙏" },
-  { value: "できれば早めに欲しい", label: "できれば早めに欲しい 🆘" },
-];
+// v2（2026-09-10〜）: 未連携の代表向け＝2問だけ（声かけ数＋本部に頼みたいこと）
+// AI連携（MCP）の代表は Claude / ChatGPT に「週次を出して」で提出できる（このフォームは使わなくてよい）
+const hqRequestOptions = HQ_REQUEST_OPTIONS;
 
 const selectClass =
   "w-full px-3 py-2.5 text-sm bg-white border border-zinc-200 rounded-lg " +
   "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent " +
   "transition-colors appearance-none";
+
+const inputClass =
+  "px-3 py-2.5 text-sm bg-white border border-zinc-200 rounded-lg " +
+  "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent " +
+  "placeholder:text-zinc-400 transition-colors";
 
 const textareaClass =
   "w-full px-3 py-2.5 text-sm bg-white border border-zinc-200 rounded-lg " +
@@ -76,7 +74,7 @@ function WeeklyShareForm({
       <div className="text-center space-y-1">
         <p className="text-xs text-zinc-400">サポート事務局</p>
         <h2 className="text-lg font-bold text-zinc-800">
-          今週の様子をシェア
+          今週の営業をシェア
         </h2>
         <p className="text-xs text-zinc-500">{companyName}</p>
       </div>
@@ -87,85 +85,52 @@ function WeeklyShareForm({
         </div>
       )}
 
-      {/* Q1 */}
+      {/* Q1. 声をかけた先の件数 */}
       <div className="space-y-1.5">
         <label className="block text-sm font-medium text-zinc-700">
-          Q1. 今週の調子はいかがですか？
+          Q1. 今週、新しく声をかけた先は何件ですか？
           <span className="ml-1 text-red-500 text-xs">必須</span>
         </label>
-        <select name="q1" required className={selectClass} defaultValue="">
+        <p className="text-xs text-zinc-500">メール・訪問・紹介・電話を合わせた件数。0でもOKです</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            name="outreachCount"
+            inputMode="numeric"
+            min={0}
+            max={999}
+            step={1}
+            required
+            placeholder="0"
+            className={inputClass + " w-28 text-center text-lg font-semibold"}
+          />
+          <span className="text-sm text-zinc-600">件</span>
+        </div>
+      </div>
+
+      {/* Q2. 本部に頼みたいこと */}
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-zinc-700">
+          Q2. 本部に頼みたいことはありますか？
+          <span className="ml-1 text-red-500 text-xs">必須</span>
+        </label>
+        <p className="text-xs text-zinc-500">提案書・見積・文面はOSのAIでできます。本部にしかできないことを選んでください</p>
+        <select name="hqRequest" required className={selectClass} defaultValue="">
           <option value="" disabled>
-            選択してください
+            選んでください
           </option>
-          {q1Options.map((o) => (
+          {hqRequestOptions.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
           ))}
         </select>
-      </div>
-
-      {/* Q2 */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-zinc-700">
-          Q2. 先週やったこと
-          <span className="ml-1 text-red-500 text-xs">必須</span>
-        </label>
         <textarea
-          name="q2"
-          required
-          rows={3}
-          placeholder="箇条書きでOKです"
+          name="hqNote"
+          rows={2}
+          placeholder="一言あれば（相手先・業種・いつまで、など。任意）"
           className={textareaClass}
         />
-      </div>
-
-      {/* Q3 */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-zinc-700">
-          Q3. 来週やること
-          <span className="ml-1 text-red-500 text-xs">必須</span>
-        </label>
-        <textarea
-          name="q3"
-          required
-          rows={3}
-          placeholder="予定していることを教えてください"
-          className={textareaClass}
-        />
-      </div>
-
-      {/* Q4 */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-zinc-700">
-          Q4. 共有・相談したいこと
-          <span className="ml-1 text-red-500 text-xs">必須</span>
-        </label>
-        <textarea
-          name="q4"
-          required
-          rows={3}
-          placeholder="なければ「特になし」でOKです"
-          className={textareaClass}
-        />
-      </div>
-
-      {/* Q5 */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-zinc-700">
-          Q5. 本部からのサポートは必要ですか？
-          <span className="ml-1 text-red-500 text-xs">必須</span>
-        </label>
-        <select name="q5" required className={selectClass} defaultValue="">
-          <option value="" disabled>
-            選択してください
-          </option>
-          {q5Options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
       </div>
 
       <button

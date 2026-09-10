@@ -71,6 +71,73 @@ export function calculateStatus(q1: string, q5: string): WeeklyStatus {
   return "YELLOW"; // フォールバック
 }
 
+// ==============================================================
+// v2（2026-09-10〜・行動量型）
+//   未連携（フォーム）= 声かけ数 + 本部に頼みたいこと
+//   AI連携（MCP weekly）= 声かけ数・返事数・受注候補はOSの記録から／答え合わせと本部依頼は本人
+// ==============================================================
+
+export const WEEKLY_FORM_VERSION = 2;
+
+/** 本部に頼みたいこと（提案書・見積・文面・リストは外す＝AIで自分でやる前提。本部にしかできない角度） */
+export const HQ_REQUEST_OPTIONS = [
+  { value: "NEW_PLAN", label: "この業種・この相手向けの新しいプランを作ってほしい", short: "新プラン" },
+  { value: "MEDIA_TERMS", label: "媒体の枠・条件を本部から交渉してほしい（TVer・サイネージ・LINEなど）", short: "媒体条件の交渉" },
+  { value: "JOINT_PROPOSAL", label: "本部名義で一緒に提案したい（大型・自治体・複数県）", short: "本部名義で共同提案" },
+  { value: "CASES", label: "他拠点の受注例・実績を出してほしい", short: "他拠点の受注例" },
+  { value: "PRICING", label: "値引き・条件の可否を判断してほしい", short: "値引き・条件の判断" },
+  { value: "NONE", label: "なし", short: "なし" },
+] as const;
+export type HqRequest = (typeof HQ_REQUEST_OPTIONS)[number]["value"];
+export const HQ_REQUEST_VALUES = HQ_REQUEST_OPTIONS.map((o) => o.value) as HqRequest[];
+export const hqRequestLabel = (v: string | null | undefined) => HQ_REQUEST_OPTIONS.find((o) => o.value === v)?.label ?? (v || "—");
+export const hqRequestShort = (v: string | null | undefined) => HQ_REQUEST_OPTIONS.find((o) => o.value === v)?.short ?? (v || "—");
+
+/** 先週の「次の一手」は動いた？（AI連携の答え合わせ） */
+export const FOLLOW_UP_OPTIONS = [
+  { value: "DONE", label: "やった" },
+  { value: "PARTIAL", label: "途中" },
+  { value: "NOT", label: "やってない" },
+] as const;
+export type FollowUp = (typeof FOLLOW_UP_OPTIONS)[number]["value"];
+export const FOLLOW_UP_VALUES = FOLLOW_UP_OPTIONS.map((o) => o.value) as FollowUp[];
+export const followUpLabel = (v: string | null | undefined) => FOLLOW_UP_OPTIONS.find((o) => o.value === v)?.label ?? (v || "—");
+
+/** v2 の閾値（声かけ数）。🟢 3件以上／🟡 1〜2件／🔴 0件 */
+export const OUTREACH_GREEN_MIN = 3;
+
+/**
+ * v2: 声かけ数から自動ステータス（自己申告なし）
+ * 🟢 outreachCount >= 3 / 🟡 1〜2 / 🔴 0
+ */
+export function calculateStatusV2(outreachCount: number): WeeklyStatus {
+  if (outreachCount >= OUTREACH_GREEN_MIN) return "GREEN";
+  if (outreachCount >= 1) return "YELLOW";
+  return "RED";
+}
+
+/** 本部への依頼があるか（NONE と空は依頼なし） */
+export const hasHqRequest = (v: string | null | undefined) => !!v && v !== "NONE";
+
+/** 提出1件の要約（一覧・履歴・週報の1行用）。v1/v2 どちらでも */
+export function weeklySummaryLine(sub: {
+  formVersion?: number | null;
+  q1?: string | null;
+  outreachCount?: number | null;
+  repliedCount?: number | null;
+  candidate?: string | null;
+  hqRequest?: string | null;
+}): string {
+  if ((sub.formVersion ?? 1) >= 2) {
+    const parts = [`声かけ${sub.outreachCount ?? 0}件`];
+    if (sub.repliedCount != null) parts.push(`返事${sub.repliedCount}件`);
+    if (sub.candidate) parts.push(`候補: ${sub.candidate.replace(/\s+/g, " ").slice(0, 40)}`);
+    if (hasHqRequest(sub.hqRequest)) parts.push(`依頼: ${hqRequestShort(sub.hqRequest)}`);
+    return parts.join(" / ");
+  }
+  return sub.q1 ?? "";
+}
+
 /**
  * ISO 週番号を算出（例: "2026-W10"）
  */
