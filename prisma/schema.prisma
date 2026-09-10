@@ -2460,6 +2460,11 @@ model Lead {
   // 取得を試した時刻。null = 未確認、値あり & foundedYear が null = 「探したが記載なし」。
   // 同じ会社のサイトを何度も巡回しないための印（email / emailCheckedAt と同じ考え方）。
   foundedCheckedAt    DateTime?
+  // ---- 広告出稿者ファインダー（2026-09-10）----
+  // 有料媒体への掲載＝広告費を払っている印。URLのドメインから機械判定した媒体キーを入れる
+  adPlatforms          String[]   @default([])   // 例: ["hotpepper_beauty"]
+  adPlatformUrl        String?                    // 根拠URL（掲載ページ or 自社サイト）
+  adPlatformCheckedAt  DateTime?                  // 判定を試した時刻。null=未確認
   cinemaTheaterId     Int?
   cinemaTheaterName   String?
   distanceKm          Float?
@@ -2503,6 +2508,7 @@ model Lead {
   @@index([sentAt])
   @@index([foundedYear])
   @@index([foundedCheckedAt])
+  @@index([adPlatformCheckedAt])
   @@map("leads")
 }
 

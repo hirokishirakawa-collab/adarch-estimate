@@ -17,6 +17,8 @@ import { resolveMetaConfig } from "@/lib/meta-ads/account";
 import { appUrl } from "@/lib/tver-order/service";
 import { discoverLeads } from "@/lib/leads/discover";
 import { prepareDm } from "@/lib/dm/prepare-dm";
+import { listAdBuyers } from "@/lib/ad-buyers/list";
+import { AD_PLATFORMS } from "@/lib/ad-buyers/platforms";
 
 export type ToolKind = "read" | "write";
 
@@ -191,6 +193,21 @@ export const OS_READ_TOOLS: OsToolDef[] = [
       "「週次を出して」「今週の週次」に答える材料。過去7日の自拠点の記録＝声をかけた先（送付済みリード）・返事とアポ・活動記録（顧客/商談/営業活動）・動いた商談・いちばん近い受注候補・先週の週次で書いた『来週やること』・今週の提出の有無を1コールで返す。返った材料から 声かけ数・返事数・受注候補 を埋め、先週の次の一手の答え合わせと本部への依頼を本人に聞いてから submit_weekly_share で提出する。金額は含まない。加盟代表のみ。",
     input: z.object({ days: z.number().int().optional().describe("さかのぼる日数（既定7・3〜14）") }),
     run: (v, a) => wk.myWeek(v, a),
+  }),
+  def({
+    name: "list_ad_buyers", kind: "read", title: "広告出稿者（有料媒体に載っている店）の一覧",
+    description:
+      "すでに有料媒体に掲載している＝広告費を払っている地元の店を県・市で返す（広告出稿者ファインダーで保存済みのリードだけ。新しく探すのはOS画面 /dashboard/ad-buyer-finder）。platform は " +
+      AD_PLATFORMS.map((p) => `${p.key}(${p.label}・確度${p.paidConfidence === "high" ? "高" : "中"})`).join(" / ") +
+      "。ホットペッパービューティーは実質有料掲載のみ＝掲載店は今か過去に広告費を払っている。食べログ等は無料枠があるため『中』。金額は持たない。",
+    input: z.object({
+      prefecture: z.string().describe("都道府県（例: 香川県）"),
+      city: z.string().optional().describe("市区町村（例: 高松市）"),
+      platform: z.string().optional().describe("媒体キー（例: hotpepper_beauty）"),
+      industry: z.string().optional().describe("業種（例: 美容室）"),
+      limit: z.number().int().optional().describe("既定50・最大200"),
+    }),
+    run: (v, a) => listAdBuyers(v, { ...a, limit: Math.min(200, Math.max(1, Math.floor(a.limit ?? 50))) }),
   }),
 ];
 

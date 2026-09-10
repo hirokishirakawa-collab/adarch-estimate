@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ExternalLink, Phone, Mail, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText, Film, Globe, PenLine, AlertTriangle, Mailbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel, getLeadSourceOption } from "@/lib/constants/leads";
+import { platformOf } from "@/lib/ad-buyers/platforms";
 import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads, bulkUpdateLeadStatus, bulkAssignLeads } from "@/lib/actions/lead";
 import { findEmailsForLeads } from "@/lib/actions/lead-email";
 import { getFreshness, SIGNAL_KIND_LABEL, type SignalKind } from "@/lib/leads/signal";
@@ -31,6 +32,8 @@ interface LeadRow {
   scoreComment: string | null;
   scoreBreakdown: Record<string, number> | null;
   source: string | null;
+  /** 広告出稿者ファインダーで確認した有料媒体（例: hotpepper_beauty）。空なら未確認 */
+  adPlatforms?: string[];
   status: string;
   memo: string | null;
   mapsUrl: string | null;
@@ -735,7 +738,7 @@ function LeadRow({
           })()}
       </td>
 
-      {/* 獲得元（どのリード獲得AIで取得したか） */}
+      {/* 獲得元（どのリード獲得AIで取得したか）＋ 有料媒体の掲載（広告出稿者ファインダー） */}
       <td className="px-3 py-3 text-center">
         {(() => {
           const sourceOpt = getLeadSourceOption(lead.source);
@@ -752,6 +755,25 @@ function LeadRow({
             </span>
           );
         })()}
+        {(lead.adPlatforms ?? []).length > 0 && (
+          <div className="mt-1 flex flex-wrap justify-center gap-0.5">
+            {(lead.adPlatforms ?? []).map((k) => {
+              const pl = platformOf(k);
+              return (
+                <span
+                  key={k}
+                  title={`${pl?.label ?? k} に掲載＝広告費を払っている店（確度: ${pl?.paidConfidence === "high" ? "高" : "中"}）`}
+                  className={cn(
+                    "inline-flex items-center px-1 py-0.5 rounded text-[10px] font-semibold border whitespace-nowrap",
+                    pl?.paidConfidence === "high" ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-zinc-50 text-zinc-600 border-zinc-200"
+                  )}
+                >
+                  {pl?.short ?? k}
+                </span>
+              );
+            })}
+          </div>
+        )}
       </td>
 
       {/* スコア（TVer広告プール由来はAIスコア対象外） */}
