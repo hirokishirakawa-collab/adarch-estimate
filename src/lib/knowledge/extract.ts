@@ -11,6 +11,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import JSZip from "jszip";
 import * as cheerio from "cheerio";
+import { lookup } from "dns/promises";
+import { isIP } from "net";
 
 export interface ExtractResult {
   content: string;
@@ -89,12 +91,54 @@ export async function extractDocx(buf: Buffer): Promise<ExtractResult> {
 }
 
 // ---------------- URL ----------------
+/** 内部ネットワーク宛て（ループバック・私設・リンクローカル・メタデータ）を拒否する（SSRF対策） */
+function isPrivateAddress(ip: string): boolean {
+  if (isIP(ip) === 4) {
+    const [a, b] = ip.split(".").map(Number);
+    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+  }
+  const v6 = ip.toLowerCase();
+  if (v6 === "::1" || v6 === "::" || v6.startsWith("fe80:") || v6.startsWith("fc") || v6.startsWith("fd")) return true;
+  const m = v6.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/); // IPv4射影
+  return m ? isPrivateAddress(m[1]) : false;
+}
+
+async function assertPublicHttpUrl(raw: string): Promise<URL> {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Error("URLの形式が正しくありません");
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("http(s) のURLだけ登録できます");
+  if (u.username || u.password) throw new Error("認証情報つきのURLは登録できません");
+  const host = u.hostname.replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host.endsWith(".local")) throw new Error("内部のアドレスは登録できません");
+  const ips = isIP(host) ? [{ address: host }] : await lookup(host, { all: true }).catch(() => []);
+  if (ips.length === 0) throw new Error("ホスト名を解決できませんでした");
+  if (ips.some((r) => isPrivateAddress(r.address))) throw new Error("内部のアドレスは登録できません");
+  return u;
+}
+
 export async function extractUrl(url: string): Promise<ExtractResult & { title: string | null }> {
-  const res = await fetch(url, {
-    headers: { "user-agent": "Mozilla/5.0 (compatible; AdArchOS-Knowledge/1.0)", accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5" },
-    redirect: "follow",
-    signal: AbortSignal.timeout(20_000),
-  });
+  // リダイレクトは手動で追い、飛び先ごとに同じ検査をかける（最大3回）
+  let current = (await assertPublicHttpUrl(url)).toString();
+  let res: Response | null = null;
+  for (let hop = 0; hop < 4; hop++) {
+    res = await fetch(current, {
+      headers: { "user-agent": "Mozilla/5.0 (compatible; AdArchOS-Knowledge/1.0)", accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5" },
+      redirect: "manual",
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) break;
+      current = (await assertPublicHttpUrl(new URL(loc, current).toString())).toString();
+      continue;
+    }
+    break;
+  }
+  if (!res) throw new Error("取得に失敗しました");
   if (!res.ok) throw new Error(`取得に失敗しました（HTTP ${res.status}）`);
   const ctype = res.headers.get("content-type") ?? "";
   if (ctype.includes("application/pdf")) {

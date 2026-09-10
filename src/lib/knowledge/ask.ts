@@ -44,13 +44,33 @@ ${KNOWLEDGE_USE_RULES}
 - 最後に「そのまま使える点」と「参考にとどめる点」を1〜3行ずつ分けて書く
 - 見出し（#）は使わない。全体で長くても600字程度`;
 
-function pageOf(content: string, charIndex: number): number | null {
-  // 「## p.N」の印から、その位置のページを求める
-  const head = content.slice(0, Math.max(0, charIndex));
-  const m = head.match(/## p\.(\d+)/g);
-  if (!m || m.length === 0) return null;
-  const last = m[m.length - 1].match(/(\d+)/);
-  return last ? Number(last[1]) : null;
+/**
+ * 全文を「ページ→段落」のブロックに割る（citations を段落単位で返させるため）。
+ * 「## p.N」で区切り、空行で段落に割り、短い段落は前後とまとめる（1ブロック 200〜700字目安）。
+ * 表（| で始まる行）は行ごとに割らず、ひとつのブロックに保つ。
+ */
+export function splitIntoBlocks(content: string): { text: string; page: number | null }[] {
+  const out: { text: string; page: number | null }[] = [];
+  const sections = content.split(/^(?=## p\.\d+\s*$)/m);
+  for (const sec of sections) {
+    if (!sec.trim()) continue;
+    const pm = sec.match(/^## p\.(\d+)/);
+    const page = pm ? Number(pm[1]) : null;
+    const body = pm ? sec.slice(pm[0].length) : sec;
+    const paras = body.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+    let buf = "";
+    const flush = () => {
+      if (buf.trim()) out.push({ text: (page ? `（p.${page}）` : "") + buf.trim(), page });
+      buf = "";
+    };
+    for (const para of paras) {
+      if (buf.length + para.length > 700 && buf.length >= 200) flush();
+      buf += (buf ? "\n\n" : "") + para;
+      if (buf.length >= 500 && !para.startsWith("|")) flush();
+    }
+    flush();
+  }
+  return out;
 }
 
 export async function askKnowledge(input: {
@@ -88,19 +108,21 @@ export async function askKnowledge(input: {
     return { answer: "指定の資料は読めません（存在しないか、本部限定です）。", citations: [], sources: [], usedModel: "" };
   }
 
-  // 2) 費用の蓋: 合計文字数を抑える
+  // 2) 費用の蓋: 合計文字数を抑える。ページ→段落のブロックに割って渡す（出典が段落単位で返る）
   let budget = TOTAL_CHAR_BUDGET;
   const docs = ordered.map((r) => {
     const allow = Math.max(MIN_PER_DOC, Math.min(r.content.length, budget));
     const truncated = r.content.length > allow;
-    const text = truncated ? r.content.slice(0, allow) + "\n\n（以降は省略。全文はOSの資料ページで）" : r.content;
+    const text = truncated ? r.content.slice(0, allow) : r.content;
     budget = Math.max(0, budget - text.length);
-    return { ...r, text, truncated };
+    const blocks = splitIntoBlocks(text);
+    if (truncated) blocks.push({ text: "（以降は省略。全文はOSの資料ページで）", page: null });
+    return { ...r, text, truncated, blocks };
   });
 
   const docBlocks: Anthropic.Messages.ContentBlockParam[] = docs.map((d) => ({
     type: "document",
-    source: { type: "text", media_type: "text/plain", data: d.text },
+    source: { type: "content", content: d.blocks.map((b) => ({ type: "text" as const, text: b.text })) },
     title: `【${ORIGIN_SHORT[d.origin]}】${d.title}${d.publisher ? `（発行元: ${d.publisher}）` : ""}${d.publishedAt ? ` ${d.publishedAt}` : ""}`,
     citations: { enabled: true },
   }));
@@ -131,10 +153,10 @@ export async function askKnowledge(input: {
     const cs = (block as Anthropic.Messages.TextBlock).citations ?? [];
     const refs: number[] = [];
     for (const c of cs) {
-      if (c.type !== "char_location") continue;
+      if (c.type !== "content_block_location") continue;
       const doc = docs[c.document_index];
       if (!doc) continue;
-      const k = keyOf(c.document_index, c.start_char_index);
+      const k = keyOf(c.document_index, c.start_block_index);
       let n = seen.get(k);
       if (!n) {
         n = citations.length + 1;
@@ -144,8 +166,8 @@ export async function askKnowledge(input: {
           sourceId: doc.id,
           title: doc.title,
           origin: doc.origin,
-          page: pageOf(doc.text, c.start_char_index),
-          citedText: c.cited_text.replace(/\s+/g, " ").trim().slice(0, 300),
+          page: doc.blocks[c.start_block_index]?.page ?? null,
+          citedText: c.cited_text.replace(/^（p\.\d+）/, "").replace(/\s+/g, " ").trim().slice(0, 300),
         });
       }
       if (!refs.includes(n)) refs.push(n);
