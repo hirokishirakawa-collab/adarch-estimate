@@ -49,6 +49,22 @@ export async function GET(req: NextRequest) {
   const orderBy: Prisma.KnowledgeSourceOrderByWithRelationInput =
     sort === "title" ? { title: dir } : sort === "publisher" ? { publisher: dir } : sort === "updatedAt" ? { updatedAt: dir } : sort === "charCount" ? { charCount: dir } : { createdAt: dir };
 
+  // 止まった取り込みの救済: デプロイ等で after() が途中で切れると「整理中」のまま残る。
+  // 本部が一覧を開いたとき、20分以上 PENDING のものを自動でやり直す（実行中の長い取り込みは updatedAt が新しいので対象外）
+  if (isAdmin) {
+    const stale = await db.knowledgeSource.findMany({
+      where: { status: "PENDING", updatedAt: { lt: new Date(Date.now() - 20 * 60 * 1000) } },
+      select: { id: true },
+      take: 5,
+    });
+    if (stale.length) {
+      await db.knowledgeSource.updateMany({ where: { id: { in: stale.map((s) => s.id) } }, data: { errorMessage: "止まっていたため自動で再実行" } });
+      after(async () => {
+        for (const s of stale) await processSource(s.id); // 直列（AIの同時実行を抑える）
+      });
+    }
+  }
+
   const rows = await db.knowledgeSource.findMany({
     where,
     orderBy,

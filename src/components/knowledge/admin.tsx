@@ -3,6 +3,7 @@
 // 本部: 資料の登録・管理（ソート／一括選択／一括削除・やり直し・出どころ変更／日付フィルタ）
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Upload, Link2, AlignLeft, Loader2, RefreshCw, Trash2, Pencil, X, Check } from "lucide-react";
 import { OriginBadge } from "./origin-badge";
 import { ORIGIN_UI, STATUS_UI, fmtDate, type KnowledgeItem, type KnowledgeOrigin, type KnowledgeStatus } from "./types";
@@ -67,11 +68,16 @@ export function KnowledgeAdmin({ focusId }: { focusId?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPending]);
 
+  // ?focus=<id> は一度だけ開く（開いたらURLから消す。閉じたあと件数が変わっても再び開かない）
+  const router = useRouter();
+  const focusedOnce = useRef(false);
   useEffect(() => {
-    if (focusId && items.length && !editing) {
-      const it = items.find((i) => i.id === focusId);
-      if (it) setEditing(it);
-    }
+    if (focusedOnce.current || !focusId || !items.length) return;
+    const it = items.find((i) => i.id === focusId);
+    if (!it) return;
+    focusedOnce.current = true;
+    setEditing(it);
+    router.replace("/dashboard/admin/knowledge");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusId, items.length]);
 
