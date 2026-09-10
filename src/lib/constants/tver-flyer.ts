@@ -57,19 +57,20 @@ export const FLYER_DISTRIBUTION_LINKS = [
 // ---------------------------------------------------------------
 // 郵送DMの出口（AI連携 prepare_dm が案内する。本部は間に入らない＝代表が自分で入稿・支払い）
 // ---------------------------------------------------------------
+// 2026-09-10 代表決定: 基本はラクスルDM。日本郵便Webレターは「数通〜数十通で急ぐとき」の選択肢
 export const DM_SEND_LINKS = [
   {
-    key: "webletter",
-    label: "Webレター（日本郵便）",
-    url: "https://www.post.japanpost.jp/service/send/domestic/web/webletter/",
-    spec: "1通から。チラシPDF（A4）と宛先CSV（Shift-JIS・見出し行なし・15列）を上げると印刷・封入・投函まで日本郵便が行う。料金の目安: カラー1枚 ¥190／通、モノクロ1枚 ¥129／通（税込・2026年9月時点の公式表示）",
-    csvNote: "アドレス帳 → CSVアップロードに『Webレター用CSV』をそのまま。差込差出しなら最大9,999通",
+    key: "raksul",
+    label: "ラクスルDM（印刷〜投函一括・基本はこちら）",
+    url: "https://dm.raksul.com/",
+    spec: "ポストカード・大判はがきA4・圧着はがき・OPP封筒・長3／角2封書から選べる。印刷・宛名印字・投函まで一括。単価は通数と仕様で変わるので画面で見積る",
+    csvNote: "宛名データは『汎用CSV』の列をラクスルの宛名テンプレートに貼り替える",
   },
   {
-    key: "raksul",
-    label: "ラクスルDM（印刷〜投函一括）",
-    url: "https://raksul.com/dm/",
-    spec: "ハガキ・圧着ハガキ・封書から選べて、数十通〜数千通の大口向き。単価は通数と仕様で変わるので画面で見積る",
-    csvNote: "宛名データはラクスルの宛名テンプレートに合わせて貼り替える（『汎用CSV』の列を使う）",
+    key: "webletter",
+    label: "Webレター（日本郵便・数通〜数十通で急ぐとき）",
+    url: "https://www.post.japanpost.jp/service/send/domestic/web/webletter/",
+    spec: "1通から。A4文書PDFと宛先CSV（Shift-JIS・見出し行なし・15列）を上げると印刷・封入・投函まで日本郵便が行う（専用封筒の三つ折り封書）。料金の目安: カラー1枚 ¥190／通、モノクロ1枚 ¥129／通（税込・2026年9月時点の公式表示）",
+    csvNote: "アドレス帳 → CSVアップロードに『Webレター用CSV』をそのまま。差込差出しなら最大9,999通",
   },
 ] as const;

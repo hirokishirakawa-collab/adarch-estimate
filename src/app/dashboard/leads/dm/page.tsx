@@ -55,7 +55,7 @@ export default async function LeadDmPage({ searchParams }: PageProps) {
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">郵送DM（チラシDM）</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">選んだ会社に紙のチラシを送る材料（宛先CSV・チラシPDF・発送先）を揃えます。発送はあなたが日本郵便のWebレターかラクスルDMから行い、費用は貴社（本部は送りません）</p>
+            <p className="text-xs text-zinc-500 mt-0.5">選んだ会社に紙のチラシを送る材料（宛先CSV・チラシのたたき台PDF・発送先）を揃えます。発送はあなたがラクスルDM（急ぎ少部数は日本郵便Webレター）から行い、費用は貴社（本部は送りません）</p>
           </div>
         </div>
         <Link href="/dashboard/leads/list" className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-800">
@@ -68,8 +68,8 @@ export default async function LeadDmPage({ searchParams }: PageProps) {
         <div className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600 space-y-3">
           <p>まず <Link href="/dashboard/leads/list" className="text-blue-700 underline">リード管理</Link> で送りたい会社にチェックを入れ、選択バーの「郵送DMへ」を押してください。</p>
           <ol className="list-decimal pl-5 text-xs text-zinc-500 space-y-1">
-            <li>宛先CSV（日本郵便Webレター用・そのままアップロード）と汎用CSVができます</li>
-            <li>貴社名入りのA4チラシPDF（TVerチラシの型・LP／申込ページのQR付き）ができます</li>
+            <li>宛名CSV（ラクスルDMの宛名テンプレに貼り替える汎用CSV）と、急ぎ少部数向けの日本郵便Webレター用CSVができます</li>
+            <li>チラシに載せる情報の整理（貴社名・訴求のひとこと・LP／申込ページのQR）＝たたき台のA4 PDFができます。クリエイティブの仕上げは貴社で（自作PDFも上げられます）</li>
             <li>発送先のリンクと手順、概算が出ます。発送はあなたが行います（本部は送りません）</li>
             <li>送付として記録され、返事は「返事待ち」で入力できます（メール・フォームと同じ）</li>
           </ol>

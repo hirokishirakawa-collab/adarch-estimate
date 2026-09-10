@@ -218,14 +218,14 @@ export async function prepareDm(v: McpViewer, input: PrepareDmInput) {
     needsFix: needsFixOut,
     skipped,
     send: DM_SEND_LINKS.map((l) => ({ label: l.label, url: l.url, how: l.spec, csv: l.csvNote })),
-    estimate: { webletterColorA4x1: `¥${estColor.toLocaleString("ja-JP")}（税込・${ready.length}通×¥190。2026年9月の公式表示。実額は画面で確認）` },
+    estimate: { webletterColorA4x1: `ラクスルDMは仕様と通数で変わるため画面で見積る。急ぎ少部数でWebレター（カラーA4 1枚）なら ¥${estColor.toLocaleString("ja-JP")}（税込・${ready.length}通×¥190。2026年9月の公式表示）` },
     recorded: { sentAt: day(now), leads: ready.length, ledger: "メール・フォームと同じ送付台帳に【DM・郵送】で記録済み" },
     steps: [
       "1) flyerPdf を開いて中身を確認（拠点社名・QR・市の数字）。材料は kitUrl（OSの郵送DM履歴）からいつでも再ダウンロードでき、送ったら「発送済み」を押す",
-      "2) Webレターにログイン → アドレス帳 → CSVアップロードに webletterCsv（Shift-JIS・見出しなし）",
-      "3) 差出し → 本文に flyerPdf（A4・カラー）→ 宛先をアドレス帳のグループから選ぶ → 支払い（あなたのアカウントで。本部は送らない）",
+      "2) 基本はラクスルDM（dm.raksul.com）: 形（はがき／圧着／封書）を選び、genericCsv の列を宛名テンプレートに貼り替えて入稿 → 支払い（あなたのアカウントで。本部は送らない）",
+      "3) 数通〜数十通で急ぐときは Webレター: アドレス帳 → CSVアップロードに webletterCsv（Shift-JIS・見出しなし）→ 本文に flyerPdf（A4）→ 差出し",
       "4) needsFix の会社は郵便番号・住所を手で補ってから追加。届いたら record_lead_result(leadId, result)",
     ],
-    next: "発送はあなた（この拠点）がWebレターかラクスルDMから行う。本部は送らない。反応が来たら record_lead_result で結果を記録（メール・フォームと同じ）",
+    next: "発送はあなた（この拠点）が基本ラクスルDM（急ぎ少部数はWebレター）から行う。本部は送らない。チラシのクリエイティブはOSは情報の整理（たたき台）まで＝仕上げは拠点で。反応が来たら record_lead_result で結果を記録（メール・フォームと同じ）",
   };
 }

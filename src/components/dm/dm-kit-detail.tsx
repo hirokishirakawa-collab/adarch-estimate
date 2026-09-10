@@ -37,7 +37,7 @@ const fmt = (s: string) => new Intl.DateTimeFormat("ja-JP", { year: "numeric", m
 export function DmKitDetail({ kit: initial }: { kit: Kit }) {
   const router = useRouter();
   const [kit, setKit] = useState(initial);
-  const [sentVia, setSentVia] = useState(initial.sentVia ?? "Webレター");
+  const [sentVia, setSentVia] = useState(initial.sentVia ?? "ラクスルDM");
   const [sentNote, setSentNote] = useState(initial.sentNote ?? "");
   const [busy, setBusy] = useState(false);
 
@@ -82,21 +82,21 @@ export function DmKitDetail({ kit: initial }: { kit: Kit }) {
         {kit.flyerUrl ? (
           <a href={kit.flyerUrl} target="_blank" rel="noopener" className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50">
             <FileText className="w-5 h-5 text-orange-600" />
-            <p className="text-sm font-bold text-zinc-800 mt-2">チラシPDF（A4）</p>
-            <p className="text-[11px] text-zinc-500">{kit.flyerSource === "UPLOADED" ? "自作のPDF" : "貴社名・QR入り"}</p>
+            <p className="text-sm font-bold text-zinc-800 mt-2">{kit.flyerSource === "UPLOADED" ? "チラシPDF（A4）" : "チラシのたたき台PDF（A4）"}</p>
+            <p className="text-[11px] text-zinc-500">{kit.flyerSource === "UPLOADED" ? "自作のPDF" : "貴社名・QR入りの情報整理。仕上げは貴社で"}</p>
           </a>
         ) : (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">チラシPDFはありません（作成に失敗したか、後で用意する前提）</div>
         )}
-        <a href={kit.webletterCsvUrl} className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50">
-          <FileSpreadsheet className="w-5 h-5 text-blue-600" />
-          <p className="text-sm font-bold text-zinc-800 mt-2">Webレター用 宛先CSV</p>
-          <p className="text-[11px] text-zinc-500">日本郵便の形式（Shift-JIS・見出しなし）。そのままアップロード</p>
-        </a>
         <a href={kit.genericCsvUrl} className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50">
+          <FileSpreadsheet className="w-5 h-5 text-blue-600" />
+          <p className="text-sm font-bold text-zinc-800 mt-2">宛名CSV（ラクスルDM用・汎用）</p>
+          <p className="text-[11px] text-zinc-500">ラクスルの宛名テンプレに貼り替える用</p>
+        </a>
+        <a href={kit.webletterCsvUrl} className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50">
           <FileSpreadsheet className="w-5 h-5 text-zinc-600" />
-          <p className="text-sm font-bold text-zinc-800 mt-2">汎用 宛名CSV</p>
-          <p className="text-[11px] text-zinc-500">ラクスルDM等の宛名テンプレに貼り替える用</p>
+          <p className="text-sm font-bold text-zinc-800 mt-2">Webレター用 宛先CSV</p>
+          <p className="text-[11px] text-zinc-500">急ぎ少部数向け。日本郵便の形式（Shift-JIS・見出しなし）でそのままアップロード</p>
         </a>
       </div>
 
@@ -109,15 +109,15 @@ export function DmKitDetail({ kit: initial }: { kit: Kit }) {
             <p className="text-[11px] text-zinc-400">{s.csvNote}</p>
           </div>
         ))}
-        <p className="text-[11px] text-zinc-500">概算（Webレター・カラーA4 1枚）: ¥{(kit.readyCount * 190).toLocaleString("ja-JP")}（税込・{kit.readyCount}通×¥190。実額は画面で確認）</p>
+        <p className="text-[11px] text-zinc-500">概算: ラクスルDMは仕様と通数で変わるため画面で見積る。急ぎ少部数でWebレター（カラーA4 1枚）なら ¥{(kit.readyCount * 190).toLocaleString("ja-JP")}（税込・{kit.readyCount}通×¥190）</p>
       </div>
 
       <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-2">
         <p className="text-sm font-bold text-zinc-800">送ったら記録</p>
         <div className="flex flex-wrap items-center gap-2">
           <select value={sentVia} onChange={(e) => setSentVia(e.target.value)} className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs">
-            <option>Webレター</option>
             <option>ラクスルDM</option>
+            <option>Webレター</option>
             <option>自分で投函</option>
             <option>その他</option>
           </select>

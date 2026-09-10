@@ -82,7 +82,7 @@ export function DmKitForm({ leads, prefectures, municipalities, defaultPrefectur
       setError("チラシに載せる商圏（県・市区町村）を選んでください");
       return;
     }
-    if (!confirm(`${usable.length}件を「送付」として記録し、宛先CSVとチラシPDFを作ります。よろしいですか？（発送はこのあと、あなたがWebレターかラクスルDMから行います。本部は送りません）`)) return;
+    if (!confirm(`${usable.length}件を「送付」として記録し、宛先CSVとチラシPDFを作ります。よろしいですか？（発送はこのあと、あなたがラクスルDM（急ぎ少部数はWebレター）から行います。本部は送りません）`)) return;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -167,7 +167,7 @@ export function DmKitForm({ leads, prefectures, municipalities, defaultPrefectur
                   </label>
                   {customFlyer && <span className="text-xs text-emerald-700">{customFlyer.name} を使います</span>}
                 </div>
-                <p className="text-[10px] text-zinc-400">A4・20MBまで。Webレターは本文PDFをそのまま印刷するので、印刷用の塗り足しは不要。上の「ひとこと」「QR」は自作チラシには反映されません（宛先CSVと記録だけ作ります）</p>
+                <p className="text-[10px] text-zinc-400">A4・20MBまで。ラクスルDMは仕様ごとの入稿規定（塗り足し等）に合わせてください。Webレターは本文PDFをそのまま印刷するので塗り足し不要。上の「ひとこと」「QR」は自作チラシには反映されません（宛先CSVと記録だけ作ります）</p>
               </div>
             )}
           </div>
@@ -195,21 +195,21 @@ export function DmKitForm({ leads, prefectures, municipalities, defaultPrefectur
             {result.files.flyerPdf ? (
               <a href={result.files.flyerPdf} target="_blank" rel="noopener" className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50">
                 <FileText className="w-5 h-5 text-orange-600" />
-                <p className="text-sm font-bold text-zinc-800 mt-2">チラシPDF（A4）</p>
-                <p className="text-[11px] text-zinc-500">貴社名・QR入り。まず中身を確認</p>
+                <p className="text-sm font-bold text-zinc-800 mt-2">チラシのたたき台PDF（A4）</p>
+                <p className="text-[11px] text-zinc-500">貴社名・QR入りの情報整理。仕上げは貴社で</p>
               </a>
             ) : (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">{result.files.note}</div>
             )}
-            <a href={result.files.webletterCsv} className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50">
-              <FileSpreadsheet className="w-5 h-5 text-blue-600" />
-              <p className="text-sm font-bold text-zinc-800 mt-2">Webレター用 宛先CSV</p>
-              <p className="text-[11px] text-zinc-500">日本郵便の形式（Shift-JIS・見出しなし）。そのままアップロード</p>
-            </a>
             <a href={result.files.genericCsv} className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50">
+              <FileSpreadsheet className="w-5 h-5 text-blue-600" />
+              <p className="text-sm font-bold text-zinc-800 mt-2">宛名CSV（ラクスルDM用・汎用）</p>
+              <p className="text-[11px] text-zinc-500">ラクスルの宛名テンプレに貼り替える用（要確認の印つき）</p>
+            </a>
+            <a href={result.files.webletterCsv} className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50">
               <FileSpreadsheet className="w-5 h-5 text-zinc-600" />
-              <p className="text-sm font-bold text-zinc-800 mt-2">汎用 宛名CSV</p>
-              <p className="text-[11px] text-zinc-500">ラクスルDM等の宛名テンプレに貼り替える用（要確認の印つき）</p>
+              <p className="text-sm font-bold text-zinc-800 mt-2">Webレター用 宛先CSV</p>
+              <p className="text-[11px] text-zinc-500">急ぎ少部数向け。日本郵便の形式（Shift-JIS・見出しなし）でそのままアップロード</p>
             </a>
           </div>
 
@@ -222,7 +222,7 @@ export function DmKitForm({ leads, prefectures, municipalities, defaultPrefectur
                 <p className="text-[11px] text-zinc-400">{s.csv}</p>
               </div>
             ))}
-            <p className="text-[11px] text-zinc-500">概算（Webレター・カラーA4 1枚）: {result.estimate.webletterColorA4x1}</p>
+            <p className="text-[11px] text-zinc-500">概算: {result.estimate.webletterColorA4x1}</p>
             <ol className="list-decimal pl-5 text-xs text-zinc-600 space-y-0.5">
               {result.steps.map((s) => <li key={s}>{s.replace(/^\d\)\s*/, "")}</li>)}
             </ol>
