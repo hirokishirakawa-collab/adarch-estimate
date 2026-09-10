@@ -176,7 +176,7 @@ export async function extractPdf(buf: Buffer): Promise<ExtractResult> {
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY が未設定です");
   const client = new Anthropic({ apiKey });
   const stream = client.messages.stream({
-    model: "claude-opus-5",
+    model: "claude-sonnet-5",
     max_tokens: 64000,
     system: PDF_SYSTEM,
     messages: [

@@ -9,9 +9,15 @@ import { readKnowledgeFile } from "@/lib/storage";
 import { extractFile, extractUrl, MAX_CONTENT_CHARS } from "./extract";
 import { buildDigest } from "./digest";
 
+// 処理中は5分ごとに updatedAt を進める（一覧を開いたときの「20分以上止まっている」判定に、実行中の長い取り込みが引っかかって二重に走るのを防ぐ）
+const HEARTBEAT_MS = 5 * 60 * 1000;
+
 export async function processSource(id: string): Promise<void> {
   const src = await db.knowledgeSource.findUnique({ where: { id } });
   if (!src) return;
+  const heartbeat = setInterval(() => {
+    db.knowledgeSource.update({ where: { id }, data: { updatedAt: new Date() } }).catch(() => {});
+  }, HEARTBEAT_MS);
   try {
     await db.knowledgeSource.update({ where: { id }, data: { status: "PENDING", errorMessage: null } });
 
@@ -63,5 +69,7 @@ export async function processSource(id: string): Promise<void> {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[knowledge:ingest]", id, message);
     await db.knowledgeSource.update({ where: { id }, data: { status: "FAILED", errorMessage: message.slice(0, 500) } }).catch(() => {});
+  } finally {
+    clearInterval(heartbeat);
   }
 }

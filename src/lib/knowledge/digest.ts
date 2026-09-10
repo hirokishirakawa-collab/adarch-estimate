@@ -70,7 +70,7 @@ ${input.content}
 上記の全文を読み、指定のJSONだけを出力してください。`;
 
   const stream = client.messages.stream({
-    model: "claude-opus-5",
+    model: "claude-sonnet-5",
     max_tokens: 16000,
     system: SYSTEM,
     messages: [{ role: "user", content: user }],
