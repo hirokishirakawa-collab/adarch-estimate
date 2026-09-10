@@ -69,6 +69,7 @@ import {
   Package,
   Palette,
   Brain,
+  Mailbox,
 } from "lucide-react";
 
 // ----------------------------------------------------------------
@@ -782,6 +783,7 @@ const SELL_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/clients", label: "取引先マップ", icon: MapPinned, minRole: "USER" },
   { href: "/dashboard/leads/list", label: "① リード管理", icon: ListChecks, minRole: "USER" },
   { href: "/dashboard/leads/awaiting", label: "返事待ち（結果入力）", icon: MailQuestion, minRole: "USER" },
+  { href: "/dashboard/leads/dm", label: "郵送DM（チラシDM）", icon: Mailbox, minRole: "USER" },
   { href: "/dashboard/deals", label: "② 商談管理（SFA）", icon: TrendingUp, minRole: "USER" },
   { href: "/dashboard/projects/new", label: "③ プロジェクト登録", icon: FolderKanban, minRole: "USER" },
   { href: "/dashboard/sales", label: "営業フロー", icon: Workflow, minRole: "USER" },

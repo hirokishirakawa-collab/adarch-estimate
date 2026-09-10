@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ExternalLink, Phone, Mail, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText, Film, Globe, PenLine, AlertTriangle } from "lucide-react";
+import { ExternalLink, Phone, Mail, ArrowRightLeft, Pencil, Check, X, Sparkles, Loader2, ChevronDown, ChevronUp, ClipboardList, FileSpreadsheet, FileText, Film, Globe, PenLine, AlertTriangle, Mailbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LEAD_STATUS_OPTIONS, getLeadStatusOption, getPriorityLabel, getLeadSourceOption } from "@/lib/constants/leads";
 import { updateLeadStatus, updateLeadMemo, assignLead, convertLeadToCustomer, deleteSelectedLeads, bulkUpdateLeadStatus, bulkAssignLeads } from "@/lib/actions/lead";
@@ -370,6 +370,19 @@ export function LeadListTable({ leads, users, isAdmin, canSelect }: Props) {
             >
               <PenLine className="w-3.5 h-3.5" />
               営業フォームへ
+            </button>
+
+            {/* 郵送DM（住所のある会社に紙のチラシを送る材料を作る） */}
+            <button
+              onClick={() =>
+                router.push(`/dashboard/leads/dm?ids=${selectedLeads.filter((l) => l.address).map((l) => l.id).join(",")}`)
+              }
+              disabled={selectedLeads.filter((l) => l.address).length === 0}
+              title="住所のある会社に、紙のチラシDMを送る材料（宛先CSV・チラシPDF・発送先）を作ります"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Mailbox className="w-3.5 h-3.5" />
+              郵送DMへ（{selectedLeads.filter((l) => l.address).length}件）
             </button>
 
             {/* メール送付（メールアドレス取得済みの選択リードだけをアウトリーチに投入） */}
