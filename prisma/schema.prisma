@@ -1554,6 +1554,57 @@ model KnowledgeSource {
 }
 
 // ==============================================================
+// DmKit（郵送DMの材料の履歴）2026-09-10
+//   画面版（/dashboard/leads/dm）と AI連携（prepare_dm）が作った材料を残す。
+//   3ファイルの再ダウンロード・手で補う先・「発送済み」のチェックに使う。
+// ==============================================================
+
+/// 郵送DMの材料1回分。flyerSource=GENERATED（OSのTVerチラシの型）/ UPLOADED（自作PDFをアップロード）
+model DmKit {
+  id             String  @id @default(cuid())
+  createdById    String
+  createdByName  String
+  createdByEmail String
+  branchId       String?
+  groupCompanyId String?
+  /// SCREEN（画面）/ AI（AI連携）
+  source         String  @default("SCREEN")
+
+  prefecture   String
+  city         String
+  industry     String?
+  catchCopy    String?
+  landingUrl   String?
+  template     String  @default("orange")
+  flyerUrl     String?
+  flyerSource  String  @default("GENERATED")
+  webletterCsvUrl String
+  genericCsvUrl   String
+
+  readyCount    Int @default(0)
+  needsFixCount Int @default(0)
+  skippedCount  Int @default(0)
+  leadIds       String[] @default([])
+  /// 手で補う先 [{leadId,name,address,reason}]
+  needsFix      Json?
+  /// 対象外 [{leadId,name,reason}]
+  skipped       Json?
+
+  /// 発送済み（あなたがWebレター等で送ったら押す）
+  sentAt   DateTime?
+  sentVia  String?
+  sentNote String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdById])
+  @@index([groupCompanyId])
+  @@index([createdAt])
+  @@map("dm_kits")
+}
+
+// ==============================================================
 // GroupCollaborationRequest（グループ連携依頼）
 // ==============================================================
 

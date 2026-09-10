@@ -38,6 +38,10 @@ export interface PrepareDmInput {
   budgetJpy?: number;
   /** 宛名の敬称（既定「御中」） */
   honorific?: string;
+  /** 自作チラシ（/api/dm/upload で上げたPDFのURL）。あるときはOSのチラシを作らない */
+  customFlyerUrl?: string;
+  /** 記録の出どころ（画面=SCREEN／AI連携=AI） */
+  source?: "SCREEN" | "AI";
 }
 
 const MAX_LEADS = 200;
@@ -146,13 +150,19 @@ export async function prepareDm(v: McpViewer, input: PrepareDmInput) {
   const flyer = { ...flyerData, qr };
   let flyerUrl: string | null = null;
   let flyerNote: string | null = null;
-  try {
-    const pdf = await renderHtmlToPdf(buildFlyerHtml(flyer, template));
-    if (pdf) flyerUrl = await saveDmKitFile(`DM_${muni.name}_チラシ.pdf`, pdf, "pdf");
-    else flyerNote = "チラシPDFを作れませんでした（PDF生成の環境）。OSの「TVerチラシ制作サポート」で同じ市のチラシを作ってください";
-  } catch (e) {
-    console.error("[prepare_dm] flyer", e instanceof Error ? e.message : e);
-    flyerNote = "チラシPDFを作れませんでした。OSの「TVerチラシ制作サポート」で同じ市のチラシを作ってください";
+  const customFlyer = (input.customFlyerUrl ?? "").trim();
+  if (customFlyer) {
+    need(customFlyer.startsWith("/api/storage/dm-kits/"), "customFlyerUrl は /api/dm/upload で上げたPDFのURLだけ使えます");
+    flyerUrl = customFlyer;
+  } else {
+    try {
+      const pdf = await renderHtmlToPdf(buildFlyerHtml(flyer, template));
+      if (pdf) flyerUrl = await saveDmKitFile(`DM_${muni.name}_チラシ.pdf`, pdf, "pdf");
+      else flyerNote = "チラシPDFを作れませんでした（PDF生成の環境）。OSの「TVerチラシ制作サポート」で同じ市のチラシを作ってください";
+    } catch (e) {
+      console.error("[prepare_dm] flyer", e instanceof Error ? e.message : e);
+      flyerNote = "チラシPDFを作れませんでした。OSの「TVerチラシ制作サポート」で同じ市のチラシを作ってください";
+    }
   }
   const webletterUrl = await saveDmKitFile(`DM_${muni.name}_Webレター用宛先.csv`, webletterCsv, "csv");
   const genericUrl = await saveDmKitFile(`DM_${muni.name}_宛名_汎用.csv`, genericCsv, "csv");
@@ -182,7 +192,21 @@ export async function prepareDm(v: McpViewer, input: PrepareDmInput) {
   }
 
   const estColor = ready.length * 190;
+  const needsFixOut = needsFix.map((r) => ({ leadId: r.leadId, name: r.name, address: r.address, reason: r.note }));
+  const kit = await db.dmKit.create({
+    data: {
+      createdById: v.id, createdByName: staffName, createdByEmail: v.email, branchId: v.branchId, groupCompanyId: v.groupCompanyId,
+      source: input.source === "AI" ? "AI" : "SCREEN",
+      prefecture: pref, city: muni.name, industry: input.industry?.trim() || null, catchCopy: catchCopy || null, landingUrl: qrUrl, template,
+      flyerUrl, flyerSource: customFlyer ? "UPLOADED" : "GENERATED", webletterCsvUrl: webletterUrl, genericCsvUrl: genericUrl,
+      readyCount: ready.length, needsFixCount: needsFix.length, skippedCount: skipped.length,
+      leadIds: ready.map((r) => r.leadId), needsFix: needsFixOut, skipped,
+    },
+    select: { id: true },
+  });
   return {
+    kitId: kit.id,
+    kitUrl: `/dashboard/leads/dm/${kit.id}`,
     area: `${pref} ${muni.name}`,
     counts: { ready: ready.length, needsFix: needsFix.length, skipped: skipped.length },
     files: {
@@ -191,13 +215,13 @@ export async function prepareDm(v: McpViewer, input: PrepareDmInput) {
       genericCsv: genericUrl,
       note: flyerNote,
     },
-    needsFix: needsFix.map((r) => ({ leadId: r.leadId, name: r.name, address: r.address, reason: r.note })),
+    needsFix: needsFixOut,
     skipped,
     send: DM_SEND_LINKS.map((l) => ({ label: l.label, url: l.url, how: l.spec, csv: l.csvNote })),
     estimate: { webletterColorA4x1: `¥${estColor.toLocaleString("ja-JP")}（税込・${ready.length}通×¥190。2026年9月の公式表示。実額は画面で確認）` },
     recorded: { sentAt: day(now), leads: ready.length, ledger: "メール・フォームと同じ送付台帳に【DM・郵送】で記録済み" },
     steps: [
-      "1) flyerPdf を開いて中身を確認（拠点社名・QR・市の数字）",
+      "1) flyerPdf を開いて中身を確認（拠点社名・QR・市の数字）。材料は kitUrl（OSの郵送DM履歴）からいつでも再ダウンロードでき、送ったら「発送済み」を押す",
       "2) Webレターにログイン → アドレス帳 → CSVアップロードに webletterCsv（Shift-JIS・見出しなし）",
       "3) 差出し → 本文に flyerPdf（A4・カラー）→ 宛先をアドレス帳のグループから選ぶ → 支払い（あなたのアカウントで。本部は送らない）",
       "4) needsFix の会社は郵便番号・住所を手で補ってから追加。届いたら record_lead_result(leadId, result)",

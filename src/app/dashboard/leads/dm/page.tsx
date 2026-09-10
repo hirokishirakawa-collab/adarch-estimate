@@ -6,6 +6,7 @@ import { Mailbox, ChevronLeft } from "lucide-react";
 import { prefectureOptions, municipalitiesOf } from "@/lib/packages/tver-area";
 import { appUrl } from "@/lib/tver-order/service";
 import { DmKitForm } from "@/components/dm/dm-kit-form";
+import { DmKitHistory } from "@/components/dm/dm-kit-history";
 import { cleanAddress } from "@/lib/dm/address";
 
 export const metadata = { title: "郵送DM | Ad-Arch Group OS" };
@@ -63,6 +64,7 @@ export default async function LeadDmPage({ searchParams }: PageProps) {
       </div>
 
       {rows.length === 0 ? (
+        <>
         <div className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600 space-y-3">
           <p>まず <Link href="/dashboard/leads/list" className="text-blue-700 underline">リード管理</Link> で送りたい会社にチェックを入れ、選択バーの「郵送DMへ」を押してください。</p>
           <ol className="list-decimal pl-5 text-xs text-zinc-500 space-y-1">
@@ -71,8 +73,10 @@ export default async function LeadDmPage({ searchParams }: PageProps) {
             <li>発送先のリンクと手順、概算が出ます。発送はあなたが行います（本部は送りません）</li>
             <li>送付として記録され、返事は「返事待ち」で入力できます（メール・フォームと同じ）</li>
           </ol>
-          <p className="text-xs text-zinc-400">AI連携（Claude／ChatGPT）からは「◯◯市の◯◯にチラシDMを送りたい」で同じものが作れます。</p>
+          <p className="text-xs text-zinc-400">AI連携（Claude／ChatGPT）からは「◯◯市の◯◯にチラシDMを送りたい」で同じものが作れます。チラシは自作のPDFを上げることもできます。</p>
         </div>
+        <DmKitHistory />
+        </>
       ) : (
         <DmKitForm leads={rows} prefectures={prefs} municipalities={muniMap} defaultPrefecture={defaultPref} industries={industries} defaultLandingUrl={defaultLanding} />
       )}

@@ -3,7 +3,7 @@
 // 郵送DMの材料を作る（画面版）。AI連携 prepare_dm と同じAPI・同じ記録
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Loader2, FileText, FileSpreadsheet, ExternalLink, AlertTriangle, CheckCircle2, Mailbox } from "lucide-react";
+import { Loader2, FileText, FileSpreadsheet, ExternalLink, AlertTriangle, CheckCircle2, Mailbox, Upload, History } from "lucide-react";
 import { TVER_FLYER_TEMPLATES } from "@/lib/constants/tver-flyer";
 
 interface LeadRow {
@@ -17,6 +17,8 @@ interface LeadRow {
 }
 
 interface Result {
+  kitId: string;
+  kitUrl: string;
   area: string;
   counts: { ready: number; needsFix: number; skipped: number };
   files: { flyerPdf: string | null; webletterCsv: string; genericCsv: string; note: string | null };
@@ -45,12 +47,37 @@ export function DmKitForm({ leads, prefectures, municipalities, defaultPrefectur
   const [catchCopy, setCatchCopy] = useState("");
   const [landingUrl, setLandingUrl] = useState(defaultLandingUrl);
   const [template, setTemplate] = useState<string>("orange");
+  const [flyerMode, setFlyerMode] = useState<"generate" | "upload">("generate");
+  const [customFlyer, setCustomFlyer] = useState<{ url: string; name: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const munis = municipalities[pref] ?? [];
 
+  const uploadFlyer = async (file: File | null) => {
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const res = await fetch("/api/dm/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "アップロードに失敗しました");
+      setCustomFlyer({ url: data.url, name: data.name });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "アップロードに失敗しました");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const submit = async () => {
+    if (flyerMode === "upload" && !customFlyer) {
+      setError("自作チラシのPDFを上げてください（または「OSの型で作る」に切り替え）");
+      return;
+    }
     if (!pref || !city) {
       setError("チラシに載せる商圏（県・市区町村）を選んでください");
       return;
@@ -63,7 +90,7 @@ export function DmKitForm({ leads, prefectures, municipalities, defaultPrefectur
       const res = await fetch("/api/dm/prepare", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ leadIds: usable.map((l) => l.id), prefecture: pref, city, industry: industry || undefined, catchCopy: catchCopy || undefined, landingUrl: landingUrl || undefined, template }),
+        body: JSON.stringify({ leadIds: usable.map((l) => l.id), prefecture: pref, city, industry: industry || undefined, catchCopy: catchCopy || undefined, landingUrl: landingUrl || undefined, template, customFlyerUrl: flyerMode === "upload" ? customFlyer?.url : undefined, source: "SCREEN" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "失敗しました");
@@ -117,12 +144,32 @@ export function DmKitForm({ leads, prefectures, municipalities, defaultPrefectur
             <input value={landingUrl} onChange={(e) => setLandingUrl(e.target.value)} placeholder="QRの飛び先URL（TVer申込ページ／業種×市のLP）" className={inputCls} />
             <p className="text-[10px] text-zinc-400 mt-1">既定は貴社が案内元になるTVer申込ページ。空にするとQRなし</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {TVER_FLYER_TEMPLATES.map((t) => (
-              <button key={t.key} onClick={() => setTemplate(t.key)} className={`px-3 py-1.5 rounded-lg border text-xs ${template === t.key ? "bg-zinc-800 text-white border-zinc-800" : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"}`} title={t.desc}>
-                {t.label}
-              </button>
-            ))}
+          <div className="rounded-lg border border-zinc-100 bg-zinc-50/60 p-3 space-y-2">
+            <div className="flex flex-wrap gap-2 text-xs">
+              <button onClick={() => setFlyerMode("generate")} className={`px-3 py-1.5 rounded-lg border font-bold ${flyerMode === "generate" ? "bg-zinc-800 text-white border-zinc-800" : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"}`}>チラシはOSの型で作る</button>
+              <button onClick={() => setFlyerMode("upload")} className={`px-3 py-1.5 rounded-lg border font-bold ${flyerMode === "upload" ? "bg-zinc-800 text-white border-zinc-800" : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"}`}>自作のチラシPDFを上げる</button>
+            </div>
+            {flyerMode === "generate" ? (
+              <div className="flex flex-wrap gap-2">
+                {TVER_FLYER_TEMPLATES.map((t) => (
+                  <button key={t.key} onClick={() => setTemplate(t.key)} className={`px-3 py-1.5 rounded-lg border text-xs ${template === t.key ? "bg-orange-600 text-white border-orange-600" : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"}`} title={t.desc}>
+                    {t.label}
+                  </button>
+                ))}
+                <p className="w-full text-[10px] text-zinc-400">市の人口・TVer視聴者・月額の数字はOSから入り、貴社名と上のQRが載ります</p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs cursor-pointer hover:bg-zinc-50">
+                    {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} PDFを選ぶ
+                    <input type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => uploadFlyer(e.target.files?.[0] ?? null)} />
+                  </label>
+                  {customFlyer && <span className="text-xs text-emerald-700">{customFlyer.name} を使います</span>}
+                </div>
+                <p className="text-[10px] text-zinc-400">A4・20MBまで。Webレターは本文PDFをそのまま印刷するので、印刷用の塗り足しは不要。上の「ひとこと」「QR」は自作チラシには反映されません（宛先CSVと記録だけ作ります）</p>
+              </div>
+            )}
           </div>
           {error && <p className="text-xs text-rose-600">{error}</p>}
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -141,6 +188,7 @@ export function DmKitForm({ leads, prefectures, municipalities, defaultPrefectur
           <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
             <p className="text-sm font-bold text-emerald-800 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> {result.area}向けの材料ができました（送れる {result.counts.ready}件／手で補う {result.counts.needsFix}件／対象外 {result.counts.skipped}件）</p>
             <p className="text-[11px] text-emerald-700 mt-1">{result.recorded.ledger}（{result.recorded.sentAt}）</p>
+            <Link href={result.kitUrl} className="inline-flex items-center gap-1 mt-2 text-xs font-bold text-emerald-800 underline"><History className="w-3.5 h-3.5" /> この材料は「郵送DMの履歴」にも残りました（再ダウンロード・発送済みチェックはこちら）</Link>
           </div>
 
           <div className="grid sm:grid-cols-3 gap-2">

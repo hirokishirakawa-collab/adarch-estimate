@@ -308,7 +308,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
       adSeconds: z.number().int().optional().describe("15/30/60（既定15）"),
       budgetJpy: z.number().int().optional().describe("チラシに載せる想定媒体費（省略で標準）"),
     }),
-    run: (v, a) => prepareDm(v, a),
+    run: (v, a) => prepareDm(v, { ...a, source: "AI" }),
     confirm: (a) => `郵送DMの材料を作り、${a.leadIds.length}件を送付として記録します（${a.prefecture} ${a.city}${a.catchCopy ? `／${a.catchCopy}` : ""}）`,
   }),
   def({
