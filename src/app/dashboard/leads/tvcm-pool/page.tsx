@@ -52,12 +52,12 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
       }
     : {};
 
-  // 未claim案件（全パートナーに公開）。SKIPPED（却下済み）は除外
+  // 未claim案件（全パートナーに公開）。SKIPPED（却下済み）と CRAWLED（クロール直後＝代表が未判定・未開示）は除外
   const rawUnclaimed = await db.lead.findMany({
     where: {
       source: "PR_TIMES_TVCM",
       assigneeId: null,
-      status: { not: "SKIPPED" },
+      status: { notIn: ["SKIPPED", "CRAWLED"] },
       ...searchFilter,
     },
     orderBy:

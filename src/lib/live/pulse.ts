@@ -3,7 +3,7 @@
 //   （2026-09-09 代表指示「使う・探る・書くが随時反映されると、みんな自分も動こうとなる」）
 //   材料は全部、既に残っている記録から組む。作った動きは流さない。
 //     ai    : AI ACTIVITY FEED（別枠）＝AI連携（MCP／アーチくん）の呼び出しと提案書AI等。匿名・県なし＝「AIが動いている」ことだけ
-//     auto  : OSの自動検知（買う気配のシグナル・補助金の新着・TVer案件プールの新着）→ 本体フィード
+//     auto  : OSの自動検知（買う気配のシグナル・補助金の新着・TVer案件プールの開示＝代表が「プールへ」にした分だけ）→ 本体フィード
 //     visit : お客様側（LPの閲覧・LINE友だち追加）→ 本体フィード（匿名）
 //   ⚠️ 金額・自由記述は出さない。AI呼び出しの引数は「市・業種」だけ拾う。相手先名は出さない。
 //   ⚠️ 9/9 代表指示: AIの動きは別枠・匿名・県も出さない。OS利用（ログイン等）は流さない。お客様側の行は「代表」（名前・社名なし）
@@ -93,7 +93,8 @@ export async function buildPulseEvents(opts: { days?: number } = {}): Promise<{ 
       select: { signalAt: true, signalKind: true, prefecture: true, area: true, industry: true },
     }),
     db.subsidy.findMany({ where: { createdAt: { gte: since }, isActive: true, adCostFit: "CONFIRMED" }, orderBy: { createdAt: "desc" }, take: 60, select: { title: true, targetAreas: true, createdAt: true, adCostFit: true } }),
-    db.lead.findMany({ where: { createdAt: { gte: since }, source: "PR_TIMES_TVCM" }, orderBy: { createdAt: "desc" }, take: 200, select: { createdAt: true, prefecture: true } }),
+    // TVer案件プール: クロール直後（CRAWLED）は代表だけが見る段階。流すのは代表が「プールへ」で開示した瞬間（LeadLog POOLED）だけ
+    db.leadLog.findMany({ where: { createdAt: { gte: since }, action: "POOLED", lead: { source: "PR_TIMES_TVCM" } }, orderBy: { createdAt: "desc" }, take: 200, select: { createdAt: true, lead: { select: { prefecture: true } } } }),
     db.landingPage.findMany({ where: { updatedAt: { gte: since }, views: { gt: 0 }, status: "PUBLISHED" }, orderBy: { updatedAt: "desc" }, take: 40, select: { title: true, industry: true, prefecture: true, cityName: true, views: true, updatedAt: true, groupCompanyId: true } }),
     db.lineFriend.findMany({ where: { followedAt: { gte: since }, isFollowing: true }, orderBy: { followedAt: "desc" }, take: 200, select: { followedAt: true, account: { select: { name: true, branch: { select: { name: true } } } } } }),
   ]);
@@ -190,7 +191,7 @@ export async function buildPulseEvents(opts: { days?: number } = {}): Promise<{ 
     const day = l.createdAt.toISOString().slice(0, 10);
     const g = tvGroups.get(day) ?? { at: l.createdAt, n: 0, prefs: new Set<string>() };
     g.n += 1;
-    prefsIn(l.prefecture).forEach((p) => g.prefs.add(p));
+    prefsIn(l.lead.prefecture).forEach((p) => g.prefs.add(p));
     if (l.createdAt > g.at) g.at = l.createdAt;
     tvGroups.set(day, g);
   }
