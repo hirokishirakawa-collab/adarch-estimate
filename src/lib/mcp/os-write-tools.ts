@@ -5,7 +5,8 @@
 //   商談の更新（状態・確度・予定日・メモ追記・受注の決め手）、リードの結果記録まで。
 //   決まり:
 //     - 金額は書かない（読み取り側で「他拠点の金額は非表示」にしている考え方と揃える）
-//     - 受注(CLOSED_WON)への変更はOS画面で行う（プロジェクト自動作成・通知の副作用が大きい）
+//     - 受注(CLOSED_WON)は update_deal でのみ受け付け、OS画面と同じ処理（受注日・プロジェクト自動作成・通知）を通す。
+//       商談の新規作成をいきなり受注にはしない／受注済みの商談をAIから戻すことはしない（OS画面で）
 //     - AIが書いた記録は本文の先頭に AI_PREFIX を付け、記録者名は接続した本人にする
 //     - 履歴の読み取り（list_activities）は全社分。書き込みは自拠点の顧客・商談だけ（getBranchFilter）
 // ==============================================================
@@ -17,6 +18,8 @@ import { stripSensitiveLines } from "@/lib/brand-kit/common";
 import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
 import { OUTREACH_RESULT_OPTIONS, getOutreachResultOption } from "@/lib/constants/outreach-result";
 import { applyOutreachResult } from "@/lib/leads/apply-outreach-result";
+import { createProjectFromDeal } from "@/lib/deals/create-project-from-deal";
+import { sendDealNotification, notifyAdmins } from "@/lib/notifications";
 import type { McpViewer } from "./os-read-tools";
 
 /** 利用者に見せてよい失敗（入力の不備・範囲外など）。それ以外の例外は一般的な文言にする */
@@ -334,7 +337,7 @@ export async function createDeal(v: McpViewer, input: CreateDealInput) {
   need(input.customerId, "customerId は必須です（search_customers で探せます）");
   const c = await ownedCustomer(v, input.customerId);
   const status = (input.status ?? "PROSPECTING").toUpperCase() as DealStatus;
-  need(DEAL_STATUSES_WRITABLE.includes(status), `status は ${DEAL_STATUSES_WRITABLE.join(" / ")} のどれかにしてください（受注はOS画面で）`);
+  need(DEAL_STATUSES_WRITABLE.includes(status), `status は ${DEAL_STATUSES_WRITABLE.join(" / ")} のどれかにしてください（受注は作成後に update_deal で）`);
   const probability = input.probability ?? null;
   need(probability === null || (Number.isInteger(probability) && probability >= 0 && probability <= 100), "受注確度（probability）は0〜100の整数にしてください");
   const expectedCloseDate = parseDay(input.expectedCloseDate, "expectedCloseDate");
@@ -364,19 +367,20 @@ export interface UpdateDealInput {
   appendNote?: string;
 }
 
-/** 状態・確度・予定日の更新と、メモの追記（上書きはしない） */
+/** 状態・確度・予定日の更新と、メモの追記（上書きはしない）。受注にしたときはOS画面と同じ処理を通す */
 export async function updateDeal(v: McpViewer, input: UpdateDealInput) {
   const d = await ownedDeal(v, input.id);
   const data: Prisma.DealUpdateInput = {};
   const changed: string[] = [];
+  let won = false;
 
   if (input.status !== undefined) {
     const status = input.status.toUpperCase() as DealStatus;
-    need(status !== "CLOSED_WON", "受注（CLOSED_WON）への変更はOS画面で行ってください（プロジェクト作成と通知が動きます）");
-    need(DEAL_STATUSES_WRITABLE.includes(status), `status は ${DEAL_STATUSES_WRITABLE.join(" / ")} のどれかにしてください`);
+    need(status === "CLOSED_WON" || DEAL_STATUSES_WRITABLE.includes(status), `status は ${[...DEAL_STATUSES_WRITABLE, "CLOSED_WON"].join(" / ")} のどれかにしてください`);
     need(d.status !== "CLOSED_WON", "受注済みの商談は変更できません。OS画面で扱ってください");
     data.status = status;
-    if (status === "CLOSED_LOST") data.closedAt = new Date();
+    if ((status === "CLOSED_WON" || status === "CLOSED_LOST") && d.status !== status) data.closedAt = new Date();
+    won = status === "CLOSED_WON";
     changed.push(`status: ${d.status} → ${status}`);
   }
   if (input.probability !== undefined) {
@@ -398,8 +402,23 @@ export async function updateDeal(v: McpViewer, input: UpdateDealInput) {
   }
   need(changed.length > 0, "変更する項目がありません（status / probability / expectedCloseDate / appendNote のどれか）");
 
-  const u = await db.deal.update({ where: { id: d.id }, data, select: { id: true, title: true, status: true, probability: true, expectedCloseDate: true } });
-  return { id: u.id, title: u.title, status: u.status, probability: u.probability, expectedCloseDate: day(u.expectedCloseDate), changed };
+  const u = await db.deal.update({ where: { id: d.id }, data, select: { id: true, title: true, status: true, probability: true, expectedCloseDate: true, assignedTo: { select: { name: true } } } });
+
+  // 受注: OS画面（updateDealStatus）と同じく、プロジェクト自動作成・案件進捗スペースへの通知・本部への受注通知
+  if (won) {
+    const staffName = staffOf(v);
+    await createProjectFromDeal(u.id, staffName);
+    await sendDealNotification({
+      eventType: "STATUS_CHANGED", dealId: u.id, customerName: d.customer.name, dealTitle: u.title,
+      assigneeName: u.assignedTo?.name ?? null, statusLabel: "受注", staffName,
+    }).catch((e) => console.error("[MCP updateDeal] 通知失敗:", e));
+    notifyAdmins({ type: "DEAL_WON", title: `商談受注: ${u.title}`, message: d.customer.name, linkUrl: `/dashboard/deals/${u.id}` }).catch(() => {});
+  }
+
+  return {
+    id: u.id, title: u.title, status: u.status, probability: u.probability, expectedCloseDate: day(u.expectedCloseDate), changed,
+    ...(won ? { next: "受注にしました（プロジェクトを自動作成・本部に通知）。決め手は set_closing_factor で残せます" } : {}),
+  };
 }
 
 export async function setClosingFactor(v: McpViewer, input: { id: string; closingFactor: string }) {

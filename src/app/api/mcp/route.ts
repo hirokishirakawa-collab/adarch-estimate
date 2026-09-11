@@ -256,7 +256,7 @@ const handler = createMcpHandler(
       "after_meeting", "面談後の記録（OSに残す）", "面談・電話・訪問の内容を貼ると、要点を3〜8行にまとめてOSに記録する",
       { customer: z.string().describe("相手先の名前"), notes: z.string().describe("面談メモ（箇条書きや走り書きでよい）") },
       (a) =>
-        `「${a.customer}」との面談の記録をOSに残してください。メモ:\n${a.notes}\n\n手順: 1) search_customers → 無ければ create_customer 2) 進行中の商談があれば list_deals(customerId) で確認 3) 要点（相手・出た話・懸念・次の一手・期日）を3〜8行にまとめ「OSに記録します」と一言添えてから log_activity 4) 状態・確度・見込み日が動いたら update_deal 5) 受注が決まっていたら set_closing_factor で決め手も残す（受注の確定はOS画面で）。金額は書かない。`,
+        `「${a.customer}」との面談の記録をOSに残してください。メモ:\n${a.notes}\n\n手順: 1) search_customers → 無ければ create_customer 2) 進行中の商談があれば list_deals(customerId) で確認 3) 要点（相手・出た話・懸念・次の一手・期日）を3〜8行にまとめ「OSに記録します」と一言添えてから log_activity 4) 状態・確度・見込み日が動いたら update_deal 5) 受注が決まっていたら update_deal(status: CLOSED_WON) で受注にし、set_closing_factor で決め手も残す。金額は書かない。`,
     );
     prompt(
       "weekly", "週次を出す（本部への週次共有）", "この1週間のOSの記録から週次共有の下書きを作り、確認してから提出する",

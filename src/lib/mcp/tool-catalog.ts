@@ -250,17 +250,17 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   }),
   def({
     name: "create_deal", kind: "write", title: "商談を起こす",
-    description: "既存顧客（customerId）に商談を1件作る。status: PROSPECTING / QUALIFYING / PROPOSAL / NEGOTIATION（受注はOS画面で）。probability は 0〜100、expectedCloseDate は YYYY-MM-DD。進行中の商談が既にある顧客は止まるので、別件なら allowDuplicate: true。金額は入れない。",
+    description: "既存顧客（customerId）に商談を1件作る。status: PROSPECTING / QUALIFYING / PROPOSAL / NEGOTIATION（受注は作成後に update_deal で CLOSED_WON）。probability は 0〜100、expectedCloseDate は YYYY-MM-DD。進行中の商談が既にある顧客は止まるので、別件なら allowDuplicate: true。金額は入れない。",
     input: z.object({ customerId: z.string(), title: z.string(), status: z.string().optional(), probability: z.number().int().optional(), expectedCloseDate: z.string().optional(), notes: z.string().optional(), allowDuplicate: z.boolean().optional() }),
     run: (v, a) => osw.createDeal(v, a),
     confirm: (a) => `商談「${a.title}」を起こします（${a.status ?? "PROSPECTING"}${a.expectedCloseDate ? `・見込み ${a.expectedCloseDate}` : ""}）`,
   }),
   def({
     name: "update_deal", kind: "write", title: "商談を更新（状態・確度・予定日・メモ追記）",
-    description: "商談（id）の status / probability / expectedCloseDate を更新し、appendNote でメモを追記する（上書きはしない）。失注は CLOSED_LOST。受注（CLOSED_WON）はOS画面で行う。",
+    description: "商談（id）の status / probability / expectedCloseDate を更新し、appendNote でメモを追記する（上書きはしない）。失注は CLOSED_LOST。受注は CLOSED_WON＝OS画面で受注にしたときと同じく受注日の記録・プロジェクト自動作成・本部への受注通知が動く（受注済みの商談は変更できない）。受注にしたら set_closing_factor で決め手も残す。",
     input: z.object({ id: z.string(), status: z.string().optional(), probability: z.number().int().optional(), expectedCloseDate: z.string().optional(), appendNote: z.string().optional() }),
     run: (v, a) => osw.updateDeal(v, a),
-    confirm: (a) => `商談を更新します: ${[a.status && `状態→${a.status}`, a.probability !== undefined && `確度→${a.probability}%`, a.expectedCloseDate && `見込み→${a.expectedCloseDate}`, a.appendNote && `メモ追記「${a.appendNote.slice(0, 120)}」`].filter(Boolean).join(" / ")}`,
+    confirm: (a) => `商談を更新します: ${[a.status && (a.status.toUpperCase() === "CLOSED_WON" ? "受注に確定（プロジェクト自動作成・本部に通知）" : `状態→${a.status}`), a.probability !== undefined && `確度→${a.probability}%`, a.expectedCloseDate && `見込み→${a.expectedCloseDate}`, a.appendNote && `メモ追記「${a.appendNote.slice(0, 120)}」`].filter(Boolean).join(" / ")}`,
   }),
   def({
     name: "set_closing_factor", kind: "write", title: "受注の決め手を記録",
@@ -374,4 +374,4 @@ export const OS_AI_RULES =
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。TVerの提案・見積・『効果はどのくらい？』『この市で月◯万だとどれくらい？』には tver_benchmarks(prefecture, city, monthlyBudget, industry) を先に呼び、matrix（人口帯×月額帯→30日あたり表示回数・到達人数・住民比・完全視聴率）を「目安・税抜」で添える。配信済みのお客様への報告は tver_results(reportId) の数字をそのまま使う（盛らない）。" +
   "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad。" +
   "「週次を出して」「今週の週次」「本部への週次共有」には my_week を1回呼び、返った記録だけから 声かけ数・返事数・いちばん近い受注候補 を埋めて本人に見せ、先週の『次の一手』が動いたか（DONE/PARTIAL/NOT）と 本部に頼みたいこと（hqRequest）を本人に選んでもらってから submit_weekly_share で提出する（OSに無い声かけは本人に聞いて足す。盛らない）。" +
-  "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注の確定はOS画面で行うよう案内する。受注が決まったら set_closing_factor で決め手を残す。";
+  "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注が決まったら update_deal(status: CLOSED_WON) で受注にし、set_closing_factor で決め手を残す。";

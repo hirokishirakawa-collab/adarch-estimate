@@ -19,7 +19,7 @@ export const AUTH_CODE_TTL_SEC = 10 * 60; // 10分
 export const SCOPES = {
   brand_kit: { label: "ブランドキット", desc: "AI用材料（決まり・会社紹介・メニュー別/媒体別の数字・切り口・Wiki材料）を読む" },
   "os:read": { label: "OSの読み取り", desc: "グループ全社の顧客・商談・見積・リード・活動履歴と、パッケージ台帳・TVerプラン・Wiki・拠点一覧を読む。他拠点の売上・金額は見えない" },
-  "os:write": { label: "営業の記録（書き込み）", desc: "会話で出た営業のやり取り・結果を貴社の記録としてOSに残す（活動履歴・顧客/商談/リードの登録・商談の更新・受注の決め手）。金額は書かない。受注の確定はOS画面で" },
+  "os:write": { label: "営業の記録（書き込み）", desc: "会話で出た営業のやり取り・結果を貴社の記録としてOSに残す（活動履歴・顧客/商談/リードの登録・商談の更新・受注・受注の決め手）。金額は書かない" },
 } as const;
 export type Scope = keyof typeof SCOPES;
 export const ALL_SCOPES = Object.keys(SCOPES) as Scope[];

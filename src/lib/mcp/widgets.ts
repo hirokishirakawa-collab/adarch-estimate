@@ -36,7 +36,7 @@ export const DEAL_CARD_HTML = `<!doctype html><html lang="ja"><head><meta charse
       (d.closingFactor?'<div class="box"><b>決め手</b>\\n'+esc(d.closingFactor)+'</div>':'')+
       (d.notes?'<div class="box">'+esc(d.notes.slice(0,600))+'</div>':'')+
       (logs?'<div class="sec"><b>最近の動き</b><ul>'+logs+'</ul></div>':'')+
-      '<div class="foot">Ad Arch OS ／ 受注の確定はOS画面で</div>';
+      '<div class="foot">Ad Arch OS</div>';
   }
   render();
   window.addEventListener("openai:set_globals",render);

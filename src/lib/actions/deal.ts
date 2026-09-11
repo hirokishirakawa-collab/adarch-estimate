@@ -8,76 +8,10 @@ import { getSessionInfo, getBranchFilter } from "@/lib/session";
 import { getMockBranchId } from "@/lib/data/customers";
 import type { DealStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
-import { sendDealNotification, notifyAdmins, createInAppNotification } from "@/lib/notifications";
+import { sendDealNotification, notifyAdmins } from "@/lib/notifications";
+import { createProjectFromDeal } from "@/lib/deals/create-project-from-deal";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
 import { logAudit } from "@/lib/audit";
-
-// ---------------------------------------------------------------
-// 受注時にプロジェクトを自動作成する（内部ヘルパー）
-// ---------------------------------------------------------------
-async function createProjectFromDeal(dealId: string, staffName: string) {
-  try {
-    // 既にプロジェクトが紐づいていれば何もしない
-    const existing = await db.project.findFirst({ where: { dealId } });
-    if (existing) return;
-
-    const deal = await db.deal.findUnique({
-      where: { id: dealId },
-      include: {
-        customer: { select: { id: true, name: true } },
-        assignedTo: { select: { name: true } },
-      },
-    });
-    if (!deal) return;
-
-    const project = await db.project.create({
-      data: {
-        title: deal.title,
-        status: "ORDERED",
-        budget: deal.amount,
-        customerId: deal.customerId,
-        branchId: deal.branchId,
-        staffName: deal.assignedTo?.name ?? staffName,
-        dealId: deal.id,
-        description: `商談「${deal.title}」から自動作成`,
-      },
-    });
-
-    // ログ
-    await db.projectLog.create({
-      data: {
-        projectId: project.id,
-        type: "SYSTEM",
-        content: `商談「${deal.title}」の受注により自動作成`,
-        staffName: "SYSTEM",
-      },
-    });
-
-    console.log(`[createProjectFromDeal] Created project ${project.id} from deal ${dealId}`);
-
-    // Notify assignee
-    if (deal.assignedTo) {
-      const assignee = await db.user.findFirst({ where: { name: deal.assignedTo.name }, select: { id: true } });
-      if (assignee) {
-        createInAppNotification({
-          userId: assignee.id,
-          type: "PROJECT_CREATED",
-          title: `プロジェクト自動作成: ${project.title}`,
-          linkUrl: `/dashboard/projects/${project.id}`,
-        }).catch(() => {});
-      }
-    }
-
-    notifyAdmins({
-      type: "PROJECT_CREATED",
-      title: `プロジェクト自動作成: ${project.title}`,
-      message: `商談「${deal.title}」から`,
-      linkUrl: `/dashboard/projects/${project.id}`,
-    }).catch(() => {});
-  } catch (e) {
-    console.error("[createProjectFromDeal]", e);
-  }
-}
 
 // ---------------------------------------------------------------
 // 商談を新規作成する
@@ -258,9 +192,11 @@ export async function updateDealStatus(
 
   let deal: { title: string; customer: { name: string }; assignedTo: { name: string | null } | null } | null = null;
   try {
+    const prev = await db.deal.findUnique({ where: { id: dealId }, select: { status: true } });
+    const closing = (status === "CLOSED_WON" || status === "CLOSED_LOST") && prev?.status !== status;
     deal = await db.deal.update({
       where: { id: dealId },
-      data: { status },
+      data: { status, ...(closing ? { closedAt: new Date() } : {}) },
       select: {
         title: true,
         customer: { select: { name: true } },
@@ -421,11 +357,14 @@ export async function updateDeal(
 
   let customerName: string;
   try {
+    const prev = await db.deal.findUnique({ where: { id: dealId }, select: { status: true } });
+    const closing = (status === "CLOSED_WON" || status === "CLOSED_LOST") && prev?.status !== status;
     const updated = await db.deal.update({
       where: { id: dealId },
       data: {
         title,
         status: status as DealStatus,
+        ...(closing ? { closedAt: new Date() } : {}),
         amount: amount ?? null,
         probability,
         expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : null,
