@@ -8,7 +8,8 @@ const CRON_SECRET = process.env.CRON_SECRET ?? "";
 
 // ----------------------------------------------------------------
 // POST /api/franchise-leads/booking-signal
-// TimeRexの「日程調整が完了しました」メール原文をGASがPOST。
+// TimeRexの「日程調整が完了しました」メール原文、または
+// Googleカレンダー予約スケジュール（GASがCalendarAppから同書式に組み立て・2026-09-11〜）をGASがPOST。
 // 本文から予約者メール・日時を抽出し、該当リードを MEETING_SCHEDULED に更新
 // ＋CEO通知スペースへ祝賀通知。認証: Bearer CRON_SECRET（サーバー間のみ）
 //
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
     const email = raw.match(/メールアドレス[：:]\s*([^\s\r\n]+)/)?.[1]?.trim() ?? null;
     const name = raw.match(/名前[：:]\s*([^\r\n]+)/)?.[1]?.trim() ?? null;
     const datetime = raw.match(/日時[：:]\s*([^\r\n]+)/)?.[1]?.trim() ?? null;
+    const via = /Googleカレンダー予約/.test(raw) ? "Googleカレンダー予約" : "TimeRex";
 
     if (!email) {
       return NextResponse.json({ ok: false, reason: "email_not_found" });
@@ -63,14 +65,14 @@ export async function POST(req: NextRequest) {
         where: { id: lead.id },
         data: {
           status: "MEETING_SCHEDULED",
-          notes: `${lead.notes ?? ""}\n\n―― 面談予約（TimeRex自動検知 ${stamp}）――\n日時: ${datetime ?? "本文参照"}`.trim(),
+          notes: `${lead.notes ?? ""}\n\n―― 面談予約（${via}自動検知 ${stamp}）――\n日時: ${datetime ?? "本文参照"}`.trim(),
           // ステージが変わったのでSLA通知状態をリセット（面談後48hルールが次に効く）
           slaAlertStage: null,
         },
       });
       await notifyCeo(
         [
-          "🎉 面談予約が入りました（TimeRex自動検知）",
+          `🎉 面談予約が入りました（${via}自動検知）`,
           `リード: ${lead.companyName}（${lead.prefecture ?? "県不明"}）`,
           `日時: ${datetime ?? "不明"}`,
           `連絡先: ${email}`,
@@ -87,7 +89,7 @@ export async function POST(req: NextRequest) {
     // 台帳に見つからない予約（紹介経由・手動起票漏れ等）も見逃さず通知
     await notifyCeo(
       [
-        "🎉 面談予約が入りました（TimeRex自動検知・台帳外）",
+        `🎉 面談予約が入りました（${via}自動検知・台帳外）`,
         `予約者: ${name ?? "不明"} / ${email}`,
         `日時: ${datetime ?? "不明"}`,
         "",
