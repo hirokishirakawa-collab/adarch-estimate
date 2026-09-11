@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { SuspendedRedirect } from "@/components/layout/suspended-redirect";
 import { ChatbotWidget } from "@/components/chatbot/chatbot-widget";
+import { WinCelebration } from "@/components/deals/win-celebration";
 import { Toaster } from "sonner";
 import { db } from "@/lib/db";
 import type { UserRole } from "@/types/roles";
@@ -94,6 +95,7 @@ export default async function DashboardLayout({
         {children}
       </DashboardShell>
       <ChatbotWidget />
+      {isActive && <WinCelebration />}
       <Toaster richColors position="top-right" />
     </>
   );

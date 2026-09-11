@@ -232,8 +232,10 @@ export function DealKanban({ deals: initialDeals, showArchived, sevenDaysAgo }: 
     setDeals(nextDeals);
 
     // サーバーへ反映（バックグラウンド）
-    startTransition(() => {
-      updateDealStatus(dealId, targetStatus);
+    startTransition(async () => {
+      const res = await updateDealStatus(dealId, targetStatus);
+      // 受注にしたらその場でお祝い（WinCelebration）を出す
+      if (targetStatus === "CLOSED_WON" && !res.error) window.dispatchEvent(new Event("adarch:deal-won"));
     });
   }
 
