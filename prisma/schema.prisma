@@ -2682,6 +2682,9 @@ model TverDeliveryReport {
   rowCount         Int
   campaignNames    String[] @default([]) // 含まれるキャンペーン名（表示用）
   adSeconds        Int? // 秒数（キャンペーン名/卸CPMから推定。判定できなければ null）
+  industry         String? // 広告主の業種（申込に紐づけば自動・無ければ本部が入力）。グループ横断のベンチマーク（MCP tver_benchmarks）の軸
+  areaLabel        String? // 商圏の表示名（例: 福岡県 福岡市（全区）／福岡県 全域）。申込に紐づけば自動・無ければ本部が選ぶ
+  areaPopulation   Int? // 商圏の人口（市区町村マスター）。「どの規模の市町村で・いくら打つと・どうなるか」のベンチマーク軸
 
   // ── 合計（卸値は本部だけ。拠点には sell* だけを見せる）
   impressions       Int

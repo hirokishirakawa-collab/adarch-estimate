@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { orderNumberFromName, parseDeliveryCsv, summarize } from "@/lib/tver/delivery-csv";
+import { areaFromKey, areaFromOrder, areaFromPrefectures } from "@/lib/tver/report-area";
 
 const PATH = "/dashboard/admin/tver-reports";
 const PARTNER_PATH = "/dashboard/tver-reports";
@@ -52,7 +53,7 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
     const x = orderNumberFromName(n);
     if (x) numbers.add(x);
   }
-  const linkedOrder = numbers.size ? await db.tverOrder.findFirst({ where: { number: { in: [...numbers] } }, select: { id: true, groupCompanyId: true } }) : null;
+  const linkedOrder = numbers.size ? await db.tverOrder.findFirst({ where: { number: { in: [...numbers] } }, select: { id: true, groupCompanyId: true, industry: true, prefName: true, municipalityCode: true, areaLabel: true } }) : null;
   const prev = await db.tverDeliveryReport.findFirst({
     where: { advertiserTverId: head.advertiserTverId, groupCompanyId: { not: null } },
     orderBy: { createdAt: "desc" },
@@ -61,6 +62,9 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
   const groupCompanyId = String(fd.get("groupCompanyId") ?? "").trim() || linkedOrder?.groupCompanyId || prev?.groupCompanyId || null;
   const tverOrderId = linkedOrder?.id || String(fd.get("tverOrderId") ?? "").trim() || prev?.tverOrderId || null;
   const adminNote = String(fd.get("adminNote") ?? "").trim().slice(0, 2000) || null;
+  const industry = String(fd.get("industry") ?? "").trim().slice(0, 100) || linkedOrder?.industry || null;
+  // 商圏: 申込の市区町村 → 無ければ明細の県全域
+  const area = linkedOrder ? areaFromOrder(linkedOrder.prefName, linkedOrder.municipalityCode, linkedOrder.areaLabel) : areaFromPrefectures(rows.map((r) => r.prefecture));
 
   // 同じ広告主で期間が重なる既存レポート → 差し替え
   const overlaps = await db.tverDeliveryReport.findMany({
@@ -94,6 +98,8 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
           importedByEmail: info.email,
           ...(groupCompanyId ? { groupCompanyId } : {}),
           ...(tverOrderId ? { tverOrderId } : {}),
+          ...(industry ? { industry } : {}),
+          ...(linkedOrder && area ? area : {}),
           ...(adminNote ? { adminNote } : {}),
           ...(demote ? { status: "IMPORTED", confirmedAt: null, confirmedByEmail: null, adminNote: `${ex.adminNote ? ex.adminNote + "\n" : ""}【自動】${new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })} 再取込で警告が出たため非公開に戻しました` } : {}),
         },
@@ -108,7 +114,7 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
   }
 
   const created = await db.tverDeliveryReport.create({
-    data: { fileName: file.name.slice(0, 200), ...head, rowCount: rows.length, groupCompanyId, tverOrderId, importedByEmail: info.email, adminNote },
+    data: { fileName: file.name.slice(0, 200), ...head, rowCount: rows.length, groupCompanyId, tverOrderId, industry, ...(area ?? {}), importedByEmail: info.email, adminNote },
     select: { id: true },
   });
   for (let i = 0; i < rows.length; i += 1000) {
@@ -131,6 +137,8 @@ export async function updateDeliveryReport(id: string, fd: FormData): Promise<R>
     data: {
       groupCompanyId: s("groupCompanyId") || null,
       tverOrderId: s("tverOrderId") || null,
+      industry: s("industry").slice(0, 100) || null,
+      ...(s("areaKey") ? areaFromKey(s("areaKey")) ?? {} : {}),
       adminNote: s("adminNote").slice(0, 2000) || null,
       partnerNote: s("partnerNote").slice(0, 2000) || null,
     },

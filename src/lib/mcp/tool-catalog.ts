@@ -12,6 +12,7 @@ import * as osw from "./os-write-tools";
 import * as ins from "./os-insight-tools";
 import * as camp from "./os-campaign-tools";
 import * as wk from "./os-weekly-tools";
+import * as tv from "./os-tver-tools";
 import { createLocalCampaign } from "@/lib/meta-ads/local-campaign";
 import { resolveMetaConfig } from "@/lib/meta-ads/account";
 import { appUrl } from "@/lib/tver-order/service";
@@ -91,6 +92,18 @@ export const OS_READ_TOOLS: OsToolDef[] = [
     description: "都道府県＋市区町村のTVer広告プラン（税抜・推計）。商圏のTVer視聴者数、3人に1人に届ける標準プラン、月額別の到達目安を返す。",
     input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市（省略で県内の先頭）") }),
     run: (_v, a) => os.tverAreaPlan(a),
+  }),
+  def({
+    name: "tver_results", kind: "read", title: "TVer配信実績（自拠点・本部確認済み）",
+    description: "自拠点（本部は全社）のTVer配信実績＝本部が確認して公開したものだけ。reportId を渡すと表示回数・完全視聴率・CTR・金額（税抜）に加え、都道府県別・デバイス別・性別年齢別・日別の内訳を返す。お客様への報告・次回提案に使う。省略すると一覧。",
+    input: z.object({ reportId: z.string().optional().describe("一覧の id。詳細が要る時"), advertiser: z.string().optional().describe("広告主名で絞る"), limit: z.number().int().optional().describe("既定20・最大50") }),
+    run: (v, a) => tv.tverResults(v, a),
+  }),
+  def({
+    name: "tver_benchmarks", kind: "read", title: "TVer実績ベンチマーク（グループ横断）",
+    description: "グループ全社のTVer配信実績を「どの規模の市町村（人口帯）で・月いくら打つと（月額帯）・どうなったか（30日あたり表示回数・到達人数・住民比・完全視聴率・CTR・年齢/デバイス構成）」で引く。提案前・見積前・『効果はどのくらい？』『この市で月◯万だとどれくらい？』に呼ぶ。市名か人口と、想定の月額を渡すと近い帯の実績だけを返す。他拠点の案件は広告主名を伏せ金額は帯だけ＝比率と規模を『型』として借りる。",
+    input: z.object({ industry: z.string().optional().describe("例: 建設 / 歯科 / 飲食"), prefecture: z.string().optional().describe("例: 福岡県"), city: z.string().optional().describe("例: 久留米市（prefecture と一緒に。人口をマスターから引く）"), population: z.number().int().optional().describe("商圏の人口を直接渡す時"), monthlyBudget: z.number().int().optional().describe("想定の月額（税抜・円）。近い月額帯の実績に絞る"), adSeconds: z.number().int().optional().describe("15 / 30 / 60"), limit: z.number().int().optional().describe("既定12・最大30") }),
+    run: (v, a) => tv.tverBenchmarks(v, a),
   }),
   def({
     name: "search_wiki", kind: "read", title: "本部Wikiを検索",
@@ -358,7 +371,7 @@ export function toAnthropicTools(defs: OsToolDef[]): { name: string; description
 export const OS_AI_RULES =
   "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。" +
   "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。媒体の仕様・配信面・条件・他社の提案の仕組みは search_knowledge（資料ライブラリ）で引き、返った rules（自社=そのまま／他社・媒体=価格は卸値・実績は他社分）を必ず守る。" +
-  "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。" +
+  "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。TVerの提案・見積・『効果はどのくらい？』『この市で月◯万だとどれくらい？』には tver_benchmarks(prefecture, city, monthlyBudget, industry) を先に呼び、matrix（人口帯×月額帯→30日あたり表示回数・到達人数・住民比・完全視聴率）を「目安・税抜」で添える。配信済みのお客様への報告は tver_results(reportId) の数字をそのまま使う（盛らない）。" +
   "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad。" +
   "「週次を出して」「今週の週次」「本部への週次共有」には my_week を1回呼び、返った記録だけから 声かけ数・返事数・いちばん近い受注候補 を埋めて本人に見せ、先週の『次の一手』が動いたか（DONE/PARTIAL/NOT）と 本部に頼みたいこと（hqRequest）を本人に選んでもらってから submit_weekly_share で提出する（OSに無い声かけは本人に聞いて足す。盛らない）。" +
   "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注の確定はOS画面で行うよう案内する。受注が決まったら set_closing_factor で決め手を残す。";

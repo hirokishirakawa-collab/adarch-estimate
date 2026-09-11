@@ -7,9 +7,11 @@ import { useRouter } from "next/navigation";
 import { publishDeliveryReport, unpublishDeliveryReport, updateDeliveryReport } from "@/lib/actions/tver-delivery";
 
 export function ReportAdminPanel(p: {
-  id: string; status: "IMPORTED" | "PUBLISHED"; groupCompanyId: string; tverOrderId: string; adminNote: string; partnerNote: string;
+  id: string; status: "IMPORTED" | "PUBLISHED"; groupCompanyId: string; tverOrderId: string; industry: string; adminNote: string; partnerNote: string;
   companies: { id: string; name: string; prefecture: string | null }[];
   orders: { id: string; label: string; hit: boolean }[];
+  areaLabel: string; areaPopulation: number | null;
+  areaOptions: { key: string; label: string; population: number }[];
   hasWarnings: boolean;
 }) {
   const router = useRouter();
@@ -47,6 +49,19 @@ export function ReportAdminPanel(p: {
             <select name="tverOrderId" defaultValue={p.tverOrderId} className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm">
               <option value="">紐づけない</option>
               {p.orders.map((o) => <option key={o.id} value={o.id}>{o.hit ? "★ " : ""}{o.label}</option>)}
+            </select>
+          </label>
+          <label className="block text-xs text-zinc-600">
+            広告主の業種（グループ横断のベンチマークの軸。申込に紐づくと自動）
+            <input name="industry" defaultValue={p.industry} maxLength={100} list="tver-industry-list" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm" placeholder="例: 建設 / 歯科 / 飲食 / 不動産 / 自動車販売" />
+            <datalist id="tver-industry-list">{["建設・リフォーム", "歯科", "医療・クリニック", "飲食", "不動産", "自動車販売", "美容・サロン", "小売", "学校・塾", "士業", "製造", "観光・宿泊", "介護・福祉", "採用"].map((x) => <option key={x} value={x} />)}</datalist>
+          </label>
+          <label className="block text-xs text-zinc-600">
+            商圏（どの規模の市町村で打ったか。ベンチマークの軸）
+            <div className="mt-0.5 text-[11px] text-zinc-500">現在: {p.areaLabel || "未設定"}{p.areaPopulation ? `（人口 ${p.areaPopulation.toLocaleString("ja-JP")}人）` : ""}</div>
+            <select name="areaKey" defaultValue="" className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm">
+              <option value="">変更しない</option>
+              {p.areaOptions.map((o) => <option key={o.key} value={o.key}>{o.label}（{o.population.toLocaleString("ja-JP")}人）</option>)}
             </select>
           </label>
           <label className="block text-xs text-zinc-600">

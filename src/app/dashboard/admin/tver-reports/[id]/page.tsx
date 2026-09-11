@@ -9,6 +9,7 @@ import { SELL_MULTIPLIER, UNIT_PRICE, type AdSeconds } from "@/lib/tver/plan";
 import { breakdown } from "@/lib/tver/delivery-csv";
 import { orderNumberLabel } from "@/lib/tver-order/plans";
 import { ReportAdminPanel } from "./admin-panel";
+import { areaOptionsFor } from "@/lib/tver/report-area";
 import { BreakdownTables } from "@/components/tver/delivery-breakdown";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
   const byDevice = breakdown(r.rows, (x) => x.device);
   const byDate = breakdown(r.rows, (x) => fmtD(x.date)).sort((a, b) => a.key.localeCompare(b.key, "ja"));
   const byAge = breakdown(r.rows, (x) => `${x.gender} ${x.age}`);
+  const areaOptions = areaOptionsFor(byPref.map((b) => b.key));
   const wholesaleByCampaign = new Map<string, number>();
   for (const x of r.rows) wholesaleByCampaign.set(x.campaignName, (wholesaleByCampaign.get(x.campaignName) ?? 0) + x.wholesaleAmount);
 
@@ -61,7 +63,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
       <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
         <div>
           <h1 className="text-lg font-semibold text-zinc-900">{r.advertiserName}　{fmtD(r.periodStart)}〜{fmtD(r.periodEnd)}</h1>
-          <p className="text-sm text-zinc-500">TVer広告主ID {r.advertiserTverId}・{r.adSeconds ? `${r.adSeconds}秒` : "秒数不明"}・{r.rowCount.toLocaleString("ja-JP")}行・{r.fileName}・取込 {fmtDT(r.createdAt)}（{r.importedByEmail}）</p>
+          <p className="text-sm text-zinc-500">TVer広告主ID {r.advertiserTverId}・{r.industry ? `${r.industry}・` : ""}{r.areaLabel ? `${r.areaLabel}・` : ""}{r.adSeconds ? `${r.adSeconds}秒` : "秒数不明"}・{r.rowCount.toLocaleString("ja-JP")}行・{r.fileName}・取込 {fmtDT(r.createdAt)}（{r.importedByEmail}）</p>
         </div>
         <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${r.status === "PUBLISHED" ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"}`}>{r.status === "PUBLISHED" ? `公開済み（${fmtDT(r.confirmedAt)}）` : "確認待ち（拠点には見えていません）"}</span>
       </div>
@@ -117,6 +119,10 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
             status={r.status}
             groupCompanyId={r.groupCompanyId ?? ""}
             tverOrderId={r.tverOrderId ?? ""}
+            industry={r.industry ?? ""}
+            areaLabel={r.areaLabel ?? ""}
+            areaPopulation={r.areaPopulation}
+            areaOptions={areaOptions}
             adminNote={r.adminNote ?? ""}
             partnerNote={r.partnerNote ?? ""}
             companies={companies}
