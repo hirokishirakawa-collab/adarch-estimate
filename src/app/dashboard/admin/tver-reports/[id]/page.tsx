@@ -1,0 +1,140 @@
+// TVer配信実績 — 本部の詳細（ADMINだけ）。卸値と売価を並べて確認 → 拠点を紐づけ → 確認完了＝公開
+import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import { auth } from "@/lib/auth";
+import type { UserRole } from "@/types/roles";
+import { db } from "@/lib/db";
+import { SELL_MULTIPLIER, UNIT_PRICE, type AdSeconds } from "@/lib/tver/plan";
+import { breakdown } from "@/lib/tver/delivery-csv";
+import { orderNumberLabel } from "@/lib/tver-order/plans";
+import { ReportAdminPanel } from "./admin-panel";
+import { BreakdownTables } from "@/components/tver/delivery-breakdown";
+
+export const dynamic = "force-dynamic";
+const fmtD = (d: Date) => new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "medium" }).format(d);
+const fmtDT = (d: Date | null) => (d ? new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "medium", timeStyle: "short" }).format(d) : "—");
+const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
+
+export default async function AdminTverReportDetail({ params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  const role = (session?.user?.role ?? "USER") as UserRole;
+  if (role !== "ADMIN") redirect("/dashboard");
+  const { id } = await params;
+  const [r, companies] = await Promise.all([
+    db.tverDeliveryReport.findUnique({
+      where: { id },
+      include: {
+        groupCompany: { select: { id: true, name: true, prefecture: true } },
+        tverOrder: { select: { id: true, number: true, createdAt: true, advertiserName: true } },
+        rows: { select: { date: true, campaignName: true, prefecture: true, device: true, gender: true, age: true, impressions: true, q100: true, clicks: true, sellAmount: true, wholesaleAmount: true, wholesaleCpm: true } },
+      },
+    }),
+    db.groupCompany.findMany({ where: { isActive: true }, select: { id: true, name: true, prefecture: true }, orderBy: { name: "asc" } }),
+  ]);
+  if (!r) notFound();
+  // 紐づけ候補の申込: 広告主名が近いものを先頭に
+  const orders = await db.tverOrder.findMany({
+    where: { status: { notIn: ["CANCELLED", "REFUNDED", "AWAITING_PAYMENT"] } },
+    select: { id: true, number: true, createdAt: true, advertiserName: true, groupCompanyId: true },
+    orderBy: { createdAt: "desc" },
+    take: 300,
+  });
+  const key = r.advertiserName.replace(/株式会社|有限会社|合同会社|\s/g, "");
+  const orderOpts = orders
+    .map((o) => ({ id: o.id, label: `${orderNumberLabel(o.number, o.createdAt)} ${o.advertiserName}`, hit: key.length > 1 && o.advertiserName.replace(/株式会社|有限会社|合同会社|\s/g, "").includes(key) }))
+    .sort((a, b) => Number(b.hit) - Number(a.hit));
+
+  const sec = r.adSeconds as AdSeconds | null;
+  const sellUnit = sec ? UNIT_PRICE[sec] : null;
+  const byCampaign = breakdown(r.rows, (x) => x.campaignName);
+  const byPref = breakdown(r.rows, (x) => x.prefecture);
+  const byDevice = breakdown(r.rows, (x) => x.device);
+  const byDate = breakdown(r.rows, (x) => fmtD(x.date)).sort((a, b) => a.key.localeCompare(b.key, "ja"));
+  const byAge = breakdown(r.rows, (x) => `${x.gender} ${x.age}`);
+  const wholesaleByCampaign = new Map<string, number>();
+  for (const x of r.rows) wholesaleByCampaign.set(x.campaignName, (wholesaleByCampaign.get(x.campaignName) ?? 0) + x.wholesaleAmount);
+
+  return (
+    <div className="px-6 py-6 max-w-screen-2xl mx-auto w-full">
+      <Link href="/dashboard/admin/tver-reports" className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-800 mb-4"><ChevronLeft className="w-4 h-4" />一覧へ</Link>
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
+        <div>
+          <h1 className="text-lg font-semibold text-zinc-900">{r.advertiserName}　{fmtD(r.periodStart)}〜{fmtD(r.periodEnd)}</h1>
+          <p className="text-sm text-zinc-500">TVer広告主ID {r.advertiserTverId}・{r.adSeconds ? `${r.adSeconds}秒` : "秒数不明"}・{r.rowCount.toLocaleString("ja-JP")}行・{r.fileName}・取込 {fmtDT(r.createdAt)}（{r.importedByEmail}）</p>
+        </div>
+        <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${r.status === "PUBLISHED" ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"}`}>{r.status === "PUBLISHED" ? `公開済み（${fmtDT(r.confirmedAt)}）` : "確認待ち（拠点には見えていません）"}</span>
+      </div>
+
+      {r.warnings.length > 0 && (
+        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-800">
+          <p className="font-semibold mb-1">取込時の警告</p>
+          <ul className="list-disc pl-5 space-y-0.5">{r.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-5 gap-6">
+        <div className="lg:col-span-3 space-y-6">
+          <section className="bg-white border border-zinc-200 rounded-xl p-5">
+            <h2 className="text-sm font-semibold text-zinc-900 mb-3">金額の確認（卸値は本部だけ・拠点には売価だけが出ます）</h2>
+            <div className="grid sm:grid-cols-3 gap-3 text-sm">
+              <Stat k="卸値（ご利用金額の合計）" v={yen(r.wholesaleAmount)} sub={`卸CPM ${sec ? `¥${(UNIT_PRICE[sec] / SELL_MULTIPLIER * 1000).toLocaleString("ja-JP")}` : "—"}`} muted />
+              <Stat k={`売価＝卸値×${r.sellMultiplier}`} v={yen(r.sellAmount)} sub={sellUnit ? `売単価 ¥${sellUnit}/再生` : "—"} strong />
+              <Stat k="裏計算＝表示回数×売単価" v={r.crossCheckAmount ? yen(r.crossCheckAmount) : "—"} sub={`ずれ ${r.crossCheckDiffPct}%`} warn={r.crossCheckDiffPct > 3} />
+            </div>
+            <div className="grid sm:grid-cols-4 gap-3 text-sm mt-3">
+              <Stat k="表示回数" v={r.impressions.toLocaleString("ja-JP")} />
+              <Stat k="100%再生" v={r.completes.toLocaleString("ja-JP")} sub={r.impressions ? `${Math.round((r.completes / r.impressions) * 1000) / 10}%` : ""} />
+              <Stat k="クリック" v={r.clicks.toLocaleString("ja-JP")} sub={r.impressions ? `CTR ${Math.round((r.clicks / r.impressions) * 10000) / 100}%` : ""} />
+              <Stat k="売CPM" v={r.impressions ? yen(Math.round((r.sellAmount / r.impressions) * 1000)) : "—"} />
+            </div>
+          </section>
+
+          <section className="bg-white border border-zinc-200 rounded-xl p-5">
+            <h2 className="text-sm font-semibold text-zinc-900 mb-3">キャンペーン別（卸値つき・本部だけ）</h2>
+            <table className="w-full text-sm">
+              <thead className="text-xs text-zinc-500"><tr><th className="text-left py-1">キャンペーン</th><th className="text-right py-1">表示回数</th><th className="text-right py-1">100%再生</th><th className="text-right py-1">卸値</th><th className="text-right py-1">売価</th></tr></thead>
+              <tbody>
+                {byCampaign.map((b) => (
+                  <tr key={b.key} className="border-t border-zinc-100">
+                    <td className="py-1.5 pr-2">{b.key}</td>
+                    <td className="py-1.5 text-right tabular-nums">{b.impressions.toLocaleString("ja-JP")}</td>
+                    <td className="py-1.5 text-right tabular-nums">{b.completes.toLocaleString("ja-JP")}</td>
+                    <td className="py-1.5 text-right tabular-nums text-zinc-500">{yen(wholesaleByCampaign.get(b.key) ?? 0)}</td>
+                    <td className="py-1.5 text-right tabular-nums font-medium">{yen(b.sellAmount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <BreakdownTables byPref={byPref} byDevice={byDevice} byDate={byDate} byAge={byAge} />
+        </div>
+
+        <div className="lg:col-span-2">
+          <ReportAdminPanel
+            id={r.id}
+            status={r.status}
+            groupCompanyId={r.groupCompanyId ?? ""}
+            tverOrderId={r.tverOrderId ?? ""}
+            adminNote={r.adminNote ?? ""}
+            partnerNote={r.partnerNote ?? ""}
+            companies={companies}
+            orders={orderOpts}
+            hasWarnings={r.warnings.length > 0}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ k, v, sub, strong, muted, warn }: { k: string; v: string; sub?: string; strong?: boolean; muted?: boolean; warn?: boolean }) {
+  return (
+    <div className={`rounded-lg border px-3 py-2 ${warn ? "border-rose-200 bg-rose-50" : strong ? "border-orange-200 bg-orange-50" : "border-zinc-200"}`}>
+      <div className="text-xs text-zinc-500">{k}</div>
+      <div className={`tabular-nums ${strong ? "text-lg font-bold text-zinc-900" : muted ? "text-base text-zinc-500" : "text-base font-medium text-zinc-900"} ${warn ? "text-rose-700" : ""}`}>{v}</div>
+      {sub && <div className="text-xs text-zinc-400">{sub}</div>}
+    </div>
+  );
+}

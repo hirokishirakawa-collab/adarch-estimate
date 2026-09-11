@@ -422,6 +422,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Tv2,
         minRole: "USER",
       },
+      {
+        href: "/dashboard/tver-reports",
+        label: "TVer配信実績",
+        icon: BarChart2,
+        minRole: "USER",
+      },
     ],
   },
   {
@@ -681,6 +687,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/admin/tver-orders",
         label: "TVer小口申込",
         icon: MonitorPlay,
+        minRole: "ADMIN",
+      },
+      {
+        href: "/dashboard/admin/tver-reports",
+        label: "TVer配信実績（取込・確認）",
+        icon: BarChart2,
         minRole: "ADMIN",
       },
       {

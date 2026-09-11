@@ -1,0 +1,100 @@
+// ==============================================================
+// TVer配信実績 — 拠点の一覧。自社に紐づいた「公開済み」だけが並ぶ。金額は売価（卸値は存在しない）
+//   本部は全拠点分を見られる（取込・確認は /dashboard/admin/tver-reports）
+// ==============================================================
+
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { BarChart2 } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
+const fmtD = (d: Date) => new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" }).format(d);
+const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
+
+export default async function TverReportsPage() {
+  const session = await auth();
+  if (!session?.user?.email) redirect("/");
+  const me = await db.user.findUnique({ where: { email: session.user.email }, select: { role: true, groupCompanyId: true, groupCompany: { select: { name: true } } } });
+  if (!me) redirect("/");
+  const isAdmin = me.role === "ADMIN";
+  if (!isAdmin && !me.groupCompanyId) {
+    return (
+      <Empty title="TVer配信実績" body="このアカウントは拠点に紐づいていないため実績を表示できません。本部にご連絡ください。" />
+    );
+  }
+
+  const reports = await db.tverDeliveryReport.findMany({
+    where: { status: "PUBLISHED", ...(isAdmin ? {} : { groupCompanyId: me.groupCompanyId! }) },
+    orderBy: { periodEnd: "desc" },
+    take: 300,
+    select: {
+      id: true, advertiserName: true, periodStart: true, periodEnd: true, adSeconds: true,
+      impressions: true, completes: true, clicks: true, sellAmount: true, confirmedAt: true, partnerNote: true,
+      groupCompany: { select: { name: true } },
+    },
+  });
+
+  return (
+    <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-5">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center">
+          <BarChart2 className="text-orange-600" style={{ width: "1.125rem", height: "1.125rem" }} />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-zinc-900">TVer配信実績</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            本部が確認を終えた配信実績です。金額は税抜の媒体費（再生単価×再生数）。お客様への報告にそのまま使えます。
+          </p>
+        </div>
+        {isAdmin && <Link href="/dashboard/admin/tver-reports" className="ml-auto text-sm text-orange-600 underline">本部の取込・確認へ</Link>}
+      </div>
+
+      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 text-xs text-zinc-500">
+              <tr>
+                <th className="px-3 py-2 text-left">広告主</th>
+                <th className="px-3 py-2 text-left">期間</th>
+                {isAdmin && <th className="px-3 py-2 text-left">拠点</th>}
+                <th className="px-3 py-2 text-right">表示回数</th>
+                <th className="px-3 py-2 text-right">100%再生</th>
+                <th className="px-3 py-2 text-right">クリック</th>
+                <th className="px-3 py-2 text-right">金額（税抜）</th>
+                <th className="px-3 py-2 text-left">確認日</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reports.length === 0 && (
+                <tr><td colSpan={isAdmin ? 8 : 7} className="px-3 py-10 text-center text-zinc-400">公開された実績はまだありません</td></tr>
+              )}
+              {reports.map((r) => (
+                <tr key={r.id} className="border-t border-zinc-100 hover:bg-zinc-50/60">
+                  <td className="px-3 py-2"><Link href={`/dashboard/tver-reports/${r.id}`} className="font-medium text-zinc-900 hover:text-orange-600">{r.advertiserName}</Link>{r.adSeconds ? <span className="text-xs text-zinc-400 ml-1">{r.adSeconds}秒</span> : null}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{fmtD(r.periodStart)}〜{fmtD(r.periodEnd)}</td>
+                  {isAdmin && <td className="px-3 py-2 whitespace-nowrap">{r.groupCompany?.name ?? "—"}</td>}
+                  <td className="px-3 py-2 text-right tabular-nums">{r.impressions.toLocaleString("ja-JP")}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{r.completes.toLocaleString("ja-JP")}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{r.clicks.toLocaleString("ja-JP")}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-medium">{yen(r.sellAmount)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-zinc-500">{r.confirmedAt ? fmtD(r.confirmedAt) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Empty({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
+      <h2 className="text-lg font-bold text-zinc-900 mb-2">{title}</h2>
+      <p className="text-sm text-zinc-500">{body}</p>
+    </div>
+  );
+}

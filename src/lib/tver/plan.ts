@@ -37,7 +37,11 @@ export const FREQ = 4.78; // 実測平均フリークエンシー（安藤工事
 const MULT = 3; // 卸値×3
 
 /** 秒数別 再生単価（円/再生）。15秒 ¥6.6／30秒 ¥7.8／60秒 ¥11.1 */
-export const UNIT_PRICE: Record<15 | 30 | 60, number> = { 15: 2.2 * MULT, 30: 2.6 * MULT, 60: 3.7 * MULT }; // 卸値=TVerフロア価格表(2026-03): 15秒¥2.2/30秒¥2.6/60秒¥3.7 → 売値 ¥6.6/¥7.8/¥11.1（2026-09-03 代表確認: シミュレーターと同じ「各秒数の原価×3」）
+/** 卸値（TVerフロア価格表 2026-03・円/再生）。配信実績CSVの CPM（円/1000表示）÷1000 と一致する */
+export const WHOLESALE_UNIT: Record<15 | 30 | 60, number> = { 15: 2.2, 30: 2.6, 60: 3.7 };
+/** 卸値→売値の係数。配信実績の取込（src/lib/tver/delivery-csv.ts）もこの1か所を使う */
+export const SELL_MULTIPLIER = MULT;
+export const UNIT_PRICE: Record<15 | 30 | 60, number> = { 15: WHOLESALE_UNIT[15] * MULT, 30: WHOLESALE_UNIT[30] * MULT, 60: WHOLESALE_UNIT[60] * MULT }; // 卸値=TVerフロア価格表(2026-03): 15秒¥2.2/30秒¥2.6/60秒¥3.7 → 売値 ¥6.6/¥7.8/¥11.1（2026-09-03 代表確認: シミュレーターと同じ「各秒数の原価×3」）
 export type AdSeconds = 15 | 30 | 60;
 
 /** 県内TVer月間利用者数（推計） */

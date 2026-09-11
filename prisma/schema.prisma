@@ -1514,35 +1514,35 @@ enum KnowledgeStatus {
 
 /// 資料ライブラリの1件。content=全文（Markdown・ページ印つき）、digest=AIが整理した「使える中身／価格の扱い／実績の扱い／注意」
 model KnowledgeSource {
-  id           String          @id @default(cuid())
-  title        String
-  origin       KnowledgeOrigin @default(EXTERNAL)
-  kind         KnowledgeKind
+  id             String          @id @default(cuid())
+  title          String
+  origin         KnowledgeOrigin @default(EXTERNAL)
+  kind           KnowledgeKind
   /// 発行元（媒体社名・会社名）
-  publisher    String?
+  publisher      String?
   /// 資料の年月など（自由記述: 2026年4月版 等）
-  publishedAt  String?
+  publishedAt    String?
   /// 保存したファイルの配信パス（/api/storage/knowledge-files/…）
-  fileUrl      String?
-  fileName     String?
-  mimeType     String?
-  fileSize     Int?
-  sourceUrl    String?
+  fileUrl        String?
+  fileName       String?
+  mimeType       String?
+  fileSize       Int?
+  sourceUrl      String?
   /// 本部限定（加盟条件・原価表など）。ADMIN以外の検索・質問・一覧に出さない
-  hqOnly       Boolean         @default(false)
-  status       KnowledgeStatus @default(PENDING)
-  errorMessage String?
-  content      String          @default("") @db.Text
-  summary      String?         @db.Text
-  digest       String?         @db.Text
-  keywords     String[]        @default([])
-  pageCount    Int?
-  charCount    Int             @default(0)
+  hqOnly         Boolean         @default(false)
+  status         KnowledgeStatus @default(PENDING)
+  errorMessage   String?
+  content        String          @default("") @db.Text
+  summary        String?         @db.Text
+  digest         String?         @db.Text
+  keywords       String[]        @default([])
+  pageCount      Int?
+  charCount      Int             @default(0)
   /// 登録者（Userへの外部キーは持たない＝退会後も資料は残る）
   createdByName  String
   createdByEmail String
   /// 本部メモ（登録時の注意・使いどころ）。全員に見える
-  note         String?         @db.Text
+  note           String?         @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1570,20 +1570,20 @@ model DmKit {
   /// SCREEN（画面）/ AI（AI連携）
   source         String  @default("SCREEN")
 
-  prefecture   String
-  city         String
-  industry     String?
-  catchCopy    String?
-  landingUrl   String?
-  template     String  @default("orange")
-  flyerUrl     String?
-  flyerSource  String  @default("GENERATED")
+  prefecture      String
+  city            String
+  industry        String?
+  catchCopy       String?
+  landingUrl      String?
+  template        String  @default("orange")
+  flyerUrl        String?
+  flyerSource     String  @default("GENERATED")
   webletterCsvUrl String
   genericCsvUrl   String
 
-  readyCount    Int @default(0)
-  needsFixCount Int @default(0)
-  skippedCount  Int @default(0)
+  readyCount    Int      @default(0)
+  needsFixCount Int      @default(0)
+  skippedCount  Int      @default(0)
   leadIds       String[] @default([])
   /// 手で補う先 [{leadId,name,address,reason}]
   needsFix      Json?
@@ -1593,7 +1593,7 @@ model DmKit {
   /// 発送済み（あなたがWebレター等で送ったら押す）
   sentAt   DateTime?
   sentVia  String?
-  sentNote String? @db.Text
+  sentNote String?   @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2216,6 +2216,7 @@ model GroupCompany {
   salesApproaches      SalesApproach[]
   packageFeedbacks     PackageFeedback[]              @relation("PackageFeedbacks")
   tverOrders           TverOrder[]                    @relation("TverOrders")
+  tverDeliveryReports  TverDeliveryReport[]           @relation("TverDeliveryReports")
   groupMoves           GroupMove[]                    @relation("GroupMoves")
 
   // ---- 稼働ステータス管理 ----
@@ -2462,9 +2463,9 @@ model Lead {
   foundedCheckedAt    DateTime?
   // ---- 広告出稿者ファインダー（2026-09-10）----
   // 有料媒体への掲載＝広告費を払っている印。URLのドメインから機械判定した媒体キーを入れる
-  adPlatforms          String[]   @default([])   // 例: ["hotpepper_beauty"]
-  adPlatformUrl        String?                    // 根拠URL（掲載ページ or 自社サイト）
-  adPlatformCheckedAt  DateTime?                  // 判定を試した時刻。null=未確認
+  adPlatforms         String[]            @default([]) // 例: ["hotpepper_beauty"]
+  adPlatformUrl       String? // 根拠URL（掲載ページ or 自社サイト）
+  adPlatformCheckedAt DateTime? // 判定を試した時刻。null=未確認
   cinemaTheaterId     Int?
   cinemaTheaterName   String?
   distanceKm          Float?
@@ -2657,6 +2658,104 @@ model PackageFeedback {
 }
 
 // ==============================================================
+// TverDeliveryReport（TVer配信実績＝管理画面の配信レポートCSVを本部が取り込む）
+//   TVer管理画面(manage.tver.sale)には公式APIが無いため、本部がダウンロードしたCSVをOSに取り込む。
+//   CSVの「ご利用金額」「CPM」は卸値。加盟店に見せる金額は 卸値×MULT（src/lib/tver/plan.ts の MULT=3）で
+//   取込時に計算して固定する（後から係数が変わっても過去の実績は動かない）。
+//   裏計算＝表示回数×秒数別の売単価。卸値×3 とのずれが閾値を超えた行は取込時に警告として残す。
+//   本部が「確認完了」を押した（PUBLISHED）レポートだけが、紐づけた拠点の画面に出る。卸値の列は拠点には出さない。
+// ==============================================================
+enum TverDeliveryReportStatus {
+  IMPORTED // 取込済・本部の確認待ち（拠点には見えない）
+  PUBLISHED // 確認完了＝紐づけた拠点に公開
+}
+
+model TverDeliveryReport {
+  id String @id @default(cuid())
+
+  // ── 取込元
+  fileName         String
+  advertiserTverId String // CSVのアカウントID（例: 3934）
+  advertiserName   String // CSVのアカウント名
+  periodStart      DateTime // 明細の最小日
+  periodEnd        DateTime // 明細の最大日
+  rowCount         Int
+  campaignNames    String[] @default([]) // 含まれるキャンペーン名（表示用）
+  adSeconds        Int? // 秒数（キャンペーン名/卸CPMから推定。判定できなければ null）
+
+  // ── 合計（卸値は本部だけ。拠点には sell* だけを見せる）
+  impressions       Int
+  clicks            Int
+  completes         Int // 100%再生回数
+  wholesaleAmount   Int // ご利用金額の合計（卸値・円）
+  sellAmount        Int // 加盟店向け金額＝卸値×MULT（取込時に固定・円）
+  sellMultiplier    Int // 取込時の係数（=3）
+  crossCheckAmount  Int // 裏計算＝表示回数×秒数別売単価（円）。adSeconds が無ければ 0
+  crossCheckDiffPct Float // |sell − crossCheck| / sell（%）。閾値超えは警告
+  warnings          String[] @default([]) // 取込時の警告（CPMが価格表と一致しない／裏計算のずれ 等）
+
+  // ── 紐づけ（本部が選ぶ。拠点の画面に出す先）
+  groupCompanyId String?
+  groupCompany   GroupCompany? @relation("TverDeliveryReports", fields: [groupCompanyId], references: [id], onDelete: SetNull)
+  tverOrderId    String?
+  tverOrder      TverOrder?    @relation(fields: [tverOrderId], references: [id], onDelete: SetNull)
+
+  // ── 確認・公開
+  status           TverDeliveryReportStatus @default(IMPORTED)
+  adminNote        String?                  @db.Text // 本部メモ（内部）
+  partnerNote      String?                  @db.Text // 拠点に見せる一言
+  importedByEmail  String
+  confirmedAt      DateTime?
+  confirmedByEmail String?
+
+  rows TverDeliveryRow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([groupCompanyId, status, periodEnd(sort: Desc)])
+  @@index([advertiserTverId])
+  @@index([tverOrderId])
+  @@map("tver_delivery_reports")
+}
+
+/// CSVの1行（日×キャンペーン×広告グループ×クリエイティブ×性別×年齢×都道府県×デバイス）
+model TverDeliveryRow {
+  id       String             @id @default(cuid())
+  reportId String
+  report   TverDeliveryReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  date         DateTime
+  campaignId   String
+  campaignName String
+  adGroupName  String
+  creativeName String
+  adId         String
+  gender       String
+  age          String
+  prefecture   String
+  device       String
+
+  clicks          Int
+  impressions     Int
+  q25             Int
+  q50             Int
+  q75             Int
+  q100            Int
+  wholesaleAmount Int // ご利用金額（卸値・円）
+  wholesaleCpm    Int // CPM（卸値・円/1000表示）
+  sellAmount      Int // 卸値×MULT（取込時に固定・円）
+  cv              Int
+  indirectCv      Int
+  vtcv            Int
+
+  @@index([reportId, date])
+  @@index([reportId, prefecture])
+  @@map("tver_delivery_rows")
+}
+
+// ==============================================================
 // TVer小口申込（お客様がWebで完結: エリア→プラン→広告主→規約同意→Square決済）
 //   /order/tver?from=<拠点ID> で申込、/order/tver/<token> で進捗。ログイン不要。
 //   契約当事者は 広告主 ⇔ Ad Arch本部。拠点は紹介元として groupCompanyId に残る。
@@ -2705,11 +2804,12 @@ model TverOrder {
   agreedUa     String?
 
   // ── 支払い（月払い・2026-09-09 代表決定）: 明細は TverOrderInvoice（契約期間ぶん月ごとに1行）
-  paymentMethod TverOrderPaymentMethod @default(CARD)
-  paidAt        DateTime? // 初月（＋初期登録費）の入金確認＝契約成立
-  paidAmount    Int? // 初月に受け取った税込額
-  paymentNote   String? // 初月の決済メモ（カード種別・末尾など）
-  invoices      TverOrderInvoice[]
+  paymentMethod   TverOrderPaymentMethod @default(CARD)
+  paidAt          DateTime? // 初月（＋初期登録費）の入金確認＝契約成立
+  paidAmount      Int? // 初月に受け取った税込額
+  paymentNote     String? // 初月の決済メモ（カード種別・末尾など）
+  invoices        TverOrderInvoice[]
+  deliveryReports TverDeliveryReport[]
 
   // ── 進行（本部が進める）
   status        TverOrderStatus @default(AWAITING_PAYMENT)
@@ -5575,7 +5675,7 @@ model MetaAdAccount {
 
 /// セミナー録画ライブラリ（グループ全社で共有）。置き場はYouTube限定公開URL。どの拠点も自社の窓口付き（/r/<id>?from=<加盟会社ID>）で送れる
 model SeminarRecording {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   title          String
   videoUrl       String // YouTube限定公開（youtu.be／watch?v=／live／shorts）
   presenterName  String // 登壇者名（本人の看板＝必ず表示）
@@ -5584,11 +5684,11 @@ model SeminarRecording {
   ownerCompany   String // 表示用の会社名（本部 or 加盟会社名）
   prefecture     String? // 登壇拠点の県
   audience       String? // 誰向けか（例: 地方の飲食店・美容室）
-  summary        String?  @db.Text // 内容の一言（3行まで）
+  summary        String?   @db.Text // 内容の一言（3行まで）
   durationMin    Int? // 分
   recordedAt     DateTime? // 開催日
-  isActive       Boolean  @default(true)
-  viewCount      Int      @default(0)
+  isActive       Boolean   @default(true)
+  viewCount      Int       @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
