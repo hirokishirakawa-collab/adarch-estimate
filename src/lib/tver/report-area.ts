@@ -25,6 +25,29 @@ export function areaFromPrefectures(prefs: string[]): ReportArea | null {
   return { areaLabel: list.length === 1 ? `${list[0]} 全域` : `${list.join("・")} 全域`, areaPopulation: pop };
 }
 
+/**
+ * キャンペーン名・広告グループ名・クリエイティブ名に市区町村名が入っていれば商圏にする
+ *   例: 「TV-2026-0042_久留米市_15s」「安藤工事_福岡市_全区」。複数の市が出てきたら合算（並列配信）
+ *   県の指定が無い市名（同名の市が複数県にある場合）は、レポートに出てくる県の中だけで探す
+ */
+export function areaFromNames(prefs: string[], names: string[]): ReportArea | null {
+  const text = [...new Set(names.filter(Boolean))].join("\n");
+  if (!text) return null;
+  const hits = new Map<string, { label: string; population: number }>();
+  for (const p of [...new Set(prefs.filter(Boolean))]) {
+    for (const m of municipalitiesOf(p)) {
+      const base = m.name.replace(/（全区）$/, "");
+      if (base.length < 2) continue;
+      if (text.includes(base)) hits.set(`${p}:${base}`, { label: `${p} ${m.name}`, population: m.population });
+    }
+  }
+  if (hits.size === 0) return null;
+  // 「福岡市（全区）」と「福岡市中央区」のように包含関係なら大きい方（全区）だけ残す
+  const list = [...hits.values()].filter((h, _, arr) => !arr.some((o) => o !== h && o.label !== h.label && h.label.startsWith(o.label.replace(/（全区）$/, "")) && o.label.endsWith("（全区）")));
+  if (list.length === 1) return { areaLabel: list[0].label, areaPopulation: list[0].population };
+  return { areaLabel: list.map((h) => h.label.split(" ")[1]).join("・") + `（${list[0].label.split(" ")[0]}）`, areaPopulation: list.reduce((a, h) => a + h.population, 0) };
+}
+
 /** 詳細画面の選び直し用キー → 商圏 */
 export function areaFromKey(key: string): ReportArea | null {
   const [kind, pref, code] = key.split(":");

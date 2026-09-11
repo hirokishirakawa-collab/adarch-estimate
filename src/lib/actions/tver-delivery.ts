@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { isActionWarning, orderNumberFromName, parseDeliveryCsv, summarize } from "@/lib/tver/delivery-csv";
-import { areaFromKey, areaFromOrder, areaFromPrefectures } from "@/lib/tver/report-area";
+import { areaFromKey, areaFromNames, areaFromOrder, areaFromPrefectures } from "@/lib/tver/report-area";
 
 const PATH = "/dashboard/admin/tver-reports";
 const PARTNER_PATH = "/dashboard/tver-reports";
@@ -64,7 +64,12 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
   const adminNote = String(fd.get("adminNote") ?? "").trim().slice(0, 2000) || null;
   const industry = String(fd.get("industry") ?? "").trim().slice(0, 100) || linkedOrder?.industry || null;
   // 商圏: 申込の市区町村 → 無ければ明細の県全域
-  const area = linkedOrder ? areaFromOrder(linkedOrder.prefName, linkedOrder.municipalityCode, linkedOrder.areaLabel) : areaFromPrefectures(rows.map((r) => r.prefecture));
+  // 商圏: 申込の市区町村 → 名前に含まれる市区町村名 → 明細の県全域
+  const prefs = rows.map((r) => r.prefecture);
+  const area = linkedOrder
+    ? areaFromOrder(linkedOrder.prefName, linkedOrder.municipalityCode, linkedOrder.areaLabel)
+    : areaFromNames(prefs, [...head.campaignNames, ...rows.map((r) => r.adGroupName), ...rows.map((r) => r.creativeName)]) ?? areaFromPrefectures(prefs);
+  const areaFromName = !linkedOrder && !!areaFromNames(prefs, head.campaignNames);
 
   // 同じ広告主で期間が重なる既存レポート → 差し替え
   const overlaps = await db.tverDeliveryReport.findMany({
@@ -99,7 +104,7 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
           ...(groupCompanyId ? { groupCompanyId } : {}),
           ...(tverOrderId ? { tverOrderId } : {}),
           ...(industry ? { industry } : {}),
-          ...(linkedOrder && area ? area : {}),
+          ...((linkedOrder || areaFromName) && area ? area : {}),
           ...(adminNote ? { adminNote } : {}),
           ...(demote ? { status: "IMPORTED", confirmedAt: null, confirmedByEmail: null, adminNote: `${ex.adminNote ? ex.adminNote + "\n" : ""}【自動】${new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })} 再取込で警告が出たため非公開に戻しました` } : {}),
         },
