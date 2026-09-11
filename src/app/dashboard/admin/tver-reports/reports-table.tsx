@@ -9,7 +9,7 @@ import { deleteDeliveryReports } from "@/lib/actions/tver-delivery";
 export type ReportRow = {
   id: string; createdAt: string; periodStart: string; periodEnd: string;
   advertiser: string; advertiserTverId: string; company: string; adSeconds: number | null;
-  impressions: number; completes: number; wholesaleAmount: number; sellAmount: number; diffPct: number; warnings: number;
+  impressions: number; completes: number; wholesaleAmount: number; sellAmount: number; diffPct: number; warnings: number; notes: number;
   status: "IMPORTED" | "PUBLISHED";
 };
 
@@ -101,7 +101,7 @@ export function ReportsTable({ rows }: { rows: ReportRow[] }) {
                 <td className="px-3 py-2 text-right tabular-nums text-zinc-500">{yen(r.wholesaleAmount)}</td>
                 <td className="px-3 py-2 text-right tabular-nums font-medium text-zinc-900">{yen(r.sellAmount)}</td>
                 <td className={`px-3 py-2 text-right tabular-nums ${r.diffPct > 3 ? "text-rose-600 font-medium" : "text-zinc-500"}`}>{r.diffPct}%</td>
-                <td className="px-3 py-2 whitespace-nowrap text-xs">{r.warnings > 0 ? <span className="text-rose-600">⚠ {r.warnings}件</span> : <span className="text-emerald-600">なし</span>}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-xs">{r.warnings > 0 ? <span className="text-rose-600">⚠ {r.warnings}件</span> : <span className="text-emerald-600">なし</span>}{r.notes > 0 ? <span className="text-amber-600 ml-1">ℹ {r.notes}</span> : null}</td>
               </tr>
             ))}
           </tbody>

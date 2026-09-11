@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
-import { orderNumberFromName, parseDeliveryCsv, summarize } from "@/lib/tver/delivery-csv";
+import { isActionWarning, orderNumberFromName, parseDeliveryCsv, summarize } from "@/lib/tver/delivery-csv";
 import { areaFromKey, areaFromOrder, areaFromPrefectures } from "@/lib/tver/report-area";
 
 const PATH = "/dashboard/admin/tver-reports";
@@ -85,9 +85,9 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
       }
       const all = await tx.tverDeliveryRow.findMany({ where: { reportId: ex.id } });
       const sum = summarize(all, head.advertiserTverId, head.advertiserName);
-      const preWarn = head.warnings.filter((w) => !sum.warnings.includes(w) && !/裏計算|卸CPM|秒数/.test(w));
+      const preWarn = head.warnings.filter((w) => !sum.warnings.includes(w) && /日付を読めない|広告主が複数/.test(w));
       const warnings = [...preWarn, ...sum.warnings];
-      const demote = ex.status === "PUBLISHED" && warnings.length > 0;
+      const demote = ex.status === "PUBLISHED" && warnings.some(isActionWarning);
       await tx.tverDeliveryReport.update({
         where: { id: ex.id },
         data: {

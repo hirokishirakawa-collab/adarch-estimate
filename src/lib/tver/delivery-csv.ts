@@ -57,6 +57,9 @@ export type ParsedDelivery = {
 
 /** 裏計算とのずれがこの%を超えたら警告（卸値×3 が正・裏計算は検算） */
 export const CROSS_CHECK_WARN_PCT = 3;
+/** 情報だけの注記の接頭辞（公開の妨げにしない・再取込でも非公開に戻さない） */
+export const INFO = "ℹ️ ";
+export const isActionWarning = (w: string) => !w.startsWith(INFO);
 
 const ALIASES: Record<string, string[]> = {
   date: ["レポート年月日", "日付", "年月日", "date"],
@@ -241,14 +244,27 @@ export function summarize(rows: DeliveryRow[], advertiserTverId: string, adverti
   const dominantCpm = [...cpmSet.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 0;
   const cpmSeconds = dominantCpm ? secondsFromWholesaleCpm(dominantCpm) : null;
   if (!adSeconds) adSeconds = cpmSeconds;
-  if (dominantCpm && !cpmSeconds) warnings.push(`卸CPM ¥${dominantCpm.toLocaleString("ja-JP")} が価格表（15秒¥2,200／30秒¥2,600／60秒¥3,700）のどれとも一致しません。TVerの単価が変わっていないか確認してください`);
-  if (adSeconds && cpmSeconds && adSeconds !== cpmSeconds) warnings.push(`名前は${adSeconds}秒ですが卸CPMは${cpmSeconds}秒の価格です。秒数の登録違いの可能性があります`);
-  if (cpmSet.size > 1) warnings.push(`卸CPMが複数あります（${[...cpmSet.keys()].map((c) => `¥${c.toLocaleString("ja-JP")}`).join("・")}）`);
+  if (adSeconds && cpmSeconds && adSeconds !== cpmSeconds) warnings.push(`名前は${adSeconds}秒ですが主な卸CPMは${cpmSeconds}秒の価格です。秒数の登録違いの可能性があります`);
 
-  const crossCheckAmount = adSeconds ? Math.round(impressions * UNIT_PRICE[adSeconds]) : 0;
+  // 価格表に無い卸CPM＝売価は卸値×係数で正しく出ている（情報として残す。公開の妨げにはしない）
+  const unknownCpms = [...cpmSet.entries()].filter(([c]) => !secondsFromWholesaleCpm(c));
+  if (unknownCpms.length) {
+    const share = unknownCpms.reduce((a, [, n]) => a + n, 0) / Math.max(1, impressions);
+    warnings.push(`${INFO}価格表（15秒¥2,200／30秒¥2,600／60秒¥3,700）に無い卸CPM ${unknownCpms.map(([c]) => `¥${c.toLocaleString("ja-JP")}`).join("・")} が含まれます（表示回数の${Math.round(share * 100)}%）。売価は卸値×${SELL_MULTIPLIER}で計算済みのため金額は正しいです。TVer側の単価変更や特別枠でないか確認してください`);
+  }
+  if (cpmSet.size > 1) warnings.push(`${INFO}卸CPMが複数あります（${[...cpmSet.entries()].map(([c, n]) => `¥${c.toLocaleString("ja-JP")}=${n.toLocaleString("ja-JP")}表示`).join("・")}）。裏計算は単価ごとに行っています`);
+
+  // 裏計算＝行ごとに「その行の卸CPMに対応する秒数の売単価」×表示回数。価格表に無いCPMは そのCPM×係数
+  const unitFor = (cpm: number): number => {
+    const sec = cpm > 0 ? secondsFromWholesaleCpm(cpm) : null;
+    if (sec) return UNIT_PRICE[sec];
+    if (cpm > 0) return (cpm / 1000) * SELL_MULTIPLIER;
+    return adSeconds ? UNIT_PRICE[adSeconds] : 0;
+  };
+  const crossCheckAmount = Math.round(rows.reduce((a, r) => a + r.impressions * unitFor(r.wholesaleCpm), 0));
   const crossCheckDiffPct = sellAmount > 0 && crossCheckAmount > 0 ? Math.round((Math.abs(sellAmount - crossCheckAmount) / sellAmount) * 10000) / 100 : 0;
-  if (!adSeconds) warnings.push("秒数を判定できないため裏計算（表示回数×売単価）ができません");
-  else if (crossCheckDiffPct > CROSS_CHECK_WARN_PCT) warnings.push(`裏計算とのずれ ${crossCheckDiffPct}%（卸値×${SELL_MULTIPLIER}＝¥${sellAmount.toLocaleString("ja-JP")}／表示回数×¥${UNIT_PRICE[adSeconds]}＝¥${crossCheckAmount.toLocaleString("ja-JP")}）。金額を確認してから公開してください`);
+  if (!adSeconds && cpmSet.size === 0) warnings.push("秒数も卸CPMも判定できないため裏計算（表示回数×売単価）ができません");
+  else if (crossCheckDiffPct > CROSS_CHECK_WARN_PCT) warnings.push(`裏計算とのずれ ${crossCheckDiffPct}%（卸値×${SELL_MULTIPLIER}＝¥${sellAmount.toLocaleString("ja-JP")}／表示回数×単価＝¥${crossCheckAmount.toLocaleString("ja-JP")}）。ご利用金額と表示回数×CPMが合っていません。CSVの列がずれていないか確認してから公開してください`);
 
   const dates = rows.map((r) => r.date.getTime());
   return {

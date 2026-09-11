@@ -11,7 +11,7 @@ import type { UserRole } from "@/types/roles";
 import { db } from "@/lib/db";
 import type { TverDeliveryReportStatus } from "@/generated/prisma/client";
 import { SELL_MULTIPLIER } from "@/lib/tver/plan";
-import { CROSS_CHECK_WARN_PCT } from "@/lib/tver/delivery-csv";
+import { CROSS_CHECK_WARN_PCT, isActionWarning } from "@/lib/tver/delivery-csv";
 import { weeklyAudit } from "@/lib/tver/audit";
 import { ImportForm } from "./import-form";
 import { ReportsTable, type ReportRow } from "./reports-table";
@@ -59,7 +59,8 @@ export default async function AdminTverReportsPage({ searchParams }: { searchPar
     wholesaleAmount: r.wholesaleAmount,
     sellAmount: r.sellAmount,
     diffPct: r.crossCheckDiffPct,
-    warnings: r.warnings.length,
+    warnings: r.warnings.filter(isActionWarning).length,
+    notes: r.warnings.length - r.warnings.filter(isActionWarning).length,
     status: r.status,
   }));
   const pendingCount = reports.filter((r) => r.status === "IMPORTED").length;

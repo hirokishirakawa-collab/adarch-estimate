@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth";
 import type { UserRole } from "@/types/roles";
 import { db } from "@/lib/db";
 import { SELL_MULTIPLIER, UNIT_PRICE, type AdSeconds } from "@/lib/tver/plan";
-import { breakdown } from "@/lib/tver/delivery-csv";
+import { breakdown, isActionWarning } from "@/lib/tver/delivery-csv";
 import { orderNumberLabel } from "@/lib/tver-order/plans";
 import { ReportAdminPanel } from "./admin-panel";
 import { areaOptionsFor } from "@/lib/tver/report-area";
@@ -68,10 +68,16 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
         <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${r.status === "PUBLISHED" ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"}`}>{r.status === "PUBLISHED" ? `公開済み（${fmtDT(r.confirmedAt)}）` : "確認待ち（拠点には見えていません）"}</span>
       </div>
 
-      {r.warnings.length > 0 && (
-        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-800">
-          <p className="font-semibold mb-1">取込時の警告</p>
-          <ul className="list-disc pl-5 space-y-0.5">{r.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+      {r.warnings.some(isActionWarning) && (
+        <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-800">
+          <p className="font-semibold mb-1">取込時の警告（確認してから公開）</p>
+          <ul className="list-disc pl-5 space-y-0.5">{r.warnings.filter(isActionWarning).map((w, i) => <li key={i}>{w}</li>)}</ul>
+        </div>
+      )}
+      {r.warnings.some((w) => !isActionWarning(w)) && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          <p className="font-semibold mb-1">注記（金額は正しく出ています）</p>
+          <ul className="list-disc pl-5 space-y-0.5">{r.warnings.filter((w) => !isActionWarning(w)).map((w, i) => <li key={i}>{w.replace(/^ℹ️ /, "")}</li>)}</ul>
         </div>
       )}
 
@@ -127,7 +133,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
             partnerNote={r.partnerNote ?? ""}
             companies={companies}
             orders={orderOpts}
-            hasWarnings={r.warnings.length > 0}
+            hasWarnings={r.warnings.some(isActionWarning)}
           />
         </div>
       </div>
