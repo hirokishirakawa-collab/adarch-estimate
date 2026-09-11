@@ -57,12 +57,12 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
   const prev = await db.tverDeliveryReport.findFirst({
     where: { advertiserTverId: head.advertiserTverId, groupCompanyId: { not: null } },
     orderBy: { createdAt: "desc" },
-    select: { groupCompanyId: true, tverOrderId: true },
+    select: { groupCompanyId: true, tverOrderId: true, industry: true, areaLabel: true, areaPopulation: true },
   });
   const groupCompanyId = String(fd.get("groupCompanyId") ?? "").trim() || linkedOrder?.groupCompanyId || prev?.groupCompanyId || null;
   const tverOrderId = linkedOrder?.id || String(fd.get("tverOrderId") ?? "").trim() || prev?.tverOrderId || null;
   const adminNote = String(fd.get("adminNote") ?? "").trim().slice(0, 2000) || null;
-  const industry = String(fd.get("industry") ?? "").trim().slice(0, 100) || linkedOrder?.industry || null;
+  const industry = String(fd.get("industry") ?? "").trim().slice(0, 100) || linkedOrder?.industry || prev?.industry || null;
   // 商圏: 申込の市区町村 → 無ければ明細の県全域
   // 商圏: 申込の市区町村 → 名前に含まれる市区町村名 → 明細の県全域
   const prefs = rows.map((r) => r.prefecture);
@@ -70,6 +70,9 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
     ? areaFromOrder(linkedOrder.prefName, linkedOrder.municipalityCode, linkedOrder.areaLabel)
     : areaFromNames(prefs, [...head.campaignNames, ...rows.map((r) => r.adGroupName), ...rows.map((r) => r.creativeName)]) ?? areaFromPrefectures(prefs);
   const areaFromName = !linkedOrder && !!areaFromNames(prefs, head.campaignNames);
+  // 申込にも名前にも無ければ、同じ広告主の前回の商圏（本部が1回選んだもの）を引き継ぐ
+  const prevArea = prev?.areaLabel && prev.areaPopulation ? { areaLabel: prev.areaLabel, areaPopulation: prev.areaPopulation } : null;
+  const areaResolved = linkedOrder || areaFromName ? area : prevArea ?? area;
 
   // 同じ広告主で期間が重なる既存レポート → 差し替え
   const overlaps = await db.tverDeliveryReport.findMany({
@@ -119,7 +122,7 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
   }
 
   const created = await db.tverDeliveryReport.create({
-    data: { fileName: file.name.slice(0, 200), ...head, rowCount: rows.length, groupCompanyId, tverOrderId, industry, ...(area ?? {}), importedByEmail: info.email, adminNote },
+    data: { fileName: file.name.slice(0, 200), ...head, rowCount: rows.length, groupCompanyId, tverOrderId, industry, ...(areaResolved ?? {}), importedByEmail: info.email, adminNote },
     select: { id: true },
   });
   for (let i = 0; i < rows.length; i += 1000) {
