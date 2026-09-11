@@ -155,7 +155,6 @@ export function parseDeliveryCsv(buf: Buffer): ParsedDelivery {
   }
   const g = (r: Record<string, string>, f: string) => (map[f] ? r[map[f]] : "");
 
-  const warnings: string[] = [];
   const rows: DeliveryRow[] = [];
   const accounts = new Map<string, string>();
   const campaigns = new Set<string>();
@@ -204,10 +203,25 @@ export function parseDeliveryCsv(buf: Buffer): ParsedDelivery {
     });
   }
   if (rows.length === 0) throw new Error("日付を読める明細行がありません");
-  if (badDates) warnings.push(`日付を読めない行を ${badDates} 行スキップしました`);
-  if (accounts.size > 1) warnings.push(`広告主が複数含まれています（${[...accounts.values()].join("・")}）。1広告主ごとにレポートを分けてください`);
-
+  const preWarnings: string[] = [];
+  if (badDates) preWarnings.push(`日付を読めない行を ${badDates} 行スキップしました`);
+  if (accounts.size > 1) preWarnings.push(`広告主が複数含まれています（${[...accounts.values()].join("・")}）。1広告主ごとにレポートを分けてください`);
   const [advertiserTverId, advertiserName] = accounts.size ? [...accounts.entries()][0] : ["", ""];
+  const summary = summarize(rows, advertiserTverId, advertiserName);
+  return { ...summary, warnings: [...preWarnings, ...summary.warnings], rows };
+}
+
+export type DeliverySummary = Omit<ParsedDelivery, "rows">;
+
+/** 明細から合計・秒数・売価・裏計算・警告を出す（取込時と、週次の差し替え後の再集計で共用） */
+export function summarize(rows: DeliveryRow[], advertiserTverId: string, advertiserName: string): DeliverySummary {
+  const warnings: string[] = [];
+  const campaigns = new Set<string>();
+  const cpmSet = new Map<number, number>();
+  for (const r of rows) {
+    if (r.campaignName) campaigns.add(r.campaignName);
+    if (r.wholesaleCpm > 0 && r.impressions > 0) cpmSet.set(r.wholesaleCpm, (cpmSet.get(r.wholesaleCpm) ?? 0) + r.impressions);
+  }
   const impressions = rows.reduce((a, r) => a + r.impressions, 0);
   const clicks = rows.reduce((a, r) => a + r.clicks, 0);
   const completes = rows.reduce((a, r) => a + r.q100, 0);
@@ -244,7 +258,6 @@ export function parseDeliveryCsv(buf: Buffer): ParsedDelivery {
     periodEnd: new Date(Math.max(...dates)),
     campaignNames: [...campaigns],
     adSeconds,
-    rows,
     impressions,
     clicks,
     completes,
@@ -255,6 +268,17 @@ export function parseDeliveryCsv(buf: Buffer): ParsedDelivery {
     crossCheckDiffPct,
     warnings,
   };
+}
+
+/** キャンペーン名などに含まれるOSの申込番号「TV-2026-0042」→ 42。無ければ null */
+export function orderNumberFromName(name: string): number | null {
+  const m = name.match(/TV-\d{4}-(\d{4,})/i);
+  return m ? Number(m[1]) : null;
+}
+
+/** 明細を「日×キャンペーン×広告グループ×クリエイティブ×広告×性別×年齢×県×デバイス」で一意にするキー */
+export function rowKey(r: Pick<DeliveryRow, "date" | "campaignId" | "adGroupName" | "creativeName" | "adId" | "gender" | "age" | "prefecture" | "device">): string {
+  return [r.date.toISOString().slice(0, 10), r.campaignId, r.adGroupName, r.creativeName, r.adId, r.gender, r.age, r.prefecture, r.device].join("|");
 }
 
 /** 拠点に見せる集計（卸値は含めない） */

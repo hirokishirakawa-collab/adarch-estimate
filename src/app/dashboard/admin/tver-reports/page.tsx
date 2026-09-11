@@ -4,6 +4,7 @@
 // ==============================================================
 
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { BarChart2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import type { UserRole } from "@/types/roles";
@@ -11,6 +12,7 @@ import { db } from "@/lib/db";
 import type { TverDeliveryReportStatus } from "@/generated/prisma/client";
 import { SELL_MULTIPLIER } from "@/lib/tver/plan";
 import { CROSS_CHECK_WARN_PCT } from "@/lib/tver/delivery-csv";
+import { weeklyAudit } from "@/lib/tver/audit";
 import { ImportForm } from "./import-form";
 import { ReportsTable, type ReportRow } from "./reports-table";
 
@@ -28,7 +30,7 @@ export default async function AdminTverReportsPage({ searchParams }: { searchPar
   const fromD = sp.from && /^\d{4}-\d{2}-\d{2}$/.test(sp.from) ? new Date(sp.from) : null;
   const toD = sp.to && /^\d{4}-\d{2}-\d{2}$/.test(sp.to) ? new Date(new Date(sp.to).getTime() + 86_400_000) : null;
 
-  const [reports, companies] = await Promise.all([
+  const [reports, companies, audit] = await Promise.all([
     db.tverDeliveryReport.findMany({
       where: {
         ...(status ? { status } : {}),
@@ -40,6 +42,7 @@ export default async function AdminTverReportsPage({ searchParams }: { searchPar
       include: { groupCompany: { select: { id: true, name: true } }, tverOrder: { select: { id: true, number: true, createdAt: true } } },
     }),
     db.groupCompany.findMany({ where: { isActive: true }, select: { id: true, name: true, prefecture: true }, orderBy: { name: "asc" } }),
+    weeklyAudit(),
   ]);
 
   const rows: ReportRow[] = reports.map((r) => ({
@@ -75,6 +78,26 @@ export default async function AdminTverReportsPage({ searchParams }: { searchPar
         </div>
         {pendingCount > 0 && <span className="ml-auto px-3 py-1.5 rounded-lg bg-orange-50 text-orange-700 text-sm font-medium">確認待ち {pendingCount}件</span>}
       </div>
+
+      <section className="bg-white border border-zinc-200 rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-sm font-bold text-zinc-900">今週やること（申込台帳と実績の突き合わせ）</h2>
+          {audit.length > 0 ? <span className="px-2 py-0.5 rounded-md text-xs bg-rose-50 text-rose-700">{audit.filter((a) => a.severity === "red").length}件 要対応・{audit.filter((a) => a.severity === "amber").length}件 確認</span> : <span className="px-2 py-0.5 rounded-md text-xs bg-emerald-50 text-emerald-700">問題なし</span>}
+        </div>
+        <p className="text-xs text-zinc-500 mb-3">週1回（曜日を決めて）: ①TVerで各広告主の配信レポートをダウンロード → ②ここで取込（同じ広告主・重なる期間は自動で差し替え） → ③下の一覧を上から潰す。TVerのキャンペーン名にOSの申込番号（例: TV-2026-0042）を入れておくと申込と拠点に自動で紐づきます。キャンペーンは「期間予算・終了日＝契約終了日」で登録すると停止作業そのものが無くなります。</p>
+        {audit.length > 0 && (
+          <ul className="divide-y divide-zinc-100">
+            {audit.map((a, i) => (
+              <li key={i} className="py-2 flex flex-wrap items-start gap-x-3 gap-y-1 text-sm">
+                <span className={`px-2 py-0.5 rounded-md text-xs whitespace-nowrap ${a.severity === "red" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>{a.title}</span>
+                <span className="font-medium text-zinc-900 whitespace-nowrap"><Link href={`/dashboard/admin/tver-orders/${a.orderId}`} className="hover:text-orange-600">{a.orderNo}</Link> {a.advertiser}</span>
+                <span className="text-xs text-zinc-500 whitespace-nowrap">{a.company}</span>
+                <span className="text-zinc-700 basis-full sm:basis-auto sm:flex-1">{a.detail}{a.reportId ? <>　<Link href={`/dashboard/admin/tver-reports/${a.reportId}`} className="text-orange-600 underline">実績</Link></> : null}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <ImportForm companies={companies} />
 

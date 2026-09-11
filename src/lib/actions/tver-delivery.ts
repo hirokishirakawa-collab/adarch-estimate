@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
-import { parseDeliveryCsv } from "@/lib/tver/delivery-csv";
+import { orderNumberFromName, parseDeliveryCsv, summarize } from "@/lib/tver/delivery-csv";
 
 const PATH = "/dashboard/admin/tver-reports";
 const PARTNER_PATH = "/dashboard/tver-reports";
@@ -24,7 +24,13 @@ async function admin() {
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
-/** CSVを取り込む（IMPORTED＝拠点にはまだ見えない）。同じ広告主の前回の紐づけを既定にする */
+/**
+ * CSVを取り込む。
+ *  - 同じ広告主で期間が重なるレポートがあれば「差し替え」＝新しいCSVに含まれる日付の行を入れ替えて再集計（毎週の再取込用）。
+ *    公開済みは公開のまま更新。再集計で警告が出た時だけ確認待ち（非公開）に戻す
+ *  - 重なりが無ければ新規（IMPORTED＝拠点にはまだ見えない）
+ *  - キャンペーン名にOSの申込番号（TV-2026-0042）があれば申込と拠点を自動で紐づけ。無ければ同じ広告主の前回の紐づけを引き継ぐ
+ */
 export async function importDeliveryCsv(fd: FormData): Promise<R> {
   const info = await admin();
   if (!info) return { error: "権限がありません" };
@@ -38,43 +44,79 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
   } catch (e) {
     return { error: e instanceof Error ? e.message : "CSVを読めませんでした" };
   }
+  const { rows, ...head } = parsed;
 
-  // 同じ広告主・同じ期間の取込が既にあれば止める（二重計上の防止）
-  const dup = await db.tverDeliveryReport.findFirst({
-    where: { advertiserTverId: parsed.advertiserTverId, periodStart: parsed.periodStart, periodEnd: parsed.periodEnd },
-    select: { id: true, fileName: true },
-  });
-  if (dup) return { error: `同じ広告主・同じ期間のレポートが既にあります（${dup.fileName}）。差し替える時は先に削除してください` };
-
-  // 前回の紐づけを引き継ぐ
+  // 申込番号からの自動紐づけ（キャンペーン名 / 広告グループ名 / クリエイティブ名のどれかに TV-YYYY-NNNN）
+  const numbers = new Set<number>();
+  for (const n of [...head.campaignNames, ...rows.map((r) => r.adGroupName), ...rows.map((r) => r.creativeName)]) {
+    const x = orderNumberFromName(n);
+    if (x) numbers.add(x);
+  }
+  const linkedOrder = numbers.size ? await db.tverOrder.findFirst({ where: { number: { in: [...numbers] } }, select: { id: true, groupCompanyId: true } }) : null;
   const prev = await db.tverDeliveryReport.findFirst({
-    where: { advertiserTverId: parsed.advertiserTverId, groupCompanyId: { not: null } },
+    where: { advertiserTverId: head.advertiserTverId, groupCompanyId: { not: null } },
     orderBy: { createdAt: "desc" },
     select: { groupCompanyId: true, tverOrderId: true },
   });
-  const groupCompanyId = String(fd.get("groupCompanyId") ?? "").trim() || prev?.groupCompanyId || null;
-  const tverOrderId = String(fd.get("tverOrderId") ?? "").trim() || prev?.tverOrderId || null;
+  const groupCompanyId = String(fd.get("groupCompanyId") ?? "").trim() || linkedOrder?.groupCompanyId || prev?.groupCompanyId || null;
+  const tverOrderId = linkedOrder?.id || String(fd.get("tverOrderId") ?? "").trim() || prev?.tverOrderId || null;
+  const adminNote = String(fd.get("adminNote") ?? "").trim().slice(0, 2000) || null;
 
-  const { rows, ...head } = parsed;
+  // 同じ広告主で期間が重なる既存レポート → 差し替え
+  const overlaps = await db.tverDeliveryReport.findMany({
+    where: { advertiserTverId: head.advertiserTverId, periodStart: { lte: head.periodEnd }, periodEnd: { gte: head.periodStart } },
+    select: { id: true, status: true, fileName: true, adminNote: true, warnings: true },
+    orderBy: { createdAt: "desc" },
+  });
+  if (overlaps.length > 1) {
+    return { error: `期間が重なるレポートが${overlaps.length}件あります（${overlaps.map((o) => o.fileName).join("・")}）。1件に整理してから取り込んでください` };
+  }
+
+  if (overlaps.length === 1) {
+    const ex = overlaps[0];
+    const result = await db.$transaction(async (tx) => {
+      await tx.tverDeliveryRow.deleteMany({ where: { reportId: ex.id, date: { gte: head.periodStart, lte: head.periodEnd } } });
+      for (let i = 0; i < rows.length; i += 1000) {
+        await tx.tverDeliveryRow.createMany({ data: rows.slice(i, i + 1000).map((r) => ({ ...r, reportId: ex.id })) });
+      }
+      const all = await tx.tverDeliveryRow.findMany({ where: { reportId: ex.id } });
+      const sum = summarize(all, head.advertiserTverId, head.advertiserName);
+      const preWarn = head.warnings.filter((w) => !sum.warnings.includes(w) && !/裏計算|卸CPM|秒数/.test(w));
+      const warnings = [...preWarn, ...sum.warnings];
+      const demote = ex.status === "PUBLISHED" && warnings.length > 0;
+      await tx.tverDeliveryReport.update({
+        where: { id: ex.id },
+        data: {
+          fileName: file.name.slice(0, 200),
+          ...sum,
+          warnings,
+          rowCount: all.length,
+          importedByEmail: info.email,
+          ...(groupCompanyId ? { groupCompanyId } : {}),
+          ...(tverOrderId ? { tverOrderId } : {}),
+          ...(adminNote ? { adminNote } : {}),
+          ...(demote ? { status: "IMPORTED", confirmedAt: null, confirmedByEmail: null, adminNote: `${ex.adminNote ? ex.adminNote + "\n" : ""}【自動】${new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })} 再取込で警告が出たため非公開に戻しました` } : {}),
+        },
+      });
+      return { total: all.length, replaced: rows.length, warnings: warnings.length, demote, sum };
+    });
+    logAudit({ action: "tver_delivery_reimported", email: info.email, name: info.staffName, entity: "tver_delivery_report", entityId: ex.id, detail: `${head.advertiserName} ${result.replaced}行差し替え（計${result.total}行）卸¥${result.sum.wholesaleAmount.toLocaleString("ja-JP")}→売¥${result.sum.sellAmount.toLocaleString("ja-JP")}${result.demote ? "・警告のため非公開に" : ""}` });
+    revalidatePath(PATH);
+    revalidatePath(`${PATH}/${ex.id}`);
+    revalidatePath(PARTNER_PATH);
+    return { ok: true, id: ex.id, message: `既存のレポートを差し替えました（${result.replaced}行を更新・計${result.total}行）${result.demote ? "。警告が出たため確認待ちに戻しました" : ex.status === "PUBLISHED" ? "。公開のまま最新になりました" : ""}` };
+  }
+
   const created = await db.tverDeliveryReport.create({
-    data: {
-      fileName: file.name.slice(0, 200),
-      ...head,
-      rowCount: rows.length,
-      groupCompanyId,
-      tverOrderId,
-      importedByEmail: info.email,
-      adminNote: String(fd.get("adminNote") ?? "").trim().slice(0, 2000) || null,
-    },
+    data: { fileName: file.name.slice(0, 200), ...head, rowCount: rows.length, groupCompanyId, tverOrderId, importedByEmail: info.email, adminNote },
     select: { id: true },
   });
-  // 明細は分割して投入（2,000〜3,000行/月）
   for (let i = 0; i < rows.length; i += 1000) {
     await db.tverDeliveryRow.createMany({ data: rows.slice(i, i + 1000).map((r) => ({ ...r, reportId: created.id })) });
   }
-  logAudit({ action: "tver_delivery_imported", email: info.email, name: info.staffName, entity: "tver_delivery_report", entityId: created.id, detail: `${parsed.advertiserName} ${rows.length}行 卸¥${parsed.wholesaleAmount.toLocaleString("ja-JP")}→売¥${parsed.sellAmount.toLocaleString("ja-JP")}${parsed.warnings.length ? `（警告${parsed.warnings.length}）` : ""}` });
+  logAudit({ action: "tver_delivery_imported", email: info.email, name: info.staffName, entity: "tver_delivery_report", entityId: created.id, detail: `${head.advertiserName} ${rows.length}行 卸¥${head.wholesaleAmount.toLocaleString("ja-JP")}→売¥${head.sellAmount.toLocaleString("ja-JP")}${head.warnings.length ? `（警告${head.warnings.length}）` : ""}${linkedOrder ? "・申込番号で自動紐づけ" : ""}` });
   revalidatePath(PATH);
-  return { ok: true, id: created.id, message: `取り込みました（${rows.length}行）${parsed.warnings.length ? `。警告が${parsed.warnings.length}件あります` : ""}` };
+  return { ok: true, id: created.id, message: `取り込みました（${rows.length}行）${head.warnings.length ? `。警告が${head.warnings.length}件あります` : ""}${linkedOrder ? "。申込番号で自動的に紐づけました" : ""}` };
 }
 
 /** 紐づけ・メモを保存（公開状態は変えない） */

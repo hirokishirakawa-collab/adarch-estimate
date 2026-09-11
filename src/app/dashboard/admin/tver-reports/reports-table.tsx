@@ -69,7 +69,7 @@ export function ReportsTable({ rows }: { rows: ReportRow[] }) {
           一括削除（{sel.size}）
         </button>
         {msg && <span className="text-zinc-700">{msg}</span>}
-        <span className="ml-auto">売価＝卸値×3を取込時に固定。差し替えは削除してから再取込</span>
+        <span className="ml-auto">売価＝卸値×3を取込時に固定。同じ広告主の再取込は自動で差し替え（公開済みは公開のまま更新・警告が出たら確認待ちに戻る）</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

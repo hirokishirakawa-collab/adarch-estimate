@@ -39,7 +39,7 @@ export function ImportForm({ companies }: { companies: { id: string; name: strin
         }}
       >
         <label className="text-xs text-zinc-600 sm:col-span-3">
-          CSVファイル <span className="text-red-500">*</span>（TVer管理画面 → レポート作成 → 配信レポート → ダウンロード。1広告主・1期間ずつ）
+          CSVファイル <span className="text-red-500">*</span>（TVer管理画面 → レポート作成 → 配信レポート → ダウンロード。1広告主ずつ。同じ広告主で期間が重なる既存レポートがあれば、その日付の行を差し替えて最新にします）
           <input type="file" name="file" accept=".csv,text/csv" required className="mt-1 block w-full text-sm file:mr-3 file:rounded-lg file:border file:border-zinc-300 file:bg-white file:px-3 file:py-1.5 file:text-sm" />
         </label>
         <label className="text-xs text-zinc-600">
