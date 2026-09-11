@@ -3,7 +3,7 @@
 // 広告グループごとの商圏（本部）。TVerでエリアを設定する単位＝ベンチマークの1件。
 //   市区町村を複数チェック→合算人口。手で選んだものは再取込でも保持
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateAdGroupAreas } from "@/lib/actions/tver-delivery";
 
@@ -22,12 +22,12 @@ function AreaPicker({ name, options, initial }: { name: string; options: AdGroup
   const shown = useMemo(() => (q ? options.filter((o) => o.label.includes(q)) : options), [options, q]);
   const total = options.filter((o) => sel.has(o.key)).reduce((a, o) => a + o.population, 0);
   return (
-    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-2 w-[20rem]">
+    <div className="rounded-lg border border-zinc-200 bg-white p-2 w-full">
       <div className="flex items-center gap-2 mb-1">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="市区町村名で絞る" className="flex-1 rounded-md border border-zinc-300 px-2 py-1 text-xs bg-white" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="市区町村名で絞る" className="w-64 rounded-md border border-zinc-300 px-2 py-1 text-xs bg-white" />
         <span className="text-[11px] text-zinc-600 whitespace-nowrap">{sel.size}件・{num(total)}人</span>
       </div>
-      <div className="max-h-40 overflow-y-auto space-y-0.5">
+      <div className="max-h-48 overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-0.5">
         {shown.map((o) => (
           <label key={o.key} className="flex items-center gap-2 text-xs text-zinc-800 px-1 py-0.5 rounded hover:bg-white cursor-pointer">
             <input type="checkbox" name={name} value={o.key} checked={sel.has(o.key)} onChange={() => setSel((s) => { const n = new Set(s); if (n.has(o.key)) n.delete(o.key); else n.add(o.key); return n; })} />
@@ -69,7 +69,8 @@ export function AdGroupAreas({ reportId, groups }: { reportId: string; groups: A
             </thead>
             <tbody>
               {groups.map((g) => (
-                <tr key={g.adGroupName} className="border-t border-zinc-100 align-top">
+                <Fragment key={g.adGroupName}>
+                <tr className="border-t border-zinc-100 align-top">
                   <td className="py-1.5 pr-2"><div className="text-zinc-900">{g.adGroupName}</div><div className="text-[11px] text-zinc-400">{g.campaignName}</div></td>
                   <td className="py-1.5 pr-2 max-w-[16rem]">{g.areaLabel ?? <span className="text-orange-600">未設定</span>}{g.areaPopulation ? <span className="text-xs text-zinc-500">（{num(g.areaPopulation)}人）</span> : null}</td>
                   <td className="py-1.5 pr-2 whitespace-nowrap text-xs text-zinc-500">{g.areaSource ? SRC[g.areaSource] ?? g.areaSource : "—"}</td>
@@ -77,14 +78,23 @@ export function AdGroupAreas({ reportId, groups }: { reportId: string; groups: A
                   <td className="py-1.5 text-right tabular-nums">{num(g.completes)}</td>
                   <td className="py-1.5 text-right tabular-nums text-zinc-500">{yen(g.wholesaleAmount)}</td>
                   <td className="py-1.5 text-right tabular-nums font-medium">{yen(g.sellAmount)}</td>
-                  <td className="py-1.5 pl-2">
+                  <td className="py-1.5 pl-2 whitespace-nowrap">
                     {editing.has(g.adGroupName) ? (
-                      <AreaPicker name={`area:${g.adGroupName}`} options={g.options} initial={g.areaKeys} />
+                      <span className="text-xs text-orange-700">下で選択中</span>
                     ) : (
                       <button type="button" onClick={() => setEditing((s) => new Set(s).add(g.adGroupName))} className="px-2.5 py-1 rounded-md border border-zinc-300 text-xs text-zinc-700 hover:bg-zinc-50">選び直す</button>
                     )}
                   </td>
                 </tr>
+                {editing.has(g.adGroupName) && (
+                  <tr className="bg-orange-50/40">
+                    <td colSpan={8} className="py-2 px-2">
+                      <div className="text-xs text-zinc-600 mb-1">「{g.adGroupName}」の商圏＝市区町村を複数チェック（人口は合算）</div>
+                      <AreaPicker name={`area:${g.adGroupName}`} options={g.options} initial={g.areaKeys} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

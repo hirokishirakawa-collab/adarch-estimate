@@ -41,7 +41,8 @@ const MULT = 3; // 卸値×3
 export const WHOLESALE_UNIT: Record<15 | 30 | 60, number> = { 15: 2.2, 30: 2.6, 60: 3.7 };
 /** 卸値→売値の係数。配信実績の取込（src/lib/tver/delivery-csv.ts）もこの1か所を使う */
 export const SELL_MULTIPLIER = MULT;
-export const UNIT_PRICE: Record<15 | 30 | 60, number> = { 15: WHOLESALE_UNIT[15] * MULT, 30: WHOLESALE_UNIT[30] * MULT, 60: WHOLESALE_UNIT[60] * MULT }; // 卸値=TVerフロア価格表(2026-03): 15秒¥2.2/30秒¥2.6/60秒¥3.7 → 売値 ¥6.6/¥7.8/¥11.1（2026-09-03 代表確認: シミュレーターと同じ「各秒数の原価×3」）
+const r2 = (x: number) => Math.round(x * 100) / 100; // 2.2*3=6.6000000000000005 を 6.6 に
+export const UNIT_PRICE: Record<15 | 30 | 60, number> = { 15: r2(WHOLESALE_UNIT[15] * MULT), 30: r2(WHOLESALE_UNIT[30] * MULT), 60: r2(WHOLESALE_UNIT[60] * MULT) }; // 卸値=TVerフロア価格表(2026-03): 15秒¥2.2/30秒¥2.6/60秒¥3.7 → 売値 ¥6.6/¥7.8/¥11.1（2026-09-03 代表確認: シミュレーターと同じ「各秒数の原価×3」）
 export type AdSeconds = 15 | 30 | 60;
 
 /** 県内TVer月間利用者数（推計） */
