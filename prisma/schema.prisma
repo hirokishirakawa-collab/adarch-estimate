@@ -2736,6 +2736,7 @@ model TverDeliveryAdGroup {
   areaLabel      String?
   areaPopulation Int?
   areaSource     String? // ORDER / NAME / PREF / MANUAL / PREV
+  areaKeys       String[] @default([]) // 選んだ商圏のキー（PREF:県 / MUNI:県:code）。複数＝合算。選び直し時にチェック済みで出す
 
   @@unique([reportId, adGroupName])
   @@map("tver_delivery_ad_groups")

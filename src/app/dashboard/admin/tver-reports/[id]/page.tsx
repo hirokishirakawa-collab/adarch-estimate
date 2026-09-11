@@ -61,7 +61,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
   const agStats = new Map<string, AdGroupRow>();
   for (const x of r.rows) {
     const a = agMap.get(x.adGroupName);
-    const cur = agStats.get(x.adGroupName) ?? { adGroupName: x.adGroupName, campaignName: x.campaignName, areaLabel: a?.areaLabel ?? null, areaPopulation: a?.areaPopulation ?? null, areaSource: a?.areaSource ?? null, impressions: 0, completes: 0, clicks: 0, sellAmount: 0, wholesaleAmount: 0, options: [] };
+    const cur = agStats.get(x.adGroupName) ?? { adGroupName: x.adGroupName, campaignName: x.campaignName, areaLabel: a?.areaLabel ?? null, areaPopulation: a?.areaPopulation ?? null, areaSource: a?.areaSource ?? null, areaKeys: a?.areaKeys ?? [], impressions: 0, completes: 0, clicks: 0, sellAmount: 0, wholesaleAmount: 0, options: [] };
     cur.impressions += x.impressions; cur.completes += x.q100; cur.clicks += x.clicks; cur.sellAmount += x.sellAmount; cur.wholesaleAmount += x.wholesaleAmount;
     agStats.set(x.adGroupName, cur);
   }

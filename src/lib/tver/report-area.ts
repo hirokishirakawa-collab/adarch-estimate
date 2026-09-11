@@ -62,6 +62,16 @@ export function areaFromKey(key: string): ReportArea | null {
   return null;
 }
 
+/** 複数キー → 合算した商圏（例: 「下関市・宇部市（山口県）」／県をまたぐ時は「山口県 下関市・福岡県 北九州市（全区）」） */
+export function areaFromKeys(keys: string[]): ReportArea | null {
+  const areas = [...new Set(keys)].map(areaFromKey).filter((a): a is ReportArea => !!a);
+  if (areas.length === 0) return null;
+  if (areas.length === 1) return areas[0];
+  const prefs = new Set(areas.map((a) => a.areaLabel.split(" ")[0]));
+  const label = prefs.size === 1 ? `${areas.map((a) => a.areaLabel.split(" ").slice(1).join(" ")).join("・")}（${[...prefs][0]}）` : areas.map((a) => a.areaLabel).join("・");
+  return { areaLabel: label, areaPopulation: areas.reduce((s, a) => s + a.areaPopulation, 0) };
+}
+
 /** 詳細画面に出す選択肢（レポートに出てくる県の市区町村＋県全域） */
 export function areaOptionsFor(prefs: string[]): { key: string; label: string; population: number }[] {
   const out: { key: string; label: string; population: number }[] = [];

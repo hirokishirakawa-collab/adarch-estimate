@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { isActionWarning, orderNumberFromName, parseDeliveryCsv, summarize } from "@/lib/tver/delivery-csv";
-import { areaFromKey, areaFromNames, areaFromOrder, areaFromPrefectures } from "@/lib/tver/report-area";
+import { areaFromKey, areaFromKeys, areaFromNames, areaFromOrder, areaFromPrefectures } from "@/lib/tver/report-area";
 import { prevAdGroupAreas, syncAdGroupAreas } from "@/lib/tver/adgroup-area";
 
 const PATH = "/dashboard/admin/tver-reports";
@@ -202,22 +202,24 @@ export async function deleteDeliveryReports(ids: string[]): Promise<R> {
   return { ok: true, message: `${res.count}件削除しました` };
 }
 
-/** 広告グループごとの商圏を本部が選ぶ（MANUAL＝再取込でも上書きしない）。fd: area:<広告グループ名> = areaKey */
+/** 広告グループごとの商圏を本部が選ぶ（複数可＝合算。MANUAL＝再取込でも上書きしない）。fd: area:<広告グループ名> = areaKey（複数） */
 export async function updateAdGroupAreas(reportId: string, fd: FormData): Promise<R> {
   const info = await admin();
   if (!info) return { error: "権限がありません" };
   const r = await db.tverDeliveryReport.findUnique({ where: { id: reportId }, select: { id: true } });
   if (!r) return { error: "レポートが見つかりません" };
+  const names = new Set<string>();
+  for (const k of fd.keys()) if (k.startsWith("area:")) names.add(k.slice(5));
   let n = 0;
-  for (const [k, v] of fd.entries()) {
-    if (!k.startsWith("area:") || typeof v !== "string" || !v) continue;
-    const adGroupName = k.slice(5);
-    const area = areaFromKey(v);
+  for (const adGroupName of names) {
+    const keys = fd.getAll(`area:${adGroupName}`).filter((v): v is string => typeof v === "string" && !!v);
+    if (keys.length === 0) continue;
+    const area = areaFromKeys(keys);
     if (!area) continue;
     await db.tverDeliveryAdGroup.upsert({
       where: { reportId_adGroupName: { reportId, adGroupName } },
-      create: { reportId, adGroupName, ...area, areaSource: "MANUAL" },
-      update: { ...area, areaSource: "MANUAL" },
+      create: { reportId, adGroupName, ...area, areaKeys: keys, areaSource: "MANUAL" },
+      update: { ...area, areaKeys: keys, areaSource: "MANUAL" },
     });
     n++;
   }
