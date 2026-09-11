@@ -27,7 +27,8 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
       impressions: true, completes: true, clicks: true, sellAmount: true,
       campaignNames: true,
       groupCompany: { select: { name: true } },
-      rows: { select: { date: true, campaignName: true, prefecture: true, device: true, gender: true, age: true, impressions: true, q100: true, clicks: true, sellAmount: true } },
+      rows: { select: { date: true, campaignName: true, adGroupName: true, prefecture: true, device: true, gender: true, age: true, impressions: true, q100: true, clicks: true, sellAmount: true } },
+      adGroups: { select: { adGroupName: true, areaLabel: true, areaPopulation: true } },
     },
   });
   if (!r) notFound();
@@ -38,6 +39,8 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
   const byDevice = breakdown(r.rows, (x) => x.device);
   const byDate = breakdown(r.rows, (x) => fmtD(x.date)).sort((a, b) => a.key.localeCompare(b.key, "ja"));
   const byAge = breakdown(r.rows, (x) => `${x.gender} ${x.age}`);
+  const agArea = new Map(r.adGroups.map((a) => [a.adGroupName, a]));
+  const byAdGroup = breakdown(r.rows, (x) => x.adGroupName);
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
@@ -72,6 +75,29 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
               ))}
             </tbody>
           </table>
+        </section>
+        <section className="bg-white border border-zinc-200 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-zinc-900 mb-3">商圏別（広告グループ）</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-zinc-500"><tr><th className="text-left py-1">商圏</th><th className="text-left py-1">広告グループ</th><th className="text-right py-1">表示回数</th><th className="text-right py-1">100%再生</th><th className="text-right py-1">クリック</th><th className="text-right py-1">金額（税抜）</th></tr></thead>
+              <tbody>
+                {byAdGroup.map((b) => {
+                  const a = agArea.get(b.key);
+                  return (
+                    <tr key={b.key} className="border-t border-zinc-100">
+                      <td className="py-1.5 pr-2 whitespace-nowrap">{a?.areaLabel ?? "—"}{a?.areaPopulation ? <span className="text-xs text-zinc-400">（{a.areaPopulation.toLocaleString("ja-JP")}人）</span> : null}</td>
+                      <td className="py-1.5 pr-2 text-zinc-500 text-xs">{b.key}</td>
+                      <td className="py-1.5 text-right tabular-nums">{b.impressions.toLocaleString("ja-JP")}</td>
+                      <td className="py-1.5 text-right tabular-nums">{b.completes.toLocaleString("ja-JP")}</td>
+                      <td className="py-1.5 text-right tabular-nums">{b.clicks.toLocaleString("ja-JP")}</td>
+                      <td className="py-1.5 text-right tabular-nums font-medium">{yen(b.sellAmount)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </section>
         <BreakdownTables byPref={byPref} byDevice={byDevice} byDate={byDate} byAge={byAge} />
       </div>

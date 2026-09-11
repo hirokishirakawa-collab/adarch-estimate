@@ -2711,7 +2711,8 @@ model TverDeliveryReport {
   confirmedAt      DateTime?
   confirmedByEmail String?
 
-  rows TverDeliveryRow[]
+  rows     TverDeliveryRow[]
+  adGroups TverDeliveryAdGroup[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2721,6 +2722,23 @@ model TverDeliveryReport {
   @@index([advertiserTverId])
   @@index([tverOrderId])
   @@map("tver_delivery_reports")
+}
+
+/// 広告グループ＝TVerでエリア（都道府県／市区町村）を設定する単位。レポート内の広告グループごとに商圏を持つ。
+/// 取込時に名前の市区町村名から自動判定（無ければ その広告グループの明細の県全域）。本部は詳細で選び直せる。
+/// ベンチマーク（MCP tver_benchmarks）の1件＝この広告グループ。
+model TverDeliveryAdGroup {
+  id       String             @id @default(cuid())
+  reportId String
+  report   TverDeliveryReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  adGroupName    String
+  areaLabel      String?
+  areaPopulation Int?
+  areaSource     String? // ORDER / NAME / PREF / MANUAL / PREV
+
+  @@unique([reportId, adGroupName])
+  @@map("tver_delivery_ad_groups")
 }
 
 /// CSVの1行（日×キャンペーン×広告グループ×クリエイティブ×性別×年齢×都道府県×デバイス）

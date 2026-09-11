@@ -21,7 +21,8 @@ const prefBase = (s: string) => (s.startsWith("北海道") ? "北海道" : s.tri
 const DAY = 86_400_000;
 const OTHER = "（他拠点のため非表示）";
 
-const rowSel = { date: true, campaignName: true, prefecture: true, device: true, gender: true, age: true, impressions: true, q100: true, clicks: true, sellAmount: true } as const;
+const rowSel = { date: true, campaignName: true, adGroupName: true, prefecture: true, device: true, gender: true, age: true, impressions: true, q100: true, clicks: true, sellAmount: true } as const;
+const agSel = { adGroupName: true, areaLabel: true, areaPopulation: true } as const;
 
 function share<T extends { impressions: number }>(rows: T[], by: (r: T) => string, top = 6) {
   const b = breakdown(rows as unknown as { impressions: number; q100: number; clicks: number; sellAmount: number }[], by as unknown as (r: { impressions: number; q100: number; clicks: number; sellAmount: number }) => string);
@@ -48,7 +49,7 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
         id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true, partnerNote: true, confirmedAt: true,
         impressions: true, completes: true, clicks: true, sellAmount: true, campaignNames: true,
         groupCompany: { select: { name: true } }, tverOrder: { select: { number: true, createdAt: true, prefName: true, areaLabel: true, planKey: true, months: true } },
-        rows: { select: rowSel },
+        rows: { select: rowSel }, adGroups: { select: agSel },
       },
     });
     if (!r) return { error: "見つからないか、公開されていません" };
@@ -64,6 +65,7 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
       order: r.tverOrder ? { area: `${r.tverOrder.prefName} ${r.tverOrder.areaLabel}`, plan: r.tverOrder.planKey, months: r.tverOrder.months } : null,
       totals: { impressions: r.impressions, completes: r.completes, completionRate: `${pct(r.completes, r.impressions)}%`, clicks: r.clicks, ctr: `${pct(r.clicks, r.impressions, 2)}%`, amountExclTax: yen(r.sellAmount), perDayImpressions: Math.round(r.impressions / Math.max(1, days)) },
       byCampaign: breakdown(r.rows, (x) => x.campaignName).map((b) => ({ campaign: b.key, impressions: b.impressions, completes: b.completes, clicks: b.clicks, amountExclTax: yen(b.sellAmount) })),
+      byArea: breakdown(r.rows, (x) => x.adGroupName).map((b) => { const a = r.adGroups.find((g) => g.adGroupName === b.key); return { area: a?.areaLabel ?? null, population: a?.areaPopulation ?? null, adGroup: b.key, impressions: b.impressions, completionRate: `${pct(b.completes, b.impressions)}%`, clicks: b.clicks, amountExclTax: yen(b.sellAmount), reachEstimatePer30Days: Math.round((b.impressions / Math.max(1, days)) * 30 / FREQ) }; }),
       byPrefecture: share(r.rows, (x) => x.prefecture, 10),
       byDevice: share(r.rows, (x) => x.device),
       byGenderAge: share(r.rows, (x) => `${x.gender} ${x.age}`, 12),
@@ -127,51 +129,66 @@ export async function tverBenchmarks(v: McpViewer, input: TverBenchmarksInput) {
       status: "PUBLISHED",
       ...(industry ? { industry: { contains: industry, mode: "insensitive" } } : {}),
       ...(sec ? { adSeconds: sec } : {}),
-      ...(popBand ? { areaPopulation: { gte: popBand.min, ...(Number.isFinite(popBand.max) ? { lt: popBand.max } : {}) } } : pref ? { rows: { some: { prefecture: { contains: pref } } } } : {}),
+      ...(pref ? { rows: { some: { prefecture: { contains: pref } } } } : {}),
     },
     orderBy: { periodEnd: "desc" },
     take: 60,
     select: {
       id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true, groupCompanyId: true,
-      impressions: true, completes: true, clicks: true, sellAmount: true,
       groupCompany: { select: { name: true, prefecture: true } },
       tverOrder: { select: { planKey: true, months: true } },
       rows: { select: rowSel },
+      adGroups: { select: agSel },
     },
   });
 
   const own = (gid: string | null) => isHq(v) || (!!gid && gid === v.groupCompanyId);
-  const all = reports.map((r) => {
+  // 1件＝広告グループ（TVerでエリアを設定する単位）。商圏はその広告グループのもの → 無ければレポートのもの
+  const all = reports.flatMap((r) => {
     const days = Math.max(1, Math.round((r.periodEnd.getTime() - r.periodStart.getTime()) / DAY) + 1);
-    const imp30 = Math.round((r.impressions / days) * 30);
-    const amt30 = Math.round((r.sellAmount / days) * 30);
-    const reach30 = Math.round(imp30 / FREQ);
     const mine = own(r.groupCompanyId);
-    const pb = populationBand(r.areaPopulation);
-    const bb = budgetBand(amt30);
-    return {
-      r, days, imp30, amt30, reach30, mine, pb, bb,
-      out: {
-        id: mine ? r.id : undefined,
-        advertiser: mine ? r.advertiserName : OTHER,
-        industry: r.industry ?? "（業種未設定）",
-        company: mine ? r.groupCompany?.name ?? "本部" : `${r.groupCompany?.prefecture ?? "—"}の拠点`,
-        area: r.areaLabel ?? "（商圏未設定）",
-        population: r.areaPopulation,
-        populationBand: pb?.label ?? null,
-        monthlyAmountExclTax: mine ? yen(amt30) : bb?.label ?? OTHER,
-        budgetBand: bb?.label ?? null,
-        plan: r.tverOrder ? `${r.tverOrder.planKey}・${r.tverOrder.months}ヶ月` : null,
-        adSeconds: r.adSeconds,
-        period: `${day(r.periodStart)}〜${day(r.periodEnd)}（${days}日）`,
-        per30Days: { impressions: imp30, reachEstimate: reach30, residentsReachPct: r.areaPopulation ? `${pct(reach30, r.areaPopulation)}%` : null },
-        completionRate: `${pct(r.completes, r.impressions)}%`,
-        ctr: `${pct(r.clicks, r.impressions, 2)}%`,
-        byDevice: share(r.rows, (x) => x.device, 4),
-        byGenderAge: share(r.rows, (x) => `${x.gender} ${x.age}`, 6),
-      },
-    };
-  });
+    const byAg = new Map<string, typeof r.rows>();
+    for (const x of r.rows) byAg.set(x.adGroupName, [...(byAg.get(x.adGroupName) ?? []), x]);
+    return [...byAg.entries()].map(([agName, rows]) => {
+      const ag = r.adGroups.find((g) => g.adGroupName === agName);
+      const areaLabel = ag?.areaLabel ?? r.areaLabel ?? null;
+      const areaPopulation = ag?.areaPopulation ?? r.areaPopulation ?? null;
+      const imp = rows.reduce((a, x) => a + x.impressions, 0);
+      const comp = rows.reduce((a, x) => a + x.q100, 0);
+      const clk = rows.reduce((a, x) => a + x.clicks, 0);
+      const sell = rows.reduce((a, x) => a + x.sellAmount, 0);
+      const imp30 = Math.round((imp / days) * 30);
+      const amt30 = Math.round((sell / days) * 30);
+      const reach30 = Math.round(imp30 / FREQ);
+      const pb = populationBand(areaPopulation);
+      const bb = budgetBand(amt30);
+      return {
+        r, days, imp, comp, clk, imp30, amt30, reach30, mine, pb, bb, areaPopulation, rows,
+        out: {
+          id: mine ? r.id : undefined,
+          advertiser: mine ? r.advertiserName : OTHER,
+          industry: r.industry ?? "（業種未設定）",
+          company: mine ? r.groupCompany?.name ?? "本部" : `${r.groupCompany?.prefecture ?? "—"}の拠点`,
+          area: areaLabel ?? "（商圏未設定）",
+          population: areaPopulation,
+          populationBand: pb?.label ?? null,
+          monthlyAmountExclTax: mine ? yen(amt30) : bb?.label ?? OTHER,
+          budgetBand: bb?.label ?? null,
+          plan: r.tverOrder ? `${r.tverOrder.planKey}・${r.tverOrder.months}ヶ月` : null,
+          adSeconds: r.adSeconds,
+          period: `${day(r.periodStart)}〜${day(r.periodEnd)}（${days}日）`,
+          per30Days: { impressions: imp30, reachEstimate: reach30, residentsReachPct: areaPopulation ? `${pct(reach30, areaPopulation)}%` : null },
+          completionRate: `${pct(comp, imp)}%`,
+          ctr: `${pct(clk, imp, 2)}%`,
+          byDevice: share(rows, (x) => x.device, 4),
+          byGenderAge: share(rows, (x) => `${x.gender} ${x.age}`, 6),
+        },
+      };
+    });
+  })
+    .filter((c) => c.imp > 0)
+    // 人口帯の指定があれば、その帯（無ければ全部）。県指定はレポート単位で済んでいる
+    .filter((c) => !popBand || (c.areaPopulation != null && c.areaPopulation >= popBand.min && c.areaPopulation < popBand.max));
   // 月額帯の指定があれば絞る（近い帯も残す）
   const filtered = budBand ? all.filter((c) => c.bb && Math.abs(BUDGET_BANDS.indexOf(c.bb) - BUDGET_BANDS.indexOf(budBand)) <= 1) : all;
   if (filtered.length === 0) return { count: 0, filters: { industry, prefecture: pref, city: resolvedCity, population, populationBand: popBand?.label ?? null, monthlyBudget: input.monthlyBudget ?? null }, message: "条件に合う公開済みの実績がまだありません。条件を広げるか、本部に実績の取込を依頼してください" };
@@ -188,18 +205,18 @@ export async function tverBenchmarks(v: McpViewer, input: TverBenchmarksInput) {
     const [pk, bk] = k.split("|");
     const pop = POPULATION_BANDS.find((b) => b.key === pk)!;
     const bud = BUDGET_BANDS.find((b) => b.key === bk)!;
-    const tImp = cs.reduce((a, c) => a + c.r.impressions, 0);
+    const tImp = cs.reduce((a, c) => a + c.imp, 0);
     return {
       populationBand: pop.label, budgetBand: bud.label, cases: cs.length,
       medianImpressionsPer30Days: med(cs.map((c) => c.imp30)),
       medianReachPer30Days: med(cs.map((c) => c.reach30)),
-      medianResidentsReachPct: `${med(cs.map((c) => (c.r.areaPopulation ? Math.round((c.reach30 / c.r.areaPopulation) * 1000) / 10 : 0)))}%`,
-      completionRate: `${pct(cs.reduce((a, c) => a + c.r.completes, 0), tImp)}%`,
-      ctr: `${pct(cs.reduce((a, c) => a + c.r.clicks, 0), tImp, 2)}%`,
+      medianResidentsReachPct: `${med(cs.map((c) => (c.areaPopulation ? Math.round((c.reach30 / c.areaPopulation) * 1000) / 10 : 0)))}%`,
+      completionRate: `${pct(cs.reduce((a, c) => a + c.comp, 0), tImp)}%`,
+      ctr: `${pct(cs.reduce((a, c) => a + c.clk, 0), tImp, 2)}%`,
     };
   }).sort((a, b) => a.populationBand.localeCompare(b.populationBand, "ja") || a.budgetBand.localeCompare(b.budgetBand, "ja"));
 
-  const allRows = filtered.flatMap((c) => c.r.rows);
+  const allRows = filtered.flatMap((c) => c.rows);
   const tImp = allRows.reduce((a, x) => a + x.impressions, 0);
   return {
     count: filtered.length,
@@ -215,6 +232,6 @@ export async function tverBenchmarks(v: McpViewer, input: TverBenchmarksInput) {
       frequency: FREQ,
     },
     cases: filtered.slice(0, Math.min(30, Math.max(1, input.limit ?? 12))).map((c) => c.out),
-    rules: "読み方＝「人口◯万人の商圏で月◯万円打つと、30日で約◯回見られ・約◯人（住民の◯%）に届き・完全視聴率◯%」。到達人数は表示回数÷平均フリークエンシー（実測）の推計。他拠点の案件は広告主名を伏せ、金額は帯だけ＝比率と規模を『型』として借りる。提案では「グループの実績では〜」と書き、固有名詞は出さない。数字には「目安・税抜」を添える",
+    rules: "1件＝広告グループ（TVerでエリアを設定する単位）。読み方＝「人口◯万人の商圏で月◯万円打つと、30日で約◯回見られ・約◯人（住民の◯%）に届き・完全視聴率◯%」。到達人数は表示回数÷平均フリークエンシー（実測）の推計。他拠点の案件は広告主名を伏せ、金額は帯だけ＝比率と規模を『型』として借りる。提案では「グループの実績では〜」と書き、固有名詞は出さない。数字には「目安・税抜」を添える",
   };
 }

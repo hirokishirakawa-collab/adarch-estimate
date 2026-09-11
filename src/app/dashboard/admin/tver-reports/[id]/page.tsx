@@ -10,6 +10,7 @@ import { breakdown, isActionWarning } from "@/lib/tver/delivery-csv";
 import { orderNumberLabel } from "@/lib/tver-order/plans";
 import { ReportAdminPanel } from "./admin-panel";
 import { areaOptionsFor } from "@/lib/tver/report-area";
+import { AdGroupAreas, type AdGroupRow } from "./adgroup-areas";
 import { BreakdownTables } from "@/components/tver/delivery-breakdown";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,8 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
       include: {
         groupCompany: { select: { id: true, name: true, prefecture: true } },
         tverOrder: { select: { id: true, number: true, createdAt: true, advertiserName: true } },
-        rows: { select: { date: true, campaignName: true, prefecture: true, device: true, gender: true, age: true, impressions: true, q100: true, clicks: true, sellAmount: true, wholesaleAmount: true, wholesaleCpm: true } },
+        rows: { select: { date: true, campaignName: true, adGroupName: true, prefecture: true, device: true, gender: true, age: true, impressions: true, q100: true, clicks: true, sellAmount: true, wholesaleAmount: true, wholesaleCpm: true } },
+        adGroups: true,
       },
     }),
     db.groupCompany.findMany({ where: { isActive: true }, select: { id: true, name: true, prefecture: true }, orderBy: { name: "asc" } }),
@@ -54,6 +56,18 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
   const byDate = breakdown(r.rows, (x) => fmtD(x.date)).sort((a, b) => a.key.localeCompare(b.key, "ja"));
   const byAge = breakdown(r.rows, (x) => `${x.gender} ${x.age}`);
   const areaOptions = areaOptionsFor(byPref.map((b) => b.key));
+  // 広告グループ別（商圏つき）
+  const agMap = new Map(r.adGroups.map((a) => [a.adGroupName, a]));
+  const agStats = new Map<string, AdGroupRow>();
+  for (const x of r.rows) {
+    const a = agMap.get(x.adGroupName);
+    const cur = agStats.get(x.adGroupName) ?? { adGroupName: x.adGroupName, campaignName: x.campaignName, areaLabel: a?.areaLabel ?? null, areaPopulation: a?.areaPopulation ?? null, areaSource: a?.areaSource ?? null, impressions: 0, completes: 0, clicks: 0, sellAmount: 0, wholesaleAmount: 0, options: [] };
+    cur.impressions += x.impressions; cur.completes += x.q100; cur.clicks += x.clicks; cur.sellAmount += x.sellAmount; cur.wholesaleAmount += x.wholesaleAmount;
+    agStats.set(x.adGroupName, cur);
+  }
+  const agPrefs = new Map<string, Set<string>>();
+  for (const x of r.rows) agPrefs.set(x.adGroupName, (agPrefs.get(x.adGroupName) ?? new Set()).add(x.prefecture));
+  const adGroupRows: AdGroupRow[] = [...agStats.values()].map((g) => ({ ...g, options: areaOptionsFor([...(agPrefs.get(g.adGroupName) ?? [])]) })).sort((a, b) => b.impressions - a.impressions);
   const wholesaleByCampaign = new Map<string, number>();
   for (const x of r.rows) wholesaleByCampaign.set(x.campaignName, (wholesaleByCampaign.get(x.campaignName) ?? 0) + x.wholesaleAmount);
 
@@ -115,6 +129,8 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
               </tbody>
             </table>
           </section>
+
+          <AdGroupAreas reportId={r.id} groups={adGroupRows} />
 
           <BreakdownTables byPref={byPref} byDevice={byDevice} byDate={byDate} byAge={byAge} />
         </div>

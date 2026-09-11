@@ -12,6 +12,7 @@ import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { isActionWarning, orderNumberFromName, parseDeliveryCsv, summarize } from "@/lib/tver/delivery-csv";
 import { areaFromKey, areaFromNames, areaFromOrder, areaFromPrefectures } from "@/lib/tver/report-area";
+import { prevAdGroupAreas, syncAdGroupAreas } from "@/lib/tver/adgroup-area";
 
 const PATH = "/dashboard/admin/tver-reports";
 const PARTNER_PATH = "/dashboard/tver-reports";
@@ -93,6 +94,7 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
       }
       const all = await tx.tverDeliveryRow.findMany({ where: { reportId: ex.id } });
       const sum = summarize(all, head.advertiserTverId, head.advertiserName);
+      await syncAdGroupAreas(tx, ex.id, all, { orderArea: linkedOrder ? area : null, prev: await prevAdGroupAreas(tx, head.advertiserTverId, ex.id) });
       const preWarn = head.warnings.filter((w) => !sum.warnings.includes(w) && /日付を読めない|広告主が複数/.test(w));
       const warnings = [...preWarn, ...sum.warnings];
       const demote = ex.status === "PUBLISHED" && warnings.some(isActionWarning);
@@ -128,6 +130,9 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
   for (let i = 0; i < rows.length; i += 1000) {
     await db.tverDeliveryRow.createMany({ data: rows.slice(i, i + 1000).map((r) => ({ ...r, reportId: created.id })) });
   }
+  await db.$transaction(async (tx) => {
+    await syncAdGroupAreas(tx, created.id, rows, { orderArea: linkedOrder ? area : null, prev: await prevAdGroupAreas(tx, head.advertiserTverId, created.id) });
+  });
   logAudit({ action: "tver_delivery_imported", email: info.email, name: info.staffName, entity: "tver_delivery_report", entityId: created.id, detail: `${head.advertiserName} ${rows.length}行 卸¥${head.wholesaleAmount.toLocaleString("ja-JP")}→売¥${head.sellAmount.toLocaleString("ja-JP")}${head.warnings.length ? `（警告${head.warnings.length}）` : ""}${linkedOrder ? "・申込番号で自動紐づけ" : ""}` });
   revalidatePath(PATH);
   return { ok: true, id: created.id, message: `取り込みました（${rows.length}行）${head.warnings.length ? `。警告が${head.warnings.length}件あります` : ""}${linkedOrder ? "。申込番号で自動的に紐づけました" : ""}` };
@@ -195,4 +200,28 @@ export async function deleteDeliveryReports(ids: string[]): Promise<R> {
   revalidatePath(PATH);
   revalidatePath(PARTNER_PATH);
   return { ok: true, message: `${res.count}件削除しました` };
+}
+
+/** 広告グループごとの商圏を本部が選ぶ（MANUAL＝再取込でも上書きしない）。fd: area:<広告グループ名> = areaKey */
+export async function updateAdGroupAreas(reportId: string, fd: FormData): Promise<R> {
+  const info = await admin();
+  if (!info) return { error: "権限がありません" };
+  const r = await db.tverDeliveryReport.findUnique({ where: { id: reportId }, select: { id: true } });
+  if (!r) return { error: "レポートが見つかりません" };
+  let n = 0;
+  for (const [k, v] of fd.entries()) {
+    if (!k.startsWith("area:") || typeof v !== "string" || !v) continue;
+    const adGroupName = k.slice(5);
+    const area = areaFromKey(v);
+    if (!area) continue;
+    await db.tverDeliveryAdGroup.upsert({
+      where: { reportId_adGroupName: { reportId, adGroupName } },
+      create: { reportId, adGroupName, ...area, areaSource: "MANUAL" },
+      update: { ...area, areaSource: "MANUAL" },
+    });
+    n++;
+  }
+  revalidatePath(`${PATH}/${reportId}`);
+  revalidatePath(PARTNER_PATH);
+  return { ok: true, message: n ? `${n}件の商圏を保存しました` : "変更はありません" };
 }
