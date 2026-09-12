@@ -22,6 +22,10 @@ import { WriteError, AI_PREFIX } from "./os-write-tools";
 import { findSimilarWins } from "./os-insight-tools";
 
 const DAY_MS = 86_400_000;
+/** 会社メモの企業タイプ（buildPlaceLeadMemo が書く文言）。チェーン・FC・支店を見分ける */
+const CHAIN_MEMO = /(チェーン店|フランチャイズ|支店・店舗)/;
+/** 同じ相手に自拠点から送り直すまでの間隔。1か月ルール（本部の決まり） */
+const RESEND_GUARD_DAYS = 30;
 // 日付は日本時間で出す（toISOString だとUTCになり、JSTの0時は前日に見えてしまう）
 const day = (d: Date | null | undefined) =>
   d ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d) : null;
@@ -116,6 +120,9 @@ export async function planCampaign(v: McpViewer, input: PlanCampaignInput) {
       if (dom && blocked.has(dom)) return null; // 営業お断り
       const sentBy = dom ? sentMap.get(dom) : undefined;
       if (l.sentAt || sentBy) return { l, skip: `送付済み（${sentBy?.branch.name ?? "自拠点"}・${day(sentBy?.sentAt ?? l.sentAt)}）` };
+      // チェーン・FC・支店は本部決裁＝市の商圏で話が通らない。発掘時に外しているが、
+      // 以前から入っているリードは会社メモの判定で下げる
+      if (CHAIN_MEMO.test(l.memo ?? "")) return { l, skip: "チェーン・FC・支店（本部決裁のため市の商圏で話が通らない）" };
       if (l.signalAt && now.getTime() - l.signalAt.getTime() < 7 * DAY_MS) { score += 30; reasons.push(`今週シグナル: ${l.signalKind ?? "あり"}`); }
       const a = l.foundedYear ? nextAnniversary(l.foundedYear, l.foundedMonth ?? null, now) : null;
       if (a && a.monthsAway <= 3) { score += 20; reasons.push(`${a.years}周年が${a.monthsAway}か月後`); }
@@ -169,6 +176,8 @@ export interface PrepareOutreachInput {
   body: string;
   appeal?: string;
   packageSlug?: string;
+  /** 1か月ルールを承知のうえで送り直す（人が判断したときだけ） */
+  resend?: boolean;
 }
 
 export async function prepareOutreach(v: McpViewer, input: PrepareOutreachInput) {
@@ -182,6 +191,18 @@ export async function prepareOutreach(v: McpViewer, input: PrepareOutreachInput)
   need(lead, "リードが見つかりません");
   need(lead.assigneeId === null || lead.assigneeId === v.id || v.role === "ADMIN", "このリードは別の担当者のものです");
   need(!["SKIPPED", "ARCHIVED", "DEAL_CONVERTED"].includes(lead.status), "このリードは営業対象外（除外済み／商談化済み）です");
+
+  // 自拠点が最近送った相手への送り直しを止める（1か月ルール）。他拠点の送付済みは下で見る
+  if (lead.sentAt && !input.resend) {
+    const days = Math.floor((Date.now() - lead.sentAt.getTime()) / DAY_MS);
+    if (days < RESEND_GUARD_DAYS) {
+      return {
+        blocked: true,
+        reason: `この会社には${day(lead.sentAt)}に送っています（${days}日前）。1か月あけてください${lead.outreachResult ? `。前回の結果: ${lead.outreachResult}` : "。返事はまだ記録されていません"}`,
+        next: "どうしても今日送るなら resend: true。返事が来ていたなら record_lead_result(leadId, result)",
+      };
+    }
+  }
 
   const domain = normalizeDomain(lead.websiteUrl ?? "");
   if (domain) {
@@ -218,8 +239,26 @@ export async function prepareOutreach(v: McpViewer, input: PrepareOutreachInput)
     leadId: lead.id, name: lead.name, to: lead.email, channel: lead.email ? "email" : "form",
     gmailDraftUrl: lead.email ? gmailUrl : null,
     formUrl: lead.email ? null : lead.websiteUrl,
+    // メールが無い相手は、問い合わせフォームに人がそのまま貼れる形で返す（無人送信はしない）
+    formPaste: lead.email
+      ? null
+      : {
+          url: lead.websiteUrl,
+          subject,
+          body,
+          senderName: staffName,
+          steps: [
+            "1) url を開いて問い合わせフォームを出す",
+            "2) subject を『件名』、body を『お問い合わせ内容』に貼る",
+            "3) 自社の会社名・担当者名・連絡先を埋めて、自分で送信ボタンを押す",
+            "4) 送れない（画像認証・営業お断りの記載など）なら record_lead_result(leadId, phoneCandidate: true, note: 理由) で電話候補に回す",
+          ],
+          note: "AIが自動でフォームに投稿しない。送信は人が押す（本部の決まり）",
+        },
     recorded: { sentAt: day(new Date()), sentLedger: !!domain, leadStatus: statusPatch.status ?? lead.status },
-    next: lead.email ? "gmailDraftUrl を開いて、読んで、送信ボタンを押す。返事が来たら record_lead_result(leadId, result)" : "サイトの問い合わせフォームから本文を送る。返事が来たら record_lead_result(leadId, result)",
+    next: lead.email
+      ? "gmailDraftUrl を開いて、読んで、送信ボタンを押す。返事が来たら record_lead_result(leadId, result)"
+      : "formPaste の steps の通りに人がフォームへ貼って送る。送れなければ電話候補に回す。返事が来たら record_lead_result(leadId, result)",
   };
 }
 

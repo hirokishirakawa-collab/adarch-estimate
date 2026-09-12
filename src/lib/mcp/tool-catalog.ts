@@ -89,8 +89,8 @@ export const OS_READ_TOOLS: OsToolDef[] = [
   }),
   def({
     name: "tver_area_plan", kind: "read", title: "TVer エリア別プラン",
-    description: "都道府県＋市区町村のTVer広告プラン（税抜・推計）。商圏のTVer視聴者数、3人に1人に届ける標準プラン、月額別の到達目安を返す。",
-    input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市（省略で県内の先頭）") }),
+    description: "都道府県＋市区町村のTVer広告プラン（税抜・推計）。商圏のTVer視聴者数、3人に1人に届ける標準プラン、月額別の到達目安を返す。allCities: true で県内の全市区町村を人口の多い順に一度に返す（どの市から当たるかを決めるとき。市を1つずつ呼ばない）。",
+    input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市（省略で県内の先頭）"), allCities: z.boolean().optional().describe("県内の全市区町村をまとめて") }),
     run: (_v, a) => os.tverAreaPlan(a),
   }),
   def({
@@ -163,8 +163,8 @@ export const OS_READ_TOOLS: OsToolDef[] = [
   }),
   def({
     name: "list_leads", kind: "read", title: "リード一覧",
-    description: "グループのリード（見込み先）。mine: true で自分の担当だけ、waitingReply: true で「送付済み・結果未入力」だけ。status: UNTOUCHED / CALLED / APPOINTMENT / DEAL_CONVERTED。結果の記録は record_lead_result。",
-    input: z.object({ query: z.string().optional(), status: z.string().optional(), mine: z.boolean().optional(), waitingReply: z.boolean().optional(), limit: z.number().int().optional() }),
+    description: "グループのリード（見込み先）。mine: true で自分の担当だけ、waitingReply: true で「送付済み・結果未入力」だけ、phoneCandidates: true で「電話でしか当たれない先（メール・フォームが使えず電話に回した先）」だけ。status: UNTOUCHED / CALLED / APPOINTMENT / DEAL_CONVERTED。結果の記録は record_lead_result。",
+    input: z.object({ query: z.string().optional(), status: z.string().optional(), mine: z.boolean().optional(), waitingReply: z.boolean().optional(), phoneCandidates: z.boolean().optional(), limit: z.number().int().optional() }),
     run: (v, a) => os.listLeads(v, a),
   }),
   def({
@@ -278,10 +278,26 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   }),
   def({
     name: "record_lead_result", kind: "write", title: "リードの結果を記録",
-    description: "リード（leadId）の結果をOSに残す。result: REPLIED（返信あり）/ REPLIED_NG（返信NG）/ NO_REPLY（無反応）/ REJECTED（断り）/ WON（受注）＝OS画面の結果ボタンと同じ処理（ステータス移動・グループ事例DBへの反映）。status で APPOINTMENT（アポ獲得）等に直接進められる。note で経緯を残す。会話でリードの結果が分かったら、聞かれてなくても記録する。",
-    input: z.object({ leadId: z.string(), result: z.string().optional(), status: z.string().optional(), note: z.string().optional() }),
+    description: "リード（leadId）の結果をOSに残す。result: REPLIED（返信あり）/ REPLIED_NG（返信NG）/ NO_REPLY（無反応）/ REJECTED（断り）/ WON（受注）＝OS画面の結果ボタンと同じ処理（ステータス移動・グループ事例DBへの反映）。status で APPOINTMENT（アポ獲得）等に直接進められる。note で経緯を残す。phoneCandidate: true で「メール・フォームが使えない先」を電話候補に回す＝my_next_actions と list_leads(phoneCandidates) に出る。まとめて記録するなら record_lead_results。会話でリードの結果が分かったら、聞かれてなくても記録する。",
+    input: z.object({ leadId: z.string(), result: z.string().optional(), status: z.string().optional(), note: z.string().optional(), phoneCandidate: z.boolean().optional().describe("メール・フォームが使えない先を電話候補に回す（電話番号が要る）") }),
     run: (v, a) => osw.recordLeadResult(v, a),
     confirm: (a) => `リードの結果を記録します: ${[a.result && `結果=${a.result}`, a.status && `状態=${a.status}`, a.note && `メモ「${a.note.slice(0, 120)}」`].filter(Boolean).join(" / ")}`,
+  }),
+  def({
+    name: "record_lead_results", kind: "write", title: "リードの結果をまとめて記録（最大50件）",
+    description:
+      "発掘した先を上から選別したときに、結果をまとめて1回で記録する（1件ずつ record_lead_result を何十回も呼ばない）。items の1件ずつは record_lead_result と同じ（leadId / result / status / note / phoneCandidate）。対象外にするなら status: SKIPPED と note（理由）。失敗したものだけ failed に返るので、残りは止まらない。",
+    input: z.object({
+      items: z.array(z.object({
+        leadId: z.string(),
+        result: z.string().optional(),
+        status: z.string().optional().describe("UNTOUCHED / CALLED / APPOINTMENT / DEAL_CONVERTED / SKIPPED"),
+        note: z.string().optional().describe("理由・経緯（例: フォームに営業お断りの記載）"),
+        phoneCandidate: z.boolean().optional(),
+      })).min(1).max(50),
+    }),
+    run: (v, a) => osw.recordLeadResults(v, a),
+    confirm: (a) => `${a.items.length}件のリードの結果をまとめて記録します（対象外 ${a.items.filter((i) => i.status === "SKIPPED").length}件 / 電話候補 ${a.items.filter((i) => i.phoneCandidate).length}件）`,
   }),
   def({
     name: "submit_weekly_share", kind: "write", title: "週次共有を提出（グループサポート・行動量型）",
@@ -302,16 +318,16 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   def({
     name: "discover_leads", kind: "write", title: "新規リードを探す（リード獲得AI＝Google検索→AI採点→保存）",
     description:
-      "OSにまだ無い会社を、市区町村×業種で新しく探す。OS画面の「リード獲得AI」と同じ＝Google Placesで企業を集め、Webサイト分析と全社の成功プロファイル・今日の判定基準でAIが採点し、リードとして保存する（担当は本人・同名＋同住所は1件・既存は採点だけ更新）。未送付のリードが100件以上あると保存は止まる。dryRun: true で採点だけ見る。1回10社が目安（最大20）。続けて plan_campaign → prepare_outreach。",
-    input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市"), industry: z.string().describe("例: 歯科医院 / 工務店 / 飲食店"), keywords: z.string().optional().describe("検索語を変えたい時（例: 矯正歯科）"), count: z.number().int().optional().describe("既定10・最大20"), dryRun: z.boolean().optional() }),
+      "OSにまだ無い会社を、市区町村×業種で新しく探す。OS画面の「リード獲得AI」と同じ＝Google Placesで企業を集め、Webサイト分析と全社の成功プロファイル・今日の判定基準でAIが採点し、リードとして保存する（担当は本人・同名＋同住所は1件・既存は採点だけ更新）。未送付のリードが100件以上あると保存は止まる。保存した先はその場でサイトを1回見て、メールを補完し、営業お断りの会社を対象外にして全社の送付禁止リストへ入れる（cleanup）。チェーン・FC・支店は本部決裁で市の商圏の話が通らないため既定で保存しない（excludeChains: false で戻せる）。dryRun: true で採点だけ見る。1回10社が目安（最大20）。続けて plan_campaign → prepare_outreach。",
+    input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市"), industry: z.string().describe("例: 歯科医院 / 工務店 / 飲食店"), keywords: z.string().optional().describe("検索語を変えたい時（例: 矯正歯科）"), count: z.number().int().optional().describe("既定10・最大20"), dryRun: z.boolean().optional(), excludeChains: z.boolean().optional().describe("チェーン・FC・支店を保存しない（既定 true）"), skipEnrich: z.boolean().optional().describe("メール補完と営業お断り判定をしない（既定 false）") }),
     run: (v, a) => discoverLeads({ id: v.id, email: v.email, name: v.name, branchId: v.branchId, branchId2: v.branchId2 }, a),
     confirm: (a) => `${[a.prefecture, a.city].filter(Boolean).join("")}の「${a.industry}」を${a.count ?? 10}社、Googleから探してAI採点し、${a.dryRun ? "保存せずに見せます" : "貴社のリードとして保存します"}`,
   }),
   def({
     name: "prepare_outreach", kind: "write", title: "営業メールをGmailの下書きにする（送付を記録）",
     description:
-      "AIが書いた件名と本文を、そのリード宛の Gmail 下書きリンクにする。同時にOSの送付フローと同じ記録（全社の送付済み台帳・リードの送付日・事例DBの元）を残す。送信ボタンは人が押す（無人送信はしない）。営業お断り・他拠点の送付済みは止まる。金額は本文に書かない。メールが無い会社はフォーム用の本文として返す。",
-    input: z.object({ leadId: z.string(), subject: z.string().describe("件名（120字以内）"), body: z.string().describe("本文（4000字以内・金額なし）"), appeal: z.string().optional().describe("訴求の切り口を一言（例: 周年×TVer）"), packageSlug: z.string().optional() }),
+      "AIが書いた件名と本文を、そのリード宛の Gmail 下書きリンクにする。同時にOSの送付フローと同じ記録（全社の送付済み台帳・リードの送付日・事例DBの元）を残す。送信ボタンは人が押す（無人送信はしない）。営業お断り・他拠点の送付済み・自拠点が1か月以内に送った先（1か月ルール）は止まる。金額は本文に書かない。メールが無い会社は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）で返す＝貼って送信を押すのは人。",
+    input: z.object({ leadId: z.string(), subject: z.string().describe("件名（120字以内）"), body: z.string().describe("本文（4000字以内・金額なし）"), appeal: z.string().optional().describe("訴求の切り口を一言（例: 周年×TVer）"), packageSlug: z.string().optional(), resend: z.boolean().optional().describe("1か月以内に自拠点が送った先へ、承知のうえで送り直す") }),
     run: (v, a) => camp.prepareOutreach(v, a),
     confirm: (a) => `営業メールを下書きにし、送付として記録します:\n件名: ${a.subject}\n${a.body.slice(0, 200)}…`,
   }),
@@ -372,6 +388,6 @@ export const OS_AI_RULES =
   "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。" +
   "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。媒体の仕様・配信面・条件・他社の提案の仕組みは search_knowledge（資料ライブラリ）で引き、返った rules（自社=そのまま／他社・媒体=価格は卸値・実績は他社分）を必ず守る。" +
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。TVerの提案・見積・『効果はどのくらい？』『この市で月◯万だとどれくらい？』には tver_benchmarks(prefecture, city, monthlyBudget, industry) を先に呼び、matrix（人口帯×月額帯→30日あたり表示回数・到達人数・住民比・完全視聴率）を「目安・税抜」で添える。配信済みのお客様への報告は tver_results(reportId) の数字をそのまま使う（盛らない）。" +
-  "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad。" +
+  "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。メールが無い相手は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）をそのまま人に渡す＝AIがフォームに投稿しない。送れない相手（画像認証・フォームなし）は record_lead_result(leadId, phoneCandidate: true, note: 理由) で電話候補に回す。選別の結果（対象外・電話候補）は1件ずつではなく record_lead_results(items) でまとめて記録する。どの市から当たるか迷ったら tver_area_plan(prefecture, allCities: true) を1回。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad。" +
   "「週次を出して」「今週の週次」「本部への週次共有」には my_week を1回呼び、返った記録だけから 声かけ数・返事数・いちばん近い受注候補 を埋めて本人に見せ、先週の『次の一手』が動いたか（DONE/PARTIAL/NOT）と 本部に頼みたいこと（hqRequest）を本人に選んでもらってから submit_weekly_share で提出する（OSに無い声かけは本人に聞いて足す。盛らない）。" +
   "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注が決まったら update_deal(status: CLOSED_WON) で受注にし、set_closing_factor で決め手を残す。";

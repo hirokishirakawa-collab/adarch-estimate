@@ -457,3 +457,6 @@ export interface ScoredRecruitLead extends PlaceLead {
   recruitAnalysis?: RecruitmentAnalysis;
   youtubeChannel?: YouTubeChannelInfo;
 }
+
+/** リードのログに残す種別（lead_logs.action）。フォーム送付は apply-outreach-result 側 */
+export const PHONE_CANDIDATE = "PHONE_CANDIDATE";

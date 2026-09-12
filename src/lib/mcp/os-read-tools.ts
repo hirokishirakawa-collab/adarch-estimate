@@ -17,6 +17,7 @@ import { searchKnowledge } from "@/lib/knowledge/search";
 import { KNOWLEDGE_USE_RULES, ORIGIN_SHORT } from "@/lib/knowledge/rules";
 import { searchWikiArticles } from "@/lib/wiki-search";
 import { nextAnniversary } from "@/lib/anniversary/calc";
+import { PHONE_CANDIDATE } from "@/lib/constants/leads";
 import type { UserRole } from "@/types/roles";
 
 export interface McpViewer {
@@ -213,12 +214,39 @@ export async function getPackage(v: McpViewer, slug: string) {
 
 // ---- TVer エリア別プラン ---------------------------------------------------
 
-export function tverAreaPlan(input: { prefecture?: string; city?: string }) {
+export function tverAreaPlan(input: { prefecture?: string; city?: string; allCities?: boolean }) {
   const prefs = prefectureOptions();
   if (input.prefecture && !prefs.includes(input.prefecture)) {
     return { error: `都道府県名が一致しません。例: ${prefs.slice(0, 5).join("、")} …（「県」「府」まで含めて）` };
   }
   const munis = input.prefecture ? municipalitiesOf(input.prefecture) : [];
+
+  // 県内の全市区町村をまとめて返す（どの市から当たるかを決めるとき。1件ずつ呼ばない）
+  if (input.allCities) {
+    if (!input.prefecture) return { error: "allCities には prefecture が要ります（例: 香川県）" };
+    const rows = munis
+      .map((m) => {
+        const est = estimateArea(input.prefecture!, m.code);
+        if (!est) return null;
+        const p = est.plan;
+        return {
+          city: m.name,
+          population: p.population,
+          tverViewers: Math.round(p.viewers),
+          standardMonthlyExclTax: yen(p.monthly),
+          standardReach: Math.round(p.reach),
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .sort((a, b) => b.population - a.population);
+    return {
+      prefecture: input.prefecture,
+      cities: rows.length,
+      order: "人口の多い順。standard は『3人に1人に届ける』標準プランの月額（税抜・推計）",
+      areas: rows,
+      note: "金額は税抜・推計。お客様に出す前にOSのTVerシミュレーターで組み直してください（正本はOS）",
+    };
+  }
   let code: string | null = null;
   if (input.city) {
     const hit = munis.find((m) => m.name === input.city || m.name.startsWith(input.city!) || m.code === input.city);
@@ -364,7 +392,7 @@ export async function listGroupCompanies() {
 
 // ---- リード（全社分。OS画面のリード管理と同じ除外条件） ------------------------------
 
-export async function listLeads(v: McpViewer, input: { query?: string; status?: string; mine?: boolean; waitingReply?: boolean; limit?: number }) {
+export async function listLeads(v: McpViewer, input: { query?: string; status?: string; mine?: boolean; waitingReply?: boolean; phoneCandidates?: boolean; limit?: number }) {
   const where: Prisma.LeadWhereInput = {
     status: { notIn: ["SKIPPED", "ARCHIVED"] },
     NOT: { source: "PR_TIMES_TVCM", assigneeId: null }, // 未claimのTVerプール案件はプール画面だけ
@@ -387,6 +415,8 @@ export async function listLeads(v: McpViewer, input: { query?: string; status?: 
     }
   }
   if (input.waitingReply) Object.assign(where, { sentAt: { not: null }, outreachResult: null });
+  // 電話候補＝メール・フォームが使えず電話に回した先（record_lead_result の phoneCandidate）
+  if (input.phoneCandidates) Object.assign(where, { outreachResult: null, logs: { some: { action: PHONE_CANDIDATE } } });
   const rows = await db.lead.findMany({
     where,
     orderBy: [{ updatedAt: "desc" }],
@@ -427,7 +457,7 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
   // リードは「自分の担当」か「担当なし（自県）」。本部は自分の担当だけ
   const leadMine: Prisma.LeadWhereInput = isHq(v) ? { assigneeId: v.id } : { OR: [{ assigneeId: v.id }, { assigneeId: null, ...prefFilter }] };
 
-  const [waiting, overdue, openDeals, foundedLeads, subsidies, signals] = await Promise.all([
+  const [waiting, overdue, openDeals, foundedLeads, subsidies, signals, phoneCandidates] = await Promise.all([
     // 1. 返事待ちが7日超（送付済み・結果未入力）
     db.lead.findMany({
       where: { ...leadAlive, ...leadMine, sentAt: { not: null, lt: new Date(now.getTime() - 7 * DAY_MS) }, outreachResult: null },
@@ -472,6 +502,13 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
           select: { id: true, name: true, industry: true, signalAt: true, signalKind: true, assignee: { select: { name: true } } },
         })
       : Promise.resolve([]),
+    // 7. 電話候補（メール・フォームが使えず、まだ結果が入っていない先）
+    db.lead.findMany({
+      where: { ...leadAlive, ...leadMine, outreachResult: null, logs: { some: { action: PHONE_CANDIDATE } } },
+      orderBy: { updatedAt: "desc" },
+      take,
+      select: { id: true, name: true, industry: true, phone: true, area: true, prefecture: true, logs: { where: { action: PHONE_CANDIDATE }, orderBy: { createdAt: "desc" }, take: 1, select: { detail: true, createdAt: true } } },
+    }),
   ]);
 
   const stalled = openDeals
@@ -489,7 +526,7 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
   return {
     for: { name: v.name, company: company?.name ?? (isHq(v) ? "本部" : null), prefecture: pref },
     asOf: day(now),
-    order: "1→6 の順に優先。1〜3 は今日中に動く。4〜6 は声をかける先の候補",
+    order: "1→7 の順に優先。1〜3 は今日中に動く。4〜7 は声をかける先の候補（7は電話でしか当たれない先）",
     sections: [
       {
         no: 1,
@@ -532,6 +569,16 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
         count: signals.length,
         next: "買う気配が立った直後に当たる。連絡したら log_activity",
         items: signals.map((l) => ({ leadId: l.id, name: l.name, industry: l.industry, signal: l.signalKind, signalAt: day(l.signalAt), assignee: l.assignee?.name ?? null })),
+      },
+      {
+        no: 7,
+        title: "電話候補（メール・フォームが使えない先）",
+        count: phoneCandidates.length,
+        next: "電話をかける。話せたら log_activity、結果は record_lead_result(leadId, result)",
+        items: phoneCandidates.map((l) => ({
+          leadId: l.id, name: l.name, industry: l.industry, phone: l.phone, area: l.area ?? l.prefecture,
+          why: stripSensitiveLines(l.logs[0]?.detail ?? "") || null, since: day(l.logs[0]?.createdAt),
+        })),
       },
     ],
   };

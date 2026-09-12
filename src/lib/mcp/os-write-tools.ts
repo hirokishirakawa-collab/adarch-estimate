@@ -17,6 +17,7 @@ import { getBranchFilter } from "@/lib/session";
 import { stripSensitiveLines } from "@/lib/brand-kit/common";
 import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
 import { OUTREACH_RESULT_OPTIONS, getOutreachResultOption } from "@/lib/constants/outreach-result";
+import { PHONE_CANDIDATE } from "@/lib/constants/leads"; // 電話候補の目印（lead_logs.action）
 import { applyOutreachResult } from "@/lib/leads/apply-outreach-result";
 import { createProjectFromDeal } from "@/lib/deals/create-project-from-deal";
 import { sendDealNotification, notifyAdmins } from "@/lib/notifications";
@@ -483,6 +484,8 @@ export interface RecordLeadResultInput {
   result?: string;
   status?: string;
   note?: string;
+  /** メールもフォームも使えない先を「電話候補」に回す（電話番号が要る） */
+  phoneCandidate?: boolean;
 }
 
 /** リードの結果を記録する。OS画面の結果ボタンと同じ処理（ステータス移動・事例DBへの反映まで）を通す */
@@ -491,7 +494,7 @@ export async function recordLeadResult(v: McpViewer, input: RecordLeadResultInpu
   const lead = await db.lead.findUnique({ where: { id: input.leadId } });
   need(lead, "リードが見つかりません");
   need(v.role === "ADMIN" || lead.assigneeId === v.id || lead.createdById === v.id || lead.assigneeId === null, "このリードは別の担当者のものです。結果はその担当者のAIか、OS画面から記録してください");
-  need(input.result || input.status || input.note?.trim(), "result / status / note のどれかを入れてください");
+  need(input.result || input.status || input.note?.trim() || input.phoneCandidate, "result / status / note / phoneCandidate のどれかを入れてください");
 
   const staffName = staffOf(v);
   const changed: string[] = [];
@@ -530,6 +533,46 @@ export async function recordLeadResult(v: McpViewer, input: RecordLeadResultInpu
     changed.push("メモ: 追加");
   }
 
+  // 電話候補（フォームが使えない・メールが無い先）。電話が無ければ回しても意味がない
+  if (input.phoneCandidate) {
+    need(lead.phone, "この会社は電話番号がOSに入っていないため、電話候補に回せません（訪問か、いったん対象外に）");
+    await db.leadLog.create({
+      data: { leadId: lead.id, action: PHONE_CANDIDATE, detail: withPrefix(note ? `電話候補: ${note}` : "電話候補（メール・フォームが使えないため）"), staffName },
+    });
+    changed.push(`電話候補: ${lead.phone}`);
+  }
+
   const after = await db.lead.findUnique({ where: { id: lead.id }, select: { id: true, name: true, status: true, outreachResult: true, outreachResultAt: true } });
   return { id: after!.id, name: after!.name, status: after!.status, outreachResult: after!.outreachResult, outreachResultAt: day(after!.outreachResultAt), changed };
+}
+
+/**
+ * リードの結果をまとめて記録する（最大50件）。
+ *
+ * 発掘した20〜80件を上から選別していく使い方では、1件ずつ呼ぶと数十回の往復になる
+ * （2026-09-12 実測: 62回・約5分）。1件でも落ちたら残りを止めたくないので、
+ * 1件ずつ実行して成功と失敗の両方を返す。
+ */
+export async function recordLeadResults(v: McpViewer, input: { items: RecordLeadResultInput[] }) {
+  const items = input.items ?? [];
+  need(items.length > 0, "items（記録する結果の配列）を入れてください");
+  need(items.length <= 50, "一度に記録できるのは50件までです");
+
+  const done: { leadId: string; name: string; changed: string[] }[] = [];
+  const failed: { leadId: string; error: string }[] = [];
+  for (const item of items) {
+    try {
+      const r = await recordLeadResult(v, item);
+      done.push({ leadId: r.id, name: r.name, changed: r.changed });
+    } catch (e) {
+      failed.push({ leadId: item.leadId, error: e instanceof Error ? e.message : "記録できませんでした" });
+    }
+  }
+  return {
+    recorded: done.length,
+    failedCount: failed.length,
+    results: done,
+    failed,
+    next: failed.length ? "failed の理由を見て、直せるものだけ record_lead_result で個別に記録する" : "選別はここまで。次は plan_campaign で残った先を並べ替える",
+  };
 }

@@ -12,6 +12,7 @@ import { checkSaveCap } from "./release-stale";
 import { resolveSignal, shouldReplaceSignal } from "./signal";
 import { buildPlaceLeadMemo } from "./company-memo";
 import { logApiUsage } from "@/lib/api-usage";
+import { enrichLeads, type EnrichResult } from "./enrich";
 import type { ScoredLead } from "@/lib/constants/leads";
 
 export interface DiscoverInput {
@@ -22,7 +23,14 @@ export interface DiscoverInput {
   count?: number;
   /** true なら採点だけして保存しない（見てから決める） */
   dryRun?: boolean;
+  /** チェーン・FC・支店を保存しない（既定 true）。本部決裁で商圏の話が通らないため */
+  excludeChains?: boolean;
+  /** 保存後にサイトを見てメール補完＋営業お断り判定をしない（既定 false＝する） */
+  skipEnrich?: boolean;
 }
+
+/** 本部決裁＝市の商圏で話が通らない相手。発掘の段階で外す */
+const CHAIN_TYPES = new Set(["chain", "franchise", "branch"]);
 
 export interface DiscoverViewer {
   id: string;
@@ -62,8 +70,16 @@ export async function discoverLeads(v: DiscoverViewer, input: DiscoverInput) {
   let updated = 0;
   const staffName = v.name ?? v.email;
   const ids = new Map<string, string>();
+  const excludeChains = input.excludeChains !== false;
+  const excluded: { name: string; reason: string }[] = [];
   if (!input.dryRun) {
     for (const lead of leads) {
+      // チェーン・FC・支店は保存しない（判定は採点時のサイト分析が既に出している）
+      const bt = lead.digitalAnalysis?.businessType;
+      if (excludeChains && bt && CHAIN_TYPES.has(bt)) {
+        excluded.push({ name: lead.name, reason: lead.digitalAnalysis?.businessTypeReason || "チェーン・FC・支店" });
+        continue;
+      }
       const existing = await db.lead.findUnique({ where: { name_address: { name: lead.name, address: lead.address ?? "" } } });
       const companyMemo = buildPlaceLeadMemo(lead);
       const signal = resolveSignal("FOUND", null);
@@ -96,11 +112,32 @@ export async function discoverLeads(v: DiscoverViewer, input: DiscoverInput) {
     }
   }
 
+  // 保存した先のサイトを1回だけ見て、メールを埋め、営業お断りを外す（＝送る前の掃除）。
+  // お断りはグループ共通リストに入るので、以後どの拠点からも送られない。
+  let cleanup: EnrichResult | null = null;
+  if (!input.dryRun && !input.skipEnrich && ids.size > 0) {
+    try {
+      cleanup = await enrichLeads([...ids.values()], { staffName });
+    } catch (e) {
+      console.error("discoverLeads: enrich failed", e);
+    }
+  }
+
   return {
     target: { prefecture: input.prefecture, city: input.city ?? null, industry: input.industry, keywords: input.keywords ?? null },
     found: places.length,
     saved,
     updated,
+    excludedChains: excluded.length ? { count: excluded.length, note: "チェーン・FC・支店は本部決裁のため保存していません", companies: excluded.slice(0, 20) } : null,
+    cleanup: cleanup
+      ? {
+          checked: cleanup.checked,
+          emailFound: cleanup.found,
+          noSolicitation: cleanup.blocked,
+          noSolicitationCompanies: cleanup.blockedNames,
+          note: "サイトを見てメールを補完し、営業お断りの会社は対象外にして全社の送付禁止リストに登録しました",
+        }
+      : null,
     dryRun: !!input.dryRun,
     scoringBasis: scored.scoringBasis ? { day: scored.scoringBasis.day, delta: scored.scoringBasis.delta, reasons: scored.scoringBasis.reasons } : null,
     leads: leads.map((l) => ({
@@ -110,6 +147,6 @@ export async function discoverLeads(v: DiscoverViewer, input: DiscoverInput) {
     })),
     next: input.dryRun
       ? "保存するなら dryRun を外してもう一度。保存後は plan_campaign で当たりやすい順に並べ、prepare_outreach で文面を下書きにする"
-      : "保存しました（担当は本人）。続けて plan_campaign(prefecture, city, industry) で並べ替え、prepare_outreach(leadId, subject, body) で下書きに。メールアドレスはOSが後で自動補完します",
+      : "保存しました（担当は本人）。メールの補完と営業お断りの判定はこの場で済んでいます（cleanup）。続けて plan_campaign(prefecture, city, industry) で並べ替え、prepare_outreach(leadId, subject, body) で下書きに",
   };
 }
