@@ -9,6 +9,7 @@ import { BarChart2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { effectiveSell } from "@/lib/tver/amount";
+import { periodLabel } from "@/lib/tver/period";
 
 export const dynamic = "force-dynamic";
 const fmtD = (d: Date) => new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" }).format(d);
@@ -74,7 +75,7 @@ export default async function TverReportsPage() {
               {reports.map((r) => (
                 <tr key={r.id} className="border-t border-zinc-100 hover:bg-zinc-50/60">
                   <td className="px-3 py-2"><Link href={`/dashboard/tver-reports/${r.id}`} className="font-medium text-zinc-900 hover:text-orange-600">{r.advertiserName}</Link>{r.adSeconds ? <span className="text-xs text-zinc-400 ml-1">{r.adSeconds}秒</span> : null}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{fmtD(r.periodStart)}〜{fmtD(r.periodEnd)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{periodLabel(r.periodStart, r.periodEnd)}</td>
                   {isAdmin && <td className="px-3 py-2 whitespace-nowrap">{r.groupCompany?.name ?? "—"}</td>}
                   <td className="px-3 py-2 text-right tabular-nums">{r.impressions.toLocaleString("ja-JP")}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.completes.toLocaleString("ja-JP")}</td>

@@ -2,6 +2,7 @@
 
 // TVer配信実績 一覧テーブル（本部）。並べ替え・一括選択・一括削除・卸値と売価を並べて表示
 
+import { periodLabel } from "@/lib/tver/period";
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { deleteDeliveryReports } from "@/lib/actions/tver-delivery";
@@ -94,7 +95,7 @@ export function ReportsTable({ rows }: { rows: ReportRow[] }) {
                 <td className="px-3 py-2 whitespace-nowrap text-zinc-500">{d(r.createdAt)}</td>
                 <td className="px-3 py-2 whitespace-nowrap"><span className={`px-2 py-0.5 rounded-md text-xs ${badge[r.status]}`}>{label[r.status]}</span></td>
                 <td className="px-3 py-2"><Link href={`/dashboard/admin/tver-reports/${r.id}`} className="font-medium text-zinc-900 hover:text-orange-600">{r.advertiser}</Link><div className="text-xs text-zinc-400">ID {r.advertiserTverId}{r.adSeconds ? `・${r.adSeconds}秒` : ""}</div></td>
-                <td className="px-3 py-2 whitespace-nowrap">{d(r.periodStart)}〜{d(r.periodEnd)}</td>
+                <td className="px-3 py-2 whitespace-nowrap">{periodLabel(r.periodStart, r.periodEnd)}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{r.company || <span className="text-orange-600">未設定</span>}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{r.impressions.toLocaleString("ja-JP")}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{r.completes.toLocaleString("ja-JP")}</td>
