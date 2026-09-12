@@ -17,6 +17,7 @@ import { addFriendUrl } from "@/lib/line/format";
 import { estimateArea, municipalitiesOf, prefectureOptions } from "@/lib/packages/tver-area";
 import { nextAnniversary } from "@/lib/anniversary/calc";
 import { FORM_SENT } from "@/lib/leads/apply-outreach-result";
+import { OUTREACH_PREPARED } from "@/lib/constants/leads";
 import { canSeeAmount, type McpViewer } from "./os-read-tools";
 import { WriteError, AI_PREFIX } from "./os-write-tools";
 import { findSimilarWins } from "./os-insight-tools";
@@ -223,14 +224,12 @@ export async function prepareOutreach(v: McpViewer, input: PrepareOutreachInput)
     await db.lead.update({ where: { id: lead.id }, data: { assigneeId: v.id } });
     await db.leadLog.create({ data: { leadId: lead.id, action: "ASSIGNED", detail: `${AI_PREFIX}送付の準備に合わせて担当に設定`, staffName } });
   }
-  // 全社の送付台帳（OSの「送付済み」と同じ）
-  if (domain && v.branchId) {
-    await db.autoSalesSentDomain.create({ data: { domain, companyName: lead.name, branchId: v.branchId, source: "LEAD_FORM", sourceId: lead.id, sentBy: v.email } }).catch(() => null);
-  }
+  // ここでは「下書きを作った」だけを残す。送信ボタンを押したかどうかはOSには分からないので、
+  // 送付日・全社の送付台帳・ステータスは confirm_sent（人が送ったと言った時）で入れる。
+  // 下書きの時点で送付済みにすると、送っていない会社を他拠点が1か月当たれなくなり、
+  // 週次の「声かけ数」も下書きの数になってしまう（2026-09-13 代表判断）。
   const detail = `${AI_PREFIX}【訴求】${(input.appeal ?? "").trim()}\n件名: ${subject}\n${body}`.slice(0, 8000);
-  await db.leadLog.create({ data: { action: FORM_SENT, detail, staffName, leadId: lead.id, packageId } });
-  const statusPatch = lead.status === "UNTOUCHED" ? { status: "CALLED" as const } : {};
-  await db.lead.update({ where: { id: lead.id }, data: { sentAt: new Date(), outreachResult: null, outreachResultAt: null, ...statusPatch } });
+  await db.leadLog.create({ data: { action: OUTREACH_PREPARED, detail, staffName, leadId: lead.id, packageId } });
 
   const params = new URLSearchParams({ view: "cm", fs: "1", su: subject!, body: body! });
   if (lead.email) params.set("to", lead.email);
@@ -255,10 +254,11 @@ export async function prepareOutreach(v: McpViewer, input: PrepareOutreachInput)
           ],
           note: "AIが自動でフォームに投稿しない。送信は人が押す（本部の決まり）",
         },
-    recorded: { sentAt: day(new Date()), sentLedger: !!domain, leadStatus: statusPatch.status ?? lead.status },
+    recorded: { prepared: day(new Date()), sentAt: null, sentLedger: false, leadStatus: lead.status },
+    confirm: "送ったら confirm_sent(leadIds) を呼ぶ。そこで初めて送付日・全社の送付台帳に載る（送っていない会社を他拠点が当たれるように）",
     next: lead.email
-      ? "gmailDraftUrl を開いて、読んで、送信ボタンを押す。返事が来たら record_lead_result(leadId, result)"
-      : "formPaste の steps の通りに人がフォームへ貼って送る。送れなければ電話候補に回す。返事が来たら record_lead_result(leadId, result)",
+      ? "gmailDraftUrl を開いて、読んで、送信ボタンを押す。押したら confirm_sent([leadId])。返事が来たら record_lead_result(leadId, result)"
+      : "formPaste の steps の通りに人がフォームへ貼って送る。送れたら confirm_sent([leadId])、送れなければ電話候補に回す。返事が来たら record_lead_result(leadId, result)",
   };
 }
 
@@ -326,4 +326,71 @@ export async function listLandingPages(v: McpViewer, input: { mine?: boolean; li
     select: { slug: true, title: true, headline: true, industry: true, prefecture: true, cityName: true, packageSlug: true, views: true, createdByName: true, createdAt: true, branchId: true },
   });
   return rows.map((p) => ({ url: `${appUrl()}/lp/${p.slug}`, slug: p.slug, title: p.title, headline: p.headline, industry: p.industry, area: [p.prefecture, p.cityName].filter(Boolean).join(""), package: p.packageSlug, views: p.views, by: p.createdByName, createdAt: day(p.createdAt), isMine: p.branchId ? canSeeAmount(v, p.branchId) : false }));
+}
+
+// ---- 送ったことの確定 ----------------------------------------------------------------------
+//   prepare_outreach は下書きを作るところまで。ここで初めて「送った」ことになる＝
+//   送付日・全社の送付台帳・ステータスが動く。送らなかったものは取りやめにする。
+
+export interface ConfirmSentInput {
+  leadIds: string[];
+  /** false なら「結局送らなかった」＝下書きを取りやめる（送付日も台帳も動かさない） */
+  sent?: boolean;
+}
+
+export async function confirmSent(v: McpViewer, input: ConfirmSentInput) {
+  const ids = [...new Set(input.leadIds ?? [])];
+  need(ids.length > 0, "leadIds（送った先）を入れてください");
+  need(ids.length <= 50, "一度に確定できるのは50件までです");
+  const sent = input.sent !== false;
+  const staffName = v.name ?? v.email;
+
+  const confirmed: { leadId: string; name: string; sentAt: string | null }[] = [];
+  const cancelled: { leadId: string; name: string }[] = [];
+  const failed: { leadId: string; error: string }[] = [];
+
+  for (const id of ids) {
+    try {
+      const lead = await db.lead.findUnique({ where: { id }, select: { id: true, name: true, status: true, websiteUrl: true, assigneeId: true } });
+      need(lead, "リードが見つかりません");
+      need(v.role === "ADMIN" || lead.assigneeId === v.id || lead.assigneeId === null, "このリードは別の担当者のものです");
+      const draft = await db.leadLog.findFirst({ where: { leadId: id, action: OUTREACH_PREPARED }, orderBy: { createdAt: "desc" }, select: { id: true, detail: true, packageId: true } });
+      need(draft, "このリードには確定できる下書きがありません（prepare_outreach で作ってから）");
+
+      if (!sent) {
+        await db.leadLog.delete({ where: { id: draft.id } });
+        await db.leadLog.create({ data: { leadId: id, action: "NOTE", detail: `${AI_PREFIX}下書きを取りやめ（送っていない）`, staffName } });
+        cancelled.push({ leadId: id, name: lead.name });
+        continue;
+      }
+
+      // 送付ログ（事例DB・送付数の集計元）に変える
+      await db.leadLog.create({ data: { leadId: id, action: FORM_SENT, detail: draft.detail ?? "", staffName, packageId: draft.packageId } });
+      await db.leadLog.delete({ where: { id: draft.id } });
+      // 全社の送付台帳（同じ会社に複数の拠点から当たらないように）
+      const domain = normalizeDomain(lead.websiteUrl ?? "");
+      if (domain && v.branchId) {
+        await db.autoSalesSentDomain.create({ data: { domain, companyName: lead.name, branchId: v.branchId, source: "LEAD_FORM", sourceId: id, sentBy: v.email } }).catch(() => null);
+      }
+      const now = new Date();
+      await db.lead.update({
+        where: { id },
+        data: { sentAt: now, outreachResult: null, outreachResultAt: null, ...(lead.status === "UNTOUCHED" ? { status: "CALLED" as const } : {}) },
+      });
+      confirmed.push({ leadId: id, name: lead.name, sentAt: day(now) });
+    } catch (e) {
+      failed.push({ leadId: id, error: e instanceof Error ? e.message : "確定できませんでした" });
+    }
+  }
+
+  return {
+    confirmed: confirmed.length,
+    cancelled: cancelled.length,
+    failedCount: failed.length,
+    results: sent ? confirmed : cancelled,
+    failed,
+    next: sent
+      ? "返事が来たら record_lead_result(leadId, result)。7日たっても返事が無ければ追い連絡（my_next_actions の1番に出ます）"
+      : "取りやめました。送付日も全社の台帳も動いていないので、他の拠点がこの会社に当たれます",
+  };
 }

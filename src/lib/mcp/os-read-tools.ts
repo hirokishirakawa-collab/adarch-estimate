@@ -17,7 +17,7 @@ import { searchKnowledge } from "@/lib/knowledge/search";
 import { KNOWLEDGE_USE_RULES, ORIGIN_SHORT } from "@/lib/knowledge/rules";
 import { searchWikiArticles } from "@/lib/wiki-search";
 import { nextAnniversary } from "@/lib/anniversary/calc";
-import { PHONE_CANDIDATE } from "@/lib/constants/leads";
+import { PHONE_CANDIDATE, OUTREACH_PREPARED } from "@/lib/constants/leads";
 import type { UserRole } from "@/types/roles";
 
 export interface McpViewer {
@@ -229,12 +229,16 @@ export function tverAreaPlan(input: { prefecture?: string; city?: string; allCit
         const est = estimateArea(input.prefecture!, m.code);
         if (!est) return null;
         const p = est.plan;
+        // 単独で出すと月額が1万円を切って「¥0」に丸まる商圏がある（例: 直島町）。
+        // 金額を出さず「近隣とまとめる」先として返す
+        const tooSmall = Math.round(p.monthly) < 10_000;
         return {
           city: m.name,
           population: p.population,
           tverViewers: Math.round(p.viewers),
-          standardMonthlyExclTax: yen(p.monthly),
+          standardMonthlyExclTax: tooSmall ? null : yen(p.monthly),
           standardReach: Math.round(p.reach),
+          ...(tooSmall ? { note: "単独では小さすぎる商圏。近隣の市町とまとめて提案する" } : {}),
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null)
@@ -242,7 +246,7 @@ export function tverAreaPlan(input: { prefecture?: string; city?: string; allCit
     return {
       prefecture: input.prefecture,
       cities: rows.length,
-      order: "人口の多い順。standard は『3人に1人に届ける』標準プランの月額（税抜・推計）",
+      order: "人口の多い順。standard は『3人に1人に届ける』標準プランの月額（税抜・推計）。金額が null の市町は単独では小さすぎる＝近隣とまとめて出す",
       areas: rows,
       note: "金額は税抜・推計。お客様に出す前にOSのTVerシミュレーターで組み直してください（正本はOS）",
     };
@@ -457,7 +461,7 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
   // リードは「自分の担当」か「担当なし（自県）」。本部は自分の担当だけ
   const leadMine: Prisma.LeadWhereInput = isHq(v) ? { assigneeId: v.id } : { OR: [{ assigneeId: v.id }, { assigneeId: null, ...prefFilter }] };
 
-  const [waiting, overdue, openDeals, foundedLeads, subsidies, signals, phoneCandidates] = await Promise.all([
+  const [waiting, overdue, openDeals, foundedLeads, subsidies, signals, phoneCandidates, prepared] = await Promise.all([
     // 1. 返事待ちが7日超（送付済み・結果未入力）
     db.lead.findMany({
       where: { ...leadAlive, ...leadMine, sentAt: { not: null, lt: new Date(now.getTime() - 7 * DAY_MS) }, outreachResult: null },
@@ -509,6 +513,13 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
       take,
       select: { id: true, name: true, industry: true, phone: true, area: true, prefecture: true, logs: { where: { action: PHONE_CANDIDATE }, orderBy: { createdAt: "desc" }, take: 1, select: { detail: true, createdAt: true } } },
     }),
+    // 8. 下書きを作ったまま「送った」が確定していない先（送付日も台帳も動いていない）
+    db.lead.findMany({
+      where: { ...leadAlive, ...leadMine, logs: { some: { action: OUTREACH_PREPARED } } },
+      orderBy: { updatedAt: "desc" },
+      take,
+      select: { id: true, name: true, industry: true, email: true, websiteUrl: true, logs: { where: { action: OUTREACH_PREPARED }, orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } } },
+    }),
   ]);
 
   const stalled = openDeals
@@ -526,7 +537,7 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
   return {
     for: { name: v.name, company: company?.name ?? (isHq(v) ? "本部" : null), prefecture: pref },
     asOf: day(now),
-    order: "1→7 の順に優先。1〜3 は今日中に動く。4〜7 は声をかける先の候補（7は電話でしか当たれない先）",
+    order: "1→8 の順に優先。1〜3 と 8 は今日中に動く（8は下書きを送ったかどうかの確定）。4〜7 は声をかける先の候補（7は電話でしか当たれない先）",
     sections: [
       {
         no: 1,
@@ -578,6 +589,18 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
         items: phoneCandidates.map((l) => ({
           leadId: l.id, name: l.name, industry: l.industry, phone: l.phone, area: l.area ?? l.prefecture,
           why: stripSensitiveLines(l.logs[0]?.detail ?? "") || null, since: day(l.logs[0]?.createdAt),
+        })),
+      },
+      {
+        no: 8,
+        title: "下書きのまま確定していない先（送りましたか？）",
+        count: prepared.length,
+        next: "送っていれば confirm_sent(leadIds)＝ここで送付日と全社の送付台帳に載る。送っていなければ confirm_sent(leadIds, sent: false) で取りやめ（他の拠点が当たれるようになります）",
+        items: prepared.map((l) => ({
+          leadId: l.id, name: l.name, industry: l.industry,
+          channel: l.email ? "メール" : l.websiteUrl ? "フォーム" : "—",
+          preparedAt: day(l.logs[0]?.createdAt),
+          daysWaiting: l.logs[0]?.createdAt ? daysSince(l.logs[0].createdAt, now) : null,
         })),
       },
     ],

@@ -333,10 +333,18 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   def({
     name: "prepare_outreach", kind: "write", title: "営業メールをGmailの下書きにする（送付を記録）",
     description:
-      "AIが書いた件名と本文を、そのリード宛の Gmail 下書きリンクにする。同時にOSの送付フローと同じ記録（全社の送付済み台帳・リードの送付日・事例DBの元）を残す。送信ボタンは人が押す（無人送信はしない）。営業お断り・他拠点の送付済み・自拠点が1か月以内に送った先（1か月ルール）は止まる。金額は本文に書かない。メールが無い会社は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）で返す＝貼って送信を押すのは人。",
+      "AIが書いた件名と本文を、そのリード宛の Gmail 下書きリンクにする。ここでは「下書きを作った」ことだけを残す＝送付日も全社の送付台帳もまだ動かない（送信ボタンを押したかはOSに分からないため）。人が送ったら confirm_sent(leadIds) を呼んで確定する。送信ボタンは人が押す（無人送信はしない）。営業お断り・他拠点の送付済み・自拠点が1か月以内に送った先（1か月ルール）は止まる。金額は本文に書かない。メールが無い会社は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）で返す＝貼って送信を押すのは人。",
     input: z.object({ leadId: z.string(), subject: z.string().describe("件名（120字以内）"), body: z.string().describe("本文（4000字以内・金額なし）"), appeal: z.string().optional().describe("訴求の切り口を一言（例: 周年×TVer）"), packageSlug: z.string().optional(), resend: bool().optional().describe("1か月以内に自拠点が送った先へ、承知のうえで送り直す") }),
     run: (v, a) => camp.prepareOutreach(v, a),
     confirm: (a) => `営業メールを下書きにし、送付として記録します:\n件名: ${a.subject}\n${a.body.slice(0, 200)}…`,
+  }),
+  def({
+    name: "confirm_sent", kind: "write", title: "送ったことを確定する（送付日・全社の送付台帳に載る）",
+    description:
+      "prepare_outreach で作った下書きを、人が実際に送ったあとで確定する。ここで初めて 送付日・全社の送付台帳・ステータス（連絡済み）が動き、返事待ちの数え方にも入る。結局送らなかったときは sent: false で取りやめる＝送付日も台帳も動かないので、他の拠点がその会社に当たれる。『送りました』『送信しました』と言われたら、聞かれなくてもこれを呼ぶ。",
+    input: z.object({ leadIds: z.array(z.string()).min(1).max(50), sent: bool().optional().describe("false で「送らなかった」＝下書きの取りやめ") }),
+    run: (v, a) => camp.confirmSent(v, a),
+    confirm: (a) => (a.sent === false ? `${a.leadIds.length}件の下書きを取りやめます（送付日も台帳も動かしません）` : `${a.leadIds.length}件を「送った」として確定します（送付日・全社の送付台帳に載ります）`),
   }),
   def({
     name: "create_landing_page", kind: "write", title: "業種×市の営業用LPを作る",

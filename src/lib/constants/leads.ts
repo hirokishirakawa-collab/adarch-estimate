@@ -460,3 +460,8 @@ export interface ScoredRecruitLead extends PlaceLead {
 
 /** リードのログに残す種別（lead_logs.action）。フォーム送付は apply-outreach-result 側 */
 export const PHONE_CANDIDATE = "PHONE_CANDIDATE";
+/**
+ * AI連携で下書きだけ作った状態（まだ人が送信ボタンを押していない）。
+ * 送ったことが確定したら FORM_SENT に変わる（confirm_sent）。
+ */
+export const OUTREACH_PREPARED = "OUTREACH_PREPARED";
