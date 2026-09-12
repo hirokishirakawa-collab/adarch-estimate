@@ -247,12 +247,21 @@ export function summarize(rows: DeliveryRow[], advertiserTverId: string, adverti
   if (adSeconds && cpmSeconds && adSeconds !== cpmSeconds) warnings.push(`名前は${adSeconds}秒ですが主な卸CPMは${cpmSeconds}秒の価格です。秒数の登録違いの可能性があります`);
 
   // 価格表に無い卸CPM＝売価は卸値×係数で正しく出ている（情報として残す。公開の妨げにはしない）
+  // 1行ごとの端数で単価が細かく割れることがある（例: 全国配信の月次レポート＝98種類）。多い時は表示回数の多い順に畳む
+  const LIST_MAX = 6;
+  const byImp = (a: [number, number], b: [number, number]) => b[1] - a[1];
+  const fold = (list: [number, number][], withCount: boolean) => {
+    const top = [...list].sort(byImp).slice(0, LIST_MAX);
+    const rest = list.length - top.length;
+    const body = top.map(([c, n]) => (withCount ? `¥${c.toLocaleString("ja-JP")}=${n.toLocaleString("ja-JP")}表示` : `¥${c.toLocaleString("ja-JP")}`)).join("・");
+    return rest > 0 ? `${body} ほか${rest}種` : body;
+  };
   const unknownCpms = [...cpmSet.entries()].filter(([c]) => !secondsFromWholesaleCpm(c));
   if (unknownCpms.length) {
     const share = unknownCpms.reduce((a, [, n]) => a + n, 0) / Math.max(1, impressions);
-    warnings.push(`${INFO}価格表（15秒¥2,200／30秒¥2,600／60秒¥3,700）に無い卸CPM ${unknownCpms.map(([c]) => `¥${c.toLocaleString("ja-JP")}`).join("・")} が含まれます（表示回数の${Math.round(share * 100)}%）。売価は卸値×${SELL_MULTIPLIER}で計算済みのため金額は正しいです。TVer側の単価変更や特別枠でないか確認してください`);
+    warnings.push(`${INFO}価格表（15秒¥2,200／30秒¥2,600／60秒¥3,700）に無い卸CPM ${fold(unknownCpms, false)} が含まれます（表示回数の${Math.round(share * 100)}%）。売価は卸値×${SELL_MULTIPLIER}で計算済みのため金額は正しいです。TVer側の単価変更や特別枠でないか確認してください`);
   }
-  if (cpmSet.size > 1) warnings.push(`${INFO}卸CPMが複数あります（${[...cpmSet.entries()].map(([c, n]) => `¥${c.toLocaleString("ja-JP")}=${n.toLocaleString("ja-JP")}表示`).join("・")}）。裏計算は単価ごとに行っています`);
+  if (cpmSet.size > 1) warnings.push(`${INFO}卸CPMが${cpmSet.size}種類あります（${fold([...cpmSet.entries()], true)}）。裏計算は単価ごとに行っています`);
 
   // 裏計算＝行ごとに「その行の卸CPMに対応する秒数の売単価」×表示回数。価格表に無いCPMは そのCPM×係数
   const unitFor = (cpm: number): number => {
