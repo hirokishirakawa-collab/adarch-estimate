@@ -158,17 +158,33 @@ function Scatter({ points }: { points: { advertiserName: string; areaLabel: stri
         {ticks.map((t) => (
           <text key={t} x={px({ pop: t })} y={H - 12} fontSize="10" fill={SUB} textAnchor="middle">{fmtPop(t)}人</text>
         ))}
-        {points.map((p, i) => (
-          <g key={i}>
-            <title>{`${p.advertiserName}　${p.areaLabel ?? ""}　人口${num(p.pop)}人・月${yen(p.amount / p.months)}　住民の${p.share.toFixed(2)}%に到達`}</title>
-            <circle cx={px(p)} cy={py(p)} r="6" fill={INK} stroke="#fff" strokeWidth="2" />
-            {labelSet.has(p) && (
-              <text x={px(p) + 10} y={py(p) + 4} fontSize="10.5" fill={INK}>
-                {(p.areaLabel ?? p.advertiserName).slice(0, 14)}（{p.share < 0.1 ? p.share.toFixed(2) : p.share.toFixed(1)}%）
-              </text>
-            )}
-          </g>
-        ))}
+        {points.map((p, i) => {
+          const cx = px(p), cy = py(p);
+          const flip = cx > W * 0.62;              // 右端では左側に出す
+          const tw = 214, th = 80;
+          const tx = flip ? cx - tw - 12 : cx + 12;
+          const ty = Math.min(Math.max(cy - th / 2, 2), H - th - 2);
+          return (
+            <g key={i} className="group">
+              {/* 当たり判定を広げる（見えない円） */}
+              <circle cx={cx} cy={cy} r="16" fill="transparent" />
+              <circle cx={cx} cy={cy} r="6" fill={INK} stroke="#fff" strokeWidth="2" className="group-hover:stroke-[3]" />
+              {labelSet.has(p) && (
+                <text x={cx + 10} y={cy + 4} fontSize="10.5" fill={INK} className="group-hover:opacity-0">
+                  {(p.areaLabel ?? p.advertiserName).slice(0, 14)}（{p.share < 0.1 ? p.share.toFixed(2) : p.share.toFixed(1)}%）
+                </text>
+              )}
+              {/* カーソルを乗せると出る吹き出し（JSなし・CSSだけ） */}
+              <g className="opacity-0 group-hover:opacity-100 pointer-events-none" style={{ transition: "opacity .12s" }}>
+                <rect x={tx} y={ty} width={tw} height={th} rx="6" fill={INK} />
+                <text x={tx + 10} y={ty + 19} fontSize="11" fill="#fff" fontWeight="600">{p.advertiserName.slice(0, 18)}</text>
+                <text x={tx + 10} y={ty + 35} fontSize="10.5" fill="#E6E4E0">{(p.areaLabel ?? "商圏未設定").slice(0, 24)}</text>
+                <text x={tx + 10} y={ty + 51} fontSize="10.5" fill="#E6E4E0">人口{fmtPop(p.pop)}人・月{yen(p.amount / p.months)}</text>
+                <text x={tx + 10} y={ty + 68} fontSize="11" fill="#fff" fontWeight="600">住民の{p.share < 0.1 ? p.share.toFixed(2) : p.share.toFixed(1)}%に到達</text>
+              </g>
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
