@@ -239,7 +239,7 @@ export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R>
 
   // 予算を入れて金額欄が空なら、金額は予算どおりに自動で揃える（ズレを残さない＝2026-09-12 代表指示）
   if (!raw && monthlyBudget != null) {
-    const target = budgetSellForPeriod(monthlyBudget, periodDays(r.periodStart, r.periodEnd), SELL_MULTIPLIER)!;
+    const target = budgetSellForPeriod(monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER)!;
     await db.tverDeliveryReport.update({
       where: { id },
       data: { sellAmountAdjusted: target, adjustNote: note || "予算どおりに調整", adjustedAt: new Date(), adjustedByEmail: info.email },
@@ -267,13 +267,12 @@ export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R>
   if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return { error: "金額は0以上の整数で入れてください" };
   // 予算を変えたのに、金額が「前の予算どおりの額」のままなら新しい予算に追随させる（画面が古いまま送られた時の保険）
   if (monthlyBudget != null && monthlyBudget !== r.monthlyBudget) {
-    const days = periodDays(r.periodStart, r.periodEnd);
-    const oldTarget = budgetSellForPeriod(r.monthlyBudget, days, SELL_MULTIPLIER);
-    const newTarget = budgetSellForPeriod(monthlyBudget, days, SELL_MULTIPLIER);
+    const oldTarget = budgetSellForPeriod(r.monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER);
+    const newTarget = budgetSellForPeriod(monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER);
     if (oldTarget != null && newTarget != null && n === oldTarget) n = newTarget;
   }
   // 桁間違いの保険。ただし「予算どおりの額」は計算結果なので弾かない（未消化が大きいと自動売価の10倍を超えうる）
-  const budgetTarget = monthlyBudget != null ? budgetSellForPeriod(monthlyBudget, periodDays(r.periodStart, r.periodEnd), SELL_MULTIPLIER) : null;
+  const budgetTarget = monthlyBudget != null ? budgetSellForPeriod(monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER) : null;
   if (r.sellAmount > 0 && n > r.sellAmount * 10 && n !== budgetTarget) {
     return { error: `自動の売価（¥${r.sellAmount.toLocaleString("ja-JP")}）の10倍を超えています。桁を確認してください` };
   }

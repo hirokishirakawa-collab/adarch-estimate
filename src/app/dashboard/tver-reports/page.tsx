@@ -10,7 +10,7 @@ import { BarChart2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { effectiveSell } from "@/lib/tver/amount";
-import { budgetSellForPeriod, periodDays, periodLabel } from "@/lib/tver/period";
+import { budgetSellForPeriod, periodLabel } from "@/lib/tver/period";
 import { SELL_MULTIPLIER } from "@/lib/tver/plan";
 
 export const dynamic = "force-dynamic";
@@ -93,7 +93,7 @@ export default async function TverReportsPage() {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{periodLabel(r.periodStart, r.periodEnd)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{r.groupCompany?.name ?? "—"}{mine && <span className="ml-1 text-[10px] text-orange-600">自社</span>}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{budgetSellForPeriod(r.monthlyBudget, periodDays(r.periodStart, r.periodEnd), SELL_MULTIPLIER) != null ? yen(budgetSellForPeriod(r.monthlyBudget, periodDays(r.periodStart, r.periodEnd), SELL_MULTIPLIER)!) : "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{budgetSellForPeriod(r.monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER) != null ? yen(budgetSellForPeriod(r.monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER)!) : "—"}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.impressions.toLocaleString("ja-JP")}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.completes.toLocaleString("ja-JP")}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.clicks.toLocaleString("ja-JP")}</td>

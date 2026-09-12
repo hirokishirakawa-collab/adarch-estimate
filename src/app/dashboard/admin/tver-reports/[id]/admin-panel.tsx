@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { adjustDeliveryAmount, publishDeliveryReport, unpublishDeliveryReport, updateDeliveryReport } from "@/lib/actions/tver-delivery";
 import { AreaPicker } from "@/components/tver/area-picker";
-import { budgetForPeriod } from "@/lib/tver/period";
+
 import { SELL_MULTIPLIER } from "@/lib/tver/plan";
 
 export function ReportAdminPanel(p: {
@@ -17,7 +17,7 @@ export function ReportAdminPanel(p: {
   areaOptions: { key: string; label: string; population: number }[];
   areaKeys: string[];
   wholesaleAmount: number; sellAmount: number; sellMultiplier: number; crossCheckAmount: number; crossCheckDiffPct: number;
-  sellAmountAdjusted: number | null; adjustNote: string; monthlyBudget: number | null; periodDays: number;
+  sellAmountAdjusted: number | null; adjustNote: string; monthlyBudget: number | null; periodDays: number; periodMonths: number;
   hasWarnings: boolean;
 }) {
   const router = useRouter();
@@ -98,6 +98,7 @@ export function ReportAdminPanel(p: {
         adjustNote={p.adjustNote}
         monthlyBudget={p.monthlyBudget}
         periodDays={p.periodDays}
+        periodMonths={p.periodMonths}
       />
 
       <section className={`border rounded-xl p-5 text-sm ${p.status === "PUBLISHED" ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"}`}>
@@ -140,7 +141,7 @@ export function ReportAdminPanel(p: {
 function AmountAdjust(p: {
   id: string; wholesaleAmount: number; sellAmount: number; sellMultiplier: number;
   crossCheckAmount: number; crossCheckDiffPct: number; sellAmountAdjusted: number | null; adjustNote: string;
-  monthlyBudget: number | null; periodDays: number;
+  monthlyBudget: number | null; periodDays: number; periodMonths: number;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -148,12 +149,13 @@ function AmountAdjust(p: {
   const [amount, setAmount] = useState(p.sellAmountAdjusted != null ? String(p.sellAmountAdjusted) : "");
   const [budget, setBudget] = useState(p.monthlyBudget != null ? String(p.monthlyBudget) : "");
   const budgetNum = Number(budget.replace(/[,¥￥\s]/g, ""));
-  const periodBudget = budgetForPeriod(Number.isFinite(budgetNum) && budget.trim() ? budgetNum : null, p.periodDays); // 媒体実費ベース
+  const forPeriod = (monthly: number | null) => (monthly == null || monthly <= 0 ? null : Math.round(monthly * p.periodMonths));
+  const periodBudget = forPeriod(Number.isFinite(budgetNum) && budget.trim() ? budgetNum : null); // 媒体実費ベース
   const periodBudgetSell = periodBudget != null ? periodBudget * SELL_MULTIPLIER : null; // 予算どおりに請求する売価
   const spendDiff = periodBudget != null ? periodBudget - p.wholesaleAmount : null; // ＋=未消化 / −=超過
   // 保存済みの予算から出る売価（＝前に自動で入れた額）。金額欄がこれと同じなら「自動」とみなす
   const savedTarget = (() => {
-    const b = budgetForPeriod(p.monthlyBudget, p.periodDays);
+    const b = forPeriod(p.monthlyBudget);
     return b == null ? null : b * SELL_MULTIPLIER;
   })();
   const plain = (v: string) => v.replace(/[,¥￥\s]/g, "").trim();
@@ -161,7 +163,7 @@ function AmountAdjust(p: {
   const changeBudget = (v: string) => {
     const prevTarget = periodBudgetSell;
     const n = Number(plain(v));
-    const b = plain(v) && Number.isFinite(n) ? budgetForPeriod(n, p.periodDays) : null;
+    const b = plain(v) && Number.isFinite(n) ? forPeriod(n) : null;
     const next = b == null ? null : b * SELL_MULTIPLIER;
     setBudget(v);
     setAmount((cur) => {
@@ -222,7 +224,7 @@ function AmountAdjust(p: {
             {periodBudget != null && periodBudgetSell != null && (
               <>
                 <span className="text-[11px] text-zinc-600">
-                  この期間（{p.periodDays}日）の枠 <b className="tabular-nums">{yen(periodBudget)}</b> → 売価 <b className="tabular-nums">{yen(periodBudgetSell)}</b>
+                  この期間（{p.periodDays}日＝{p.periodMonths.toFixed(2).replace(/\.?0+$/, "")}ヶ月）の枠 <b className="tabular-nums">{yen(periodBudget)}</b> → 売価 <b className="tabular-nums">{yen(periodBudgetSell)}</b>
                 </span>
                 <button type="button" onClick={() => setAmount(String(periodBudgetSell))} className="px-2.5 py-1 rounded-md border border-zinc-300 text-xs text-zinc-700 hover:bg-zinc-50">
                   予算どおりにする
@@ -236,7 +238,7 @@ function AmountAdjust(p: {
               {spendDiff > 0 ? `未消化 ${yen(spendDiff)}` : spendDiff < 0 ? `超過 ${yen(-spendDiff)}` : "ぴったり"}
             </span>
           )}
-          <span className="mt-1 block text-[11px] text-zinc-400">28〜31日は1ヶ月ぶん、それ以外は日割り（月額÷30×日数）。拠点・お客様に出る予算はこれを×{SELL_MULTIPLIER}した額です</span>
+          <span className="mt-1 block text-[11px] text-zinc-400">期間の月数は暦どおりに数えます（8/1〜9/30＝2.00ヶ月）。丸ヶ月から±3日ほどのズレは1ヶ月に丸めます（3/1〜3/29・2/13〜3/15＝どちらも1ヶ月）。拠点・お客様に出る予算はこれを×{SELL_MULTIPLIER}した額です</span>
         </label>
         <div className="grid sm:grid-cols-2 gap-3">
           <label className="block text-xs text-zinc-600">

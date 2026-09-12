@@ -10,7 +10,7 @@ import { breakdown, isActionWarning } from "@/lib/tver/delivery-csv";
 import { orderNumberLabel } from "@/lib/tver-order/plans";
 import { ReportAdminPanel } from "./admin-panel";
 import { areaOptionsFor } from "@/lib/tver/report-area";
-import { budgetForPeriod, periodDays } from "@/lib/tver/period";
+import { billingMonths, budgetForPeriod, periodDays } from "@/lib/tver/period";
 import { allocateBreakdown, effectiveSell } from "@/lib/tver/amount";
 import { AdGroupAreas, type AdGroupRow } from "./adgroup-areas";
 import { BreakdownTables } from "@/components/tver/delivery-breakdown";
@@ -52,7 +52,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
 
   const sec = r.adSeconds as AdSeconds | null;
   const days = periodDays(r.periodStart, r.periodEnd);
-  const periodBudget = budgetForPeriod(r.monthlyBudget, days); // 媒体実費ベース
+  const periodBudget = budgetForPeriod(r.monthlyBudget, r.periodStart, r.periodEnd); // 媒体実費ベース
   const sellUnit = sec ? UNIT_PRICE[sec] : null;
   // 金額を調整していれば、内訳も調整後の総額に按分する（拠点・AI連携と同じ数字にする）
   const byCampaign = allocateBreakdown(breakdown(r.rows, (x) => x.campaignName), r);
@@ -117,7 +117,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
           <section className="bg-white border-2 border-zinc-900 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-zinc-900 mb-3">金額の確認（卸値は本部だけ・拠点には売価だけが出ます）</h2>
             <div className="grid sm:grid-cols-4 gap-3 text-sm">
-              <Stat k={`予算＝媒体実費（この期間 ${days}日）`} v={periodBudget != null ? yen(periodBudget) : "—"} sub={r.monthlyBudget ? `月額 ${yen(r.monthlyBudget)}・売価換算 ${yen(periodBudget! * SELL_MULTIPLIER)}` : "未設定"} />
+              <Stat k={`予算＝媒体実費（${days}日＝${String(billingMonths(r.periodStart, r.periodEnd).toFixed(2)).replace(/\.?0+$/, "")}ヶ月）`} v={periodBudget != null ? yen(periodBudget) : "—"} sub={r.monthlyBudget ? `月額 ${yen(r.monthlyBudget)}・売価換算 ${yen(periodBudget! * SELL_MULTIPLIER)}` : "未設定"} />
               <Stat k="卸値（ご利用金額の合計）" v={yen(r.wholesaleAmount)} sub={`卸CPM ${sec ? `¥${(UNIT_PRICE[sec] / SELL_MULTIPLIER * 1000).toLocaleString("ja-JP")}` : "—"}`} muted />
               <Stat k={`売価＝卸値×${r.sellMultiplier}`} v={yen(r.sellAmount)} sub={sellUnit ? `売単価 ¥${sellUnit}/再生` : "—"} strong />
               <Stat k="裏計算＝表示回数×売単価" v={r.crossCheckAmount ? yen(r.crossCheckAmount) : "—"} sub={`ずれ ${r.crossCheckDiffPct}%`} warn={r.crossCheckDiffPct > 3} />
@@ -186,6 +186,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
             sellAmountAdjusted={r.sellAmountAdjusted}
             adjustNote={r.adjustNote ?? ""}
             monthlyBudget={r.monthlyBudget}
+            periodMonths={billingMonths(r.periodStart, r.periodEnd)}
             periodDays={days}
             adminNote={r.adminNote ?? ""}
             partnerNote={r.partnerNote ?? ""}
