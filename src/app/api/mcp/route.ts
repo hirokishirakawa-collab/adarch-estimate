@@ -26,6 +26,7 @@ import { trackBrandKit } from "@/lib/brand-kit/track";
 import { issuer, verifyAccessToken, type Scope } from "@/lib/oauth/server";
 import * as os from "@/lib/mcp/os-read-tools";
 import * as osw from "@/lib/mcp/os-write-tools";
+import { todaysOne } from "@/lib/mcp/daily-nudge";
 import { OS_AI_RULES, OS_TOOLS, UI_DEAL_CARD, UI_NEXT_ACTIONS, type OsToolDef } from "@/lib/mcp/tool-catalog";
 import { DEAL_CARD_HTML, NEXT_ACTIONS_HTML } from "@/lib/mcp/widgets";
 
@@ -206,7 +207,14 @@ const handler = createMcpHandler(
         try {
           const out = await t.run(viewer, args);
           if (out == null) return fail("見つかりませんでした（貴社の拠点の範囲外か、存在しないIDです）");
-          return json(out, !!t.uiTemplate);
+          const res = json(out, !!t.uiTemplate);
+          // その日はじめての呼び出しにだけ「今日の1件」を1行そえる（通知は送らない）。
+          // 今日の一手を自分で呼んだ人には要らないので外す。
+          if (t.name !== "my_next_actions") {
+            const one = await todaysOne(viewer).catch(() => null);
+            if (one) res.content.push({ type: "text" as const, text: one });
+          }
+          return res;
         } catch (e) {
           if (e instanceof osw.WriteError) return fail(e.message);
           console.error(`[MCP] ${t.name} 失敗:`, e);
