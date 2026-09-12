@@ -68,8 +68,20 @@ export function areaFromKeys(keys: string[]): ReportArea | null {
   if (areas.length === 0) return null;
   if (areas.length === 1) return areas[0];
   const prefs = new Set(areas.map((a) => a.areaLabel.split(" ")[0]));
-  const label = prefs.size === 1 ? `${areas.map((a) => a.areaLabel.split(" ").slice(1).join(" ")).join("・")}（${[...prefs][0]}）` : areas.map((a) => a.areaLabel).join("・");
-  return { areaLabel: label, areaPopulation: areas.reduce((s, a) => s + a.areaPopulation, 0) };
+  const names = areas.map((a) => a.areaLabel.split(" ").slice(1).join(" "));
+  const areaPopulation = areas.reduce((s, a) => s + a.areaPopulation, 0);
+  // 3件までは名前を並べる。4件以上は「山口県 16市町（宇部市ほか15）」と短くまとめる（TVerで市区町村をまとめて選んだ時）
+  if (areas.length <= 3) {
+    const label = prefs.size === 1 ? `${names.join("・")}（${[...prefs][0]}）` : areas.map((a) => a.areaLabel).join("・");
+    return { areaLabel: label, areaPopulation };
+  }
+  const kinds = ["市", "区", "町", "村"].filter((k) => names.some((n) => n.endsWith(k)));
+  const unit = kinds.length ? kinds.join("") : "地域";
+  const head = names[0].replace(/^.+?郡/, "");
+  const label = prefs.size === 1
+    ? `${[...prefs][0]} ${areas.length}${unit}（${head}ほか${areas.length - 1}）`
+    : `${[...prefs].join("・")} ${areas.length}${unit}（${head}ほか${areas.length - 1}）`;
+  return { areaLabel: label, areaPopulation };
 }
 
 /** 詳細画面に出す選択肢（レポートに出てくる県の市区町村＋県全域） */
@@ -81,6 +93,58 @@ export function areaOptionsFor(prefs: string[]): { key: string; label: string; p
     for (const m of municipalitiesOf(p)) out.push({ key: `MUNI:${p}:${m.code}`, label: `${p} ${m.name}`, population: m.population });
   }
   return out;
+}
+
+/**
+ * TVer管理画面の「地域」からコピーした文字列 → 選択キー
+ *   例: 「山口県 宇部市 ✕ 山口県 萩市 ✕ 山口県 防府市 ✕ …」「下関市、宇部市」「山口県」
+ *   ✕/×/x（チップの削除印）・改行・タブ・読点・中黒・カンマで区切る。県名だけなら県全域。
+ *   照合先は options（＝その画面で選べるものだけ）なので、存在しない市区町村は選ばれない。
+ */
+export function matchAreaKeysFromText(
+  options: { key: string; label: string }[],
+  text: string,
+): { keys: string[]; matched: string[]; unmatched: string[] } {
+  const norm = (s: string) => s.replace(/[\s　]/g, "").replace(/[（(]全区[）)]/g, "");
+  // 市区町村マスターは郡つき（例「山口県 大島郡周防大島町」）、TVerの地域欄は郡なし（「山口県 周防大島町」）
+  //   → 県名の直後の「◯◯郡」を落とした形でも照合する（「郡山市」のように郡で始まる市名は落とさない）
+  const noGun = (s: string) => s.replace(/^(.{2,4}[都道府県])(.+?郡)/, "$1");
+  const forms = (s: string) => [...new Set([norm(s), noGun(norm(s))])];
+  const tokens = text
+    .replace(/[✕×✗❌⨯]/g, "\n")
+    .replace(/(?<=[^A-Za-z])[xX](?=[^A-Za-z]|$)/g, "\n")
+    .split(/[\n\r\t,、,;；・/|]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  const keys: string[] = [];
+  const matched: string[] = [];
+  const unmatched: string[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of tokens) {
+    const t = norm(raw);
+    if (!t) continue;
+    const tf = forms(raw);
+    const cands = options.filter((o) => forms(o.label).some((l) => tf.some((x) => l === x || l.startsWith(x) || l.endsWith(x))));
+    // 「山口県」だけ → 県全域。市区町村名つき → その市区町村（県全域は候補から外す）
+    const isPrefOnly = /^.{2,4}[都道府県]$/.test(t);
+    const picked = isPrefOnly
+      ? cands.find((o) => o.key.startsWith("PREF:")) ?? null
+      : (() => {
+          const m = cands.filter((o) => o.key.startsWith("MUNI:"));
+          return m.length === 1 ? m[0] : m.find((o) => forms(o.label).some((l) => tf.includes(l))) ?? null;
+        })();
+    if (!picked) {
+      if (!unmatched.includes(raw)) unmatched.push(raw);
+      continue;
+    }
+    if (seen.has(picked.key)) continue;
+    seen.add(picked.key);
+    keys.push(picked.key);
+    matched.push(picked.label);
+  }
+  return { keys, matched, unmatched };
 }
 
 // ---- ベンチマークの帯 ----------------------------------------------------------

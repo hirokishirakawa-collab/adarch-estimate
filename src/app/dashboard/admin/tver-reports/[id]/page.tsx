@@ -104,6 +104,20 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
               <Stat k={`売価＝卸値×${r.sellMultiplier}`} v={yen(r.sellAmount)} sub={sellUnit ? `売単価 ¥${sellUnit}/再生` : "—"} strong />
               <Stat k="裏計算＝表示回数×売単価" v={r.crossCheckAmount ? yen(r.crossCheckAmount) : "—"} sub={`ずれ ${r.crossCheckDiffPct}%`} warn={r.crossCheckDiffPct > 3} />
             </div>
+            {r.sellAmountAdjusted != null && (
+              <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2 text-sm">
+                <span className="font-medium text-zinc-900">拠点に出る金額（調整後）{yen(r.sellAmountAdjusted)}</span>
+                <span className="ml-2 text-xs text-zinc-600">
+                  {r.sellAmountAdjusted < r.sellAmount
+                    ? `本部負担 ${yen(r.sellAmount - r.sellAmountAdjusted)}`
+                    : r.sellAmountAdjusted > r.sellAmount
+                      ? `未消化ぶんの上乗せ ${yen(r.sellAmountAdjusted - r.sellAmount)}`
+                      : "自動計算と同額"}
+                  {r.adjustNote ? `・${r.adjustNote}` : ""}
+                  {r.adjustedAt ? `・${fmtD(r.adjustedAt)}` : ""}
+                </span>
+              </div>
+            )}
             <div className="grid sm:grid-cols-4 gap-3 text-sm mt-3">
               <Stat k="表示回数" v={r.impressions.toLocaleString("ja-JP")} />
               <Stat k="100%再生" v={r.completes.toLocaleString("ja-JP")} sub={r.impressions ? `${Math.round((r.completes / r.impressions) * 1000) / 10}%` : ""} />
@@ -145,6 +159,14 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
             areaLabel={r.areaLabel ?? ""}
             areaPopulation={r.areaPopulation}
             areaOptions={areaOptions}
+            areaKeys={r.areaKeys}
+            wholesaleAmount={r.wholesaleAmount}
+            sellAmount={r.sellAmount}
+            sellMultiplier={r.sellMultiplier}
+            crossCheckAmount={r.crossCheckAmount}
+            crossCheckDiffPct={r.crossCheckDiffPct}
+            sellAmountAdjusted={r.sellAmountAdjusted}
+            adjustNote={r.adjustNote ?? ""}
             adminNote={r.adminNote ?? ""}
             partnerNote={r.partnerNote ?? ""}
             companies={companies}

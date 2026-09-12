@@ -3,9 +3,10 @@
 // 広告グループごとの商圏（本部）。TVerでエリアを設定する単位＝ベンチマークの1件。
 //   市区町村を複数チェック→合算人口。手で選んだものは再取込でも保持
 
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateAdGroupAreas } from "@/lib/actions/tver-delivery";
+import { AreaPicker } from "@/components/tver/area-picker";
 
 export type AdGroupRow = {
   adGroupName: string; campaignName: string; areaLabel: string | null; areaPopulation: number | null; areaSource: string | null; areaKeys: string[];
@@ -16,31 +17,6 @@ const SRC: Record<string, string> = { NAME: "名前から自動", ORDER: "申込
 const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
 const num = (n: number) => n.toLocaleString("ja-JP");
 
-function AreaPicker({ name, options, initial }: { name: string; options: AdGroupRow["options"]; initial: string[] }) {
-  const [sel, setSel] = useState<Set<string>>(new Set(initial));
-  const [q, setQ] = useState("");
-  const shown = useMemo(() => (q ? options.filter((o) => o.label.includes(q)) : options), [options, q]);
-  const total = options.filter((o) => sel.has(o.key)).reduce((a, o) => a + o.population, 0);
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-2 w-full">
-      <div className="flex items-center gap-2 mb-1">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="市区町村名で絞る" className="w-64 rounded-md border border-zinc-300 px-2 py-1 text-xs bg-white" />
-        <span className="text-[11px] text-zinc-600 whitespace-nowrap">{sel.size}件・{num(total)}人</span>
-      </div>
-      <div className="max-h-48 overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-0.5">
-        {shown.map((o) => (
-          <label key={o.key} className="flex items-center gap-2 text-xs text-zinc-800 px-1 py-0.5 rounded hover:bg-white cursor-pointer">
-            <input type="checkbox" name={name} value={o.key} checked={sel.has(o.key)} onChange={() => setSel((s) => { const n = new Set(s); if (n.has(o.key)) n.delete(o.key); else n.add(o.key); return n; })} />
-            <span className="flex-1">{o.label}</span>
-            <span className="text-zinc-400 tabular-nums">{num(o.population)}</span>
-          </label>
-        ))}
-      </div>
-      {sel.size > 0 && <button type="button" onClick={() => setSel(new Set())} className="mt-1 text-[11px] text-zinc-500 underline">選択を解除</button>}
-    </div>
-  );
-}
-
 export function AdGroupAreas({ reportId, groups }: { reportId: string; groups: AdGroupRow[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -49,7 +25,7 @@ export function AdGroupAreas({ reportId, groups }: { reportId: string; groups: A
   return (
     <section className="bg-white border border-zinc-200 rounded-xl p-5">
       <h2 className="text-sm font-semibold text-zinc-900 mb-1">広告グループ別の商圏（TVerでエリアを設定する単位＝ベンチマークの1件）</h2>
-      <p className="text-xs text-zinc-500 mb-3">名前に市区町村名があれば自動で入ります（例: TV-2026-0042_久留米市_15s）。違っていれば「選び直す」で市区町村を複数チェックしてください（人口は合算）。選んだものは再取込でも変わりません。</p>
+      <p className="text-xs text-zinc-500 mb-3">名前に市区町村名があれば自動で入ります（例: TV-2026-0042_久留米市_15s）。違っていれば「選び直す」でTVerの「地域」欄をコピーして貼り付けるか、市区町村を複数チェックしてください（人口は合算）。選んだものは再取込でも変わりません。</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -89,7 +65,7 @@ export function AdGroupAreas({ reportId, groups }: { reportId: string; groups: A
                 {editing.has(g.adGroupName) && (
                   <tr className="bg-orange-50/40">
                     <td colSpan={8} className="py-2 px-2">
-                      <div className="text-xs text-zinc-600 mb-1">「{g.adGroupName}」の商圏＝市区町村を複数チェック（人口は合算）</div>
+                      <div className="text-xs text-zinc-600 mb-1">「{g.adGroupName}」の商圏＝TVerの地域を貼り付け、または市区町村を複数チェック（人口は合算）</div>
                       <AreaPicker name={`area:${g.adGroupName}`} options={g.options} initial={g.areaKeys} />
                     </td>
                   </tr>

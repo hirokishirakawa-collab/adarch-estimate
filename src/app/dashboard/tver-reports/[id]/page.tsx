@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { breakdown } from "@/lib/tver/delivery-csv";
+import { allocateBreakdown, effectiveSell } from "@/lib/tver/amount";
 import { UNIT_PRICE, type AdSeconds } from "@/lib/tver/plan";
 import { BreakdownTables } from "@/components/tver/delivery-breakdown";
 
@@ -24,7 +25,7 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
     where: { id, status: "PUBLISHED", ...(isAdmin ? {} : { groupCompanyId: me.groupCompanyId ?? "__none__" }) },
     select: {
       id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true, partnerNote: true, confirmedAt: true,
-      impressions: true, completes: true, clicks: true, sellAmount: true,
+      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true,
       campaignNames: true,
       groupCompany: { select: { name: true } },
       rows: { select: { date: true, campaignName: true, adGroupName: true, prefecture: true, device: true, gender: true, age: true, impressions: true, q100: true, clicks: true, sellAmount: true } },
@@ -34,13 +35,15 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
   if (!r) notFound();
 
   const sec = r.adSeconds as AdSeconds | null;
-  const byCampaign = breakdown(r.rows, (x) => x.campaignName);
-  const byPref = breakdown(r.rows, (x) => x.prefecture);
-  const byDevice = breakdown(r.rows, (x) => x.device);
-  const byDate = breakdown(r.rows, (x) => fmtD(x.date)).sort((a, b) => a.key.localeCompare(b.key, "ja"));
-  const byAge = breakdown(r.rows, (x) => `${x.gender} ${x.age}`);
+  // 本部が金額を調整していれば、総額も内訳もその金額に合わせる（内訳の合計＝総額）
+  const amount = effectiveSell(r);
+  const byCampaign = allocateBreakdown(breakdown(r.rows, (x) => x.campaignName), r);
+  const byPref = allocateBreakdown(breakdown(r.rows, (x) => x.prefecture), r);
+  const byDevice = allocateBreakdown(breakdown(r.rows, (x) => x.device), r);
+  const byDate = allocateBreakdown(breakdown(r.rows, (x) => fmtD(x.date)), r).sort((a, b) => a.key.localeCompare(b.key, "ja"));
+  const byAge = allocateBreakdown(breakdown(r.rows, (x) => `${x.gender} ${x.age}`), r);
   const agArea = new Map(r.adGroups.map((a) => [a.adGroupName, a]));
-  const byAdGroup = breakdown(r.rows, (x) => x.adGroupName);
+  const byAdGroup = allocateBreakdown(breakdown(r.rows, (x) => x.adGroupName), r);
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
@@ -55,7 +58,7 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
         <Stat k="表示回数" v={r.impressions.toLocaleString("ja-JP")} />
         <Stat k="100%再生" v={r.completes.toLocaleString("ja-JP")} sub={r.impressions ? `完全視聴率 ${Math.round((r.completes / r.impressions) * 1000) / 10}%` : ""} />
         <Stat k="クリック" v={r.clicks.toLocaleString("ja-JP")} sub={r.impressions ? `CTR ${Math.round((r.clicks / r.impressions) * 10000) / 100}%` : ""} />
-        <Stat k="金額（税抜）" v={yen(r.sellAmount)} sub="再生単価×表示回数" strong />
+        <Stat k="金額（税抜）" v={yen(amount)} sub="再生単価×表示回数" strong />
       </div>
 
       <div className="space-y-6">

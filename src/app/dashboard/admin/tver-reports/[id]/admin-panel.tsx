@@ -4,7 +4,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { publishDeliveryReport, unpublishDeliveryReport, updateDeliveryReport } from "@/lib/actions/tver-delivery";
+import { adjustDeliveryAmount, publishDeliveryReport, unpublishDeliveryReport, updateDeliveryReport } from "@/lib/actions/tver-delivery";
+import { AreaPicker } from "@/components/tver/area-picker";
 
 export function ReportAdminPanel(p: {
   id: string; status: "IMPORTED" | "PUBLISHED"; groupCompanyId: string; tverOrderId: string; industry: string; adminNote: string; partnerNote: string;
@@ -12,6 +13,9 @@ export function ReportAdminPanel(p: {
   orders: { id: string; label: string; hit: boolean }[];
   areaLabel: string; areaPopulation: number | null;
   areaOptions: { key: string; label: string; population: number }[];
+  areaKeys: string[];
+  wholesaleAmount: number; sellAmount: number; sellMultiplier: number; crossCheckAmount: number; crossCheckDiffPct: number;
+  sellAmountAdjusted: number | null; adjustNote: string;
   hasWarnings: boolean;
 }) {
   const router = useRouter();
@@ -56,14 +60,14 @@ export function ReportAdminPanel(p: {
             <input name="industry" defaultValue={p.industry} maxLength={100} list="tver-industry-list" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm" placeholder="例: 建設 / 歯科 / 飲食 / 不動産 / 自動車販売" />
             <datalist id="tver-industry-list">{["建設・リフォーム", "歯科", "医療・クリニック", "飲食", "不動産", "自動車販売", "美容・サロン", "小売", "学校・塾", "士業", "製造", "観光・宿泊", "介護・福祉", "採用"].map((x) => <option key={x} value={x} />)}</datalist>
           </label>
-          <label className="block text-xs text-zinc-600">
-            商圏（どの規模の市町村で打ったか。ベンチマークの軸）
+          <div className="block text-xs text-zinc-600">
+            商圏（どの規模の市町村で打ったか。ベンチマークの軸）・複数選べます
             <div className="mt-0.5 text-[11px] text-zinc-500">現在: {p.areaLabel || "未設定"}{p.areaPopulation ? `（人口 ${p.areaPopulation.toLocaleString("ja-JP")}人）` : ""}</div>
-            <select name="areaKey" defaultValue="" className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm">
-              <option value="">変更しない</option>
-              {p.areaOptions.map((o) => <option key={o.key} value={o.key}>{o.label}（{o.population.toLocaleString("ja-JP")}人）</option>)}
-            </select>
-          </label>
+            <div className="mt-1">
+              <AreaPicker name="areaKey" touchedName="areaTouched" options={p.areaOptions} initial={p.areaKeys} />
+            </div>
+            <p className="mt-1 text-[11px] text-zinc-400">触らなければ変わりません。TVerの「地域」をコピーして貼り付けると一括で選べます。</p>
+          </div>
           <label className="block text-xs text-zinc-600">
             拠点に見せる一言（任意・実績ページの上に出ます）
             <textarea name="partnerNote" defaultValue={p.partnerNote} rows={2} maxLength={2000} className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" placeholder="例: 7/20〜8/19分。福岡が最も伸びています" />
@@ -75,6 +79,17 @@ export function ReportAdminPanel(p: {
           <button disabled={pending} className="px-4 py-2 rounded-lg bg-zinc-900 text-white text-sm disabled:opacity-50">保存</button>
         </form>
       </section>
+
+      <AmountAdjust
+        id={p.id}
+        wholesaleAmount={p.wholesaleAmount}
+        sellAmount={p.sellAmount}
+        sellMultiplier={p.sellMultiplier}
+        crossCheckAmount={p.crossCheckAmount}
+        crossCheckDiffPct={p.crossCheckDiffPct}
+        sellAmountAdjusted={p.sellAmountAdjusted}
+        adjustNote={p.adjustNote}
+      />
 
       <section className={`border rounded-xl p-5 text-sm ${p.status === "PUBLISHED" ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"}`}>
         <h2 className="text-sm font-semibold text-zinc-900 mb-1">{p.status === "PUBLISHED" ? "公開済み" : "確認完了＝拠点に公開"}</h2>
@@ -109,5 +124,81 @@ export function ReportAdminPanel(p: {
         {msg && <p className="mt-3 text-sm text-zinc-800">{msg}</p>}
       </section>
     </div>
+  );
+}
+
+// ── 金額の調整（本部だけ）。未消化でも「予算どおり」に見せる／超過ぶんは本部が負担する
+function AmountAdjust(p: {
+  id: string; wholesaleAmount: number; sellAmount: number; sellMultiplier: number;
+  crossCheckAmount: number; crossCheckDiffPct: number; sellAmountAdjusted: number | null; adjustNote: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+  const [amount, setAmount] = useState(p.sellAmountAdjusted != null ? String(p.sellAmountAdjusted) : "");
+  const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
+  const v = Number(amount.replace(/[,¥￥\s]/g, ""));
+  const valid = amount.trim() !== "" && Number.isFinite(v) && v >= 0;
+  const diff = valid ? v - p.sellAmount : 0;
+
+  return (
+    <section className="bg-white border border-zinc-200 rounded-xl p-5 text-sm">
+      <h2 className="text-sm font-semibold text-zinc-900 mb-1">金額の調整（裏計算のずれ・予算との差）</h2>
+      <p className="text-xs text-zinc-500 mb-3">
+        予算を使い切れなかった時は予算どおりの額に上げ、出しすぎた時は予算どおりの額に下げます。<b>拠点にはここで入れた金額だけが出ます</b>（卸値・自動計算は本部だけ）。内訳（キャンペーン別・商圏別・日別）は表示回数で比例按分されます。
+      </p>
+      <div className="grid sm:grid-cols-3 gap-3 mb-3">
+        <div className="rounded-lg border border-zinc-200 px-3 py-2">
+          <div className="text-xs text-zinc-500">卸値（CSVのまま）</div>
+          <div className="tabular-nums text-base font-medium text-zinc-900">{yen(p.wholesaleAmount)}</div>
+        </div>
+        <div className="rounded-lg border border-zinc-200 px-3 py-2">
+          <div className="text-xs text-zinc-500">自動の売価（卸値×{p.sellMultiplier}）</div>
+          <div className="tabular-nums text-base font-medium text-zinc-900">{yen(p.sellAmount)}</div>
+        </div>
+        <div className={`rounded-lg border px-3 py-2 ${p.crossCheckDiffPct > 3 ? "border-orange-300 bg-orange-50" : "border-zinc-200"}`}>
+          <div className="text-xs text-zinc-500">裏計算（表示回数×売単価）</div>
+          <div className="tabular-nums text-base font-medium text-zinc-900">{p.crossCheckAmount ? yen(p.crossCheckAmount) : "—"}</div>
+          <div className="text-xs text-zinc-400">ずれ {p.crossCheckDiffPct}%</div>
+        </div>
+      </div>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const fd = new FormData(e.currentTarget);
+          start(async () => {
+            const r = await adjustDeliveryAmount(p.id, fd);
+            setMsg(r.error ? `⚠️ ${r.error}` : r.message ?? "保存しました");
+            router.refresh();
+          });
+        }}
+      >
+        <div className="grid sm:grid-cols-2 gap-3">
+          <label className="block text-xs text-zinc-600">
+            調整後の売価（税抜・空にすると調整なしに戻ります）
+            <input
+              name="sellAmountAdjusted"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              inputMode="numeric"
+              placeholder={String(p.sellAmount)}
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm tabular-nums"
+            />
+            {valid && diff !== 0 && (
+              <span className={`mt-1 block text-[11px] ${diff < 0 ? "text-orange-700" : "text-emerald-700"}`}>
+                {diff < 0 ? `本部負担 ${yen(-diff)}（出しすぎたぶんを本部が持つ）` : `未消化ぶんの上乗せ ${yen(diff)}（予算どおりに見せる）`}
+              </span>
+            )}
+          </label>
+          <label className="block text-xs text-zinc-600">
+            理由（本部内・必須）
+            <input name="adjustNote" defaultValue={p.adjustNote} maxLength={200} placeholder="例: 予算未消化のため契約額どおりに調整" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm" />
+          </label>
+        </div>
+        <button disabled={pending} className="px-4 py-2 rounded-lg bg-zinc-900 text-white text-sm disabled:opacity-50">金額を保存</button>
+        {msg && <span className="ml-3 text-sm text-zinc-700">{msg}</span>}
+      </form>
+    </section>
   );
 }

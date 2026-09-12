@@ -8,6 +8,7 @@ import Link from "next/link";
 import { BarChart2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { effectiveSell } from "@/lib/tver/amount";
 
 export const dynamic = "force-dynamic";
 const fmtD = (d: Date) => new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" }).format(d);
@@ -31,7 +32,7 @@ export default async function TverReportsPage() {
     take: 300,
     select: {
       id: true, advertiserName: true, periodStart: true, periodEnd: true, adSeconds: true,
-      impressions: true, completes: true, clicks: true, sellAmount: true, confirmedAt: true, partnerNote: true,
+      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, confirmedAt: true, partnerNote: true,
       groupCompany: { select: { name: true } },
     },
   });
@@ -78,7 +79,7 @@ export default async function TverReportsPage() {
                   <td className="px-3 py-2 text-right tabular-nums">{r.impressions.toLocaleString("ja-JP")}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.completes.toLocaleString("ja-JP")}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.clicks.toLocaleString("ja-JP")}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium">{yen(r.sellAmount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-medium">{yen(effectiveSell(r))}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-zinc-500">{r.confirmedAt ? fmtD(r.confirmedAt) : "—"}</td>
                 </tr>
               ))}

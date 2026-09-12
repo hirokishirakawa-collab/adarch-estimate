@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { isActionWarning, orderNumberFromName, parseDeliveryCsv, summarize } from "@/lib/tver/delivery-csv";
-import { areaFromKey, areaFromKeys, areaFromNames, areaFromOrder, areaFromPrefectures } from "@/lib/tver/report-area";
+import { areaFromKeys, areaFromNames, areaFromOrder, areaFromPrefectures } from "@/lib/tver/report-area";
 import { prevAdGroupAreas, syncAdGroupAreas } from "@/lib/tver/adgroup-area";
 
 const PATH = "/dashboard/admin/tver-reports";
@@ -78,7 +78,7 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
   // 同じ広告主で期間が重なる既存レポート → 差し替え
   const overlaps = await db.tverDeliveryReport.findMany({
     where: { advertiserTverId: head.advertiserTverId, periodStart: { lte: head.periodEnd }, periodEnd: { gte: head.periodStart } },
-    select: { id: true, status: true, fileName: true, adminNote: true, warnings: true },
+    select: { id: true, status: true, fileName: true, adminNote: true, warnings: true, areaKeys: true },
     orderBy: { createdAt: "desc" },
   });
   if (overlaps.length > 1) {
@@ -109,7 +109,8 @@ export async function importDeliveryCsv(fd: FormData): Promise<R> {
           ...(groupCompanyId ? { groupCompanyId } : {}),
           ...(tverOrderId ? { tverOrderId } : {}),
           ...(industry ? { industry } : {}),
-          ...((linkedOrder || areaFromName) && area ? area : {}),
+          // 本部が手で選んだ商圏（areaKeys あり）は再取込でも上書きしない
+          ...(ex.areaKeys.length === 0 && (linkedOrder || areaFromName) && area ? area : {}),
           ...(adminNote ? { adminNote } : {}),
           ...(demote ? { status: "IMPORTED", confirmedAt: null, confirmedByEmail: null, adminNote: `${ex.adminNote ? ex.adminNote + "\n" : ""}【自動】${new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })} 再取込で警告が出たため非公開に戻しました` } : {}),
         },
@@ -145,13 +146,21 @@ export async function updateDeliveryReport(id: string, fd: FormData): Promise<R>
   const r = await db.tverDeliveryReport.findUnique({ where: { id }, select: { id: true } });
   if (!r) return { error: "レポートが見つかりません" };
   const s = (k: string) => String(fd.get(k) ?? "").trim();
+  // 商圏＝複数選択（ピッカーを触った時だけ反映。触っていなければ今の商圏のまま）
+  const areaKeys = fd.getAll("areaKey").filter((v): v is string => typeof v === "string" && !!v);
+  const areaTouched = s("areaTouched") === "1";
+  const areaPatch = areaTouched
+    ? areaKeys.length
+      ? { ...(areaFromKeys(areaKeys) ?? {}), areaKeys }
+      : { areaLabel: null, areaPopulation: null, areaKeys: [] }
+    : {};
   await db.tverDeliveryReport.update({
     where: { id },
     data: {
       groupCompanyId: s("groupCompanyId") || null,
       tverOrderId: s("tverOrderId") || null,
       industry: s("industry").slice(0, 100) || null,
-      ...(s("areaKey") ? areaFromKey(s("areaKey")) ?? {} : {}),
+      ...areaPatch,
       adminNote: s("adminNote").slice(0, 2000) || null,
       partnerNote: s("partnerNote").slice(0, 2000) || null,
     },
@@ -200,6 +209,49 @@ export async function deleteDeliveryReports(ids: string[]): Promise<R> {
   revalidatePath(PATH);
   revalidatePath(PARTNER_PATH);
   return { ok: true, message: `${res.count}件削除しました` };
+}
+
+/**
+ * 金額の手動調整（本部だけ）。裏計算・予算とずれた時に、拠点に見せる売価を決め直す。
+ *   予算未消化 → 予算どおりの額に上げる／出しすぎ → 予算どおりの額に下げて差額は本部が負担
+ *   卸値・自動計算（卸値×MULT）はCSVのまま残す。空にすると調整なしに戻る
+ */
+export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R> {
+  const info = await admin();
+  if (!info) return { error: "権限がありません" };
+  const r = await db.tverDeliveryReport.findUnique({ where: { id }, select: { advertiserName: true, sellAmount: true, sellAmountAdjusted: true } });
+  if (!r) return { error: "レポートが見つかりません" };
+  const raw = String(fd.get("sellAmountAdjusted") ?? "").replace(/[,¥￥\s]/g, "").trim();
+  const note = String(fd.get("adjustNote") ?? "").trim().slice(0, 200);
+
+  if (!raw) {
+    await db.tverDeliveryReport.update({ where: { id }, data: { sellAmountAdjusted: null, adjustNote: null, adjustedAt: null, adjustedByEmail: null } });
+    logAudit({ action: "tver_delivery_amount_adjusted", email: info.email, name: info.staffName, entity: "tver_delivery_report", entityId: id, detail: `${r.advertiserName} 金額の調整を解除（自動の売価 ¥${r.sellAmount.toLocaleString("ja-JP")} に戻す）` });
+    revalidatePath(`${PATH}/${id}`);
+    revalidatePath(PATH);
+    revalidatePath(PARTNER_PATH);
+    return { ok: true, message: "調整を解除しました（自動の売価に戻ります）" };
+  }
+
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return { error: "金額は0以上の整数で入れてください" };
+  if (r.sellAmount > 0 && n > r.sellAmount * 10) return { error: `自動の売価（¥${r.sellAmount.toLocaleString("ja-JP")}）の10倍を超えています。桁を確認してください` };
+  if (!note) return { error: "調整の理由を入れてください（本部内の記録用）" };
+
+  await db.tverDeliveryReport.update({ where: { id }, data: { sellAmountAdjusted: n, adjustNote: note, adjustedAt: new Date(), adjustedByEmail: info.email } });
+  const diff = n - r.sellAmount;
+  logAudit({
+    action: "tver_delivery_amount_adjusted",
+    email: info.email,
+    name: info.staffName,
+    entity: "tver_delivery_report",
+    entityId: id,
+    detail: `${r.advertiserName} 売価 ¥${r.sellAmount.toLocaleString("ja-JP")} → ¥${n.toLocaleString("ja-JP")}（${diff < 0 ? `本部負担 ¥${(-diff).toLocaleString("ja-JP")}` : `上乗せ ¥${diff.toLocaleString("ja-JP")}`}）／${note}`,
+  });
+  revalidatePath(`${PATH}/${id}`);
+  revalidatePath(PATH);
+  revalidatePath(PARTNER_PATH);
+  return { ok: true, message: `拠点に出る金額を ¥${n.toLocaleString("ja-JP")} にしました` };
 }
 
 /** 広告グループごとの商圏を本部が選ぶ（複数可＝合算。MANUAL＝再取込でも上書きしない）。fd: area:<広告グループ名> = areaKey（複数） */

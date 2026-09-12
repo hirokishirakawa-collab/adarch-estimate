@@ -9,6 +9,7 @@
 import { db } from "@/lib/db";
 import type { McpViewer } from "./os-read-tools";
 import { breakdown } from "@/lib/tver/delivery-csv";
+import { allocateBreakdown, effectiveSell } from "@/lib/tver/amount";
 import { FREQ, UNIT_PRICE, type AdSeconds } from "@/lib/tver/plan";
 import { BUDGET_BANDS, POPULATION_BANDS, budgetBand, populationBand } from "@/lib/tver/report-area";
 import { municipalitiesOf, prefectureOptions } from "@/lib/packages/tver-area";
@@ -47,7 +48,7 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
       where: { id: input.reportId, status: "PUBLISHED", ...mine },
       select: {
         id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true, partnerNote: true, confirmedAt: true,
-        impressions: true, completes: true, clicks: true, sellAmount: true, campaignNames: true,
+        impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, campaignNames: true,
         groupCompany: { select: { name: true } }, tverOrder: { select: { number: true, createdAt: true, prefName: true, areaLabel: true, planKey: true, months: true } },
         rows: { select: rowSel }, adGroups: { select: agSel },
       },
@@ -56,16 +57,17 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
     const sec = r.adSeconds as AdSeconds | null;
     const days = Math.round((r.periodEnd.getTime() - r.periodStart.getTime()) / DAY) + 1;
     const byDate = breakdown(r.rows, (x) => day(x.date)!).sort((a, b) => a.key.localeCompare(b.key));
+    const amount = effectiveSell(r); // 本部が調整していればその金額（拠点・お客様に出るのはこちら）
     return {
       id: r.id, advertiser: r.advertiserName, industry: r.industry, company: r.groupCompany?.name ?? "本部",
       area: r.areaLabel, areaPopulation: r.areaPopulation,
       period: { from: day(r.periodStart), to: day(r.periodEnd), days },
-      per30Days: { amountExclTax: yen((r.sellAmount / Math.max(1, days)) * 30), impressions: Math.round((r.impressions / Math.max(1, days)) * 30), reachEstimate: Math.round((r.impressions / Math.max(1, days)) * 30 / FREQ), residentsReachPct: r.areaPopulation ? `${pct(Math.round((r.impressions / Math.max(1, days)) * 30 / FREQ), r.areaPopulation)}%` : null },
+      per30Days: { amountExclTax: yen((amount / Math.max(1, days)) * 30), impressions: Math.round((r.impressions / Math.max(1, days)) * 30), reachEstimate: Math.round((r.impressions / Math.max(1, days)) * 30 / FREQ), residentsReachPct: r.areaPopulation ? `${pct(Math.round((r.impressions / Math.max(1, days)) * 30 / FREQ), r.areaPopulation)}%` : null },
       adSeconds: sec, unitPrice: sec ? `¥${UNIT_PRICE[sec]}/再生（税抜）` : null,
       order: r.tverOrder ? { area: `${r.tverOrder.prefName} ${r.tverOrder.areaLabel}`, plan: r.tverOrder.planKey, months: r.tverOrder.months } : null,
-      totals: { impressions: r.impressions, completes: r.completes, completionRate: `${pct(r.completes, r.impressions)}%`, clicks: r.clicks, ctr: `${pct(r.clicks, r.impressions, 2)}%`, amountExclTax: yen(r.sellAmount), perDayImpressions: Math.round(r.impressions / Math.max(1, days)) },
-      byCampaign: breakdown(r.rows, (x) => x.campaignName).map((b) => ({ campaign: b.key, impressions: b.impressions, completes: b.completes, clicks: b.clicks, amountExclTax: yen(b.sellAmount) })),
-      byArea: breakdown(r.rows, (x) => x.adGroupName).map((b) => { const a = r.adGroups.find((g) => g.adGroupName === b.key); return { area: a?.areaLabel ?? null, population: a?.areaPopulation ?? null, adGroup: b.key, impressions: b.impressions, completionRate: `${pct(b.completes, b.impressions)}%`, clicks: b.clicks, amountExclTax: yen(b.sellAmount), reachEstimatePer30Days: Math.round((b.impressions / Math.max(1, days)) * 30 / FREQ) }; }),
+      totals: { impressions: r.impressions, completes: r.completes, completionRate: `${pct(r.completes, r.impressions)}%`, clicks: r.clicks, ctr: `${pct(r.clicks, r.impressions, 2)}%`, amountExclTax: yen(amount), perDayImpressions: Math.round(r.impressions / Math.max(1, days)) },
+      byCampaign: allocateBreakdown(breakdown(r.rows, (x) => x.campaignName), r).map((b) => ({ campaign: b.key, impressions: b.impressions, completes: b.completes, clicks: b.clicks, amountExclTax: yen(b.sellAmount) })),
+      byArea: allocateBreakdown(breakdown(r.rows, (x) => x.adGroupName), r).map((b) => { const a = r.adGroups.find((g) => g.adGroupName === b.key); return { area: a?.areaLabel ?? null, population: a?.areaPopulation ?? null, adGroup: b.key, impressions: b.impressions, completionRate: `${pct(b.completes, b.impressions)}%`, clicks: b.clicks, amountExclTax: yen(b.sellAmount), reachEstimatePer30Days: Math.round((b.impressions / Math.max(1, days)) * 30 / FREQ) }; }),
       byPrefecture: share(r.rows, (x) => x.prefecture, 10),
       byDevice: share(r.rows, (x) => x.device),
       byGenderAge: share(r.rows, (x) => `${x.gender} ${x.age}`, 12),
@@ -79,14 +81,14 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
     where: { status: "PUBLISHED", ...mine, ...(input.advertiser ? { advertiserName: { contains: input.advertiser, mode: "insensitive" } } : {}) },
     orderBy: { periodEnd: "desc" },
     take: Math.min(50, Math.max(1, input.limit ?? 20)),
-    select: { id: true, advertiserName: true, industry: true, periodStart: true, periodEnd: true, adSeconds: true, impressions: true, completes: true, clicks: true, sellAmount: true, confirmedAt: true, groupCompany: { select: { name: true } } },
+    select: { id: true, advertiserName: true, industry: true, periodStart: true, periodEnd: true, adSeconds: true, impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, confirmedAt: true, groupCompany: { select: { name: true } } },
   });
   return {
     count: list.length,
     results: list.map((r) => ({
       id: r.id, advertiser: r.advertiserName, industry: r.industry, company: r.groupCompany?.name ?? "本部",
       period: `${day(r.periodStart)}〜${day(r.periodEnd)}`, adSeconds: r.adSeconds,
-      impressions: r.impressions, completionRate: `${pct(r.completes, r.impressions)}%`, ctr: `${pct(r.clicks, r.impressions, 2)}%`, amountExclTax: yen(r.sellAmount), confirmedAt: day(r.confirmedAt),
+      impressions: r.impressions, completionRate: `${pct(r.completes, r.impressions)}%`, ctr: `${pct(r.clicks, r.impressions, 2)}%`, amountExclTax: yen(effectiveSell(r)), confirmedAt: day(r.confirmedAt),
     })),
     hint: "詳細（県・デバイス・年齢・日別の内訳）は tver_results(reportId) で。実績はOS本部が確認したものだけが出る",
   };
@@ -135,6 +137,7 @@ export async function tverBenchmarks(v: McpViewer, input: TverBenchmarksInput) {
     take: 60,
     select: {
       id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true, groupCompanyId: true,
+      sellAmount: true, sellAmountAdjusted: true,
       groupCompany: { select: { name: true, prefecture: true } },
       tverOrder: { select: { planKey: true, months: true } },
       rows: { select: rowSel },
@@ -156,7 +159,9 @@ export async function tverBenchmarks(v: McpViewer, input: TverBenchmarksInput) {
       const imp = rows.reduce((a, x) => a + x.impressions, 0);
       const comp = rows.reduce((a, x) => a + x.q100, 0);
       const clk = rows.reduce((a, x) => a + x.clicks, 0);
-      const sell = rows.reduce((a, x) => a + x.sellAmount, 0);
+      // 本部が金額を調整していれば、その比でこの広告グループぶんも合わせる（ベンチマークは実際に請求した額で見る）
+      const scale = r.sellAmountAdjusted != null && r.sellAmount > 0 ? r.sellAmountAdjusted / r.sellAmount : 1;
+      const sell = Math.round(rows.reduce((a, x) => a + x.sellAmount, 0) * scale);
       const imp30 = Math.round((imp / days) * 30);
       const amt30 = Math.round((sell / days) * 30);
       const reach30 = Math.round(imp30 / FREQ);
