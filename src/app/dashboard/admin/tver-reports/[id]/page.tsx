@@ -175,6 +175,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
             periodDays={days}
             adminNote={r.adminNote ?? ""}
             partnerNote={r.partnerNote ?? ""}
+            sharedNote={r.sharedNote ?? ""}
             companies={companies}
             orders={orderOpts}
             hasWarnings={r.warnings.some(isActionWarning)}

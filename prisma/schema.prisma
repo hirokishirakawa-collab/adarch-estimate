@@ -2716,7 +2716,8 @@ model TverDeliveryReport {
   // ── 確認・公開
   status           TverDeliveryReportStatus @default(IMPORTED)
   adminNote        String?                  @db.Text // 本部メモ（内部）
-  partnerNote      String?                  @db.Text // 拠点に見せる一言
+  partnerNote      String?                  @db.Text // 拠点に見せる一言（紐づけた拠点の詳細ページだけ）
+  sharedNote       String?                  @db.Text // 全社に見せる補足（他拠点の一覧にも出る。例「高松市と坂出市限定で展開」）。広告主名や金額は書かない
   importedByEmail  String
   confirmedAt      DateTime?
   confirmedByEmail String?

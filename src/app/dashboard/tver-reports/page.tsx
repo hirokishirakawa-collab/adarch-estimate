@@ -36,7 +36,7 @@ export default async function TverReportsPage() {
     take: 300,
     select: {
       id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true,
-      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, confirmedAt: true, partnerNote: true,
+      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, confirmedAt: true, partnerNote: true, sharedNote: true,
       groupCompanyId: true, groupCompany: { select: { name: true, prefecture: true } },
     },
   });
@@ -91,7 +91,10 @@ export default async function TverReportsPage() {
                     )}
                     {r.adSeconds ? <span className="text-xs text-zinc-400 ml-1">{r.adSeconds}秒</span> : null}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">{r.areaLabel ?? "—"}{r.areaPopulation ? <span className="text-xs text-zinc-400">（{r.areaPopulation.toLocaleString("ja-JP")}人）</span> : null}</td>
+                  <td className="px-3 py-2 max-w-[20rem]">
+                    <span className="whitespace-nowrap">{r.areaLabel ?? "—"}{r.areaPopulation ? <span className="text-xs text-zinc-400">（{r.areaPopulation.toLocaleString("ja-JP")}人）</span> : null}</span>
+                    {r.sharedNote && <span className="block text-xs text-zinc-500 mt-0.5">{r.sharedNote}</span>}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap">{periodLabel(r.periodStart, r.periodEnd)}</td>
                   {isAdmin && <td className="px-3 py-2 whitespace-nowrap">{r.groupCompany?.name ?? "—"}</td>}
                   <td className="px-3 py-2 text-right tabular-nums">{budgetSellForPeriod(r.monthlyBudget, periodDays(r.periodStart, r.periodEnd), SELL_MULTIPLIER) != null ? yen(budgetSellForPeriod(r.monthlyBudget, periodDays(r.periodStart, r.periodEnd), SELL_MULTIPLIER)!) : "—"}</td>

@@ -163,6 +163,7 @@ export async function updateDeliveryReport(id: string, fd: FormData): Promise<R>
       ...areaPatch,
       adminNote: s("adminNote").slice(0, 2000) || null,
       partnerNote: s("partnerNote").slice(0, 2000) || null,
+      sharedNote: s("sharedNote").slice(0, 200) || null,
     },
   });
   revalidatePath(PATH);

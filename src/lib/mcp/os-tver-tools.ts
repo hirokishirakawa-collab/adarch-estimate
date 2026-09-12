@@ -49,7 +49,7 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
       where: { id: input.reportId, status: "PUBLISHED", ...mine },
       select: {
         id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true, partnerNote: true, confirmedAt: true,
-        impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, campaignNames: true,
+        impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, sharedNote: true, campaignNames: true,
         groupCompany: { select: { name: true } }, tverOrder: { select: { number: true, createdAt: true, prefName: true, areaLabel: true, planKey: true, months: true } },
         rows: { select: rowSel }, adGroups: { select: agSel },
       },
@@ -74,7 +74,7 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
       byDevice: share(r.rows, (x) => x.device),
       byGenderAge: share(r.rows, (x) => `${x.gender} ${x.age}`, 12),
       byDate: byDate.map((b) => ({ date: b.key, impressions: b.impressions, completes: b.completes, clicks: b.clicks })),
-      noteFromHq: r.partnerNote, confirmedAt: day(r.confirmedAt),
+      noteFromHq: r.partnerNote, sharedNote: r.sharedNote, confirmedAt: day(r.confirmedAt),
       rules: "金額は税抜の媒体費（再生単価×表示回数）。お客様への報告は「表示回数・完全視聴率・県/デバイス/年齢の内訳」を中心に。数字は盛らない",
     };
   }

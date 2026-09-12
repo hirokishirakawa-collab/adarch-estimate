@@ -13,7 +13,7 @@ export function ReportAdminPanel(p: {
   id: string; status: "IMPORTED" | "PUBLISHED"; groupCompanyId: string; tverOrderId: string; industry: string; adminNote: string; partnerNote: string;
   companies: { id: string; name: string; prefecture: string | null }[];
   orders: { id: string; label: string; hit: boolean }[];
-  areaLabel: string; areaPopulation: number | null;
+  areaLabel: string; areaPopulation: number | null; sharedNote: string;
   areaOptions: { key: string; label: string; population: number }[];
   areaKeys: string[];
   wholesaleAmount: number; sellAmount: number; sellMultiplier: number; crossCheckAmount: number; crossCheckDiffPct: number;
@@ -71,7 +71,12 @@ export function ReportAdminPanel(p: {
             <p className="mt-1 text-[11px] text-zinc-400">触らなければ変わりません。TVerの「地域」をコピーして貼り付けると一括で選べます。</p>
           </div>
           <label className="block text-xs text-zinc-600">
-            拠点に見せる一言（任意・実績ページの上に出ます）
+            全社に見せる補足（任意・<b>他の拠点の一覧にも出ます</b>）
+            <input name="sharedNote" defaultValue={p.sharedNote} maxLength={200} className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm" placeholder="例: 高松市と坂出市限定で展開。新型車の発売告知" />
+            <span className="mt-0.5 block text-[11px] text-zinc-400">どこで・何のために打ったかを一言で。広告主名と金額は書かないでください（他拠点には伏せている情報です）</span>
+          </label>
+          <label className="block text-xs text-zinc-600">
+            拠点に見せる一言（任意・紐づけた拠点の実績ページにだけ出ます）
             <textarea name="partnerNote" defaultValue={p.partnerNote} rows={2} maxLength={2000} className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" placeholder="例: 7/20〜8/19分。福岡が最も伸びています" />
           </label>
           <label className="block text-xs text-zinc-600">

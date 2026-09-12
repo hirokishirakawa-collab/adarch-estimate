@@ -26,7 +26,7 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
     where: { id, status: "PUBLISHED", ...(isAdmin ? {} : { groupCompanyId: me.groupCompanyId ?? "__none__" }) },
     select: {
       id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true, partnerNote: true, confirmedAt: true,
-      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true,
+      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, sharedNote: true,
       campaignNames: true,
       groupCompany: { select: { name: true } },
       rows: { select: { date: true, campaignName: true, adGroupName: true, prefecture: true, device: true, gender: true, age: true, impressions: true, q100: true, clicks: true, sellAmount: true } },
@@ -54,6 +54,7 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
       <div className="mb-6">
         <h1 className="text-lg font-semibold text-zinc-900">{r.advertiserName}　{fmtD(r.periodStart)}〜{fmtD(r.periodEnd)}</h1>
         <p className="text-sm text-zinc-500">{r.areaLabel ? `${r.areaLabel}${r.areaPopulation ? `（人口 ${r.areaPopulation.toLocaleString("ja-JP")}人）` : ""}・` : ""}{r.industry ? `${r.industry}・` : ""}{sec ? `${sec}秒・再生単価 ¥${UNIT_PRICE[sec]}（税抜）` : ""}{isAdmin && r.groupCompany ? `・${r.groupCompany.name}` : ""}{r.confirmedAt ? `・本部確認 ${fmtD(r.confirmedAt)}` : ""}</p>
+        {r.sharedNote && <p className="mt-2 text-sm text-zinc-700">{r.sharedNote}</p>}
         {r.partnerNote && <p className="mt-2 text-sm text-zinc-800 bg-orange-50 border border-orange-200 rounded-lg px-4 py-2 whitespace-pre-wrap">{r.partnerNote}</p>}
       </div>
 
