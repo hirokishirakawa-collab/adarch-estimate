@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { adjustDeliveryAmount, publishDeliveryReport, unpublishDeliveryReport, updateDeliveryReport } from "@/lib/actions/tver-delivery";
 import { AreaPicker } from "@/components/tver/area-picker";
+import { budgetForPeriod } from "@/lib/tver/period";
 
 export function ReportAdminPanel(p: {
   id: string; status: "IMPORTED" | "PUBLISHED"; groupCompanyId: string; tverOrderId: string; industry: string; adminNote: string; partnerNote: string;
@@ -15,7 +16,7 @@ export function ReportAdminPanel(p: {
   areaOptions: { key: string; label: string; population: number }[];
   areaKeys: string[];
   wholesaleAmount: number; sellAmount: number; sellMultiplier: number; crossCheckAmount: number; crossCheckDiffPct: number;
-  sellAmountAdjusted: number | null; adjustNote: string;
+  sellAmountAdjusted: number | null; adjustNote: string; monthlyBudget: number | null; periodDays: number;
   hasWarnings: boolean;
 }) {
   const router = useRouter();
@@ -89,6 +90,8 @@ export function ReportAdminPanel(p: {
         crossCheckDiffPct={p.crossCheckDiffPct}
         sellAmountAdjusted={p.sellAmountAdjusted}
         adjustNote={p.adjustNote}
+        monthlyBudget={p.monthlyBudget}
+        periodDays={p.periodDays}
       />
 
       <section className={`border rounded-xl p-5 text-sm ${p.status === "PUBLISHED" ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"}`}>
@@ -131,11 +134,15 @@ export function ReportAdminPanel(p: {
 function AmountAdjust(p: {
   id: string; wholesaleAmount: number; sellAmount: number; sellMultiplier: number;
   crossCheckAmount: number; crossCheckDiffPct: number; sellAmountAdjusted: number | null; adjustNote: string;
+  monthlyBudget: number | null; periodDays: number;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [amount, setAmount] = useState(p.sellAmountAdjusted != null ? String(p.sellAmountAdjusted) : "");
+  const [budget, setBudget] = useState(p.monthlyBudget != null ? String(p.monthlyBudget) : "");
+  const budgetNum = Number(budget.replace(/[,¥￥\s]/g, ""));
+  const periodBudget = budgetForPeriod(Number.isFinite(budgetNum) && budget.trim() ? budgetNum : null, p.periodDays);
   const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
   const v = Number(amount.replace(/[,¥￥\s]/g, ""));
   const valid = amount.trim() !== "" && Number.isFinite(v) && v >= 0;
@@ -174,6 +181,30 @@ function AmountAdjust(p: {
           });
         }}
       >
+        <label className="block text-xs text-zinc-600">
+          月額予算（税抜・お客様と決めた金額）
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              name="monthlyBudget"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              inputMode="numeric"
+              placeholder="例: 150000"
+              className="w-44 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm tabular-nums"
+            />
+            {periodBudget != null && (
+              <>
+                <span className="text-[11px] text-zinc-600">
+                  この期間（{p.periodDays}日）の予算 <b className="tabular-nums">{yen(periodBudget)}</b>
+                </span>
+                <button type="button" onClick={() => setAmount(String(periodBudget))} className="px-2.5 py-1 rounded-md border border-zinc-300 text-xs text-zinc-700 hover:bg-zinc-50">
+                  予算どおりにする
+                </button>
+              </>
+            )}
+          </div>
+          <span className="mt-1 block text-[11px] text-zinc-400">28〜31日は1ヶ月ぶん、それ以外は日割り（月額÷30×日数）で計算します</span>
+        </label>
         <div className="grid sm:grid-cols-2 gap-3">
           <label className="block text-xs text-zinc-600">
             調整後の売価（税抜・空にすると調整なしに戻ります）

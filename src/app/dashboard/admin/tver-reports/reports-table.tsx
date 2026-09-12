@@ -10,11 +10,11 @@ import { deleteDeliveryReports } from "@/lib/actions/tver-delivery";
 export type ReportRow = {
   id: string; createdAt: string; periodStart: string; periodEnd: string;
   advertiser: string; advertiserTverId: string; company: string; adSeconds: number | null;
-  impressions: number; completes: number; wholesaleAmount: number; sellAmount: number; adjusted: boolean; diffPct: number; warnings: number; notes: number;
+  impressions: number; completes: number; monthlyBudget: number | null; wholesaleAmount: number; sellAmount: number; adjusted: boolean; diffPct: number; warnings: number; notes: number;
   status: "IMPORTED" | "PUBLISHED";
 };
 
-type Key = "createdAt" | "periodStart" | "advertiser" | "company" | "impressions" | "completes" | "wholesaleAmount" | "sellAmount" | "diffPct" | "status";
+type Key = "createdAt" | "periodStart" | "advertiser" | "company" | "impressions" | "completes" | "monthlyBudget" | "wholesaleAmount" | "sellAmount" | "diffPct" | "status";
 const COLS: { key: Key; label: string; num?: boolean }[] = [
   { key: "createdAt", label: "取込日" },
   { key: "status", label: "状態" },
@@ -24,6 +24,7 @@ const COLS: { key: Key; label: string; num?: boolean }[] = [
   { key: "impressions", label: "表示回数", num: true },
   { key: "completes", label: "100%再生", num: true },
   { key: "wholesaleAmount", label: "卸値（本部のみ）", num: true },
+  { key: "monthlyBudget", label: "月額予算", num: true },
   { key: "sellAmount", label: "売価（拠点に見える）", num: true },
   { key: "diffPct", label: "裏計算ずれ", num: true },
 ];
@@ -100,6 +101,7 @@ export function ReportsTable({ rows }: { rows: ReportRow[] }) {
                 <td className="px-3 py-2 text-right tabular-nums">{r.impressions.toLocaleString("ja-JP")}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{r.completes.toLocaleString("ja-JP")}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-zinc-500">{yen(r.wholesaleAmount)}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-zinc-500">{r.monthlyBudget != null ? yen(r.monthlyBudget) : "—"}</td>
                 <td className="px-3 py-2 text-right tabular-nums font-medium text-zinc-900">{yen(r.sellAmount)}{r.adjusted && <span className="ml-1 text-[10px] text-orange-700 align-middle" title="本部が手で調整した金額">調整</span>}</td>
                 <td className={`px-3 py-2 text-right tabular-nums ${r.diffPct > 3 ? "text-rose-600 font-medium" : "text-zinc-500"}`}>{r.diffPct}%</td>
                 <td className="px-3 py-2 whitespace-nowrap text-xs">{r.warnings > 0 ? <span className="text-rose-600">⚠ {r.warnings}件</span> : <span className="text-emerald-600">なし</span>}{r.notes > 0 ? <span className="text-amber-600 ml-1">ℹ {r.notes}</span> : null}</td>

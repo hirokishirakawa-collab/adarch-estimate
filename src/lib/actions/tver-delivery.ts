@@ -219,10 +219,20 @@ export async function deleteDeliveryReports(ids: string[]): Promise<R> {
 export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R> {
   const info = await admin();
   if (!info) return { error: "権限がありません" };
-  const r = await db.tverDeliveryReport.findUnique({ where: { id }, select: { advertiserName: true, sellAmount: true, sellAmountAdjusted: true } });
+  const r = await db.tverDeliveryReport.findUnique({ where: { id }, select: { advertiserName: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true } });
   if (!r) return { error: "レポートが見つかりません" };
   const raw = String(fd.get("sellAmountAdjusted") ?? "").replace(/[,¥￥\s]/g, "").trim();
   const note = String(fd.get("adjustNote") ?? "").trim().slice(0, 200);
+
+  // 月額予算（お客様と決めた金額・税抜）。空なら消す
+  const budgetRaw = String(fd.get("monthlyBudget") ?? "").replace(/[,¥￥\s]/g, "").trim();
+  let monthlyBudget: number | null = null;
+  if (budgetRaw) {
+    const b = Number(budgetRaw);
+    if (!Number.isFinite(b) || !Number.isInteger(b) || b < 0) return { error: "月額予算は0以上の整数で入れてください" };
+    monthlyBudget = b;
+  }
+  if (monthlyBudget !== r.monthlyBudget) await db.tverDeliveryReport.update({ where: { id }, data: { monthlyBudget } });
 
   if (!raw) {
     await db.tverDeliveryReport.update({ where: { id }, data: { sellAmountAdjusted: null, adjustNote: null, adjustedAt: null, adjustedByEmail: null } });
@@ -230,7 +240,7 @@ export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R>
     revalidatePath(`${PATH}/${id}`);
     revalidatePath(PATH);
     revalidatePath(PARTNER_PATH);
-    return { ok: true, message: "調整を解除しました（自動の売価に戻ります）" };
+    return { ok: true, message: `調整を解除しました（自動の売価に戻ります）${monthlyBudget != null ? `・月額予算 ¥${monthlyBudget.toLocaleString("ja-JP")}` : ""}` };
   }
 
   const n = Number(raw);
@@ -251,7 +261,7 @@ export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R>
   revalidatePath(`${PATH}/${id}`);
   revalidatePath(PATH);
   revalidatePath(PARTNER_PATH);
-  return { ok: true, message: `拠点に出る金額を ¥${n.toLocaleString("ja-JP")} にしました` };
+  return { ok: true, message: `拠点に出る金額を ¥${n.toLocaleString("ja-JP")} にしました${monthlyBudget != null ? `・月額予算 ¥${monthlyBudget.toLocaleString("ja-JP")}` : ""}` };
 }
 
 /** 広告グループごとの商圏を本部が選ぶ（複数可＝合算。MANUAL＝再取込でも上書きしない）。fd: area:<広告グループ名> = areaKey（複数） */

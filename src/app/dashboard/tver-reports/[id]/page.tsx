@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { breakdown } from "@/lib/tver/delivery-csv";
 import { allocateBreakdown, effectiveSell } from "@/lib/tver/amount";
+import { budgetForPeriod, periodDays } from "@/lib/tver/period";
 import { UNIT_PRICE, type AdSeconds } from "@/lib/tver/plan";
 import { BreakdownTables } from "@/components/tver/delivery-breakdown";
 
@@ -25,7 +26,7 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
     where: { id, status: "PUBLISHED", ...(isAdmin ? {} : { groupCompanyId: me.groupCompanyId ?? "__none__" }) },
     select: {
       id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true, partnerNote: true, confirmedAt: true,
-      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true,
+      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true,
       campaignNames: true,
       groupCompany: { select: { name: true } },
       rows: { select: { date: true, campaignName: true, adGroupName: true, prefecture: true, device: true, gender: true, age: true, impressions: true, q100: true, clicks: true, sellAmount: true } },
@@ -37,6 +38,8 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
   const sec = r.adSeconds as AdSeconds | null;
   // 本部が金額を調整していれば、総額も内訳もその金額に合わせる（内訳の合計＝総額）
   const amount = effectiveSell(r);
+  const days = periodDays(r.periodStart, r.periodEnd);
+  const budget = budgetForPeriod(r.monthlyBudget, days);
   const byCampaign = allocateBreakdown(breakdown(r.rows, (x) => x.campaignName), r);
   const byPref = allocateBreakdown(breakdown(r.rows, (x) => x.prefecture), r);
   const byDevice = allocateBreakdown(breakdown(r.rows, (x) => x.device), r);
@@ -54,7 +57,8 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
         {r.partnerNote && <p className="mt-2 text-sm text-zinc-800 bg-orange-50 border border-orange-200 rounded-lg px-4 py-2 whitespace-pre-wrap">{r.partnerNote}</p>}
       </div>
 
-      <div className="grid sm:grid-cols-4 gap-3 text-sm mb-6">
+      <div className="grid sm:grid-cols-5 gap-3 text-sm mb-6">
+        {budget != null && <Stat k="予算（税抜）" v={yen(budget)} sub={r.monthlyBudget && days !== 30 ? `月額 ${yen(r.monthlyBudget)}・${days}日分` : "月額"} />}
         <Stat k="表示回数" v={r.impressions.toLocaleString("ja-JP")} />
         <Stat k="100%再生" v={r.completes.toLocaleString("ja-JP")} sub={r.impressions ? `完全視聴率 ${Math.round((r.completes / r.impressions) * 1000) / 10}%` : ""} />
         <Stat k="クリック" v={r.clicks.toLocaleString("ja-JP")} sub={r.impressions ? `CTR ${Math.round((r.clicks / r.impressions) * 10000) / 100}%` : ""} />

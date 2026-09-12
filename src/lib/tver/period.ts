@@ -15,3 +15,16 @@ export function periodLabel(start: Date | string, end: Date | string): string {
   const same = yearInJst(s) === yearInJst(e);
   return `${jst(s, true)}〜${jst(e, !same)}`;
 }
+
+/** 期間の日数（JSTの日付ベース・両端を含む） */
+export const periodDays = (start: Date, end: Date) => Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1);
+
+/**
+ * 月額予算 → この期間ぶんの予算
+ *   28〜31日は「1ヶ月」とみなす（月次レポートはそのまま月額）。それ以外は日割り（月額÷30×日数）
+ */
+export function budgetForPeriod(monthly: number | null | undefined, days: number): number | null {
+  if (monthly == null || monthly <= 0) return null;
+  if (days >= 28 && days <= 31) return monthly;
+  return Math.round((monthly / 30) * days);
+}

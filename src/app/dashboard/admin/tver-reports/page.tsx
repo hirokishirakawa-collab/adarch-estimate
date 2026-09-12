@@ -57,6 +57,7 @@ export default async function AdminTverReportsPage({ searchParams }: { searchPar
     impressions: r.impressions,
     completes: r.completes,
     wholesaleAmount: r.wholesaleAmount,
+    monthlyBudget: r.monthlyBudget,
     sellAmount: r.sellAmountAdjusted ?? r.sellAmount,
     adjusted: r.sellAmountAdjusted != null && r.sellAmountAdjusted !== r.sellAmount,
     diffPct: r.crossCheckDiffPct,

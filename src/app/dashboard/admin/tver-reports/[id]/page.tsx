@@ -10,6 +10,7 @@ import { breakdown, isActionWarning } from "@/lib/tver/delivery-csv";
 import { orderNumberLabel } from "@/lib/tver-order/plans";
 import { ReportAdminPanel } from "./admin-panel";
 import { areaOptionsFor } from "@/lib/tver/report-area";
+import { budgetForPeriod, periodDays } from "@/lib/tver/period";
 import { AdGroupAreas, type AdGroupRow } from "./adgroup-areas";
 import { BreakdownTables } from "@/components/tver/delivery-breakdown";
 
@@ -99,7 +100,8 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
         <div className="lg:col-span-3 space-y-6">
           <section className="bg-white border border-zinc-200 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-zinc-900 mb-3">金額の確認（卸値は本部だけ・拠点には売価だけが出ます）</h2>
-            <div className="grid sm:grid-cols-3 gap-3 text-sm">
+            <div className="grid sm:grid-cols-4 gap-3 text-sm">
+              <Stat k={`予算（この期間 ${periodDays(r.periodStart, r.periodEnd)}日）`} v={budgetForPeriod(r.monthlyBudget, periodDays(r.periodStart, r.periodEnd)) != null ? yen(budgetForPeriod(r.monthlyBudget, periodDays(r.periodStart, r.periodEnd))!) : "—"} sub={r.monthlyBudget ? `月額 ${yen(r.monthlyBudget)}` : "未設定"} />
               <Stat k="卸値（ご利用金額の合計）" v={yen(r.wholesaleAmount)} sub={`卸CPM ${sec ? `¥${(UNIT_PRICE[sec] / SELL_MULTIPLIER * 1000).toLocaleString("ja-JP")}` : "—"}`} muted />
               <Stat k={`売価＝卸値×${r.sellMultiplier}`} v={yen(r.sellAmount)} sub={sellUnit ? `売単価 ¥${sellUnit}/再生` : "—"} strong />
               <Stat k="裏計算＝表示回数×売単価" v={r.crossCheckAmount ? yen(r.crossCheckAmount) : "—"} sub={`ずれ ${r.crossCheckDiffPct}%`} warn={r.crossCheckDiffPct > 3} />
@@ -167,6 +169,8 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
             crossCheckDiffPct={r.crossCheckDiffPct}
             sellAmountAdjusted={r.sellAmountAdjusted}
             adjustNote={r.adjustNote ?? ""}
+            monthlyBudget={r.monthlyBudget}
+            periodDays={periodDays(r.periodStart, r.periodEnd)}
             adminNote={r.adminNote ?? ""}
             partnerNote={r.partnerNote ?? ""}
             companies={companies}
