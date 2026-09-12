@@ -23,7 +23,7 @@ export function AdGroupAreas({ reportId, groups }: { reportId: string; groups: A
   const [msg, setMsg] = useState<string | null>(null);
   const [editing, setEditing] = useState<Set<string>>(new Set());
   return (
-    <section className="bg-white border border-zinc-200 rounded-xl p-5">
+    <section className="bg-white border-2 border-emerald-500 rounded-xl p-5">
       <h2 className="text-sm font-semibold text-zinc-900 mb-1">広告グループ別の商圏（TVerでエリアを設定する単位＝ベンチマークの1件）</h2>
       <p className="text-xs text-zinc-500 mb-3">名前に市区町村名があれば自動で入ります（例: TV-2026-0042_久留米市_15s）。違っていれば「選び直す」でTVerの「地域」欄をコピーして貼り付けるか、市区町村を複数チェックしてください（人口は合算）。選んだものは再取込でも変わりません。</p>
       <form

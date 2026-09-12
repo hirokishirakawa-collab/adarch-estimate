@@ -52,11 +52,17 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
       <Link href="/dashboard/tver-reports" className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-800 mb-4"><ChevronLeft className="w-4 h-4" />一覧へ</Link>
-      <div className="mb-6">
+      <div className="mb-6 flex items-start gap-4">
+        <div className="flex-1">
         <h1 className="text-lg font-semibold text-zinc-900">{r.advertiserName}　{fmtD(r.periodStart)}〜{fmtD(r.periodEnd)}</h1>
         <p className="text-sm text-zinc-500">{r.areaLabel ? `${r.areaLabel}${r.areaPopulation ? `（人口 ${r.areaPopulation.toLocaleString("ja-JP")}人）` : ""}・` : ""}{r.industry ? `${r.industry}・` : ""}{sec ? `${sec}秒・再生単価 ¥${UNIT_PRICE[sec]}（税抜）` : ""}{r.groupCompany ? `・${r.groupCompany.name}` : ""}{r.confirmedAt ? `・本部確認 ${fmtD(r.confirmedAt)}` : ""}</p>
         {r.sharedNote && <p className="mt-2 text-sm text-zinc-700">{r.sharedNote}</p>}
         {r.partnerNote && (isAdmin || r.groupCompanyId === me.groupCompanyId) && <p className="mt-2 text-sm text-zinc-800 bg-orange-50 border border-orange-200 rounded-lg px-4 py-2 whitespace-pre-wrap">{r.partnerNote}</p>}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <a href={`/api/tver-reports/${r.id}/pdf`} className="px-3 py-1.5 rounded-lg bg-zinc-900 text-white text-sm hover:bg-zinc-800">報告書PDF</a>
+          <a href={`/api/tver-reports/${r.id}/csv`} className="px-3 py-1.5 rounded-lg border border-zinc-300 text-sm text-zinc-700 hover:bg-zinc-50">CSV</a>
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-5 gap-3 text-sm mb-6">

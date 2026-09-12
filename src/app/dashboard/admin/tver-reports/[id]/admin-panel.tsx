@@ -33,7 +33,7 @@ export function ReportAdminPanel(p: {
 
   return (
     <div className="space-y-4">
-      <section className="bg-white border border-zinc-200 rounded-xl p-5 text-sm">
+      <section className="bg-white border-2 border-zinc-900 rounded-xl p-5 text-sm">
         <h2 className="text-sm font-semibold text-zinc-900 mb-3">公開先の紐づけ</h2>
         <form
           className="space-y-3"
@@ -62,7 +62,7 @@ export function ReportAdminPanel(p: {
             <input name="industry" defaultValue={p.industry} maxLength={100} list="tver-industry-list" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm" placeholder="例: 建設 / 歯科 / 飲食 / 不動産 / 自動車販売" />
             <datalist id="tver-industry-list">{["建設・リフォーム", "歯科", "医療・クリニック", "飲食", "不動産", "自動車販売", "美容・サロン", "小売", "学校・塾", "士業", "製造", "観光・宿泊", "介護・福祉", "採用"].map((x) => <option key={x} value={x} />)}</datalist>
           </label>
-          <div className="block text-xs text-zinc-600">
+          <div className="block text-xs text-zinc-600 border-l-2 border-emerald-500 pl-3">
             商圏（どの規模の市町村で打ったか。ベンチマークの軸）・複数選べます
             <div className="mt-0.5 text-[11px] text-zinc-500">現在: {p.areaLabel || "未設定"}{p.areaPopulation ? `（人口 ${p.areaPopulation.toLocaleString("ja-JP")}人）` : ""}</div>
             <div className="mt-1">
@@ -70,12 +70,12 @@ export function ReportAdminPanel(p: {
             </div>
             <p className="mt-1 text-[11px] text-zinc-400">触らなければ変わりません。TVerの「地域」をコピーして貼り付けると一括で選べます。</p>
           </div>
-          <label className="block text-xs text-zinc-600">
+          <label className="block text-xs text-zinc-600 border-l-2 border-emerald-500 pl-3">
             全社に見せる補足（任意・<b>他の拠点の一覧にも出ます</b>）
             <input name="sharedNote" defaultValue={p.sharedNote} maxLength={200} className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm" placeholder="例: 高松市と坂出市限定で展開。新型車の発売告知" />
             <span className="mt-0.5 block text-[11px] text-zinc-400">どこで・何のために打ったかを一言で。広告主名と金額は書かないでください（他拠点には伏せている情報です）</span>
           </label>
-          <label className="block text-xs text-zinc-600">
+          <label className="block text-xs text-zinc-600 border-l-2 border-emerald-500 pl-3">
             拠点に見せる一言（任意・紐づけた拠点の実績ページにだけ出ます）
             <textarea name="partnerNote" defaultValue={p.partnerNote} rows={2} maxLength={2000} className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" placeholder="例: 7/20〜8/19分。福岡が最も伸びています" />
           </label>
@@ -157,7 +157,7 @@ function AmountAdjust(p: {
   const diff = valid ? v - p.sellAmount : 0;
 
   return (
-    <section className="bg-white border border-zinc-200 rounded-xl p-5 text-sm">
+    <section className="bg-white border-2 border-zinc-900 rounded-xl p-5 text-sm">
       <h2 className="text-sm font-semibold text-zinc-900 mb-1">金額の調整（裏計算のずれ・予算との差）</h2>
       <p className="text-xs text-zinc-500 mb-3">
         予算を使い切れなかった時は予算どおりの額に上げ、出しすぎた時は予算どおりの額に下げます。<b>拠点にはここで入れた金額だけが出ます</b>（卸値・自動計算は本部だけ）。内訳（キャンペーン別・商圏別・日別）は表示回数で比例按分されます。

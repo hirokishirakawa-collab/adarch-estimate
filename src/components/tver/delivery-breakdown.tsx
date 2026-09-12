@@ -4,9 +4,9 @@ import type { Breakdown } from "@/lib/tver/delivery-csv";
 
 const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
 
-function Table({ title, rows, keyLabel, showAmount }: { title: string; rows: Breakdown[]; keyLabel: string; showAmount: boolean }) {
+function Table({ title, rows, keyLabel, showAmount, border = "border border-zinc-200" }: { title: string; rows: Breakdown[]; keyLabel: string; showAmount: boolean; border?: string }) {
   return (
-    <section className="bg-white border border-zinc-200 rounded-xl p-5">
+    <section className={`bg-white ${border} rounded-xl p-5`}>
       <h2 className="text-sm font-semibold text-zinc-900 mb-3">{title}</h2>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -36,15 +36,15 @@ function Table({ title, rows, keyLabel, showAmount }: { title: string; rows: Bre
   );
 }
 
-export function BreakdownTables({ byPref, byDevice, byDate, byAge, showAmount = true }: { byPref: Breakdown[]; byDevice: Breakdown[]; byDate: Breakdown[]; byAge: Breakdown[]; showAmount?: boolean }) {
+export function BreakdownTables({ byPref, byDevice, byDate, byAge, showAmount = true, border }: { byPref: Breakdown[]; byDevice: Breakdown[]; byDate: Breakdown[]; byAge: Breakdown[]; showAmount?: boolean; border?: string }) {
   return (
     <>
-      <Table title="都道府県別" rows={byPref} keyLabel="都道府県" showAmount={showAmount} />
+      <Table title="都道府県別" rows={byPref} keyLabel="都道府県" showAmount={showAmount} border={border} />
       <div className="grid md:grid-cols-2 gap-6">
-        <Table title="デバイス別" rows={byDevice} keyLabel="デバイス" showAmount={false} />
-        <Table title="性別・年齢別" rows={byAge} keyLabel="性別 年齢" showAmount={false} />
+        <Table title="デバイス別" rows={byDevice} keyLabel="デバイス" showAmount={false} border={border} />
+        <Table title="性別・年齢別" rows={byAge} keyLabel="性別 年齢" showAmount={false} border={border} />
       </div>
-      <Table title="日別" rows={byDate} keyLabel="日付" showAmount={showAmount} />
+      <Table title="日別" rows={byDate} keyLabel="日付" showAmount={showAmount} border={border} />
     </>
   );
 }

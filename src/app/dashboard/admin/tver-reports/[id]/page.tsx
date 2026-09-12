@@ -85,6 +85,15 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
         <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${r.status === "PUBLISHED" ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"}`}>{r.status === "PUBLISHED" ? `公開済み（${fmtDT(r.confirmedAt)}）` : "確認待ち（拠点には見えていません）"}</span>
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-zinc-500">
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm border-2 border-zinc-900" />本部だけが見える</span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm border-2 border-emerald-500" />拠点・お客様にも見える</span>
+        <span className="ml-auto flex items-center gap-2">
+          <a href={`/api/tver-reports/${r.id}/pdf`} className="px-3 py-1.5 rounded-lg bg-zinc-900 text-white text-sm hover:bg-zinc-800">報告書PDF</a>
+          <a href={`/api/tver-reports/${r.id}/csv`} className="px-3 py-1.5 rounded-lg border border-zinc-300 text-sm text-zinc-700 hover:bg-zinc-50">CSV</a>
+        </span>
+      </div>
+
       {r.warnings.some(isActionWarning) && (
         <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-800">
           <p className="font-semibold mb-1">取込時の警告（確認してから公開）</p>
@@ -100,7 +109,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
 
       <div className="grid lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3 space-y-6">
-          <section className="bg-white border border-zinc-200 rounded-xl p-5">
+          <section className="bg-white border-2 border-zinc-900 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-zinc-900 mb-3">金額の確認（卸値は本部だけ・拠点には売価だけが出ます）</h2>
             <div className="grid sm:grid-cols-4 gap-3 text-sm">
               <Stat k={`予算＝媒体実費（この期間 ${days}日）`} v={periodBudget != null ? yen(periodBudget) : "—"} sub={r.monthlyBudget ? `月額 ${yen(r.monthlyBudget)}・売価換算 ${yen(periodBudget! * SELL_MULTIPLIER)}` : "未設定"} />
@@ -130,7 +139,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
             </div>
           </section>
 
-          <section className="bg-white border border-zinc-200 rounded-xl p-5">
+          <section className="bg-white border-2 border-zinc-900 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-zinc-900 mb-3">キャンペーン別（卸値つき・本部だけ）</h2>
             <table className="w-full text-sm">
               <thead className="text-xs text-zinc-500"><tr><th className="text-left py-1">キャンペーン</th><th className="text-right py-1">表示回数</th><th className="text-right py-1">100%再生</th><th className="text-right py-1">卸値</th><th className="text-right py-1">売価</th></tr></thead>
@@ -150,7 +159,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
 
           <AdGroupAreas reportId={r.id} groups={adGroupRows} />
 
-          <BreakdownTables byPref={byPref} byDevice={byDevice} byDate={byDate} byAge={byAge} />
+          <BreakdownTables byPref={byPref} byDevice={byDevice} byDate={byDate} byAge={byAge} border="border-2 border-emerald-500" />
         </div>
 
         <div className="lg:col-span-2">
