@@ -65,11 +65,12 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-5 gap-3 text-sm mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-sm mb-6">
         {budget != null && <Stat k="予算（税抜）" v={yen(budget)} sub={days >= 28 && days <= 31 ? "1ヶ月ぶん" : `${days}日ぶん`} />}
         <Stat k="表示回数" v={r.impressions.toLocaleString("ja-JP")} />
         <Stat k="100%再生" v={r.completes.toLocaleString("ja-JP")} sub={r.impressions ? `完全視聴率 ${Math.round((r.completes / r.impressions) * 1000) / 10}%` : ""} />
         <Stat k="クリック" v={r.clicks.toLocaleString("ja-JP")} sub={r.impressions ? `CTR ${Math.round((r.clicks / r.impressions) * 10000) / 100}%` : ""} />
+        <Stat k="売CPM" v={r.impressions ? yen(Math.round((amount / r.impressions) * 1000)) : "—"} sub="1,000回表示あたり" />
         <Stat k="金額（税抜）" v={yen(amount)} sub="再生単価×表示回数" strong />
       </div>
 

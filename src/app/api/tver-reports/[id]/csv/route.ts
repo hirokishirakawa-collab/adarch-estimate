@@ -36,6 +36,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   lines.push(row("推定到達人数", Math.round(r.impressions / FREQ)));
   if (r.areaPopulation) lines.push(row("住民比", pct(Math.round(r.impressions / FREQ), r.areaPopulation)));
   lines.push(row("金額（税抜）", amount));
+  if (r.impressions > 0) lines.push(row("売CPM（1,000回表示あたり）", Math.round((amount / r.impressions) * 1000)));
   if (r.sharedNote) lines.push(row("補足", r.sharedNote));
 
   const section = (title: string, keyLabel: string, rows: { key: string; impressions: number; completes: number; clicks: number; sellAmount: number }[]) => {

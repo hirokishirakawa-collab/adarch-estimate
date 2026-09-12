@@ -11,6 +11,7 @@ import { orderNumberLabel } from "@/lib/tver-order/plans";
 import { ReportAdminPanel } from "./admin-panel";
 import { areaOptionsFor } from "@/lib/tver/report-area";
 import { budgetForPeriod, periodDays } from "@/lib/tver/period";
+import { effectiveSell } from "@/lib/tver/amount";
 import { AdGroupAreas, type AdGroupRow } from "./adgroup-areas";
 import { BreakdownTables } from "@/components/tver/delivery-breakdown";
 
@@ -135,7 +136,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
               <Stat k="表示回数" v={r.impressions.toLocaleString("ja-JP")} />
               <Stat k="100%再生" v={r.completes.toLocaleString("ja-JP")} sub={r.impressions ? `${Math.round((r.completes / r.impressions) * 1000) / 10}%` : ""} />
               <Stat k="クリック" v={r.clicks.toLocaleString("ja-JP")} sub={r.impressions ? `CTR ${Math.round((r.clicks / r.impressions) * 10000) / 100}%` : ""} />
-              <Stat k="売CPM" v={r.impressions ? yen(Math.round((r.sellAmount / r.impressions) * 1000)) : "—"} />
+              <Stat k="売CPM（拠点にも見える）" v={r.impressions ? yen(Math.round((effectiveSell(r) / r.impressions) * 1000)) : "—"} sub="調整後の金額 ÷ 表示回数 × 1,000" />
             </div>
           </section>
 
