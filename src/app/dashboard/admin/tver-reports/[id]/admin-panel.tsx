@@ -151,6 +151,25 @@ function AmountAdjust(p: {
   const periodBudget = budgetForPeriod(Number.isFinite(budgetNum) && budget.trim() ? budgetNum : null, p.periodDays); // 媒体実費ベース
   const periodBudgetSell = periodBudget != null ? periodBudget * SELL_MULTIPLIER : null; // 予算どおりに請求する売価
   const spendDiff = periodBudget != null ? periodBudget - p.wholesaleAmount : null; // ＋=未消化 / −=超過
+  // 保存済みの予算から出る売価（＝前に自動で入れた額）。金額欄がこれと同じなら「自動」とみなす
+  const savedTarget = (() => {
+    const b = budgetForPeriod(p.monthlyBudget, p.periodDays);
+    return b == null ? null : b * SELL_MULTIPLIER;
+  })();
+  const plain = (v: string) => v.replace(/[,¥￥\s]/g, "").trim();
+  /** 月額予算を変えたら、金額欄が「自動で入れた額のまま」なら新しい予算どおりの額に追随させる */
+  const changeBudget = (v: string) => {
+    const prevTarget = periodBudgetSell;
+    const n = Number(plain(v));
+    const b = plain(v) && Number.isFinite(n) ? budgetForPeriod(n, p.periodDays) : null;
+    const next = b == null ? null : b * SELL_MULTIPLIER;
+    setBudget(v);
+    setAmount((cur) => {
+      const c = plain(cur);
+      const isAuto = c === "" || (prevTarget != null && c === String(prevTarget)) || (savedTarget != null && c === String(savedTarget));
+      return isAuto && next != null ? String(next) : cur;
+    });
+  };
   const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
   const v = Number(amount.replace(/[,¥￥\s]/g, ""));
   const valid = amount.trim() !== "" && Number.isFinite(v) && v >= 0;
@@ -195,7 +214,7 @@ function AmountAdjust(p: {
             <input
               name="monthlyBudget"
               value={budget}
-              onChange={(e) => setBudget(e.target.value)}
+              onChange={(e) => changeBudget(e.target.value)}
               inputMode="numeric"
               placeholder="例: 150000"
               className="w-44 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm tabular-nums"

@@ -263,8 +263,15 @@ export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R>
     return { ok: true, message: `調整を解除しました（自動の売価に戻ります）${monthlyBudget != null ? `・月額予算 ¥${monthlyBudget.toLocaleString("ja-JP")}` : ""}` };
   }
 
-  const n = Number(raw);
+  let n = Number(raw);
   if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return { error: "金額は0以上の整数で入れてください" };
+  // 予算を変えたのに、金額が「前の予算どおりの額」のままなら新しい予算に追随させる（画面が古いまま送られた時の保険）
+  if (monthlyBudget != null && monthlyBudget !== r.monthlyBudget) {
+    const days = periodDays(r.periodStart, r.periodEnd);
+    const oldTarget = budgetSellForPeriod(r.monthlyBudget, days, SELL_MULTIPLIER);
+    const newTarget = budgetSellForPeriod(monthlyBudget, days, SELL_MULTIPLIER);
+    if (oldTarget != null && newTarget != null && n === oldTarget) n = newTarget;
+  }
   if (r.sellAmount > 0 && n > r.sellAmount * 10) return { error: `自動の売価（¥${r.sellAmount.toLocaleString("ja-JP")}）の10倍を超えています。桁を確認してください` };
   if (!note) return { error: "調整の理由を入れてください（本部内の記録用）" };
 
