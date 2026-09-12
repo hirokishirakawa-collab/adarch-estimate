@@ -57,9 +57,13 @@ export function monthsInPeriod(start: Date, end: Date): number {
  *   暦どおりの月数（monthsInPeriod）を掛ける。1ヶ月ちょうどなら月額そのまま、月またぎも過不足なし
  *   拠点・お客様に見せる予算は これ×SELL_MULTIPLIER（budgetSellForPeriod）
  */
-export function budgetForPeriod(monthly: number | null | undefined, start: Date, end: Date): number | null {
-  if (monthly == null || monthly <= 0) return null;
-  return Math.round(monthly * billingMonths(start, end));
+export type BudgetMode = "PERIOD" | "MONTHLY";
+
+export function budgetForPeriod(amount: number | null | undefined, mode: BudgetMode | string | null | undefined, start: Date, end: Date): number | null {
+  if (amount == null || amount <= 0) return null;
+  // 期間予算＝期間の長さに関係なくこの額（TVerの「期間で消化する」設定に合わせる）
+  if (mode !== "MONTHLY") return amount;
+  return Math.round(amount * billingMonths(start, end));
 }
 
 /** 丸めの幅（ヶ月）。0.1ヶ月＝約3日 */
@@ -77,7 +81,7 @@ export function billingMonths(start: Date, end: Date): number {
 }
 
 /** 拠点・お客様に見せる予算（＝媒体実費の予算×売価係数）。卸値そのものは拠点に出さない */
-export function budgetSellForPeriod(monthly: number | null | undefined, start: Date, end: Date, multiplier: number): number | null {
-  const b = budgetForPeriod(monthly, start, end);
+export function budgetSellForPeriod(amount: number | null | undefined, mode: BudgetMode | string | null | undefined, start: Date, end: Date, multiplier: number): number | null {
+  const b = budgetForPeriod(amount, mode, start, end);
   return b == null ? null : b * multiplier;
 }

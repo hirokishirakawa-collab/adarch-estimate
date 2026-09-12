@@ -222,36 +222,39 @@ export async function deleteDeliveryReports(ids: string[]): Promise<R> {
 export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R> {
   const info = await admin();
   if (!info) return { error: "権限がありません" };
-  const r = await db.tverDeliveryReport.findUnique({ where: { id }, select: { advertiserName: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, periodStart: true, periodEnd: true } });
+  const r = await db.tverDeliveryReport.findUnique({ where: { id }, select: { advertiserName: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, budgetMode: true, periodStart: true, periodEnd: true } });
   if (!r) return { error: "レポートが見つかりません" };
   const raw = String(fd.get("sellAmountAdjusted") ?? "").replace(/[,¥￥\s]/g, "").trim();
   const note = String(fd.get("adjustNote") ?? "").trim().slice(0, 200);
 
   // 月額予算（お客様と決めた金額・税抜）。空なら消す
   const budgetRaw = String(fd.get("monthlyBudget") ?? "").replace(/[,¥￥\s]/g, "").trim();
+  const budgetMode = String(fd.get("budgetMode") ?? "").trim() === "MONTHLY" ? "MONTHLY" : "PERIOD";
   let monthlyBudget: number | null = null;
   if (budgetRaw) {
     const b = Number(budgetRaw);
-    if (!Number.isFinite(b) || !Number.isInteger(b) || b < 0) return { error: "月額予算は0以上の整数で入れてください" };
+    if (!Number.isFinite(b) || !Number.isInteger(b) || b < 0) return { error: "予算は0以上の整数で入れてください" };
     monthlyBudget = b;
   }
-  if (monthlyBudget !== r.monthlyBudget) await db.tverDeliveryReport.update({ where: { id }, data: { monthlyBudget } });
+  if (monthlyBudget !== r.monthlyBudget || budgetMode !== r.budgetMode) {
+    await db.tverDeliveryReport.update({ where: { id }, data: { monthlyBudget, budgetMode } });
+  }
 
   // 予算を入れて金額欄が空なら、金額は予算どおりに自動で揃える（ズレを残さない＝2026-09-12 代表指示）
   if (!raw && monthlyBudget != null) {
-    const target = budgetSellForPeriod(monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER)!;
+    const target = budgetSellForPeriod(monthlyBudget, budgetMode, r.periodStart, r.periodEnd, SELL_MULTIPLIER)!;
     await db.tverDeliveryReport.update({
       where: { id },
       data: { sellAmountAdjusted: target, adjustNote: note || "予算どおりに調整", adjustedAt: new Date(), adjustedByEmail: info.email },
     });
     logAudit({
       action: "tver_delivery_amount_adjusted", email: info.email, name: info.staffName, entity: "tver_delivery_report", entityId: id,
-      detail: `${r.advertiserName} 予算 ¥${monthlyBudget.toLocaleString("ja-JP")}/月 に合わせて売価を ¥${r.sellAmount.toLocaleString("ja-JP")} → ¥${target.toLocaleString("ja-JP")}（自動）`,
+      detail: `${r.advertiserName} 予算 ¥${monthlyBudget.toLocaleString("ja-JP")}${budgetMode === "MONTHLY" ? "/月" : "（期間）"} に合わせて売価を ¥${r.sellAmount.toLocaleString("ja-JP")} → ¥${target.toLocaleString("ja-JP")}（自動）`,
     });
     revalidatePath(`${PATH}/${id}`);
     revalidatePath(PATH);
     revalidatePath(PARTNER_PATH);
-    return { ok: true, message: `月額予算 ¥${monthlyBudget.toLocaleString("ja-JP")} を保存し、拠点に出る金額を予算どおりの ¥${target.toLocaleString("ja-JP")} に揃えました` };
+    return { ok: true, message: `${budgetMode === "MONTHLY" ? "月額" : "期間"}予算 ¥${monthlyBudget.toLocaleString("ja-JP")} を保存し、拠点に出る金額を予算どおりの ¥${target.toLocaleString("ja-JP")} に揃えました` };
   }
 
   if (!raw) {
@@ -260,19 +263,19 @@ export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R>
     revalidatePath(`${PATH}/${id}`);
     revalidatePath(PATH);
     revalidatePath(PARTNER_PATH);
-    return { ok: true, message: `調整を解除しました（自動の売価に戻ります）${monthlyBudget != null ? `・月額予算 ¥${monthlyBudget.toLocaleString("ja-JP")}` : ""}` };
+    return { ok: true, message: `調整を解除しました（自動の売価に戻ります）${monthlyBudget != null ? `・${budgetMode === "MONTHLY" ? "月額" : "期間"}予算 ¥${monthlyBudget.toLocaleString("ja-JP")}` : ""}` };
   }
 
   let n = Number(raw);
   if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return { error: "金額は0以上の整数で入れてください" };
   // 予算を変えたのに、金額が「前の予算どおりの額」のままなら新しい予算に追随させる（画面が古いまま送られた時の保険）
   if (monthlyBudget != null && monthlyBudget !== r.monthlyBudget) {
-    const oldTarget = budgetSellForPeriod(r.monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER);
-    const newTarget = budgetSellForPeriod(monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER);
+    const oldTarget = budgetSellForPeriod(r.monthlyBudget, r.budgetMode, r.periodStart, r.periodEnd, SELL_MULTIPLIER);
+    const newTarget = budgetSellForPeriod(monthlyBudget, budgetMode, r.periodStart, r.periodEnd, SELL_MULTIPLIER);
     if (oldTarget != null && newTarget != null && n === oldTarget) n = newTarget;
   }
   // 桁間違いの保険。ただし「予算どおりの額」は計算結果なので弾かない（未消化が大きいと自動売価の10倍を超えうる）
-  const budgetTarget = monthlyBudget != null ? budgetSellForPeriod(monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER) : null;
+  const budgetTarget = monthlyBudget != null ? budgetSellForPeriod(monthlyBudget, budgetMode, r.periodStart, r.periodEnd, SELL_MULTIPLIER) : null;
   if (r.sellAmount > 0 && n > r.sellAmount * 10 && n !== budgetTarget) {
     return { error: `自動の売価（¥${r.sellAmount.toLocaleString("ja-JP")}）の10倍を超えています。桁を確認してください` };
   }
@@ -291,7 +294,7 @@ export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R>
   revalidatePath(`${PATH}/${id}`);
   revalidatePath(PATH);
   revalidatePath(PARTNER_PATH);
-  return { ok: true, message: `拠点に出る金額を ¥${n.toLocaleString("ja-JP")} にしました${monthlyBudget != null ? `・月額予算 ¥${monthlyBudget.toLocaleString("ja-JP")}` : ""}` };
+  return { ok: true, message: `拠点に出る金額を ¥${n.toLocaleString("ja-JP")} にしました${monthlyBudget != null ? `・${budgetMode === "MONTHLY" ? "月額" : "期間"}予算 ¥${monthlyBudget.toLocaleString("ja-JP")}` : ""}` };
 }
 
 /** 広告グループごとの商圏を本部が選ぶ（複数可＝合算。MANUAL＝再取込でも上書きしない）。fd: area:<広告グループ名> = areaKey（複数） */

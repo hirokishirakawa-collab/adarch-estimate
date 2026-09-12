@@ -49,7 +49,7 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
       where: { id: input.reportId, status: "PUBLISHED", ...mine },
       select: {
         id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true, partnerNote: true, confirmedAt: true,
-        impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, sharedNote: true, campaignNames: true,
+        impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, budgetMode: true, sharedNote: true, campaignNames: true,
         groupCompany: { select: { name: true } }, tverOrder: { select: { number: true, createdAt: true, prefName: true, areaLabel: true, planKey: true, months: true } },
         rows: { select: rowSel }, adGroups: { select: agSel },
       },
@@ -63,7 +63,7 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
       id: r.id, advertiser: r.advertiserName, industry: r.industry, company: r.groupCompany?.name ?? "本部",
       area: r.areaLabel, areaPopulation: r.areaPopulation,
       period: { from: day(r.periodStart), to: day(r.periodEnd), days },
-      budget: r.monthlyBudget ? { forThisPeriodExclTax: yen(budgetSellForPeriod(r.monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER) ?? 0), note: "お客様と決めた予算（税抜）。実績の金額がこれと同じなら予算どおりに配信できたということ" } : null,
+      budget: r.monthlyBudget ? { forThisPeriodExclTax: yen(budgetSellForPeriod(r.monthlyBudget, r.budgetMode, r.periodStart, r.periodEnd, SELL_MULTIPLIER) ?? 0), note: "お客様と決めた予算（税抜）。実績の金額がこれと同じなら予算どおりに配信できたということ" } : null,
       per30Days: { amountExclTax: yen((amount / Math.max(1, days)) * 30), impressions: Math.round((r.impressions / Math.max(1, days)) * 30), reachEstimate: Math.round((r.impressions / Math.max(1, days)) * 30 / FREQ), residentsReachPct: r.areaPopulation ? `${pct(Math.round((r.impressions / Math.max(1, days)) * 30 / FREQ), r.areaPopulation)}%` : null },
       adSeconds: sec, unitPrice: sec ? `¥${UNIT_PRICE[sec]}/再生（税抜）` : null,
       order: r.tverOrder ? { area: `${r.tverOrder.prefName} ${r.tverOrder.areaLabel}`, plan: r.tverOrder.planKey, months: r.tverOrder.months } : null,
@@ -83,7 +83,7 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
     where: { status: "PUBLISHED", ...mine, ...(input.advertiser ? { advertiserName: { contains: input.advertiser, mode: "insensitive" } } : {}) },
     orderBy: { periodEnd: "desc" },
     take: Math.min(50, Math.max(1, input.limit ?? 20)),
-    select: { id: true, advertiserName: true, industry: true, periodStart: true, periodEnd: true, adSeconds: true, impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, confirmedAt: true, groupCompany: { select: { name: true } } },
+    select: { id: true, advertiserName: true, industry: true, periodStart: true, periodEnd: true, adSeconds: true, impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, budgetMode: true, confirmedAt: true, groupCompany: { select: { name: true } } },
   });
   return {
     count: list.length,

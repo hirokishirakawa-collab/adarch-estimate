@@ -35,7 +35,7 @@ export default async function TverReportsPage() {
     take: 300,
     select: {
       id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true,
-      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, confirmedAt: true, partnerNote: true, sharedNote: true,
+      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, budgetMode: true, confirmedAt: true, partnerNote: true, sharedNote: true,
       groupCompanyId: true, groupCompany: { select: { name: true, prefecture: true } },
     },
   });
@@ -93,7 +93,7 @@ export default async function TverReportsPage() {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{periodLabel(r.periodStart, r.periodEnd)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{r.groupCompany?.name ?? "—"}{mine && <span className="ml-1 text-[10px] text-orange-600">自社</span>}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{budgetSellForPeriod(r.monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER) != null ? yen(budgetSellForPeriod(r.monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER)!) : "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{budgetSellForPeriod(r.monthlyBudget, r.budgetMode, r.periodStart, r.periodEnd, SELL_MULTIPLIER) != null ? yen(budgetSellForPeriod(r.monthlyBudget, r.budgetMode, r.periodStart, r.periodEnd, SELL_MULTIPLIER)!) : "—"}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.impressions.toLocaleString("ja-JP")}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.completes.toLocaleString("ja-JP")}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.clicks.toLocaleString("ja-JP")}</td>

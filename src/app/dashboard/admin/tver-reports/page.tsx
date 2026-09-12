@@ -18,8 +18,8 @@ import { ImportForm } from "./import-form";
 import { ReportsTable, type ReportRow } from "./reports-table";
 
 /** 予算どおりの売価と、拠点に出る金額の差（予算未設定は null）。公開前に潰すための目印 */
-function budgetGapOf(r: { monthlyBudget: number | null; periodStart: Date; periodEnd: Date; sellAmount: number; sellAmountAdjusted: number | null }): number | null {
-  const target = budgetSellForPeriod(r.monthlyBudget, r.periodStart, r.periodEnd, SELL_MULTIPLIER);
+function budgetGapOf(r: { monthlyBudget: number | null; budgetMode: string; periodStart: Date; periodEnd: Date; sellAmount: number; sellAmountAdjusted: number | null }): number | null {
+  const target = budgetSellForPeriod(r.monthlyBudget, r.budgetMode, r.periodStart, r.periodEnd, SELL_MULTIPLIER);
   if (target == null) return null;
   return (r.sellAmountAdjusted ?? r.sellAmount) - target;
 }
