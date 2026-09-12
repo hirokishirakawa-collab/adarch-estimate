@@ -40,7 +40,6 @@ const median = (xs: number[]) => {
 export function Insights({ reports, devices }: { reports: InsightReport[]; devices: DeviceStat[] }) {
   const all = reports.filter((r) => r.impressions > 0 && r.amount > 0 && r.months > 0);
   const usable = all.filter((r) => !r.excludeFromBenchmark); // 単価の目安に使う本数
-  const excluded = all.length - usable.length;
   if (usable.length < 3) return null;
 
   // ① 月いくらで何人に届いたか（1万円あたりの到達人数）
@@ -68,7 +67,7 @@ export function Insights({ reports, devices }: { reports: InsightReport[]; devic
     <section className="bg-white border border-zinc-200 rounded-xl p-5">
       <div className="flex items-baseline gap-2 mb-1">
         <h2 className="text-sm font-semibold text-zinc-900">どう展開すると届くか</h2>
-        <span className="text-[11px] text-zinc-400">グループ全社の公開済み実績 {usable.length}本から{excluded > 0 ? `（条件が特殊な${excluded}本は単価の目安から除外）` : ""}</span>
+        <span className="text-[11px] text-zinc-400">グループ全社の公開済み実績 {usable.length}本から</span>
       </div>
       <p className="text-xs text-zinc-500 mb-4">お客様への提案で「いくらで、どれだけ届くか」を説明するときの目安です。推計であり保証値ではありません。</p>
 
