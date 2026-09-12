@@ -10,6 +10,8 @@ import { allocateBreakdown, effectiveSell } from "@/lib/tver/amount";
 import { billingMonths, budgetSellForPeriod, periodDays } from "@/lib/tver/period";
 import { SELL_MULTIPLIER, UNIT_PRICE, type AdSeconds } from "@/lib/tver/plan";
 import { BreakdownTables } from "@/components/tver/delivery-breakdown";
+import { RankBars, RateRing, StatTile, TrendBars } from "@/components/tver/charts";
+import { FREQ } from "@/lib/tver/plan";
 
 export const dynamic = "force-dynamic";
 const fmtD = (d: Date) => new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "medium" }).format(d);
@@ -40,11 +42,17 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
   // 本部が金額を調整していれば、総額も内訳もその金額に合わせる（内訳の合計＝総額）
   const amount = effectiveSell(r);
   const days = periodDays(r.periodStart, r.periodEnd);
+  const reach = Math.round(r.impressions / FREQ);
   const budget = budgetSellForPeriod(r.monthlyBudget, r.budgetMode, r.periodStart, r.periodEnd, SELL_MULTIPLIER); // 拠点に出す予算＝媒体実費×係数
   const byCampaign = allocateBreakdown(breakdown(r.rows, (x) => x.campaignName), r);
   const byPref = allocateBreakdown(breakdown(r.rows, (x) => x.prefecture), r);
   const byDevice = allocateBreakdown(breakdown(r.rows, (x) => x.device), r);
-  const byDate = allocateBreakdown(breakdown(r.rows, (x) => fmtD(x.date)), r).sort((a, b) => a.key.localeCompare(b.key, "ja"));
+  const dayKey = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  const shortD = (d: Date) => new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" }).format(d);
+  const dateLabel = new Map(r.rows.map((x) => [dayKey(x.date), shortD(x.date)]));
+  const byDate = allocateBreakdown(breakdown(r.rows, (x) => dayKey(x.date)), r)
+    .sort((a, b) => a.key.localeCompare(b.key))
+    .map((b) => ({ ...b, key: dateLabel.get(b.key) ?? b.key }));
   const byAge = allocateBreakdown(breakdown(r.rows, (x) => `${x.gender} ${x.age}`), r);
   const agArea = new Map(r.adGroups.map((a) => [a.adGroupName, a]));
   const byAdGroup = allocateBreakdown(breakdown(r.rows, (x) => x.adGroupName), r);
@@ -65,14 +73,29 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-sm mb-6">
-        {budget != null && <Stat k="予算（税抜）" v={yen(budget)} sub={r.budgetMode === "MONTHLY" ? `${String(billingMonths(r.periodStart, r.periodEnd).toFixed(2)).replace(/\.?0+$/, "")}ヶ月ぶん` : "この期間ぶん"} />}
-        <Stat k="表示回数" v={r.impressions.toLocaleString("ja-JP")} />
-        <Stat k="100%再生" v={r.completes.toLocaleString("ja-JP")} sub={r.impressions ? `完全視聴率 ${Math.round((r.completes / r.impressions) * 1000) / 10}%` : ""} />
-        <Stat k="クリック" v={r.clicks.toLocaleString("ja-JP")} sub={r.impressions ? `CTR ${Math.round((r.clicks / r.impressions) * 10000) / 100}%` : ""} />
-        <Stat k="売CPM" v={r.impressions ? yen(Math.round((amount / r.impressions) * 1000)) : "—"} sub="1,000回表示あたり" />
-        <Stat k="金額（税抜）" v={yen(amount)} sub="再生単価×表示回数" strong />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <StatTile k="CMが届いた回数" v={r.impressions.toLocaleString("ja-JP")} sub={`1日あたり ${Math.round(r.impressions / days).toLocaleString("ja-JP")}回・${days}日間`} />
+        <StatTile k="推定到達人数" v={`${reach.toLocaleString("ja-JP")}人`} sub={r.areaPopulation ? `商圏の住民の ${Math.round((reach / r.areaPopulation) * 1000) / 10}%` : "表示回数 ÷ 平均接触回数"} />
+        <StatTile k="金額（税抜）" v={yen(amount)} sub={budget != null ? (amount === budget ? "予算どおり" : `予算 ${yen(budget)}`) : `売CPM ${r.impressions ? yen(Math.round((amount / r.impressions) * 1000)) : "—"}`} accent />
+        <StatTile k="クリック" v={r.clicks.toLocaleString("ja-JP")} sub={r.impressions ? `CTR ${Math.round((r.clicks / r.impressions) * 10000) / 100}%` : ""} />
       </div>
+
+      <div className="grid lg:grid-cols-3 gap-3 mb-6">
+        <RateRing completes={r.completes} impressions={r.impressions} />
+        <div className="lg:col-span-2">
+          <TrendBars title="日ごとの配信量" rows={byDate} />
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6 mb-6">
+        <RankBars title="どの機器で見られたか" rows={byDevice} total={r.impressions} limit={6} />
+        <RankBars title="どの層に届いたか（性別・年齢）" rows={byAge} total={r.impressions} limit={10} />
+      </div>
+      {byPref.length > 1 && (
+        <div className="mb-6">
+          <RankBars title="どの地域に届いたか" rows={byPref} total={r.impressions} limit={12} />
+        </div>
+      )}
 
       <div className="space-y-6">
         <section className="bg-white border border-zinc-200 rounded-xl p-5">
@@ -115,7 +138,12 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
             </table>
           </div>
         </section>
-        <BreakdownTables byPref={byPref} byDevice={byDevice} byDate={byDate} byAge={byAge} />
+        <details className="bg-white border border-zinc-200 rounded-xl p-5">
+          <summary className="text-sm font-semibold text-zinc-900 cursor-pointer">数字で見る（都道府県別・デバイス別・性別年齢別・日別）</summary>
+          <div className="mt-4 space-y-6">
+            <BreakdownTables byPref={byPref} byDevice={byDevice} byDate={byDate} byAge={byAge} />
+          </div>
+        </details>
       </div>
     </div>
   );

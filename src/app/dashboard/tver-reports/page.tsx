@@ -11,6 +11,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { effectiveSell } from "@/lib/tver/amount";
 import { budgetSellForPeriod, periodLabel } from "@/lib/tver/period";
+import { FREQ } from "@/lib/tver/plan";
+import { StatTile } from "@/components/tver/charts";
 import { SELL_MULTIPLIER } from "@/lib/tver/plan";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +43,13 @@ export default async function TverReportsPage() {
   });
 
 
+  const mineRows = reports.filter((x) => isAdmin || (!!me.groupCompanyId && x.groupCompanyId === me.groupCompanyId));
+  const sum = (list: typeof reports, f: (x: (typeof reports)[number]) => number) => list.reduce((a, x) => a + f(x), 0);
+  const totalImp = sum(mineRows, (x) => x.impressions);
+  const totalAmount = sum(mineRows, (x) => effectiveSell(x));
+  const totalCompletes = sum(mineRows, (x) => x.completes);
+  const advertisers = new Set(mineRows.map((x) => x.advertiserName)).size;
+
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-5">
       <div className="flex items-center gap-3">
@@ -56,6 +65,15 @@ export default async function TverReportsPage() {
         </div>
         {isAdmin && <Link href="/dashboard/admin/tver-reports" className="ml-auto text-sm text-orange-600 underline">本部の取込・確認へ</Link>}
       </div>
+
+      {mineRows.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatTile k={isAdmin ? "グループ全社の配信回数" : "貴社が届けたCM"} v={totalImp.toLocaleString("ja-JP")} sub={`${mineRows.length}本のレポート・広告主${advertisers}社`} />
+          <StatTile k="推定到達人数（のべ）" v={`${Math.round(totalImp / FREQ).toLocaleString("ja-JP")}人`} sub="表示回数 ÷ 平均接触回数 4.78" />
+          <StatTile k="完全視聴率" v={totalImp ? `${Math.round((totalCompletes / totalImp) * 1000) / 10}%` : "—"} sub="最後まで見られた割合" />
+          <StatTile k="金額（税抜・合計）" v={yen(totalAmount)} sub="本部が確認した実績のみ" accent />
+        </div>
+      )}
 
       <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
