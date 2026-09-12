@@ -133,6 +133,7 @@ export async function tverBenchmarks(v: McpViewer, input: TverBenchmarksInput) {
   const reports = await db.tverDeliveryReport.findMany({
     where: {
       status: "PUBLISHED",
+      excludeFromBenchmark: false, // 条件が特殊な案件（グロス請求など）は単価の目安に混ぜない
       ...(industry ? { industry: { contains: industry, mode: "insensitive" } } : {}),
       ...(sec ? { adSeconds: sec } : {}),
       ...(pref ? { rows: { some: { prefecture: { contains: pref } } } } : {}),

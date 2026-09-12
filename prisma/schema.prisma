@@ -2695,6 +2695,9 @@ model TverDeliveryReport {
   monthlyBudget      Int?
   budgetMode         String  @default("MONTHLY")
   sellAmountAdjusted Int? // 調整後の売価（税抜・円）。null＝調整なし
+  //   単価の条件が特殊な案件（グロス請求・別案件込みの調整単価など）は true。
+  //   金額は今までどおり出すが、全社の単価の目安（一覧の分析・tver_benchmarks）からは外す。展開の型は参考にできる
+  excludeFromBenchmark Boolean @default(false)
   adjustNote         String? // 調整の理由（本部内・必須入力）
   adjustedAt         DateTime?
   adjustedByEmail    String?

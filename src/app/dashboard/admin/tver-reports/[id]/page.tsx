@@ -185,6 +185,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
             crossCheckDiffPct={r.crossCheckDiffPct}
             sellAmountAdjusted={r.sellAmountAdjusted}
             adjustNote={r.adjustNote ?? ""}
+            excludeFromBenchmark={r.excludeFromBenchmark}
             monthlyBudget={r.monthlyBudget}
             budgetMode={r.budgetMode}
             periodMonths={billingMonths(r.periodStart, r.periodEnd)}

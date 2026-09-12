@@ -39,7 +39,7 @@ export default async function TverReportsPage() {
     take: 300,
     select: {
       id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true,
-      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, budgetMode: true, confirmedAt: true, partnerNote: true, sharedNote: true,
+      impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, budgetMode: true, excludeFromBenchmark: true, confirmedAt: true, partnerNote: true, sharedNote: true,
       groupCompanyId: true, groupCompany: { select: { name: true, prefecture: true } },
     },
   });
@@ -66,6 +66,7 @@ export default async function TverReportsPage() {
     days: periodDays(r.periodStart, r.periodEnd),
     months: billingMonths(r.periodStart, r.periodEnd),
     amount: effectiveSell(r),
+    excludeFromBenchmark: r.excludeFromBenchmark,
   }));
 
   const mineRows = reports.filter((x) => isAdmin || (!!me.groupCompanyId && x.groupCompanyId === me.groupCompanyId));

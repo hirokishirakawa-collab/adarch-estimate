@@ -230,6 +230,8 @@ export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R>
   // 月額予算（お客様と決めた金額・税抜）。空なら消す
   const budgetRaw = String(fd.get("monthlyBudget") ?? "").replace(/[,¥￥\s]/g, "").trim();
   const budgetMode = String(fd.get("budgetMode") ?? "").trim() === "MONTHLY" ? "MONTHLY" : "PERIOD";
+  const excludeFromBenchmark = !!fd.get("excludeFromBenchmark");
+  await db.tverDeliveryReport.update({ where: { id }, data: { excludeFromBenchmark } });
   let monthlyBudget: number | null = null;
   if (budgetRaw) {
     const b = Number(budgetRaw);

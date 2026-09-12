@@ -25,7 +25,7 @@ export function ReportAdminPanel(p: {
   areaOptions: { key: string; label: string; population: number }[];
   areaKeys: string[];
   wholesaleAmount: number; sellAmount: number; sellMultiplier: number; crossCheckAmount: number; crossCheckDiffPct: number;
-  sellAmountAdjusted: number | null; adjustNote: string; monthlyBudget: number | null; budgetMode: string; periodDays: number; periodMonths: number;
+  sellAmountAdjusted: number | null; adjustNote: string; monthlyBudget: number | null; budgetMode: string; periodDays: number; periodMonths: number; excludeFromBenchmark: boolean;
   hasWarnings: boolean;
 }) {
   const router = useRouter();
@@ -115,6 +115,7 @@ export function ReportAdminPanel(p: {
         crossCheckDiffPct={p.crossCheckDiffPct}
         sellAmountAdjusted={p.sellAmountAdjusted}
         adjustNote={p.adjustNote}
+        excludeFromBenchmark={p.excludeFromBenchmark}
         monthlyBudget={p.monthlyBudget}
         periodDays={p.periodDays}
         periodMonths={p.periodMonths}
@@ -160,7 +161,7 @@ export function ReportAdminPanel(p: {
 // ── 金額の調整（本部だけ）。未消化でも「予算どおり」に見せる／超過ぶんは本部が負担する
 function AmountAdjust(p: {
   id: string; wholesaleAmount: number; sellAmount: number; sellMultiplier: number;
-  crossCheckAmount: number; crossCheckDiffPct: number; sellAmountAdjusted: number | null; adjustNote: string;
+  crossCheckAmount: number; crossCheckDiffPct: number; sellAmountAdjusted: number | null; adjustNote: string; excludeFromBenchmark: boolean;
   monthlyBudget: number | null; budgetMode: string; periodDays: number; periodMonths: number;
 }) {
   const router = useRouter();
@@ -299,6 +300,13 @@ function AmountAdjust(p: {
             <input name="adjustNote" defaultValue={p.adjustNote} maxLength={200} placeholder="例: 予算未消化のため契約額どおりに調整" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm" />
           </label>
         </div>
+        <label className="flex items-start gap-2 text-xs text-zinc-700">
+          <input type="checkbox" name="excludeFromBenchmark" defaultChecked={p.excludeFromBenchmark} className="mt-0.5" />
+          <span>
+            単価の目安に使わない（展開だけ参考にする）
+            <span className="block text-[11px] text-zinc-400">グロス請求・別案件込みの調整単価など、条件が他と違う案件に付けます。金額は今までどおり拠点に出ますが、一覧の「どう展開すると届くか」とAI連携のベンチマークからは外れます。</span>
+          </span>
+        </label>
         <button disabled={pending} className="px-4 py-2 rounded-lg bg-zinc-900 text-white text-sm disabled:opacity-50">金額を保存</button>
         {msg && <span className="ml-3 text-sm text-zinc-700">{msg}</span>}
       </form>
