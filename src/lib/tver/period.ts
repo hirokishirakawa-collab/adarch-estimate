@@ -20,11 +20,18 @@ export function periodLabel(start: Date | string, end: Date | string): string {
 export const periodDays = (start: Date, end: Date) => Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1);
 
 /**
- * 月額予算 → この期間ぶんの予算
+ * 月額予算（媒体実費＝卸値ベース） → この期間ぶんの予算
  *   28〜31日は「1ヶ月」とみなす（月次レポートはそのまま月額）。それ以外は日割り（月額÷30×日数）
+ *   拠点・お客様に見せる予算は これ×SELL_MULTIPLIER（budgetSellForPeriod）
  */
 export function budgetForPeriod(monthly: number | null | undefined, days: number): number | null {
   if (monthly == null || monthly <= 0) return null;
   if (days >= 28 && days <= 31) return monthly;
   return Math.round((monthly / 30) * days);
+}
+
+/** 拠点・お客様に見せる予算（＝媒体実費の予算×売価係数）。卸値そのものは拠点に出さない */
+export function budgetSellForPeriod(monthly: number | null | undefined, days: number, multiplier: number): number | null {
+  const b = budgetForPeriod(monthly, days);
+  return b == null ? null : b * multiplier;
 }

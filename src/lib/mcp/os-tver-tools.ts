@@ -10,8 +10,8 @@ import { db } from "@/lib/db";
 import type { McpViewer } from "./os-read-tools";
 import { breakdown } from "@/lib/tver/delivery-csv";
 import { allocateBreakdown, effectiveSell } from "@/lib/tver/amount";
-import { budgetForPeriod } from "@/lib/tver/period";
-import { FREQ, UNIT_PRICE, type AdSeconds } from "@/lib/tver/plan";
+import { budgetSellForPeriod } from "@/lib/tver/period";
+import { FREQ, SELL_MULTIPLIER, UNIT_PRICE, type AdSeconds } from "@/lib/tver/plan";
 import { BUDGET_BANDS, POPULATION_BANDS, budgetBand, populationBand } from "@/lib/tver/report-area";
 import { municipalitiesOf, prefectureOptions } from "@/lib/packages/tver-area";
 
@@ -63,7 +63,7 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
       id: r.id, advertiser: r.advertiserName, industry: r.industry, company: r.groupCompany?.name ?? "本部",
       area: r.areaLabel, areaPopulation: r.areaPopulation,
       period: { from: day(r.periodStart), to: day(r.periodEnd), days },
-      budget: r.monthlyBudget ? { monthlyExclTax: yen(r.monthlyBudget), forThisPeriodExclTax: yen(budgetForPeriod(r.monthlyBudget, days) ?? 0) } : null,
+      budget: r.monthlyBudget ? { forThisPeriodExclTax: yen(budgetSellForPeriod(r.monthlyBudget, days, SELL_MULTIPLIER) ?? 0), note: "お客様と決めた予算（税抜）。実績の金額がこれと同じなら予算どおりに配信できたということ" } : null,
       per30Days: { amountExclTax: yen((amount / Math.max(1, days)) * 30), impressions: Math.round((r.impressions / Math.max(1, days)) * 30), reachEstimate: Math.round((r.impressions / Math.max(1, days)) * 30 / FREQ), residentsReachPct: r.areaPopulation ? `${pct(Math.round((r.impressions / Math.max(1, days)) * 30 / FREQ), r.areaPopulation)}%` : null },
       adSeconds: sec, unitPrice: sec ? `¥${UNIT_PRICE[sec]}/再生（税抜）` : null,
       order: r.tverOrder ? { area: `${r.tverOrder.prefName} ${r.tverOrder.areaLabel}`, plan: r.tverOrder.planKey, months: r.tverOrder.months } : null,
@@ -89,7 +89,7 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
     count: list.length,
     results: list.map((r) => ({
       id: r.id, advertiser: r.advertiserName, industry: r.industry, company: r.groupCompany?.name ?? "本部",
-      period: `${day(r.periodStart)}〜${day(r.periodEnd)}`, adSeconds: r.adSeconds, monthlyBudgetExclTax: r.monthlyBudget ? yen(r.monthlyBudget) : null,
+      period: `${day(r.periodStart)}〜${day(r.periodEnd)}`, adSeconds: r.adSeconds, monthlyBudgetExclTax: r.monthlyBudget ? yen(r.monthlyBudget * SELL_MULTIPLIER) : null,
       impressions: r.impressions, completionRate: `${pct(r.completes, r.impressions)}%`, ctr: `${pct(r.clicks, r.impressions, 2)}%`, amountExclTax: yen(effectiveSell(r)), confirmedAt: day(r.confirmedAt),
     })),
     hint: "詳細（県・デバイス・年齢・日別の内訳）は tver_results(reportId) で。実績はOS本部が確認したものだけが出る",
@@ -180,7 +180,7 @@ export async function tverBenchmarks(v: McpViewer, input: TverBenchmarksInput) {
           population: areaPopulation,
           populationBand: pb?.label ?? null,
           monthlyAmountExclTax: mine ? yen(amt30) : bb?.label ?? OTHER,
-          monthlyBudgetExclTax: r.monthlyBudget ? (mine ? yen(r.monthlyBudget) : budgetBand(r.monthlyBudget)?.label ?? null) : null,
+          monthlyBudgetExclTax: r.monthlyBudget ? (mine ? yen(r.monthlyBudget * SELL_MULTIPLIER) : budgetBand(r.monthlyBudget * SELL_MULTIPLIER)?.label ?? null) : null,
           budgetBand: bb?.label ?? null,
           plan: r.tverOrder ? `${r.tverOrder.planKey}・${r.tverOrder.months}ヶ月` : null,
           adSeconds: r.adSeconds,

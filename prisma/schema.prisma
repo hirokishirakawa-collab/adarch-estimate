@@ -2690,7 +2690,7 @@ model TverDeliveryReport {
   // ── 金額の手動調整（本部だけ。拠点には調整後の金額だけが出る）
   //   未消化でも「予算どおり配信した」と見せる／超過ぶんは本部が負担する、のどちらにも使う。
   //   卸値・自動計算（卸値×MULT）はCSVのまま残し、内訳は表示回数で比例按分して見せる
-  monthlyBudget      Int? // 月額予算（税抜・円）。お客様と決めた金額。期間分＝28〜31日なら1ヶ月・それ以外は日割り
+  monthlyBudget      Int? // 月額予算＝媒体実費（卸値ベース・税抜・円）。TVerに出す媒体費の枠。拠点・お客様に出る予算はこれ×MULT。期間分＝28〜31日なら1ヶ月・それ以外は日割り
   sellAmountAdjusted Int? // 調整後の売価（税抜・円）。null＝調整なし
   adjustNote         String? // 調整の理由（本部内・必須入力）
   adjustedAt         DateTime?

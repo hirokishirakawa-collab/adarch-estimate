@@ -1,7 +1,7 @@
 // ==============================================================
 // TVer配信実績 — 拠点の一覧。公開済みはグループ全社分が並ぶ（他拠点の事例も営業に使えるように）
 //   自社ぶん: 広告主名・金額・詳細ページまで全部
-//   他拠点ぶん: 展開場所（商圏）・業種・秒数・期間・月額予算・配信結果だけ。広告主名と金額は出さない・詳細は開けない
+//   他拠点ぶん: 展開場所（商圏）・業種・秒数・期間・予算（売価ベース）・配信結果だけ。広告主名と金額は出さない・詳細は開けない
 //   卸値はどの拠点にも存在しない（取込・確認・金額調整は /dashboard/admin/tver-reports＝本部だけ）
 // ==============================================================
 
@@ -11,7 +11,8 @@ import { BarChart2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { effectiveSell } from "@/lib/tver/amount";
-import { budgetForPeriod, periodDays, periodLabel } from "@/lib/tver/period";
+import { budgetSellForPeriod, periodDays, periodLabel } from "@/lib/tver/period";
+import { SELL_MULTIPLIER } from "@/lib/tver/plan";
 
 export const dynamic = "force-dynamic";
 const fmtD = (d: Date) => new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" }).format(d);
@@ -66,7 +67,7 @@ export default async function TverReportsPage() {
                 <th className="px-3 py-2 text-left">展開場所（商圏）</th>
                 <th className="px-3 py-2 text-left">期間</th>
                 {isAdmin && <th className="px-3 py-2 text-left">拠点</th>}
-                <th className="px-3 py-2 text-right">月額予算</th>
+                <th className="px-3 py-2 text-right">予算（税抜）</th>
                 <th className="px-3 py-2 text-right">表示回数</th>
                 <th className="px-3 py-2 text-right">100%再生</th>
                 <th className="px-3 py-2 text-right">クリック</th>
@@ -93,7 +94,7 @@ export default async function TverReportsPage() {
                   <td className="px-3 py-2 whitespace-nowrap">{r.areaLabel ?? "—"}{r.areaPopulation ? <span className="text-xs text-zinc-400">（{r.areaPopulation.toLocaleString("ja-JP")}人）</span> : null}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{periodLabel(r.periodStart, r.periodEnd)}</td>
                   {isAdmin && <td className="px-3 py-2 whitespace-nowrap">{r.groupCompany?.name ?? "—"}</td>}
-                  <td className="px-3 py-2 text-right tabular-nums">{r.monthlyBudget != null ? yen(r.monthlyBudget) : "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{budgetSellForPeriod(r.monthlyBudget, periodDays(r.periodStart, r.periodEnd), SELL_MULTIPLIER) != null ? yen(budgetSellForPeriod(r.monthlyBudget, periodDays(r.periodStart, r.periodEnd), SELL_MULTIPLIER)!) : "—"}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.impressions.toLocaleString("ja-JP")}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.completes.toLocaleString("ja-JP")}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.clicks.toLocaleString("ja-JP")}</td>

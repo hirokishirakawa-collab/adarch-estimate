@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { adjustDeliveryAmount, publishDeliveryReport, unpublishDeliveryReport, updateDeliveryReport } from "@/lib/actions/tver-delivery";
 import { AreaPicker } from "@/components/tver/area-picker";
 import { budgetForPeriod } from "@/lib/tver/period";
+import { SELL_MULTIPLIER } from "@/lib/tver/plan";
 
 export function ReportAdminPanel(p: {
   id: string; status: "IMPORTED" | "PUBLISHED"; groupCompanyId: string; tverOrderId: string; industry: string; adminNote: string; partnerNote: string;
@@ -142,7 +143,9 @@ function AmountAdjust(p: {
   const [amount, setAmount] = useState(p.sellAmountAdjusted != null ? String(p.sellAmountAdjusted) : "");
   const [budget, setBudget] = useState(p.monthlyBudget != null ? String(p.monthlyBudget) : "");
   const budgetNum = Number(budget.replace(/[,¥￥\s]/g, ""));
-  const periodBudget = budgetForPeriod(Number.isFinite(budgetNum) && budget.trim() ? budgetNum : null, p.periodDays);
+  const periodBudget = budgetForPeriod(Number.isFinite(budgetNum) && budget.trim() ? budgetNum : null, p.periodDays); // 媒体実費ベース
+  const periodBudgetSell = periodBudget != null ? periodBudget * SELL_MULTIPLIER : null; // 予算どおりに請求する売価
+  const spendDiff = periodBudget != null ? periodBudget - p.wholesaleAmount : null; // ＋=未消化 / −=超過
   const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
   const v = Number(amount.replace(/[,¥￥\s]/g, ""));
   const valid = amount.trim() !== "" && Number.isFinite(v) && v >= 0;
@@ -182,7 +185,7 @@ function AmountAdjust(p: {
         }}
       >
         <label className="block text-xs text-zinc-600">
-          月額予算（税抜・お客様と決めた金額）
+          月額予算＝媒体実費（税抜・TVerに出す媒体費の枠）
           <div className="mt-1 flex items-center gap-2">
             <input
               name="monthlyBudget"
@@ -192,18 +195,24 @@ function AmountAdjust(p: {
               placeholder="例: 150000"
               className="w-44 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm tabular-nums"
             />
-            {periodBudget != null && (
+            {periodBudget != null && periodBudgetSell != null && (
               <>
                 <span className="text-[11px] text-zinc-600">
-                  この期間（{p.periodDays}日）の予算 <b className="tabular-nums">{yen(periodBudget)}</b>
+                  この期間（{p.periodDays}日）の枠 <b className="tabular-nums">{yen(periodBudget)}</b> → 売価 <b className="tabular-nums">{yen(periodBudgetSell)}</b>
                 </span>
-                <button type="button" onClick={() => setAmount(String(periodBudget))} className="px-2.5 py-1 rounded-md border border-zinc-300 text-xs text-zinc-700 hover:bg-zinc-50">
+                <button type="button" onClick={() => setAmount(String(periodBudgetSell))} className="px-2.5 py-1 rounded-md border border-zinc-300 text-xs text-zinc-700 hover:bg-zinc-50">
                   予算どおりにする
                 </button>
               </>
             )}
           </div>
-          <span className="mt-1 block text-[11px] text-zinc-400">28〜31日は1ヶ月ぶん、それ以外は日割り（月額÷30×日数）で計算します</span>
+          {spendDiff != null && (
+            <span className={`mt-1 block text-[11px] ${spendDiff < 0 ? "text-orange-700" : spendDiff > 0 ? "text-zinc-600" : "text-emerald-700"}`}>
+              媒体実費：予算 {yen(periodBudget!)} − 実費 {yen(p.wholesaleAmount)} ＝{" "}
+              {spendDiff > 0 ? `未消化 ${yen(spendDiff)}` : spendDiff < 0 ? `超過 ${yen(-spendDiff)}` : "ぴったり"}
+            </span>
+          )}
+          <span className="mt-1 block text-[11px] text-zinc-400">28〜31日は1ヶ月ぶん、それ以外は日割り（月額÷30×日数）。拠点・お客様に出る予算はこれを×{SELL_MULTIPLIER}した額です</span>
         </label>
         <div className="grid sm:grid-cols-2 gap-3">
           <label className="block text-xs text-zinc-600">
@@ -218,7 +227,7 @@ function AmountAdjust(p: {
             />
             {valid && diff !== 0 && (
               <span className={`mt-1 block text-[11px] ${diff < 0 ? "text-orange-700" : "text-emerald-700"}`}>
-                {diff < 0 ? `本部負担 ${yen(-diff)}（出しすぎたぶんを本部が持つ）` : `未消化ぶんの上乗せ ${yen(diff)}（予算どおりに見せる）`}
+                自動の売価との差 {diff < 0 ? `−${yen(-diff)}（本部が持つぶん）` : `＋${yen(diff)}（未消化ぶんも予算どおりに請求）`}
               </span>
             )}
           </label>

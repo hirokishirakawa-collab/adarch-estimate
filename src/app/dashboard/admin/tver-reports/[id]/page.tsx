@@ -50,6 +50,8 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
     .sort((a, b) => Number(b.hit) - Number(a.hit));
 
   const sec = r.adSeconds as AdSeconds | null;
+  const days = periodDays(r.periodStart, r.periodEnd);
+  const periodBudget = budgetForPeriod(r.monthlyBudget, days); // 媒体実費ベース
   const sellUnit = sec ? UNIT_PRICE[sec] : null;
   const byCampaign = breakdown(r.rows, (x) => x.campaignName);
   const byPref = breakdown(r.rows, (x) => x.prefecture);
@@ -101,7 +103,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
           <section className="bg-white border border-zinc-200 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-zinc-900 mb-3">金額の確認（卸値は本部だけ・拠点には売価だけが出ます）</h2>
             <div className="grid sm:grid-cols-4 gap-3 text-sm">
-              <Stat k={`予算（この期間 ${periodDays(r.periodStart, r.periodEnd)}日）`} v={budgetForPeriod(r.monthlyBudget, periodDays(r.periodStart, r.periodEnd)) != null ? yen(budgetForPeriod(r.monthlyBudget, periodDays(r.periodStart, r.periodEnd))!) : "—"} sub={r.monthlyBudget ? `月額 ${yen(r.monthlyBudget)}` : "未設定"} />
+              <Stat k={`予算＝媒体実費（この期間 ${days}日）`} v={periodBudget != null ? yen(periodBudget) : "—"} sub={r.monthlyBudget ? `月額 ${yen(r.monthlyBudget)}・売価換算 ${yen(periodBudget! * SELL_MULTIPLIER)}` : "未設定"} />
               <Stat k="卸値（ご利用金額の合計）" v={yen(r.wholesaleAmount)} sub={`卸CPM ${sec ? `¥${(UNIT_PRICE[sec] / SELL_MULTIPLIER * 1000).toLocaleString("ja-JP")}` : "—"}`} muted />
               <Stat k={`売価＝卸値×${r.sellMultiplier}`} v={yen(r.sellAmount)} sub={sellUnit ? `売単価 ¥${sellUnit}/再生` : "—"} strong />
               <Stat k="裏計算＝表示回数×売単価" v={r.crossCheckAmount ? yen(r.crossCheckAmount) : "—"} sub={`ずれ ${r.crossCheckDiffPct}%`} warn={r.crossCheckDiffPct > 3} />
@@ -170,7 +172,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
             sellAmountAdjusted={r.sellAmountAdjusted}
             adjustNote={r.adjustNote ?? ""}
             monthlyBudget={r.monthlyBudget}
-            periodDays={periodDays(r.periodStart, r.periodEnd)}
+            periodDays={days}
             adminNote={r.adminNote ?? ""}
             partnerNote={r.partnerNote ?? ""}
             companies={companies}
