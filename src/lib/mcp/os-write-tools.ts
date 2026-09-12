@@ -576,3 +576,40 @@ export async function recordLeadResults(v: McpViewer, input: { items: RecordLead
     next: failed.length ? "failed の理由を見て、直せるものだけ record_lead_result で個別に記録する" : "選別はここまで。次は plan_campaign で残った先を並べ替える",
   };
 }
+
+// ---- 本部への相談・不具合の連絡 --------------------------------------------------------
+//   OSの中に「困ったときの届け先」が無く、Wikiを「不具合 問い合わせ サポート」で
+//   探している人がいた（2026-09-12 実測）。AIからそのまま本部に届くようにする。
+
+const ASK_HQ_KINDS = ["不具合", "使い方", "相談"] as const;
+
+export async function askHq(v: McpViewer, input: { subject: string; detail?: string; kind?: string }) {
+  const subject = trimOrNull(input.subject);
+  need(subject, "何について困っているか（subject）を1行で入れてください");
+  maxLen(subject, 120, "件名");
+  const detail = trimOrNull(input.detail);
+  maxLen(detail, 4000, "内容");
+  const kind = (input.kind && (ASK_HQ_KINDS as readonly string[]).includes(input.kind) ? input.kind : "相談") as string;
+
+  const company = v.groupCompanyId
+    ? await db.groupCompany.findUnique({ where: { id: v.groupCompanyId }, select: { name: true, prefecture: true } })
+    : null;
+  const who = [company?.name, staffOf(v)].filter(Boolean).join("・");
+
+  await notifyAdmins({
+    type: "SYSTEM",
+    title: `[AI連携・${kind}] ${who}: ${subject}`,
+    message: detail ?? undefined,
+    linkUrl: "/dashboard/group-support",
+  });
+
+  return {
+    received: true,
+    kind,
+    subject,
+    from: { company: company?.name ?? null, name: v.name, email: v.email },
+    note: "本部に届きました（OSの通知）。急ぎなら本部へ直接どうぞ",
+    hq: { name: "本部（白川）", email: "hiroki.shirakawa@adarch.co.jp", os: "OSのグループサポート（/dashboard/group-support）" },
+    next: "使い方でつまずいているなら search_wiki で本部の手順も引ける。返事は本部から直接来ます",
+  };
+}

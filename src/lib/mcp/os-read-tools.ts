@@ -83,6 +83,34 @@ export async function searchCustomers(v: McpViewer, input: { query?: string; sta
     orderBy: { updatedAt: "desc" },
     take: clampLimit(input.limit),
   });
+  // 0件のときに空の配列だけ返すと、同じ言葉で何度も引き直されてしまう（2026-09-12 実測: 同一クエリ5回）。
+  // 近い名前・リード側の当たり・次の一手を添えて返す。
+  if (rows.length === 0 && input.query?.trim()) {
+    const q = input.query.trim();
+    const short = q.slice(0, Math.min(4, Math.max(2, q.length)));
+    const [near, leads] = await Promise.all([
+      db.customer.findMany({
+        where: { NOT: { branchId: ARCHIVE_BRANCH_ID }, OR: [{ name: { contains: short } }, { nameKana: { contains: short } }, { industry: { contains: short } }] },
+        take: 5, orderBy: { updatedAt: "desc" },
+        select: { id: true, name: true, industry: true, prefecture: true, branch: branchSel },
+      }),
+      db.lead.findMany({
+        where: { status: { notIn: ["ARCHIVED"] }, OR: [{ name: { contains: short } }, { memo: { contains: short } }] },
+        take: 5, orderBy: { updatedAt: "desc" },
+        select: { id: true, name: true, industry: true, area: true, status: true },
+      }),
+    ]);
+    return {
+      found: 0,
+      query: q,
+      searchedAlsoAs: short,
+      note: "顧客台帳に一致がありませんでした。同じ言葉で引き直さず、下の候補か次の一手へ進んでください",
+      didYouMean: near.map((c) => ({ id: c.id, name: c.name, industry: c.industry, area: c.prefecture, branch: c.branch.name })),
+      leads: leads.map((l) => ({ leadId: l.id, name: l.name, industry: l.industry, area: l.area, status: l.status })),
+      next: "候補が違えば、①まだ取引前なら create_lead で見込み先として登録 ②取引が始まるなら create_customer ③その市・業種で新しく探すなら discover_leads(prefecture, city, industry)",
+    };
+  }
+
   return rows.map((c) => ({
     id: c.id, name: c.name, nameKana: c.nameKana, industry: c.industry, status: c.status, rank: c.rank,
     contactName: c.contactName, email: c.email, phone: c.phone, website: c.website, prefecture: c.prefecture, address: c.address,
@@ -277,6 +305,20 @@ export function tverAreaPlan(input: { prefecture?: string; city?: string; allCit
 
 export async function searchWiki(v: McpViewer, input: { query: string; limit?: number }) {
   const rows = await searchWikiArticles(input.query, clampLimit(input.limit, 5, 10), { isAdmin: v.role === "ADMIN" });
+  // 0件でも空で返さない。目次と本部の届け先を出す（Wikiを「不具合 問い合わせ」で探していた人がいた）
+  if (rows.length === 0) {
+    const toc = await db.wikiArticle.findMany({
+      where: wikiVisible(v), orderBy: { updatedAt: "desc" }, take: 10,
+      select: { id: true, title: true },
+    });
+    return {
+      found: 0,
+      query: input.query,
+      note: "本部Wikiに見当たりませんでした。目次から近いものを開くか、本部に聞いてください",
+      recentArticles: toc,
+      askHq: "困っていること（不具合・使い方・相談）は ask_hq(subject, detail) で本部に届きます",
+    };
+  }
   return rows.map((a) => ({ id: a.id, title: a.title, body: a.body.slice(0, 4000) }));
 }
 
