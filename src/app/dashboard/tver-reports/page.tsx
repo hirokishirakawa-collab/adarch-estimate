@@ -63,6 +63,7 @@ export default async function TverReportsPage() {
     areaPopulation: r.areaPopulation,
     impressions: r.impressions,
     completes: r.completes,
+    clicks: r.clicks,
     days: periodDays(r.periodStart, r.periodEnd),
     months: billingMonths(r.periodStart, r.periodEnd),
     amount: effectiveSell(r),

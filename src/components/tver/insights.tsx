@@ -23,6 +23,7 @@ export type InsightReport = {
   areaPopulation: number | null;
   impressions: number;
   completes: number;
+  clicks: number;
   days: number;
   months: number;
   amount: number;
@@ -57,6 +58,18 @@ export function Insights({ reports, devices }: { reports: InsightReport[]; devic
   const smallShare = median(small.map((p) => p.share));
   const bigShare = median(big.map((p) => p.share));
 
+  // ④ 業種ごとのクリックの出方（「調べて動く商材」か「店で買う商材」か）
+  const ind = new Map<string, { imp: number; clk: number; n: number }>();
+  for (const r of all) {
+    const k = r.industry || "（業種未設定）";
+    const c = ind.get(k) ?? { imp: 0, clk: 0, n: 0 };
+    c.imp += r.impressions; c.clk += r.clicks; c.n += 1;
+    ind.set(k, c);
+  }
+  const indRows = [...ind.entries()].map(([k, v]) => ({ key: k, ...v, ctr: v.imp ? (v.clk / v.imp) * 100 : 0 })).sort((a, b) => b.imp - a.imp);
+  const clicky = indRows.filter((x) => x.clk > 0 && x.imp >= 50_000).sort((a, b) => b.ctr - a.ctr);
+  const silent = indRows.filter((x) => x.clk === 0 && x.imp >= 100_000).sort((a, b) => b.imp - a.imp);
+
   // ③ 機器ごとの見られ方
   const dev = [...devices].filter((d) => d.impressions > 0).sort((a, b) => b.impressions - a.impressions);
   const bestDev = [...dev].sort((a, b) => b.completes / b.impressions - a.completes / a.impressions)[0];
@@ -71,7 +84,7 @@ export function Insights({ reports, devices }: { reports: InsightReport[]; devic
       </div>
       <p className="text-xs text-zinc-500 mb-4">お客様への提案で「いくらで、どれだけ届くか」を説明するときの目安です。推計であり保証値ではありません。</p>
 
-      <div className="grid md:grid-cols-3 gap-3 mb-5">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <Finding
           n="1"
           head={`月1万円で 約${num(reachPer10k)}人`}
@@ -91,11 +104,19 @@ export function Insights({ reports, devices }: { reports: InsightReport[]; devic
             body={`CTV（テレビ受像機）で見られたのが全体の${Math.round((ctv.impressions / Math.max(totalImp, 1)) * 100)}%。完全視聴率も${((ctv.completes / ctv.impressions) * 100).toFixed(1)}%と、スマホ（${dev.filter((d) => d.device.startsWith("SD")).map((d) => `${((d.completes / d.impressions) * 100).toFixed(1)}%`)[0] ?? "—"}）より高い。「テレビに流れるCM」として提案できます。`}
           />
         )}
+        {clicky.length > 0 && silent.length > 0 && (
+          <Finding
+            n="4"
+            head="クリックが出る業種・出ない業種"
+            body={`${clicky.slice(0, 3).map((x) => x.key).join("・")}はCTR ${clicky[0].ctr.toFixed(2)}%前後でクリックが出ます。一方 ${silent.slice(0, 2).map((x) => `${x.key}（${x.n}本・表示${Math.round(x.imp / 10000)}万回）`).join("・")}では1件も出ていません。「調べて動く商材」と「店で買う商材」で反応が分かれます。後者は来店・来場の認知で測る前提でご提案ください。`}
+          />
+        )}
       </div>
 
       <Scatter points={pts} />
 
-      <div className="mt-5">
+      <div className="mt-5 grid lg:grid-cols-2 gap-6">
+        <div>
         <h3 className="text-xs font-semibold text-zinc-700 mb-2">機器ごとの見られ方（全社合計）</h3>
         <div className="space-y-1.5">
           {dev.map((d) => {
@@ -111,6 +132,24 @@ export function Insights({ reports, devices }: { reports: InsightReport[]; devic
               </div>
             );
           })}
+        </div>
+        </div>
+        <div>
+          <h3 className="text-xs font-semibold text-zinc-700 mb-2">業種ごとの反応（全社合計）</h3>
+          <table className="w-full text-[12px]">
+            <thead className="text-[11px] text-zinc-500"><tr><th className="text-left py-1">業種</th><th className="text-right py-1">本数</th><th className="text-right py-1">表示回数</th><th className="text-right py-1">クリック</th><th className="text-right py-1">CTR</th></tr></thead>
+            <tbody>
+              {indRows.map((x) => (
+                <tr key={x.key} className="border-t border-zinc-100">
+                  <td className="py-1.5 pr-2 text-zinc-800">{x.key}</td>
+                  <td className="py-1.5 text-right tabular-nums text-zinc-500">{x.n}</td>
+                  <td className="py-1.5 text-right tabular-nums">{num(x.imp)}</td>
+                  <td className="py-1.5 text-right tabular-nums">{num(x.clk)}</td>
+                  <td className={`py-1.5 text-right tabular-nums ${x.clk > 0 ? "font-medium text-zinc-900" : "text-zinc-400"}`}>{x.clk > 0 ? `${x.ctr.toFixed(3)}%` : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
