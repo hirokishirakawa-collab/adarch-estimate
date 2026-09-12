@@ -11,7 +11,7 @@ import { orderNumberLabel } from "@/lib/tver-order/plans";
 import { ReportAdminPanel } from "./admin-panel";
 import { areaOptionsFor } from "@/lib/tver/report-area";
 import { budgetForPeriod, periodDays } from "@/lib/tver/period";
-import { effectiveSell } from "@/lib/tver/amount";
+import { allocateBreakdown, effectiveSell } from "@/lib/tver/amount";
 import { AdGroupAreas, type AdGroupRow } from "./adgroup-areas";
 import { BreakdownTables } from "@/components/tver/delivery-breakdown";
 
@@ -54,11 +54,12 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
   const days = periodDays(r.periodStart, r.periodEnd);
   const periodBudget = budgetForPeriod(r.monthlyBudget, days); // 媒体実費ベース
   const sellUnit = sec ? UNIT_PRICE[sec] : null;
-  const byCampaign = breakdown(r.rows, (x) => x.campaignName);
-  const byPref = breakdown(r.rows, (x) => x.prefecture);
-  const byDevice = breakdown(r.rows, (x) => x.device);
-  const byDate = breakdown(r.rows, (x) => fmtD(x.date)).sort((a, b) => a.key.localeCompare(b.key, "ja"));
-  const byAge = breakdown(r.rows, (x) => `${x.gender} ${x.age}`);
+  // 金額を調整していれば、内訳も調整後の総額に按分する（拠点・AI連携と同じ数字にする）
+  const byCampaign = allocateBreakdown(breakdown(r.rows, (x) => x.campaignName), r);
+  const byPref = allocateBreakdown(breakdown(r.rows, (x) => x.prefecture), r);
+  const byDevice = allocateBreakdown(breakdown(r.rows, (x) => x.device), r);
+  const byDate = allocateBreakdown(breakdown(r.rows, (x) => fmtD(x.date)), r).sort((a, b) => a.key.localeCompare(b.key, "ja"));
+  const byAge = allocateBreakdown(breakdown(r.rows, (x) => `${x.gender} ${x.age}`), r);
   const areaOptions = areaOptionsFor(byPref.map((b) => b.key));
   // 広告グループ別（商圏つき）
   const agMap = new Map(r.adGroups.map((a) => [a.adGroupName, a]));
@@ -71,7 +72,10 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
   }
   const agPrefs = new Map<string, Set<string>>();
   for (const x of r.rows) agPrefs.set(x.adGroupName, (agPrefs.get(x.adGroupName) ?? new Set()).add(x.prefecture));
-  const adGroupRows: AdGroupRow[] = [...agStats.values()].map((g) => ({ ...g, options: areaOptionsFor([...(agPrefs.get(g.adGroupName) ?? [])]) })).sort((a, b) => b.impressions - a.impressions);
+  const agAllocated = new Map(allocateBreakdown([...agStats.values()].map((g) => ({ key: g.adGroupName, sellAmount: g.sellAmount })), r).map((x) => [x.key, x.sellAmount]));
+  const adGroupRows: AdGroupRow[] = [...agStats.values()]
+    .map((g) => ({ ...g, sellAmount: agAllocated.get(g.adGroupName) ?? g.sellAmount, options: areaOptionsFor([...(agPrefs.get(g.adGroupName) ?? [])]) }))
+    .sort((a, b) => b.impressions - a.impressions);
   const wholesaleByCampaign = new Map<string, number>();
   for (const x of r.rows) wholesaleByCampaign.set(x.campaignName, (wholesaleByCampaign.get(x.campaignName) ?? 0) + x.wholesaleAmount);
 
