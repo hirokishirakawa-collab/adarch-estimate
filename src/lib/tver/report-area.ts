@@ -19,11 +19,11 @@ export function areaFromOrder(prefName: string, municipalityCode: string, areaLa
 /** 全国とみなす都道府県数（TVerの全国配信は数県が0表示になることがあるので少し余裕を持たせる） */
 const NATIONWIDE_MIN = 40;
 
-/** 都道府県が多い時の表示名（47都道府県＝全国／4件以上＝「◯都道府県（北海道ほか◯）」） */
+/** 都道府県が多い時の表示名（40以上＝全国／5件以上＝「◯都道府県（北海道ほか◯）」／4件までは並べる） */
 function prefLabel(list: string[]): string {
   if (list.length >= NATIONWIDE_MIN) return "全国";
   if (list.length === 1) return `${list[0]} 全域`;
-  if (list.length <= 3) return `${list.join("・")} 全域`;
+  if (list.length <= 4) return `${list.join("・")} 全域`;
   return `${list.length}都道府県（${list[0]}ほか${list.length - 1}）`;
 }
 
