@@ -9,6 +9,14 @@ import { AreaPicker } from "@/components/tver/area-picker";
 
 import { SELL_MULTIPLIER } from "@/lib/tver/plan";
 
+/** 業種の選択肢。グループ横断のベンチマーク（tver_benchmarks）の軸になるので、実在の広告主が出るたびに足す */
+const INDUSTRIES = [
+  "建設・リフォーム", "歯科", "医療・クリニック", "飲食", "不動産", "自動車販売", "美容・サロン", "小売",
+  "学校・塾", "士業", "製造", "観光・宿泊", "介護・福祉", "興行", "冠婚葬祭", "レジャー・スポーツ",
+  "官公庁・公的機関", "採用",
+];
+const OTHER = "__other__";
+
 export function ReportAdminPanel(p: {
   id: string; status: "IMPORTED" | "PUBLISHED"; groupCompanyId: string; tverOrderId: string; industry: string; adminNote: string; partnerNote: string;
   companies: { id: string; name: string; prefecture: string | null }[];
@@ -24,6 +32,9 @@ export function ReportAdminPanel(p: {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [company, setCompany] = useState(p.groupCompanyId);
+  // 業種はプルダウン（一覧に無い値は「その他」で手入力）
+  const industryOptions = p.industry && !INDUSTRIES.includes(p.industry) ? [...INDUSTRIES, p.industry] : INDUSTRIES;
+  const [industry, setIndustry] = useState(p.industry || "");
   const run = (fn: () => Promise<{ error?: string; message?: string }>) =>
     start(async () => {
       const r = await fn();
@@ -59,8 +70,16 @@ export function ReportAdminPanel(p: {
           </label>
           <label className="block text-xs text-zinc-600">
             広告主の業種（グループ横断のベンチマークの軸。申込に紐づくと自動）
-            <input name="industry" defaultValue={p.industry} maxLength={100} list="tver-industry-list" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm" placeholder="例: 建設 / 歯科 / 飲食 / 不動産 / 自動車販売 / 興行" />
-            <datalist id="tver-industry-list">{["建設・リフォーム", "歯科", "医療・クリニック", "飲食", "不動産", "自動車販売", "美容・サロン", "小売", "学校・塾", "士業", "製造", "観光・宿泊", "介護・福祉", "興行", "冠婚葬祭", "レジャー・スポーツ", "官公庁・公的機関", "採用"].map((x) => <option key={x} value={x} />)}</datalist>
+            <select value={industry} onChange={(e) => setIndustry(e.target.value)} className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm">
+              <option value="">未設定</option>
+              {industryOptions.map((x) => <option key={x} value={x}>{x}</option>)}
+              <option value={OTHER}>その他（手で入力）</option>
+            </select>
+            {industry === OTHER ? (
+              <input name="industry" defaultValue={p.industry && !INDUSTRIES.includes(p.industry) ? p.industry : ""} maxLength={100} autoFocus className="mt-1.5 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm" placeholder="業種を入力（例: 水産加工）" />
+            ) : (
+              <input type="hidden" name="industry" value={industry} />
+            )}
           </label>
           <div className="block text-xs text-zinc-600 border-l-2 border-emerald-500 pl-3">
             商圏（どの規模の市町村で打ったか。ベンチマークの軸）・複数選べます
