@@ -1,4 +1,5 @@
-// TVer配信実績 — 拠点の詳細。自社に紐づいた公開済みだけ。卸値の列は select していない（存在しない）
+// TVer配信実績 — 拠点の詳細。公開済みならグループ全社どの拠点の案件も開ける（2026-09-12 代表決定＝拠点間は完全公開）
+//   卸値・裏計算・警告・金額調整の事実は本部だけ＝ここでは select していない（存在しない）
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -23,12 +24,12 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
   const { id } = await params;
 
   const r = await db.tverDeliveryReport.findFirst({
-    where: { id, status: "PUBLISHED", ...(isAdmin ? {} : { groupCompanyId: me.groupCompanyId ?? "__none__" }) },
+    where: { id, status: "PUBLISHED" },
     select: {
       id: true, advertiserName: true, industry: true, areaLabel: true, areaPopulation: true, periodStart: true, periodEnd: true, adSeconds: true, partnerNote: true, confirmedAt: true,
       impressions: true, completes: true, clicks: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, sharedNote: true,
       campaignNames: true,
-      groupCompany: { select: { name: true } },
+      groupCompanyId: true, groupCompany: { select: { name: true } },
       rows: { select: { date: true, campaignName: true, adGroupName: true, prefecture: true, device: true, gender: true, age: true, impressions: true, q100: true, clicks: true, sellAmount: true } },
       adGroups: { select: { adGroupName: true, areaLabel: true, areaPopulation: true } },
     },
@@ -53,9 +54,9 @@ export default async function TverReportDetail({ params }: { params: Promise<{ i
       <Link href="/dashboard/tver-reports" className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-800 mb-4"><ChevronLeft className="w-4 h-4" />一覧へ</Link>
       <div className="mb-6">
         <h1 className="text-lg font-semibold text-zinc-900">{r.advertiserName}　{fmtD(r.periodStart)}〜{fmtD(r.periodEnd)}</h1>
-        <p className="text-sm text-zinc-500">{r.areaLabel ? `${r.areaLabel}${r.areaPopulation ? `（人口 ${r.areaPopulation.toLocaleString("ja-JP")}人）` : ""}・` : ""}{r.industry ? `${r.industry}・` : ""}{sec ? `${sec}秒・再生単価 ¥${UNIT_PRICE[sec]}（税抜）` : ""}{isAdmin && r.groupCompany ? `・${r.groupCompany.name}` : ""}{r.confirmedAt ? `・本部確認 ${fmtD(r.confirmedAt)}` : ""}</p>
+        <p className="text-sm text-zinc-500">{r.areaLabel ? `${r.areaLabel}${r.areaPopulation ? `（人口 ${r.areaPopulation.toLocaleString("ja-JP")}人）` : ""}・` : ""}{r.industry ? `${r.industry}・` : ""}{sec ? `${sec}秒・再生単価 ¥${UNIT_PRICE[sec]}（税抜）` : ""}{r.groupCompany ? `・${r.groupCompany.name}` : ""}{r.confirmedAt ? `・本部確認 ${fmtD(r.confirmedAt)}` : ""}</p>
         {r.sharedNote && <p className="mt-2 text-sm text-zinc-700">{r.sharedNote}</p>}
-        {r.partnerNote && <p className="mt-2 text-sm text-zinc-800 bg-orange-50 border border-orange-200 rounded-lg px-4 py-2 whitespace-pre-wrap">{r.partnerNote}</p>}
+        {r.partnerNote && (isAdmin || r.groupCompanyId === me.groupCompanyId) && <p className="mt-2 text-sm text-zinc-800 bg-orange-50 border border-orange-200 rounded-lg px-4 py-2 whitespace-pre-wrap">{r.partnerNote}</p>}
       </div>
 
       <div className="grid sm:grid-cols-5 gap-3 text-sm mb-6">

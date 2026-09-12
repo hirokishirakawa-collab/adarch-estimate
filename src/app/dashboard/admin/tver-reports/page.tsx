@@ -12,9 +12,17 @@ import { db } from "@/lib/db";
 import type { TverDeliveryReportStatus } from "@/generated/prisma/client";
 import { SELL_MULTIPLIER } from "@/lib/tver/plan";
 import { CROSS_CHECK_WARN_PCT, isActionWarning } from "@/lib/tver/delivery-csv";
+import { budgetSellForPeriod, periodDays } from "@/lib/tver/period";
 import { weeklyAudit } from "@/lib/tver/audit";
 import { ImportForm } from "./import-form";
 import { ReportsTable, type ReportRow } from "./reports-table";
+
+/** 予算どおりの売価と、拠点に出る金額の差（予算未設定は null）。公開前に潰すための目印 */
+function budgetGapOf(r: { monthlyBudget: number | null; periodStart: Date; periodEnd: Date; sellAmount: number; sellAmountAdjusted: number | null }): number | null {
+  const target = budgetSellForPeriod(r.monthlyBudget, periodDays(r.periodStart, r.periodEnd), SELL_MULTIPLIER);
+  if (target == null) return null;
+  return (r.sellAmountAdjusted ?? r.sellAmount) - target;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +66,7 @@ export default async function AdminTverReportsPage({ searchParams }: { searchPar
     completes: r.completes,
     wholesaleAmount: r.wholesaleAmount,
     monthlyBudget: r.monthlyBudget,
+    budgetGap: budgetGapOf(r),
     sellAmount: r.sellAmountAdjusted ?? r.sellAmount,
     adjusted: r.sellAmountAdjusted != null && r.sellAmountAdjusted !== r.sellAmount,
     diffPct: r.crossCheckDiffPct,

@@ -12,6 +12,8 @@ import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { isActionWarning, orderNumberFromName, parseDeliveryCsv, summarize } from "@/lib/tver/delivery-csv";
 import { areaFromKeys, areaFromNames, areaFromOrder, areaFromPrefectures } from "@/lib/tver/report-area";
+import { budgetSellForPeriod, periodDays } from "@/lib/tver/period";
+import { SELL_MULTIPLIER } from "@/lib/tver/plan";
 import { prevAdGroupAreas, syncAdGroupAreas } from "@/lib/tver/adgroup-area";
 
 const PATH = "/dashboard/admin/tver-reports";
@@ -220,7 +222,7 @@ export async function deleteDeliveryReports(ids: string[]): Promise<R> {
 export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R> {
   const info = await admin();
   if (!info) return { error: "権限がありません" };
-  const r = await db.tverDeliveryReport.findUnique({ where: { id }, select: { advertiserName: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true } });
+  const r = await db.tverDeliveryReport.findUnique({ where: { id }, select: { advertiserName: true, sellAmount: true, sellAmountAdjusted: true, monthlyBudget: true, periodStart: true, periodEnd: true } });
   if (!r) return { error: "レポートが見つかりません" };
   const raw = String(fd.get("sellAmountAdjusted") ?? "").replace(/[,¥￥\s]/g, "").trim();
   const note = String(fd.get("adjustNote") ?? "").trim().slice(0, 200);
@@ -234,6 +236,23 @@ export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R>
     monthlyBudget = b;
   }
   if (monthlyBudget !== r.monthlyBudget) await db.tverDeliveryReport.update({ where: { id }, data: { monthlyBudget } });
+
+  // 予算を入れて金額欄が空なら、金額は予算どおりに自動で揃える（ズレを残さない＝2026-09-12 代表指示）
+  if (!raw && monthlyBudget != null) {
+    const target = budgetSellForPeriod(monthlyBudget, periodDays(r.periodStart, r.periodEnd), SELL_MULTIPLIER)!;
+    await db.tverDeliveryReport.update({
+      where: { id },
+      data: { sellAmountAdjusted: target, adjustNote: note || "予算どおりに調整", adjustedAt: new Date(), adjustedByEmail: info.email },
+    });
+    logAudit({
+      action: "tver_delivery_amount_adjusted", email: info.email, name: info.staffName, entity: "tver_delivery_report", entityId: id,
+      detail: `${r.advertiserName} 予算 ¥${monthlyBudget.toLocaleString("ja-JP")}/月 に合わせて売価を ¥${r.sellAmount.toLocaleString("ja-JP")} → ¥${target.toLocaleString("ja-JP")}（自動）`,
+    });
+    revalidatePath(`${PATH}/${id}`);
+    revalidatePath(PATH);
+    revalidatePath(PARTNER_PATH);
+    return { ok: true, message: `月額予算 ¥${monthlyBudget.toLocaleString("ja-JP")} を保存し、拠点に出る金額を予算どおりの ¥${target.toLocaleString("ja-JP")} に揃えました` };
+  }
 
   if (!raw) {
     await db.tverDeliveryReport.update({ where: { id }, data: { sellAmountAdjusted: null, adjustNote: null, adjustedAt: null, adjustedByEmail: null } });

@@ -221,7 +221,7 @@ function AmountAdjust(p: {
         </label>
         <div className="grid sm:grid-cols-2 gap-3">
           <label className="block text-xs text-zinc-600">
-            調整後の売価（税抜・空にすると調整なしに戻ります）
+            調整後の売価（税抜・空のまま保存すると予算どおりの額が自動で入ります）
             <input
               name="sellAmountAdjusted"
               value={amount}
