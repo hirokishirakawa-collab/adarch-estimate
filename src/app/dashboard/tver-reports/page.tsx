@@ -13,6 +13,8 @@ import { effectiveSell } from "@/lib/tver/amount";
 import { budgetSellForPeriod, periodLabel } from "@/lib/tver/period";
 import { FREQ } from "@/lib/tver/plan";
 import { StatTile } from "@/components/tver/charts";
+import { Insights, type InsightReport } from "@/components/tver/insights";
+import { billingMonths, periodDays } from "@/lib/tver/period";
 import { SELL_MULTIPLIER } from "@/lib/tver/plan";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +44,29 @@ export default async function TverReportsPage() {
     },
   });
 
+
+  // 「どう展開すると届くか」用: 機器ごとの見られ方はDB側で集計（明細は持ち込まない）
+  const deviceAgg = reports.length
+    ? await db.tverDeliveryRow.groupBy({
+        by: ["device"],
+        where: { reportId: { in: reports.map((r) => r.id) } },
+        _sum: { impressions: true, q100: true },
+      })
+    : [];
+  const devices = deviceAgg
+    .map((d) => ({ device: d.device || "—", impressions: d._sum.impressions ?? 0, completes: d._sum.q100 ?? 0 }))
+    .filter((d) => d.impressions > 0);
+  const insightReports: InsightReport[] = reports.map((r) => ({
+    advertiserName: r.advertiserName,
+    industry: r.industry,
+    areaLabel: r.areaLabel,
+    areaPopulation: r.areaPopulation,
+    impressions: r.impressions,
+    completes: r.completes,
+    days: periodDays(r.periodStart, r.periodEnd),
+    months: billingMonths(r.periodStart, r.periodEnd),
+    amount: effectiveSell(r),
+  }));
 
   const mineRows = reports.filter((x) => isAdmin || (!!me.groupCompanyId && x.groupCompanyId === me.groupCompanyId));
   const sum = (list: typeof reports, f: (x: (typeof reports)[number]) => number) => list.reduce((a, x) => a + f(x), 0);
@@ -74,6 +99,8 @@ export default async function TverReportsPage() {
           <StatTile k="金額（税抜・合計）" v={yen(totalAmount)} sub="本部が確認した実績のみ" accent />
         </div>
       )}
+
+      <Insights reports={insightReports} devices={devices} />
 
       <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
