@@ -16,13 +16,24 @@ export function areaFromOrder(prefName: string, municipalityCode: string, areaLa
   return { areaLabel: `${prefName} ${m?.name ?? areaLabel}`, areaPopulation: m?.population ?? prefPopulation(prefName) };
 }
 
+/** 全国とみなす都道府県数（TVerの全国配信は数県が0表示になることがあるので少し余裕を持たせる） */
+const NATIONWIDE_MIN = 40;
+
+/** 都道府県が多い時の表示名（47都道府県＝全国／4件以上＝「◯都道府県（北海道ほか◯）」） */
+function prefLabel(list: string[]): string {
+  if (list.length >= NATIONWIDE_MIN) return "全国";
+  if (list.length === 1) return `${list[0]} 全域`;
+  if (list.length <= 3) return `${list.join("・")} 全域`;
+  return `${list.length}都道府県（${list[0]}ほか${list.length - 1}）`;
+}
+
 /** 明細の都道府県（複数なら合算＝県全域の並列配信） */
 export function areaFromPrefectures(prefs: string[]): ReportArea | null {
   const list = [...new Set(prefs.filter(Boolean))];
   if (list.length === 0) return null;
   const pop = list.reduce((a, p) => a + prefPopulation(p), 0);
   if (pop === 0) return null;
-  return { areaLabel: list.length === 1 ? `${list[0]} 全域` : `${list.join("・")} 全域`, areaPopulation: pop };
+  return { areaLabel: prefLabel(list), areaPopulation: pop };
 }
 
 /**
@@ -74,6 +85,10 @@ export function areaFromKeys(keys: string[]): ReportArea | null {
   if (areas.length <= 3) {
     const label = prefs.size === 1 ? `${names.join("・")}（${[...prefs][0]}）` : areas.map((a) => a.areaLabel).join("・");
     return { areaLabel: label, areaPopulation };
+  }
+  // 県全域だけを複数選んだ場合＝都道府県の数でまとめる（47＝全国）
+  if (areas.every((a) => a.areaLabel.endsWith(" 全域"))) {
+    return { areaLabel: prefLabel(areas.map((a) => a.areaLabel.replace(/ 全域$/, ""))), areaPopulation };
   }
   const kinds = ["市", "区", "町", "村"].filter((k) => names.some((n) => n.endsWith(k)));
   const unit = kinds.length ? kinds.join("") : "地域";
