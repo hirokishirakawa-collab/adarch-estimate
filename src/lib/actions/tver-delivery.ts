@@ -272,10 +272,14 @@ export async function adjustDeliveryAmount(id: string, fd: FormData): Promise<R>
     const newTarget = budgetSellForPeriod(monthlyBudget, days, SELL_MULTIPLIER);
     if (oldTarget != null && newTarget != null && n === oldTarget) n = newTarget;
   }
-  if (r.sellAmount > 0 && n > r.sellAmount * 10) return { error: `自動の売価（¥${r.sellAmount.toLocaleString("ja-JP")}）の10倍を超えています。桁を確認してください` };
-  if (!note) return { error: "調整の理由を入れてください（本部内の記録用）" };
+  // 桁間違いの保険。ただし「予算どおりの額」は計算結果なので弾かない（未消化が大きいと自動売価の10倍を超えうる）
+  const budgetTarget = monthlyBudget != null ? budgetSellForPeriod(monthlyBudget, periodDays(r.periodStart, r.periodEnd), SELL_MULTIPLIER) : null;
+  if (r.sellAmount > 0 && n > r.sellAmount * 10 && n !== budgetTarget) {
+    return { error: `自動の売価（¥${r.sellAmount.toLocaleString("ja-JP")}）の10倍を超えています。桁を確認してください` };
+  }
+  if (!note && monthlyBudget == null) return { error: "調整の理由を入れてください（本部内の記録用）" };
 
-  await db.tverDeliveryReport.update({ where: { id }, data: { sellAmountAdjusted: n, adjustNote: note, adjustedAt: new Date(), adjustedByEmail: info.email } });
+  await db.tverDeliveryReport.update({ where: { id }, data: { sellAmountAdjusted: n, adjustNote: note || "予算どおりに調整", adjustedAt: new Date(), adjustedByEmail: info.email } });
   const diff = n - r.sellAmount;
   logAudit({
     action: "tver_delivery_amount_adjusted",
