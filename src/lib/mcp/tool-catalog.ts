@@ -38,6 +38,13 @@ export interface OsToolDef<A extends z.ZodObject = z.ZodObject> {
 
 const def = <A extends z.ZodObject>(d: OsToolDef<A>): OsToolDef => d as unknown as OsToolDef;
 
+/**
+ * true/false を受け取る項目。クライアントによっては文字列の "true" / "false" で送ってくる
+ * （2026-09-13 実測）ので、そこで弾かれないように寄せてから boolean として扱う。
+ */
+const bool = () =>
+  z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean());
+
 export const UI_DEAL_CARD = "ui://adarch-os/deal-card.html";
 export const UI_NEXT_ACTIONS = "ui://adarch-os/next-actions.html";
 
@@ -90,7 +97,7 @@ export const OS_READ_TOOLS: OsToolDef[] = [
   def({
     name: "tver_area_plan", kind: "read", title: "TVer エリア別プラン",
     description: "都道府県＋市区町村のTVer広告プラン（税抜・推計）。商圏のTVer視聴者数、3人に1人に届ける標準プラン、月額別の到達目安を返す。allCities: true で県内の全市区町村を人口の多い順に一度に返す（どの市から当たるかを決めるとき。市を1つずつ呼ばない）。",
-    input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市（省略で県内の先頭）"), allCities: z.boolean().optional().describe("県内の全市区町村をまとめて") }),
+    input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市（省略で県内の先頭）"), allCities: bool().optional().describe("県内の全市区町村をまとめて") }),
     run: (_v, a) => os.tverAreaPlan(a),
   }),
   def({
@@ -164,7 +171,7 @@ export const OS_READ_TOOLS: OsToolDef[] = [
   def({
     name: "list_leads", kind: "read", title: "リード一覧",
     description: "グループのリード（見込み先）。mine: true で自分の担当だけ、waitingReply: true で「送付済み・結果未入力」だけ、phoneCandidates: true で「電話でしか当たれない先（メール・フォームが使えず電話に回した先）」だけ。status: UNTOUCHED / CALLED / APPOINTMENT / DEAL_CONVERTED。結果の記録は record_lead_result。",
-    input: z.object({ query: z.string().optional(), status: z.string().optional(), mine: z.boolean().optional(), waitingReply: z.boolean().optional(), phoneCandidates: z.boolean().optional(), limit: z.number().int().optional() }),
+    input: z.object({ query: z.string().optional(), status: z.string().optional(), mine: bool().optional(), waitingReply: bool().optional(), phoneCandidates: bool().optional(), limit: z.number().int().optional() }),
     run: (v, a) => os.listLeads(v, a),
   }),
   def({
@@ -197,7 +204,7 @@ export const OS_READ_TOOLS: OsToolDef[] = [
   def({
     name: "list_landing_pages", kind: "read", title: "営業用LPの一覧",
     description: "AIが作った業種×市のLP（/lp/…）の一覧。mine: true で自拠点だけ。",
-    input: z.object({ mine: z.boolean().optional(), limit: z.number().int().optional() }),
+    input: z.object({ mine: bool().optional(), limit: z.number().int().optional() }),
     run: (v, a) => camp.listLandingPages(v, a),
   }),
   def({
@@ -251,7 +258,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   def({
     name: "create_deal", kind: "write", title: "商談を起こす",
     description: "既存顧客（customerId）に商談を1件作る。status: PROSPECTING / QUALIFYING / PROPOSAL / NEGOTIATION（受注は作成後に update_deal で CLOSED_WON）。probability は 0〜100、expectedCloseDate は YYYY-MM-DD。進行中の商談が既にある顧客は止まるので、別件なら allowDuplicate: true。金額は入れない。",
-    input: z.object({ customerId: z.string(), title: z.string(), status: z.string().optional(), probability: z.number().int().optional(), expectedCloseDate: z.string().optional(), notes: z.string().optional(), allowDuplicate: z.boolean().optional() }),
+    input: z.object({ customerId: z.string(), title: z.string(), status: z.string().optional(), probability: z.number().int().optional(), expectedCloseDate: z.string().optional(), notes: z.string().optional(), allowDuplicate: bool().optional() }),
     run: (v, a) => osw.createDeal(v, a),
     confirm: (a) => `商談「${a.title}」を起こします（${a.status ?? "PROSPECTING"}${a.expectedCloseDate ? `・見込み ${a.expectedCloseDate}` : ""}）`,
   }),
@@ -279,7 +286,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   def({
     name: "record_lead_result", kind: "write", title: "リードの結果を記録",
     description: "リード（leadId）の結果をOSに残す。result: REPLIED（返信あり）/ REPLIED_NG（返信NG）/ NO_REPLY（無反応）/ REJECTED（断り）/ WON（受注）＝OS画面の結果ボタンと同じ処理（ステータス移動・グループ事例DBへの反映）。status で APPOINTMENT（アポ獲得）等に直接進められる。note で経緯を残す。phoneCandidate: true で「メール・フォームが使えない先」を電話候補に回す＝my_next_actions と list_leads(phoneCandidates) に出る。まとめて記録するなら record_lead_results。会話でリードの結果が分かったら、聞かれてなくても記録する。",
-    input: z.object({ leadId: z.string(), result: z.string().optional(), status: z.string().optional(), note: z.string().optional(), phoneCandidate: z.boolean().optional().describe("メール・フォームが使えない先を電話候補に回す（電話番号が要る）") }),
+    input: z.object({ leadId: z.string(), result: z.string().optional(), status: z.string().optional(), note: z.string().optional(), phoneCandidate: bool().optional().describe("メール・フォームが使えない先を電話候補に回す（電話番号が要る）") }),
     run: (v, a) => osw.recordLeadResult(v, a),
     confirm: (a) => `リードの結果を記録します: ${[a.result && `結果=${a.result}`, a.status && `状態=${a.status}`, a.note && `メモ「${a.note.slice(0, 120)}」`].filter(Boolean).join(" / ")}`,
   }),
@@ -293,7 +300,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
         result: z.string().optional(),
         status: z.string().optional().describe("UNTOUCHED / CALLED / APPOINTMENT / DEAL_CONVERTED / SKIPPED"),
         note: z.string().optional().describe("理由・経緯（例: フォームに営業お断りの記載）"),
-        phoneCandidate: z.boolean().optional(),
+        phoneCandidate: bool().optional(),
       })).min(1).max(50),
     }),
     run: (v, a) => osw.recordLeadResults(v, a),
@@ -319,7 +326,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     name: "discover_leads", kind: "write", title: "新規リードを探す（リード獲得AI＝Google検索→AI採点→保存）",
     description:
       "OSにまだ無い会社を、市区町村×業種で新しく探す。OS画面の「リード獲得AI」と同じ＝Google Placesで企業を集め、Webサイト分析と全社の成功プロファイル・今日の判定基準でAIが採点し、リードとして保存する（担当は本人・同名＋同住所は1件・既存は採点だけ更新）。未送付のリードが100件以上あると保存は止まる。保存した先はその場でサイトを1回見て、メールを補完し、営業お断りの会社を対象外にして全社の送付禁止リストへ入れる（cleanup）。チェーン・FC・支店は本部決裁で市の商圏の話が通らないため既定で保存しない（excludeChains: false で戻せる）。dryRun: true で採点だけ見る。1回10社が目安（最大20）。続けて plan_campaign → prepare_outreach。",
-    input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市"), industry: z.string().describe("例: 歯科医院 / 工務店 / 飲食店"), keywords: z.string().optional().describe("検索語を変えたい時（例: 矯正歯科）"), count: z.number().int().optional().describe("既定10・最大20"), dryRun: z.boolean().optional(), excludeChains: z.boolean().optional().describe("チェーン・FC・支店を保存しない（既定 true）"), skipEnrich: z.boolean().optional().describe("メール補完と営業お断り判定をしない（既定 false）") }),
+    input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市"), industry: z.string().describe("例: 歯科医院 / 工務店 / 飲食店"), keywords: z.string().optional().describe("検索語を変えたい時（例: 矯正歯科）"), count: z.number().int().optional().describe("既定10・最大20"), dryRun: bool().optional(), excludeChains: bool().optional().describe("チェーン・FC・支店を保存しない（既定 true）"), skipEnrich: bool().optional().describe("メール補完と営業お断り判定をしない（既定 false）") }),
     run: (v, a) => discoverLeads({ id: v.id, email: v.email, name: v.name, branchId: v.branchId, branchId2: v.branchId2 }, a),
     confirm: (a) => `${[a.prefecture, a.city].filter(Boolean).join("")}の「${a.industry}」を${a.count ?? 10}社、Googleから探してAI採点し、${a.dryRun ? "保存せずに見せます" : "貴社のリードとして保存します"}`,
   }),
@@ -327,7 +334,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     name: "prepare_outreach", kind: "write", title: "営業メールをGmailの下書きにする（送付を記録）",
     description:
       "AIが書いた件名と本文を、そのリード宛の Gmail 下書きリンクにする。同時にOSの送付フローと同じ記録（全社の送付済み台帳・リードの送付日・事例DBの元）を残す。送信ボタンは人が押す（無人送信はしない）。営業お断り・他拠点の送付済み・自拠点が1か月以内に送った先（1か月ルール）は止まる。金額は本文に書かない。メールが無い会社は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）で返す＝貼って送信を押すのは人。",
-    input: z.object({ leadId: z.string(), subject: z.string().describe("件名（120字以内）"), body: z.string().describe("本文（4000字以内・金額なし）"), appeal: z.string().optional().describe("訴求の切り口を一言（例: 周年×TVer）"), packageSlug: z.string().optional(), resend: z.boolean().optional().describe("1か月以内に自拠点が送った先へ、承知のうえで送り直す") }),
+    input: z.object({ leadId: z.string(), subject: z.string().describe("件名（120字以内）"), body: z.string().describe("本文（4000字以内・金額なし）"), appeal: z.string().optional().describe("訴求の切り口を一言（例: 周年×TVer）"), packageSlug: z.string().optional(), resend: bool().optional().describe("1か月以内に自拠点が送った先へ、承知のうえで送り直す") }),
     run: (v, a) => camp.prepareOutreach(v, a),
     confirm: (a) => `営業メールを下書きにし、送付として記録します:\n件名: ${a.subject}\n${a.body.slice(0, 200)}…`,
   }),
@@ -335,7 +342,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     name: "create_landing_page", kind: "write", title: "業種×市の営業用LPを作る",
     description:
       "AIが文面（大見出し・サブ・2〜6段落）を書き、/lp/<slug> として公開する。市のTVer視聴者数・標準プラン・月額目安とパッケージの内容物は表示のたびにOSから引くので、文面に数字を書かない。着地は既定でTVer申込ページ（自拠点が案内元）。useLine: true で自拠点の公式LINEボタンも付く。返ったURLを prepare_outreach の本文に添える。",
-    input: z.object({ title: z.string(), headline: z.string(), subheadline: z.string().optional(), industry: z.string().optional(), prefecture: z.string().optional(), city: z.string().optional(), packageSlug: z.string().optional(), sections: z.array(z.object({ heading: z.string(), body: z.string() })), ctaLabel: z.string().optional(), ctaUrl: z.string().optional(), useLine: z.boolean().optional(), slug: z.string().optional().describe("URLの末尾（英小文字・数字・ハイフン。例: karatsu-dental）") }),
+    input: z.object({ title: z.string(), headline: z.string(), subheadline: z.string().optional(), industry: z.string().optional(), prefecture: z.string().optional(), city: z.string().optional(), packageSlug: z.string().optional(), sections: z.array(z.object({ heading: z.string(), body: z.string() })), ctaLabel: z.string().optional(), ctaUrl: z.string().optional(), useLine: bool().optional(), slug: z.string().optional().describe("URLの末尾（英小文字・数字・ハイフン。例: karatsu-dental）") }),
     run: (v, a) => camp.createLandingPage(v, a),
     confirm: (a) => `LPを公開します: ${a.title}（${[a.prefecture, a.city, a.industry].filter(Boolean).join("・")}・${a.sections.length}段落）`,
   }),
@@ -361,7 +368,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     name: "create_local_ad", kind: "write", title: "地域限定のMeta広告を作る（少額・貴社の広告アカウントで）",
     description:
       "市を指定して、Facebook/Instagram に地域限定（中心から半径km）の少額広告を貴社の広告アカウントで作る。例: 唐津市に日額500円で7日、LPへ誘導。バナーは省略するとOSの数字で描く /api/banner/tver を使う。作成は PAUSED（配信ONは人が広告マネージャで／activate: true で最初からON）。貴社のMeta広告アカウントがOSに未接続（/dashboard/meta-ads）なら、送る内容の組み立て（dryRun）だけ返す。費用・運用は貴社のアカウント。",
-    input: z.object({ name: z.string().describe("キャンペーン名"), prefecture: z.string(), city: z.string(), dailyBudgetJpy: z.number().int().describe("日額（円・100以上）"), days: z.number().int().describe("配信日数（1〜90）"), landingUrl: z.string().describe("LPかTVer申込ページのURL"), headline: z.string().describe("見出し（40字以内）"), primaryText: z.string().describe("本文（125字以内が目安）"), bannerUrl: z.string().optional().describe("PNG/JPGのURL。省略でOSの型バナー（SVG＝ドライラン用）"), radiusKm: z.number().optional(), activate: z.boolean().optional() }),
+    input: z.object({ name: z.string().describe("キャンペーン名"), prefecture: z.string(), city: z.string(), dailyBudgetJpy: z.number().int().describe("日額（円・100以上）"), days: z.number().int().describe("配信日数（1〜90）"), landingUrl: z.string().describe("LPかTVer申込ページのURL"), headline: z.string().describe("見出し（40字以内）"), primaryText: z.string().describe("本文（125字以内が目安）"), bannerUrl: z.string().optional().describe("PNG/JPGのURL。省略でOSの型バナー（SVG＝ドライラン用）"), radiusKm: z.number().optional(), activate: bool().optional() }),
     run: async (v, a) => {
       if (v.role === "USER") throw new osw.WriteError("地域限定広告の作成は代表（MANAGER以上）のみです");
       const banner = a.bannerUrl ?? `${appUrl()}/api/banner/tver?${new URLSearchParams({ pref: a.prefecture, city: a.city, headline: a.headline }).toString()}`;
