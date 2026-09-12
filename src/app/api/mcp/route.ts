@@ -212,7 +212,7 @@ const handler = createMcpHandler(
           // 今日の一手を自分で呼んだ人には要らないので外す。
           if (t.name !== "my_next_actions") {
             const one = await todaysOne(viewer).catch(() => null);
-            if (one) res.content.push({ type: "text" as const, text: one });
+            if (one) res.content.push({ type: "text" as const, text: one.ai });
           }
           return res;
         } catch (e) {
