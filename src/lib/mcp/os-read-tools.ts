@@ -38,7 +38,9 @@ export async function loadViewer(email: string): Promise<McpViewer | null> {
   return { id: u.id, email: u.email, name: u.name, role: u.role as UserRole, branchId: u.branchId, branchId2: u.branchId2, groupCompanyId: u.groupCompanyId };
 }
 
-const day = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
+// 日付は日本時間で出す（toISOString だとUTCになり、JSTの0時は前日に見えてしまう）
+const day = (d: Date | null | undefined) =>
+  d ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d) : null;
 const yen = (n: number | Prisma.Decimal | null | undefined) => (n == null ? null : `¥${Number(n).toLocaleString("ja-JP")}`);
 const clampLimit = (n: number | undefined, def = 20, max = 50) => Math.min(max, Math.max(1, Math.floor(n ?? def)));
 const HQ_ONLY = "（本部のみ）";

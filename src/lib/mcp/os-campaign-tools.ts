@@ -22,7 +22,9 @@ import { WriteError, AI_PREFIX } from "./os-write-tools";
 import { findSimilarWins } from "./os-insight-tools";
 
 const DAY_MS = 86_400_000;
-const day = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
+// 日付は日本時間で出す（toISOString だとUTCになり、JSTの0時は前日に見えてしまう）
+const day = (d: Date | null | undefined) =>
+  d ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d) : null;
 const prefBase = (s: string) => (s.startsWith("北海道") ? "北海道" : s.trim().replace(/[都府県]$/, ""));
 const clampLimit = (n: number | undefined, def = 20, max = 50) => Math.min(max, Math.max(1, Math.floor(n ?? def)));
 function need(cond: unknown, msg: string): asserts cond {

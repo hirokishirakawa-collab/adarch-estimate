@@ -32,7 +32,9 @@ const DEAL_STATUSES_WRITABLE: DealStatus[] = ["PROSPECTING", "QUALIFYING", "PROP
 const CUSTOMER_STATUSES: CustomerStatus[] = ["PROSPECT", "ACTIVE", "INACTIVE"];
 const CUSTOMER_RANKS: CustomerRank[] = ["A", "B", "C"];
 
-const day = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
+// 日付は日本時間で出す（toISOString だとUTCになり、JSTの0時は前日に見えてしまう）
+const day = (d: Date | null | undefined) =>
+  d ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d) : null;
 const clampLimit = (n: number | undefined, def = 30, max = 100) => Math.min(max, Math.max(1, Math.floor(n ?? def)));
 const staffOf = (v: McpViewer) => v.name ?? v.email;
 const trimOrNull = (s: string | undefined) => (s?.trim() ? s.trim() : null);

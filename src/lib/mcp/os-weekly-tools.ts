@@ -16,7 +16,9 @@ import { saveWeeklyShareV2, validateWeeklyAnswersV2 } from "@/lib/group-support/
 import type { McpViewer } from "./os-read-tools";
 import { WriteError } from "./os-write-tools";
 
-const day = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
+// 日付は日本時間で出す（toISOString だとUTCになり、JSTの0時は前日に見えてしまう）
+const day = (d: Date | null | undefined) =>
+  d ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d) : null;
 const short = (s: string | null | undefined, n = 160) => {
   const t = (s ?? "").replace(/\s+/g, " ").trim();
   return t.length > n ? `${t.slice(0, n)}…` : t;

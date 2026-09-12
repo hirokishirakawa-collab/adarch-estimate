@@ -15,7 +15,9 @@ import { FREQ, SELL_MULTIPLIER, UNIT_PRICE, type AdSeconds } from "@/lib/tver/pl
 import { BUDGET_BANDS, POPULATION_BANDS, budgetBand, populationBand } from "@/lib/tver/report-area";
 import { municipalitiesOf, prefectureOptions } from "@/lib/packages/tver-area";
 
-const day = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
+// 日付は日本時間で出す（toISOString だとUTCになり、JSTの0時は前日に見えてしまう）
+const day = (d: Date | null | undefined) =>
+  d ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d) : null;
 const yen = (n: number) => `¥${Math.round(n).toLocaleString("ja-JP")}`;
 const pct = (a: number, b: number, digits = 1) => (b > 0 ? Math.round((a / b) * 100 * 10 ** digits) / 10 ** digits : 0);
 const isHq = (v: McpViewer) => v.role === "ADMIN";
@@ -89,7 +91,7 @@ export async function tverResults(v: McpViewer, input: TverResultsInput) {
     count: list.length,
     results: list.map((r) => ({
       id: r.id, advertiser: r.advertiserName, industry: r.industry, company: r.groupCompany?.name ?? "本部",
-      period: `${day(r.periodStart)}〜${day(r.periodEnd)}`, adSeconds: r.adSeconds, monthlyBudgetExclTax: r.monthlyBudget ? yen(r.monthlyBudget * SELL_MULTIPLIER) : null,
+      period: `${day(r.periodStart)}〜${day(r.periodEnd)}`, adSeconds: r.adSeconds, budgetExclTax: r.monthlyBudget ? yen(r.monthlyBudget * SELL_MULTIPLIER) : null,
       impressions: r.impressions, completionRate: `${pct(r.completes, r.impressions)}%`, ctr: `${pct(r.clicks, r.impressions, 2)}%`, amountExclTax: yen(effectiveSell(r)), confirmedAt: day(r.confirmedAt),
     })),
     hint: "詳細（県・デバイス・年齢・日別の内訳）は tver_results(reportId) で。実績はOS本部が確認したものだけが出る",
