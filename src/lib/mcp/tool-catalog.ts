@@ -19,6 +19,7 @@ import { appUrl } from "@/lib/tver-order/service";
 import { discoverLeads } from "@/lib/leads/discover";
 import { prepareDm } from "@/lib/dm/prepare-dm";
 import { listAdBuyers } from "@/lib/ad-buyers/list";
+import { screenCompany } from "@/lib/compliance/screen";
 import { AD_PLATFORMS } from "@/lib/ad-buyers/platforms";
 
 export type ToolKind = "read" | "write";
@@ -291,6 +292,20 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     confirm: (a) => `リードの結果を記録します: ${[a.result && `結果=${a.result}`, a.status && `状態=${a.status}`, a.note && `メモ「${a.note.slice(0, 120)}」`].filter(Boolean).join(" / ")}`,
   }),
   def({
+    name: "screen_company", kind: "read", title: "受注前チェック（相手をひととおり確かめる）",
+    description:
+      "新しい取引先・広告主と進める前に、危険信号だけをまとめて返す。見るもの: 法人番号の桁の検査（13桁）とgBizINFOの掲載（設立年・資本金・従業員数・代表者名）／同じ住所にOS上で何社いるか（貸し住所の気配）／全社の対象外リスト／連絡先の形（サイトなし・携帯だけ）／求人なら募集の文言（即日現金・業務内容が受け取りや回収だけ・秘匿アプリへの誘導など）。返るのは OK / CHECK（確かめてから）/ STOP（本部の判断を仰ぐ）。⚠️これは信号であって判定ではない。相手を犯罪と決めつける言い方はしない。止める・進めるは本部が決める。新規の広告主・求人広告・紹介で来た相手には、聞かれなくてもこれを通す。",
+    input: z.object({
+      name: z.string().describe("会社名"),
+      corporateNumber: z.string().optional().describe("法人番号13桁（分かれば。国税庁の法人番号公表サイトで社名から引ける）"),
+      website: z.string().optional(),
+      address: z.string().optional().describe("登記または所在地の住所"),
+      phone: z.string().optional(),
+      jobText: z.string().optional().describe("求人広告なら募集内容の文面（職種・業務内容・報酬・連絡方法）"),
+    }),
+    run: (_v, a) => screenCompany(a),
+  }),
+  def({
     name: "ask_hq", kind: "write", title: "本部に聞く・不具合を知らせる",
     description:
       "OSの使い方で詰まった・動きがおかしい・本部に相談したいことを、そのまま本部（白川）へ届ける。本部のOSに通知が出る。kind: 不具合 / 使い方 / 相談。自分で調べて分からなかったとき、同じ検索を繰り返す前にこれを使う。返事は本部から直接来る。",
@@ -408,7 +423,7 @@ export function toAnthropicTools(defs: OsToolDef[]): { name: string; description
 
 /** AIへの共通の決まり（MCPの instructions と アーチくんの system で同じ文を使う） */
 export const OS_AI_RULES =
-  "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。" +
+  "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。はじめて取引する相手・求人広告・紹介で来た相手は、進める前に screen_company(name, corporateNumber, website, address, phone, jobText) を1回通し、CHECK / STOP が返ったら本人に見せて確かめる（止める・進めるは本部が決める。相手を犯罪と決めつける言い方はしない）。" +
   "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。探しても見つからない・OSの動きがおかしいときは、同じ言葉で引き直さず ask_hq(subject, detail) で本部に届ける。媒体の仕様・配信面・条件・他社の提案の仕組みは search_knowledge（資料ライブラリ）で引き、返った rules（自社=そのまま／他社・媒体=価格は卸値・実績は他社分）を必ず守る。" +
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。TVerの提案・見積・『効果はどのくらい？』『この市で月◯万だとどれくらい？』には tver_benchmarks(prefecture, city, monthlyBudget, industry) を先に呼び、matrix（人口帯×月額帯→30日あたり表示回数・到達人数・住民比・完全視聴率）を「目安・税抜」で添える。配信済みのお客様への報告は tver_results(reportId) の数字をそのまま使う（盛らない）。" +
   "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。メールが無い相手は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）をそのまま人に渡す＝AIがフォームに投稿しない。送れない相手（画像認証・フォームなし）は record_lead_result(leadId, phoneCandidate: true, note: 理由) で電話候補に回す。選別の結果（対象外・電話候補）は1件ずつではなく record_lead_results(items) でまとめて記録する。どの市から当たるか迷ったら tver_area_plan(prefecture, allCities: true) を1回。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad。" +

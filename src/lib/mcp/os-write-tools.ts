@@ -18,6 +18,7 @@ import { stripSensitiveLines } from "@/lib/brand-kit/common";
 import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
 import { OUTREACH_RESULT_OPTIONS, getOutreachResultOption } from "@/lib/constants/outreach-result";
 import { PHONE_CANDIDATE } from "@/lib/constants/leads"; // 電話候補の目印（lead_logs.action）
+import { screenCompany } from "@/lib/compliance/screen";
 import { applyOutreachResult } from "@/lib/leads/apply-outreach-result";
 import { createProjectFromDeal } from "@/lib/deals/create-project-from-deal";
 import { sendDealNotification, notifyAdmins } from "@/lib/notifications";
@@ -204,7 +205,17 @@ export async function createCustomer(v: McpViewer, input: CreateCustomerInput) {
     },
     select: { id: true, name: true, status: true, rank: true },
   });
-  return { id: c.id, name: c.name, status: c.status, rank: c.rank, next: "商談を起こすなら create_deal(customerId)、やり取りを残すなら log_activity(customerId)" };
+  // 受注前チェック（信号だけ。止める判断はしない・2026-09-13 代表指示）
+  const screening = await screenCompany({ name, website: trimOrNull(input.website) ?? undefined, address: address ?? undefined, phone: phone ?? undefined }).catch(() => null);
+
+  return {
+    id: c.id, name: c.name, status: c.status, rank: c.rank,
+    ...(screening && screening.level !== "OK" ? { screening } : {}),
+    next:
+      screening && screening.level !== "OK"
+        ? "先に screening の flags を本人に見せて、確かめてから進める。判断に迷ったら ask_hq で本部へ。そのうえで create_deal(customerId) / log_activity(customerId)"
+        : "商談を起こすなら create_deal(customerId)、やり取りを残すなら log_activity(customerId)",
+  };
 }
 
 export interface UpdateCustomerInput {
