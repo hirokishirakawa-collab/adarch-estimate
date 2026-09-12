@@ -60,7 +60,7 @@ export function ReportAdminPanel(p: {
           <label className="block text-xs text-zinc-600">
             広告主の業種（グループ横断のベンチマークの軸。申込に紐づくと自動）
             <input name="industry" defaultValue={p.industry} maxLength={100} list="tver-industry-list" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm" placeholder="例: 建設 / 歯科 / 飲食 / 不動産 / 自動車販売 / 興行" />
-            <datalist id="tver-industry-list">{["建設・リフォーム", "歯科", "医療・クリニック", "飲食", "不動産", "自動車販売", "美容・サロン", "小売", "学校・塾", "士業", "製造", "観光・宿泊", "介護・福祉", "興行", "冠婚葬祭", "官公庁・公的機関", "採用"].map((x) => <option key={x} value={x} />)}</datalist>
+            <datalist id="tver-industry-list">{["建設・リフォーム", "歯科", "医療・クリニック", "飲食", "不動産", "自動車販売", "美容・サロン", "小売", "学校・塾", "士業", "製造", "観光・宿泊", "介護・福祉", "興行", "冠婚葬祭", "レジャー・スポーツ", "官公庁・公的機関", "採用"].map((x) => <option key={x} value={x} />)}</datalist>
           </label>
           <div className="block text-xs text-zinc-600 border-l-2 border-emerald-500 pl-3">
             商圏（どの規模の市町村で打ったか。ベンチマークの軸）・複数選べます
