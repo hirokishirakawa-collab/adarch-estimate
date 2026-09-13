@@ -12,7 +12,8 @@ import { getBranchFilter } from "@/lib/session";
 import { stripSensitiveLines } from "@/lib/brand-kit/common";
 import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
 import { formatPackagePrice, parseDeliverables, parseOptions } from "@/lib/packages/types";
-import { estimateArea, municipalitiesOf, prefectureOptions, resolveArea } from "@/lib/packages/tver-area";
+import { estimateArea, monthlyGuideText, municipalitiesOf, prefectureOptions, resolveArea } from "@/lib/packages/tver-area";
+import { CUSTOM_DESIGN_FEE, CUSTOM_OPS_MIN, CUSTOM_OPS_RATE, TVER_ESTIMATE_NOTE } from "@/lib/tver/plan";
 import { searchKnowledge } from "@/lib/knowledge/search";
 import { KNOWLEDGE_USE_RULES, ORIGIN_SHORT } from "@/lib/knowledge/rules";
 import { searchWikiArticles } from "@/lib/wiki-search";
@@ -241,6 +242,13 @@ export async function getPackage(v: McpViewer, slug: string) {
 }
 
 // ---- TVer エリア別プラン ---------------------------------------------------
+//   2026-09-13 代表決定の料金（lib/tver/plan.ts）＝申込ページと同じ額。卸値・取り分・値引きの下限は返さない
+
+const TVER_PLAN_RULES = {
+  cityPlan: "①市町村プラン（Webで申込できる既製の型）: 1エリア・15秒・途中変更なし・配信終了後に結果報告。初回登録費・管理費なし・値引きなし。月額は市の人口で決まり、最低料金は人口5万人未満のエリア¥30,000（6ヶ月以上）・5万人以上¥50,000（3ヶ月以上）",
+  customPlan: `②大規模展開（オーダー）: 月額30万円以上／2エリア以上／週次報告の希望 のどれか。15/30/60秒・差し替え可・週1報告。設計・考査費${yen(CUSTOM_DESIGN_FEE)}（初回）＋運用管理費＝媒体費の${CUSTOM_OPS_RATE * 100}%（最低${yen(CUSTOM_OPS_MIN)}／月）。手数料は値引きしない。金額はOSのTVerシミュレーターで出す`,
+  estimate: TVER_ESTIMATE_NOTE,
+} as const;
 
 export function tverAreaPlan(input: { prefecture?: string; city?: string; allCities?: boolean }) {
   const prefs = prefectureOptions();
@@ -256,17 +264,15 @@ export function tverAreaPlan(input: { prefecture?: string; city?: string; allCit
       .map((m) => {
         const est = estimateArea(input.prefecture!, m.code);
         if (!est) return null;
-        const p = est.plan;
-        // 単独で出すと月額が1万円を切って「¥0」に丸まる商圏がある（例: 直島町）。
-        // 金額を出さず「近隣とまとめる」先として返す
-        const tooSmall = Math.round(p.monthly) < 10_000;
+        const rec = est.recommended;
         return {
           city: m.name,
-          population: p.population,
-          tverViewers: Math.round(p.viewers),
-          standardMonthlyExclTax: tooSmall ? null : yen(p.monthly),
-          standardReach: Math.round(p.reach),
-          ...(tooSmall ? { note: "単独では小さすぎる商圏。近隣の市町とまとめて提案する" } : {}),
+          population: est.plan.population,
+          tverViewers: Math.round(est.plan.viewers),
+          monthlyFromExclTax: est.minMonthly != null ? yen(est.minMonthly) : null,
+          recommended: rec ? { plan: rec.name, monthlyExclTax: yen(rec.monthly), reachPerMonth: Math.round(rec.reach) } : null,
+          minMonths: est.minMonths,
+          ...(est.minMonthly == null ? { note: "どのプランも月額30万円以上＝大規模展開（個別見積）" } : {}),
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null)
@@ -274,9 +280,10 @@ export function tverAreaPlan(input: { prefecture?: string; city?: string; allCit
     return {
       prefecture: input.prefecture,
       cities: rows.length,
-      order: "人口の多い順。standard は『3人に1人に届ける』標準プランの月額（税抜・推計）。金額が null の市町は単独では小さすぎる＝近隣とまとめて出す",
+      order: "人口の多い順。monthlyFrom＝市町村プランの最低料金（その市で申込できる最安の額）、recommended＝おすすめプラン（多くはスタンダード）。null は大規模展開",
       areas: rows,
-      note: "金額は税抜・推計。お客様に出す前にOSのTVerシミュレーターで組み直してください（正本はOS）",
+      rules: TVER_PLAN_RULES,
+      note: "金額は税抜。お客様には「月額◯円〜（おすすめ：◯円）」の形で、目安であることを添えて伝える",
     };
   }
   let code: string | null = null;
@@ -294,10 +301,23 @@ export function tverAreaPlan(input: { prefecture?: string; city?: string; allCit
     area: plan.areaLabel,
     population: plan.population,
     tverViewers: Math.round(plan.viewers),
-    unitPricePerReach: yen(plan.unit),
-    standard: { months: 3, reach: Math.round(plan.reach), total3mExclTax: yen(plan.total), monthlyExclTax: yen(plan.monthly) },
-    tiers: est.tiers.map((t) => ({ monthlyExclTax: yen(t.monthly), impressions: Math.round(t.impressions), reach: Math.round(t.reach), pctResidents: Math.round(t.pctResidents * 10) / 10, pctViewers: Math.round(t.pctViewers * 10) / 10, isFull: t.isFull })),
-    note: "金額は税抜・推計。お客様に出す前にOSのTVerシミュレーターで組み直してください（正本はOS）",
+    monthlyGuide: monthlyGuideText(est),
+    minMonths: est.minMonths,
+    cityPlans: est.tiers.map((t) => ({
+      plan: t.name,
+      perResidents: `住民の${t.perResidents}人に1人へ`,
+      monthlyExclTax: yen(t.monthly),
+      impressionsPerMonth: Math.round(t.impressions),
+      reachPerMonth: Math.round(t.reach),
+      pctResidents: Math.round(t.pctResidents * 10) / 10,
+      pctViewers: Math.round(t.pctViewers * 10) / 10,
+      recommended: t.recommended,
+      ...(t.mergedWith.length ? { sameAs: t.mergedWith } : {}),
+      ...(t.floored ? { atMinimum: true } : {}),
+      ...(t.custom ? { largeScale: "月額30万円以上＝大規模展開（Web申込ではなく個別見積）" } : {}),
+    })),
+    rules: TVER_PLAN_RULES,
+    note: "金額は税抜。再生数・届く人数は目安（お約束しない）。申込はTVer申込ページ（/order/tver）で同じ額が出る",
   };
 }
 

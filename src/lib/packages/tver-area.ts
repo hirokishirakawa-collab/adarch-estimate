@@ -1,24 +1,20 @@
 // ==============================================================
 // 地域リーチ固定パッケージ（TVer）— エリア別の目安
 //   「この市だと、月額いくらで住民の何%に届くか」を出す。母集団（市内TVer視聴者）は lib/tver/plan.ts（資料と同じ推計）
-//   ・月の再生数 = 月額 ÷ 再生単価（15秒 ¥6.6＝卸値×3・2026-08-10 代表決定）
-//   ・月に届く人数 = 月の再生数 ÷ 実測フリークエンシー 4.78（安藤工事様 2026/6-7・1ヶ月）
-//     ※ 資料の「到達1人あたり単価 ¥37」で月額を割る方式は 2026-09-01 に代表指摘で撤回。
-//        資料側の網羅プラン（3人に1人×月5回を ¥37/人×3ヶ月で売る）は再生単価と整合しない＝代表判断待ち
-//   ・「商圏まるごと」= 資料の網羅プラン（月額 = 到達1人あたり単価 × 3人に1人 ÷ 3ヶ月）。
-//     2026-09-01 代表決定: ¥6.6 を正とし、網羅の約束は「3人に1人へ、3ヶ月で約5回（月約2回）」に直す。
-//     月に届く人数は再生数÷F で出し、3ヶ月累計＝3人に1人 を別途示す
+//   2026-09-13 代表決定: 料金は lib/tver/plan.ts の料金ルール（①市町村プランの3プラン・人口2段の下限・②の境目）
+//   ・行 = ①市町村プランの3プラン（同額は1枚にまとめる・月額30万以上は②大規模展開の印）＝申込ページと同じ額
+//   ・月の再生数 = 月額 ÷ 基準単価（15秒 ¥6.6）、月に届く人数 = 再生数 ÷ 実測F 4.78
+//   ・外に出す「月額の目安」は「最低料金〜（おすすめ：スタンダード額）」。旧網羅「3人に1人」は出さない
 //   ・住民比 = 到達人数 ÷ 市の総人口。視聴者比 = 到達人数 ÷ 市内TVer視聴者（推計）
 //   ・政令市は区に分かれているので「○○市（全区）」の合算行を先頭に足す（既定はこれ）
-//   ・数字は目安。保証しない（規定どおり「目安」と添えて言う）
+//   ・数字は目安（TVER_ESTIMATE_NOTE を添える）
 // ==============================================================
 
 import { MUNICIPALITIES } from "@/data/tver-municipalities";
 import { PREFECTURES } from "@/lib/constants/crm";
-import { COVER, FREQ, UNIT_PRICE, planForCodes, type AreaPlan } from "@/lib/tver/plan";
+import { CITY_PLAN_RATES, FREQ, UNIT_PRICE, cityPlansFor, estimateDelivery, planForCodes, type AreaPlan, type CityPlanKey } from "@/lib/tver/plan";
 
 export const TVER_AREA_CALCULATOR = "tver-area";
-export const MONTHLY_TIERS = [100_000, 150_000, 200_000, 300_000];
 const GROUP_PREFIX = "group:";
 
 export type AreaMuni = { code: string; name: string; population: number };
@@ -53,47 +49,82 @@ export function areaPlanFor(prefName: string, code: string): AreaPlan | null {
 }
 
 export type AreaTier = {
+  key: CityPlanKey;
+  name: string;
+  perResidents: number;
   monthly: number;
   impressions: number;
   reach: number;
   pctResidents: number;
   pctViewers: number;
-  isFull: boolean;
-  /** 商圏まるごと行だけ: 3ヶ月累計の到達（3人に1人） */
-  cumulative3m?: number;
+  /** 人口2段の下限に張り付いた */
+  floored: boolean;
+  /** 月額30万以上＝②大規模展開 */
+  custom: boolean;
+  /** 同額にまとめたプラン名（例: ライト） */
+  mergedWith: string[];
+  /** おすすめ（申込ページの既定プラン） */
+  recommended: boolean;
 };
 export interface AreaEstimate {
   plan: AreaPlan;
+  /** ①の3プラン（同額はまとめ済み・安い順。②の行も custom で残す） */
   tiers: AreaTier[];
-  /** 表の前提（画面の注記に使う） */
+  /** 「最低料金〜」の額。null＝どのプランも月額30万以上（大規模展開の個別見積） */
+  minMonthly: number | null;
+  /** おすすめのプラン（スタンダード→ライト→フルで申込できるもの） */
+  recommended: AreaTier | null;
+  /** このエリアの最低料金（人口2段）と最短期間 */
+  floor: number;
+  minMonths: 3 | 6;
+  small: boolean;
   unitPrice: number; // 円/再生（15秒）
   freq: number; // 月の平均フリークエンシー（実測）
 }
 
-const round1man = (v: number) => Math.round(v / 10_000) * 10_000;
-
 export function estimateArea(prefName: string, code: string): AreaEstimate | null {
   const plan = planForCodes(expandCodes(prefName, code), 15);
   if (!plan) return null;
-  const unit = UNIT_PRICE[15];
-  const tier = (monthly: number, isFull: boolean): AreaTier => {
-    const impressions = monthly / unit;
-    const reach = Math.min(impressions / FREQ, plan.viewers);
-    return {
-      monthly,
-      impressions,
-      reach,
-      pctResidents: Math.min(100, (reach / plan.population) * 100),
-      pctViewers: Math.min(100, (reach / plan.viewers) * 100),
-      isFull,
-    };
+  const cp = cityPlansFor(plan.population);
+  const tiers: AreaTier[] = CITY_PLAN_RATES.filter((r) => !cp.rows[r.key].mergedInto)
+    .map((r) => {
+      const row = cp.rows[r.key];
+      const d = estimateDelivery(row.fee, { viewers: plan.viewers, population: plan.population });
+      return {
+        key: r.key,
+        name: r.name,
+        perResidents: r.perResidents,
+        monthly: row.fee,
+        impressions: d.impressions,
+        reach: d.reach,
+        pctResidents: d.pctResidents ?? 0,
+        pctViewers: d.pctViewers ?? 0,
+        floored: row.floored,
+        custom: row.custom,
+        mergedWith: CITY_PLAN_RATES.filter((x) => cp.rows[x.key].mergedInto === r.key).map((x) => x.name),
+        recommended: r.key === cp.defaultPlan,
+      };
+    })
+    .sort((a, b) => a.monthly - b.monthly);
+  return {
+    plan,
+    tiers,
+    minMonthly: cp.minFee,
+    recommended: tiers.find((t) => t.recommended) ?? null,
+    floor: cp.floor,
+    minMonths: cp.minMonths,
+    small: cp.small,
+    unitPrice: UNIT_PRICE[15],
+    freq: FREQ,
   };
-  const tiers = MONTHLY_TIERS.map((m) => tier(m, false));
-  // 商圏まるごと＝資料の網羅プラン月額（3ヶ月で3人に1人へ約5回）。月の到達は再生÷F、3ヶ月累計で3人に1人
-  const fullMonthly = Math.max(10_000, round1man(plan.monthly));
-  const full: AreaTier = { ...tier(fullMonthly, true), cumulative3m: plan.viewers * COVER };
-  const merged = [...tiers.filter((t) => t.monthly !== full.monthly), full].sort((a, b) => a.monthly - b.monthly);
-  return { plan, tiers: merged, unitPrice: unit, freq: FREQ };
+}
+
+/** 「月額 ¥66,000〜（おすすめ：スタンダード ¥264,000）」の1行（LP・MCP・AI用材料で共通） */
+export function monthlyGuideText(e: AreaEstimate): string {
+  const yen = (n: number) => `¥${Math.round(n).toLocaleString("ja-JP")}`;
+  if (e.minMonthly == null) return "月額30万円以上（大規模展開・個別にお見積り）";
+  const rec = e.recommended;
+  return `月額 ${yen(e.minMonthly)}〜${rec && rec.monthly !== e.minMonthly ? `（おすすめ：${rec.name} ${yen(rec.monthly)}）` : rec ? `（おすすめ：${rec.name}）` : ""}`;
 }
 
 /** URLの pref / city から表示対象を決める（無ければ既定県の最大の市） */

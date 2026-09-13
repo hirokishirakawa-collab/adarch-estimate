@@ -97,7 +97,7 @@ export const OS_READ_TOOLS: OsToolDef[] = [
   }),
   def({
     name: "tver_area_plan", kind: "read", title: "TVer エリア別プラン",
-    description: "都道府県＋市区町村のTVer広告プラン（税抜・推計）。商圏のTVer視聴者数、3人に1人に届ける標準プラン、月額別の到達目安を返す。allCities: true で県内の全市区町村を人口の多い順に一度に返す（どの市から当たるかを決めるとき。市を1つずつ呼ばない）。",
+    description: "都道府県＋市区町村のTVer広告プラン（税抜）。商圏のTVer視聴者数、市町村プラン（ライト／スタンダード／フル＝申込ページと同じ額）の月額と月の再生数・届く人数の目安、最短契約期間、大規模展開の条件を返す。お客様には「月額◯円〜（おすすめ：◯円）」と目安であることを添えて伝える。allCities: true で県内の全市区町村を人口の多い順に一度に返す（どの市から当たるかを決めるとき。市を1つずつ呼ばない）。",
     input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市（省略で県内の先頭）"), allCities: bool().optional().describe("県内の全市区町村をまとめて") }),
     run: (_v, a) => os.tverAreaPlan(a),
   }),
@@ -372,7 +372,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   def({
     name: "create_landing_page", kind: "write", title: "業種×市の営業用LPを作る",
     description:
-      "AIが文面（大見出し・サブ・2〜6段落）を書き、/lp/<slug> として公開する。市のTVer視聴者数・標準プラン・月額目安とパッケージの内容物は表示のたびにOSから引くので、文面に数字を書かない。着地は既定でTVer申込ページ（自拠点が案内元）。useLine: true で自拠点の公式LINEボタンも付く。返ったURLを prepare_outreach の本文に添える。",
+      "AIが文面（大見出し・サブ・2〜6段落）を書き、/lp/<slug> として公開する。市のTVer視聴者数・月に届く人数の目安・月額（最低料金〜）とパッケージの内容物は表示のたびにOSから引くので、文面に数字を書かない。「3人に1人」のような到達の約束や「保証」も書かない。着地は既定でTVer申込ページ（自拠点が案内元）。useLine: true で自拠点の公式LINEボタンも付く。返ったURLを prepare_outreach の本文に添える。",
     input: z.object({ title: z.string(), headline: z.string(), subheadline: z.string().optional(), industry: z.string().optional(), prefecture: z.string().optional(), city: z.string().optional(), packageSlug: z.string().optional(), sections: z.array(z.object({ heading: z.string(), body: z.string() })), ctaLabel: z.string().optional(), ctaUrl: z.string().optional(), useLine: bool().optional(), slug: z.string().optional().describe("URLの末尾（英小文字・数字・ハイフン。例: karatsu-dental）") }),
     run: (v, a) => camp.createLandingPage(v, a),
     confirm: (a) => `LPを公開します: ${a.title}（${[a.prefecture, a.city, a.industry].filter(Boolean).join("・")}・${a.sections.length}段落）`,

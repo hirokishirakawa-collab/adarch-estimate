@@ -7,7 +7,7 @@
 //   ・初回登録費・管理費なし（旧版 v2026-09-09 の申込は保存済みの初期登録費をそのまま使う）
 // ==============================================================
 
-import { CITY_PLAN_RATES, CUSTOM_MONTHLY_FROM, FREQ, UNIT_PRICE, cityPlanMonthly, cityPlanTerms, estimateDelivery } from "@/lib/tver/plan";
+import { CITY_PLAN_RATES, FREQ, UNIT_PRICE, cityPlansFor, estimateDelivery } from "@/lib/tver/plan";
 import type { TverOrderStatus } from "@/generated/prisma/client";
 import { areaPlanFor } from "@/lib/packages/tver-area";
 
@@ -137,30 +137,17 @@ export type TverOrderAreaEstimate = {
   defaultPlan: TverOrderPlanKey | null;
 };
 
-/** 市区町村を選んだときの各プランの価格と目安（lib/tver/plan.ts の料金ルール） */
+/** 市区町村を選んだときの各プランの価格と目安（lib/tver/plan.ts の cityPlansFor＝LP・MCPと同じ額） */
 export function estimateForArea(prefName: string, code: string): TverOrderAreaEstimate | null {
   const plan = areaPlanFor(prefName, code);
   if (!plan) return null;
-  const terms = cityPlanTerms(plan.population);
+  const cp = cityPlansFor(plan.population);
   const byPlan = {} as TverOrderAreaEstimate["byPlan"];
   for (const p of TVER_ORDER_PLANS) {
-    const m = cityPlanMonthly(plan.population, p.perResidents);
-    const d = estimateDelivery(m.fee, { viewers: plan.viewers, population: plan.population });
-    byPlan[p.key] = { key: p.key, mediaFee: m.fee, rawFee: m.raw, impressions: d.impressions, reach: d.reach, pctResidents: d.pctResidents ?? 0, floored: m.floored, custom: m.fee >= CUSTOM_MONTHLY_FROM, mergedInto: null };
+    const r = cp.rows[p.key];
+    const d = estimateDelivery(r.fee, { viewers: plan.viewers, population: plan.population });
+    byPlan[p.key] = { key: p.key, mediaFee: r.fee, rawFee: r.raw, impressions: d.impressions, reach: d.reach, pctResidents: d.pctResidents ?? 0, floored: r.floored, custom: r.custom, mergedInto: r.mergedInto };
   }
-  // 同じ額になったプランは1枚に（スタンダードがあればスタンダード、なければ上位のプランを残す）
-  const keep = (a: TverOrderPlanKey, b: TverOrderPlanKey): TverOrderPlanKey => (a === "standard" || b === "standard" ? "standard" : a === "full" || b === "full" ? "full" : a);
-  const keys = TVER_ORDER_PLANS.map((p) => p.key);
-  for (let i = 0; i < keys.length; i++) {
-    for (let j = i + 1; j < keys.length; j++) {
-      const x = byPlan[keys[i]], y = byPlan[keys[j]];
-      if (x.mergedInto || y.mergedInto || x.mediaFee !== y.mediaFee) continue;
-      const k = keep(x.key, y.key);
-      (k === x.key ? y : x).mergedInto = k;
-    }
-  }
-  const visible = (k: TverOrderPlanKey) => !byPlan[k].mergedInto && !byPlan[k].custom;
-  const defaultPlan = (["standard", "light", "full"] as const).find(visible) ?? null;
   return {
     areaLabel: plan.areaLabel,
     population: plan.population,
@@ -168,11 +155,11 @@ export function estimateForArea(prefName: string, code: string): TverOrderAreaEs
     byPlan,
     unitPrice: UNIT_PRICE[15],
     freq: FREQ,
-    floor: terms.floor,
-    minMonths: terms.minMonths,
-    small: terms.small,
-    orderable: defaultPlan !== null,
-    defaultPlan,
+    floor: cp.floor,
+    minMonths: cp.minMonths,
+    small: cp.small,
+    orderable: cp.defaultPlan !== null,
+    defaultPlan: cp.defaultPlan,
   };
 }
 

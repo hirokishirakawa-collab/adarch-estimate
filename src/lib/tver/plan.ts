@@ -210,9 +210,9 @@ export function cityPlanTerms(population: number): { floor: number; minMonths: 3
 
 /** ①の3つの到達率（住民の N人に1人へ月に届ける） */
 export const CITY_PLAN_RATES = [
-  { key: "light", perResidents: 200 },
-  { key: "standard", perResidents: 50 },
-  { key: "full", perResidents: 20 },
+  { key: "light", name: "ライト", perResidents: 200 },
+  { key: "standard", name: "スタンダード", perResidents: 50 },
+  { key: "full", name: "フル", perResidents: 20 },
 ] as const;
 export type CityPlanKey = (typeof CITY_PLAN_RATES)[number]["key"];
 
@@ -230,6 +230,55 @@ export function cityPlanMonthly(population: number, perResidents: number): { fee
   const raw = ceil1000((population / perResidents) * FREQ * UNIT_PRICE[15]);
   const { floor } = cityPlanTerms(population);
   return { fee: Math.max(floor, raw), raw, floored: raw < floor };
+}
+
+export type CityPlanRow = {
+  key: CityPlanKey;
+  perResidents: number;
+  /** 月額（税抜）＝人口の式 → 人口2段の下限 */
+  fee: number;
+  raw: number;
+  floored: boolean;
+  /** 月額30万以上＝②大規模展開（Web申込には出さない） */
+  custom: boolean;
+  /** 同じ額の別プランにまとめた＝このプランは出さない（まとめ先のキー） */
+  mergedInto: CityPlanKey | null;
+};
+export type CityPlans = {
+  floor: number;
+  minMonths: 3 | 6;
+  small: boolean;
+  rows: Record<CityPlanKey, CityPlanRow>;
+  /** 出すプラン（まとめ・②を除く）を安い順 */
+  visible: CityPlanRow[];
+  /** 既定で勧めるプラン（スタンダード→ライト→フルの順で出せるもの）。無ければ②だけのエリア */
+  defaultPlan: CityPlanKey | null;
+  /** 「最低料金〜」に出す額（出せるプランの最安）。null＝どのプランも②（大規模展開の個別見積） */
+  minFee: number | null;
+};
+
+/** ①の3プラン（同額は1枚にまとめる・30万以上は②）。申込ページ・LP・MCP・AI用材料が同じ額を出すための1か所 */
+export function cityPlansFor(population: number): CityPlans {
+  const terms = cityPlanTerms(population);
+  const rows = {} as Record<CityPlanKey, CityPlanRow>;
+  for (const r of CITY_PLAN_RATES) {
+    const m = cityPlanMonthly(population, r.perResidents);
+    rows[r.key] = { key: r.key, perResidents: r.perResidents, fee: m.fee, raw: m.raw, floored: m.floored, custom: m.fee >= CUSTOM_MONTHLY_FROM, mergedInto: null };
+  }
+  // 同じ額は1枚に（スタンダードがあればスタンダード、なければ上位のプランを残す）
+  const keep = (a: CityPlanKey, b: CityPlanKey): CityPlanKey => (a === "standard" || b === "standard" ? "standard" : a === "full" || b === "full" ? "full" : a);
+  const keys = CITY_PLAN_RATES.map((r) => r.key);
+  for (let i = 0; i < keys.length; i++) {
+    for (let j = i + 1; j < keys.length; j++) {
+      const x = rows[keys[i]], y = rows[keys[j]];
+      if (x.mergedInto || y.mergedInto || x.fee !== y.fee) continue;
+      const k = keep(x.key, y.key);
+      (k === x.key ? y : x).mergedInto = k;
+    }
+  }
+  const visible = keys.map((k) => rows[k]).filter((r) => !r.mergedInto && !r.custom).sort((a, b) => a.fee - b.fee);
+  const defaultPlan = (["standard", "light", "full"] as const).find((k) => !rows[k].mergedInto && !rows[k].custom) ?? null;
+  return { ...terms, rows, visible, defaultPlan, minFee: visible[0]?.fee ?? null };
 }
 
 export type TverPlanKind = "city" | "custom";

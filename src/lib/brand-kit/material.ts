@@ -6,6 +6,7 @@
 
 import type { SalesPackage } from "@/generated/prisma/client";
 import { estimateArea, municipalitiesOf, TVER_AREA_CALCULATOR } from "@/lib/packages/tver-area";
+import { TVER_ESTIMATE_NOTE } from "@/lib/tver/plan";
 import { CLIENT_OWNER_LABEL, formatPackagePrice, parseDeliverables, parseDocs, parseFulfillment, parseOptions, yen } from "@/lib/packages/types";
 import { commonGuidelines, commonPrompts, fmtInt, fmtYen, senderBlock, stripSensitiveLines, todayLabel } from "./common";
 import { renderGroupData, type GroupDataSummary } from "./group-data";
@@ -39,7 +40,7 @@ function renderProhibited(v: unknown): string {
   return String(v);
 }
 
-/** 3. エリア別の目安（計算機が tver-area のパッケージだけ。見ている人の県で上位の市区） */
+/** 3. エリア別の目安（計算機が tver-area のパッケージだけ。見ている人の県で上位の市区）。額は申込ページと同じ（lib/tver/plan.ts） */
 function renderAreaTable(pref: string | null, take = 10): string | null {
   if (!pref) return null;
   const munis = municipalitiesOf(pref);
@@ -48,20 +49,18 @@ function renderAreaTable(pref: string | null, take = 10): string | null {
   for (const m of munis.slice(0, take)) {
     const e = estimateArea(pref, m.code);
     if (!e) continue;
-    const t10 = e.tiers.find((t) => t.monthly === 100_000);
-    const t20 = e.tiers.find((t) => t.monthly === 200_000);
-    const full = e.tiers.find((t) => t.isFull);
+    const rec = e.recommended;
     rows.push(
-      `| ${m.name} | ${fmtInt(m.population)}人 | ${t10 ? `${fmtInt(t10.reach)}人（${t10.pctResidents.toFixed(1)}%）` : "—"} | ${t20 ? `${fmtInt(t20.reach)}人（${t20.pctResidents.toFixed(1)}%）` : "—"} | ${full ? `${fmtYen(full.monthly)}／月` : "—"} |`
+      `| ${m.name} | ${fmtInt(m.population)}人 | ${e.minMonthly != null ? `${fmtYen(e.minMonthly)}〜` : "大規模展開（個別見積）"} | ${rec ? `${rec.name} ${fmtYen(rec.monthly)}／月・${fmtInt(rec.reach)}人（${rec.pctResidents.toFixed(1)}%）` : "—"} | ${e.minMonths}ヶ月以上 |`
     );
   }
   if (!rows.length) return null;
   const any = estimateArea(pref, munis[0].code);
   const unit = any ? any.unitPrice : 6.6;
   const freq = any ? any.freq : 4.78;
-  return `前提: 15秒CM ¥${unit.toFixed(1)}／再生（税抜）。月に届く人数＝再生数÷${freq}回（1人が月に見る平均回数・グループの配信実績）。**すべて推計の目安。保証値ではない。** 表にない市は公開ページで市を選ぶと出ます。
+  return `前提: 市町村プラン（15秒・1エリア・初回登録費と管理費なし）。月額は市の人口で決まり、最低料金は人口5万人未満のエリア ¥30,000（6ヶ月以上）・5万人以上 ¥50,000（3ヶ月以上）。月の再生数＝月額÷¥${unit.toFixed(1)}、月に届く人数＝再生数÷${freq}回（1人が月に見る平均回数・グループの配信実績）。**${TVER_ESTIMATE_NOTE}** 月額30万円以上・2エリア以上・週次報告の希望は「大規模展開」として個別見積。表にない市は公開ページで市を選ぶと出ます。
 
-| 市区（${pref}・人口順） | 住民 | 月額10万で届く人数（住民比） | 月額20万で届く人数（住民比） | 商圏まるごと（3ヶ月で3人に1人） |
+| 市区（${pref}・人口順） | 住民 | 月額（最低料金〜） | おすすめプランで月に届く人数（住民比） | 契約期間 |
 |---|---|---|---|---|
 ${rows.join("\n")}`;
 }

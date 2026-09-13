@@ -11,7 +11,7 @@ import { PERIODS, INFO_PERIODS_JP, INFO_PERIODS_IB, JP_PRICES, IB_PRICES, INFO_J
 import { getMediaFeePerStore, STICKER_PROD_BPS, STAND_PROD_BPS, interpolateFee, DESIGN_FEE as SKYLARK_DESIGN_FEE } from "./skylark";
 import { getPrintUnitPrice, PLACEMENT_UNIT, SHIPPING_UNIT, DESIGN_FEE as UNIV_DESIGN_FEE } from "./univ-coop";
 import { dcpFee, deliveryFee } from "./aeon-cinema";
-import { AD_FORMATS, sellCpm, calcAdArchFees, TVER_PENETRATION } from "./tver-sim";
+import { CITY_PLAN_SECONDS, CITY_POP_THRESHOLD, CUSTOM_DESIGN_FEE, CUSTOM_OPS_MIN, CUSTOM_OPS_RATE, CUSTOM_SECONDS, FREQ, TVER_ESTIMATE_NOTE, UNIT_PRICE, cityPlanTerms, estimateDelivery, tverFees } from "@/lib/tver/plan";
 import { AEON_THEATERS, CINEMA_AD_COLS } from "@/data/aeon-theaters";
 import { SKYLARK_STORES } from "@/data/skylark-stores";
 import { UNIV_STORES } from "@/data/univ-stores";
@@ -246,23 +246,37 @@ export const MEDIA: MediumDef[] = [
   },
   {
     id: "tver-sim",
-    name: "TVer広告（個別設計・再生回数ベース）",
-    short: "商圏と再生回数を決めて、個別に設計するTVer出稿",
-    what: "TVer（民放公式のテレビ配信サービス）に、市区町村単位でエリアを指定して CM を配信します。再生回数または予算から設計し、秒数（6／15／30／45／60秒）を組み合わせられます。パッケージ（月額固定）と違い、案件ごとに個別設計します。",
+    name: "TVer広告（市町村プラン／大規模展開）",
+    short: "市区町村を指定して15秒CMを流すTVer出稿。1エリアの既製の型と、複数エリアのオーダーの2つ",
+    what: "TVer（民放公式のテレビ配信サービス）に、市区町村単位でエリアを指定して CM を配信します。1つの市区町村に15秒で出す「市町村プラン」（Webで申込できる既製の型）と、複数エリア・大きな予算・週次報告が要る「大規模展開」（オーダー）の2つです。",
     fits: "テレビCMを地域限定で試したい企業全般（住宅、車、医療、学校、小売、採用）",
-    caveats: ["リーチは「人口×TVer普及率÷1人あたり回数」の推計。保証しない", "TVer側の考査がある（業種・表現によって出稿できない場合がある）", "手数料（媒体管理費・考査費・初期取引費）はお客様に事前に伝える"],
+    caveats: [
+      "再生数・届く人数は目安。お約束しない（「保証」の言葉を使わない）",
+      "TVer側の考査がある（業種・表現によって出稿できない場合がある）",
+      "大規模展開の手数料（設計・考査費・運用管理費）はお客様に事前に伝える。手数料は値引きしない",
+      "市町村プランは値引きしない",
+    ],
     simulatorPath: "/dashboard/tver-simulator",
-    talk: ["最初の質問: 「お客さまは、だいたいどの市からいらっしゃいますか？」", "刺さる言い方: 「テレビCMを、御社の市だけに絞って出せます」", "反論「効果が分からない」→ 月次レポート（再生数・完全視聴率・エリア内訳）を実物で見せる"],
+    talk: ["最初の質問: 「お客さまは、だいたいどの市からいらっしゃいますか？」", "刺さる言い方: 「テレビCMを、御社の市だけに絞って出せます」", "反論「効果が分からない」→ 配信後の報告（再生数・完全視聴率・エリア内訳）を実物で見せる"],
     facts: () => {
       const lines: string[] = [];
+      lines.push("**2つのプラン（税抜）**");
+      lines.push("| | 市町村プラン（既製の型） | 大規模展開（オーダー） |\n|---|---|---|");
+      lines.push(`| 当てはまる | 1エリア・15秒・月額30万円未満・週次報告なし | 月額30万円以上／2エリア以上／週次報告の希望 のどれか |`);
+      lines.push(`| 月額 | 市の人口で決まる（住民の200／50／20人に1人へ届く3プラン）。最低料金は人口5万人未満のエリア ${yen(cityPlanTerms(1).floor)}・5万人以上 ${yen(cityPlanTerms(CITY_POP_THRESHOLD).floor)} | 個別に設計（OSのTVerシミュレーター） |`);
+      lines.push(`| 手数料 | 初回登録費・管理費なし | 設計・考査費 ${yen(CUSTOM_DESIGN_FEE)}（初回）＋運用管理費＝媒体費の${Math.round(CUSTOM_OPS_RATE * 100)}%（最低 ${yen(CUSTOM_OPS_MIN)}／月） |`);
+      lines.push(`| 契約期間 | 人口5万人未満のエリアは${cityPlanTerms(1).minMonths}ヶ月以上・5万人以上は${cityPlanTerms(CITY_POP_THRESHOLD).minMonths}ヶ月以上 | 個別 |`);
+      lines.push(`| 秒数・変更 | 15秒・途中変更なし | ${CUSTOM_SECONDS.map((s) => `${s}秒`).join("／")}・差し替え可 |`);
+      lines.push(`| 報告 | 配信終了後に結果報告 | 週1回 |`);
+      lines.push("");
       lines.push("**再生単価（税抜・秒数別）**");
       lines.push("| 秒数 | 1再生あたり | 1,000再生あたり |\n|---|---|---|");
-      for (const f of AD_FORMATS) lines.push(`| ${f.label}${f.note ? `（${f.note}）` : ""} | ¥${(sellCpm(f.seconds) / 1000).toFixed(1)} | ${yen(sellCpm(f.seconds))} |`);
+      for (const s of CUSTOM_SECONDS) lines.push(`| ${s}秒${s === CITY_PLAN_SECONDS ? "（標準）" : ""} | ¥${UNIT_PRICE[s].toFixed(1)} | ${yen(UNIT_PRICE[s] * 1000)} |`);
       lines.push("");
-      const fee = calcAdArchFees(500_000, true, 1);
-      lines.push(`**手数料（税抜）**: 媒体管理費＝媒体費50万円以下は ${yen(fee.managementFee)}、50万円超は媒体費の20%／クリエイティブ考査費 ${yen(30_000)}／本／初期取引費（業態考査含む・初回のみ） ${yen(fee.initialFee)}`);
-      lines.push(`**例**: 15秒・媒体費50万円・初回・素材1本 → 再生 ${Math.round(500_000 / (sellCpm(15) / 1000)).toLocaleString("ja-JP")}回、手数料 ${yen(fee.subtotal)}、総額 ${yen(500_000 + fee.subtotal)}`);
-      lines.push(`**リーチの考え方**: 指定エリアの人口 × TVer普及率${Math.round(TVER_PENETRATION * 100)}% ÷ 1人あたりの再生回数（標準3回）＝届く人数の上限（推計）`);
+      const ex = 300_000;
+      const fee = tverFees("custom", ex, true);
+      lines.push(`**例（大規模展開）**: 15秒・媒体費30万円/月・初めての広告主 → 運用管理費 ${yen(fee.opsFeeMonthly)}/月、設計・考査費 ${yen(fee.designFee)}（初回）、初月の合計 ${yen(ex + fee.opsFeeMonthly + fee.designFee)}。月の再生数の目安 約${Math.round(estimateDelivery(ex).impressions).toLocaleString("ja-JP")}回`);
+      lines.push(`**届く人数の考え方**: 月の再生数（月額÷再生単価）÷ 1人が月に見る平均回数（${FREQ}回・グループの配信実績）。${TVER_ESTIMATE_NOTE}`);
       return lines.join("\n");
     },
   },

@@ -21,6 +21,8 @@ import {
 
 const TAX_RATE = 0.1;
 const PLAN_NAME: Record<string, string> = { light: "ライト", standard: "スタンダード", full: "フル" };
+/** 設計・考査費を付けない理由（チェックを外したとき画面とPDFに必ず出す） */
+const REPEAT_ADVERTISER = "2回目以降の広告主（同じ広告主で過去に設計・考査済み）";
 
 // ----------------------------------------------------------------
 // ユーティリティ
@@ -418,7 +420,7 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                     ...(isCustom
                       ? [
                           `運用管理費 ${formatYen(calc.fees.opsFeeMonthly)}／月（媒体費の${Math.round(CUSTOM_OPS_RATE * 100)}%・最低${formatYen(CUSTOM_OPS_MIN)}）`,
-                          ...(calc.fees.designFee ? [`設計・考査費 ${formatYen(calc.fees.designFee)}（初回のみ）`] : []),
+                          calc.fees.designFee ? `設計・考査費 ${formatYen(calc.fees.designFee)}（初回のみ）` : `設計・考査費 なし：${REPEAT_ADVERTISER}`,
                           ...(calc.discount ? [`再生単価 ¥${calc.unit}（${seconds}秒）`] : []),
                         ]
                       : ["初回登録費・管理費なし"]),
@@ -537,7 +539,7 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                   {isCustom && (
                     <label className="flex items-center gap-1.5 cursor-pointer">
                       <input type="checkbox" checked={isFirst} onChange={(e) => setIsFirst(e.target.checked)} className="w-3.5 h-3.5 accent-amber-400" />
-                      <span className="text-[10px] text-zinc-400">初めての広告主（設計・考査費あり）</span>
+                      <span className={cn("text-[10px]", isFirst ? "text-zinc-400" : "font-semibold text-amber-300")}>{isFirst ? "初めての広告主（設計・考査費あり）" : REPEAT_ADVERTISER}</span>
                     </label>
                   )}
                 </div>
@@ -549,8 +551,8 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                         <span className="font-semibold tabular-nums text-zinc-200">{formatYen(calc.fees.opsFeeMonthly)}</span>
                       </div>
                       <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-700">
-                        <span className="text-zinc-400">設計・考査費<span className="ml-1 text-zinc-600">（初回のみ）</span></span>
-                        <span className="font-semibold tabular-nums text-amber-300">{calc.fees.designFee ? formatYen(CUSTOM_DESIGN_FEE) : "—（2回目以降）"}</span>
+                        <span className="text-zinc-400">設計・考査費<span className="ml-1 text-zinc-600">{calc.fees.designFee ? "（初回のみ）" : "（2回目以降の広告主・過去に設計・考査済み）"}</span></span>
+                        <span className="font-semibold tabular-nums text-amber-300">{calc.fees.designFee ? formatYen(CUSTOM_DESIGN_FEE) : "なし"}</span>
                       </div>
                     </>
                   ) : (

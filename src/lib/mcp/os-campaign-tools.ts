@@ -14,7 +14,8 @@ import { stripSensitiveLines } from "@/lib/brand-kit/common";
 import { normalizeDomain } from "@/lib/auto-sales-domain";
 import { appUrl } from "@/lib/tver-order/service";
 import { addFriendUrl } from "@/lib/line/format";
-import { estimateArea, municipalitiesOf, prefectureOptions } from "@/lib/packages/tver-area";
+import { estimateArea, monthlyGuideText, municipalitiesOf, prefectureOptions } from "@/lib/packages/tver-area";
+import { TVER_ESTIMATE_NOTE } from "@/lib/tver/plan";
 import { nextAnniversary } from "@/lib/anniversary/calc";
 import { FORM_SENT } from "@/lib/leads/apply-outreach-result";
 import { OUTREACH_PREPARED } from "@/lib/constants/leads";
@@ -160,7 +161,7 @@ export async function planCampaign(v: McpViewer, input: PlanCampaignInput) {
     },
     landing: {
       tverOrderUrl: orderUrl,
-      tverPlan: tver ? { area: tver.plan.areaLabel, viewers: Math.round(tver.plan.viewers), reach: Math.round(tver.plan.reach), monthlyExclTax: `¥${Math.round(tver.plan.monthly).toLocaleString("ja-JP")}`, note: "税抜・推計。正本はOSのシミュレーター" } : null,
+      tverPlan: tver ? { area: tver.plan.areaLabel, viewers: Math.round(tver.plan.viewers), monthlyGuide: monthlyGuideText(tver), recommendedReachPerMonth: tver.recommended ? Math.round(tver.recommended.reach) : null, minMonths: tver.minMonths, note: `税抜。${TVER_ESTIMATE_NOTE} 申込ページで同じ額が出る` } : null,
       lineFriendUrl: line,
       landingPages: lps.map((p) => ({ url: `${appUrl()}/lp/${p.slug}`, title: p.title, industry: p.industry, city: p.cityName })),
       howTo: "業種×市のLPを作るなら create_landing_page。着地は tverOrderUrl（申込まで完結）か lineFriendUrl（関係づくり）",
@@ -285,7 +286,11 @@ export async function createLandingPage(v: McpViewer, input: CreateLandingPageIn
   need(input.title?.trim() && input.title.length <= 80, "title は1〜80文字");
   need(input.headline?.trim() && input.headline.length <= 60, "headline（大見出し）は1〜60文字");
   need(Array.isArray(input.sections) && input.sections.length >= 2 && input.sections.length <= 6, "sections は2〜6段落（{heading, body}）");
+  // 2026-09-13: 旧網羅（3人に1人）や「保証」は約束に読めるので文面に書かせない（再生数・届く人数は目安）
+  const promise = /[0-9０-９一二三四五六七八九十]人に[1１一]人|保証/;
+  need(!promise.test(`${input.headline} ${input.subheadline ?? ""}`), "見出しに「◯人に1人」「保証」を書かないでください（届く人数は目安で、お約束しません）");
   for (const sec of input.sections) {
+    need(!promise.test(`${sec.heading} ${sec.body}`), "本文に「◯人に1人」「保証」を書かないでください（届く人数は目安で、お約束しません）");
     need(sec.heading?.trim() && sec.heading.length <= 60, "各段落の heading は1〜60文字");
     need(sec.body?.trim() && sec.body.length <= 800, "各段落の body は1〜800文字");
     need(!/[¥￥]\s?\d|\d+円/.test(sec.body), "本文に金額を書かないでください。TVerの数字は showTverPlan でOSから自動表示されます");

@@ -178,7 +178,7 @@ export async function draftProposal(v: McpViewer, input: DraftProposalInput) {
       "package の内容物・納期・価格表を使い、数字には必ず「目安・税抜」を添える。価格の正本はOS",
       "similarWins の決め手・文面は「型」として借り、固有名詞と金額は写さない",
       "fundingOptions があれば「財源」として1段落添える（締切日を明記）",
-      "tverPlan があれば商圏の視聴者数と標準プランを1枚に。金額は税抜・推計と明記",
+      "tverPlan があれば商圏の視聴者数と monthlyGuide（月額◯円〜・おすすめ）を1枚に。金額は税抜、再生数・届く人数は目安と明記",
       "長さ: 提案文なら400〜800字、資料なら見出し5〜7枚分。締めに次の一手（面談・見積）を1つ",
     ],
   };

@@ -9,6 +9,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { estimateArea } from "@/lib/packages/tver-area";
+import { TVER_ESTIMATE_NOTE } from "@/lib/tver/plan";
 import { parseDeliverables } from "@/lib/packages/types";
 import { HQ } from "@/lib/tver-order/terms";
 
@@ -68,15 +69,20 @@ export default async function LandingPage({ params }: { params: Promise<{ slug: 
                 <b>{fmt(est.plan.viewers)}<span>人</span></b>
               </div>
               <div>
-                <small>標準プランで届く人数（3人に1人）</small>
-                <b>{fmt(est.plan.reach)}<span>人</span></b>
+                <small>{est.recommended ? `${est.recommended.name}プランで月に届く人数（目安）` : "月に届く人数（目安）"}</small>
+                <b>{est.recommended ? <>{fmt(est.recommended.reach)}<span>人</span></> : "—"}</b>
               </div>
               <div>
-                <small>月額の目安（税抜）</small>
-                <b>¥{fmt(est.plan.monthly)}<span>〜</span></b>
+                <small>月額（税抜）</small>
+                {est.minMonthly != null ? (
+                  <b>¥{fmt(est.minMonthly)}<span>〜</span></b>
+                ) : (
+                  <b style={{ fontSize: "1.1em" }}>個別見積</b>
+                )}
+                {est.recommended && est.recommended.monthly !== est.minMonthly && <small>おすすめ：{est.recommended.name} ¥{fmt(est.recommended.monthly)}</small>}
               </div>
             </div>
-            <p className="numbers-note">数字は市の人口とTVer視聴率からの推計・税抜。お申込みページで市区町村とプランを選ぶと、その場で確定額が出ます。</p>
+            <p className="numbers-note">税抜。初回登録費・管理費なし。お申込みページで市区町村とプランを選ぶと、その場で月額が出ます。{TVER_ESTIMATE_NOTE}</p>
           </>
         )}
       </section>
