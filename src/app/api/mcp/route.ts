@@ -193,12 +193,13 @@ const handler = createMcpHandler(
                 inputRequests: {
                   confirm: inputRequired.elicit({
                     message: `${t.confirm(args)}\n\nOSに書き込んでよいですか？`,
-                    requestedSchema: { type: "object", properties: { ok: { type: "boolean", title: "書き込む", description: "はい＝OSに記録する" } }, required: ["ok"] },
+                    // 必須にすると未選択のままAcceptで弾かれる（9/13 声あり）＝Acceptだけで書き込み、外したときだけ止める
+                    requestedSchema: { type: "object", properties: { ok: { type: "boolean", title: "書き込む", description: "はい＝OSに記録する", default: true } } },
                   }),
                 },
               });
             }
-            const ok = view.kind === "elicit" && view.action === "accept" && acceptedContent<{ ok?: boolean }>(ctx.mcpReq?.inputResponses, "confirm")?.ok === true;
+            const ok = view.kind === "elicit" && view.action === "accept" && acceptedContent<{ ok?: boolean }>(ctx.mcpReq?.inputResponses, "confirm")?.ok !== false;
             if (!ok) return text("書き込みを取りやめました（確認で「いいえ」が選ばれました）");
           }
         }
