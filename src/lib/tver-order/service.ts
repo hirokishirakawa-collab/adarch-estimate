@@ -1,7 +1,7 @@
 // ==============================================================
 // TVer小口申込 — 申込の作成・月払いの請求・入金確定・通知（サーバー専用）
 //   契約期間 3/6/12ヶ月・月払い（2026-09-09 代表決定）
-//   1) createTverOrder      規約同意済みの申込を保存 → 初月の請求（月額＋初期登録費）を発行
+//   1) createTverOrder      規約同意済みの申込を保存 → 初月の請求を発行（2026-09-13〜 初回登録費なし。旧版の申込は保存済みの初期登録費のまま）
 //        カード = Square決済リンクへ送る／振込 = MF請求書を作ってメール
 //   2) confirmInvoicePayment 初月の入金確認＝契約成立（メール・CEOアラート）。2ヶ月目以降＝入金の控えメール
 //   3) runTverOrderBilling   毎朝cron: 次の月の請求を期日7日前に発行＋振込のMF入金取込
@@ -18,8 +18,9 @@ import { createSquarePaymentLink } from "@/lib/square";
 import { mfCreateBilling, mfCreatePartner, mfFetchPdf, mfGetBilling, mfGetPartner, mfIsConnected, mfNormalizeName, mfSearchPartners } from "@/lib/mf-invoice";
 import { municipalitiesOf, prefectureOptions } from "@/lib/packages/tver-area";
 import type { TverOrder, TverOrderInvoice, TverOrderStatus } from "@/generated/prisma/client";
-import { HQ, TERMS_TITLE, TERMS_VERSION } from "./terms";
+import { HQ, TERMS_TITLE, TERMS_VERSION, reportLabel } from "./terms";
 import { AD_SECONDS, INDUSTRY_OPTIONS, MONTH_OPTIONS, estimateForArea, orderNumberLabel, planByKey, quote, withTax, yen } from "./plans";
+import { TVER_ESTIMATE_NOTE } from "@/lib/tver/plan";
 import { TVER_ORDER_STATUS_LABEL, progressIndex } from "./plans";
 export { TVER_ORDER_STATUS_LABEL, progressIndex };
 
@@ -79,14 +80,6 @@ export type CreateTverOrderInput = {
   ua?: string | null;
 };
 
-/** 同じ広告主（法人番号 or メール）の入金済み申込があれば 2回目以降＝初期登録費なし */
-export async function isFirstOrderFor(input: { corporateNumber?: string | null; email: string }): Promise<boolean> {
-  const or: { corporateNumber?: string; email?: string }[] = [{ email: input.email.toLowerCase() }];
-  if (input.corporateNumber) or.push({ corporateNumber: input.corporateNumber });
-  const prior = await db.tverOrder.findFirst({ where: { paidAt: { not: null }, status: { notIn: ["REFUNDED", "CANCELLED"] }, OR: or }, select: { id: true } });
-  return !prior;
-}
-
 export async function createTverOrder(input: CreateTverOrderInput): Promise<{ token?: string; paymentUrl?: string; invoiced?: boolean; error?: string }> {
   // ── 検証（画面側でも見るが、サーバーで必ずもう一度）
   if (!prefectureOptions().includes(input.prefName)) return { error: "都道府県を選んでください" };
@@ -110,10 +103,13 @@ export async function createTverOrder(input: CreateTverOrderInput): Promise<{ to
   if (!signerName) return { error: "ご署名（お名前）を入力してください" };
 
   const e = est.byPlan[plan.key];
-  const months = MONTH_OPTIONS.some((m) => m.months === input.months) ? input.months : 3;
+  // ②大規模展開（月額30万以上）はWeb申込を受けない。画面を迂回されてもここで止める
+  if (e.custom) return { error: "このエリア・プランは月額30万円以上のため、大規模展開（オーダー）のご相談になります。「複数エリアで相談する」からお送りください。" };
+  if (!MONTH_OPTIONS.some((m) => m.months === input.months)) return { error: "契約期間を選んでください" };
+  const months = input.months;
+  if (months < est.minMonths) return { error: `このエリア（人口5万人未満）の契約期間は${est.minMonths}ヶ月以上です` };
   const sender = await loadOrderSender(input.from);
-  const first = await isFirstOrderFor({ email });
-  const q = quote(e.mediaFee, first, months);
+  const q = quote(e.mediaFee, 0, months); // 初回登録費・管理費なし（2026-09-13）
   const token = randomBytes(24).toString("base64url");
   const agreedAt = new Date();
 
@@ -482,7 +478,7 @@ export async function notifyTverOrderStatus(orderId: string): Promise<void> {
   const lines: string[] = [];
   if (o.status === "MATERIAL_WAITING") lines.push("15秒の動画を進捗ページからアップロード（またはURLを共有）してください。受領から最短10営業日で配信を開始します。");
   if (o.status === "LIVE" && o.liveStartDate) lines.push(`配信期間: ${fmtD(o.liveStartDate)} 〜 ${o.liveEndDate ? fmtD(o.liveEndDate) : `${o.months}ヶ月`}`);
-  if (o.status === "COMPLETED" && o.reportUrl) lines.push(`月次レポート: ${o.reportUrl}`);
+  if (o.status === "COMPLETED" && o.reportUrl) lines.push(`${reportLabel(o.termsVersion)}: ${o.reportUrl}`);
   if (o.status === "REFUNDED") lines.push("お支払いいただいた料金は全額、ご利用のカードへ取消（返金）の手続きを行いました。カード会社の処理に数日かかることがあります。");
   if (o.customerNote) lines.push(o.customerNote);
   try {
@@ -524,16 +520,16 @@ function simpleMailHtml(greeting: string, paras: string[], statusUrl: string, bu
 
 function orderTableHtml(o: TverOrder): string {
   const plan = planByKey(o.planKey);
-  const q = quote(o.mediaFeeExclTax, o.setupFeeExclTax > 0, o.months);
+  const q = quote(o.mediaFeeExclTax, o.setupFeeExclTax, o.months);
   const row = (k: string, v: string, strong = false) =>
     `<tr><td style="padding:8px 0;border-bottom:1px solid #e6e4e0;font-size:13px;color:#6a6a6a;width:38%;">${esc(k)}</td><td style="padding:8px 0;border-bottom:1px solid #e6e4e0;font-size:13px;${strong ? "font-weight:600;font-size:16px;" : ""}">${esc(v)}</td></tr>`;
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
 ${row("申込番号", orderNumberLabel(o.number, o.createdAt))}
 ${row("配信エリア", `${o.prefName} ${o.areaLabel}`)}
 ${row("プラン・契約期間", `${plan?.name ?? o.planKey}（${AD_SECONDS}秒）・${o.months}ヶ月・月払い`)}
-${row("再生数の目安", `月 約${o.estImpressions.toLocaleString("ja-JP")}回（推計・保証しない）`)}
+${row("再生数の目安", `月 約${o.estImpressions.toLocaleString("ja-JP")}回（推計の目安）`)}
 ${row("月額（税抜）", yen(q.mediaFeeExclTax))}
-${row("初期登録費（初回のみ・税抜）", q.setupFeeExclTax ? yen(q.setupFeeExclTax) : "—")}
+${q.setupFeeExclTax ? row("初期登録費（初回のみ・税抜）", yen(q.setupFeeExclTax)) : ""}
 ${row("初月のお支払い（税込）", yen(q.firstInclTax), true)}
 ${row("2ヶ月目以降（税込・毎月）", yen(q.monthlyInclTax))}
 ${row("お支払い方法", o.paymentMethod === "BANK_TRANSFER" ? "銀行振込（毎月請求書）" : "クレジットカード（毎月決済リンク）")}
@@ -550,7 +546,8 @@ function confirmationMailHtml(o: TverOrder, sender: OrderSender | null, statusUr
 <tr><td style="padding:6px 32px 0;font-size:13px;line-height:1.9;">進捗ページで <b>法人番号・本店所在地・代表者名</b> をご記入ください。TVerの業態考査に必要な情報です。</td></tr>
 <tr><td style="padding:12px 32px 0;font-size:12px;line-height:1.8;color:#6a6a6a;">本メールは契約内容の控えです。${esc(TERMS_TITLE)}（${esc(o.termsVersion)}）に ${esc(o.signerName)} 様が ${esc(fmtDT(o.agreedAt))} に同意され、${o.paymentMethod === "BANK_TRANSFER" ? "ご入金" : "決済"}の確認をもって契約が成立しました。規約全文は進捗ページからいつでも確認できます。</td></tr>
 <tr><td style="padding:20px 32px 0;font-size:14px;font-weight:600;">その後の流れ</td></tr>
-<tr><td style="padding:6px 32px 0;font-size:13px;line-height:1.9;color:#111;">1）本部がTVerへ業態考査を申請します（2〜5営業日）<br>2）考査が通りましたら、進捗ページから15秒の動画をお送りください${o.hasVideo ? "" : "（動画の制作は" + (sender ? esc(sender.company) : HQ.company) + "がご案内します）"}<br>3）動画の受領から最短10営業日で配信を開始します（${o.months}ヶ月・2ヶ月目以降は毎月、配信開始日の応当日にその月分をご請求します）<br>4）配信終了後、月次レポートをお送りします</td></tr>
+<tr><td style="padding:6px 32px 0;font-size:13px;line-height:1.9;color:#111;">1）本部がTVerへ業態考査を申請します（2〜5営業日）<br>2）考査が通りましたら、進捗ページから15秒の動画をお送りください${o.hasVideo ? "" : "（動画の制作は" + (sender ? esc(sender.company) : HQ.company) + "がご案内します）"}<br>3）動画の受領から最短10営業日で配信を開始します（${o.months}ヶ月・2ヶ月目以降は毎月、配信開始日の応当日にその月分をご請求します）<br>4）配信終了後、${reportLabel(o.termsVersion)}をお送りします</td></tr>
+<tr><td style="padding:10px 32px 0;font-size:12px;line-height:1.8;color:#6a6a6a;">${esc(TVER_ESTIMATE_NOTE)}</td></tr>
 <tr><td style="padding:24px 32px 8px;"><a href="${statusUrl}" style="display:inline-block;background:#f19834;color:#111;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:3px;font-size:14px;">進捗ページで詳細を記入する</a></td></tr>
 <tr><td style="padding:8px 32px 20px;font-size:12px;color:#6a6a6a;line-height:1.7;">${o.paymentMethod === "BANK_TRANSFER" ? "" : "領収書はSquareから別途メールで届きます。"}${sender ? `ご案内・ご担当: ${esc(sender.company)}${sender.person ? `（${esc(sender.person)}）` : ""}${sender.email ? ` ${esc(sender.email)}` : ""}` : ""}</td></tr>`
   );

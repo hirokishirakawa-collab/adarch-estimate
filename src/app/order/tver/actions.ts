@@ -35,7 +35,7 @@ export async function submitTverOrder(_prev: OrderFormState, formData: FormData)
       prefName: s("prefName"),
       municipalityCode: s("municipalityCode"),
       planKey: s("planKey"),
-      months: [3, 6, 12].includes(Number(s("months"))) ? Number(s("months")) : 3,
+      months: Number(s("months")) || 0, // 期間の検証（選択肢・人口5万人未満は6ヶ月以上）は service 側
       hasVideo: s("hasVideo") !== "no",
       paymentMethod: s("paymentMethod") === "BANK_TRANSFER" ? "BANK_TRANSFER" : "CARD",
       advertiserName: s("advertiserName"),

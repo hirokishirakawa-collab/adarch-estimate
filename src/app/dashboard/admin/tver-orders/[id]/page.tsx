@@ -22,7 +22,7 @@ export default async function AdminTverOrderDetail({ params }: { params: Promise
   if (!o) notFound();
   const no = orderNumberLabel(o.number, o.createdAt);
   const plan = planByKey(o.planKey);
-  const q = quote(o.mediaFeeExclTax, o.setupFeeExclTax > 0, o.months);
+  const q = quote(o.mediaFeeExclTax, o.setupFeeExclTax, o.months);
   const statusUrl = `${appUrl()}/order/tver/${o.token}`;
 
   return (

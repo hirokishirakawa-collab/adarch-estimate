@@ -7,8 +7,9 @@
 //                    ※ 2026-09-01 代表決定で「ひと月平均約5回」から訂正（¥37/人×3ヶ月の価格と ¥6.6/再生 を両立させる正直な表現）
 //   販売単価       = 卸値×3（15秒 ¥6.6/再生）。到達1人あたり単価は安藤工事様の実測を母集団規模で補間
 //
-// ※ 既存の TVerSimulator（人口×普及率30%）とは視聴者の推計式が異なる。
-//   チラシ・企画書は本ファイル（資料と同じ数字が出る側）を使う。
+// ※ 2026-09-13: 料金ルール（①市町村プラン／②大規模展開・下限・手数料・目安）もこのファイルに集約（末尾）。
+//   シミュレーター・申込ページ・申込リンク・LP・MCP・チラシは全部ここを読む（旧 lib/media/tver-sim.ts は廃止）。
+//   下の「網羅（3人に1人・costPerReach）」はチラシ移行（第3弾）までの互換。新規で使わない。
 
 import { MUNICIPALITIES, type Municipality } from "@/data/tver-municipalities";
 
@@ -177,6 +178,111 @@ export function neighborPlans(plan: AreaPlan, n = 3, seconds: AdSeconds = 15): A
     .map((m) => planForCodes([m.code], seconds))
     .filter((p): p is AreaPlan => !!p)
     .sort((a, b) => b.population - a.population);
+}
+
+// ==============================================================
+// 料金ルール（2026-09-13 代表決定）— TVerの料金・手数料・目安はすべてここを通す
+//   売値 = 卸値×3。月額はTVer:代表者:本部で3等分＝TVerに入るのは月額の1/3だけ
+//     → 再生数・届く人数は「目安」（¥6.6/再生を約束しない・「保証」の表現は使わない）
+//     → 目安の再生数は常に「月額 ÷ 基準単価（15秒¥6.6）」。値引きしても基準単価で割る（値引きぶん目安も下がる）
+//   ① 市町村プラン（既製の型）: 初回登録費なし・管理費なし・1エリア・15秒・途中変更なし・終了後に結果報告のみ・値引きなし
+//        月額 = 人口 ÷ N × 実測F × ¥6.6（千円切上）。下限だけ人口で2段（5万人未満 ¥30,000・6ヶ月以上／5万人以上 ¥50,000・3ヶ月以上）
+//   ② 大規模展開（オーダー）: 月額30万以上／2エリア以上／週次報告の希望 のどれか。15/30/60秒
+//        設計・考査費 ¥150,000（初回）＋運用管理費 = max(媒体費×20%, ¥50,000)／月。手数料は値引き不可
+//        値引きは再生単価だけ・下限は卸値×2（15秒 ¥4.4）
+//   ※ 3等分・卸値・値引きの下限は、お客様向け表示・Wiki・AI用材料・MCPに出さない
+// ==============================================================
+
+/** 値引きの下限単価（卸値×2）。代表者の画面（シミュレーター②）だけで使う */
+export const UNIT_PRICE_FLOOR: Record<AdSeconds, number> = { 15: r2(WHOLESALE_UNIT[15] * 2), 30: r2(WHOLESALE_UNIT[30] * 2), 60: r2(WHOLESALE_UNIT[60] * 2) };
+
+/** 「目安」の注記（画面・PDF・申込ページ・LP等で共通の文言） */
+export const TVER_ESTIMATE_NOTE =
+  "再生数・届く人数は公的統計と当社の配信実績にもとづく目安です。TVerの配信状況によって上下し、お約束するものではありません。";
+
+export const CITY_PLAN_SECONDS = 15 as const;
+/** 人口の境目（これ未満は小さな市町村の下限） */
+export const CITY_POP_THRESHOLD = 50_000;
+/** ①の下限（人口2段） */
+export function cityPlanTerms(population: number): { floor: number; minMonths: 3 | 6; small: boolean } {
+  return population < CITY_POP_THRESHOLD ? { floor: 30_000, minMonths: 6, small: true } : { floor: 50_000, minMonths: 3, small: false };
+}
+
+/** ①の3つの到達率（住民の N人に1人へ月に届ける） */
+export const CITY_PLAN_RATES = [
+  { key: "light", perResidents: 200 },
+  { key: "standard", perResidents: 50 },
+  { key: "full", perResidents: 20 },
+] as const;
+export type CityPlanKey = (typeof CITY_PLAN_RATES)[number]["key"];
+
+/** ②になる月額（これ以上は大規模展開） */
+export const CUSTOM_MONTHLY_FROM = 300_000;
+export const CUSTOM_DESIGN_FEE = 150_000;
+export const CUSTOM_OPS_RATE = 0.2;
+export const CUSTOM_OPS_MIN = 50_000;
+export const CUSTOM_SECONDS: AdSeconds[] = [15, 30, 60];
+
+const ceil1000 = (v: number) => Math.ceil(v / 1000) * 1000;
+
+/** ①の月額（人口÷N×F×¥6.6 を千円切上 → 人口2段の下限） */
+export function cityPlanMonthly(population: number, perResidents: number): { fee: number; raw: number; floored: boolean } {
+  const raw = ceil1000((population / perResidents) * FREQ * UNIT_PRICE[15]);
+  const { floor } = cityPlanTerms(population);
+  return { fee: Math.max(floor, raw), raw, floored: raw < floor };
+}
+
+export type TverPlanKind = "city" | "custom";
+
+/** ①②の判定（境目＝運用の手間）。reasons は②になった理由 */
+export function classifyTverPlan(input: { monthly: number; areaCount: number; weeklyReport?: boolean; seconds?: number }): { kind: TverPlanKind; reasons: string[] } {
+  const reasons: string[] = [];
+  if (input.monthly >= CUSTOM_MONTHLY_FROM) reasons.push(`月額${CUSTOM_MONTHLY_FROM / 10_000}万円以上`);
+  if (input.areaCount >= 2) reasons.push("2エリア以上");
+  if (input.weeklyReport) reasons.push("週次報告を希望");
+  if (input.seconds != null && input.seconds !== CITY_PLAN_SECONDS) reasons.push(`${input.seconds}秒`);
+  return { kind: reasons.length ? "custom" : "city", reasons };
+}
+
+/** 手数料（税抜）。①は0。②は設計・考査費（初回）＋運用管理費（月）。値引きの入力は受けない */
+export function tverFees(kind: TverPlanKind, mediaMonthly: number, isFirst: boolean): { designFee: number; opsFeeMonthly: number; opsMinApplied: boolean } {
+  if (kind === "city") return { designFee: 0, opsFeeMonthly: 0, opsMinApplied: false };
+  const rate = Math.round(mediaMonthly * CUSTOM_OPS_RATE);
+  return { designFee: isFirst ? CUSTOM_DESIGN_FEE : 0, opsFeeMonthly: Math.max(rate, CUSTOM_OPS_MIN), opsMinApplied: rate < CUSTOM_OPS_MIN };
+}
+
+/** 値引き単価を下限に収める（②だけ）。基準単価より上は基準単価に */
+export function clampUnitPrice(price: number, seconds: AdSeconds): { price: number; atFloor: boolean } {
+  const floor = UNIT_PRICE_FLOOR[seconds];
+  const list = UNIT_PRICE[seconds];
+  if (!Number.isFinite(price) || price < floor) return { price: floor, atFloor: true };
+  return { price: Math.min(r2(price), list), atFloor: false };
+}
+
+/** 月額からの目安。再生数 = 月額 ÷ 基準単価（値引き単価では割らない）、届く人数 = 再生数 ÷ 実測F（視聴者数で頭打ち） */
+export function estimateDelivery(monthly: number, opts: { seconds?: AdSeconds; viewers?: number; population?: number } = {}): { impressions: number; reach: number; pctResidents: number | null; pctViewers: number | null } {
+  const unit = UNIT_PRICE[opts.seconds ?? 15];
+  const impressions = Math.max(0, monthly) / unit;
+  const byImp = impressions / FREQ;
+  const reach = opts.viewers != null ? Math.min(byImp, opts.viewers) : byImp;
+  return {
+    impressions,
+    reach,
+    pctResidents: opts.population ? Math.min(100, (reach / opts.population) * 100) : null,
+    pctViewers: opts.viewers ? Math.min(100, (reach / opts.viewers) * 100) : null,
+  };
+}
+
+/** 選んだ市区町村コードを「エリア数」に数える（政令市の区は1市＝1エリア） */
+export function countAreas(codes: string[]): number {
+  const keys = new Set<string>();
+  for (const c of codes) {
+    const m = byCode.get(c);
+    if (!m) continue;
+    const w = /^(.+市).+区$/.exec(m.name);
+    keys.add(`${m.prefName}:${w ? w[1] : m.name}`);
+  }
+  return keys.size;
 }
 
 // ── 表示ヘルパー ──

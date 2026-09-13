@@ -5,12 +5,12 @@ import { PdfHeader, PdfFooter, IssuerBlock, MetaList } from "@/components/pdf/pd
 
 // ── 型定義 ──
 export interface ReachPotential {
-  tverAudience: number; // TVer視聴者数
-  reachPotential: number; // 推定リーチ
-  fillRate: number; // 充足度 (0-100)
+  tverAudience: number; // TVer視聴者数（推計・lib/tver/plan.ts）
+  reachPotential: number; // 月に届く人数の目安
+  fillRate: number; // TVer視聴者に届く割合 (0-100)
   totalPop: number; // 対象人口
-  plays: number; // 再生回数
-  frequency: number; // FQ
+  plays: number; // 月の再生数の目安
+  frequency: number; // 1人あたり月の平均視聴回数（実測）
 }
 
 export interface StoreEntry {
@@ -190,7 +190,7 @@ export function SimulatorPDFDocument({ data }: { data: SimulatorPDFData }) {
         {/* リーチポテンシャル（TVer用） */}
         {data.reach && (
           <View style={s.reachSection}>
-            <Text style={s.reachTitle}>リーチポテンシャル</Text>
+            <Text style={s.reachTitle}>届く人数の目安（月）</Text>
             <View style={s.reachGrid}>
               <View style={s.reachCard}>
                 <Text style={s.reachCardLabel}>対象人口</Text>
@@ -200,16 +200,16 @@ export function SimulatorPDFDocument({ data }: { data: SimulatorPDFData }) {
               <View style={s.reachCard}>
                 <Text style={s.reachCardLabel}>TVer視聴者数</Text>
                 <Text style={s.reachCardValue}>{fmtCount(data.reach.tverAudience)}</Text>
-                <Text style={s.reachCardUnit}>人（普及率30%）</Text>
+                <Text style={s.reachCardUnit}>人（推計）</Text>
               </View>
               <View style={s.reachCard}>
-                <Text style={s.reachCardLabel}>推定リーチ</Text>
+                <Text style={s.reachCardLabel}>月に届く人数（目安）</Text>
                 <Text style={s.reachCardValue}>{fmtCount(data.reach.reachPotential)}</Text>
-                <Text style={s.reachCardUnit}>人（FQ {data.reach.frequency}回）</Text>
+                <Text style={s.reachCardUnit}>人（1人あたり月{data.reach.frequency}回）</Text>
               </View>
             </View>
             <View style={s.fillBarContainer}>
-              <Text style={s.fillBarLabel}>配信ボリューム充足度</Text>
+              <Text style={s.fillBarLabel}>視聴者に届く割合</Text>
               <View style={s.fillBarBg}>
                 <View
                   style={[

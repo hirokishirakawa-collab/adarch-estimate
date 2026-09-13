@@ -273,6 +273,11 @@ export function EstimateForm({ staffName, templates, customers, projects, mode =
         </button>
       </div>
 
+      {/* TVerの料金ルール（2026-09-13 代表決定）: 手数料は値引き不可・値引きは再生単価だけ（下限あり） */}
+      <p className="text-[11px] text-zinc-500">
+        TVerを見積に入れるときは、金額を<a href="/dashboard/tver-simulator" className="underline underline-offset-2">TVerシミュレーター</a>で出してください。TVerの手数料（設計・考査費・運用管理費）は値引きできません。値引きできるのは再生単価だけで、下限があります（シミュレーターで確認できます）。
+      </p>
+
       {/* ── 出精値引き ── */}
       <div className="border border-dashed border-zinc-300 rounded-lg px-4 py-3">
         <label className="flex items-center gap-2 cursor-pointer select-none">

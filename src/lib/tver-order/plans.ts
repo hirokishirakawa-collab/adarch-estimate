@@ -1,39 +1,38 @@
 // ==============================================================
-// TVer小口申込（/order/tver）— プラン・料金・目安の計算
-//   ・媒体費は3段（月額・税抜・市の人口で変わる）。15秒・契約期間3/6/12ヶ月・市単位
-//   ・初期登録費（TVer考査・アカウント作成）= 初回のみ ¥30,000（税抜）、同じ広告主の2回目以降は 0
-//     （2026-09-09 代表決定。パッケージ規定「月額10万・15万は¥30,000」と同じ額）
-//   ・再生数の目安 = 媒体費 ÷ ¥6.6（15秒・卸値×3）、届く人数の目安 = 再生数 ÷ 実測F 4.78
-//     計算は lib/tver/plan.ts・lib/packages/tver-area.ts と同じ（数字は「目安」と必ず添える）
+// TVer小口申込（/order/tver）＝ ①市町村プランのWeb申込 — プラン表示・見積・状態ラベル
+//   料金の計算（人口の式・下限2段・最低期間・②の境目・目安）は lib/tver/plan.ts の料金ルールが正本（2026-09-13 代表決定）
+//   ・3プラン（住民の200/50/20人に1人）は残す。プラン別の下限はやめ、人口2段の下限を全プランに共通で当てる
+//   ・下限で同じ額になったプランは1枚にまとめる（おすすめのスタンダードを残す）
+//   ・月額30万以上になるプランは申込を出さず「大規模展開で相談」へ
+//   ・初回登録費・管理費なし（旧版 v2026-09-09 の申込は保存済みの初期登録費をそのまま使う）
 // ==============================================================
 
-import { FREQ, UNIT_PRICE } from "@/lib/tver/plan";
+import { CITY_PLAN_RATES, CUSTOM_MONTHLY_FROM, FREQ, UNIT_PRICE, cityPlanMonthly, cityPlanTerms, estimateDelivery } from "@/lib/tver/plan";
 import type { TverOrderStatus } from "@/generated/prisma/client";
 import { areaPlanFor } from "@/lib/packages/tver-area";
 
-// 到達率固定＝「住民の N人に1人」に月に届ける（2026-09-09 代表決定: 価格は場所で変わる・3プランは常に出す・10万の上限は置かない）
-//   媒体費 = 人口 ÷ N × 実測F 4.78 × ¥6.6 を千円単位に切り上げ（下限だけ置く・上限なし）
-//   フル（20人に1人）＝資料の「商圏まるごと（3ヶ月で3人に1人）」を月に直した水準＝高松市で月約¥66万。「結果を出す」基準
-//   スタンダード（50人に1人）＝高松市 約¥26万／ライト（200人に1人）＝高松市 約¥6.6万
+const RATE = Object.fromEntries(CITY_PLAN_RATES.map((r) => [r.key, r.perResidents])) as Record<(typeof CITY_PLAN_RATES)[number]["key"], number>;
+
 export const TVER_ORDER_PLANS = [
-  { key: "light", name: "ライト", perResidents: 200, floor: 20_000, recommended: false, lead: "テスト配信（反応を見る）", note: "結果を出す目的ならスタンダード以上をお選びください" },
-  { key: "standard", name: "スタンダード", perResidents: 50, floor: 50_000, recommended: true, lead: "地元の市で認知を取る", note: "" },
-  { key: "full", name: "フル", perResidents: 20, floor: 100_000, recommended: false, lead: "商圏まるごと＝結果を出す基準", note: "3ヶ月で市の3人に1人に届く水準" },
+  { key: "light", name: "ライト", perResidents: RATE.light, recommended: false, lead: "テスト配信（反応を見る）", note: "結果を出す目的ならスタンダード以上をお選びください" },
+  { key: "standard", name: "スタンダード", perResidents: RATE.standard, recommended: true, lead: "地元の市で認知を取る", note: "" },
+  { key: "full", name: "フル", perResidents: RATE.full, recommended: false, lead: "商圏まるごと＝結果を出す基準", note: "" },
 ] as const;
 export type TverOrderPlanKey = (typeof TVER_ORDER_PLANS)[number]["key"];
 
-export const MEDIA_FEE_FLOOR = 20_000;
-/** 契約期間の選択肢（月）。3ヶ月＝資料の商圏まるごとと同じ「結果を出す」前提の最短期間（2026-09-09 代表決定: 3・6・12） */
+/** 契約期間の選択肢（月）。人口5万人未満のエリアは6ヶ月以上（cityPlanTerms.minMonths） */
 export const MONTH_OPTIONS = [
-  { months: 3, label: "3ヶ月", recommended: true, note: "結果を出す最短の期間。同じ人に繰り返し届いて記憶に残る" },
-  { months: 6, label: "6ヶ月", recommended: false, note: "半年かけて定着させる。季節をまたいで反応を見られる" },
-  { months: 12, label: "1年", recommended: false, note: "年間で地元の顔になる。素材の差し替えは本部にご相談ください" },
+  { months: 3, label: "3ヶ月", note: "結果を出す最短の期間。同じ人に繰り返し届いて記憶に残る" },
+  { months: 6, label: "6ヶ月", note: "半年かけて定着させる。季節をまたいで反応を見られる" },
+  { months: 12, label: "1年", note: "年間で地元の顔になる" },
 ] as const;
 export type OrderMonths = (typeof MONTH_OPTIONS)[number]["months"];
-/** 初期登録費が無料になる月額（本部規定 2026-09-03: 月額20万以上と商圏まるごとは無料） */
-export const SETUP_FEE_WAIVE_FROM = 200_000;
 
-export const SETUP_FEE_EXCL_TAX = 30_000;
+/** そのエリアで選べる期間（最短期間以上） */
+export function monthOptionsFor(minMonths: number) {
+  return MONTH_OPTIONS.filter((m) => m.months >= minMonths);
+}
+
 export const TAX_RATE = 0.1;
 export const AD_SECONDS = 15;
 export const DELIVERY_DAYS = "動画の受領から最短10営業日";
@@ -83,9 +82,8 @@ export type TverOrderQuote = {
   subtotalExclTax: number;
 };
 
-/** 月払いの見積。初期登録費は「月額」で判定（本部規定: 月額20万以上は無料）し、初月の請求に乗せる */
-export function quote(monthlyFee: number, isFirstOrder: boolean, months = 3): TverOrderQuote {
-  const setupFeeExclTax = isFirstOrder && monthlyFee < SETUP_FEE_WAIVE_FROM ? SETUP_FEE_EXCL_TAX : 0;
+/** 月払いの見積。初期登録費は再計算しない＝新しい申込は 0、旧版の申込は保存済みの値を渡す */
+export function quote(monthlyFee: number, setupFeeExclTax: number, months = 3): TverOrderQuote {
   const firstExclTax = monthlyFee + setupFeeExclTax;
   const firstInclTax = withTax(firstExclTax);
   const monthlyInclTax = withTax(monthlyFee);
@@ -107,15 +105,19 @@ export function quote(monthlyFee: number, isFirstOrder: boolean, months = 3): Tv
 
 export type TverOrderPlanQuote = {
   key: TverOrderPlanKey;
-  /** 媒体費（税抜）＝人口比の額をプランの帯に収めたもの */
+  /** 媒体費（税抜・月額）＝人口の式 → 人口2段の下限 */
   mediaFee: number;
-  /** 帯に収める前の人口比の額（参考） */
+  /** 下限を当てる前の人口の式の額（参考） */
   rawFee: number;
   impressions: number;
   reach: number;
   pctResidents: number;
   /** 下限に張り付いた（人口が小さい） */
   floored: boolean;
+  /** 月額30万以上＝②大規模展開（Web申込を出さない） */
+  custom: boolean;
+  /** 同じ額の別プランにまとめた（このカードは出さない）。まとめ先のキー */
+  mergedInto: TverOrderPlanKey | null;
 };
 export type TverOrderAreaEstimate = {
   areaLabel: string;
@@ -124,24 +126,54 @@ export type TverOrderAreaEstimate = {
   byPlan: Record<TverOrderPlanKey, TverOrderPlanQuote>;
   unitPrice: number;
   freq: number;
+  /** このエリアの最低料金（月額・税抜）と最短期間 */
+  floor: number;
+  minMonths: 3 | 6;
+  /** 人口5万人未満 */
+  small: boolean;
+  /** 申込できる（30万未満の）プランがあるか */
+  orderable: boolean;
+  /** 既定で選ぶプラン（スタンダード→ライト→フルの順で申込できるもの） */
+  defaultPlan: TverOrderPlanKey | null;
 };
 
-const ceil1000 = (v: number) => Math.ceil(v / 1000) * 1000;
-
-/** 市区町村を選んだときの各プランの価格と目安。plan.ts と同じ推計 */
+/** 市区町村を選んだときの各プランの価格と目安（lib/tver/plan.ts の料金ルール） */
 export function estimateForArea(prefName: string, code: string): TverOrderAreaEstimate | null {
   const plan = areaPlanFor(prefName, code);
   if (!plan) return null;
-  const unit = UNIT_PRICE[15];
+  const terms = cityPlanTerms(plan.population);
   const byPlan = {} as TverOrderAreaEstimate["byPlan"];
   for (const p of TVER_ORDER_PLANS) {
-    const rawFee = ceil1000((plan.population / p.perResidents) * FREQ * unit);
-    const mediaFee = Math.max(p.floor, rawFee);
-    const impressions = mediaFee / unit;
-    const reach = Math.min(impressions / FREQ, plan.viewers);
-    byPlan[p.key] = { key: p.key, mediaFee, rawFee, impressions, reach, pctResidents: Math.min(100, (reach / plan.population) * 100), floored: rawFee < p.floor };
+    const m = cityPlanMonthly(plan.population, p.perResidents);
+    const d = estimateDelivery(m.fee, { viewers: plan.viewers, population: plan.population });
+    byPlan[p.key] = { key: p.key, mediaFee: m.fee, rawFee: m.raw, impressions: d.impressions, reach: d.reach, pctResidents: d.pctResidents ?? 0, floored: m.floored, custom: m.fee >= CUSTOM_MONTHLY_FROM, mergedInto: null };
   }
-  return { areaLabel: plan.areaLabel, population: plan.population, viewers: plan.viewers, byPlan, unitPrice: unit, freq: FREQ };
+  // 同じ額になったプランは1枚に（スタンダードがあればスタンダード、なければ上位のプランを残す）
+  const keep = (a: TverOrderPlanKey, b: TverOrderPlanKey): TverOrderPlanKey => (a === "standard" || b === "standard" ? "standard" : a === "full" || b === "full" ? "full" : a);
+  const keys = TVER_ORDER_PLANS.map((p) => p.key);
+  for (let i = 0; i < keys.length; i++) {
+    for (let j = i + 1; j < keys.length; j++) {
+      const x = byPlan[keys[i]], y = byPlan[keys[j]];
+      if (x.mergedInto || y.mergedInto || x.mediaFee !== y.mediaFee) continue;
+      const k = keep(x.key, y.key);
+      (k === x.key ? y : x).mergedInto = k;
+    }
+  }
+  const visible = (k: TverOrderPlanKey) => !byPlan[k].mergedInto && !byPlan[k].custom;
+  const defaultPlan = (["standard", "light", "full"] as const).find(visible) ?? null;
+  return {
+    areaLabel: plan.areaLabel,
+    population: plan.population,
+    viewers: plan.viewers,
+    byPlan,
+    unitPrice: UNIT_PRICE[15],
+    freq: FREQ,
+    floor: terms.floor,
+    minMonths: terms.minMonths,
+    small: terms.small,
+    orderable: defaultPlan !== null,
+    defaultPlan,
+  };
 }
 
 /** 表示用の申込番号（TV-2026-0042） */

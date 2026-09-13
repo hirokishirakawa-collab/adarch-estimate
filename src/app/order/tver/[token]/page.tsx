@@ -8,7 +8,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { AD_SECONDS, orderNumberLabel, planByKey, quote, yen } from "@/lib/tver-order/plans";
-import { TERMS, TERMS_TITLE } from "@/lib/tver-order/terms";
+import { TERMS_TITLE, reportLabel, termsFor } from "@/lib/tver-order/terms";
 import { TVER_ORDER_STATUS_LABEL, loadOrderSender, progressIndex } from "@/lib/tver-order/service";
 import { BrandHeader, LegalFooter, Referrer } from "../shared";
 import { DetailsForm, MaterialForm, PayButton } from "./status-client";
@@ -30,7 +30,8 @@ export default async function TverOrderStatusPage({ params, searchParams }: Prop
   const sender = await loadOrderSender(o.groupCompanyId);
   const no = orderNumberLabel(o.number, o.createdAt);
   const plan = planByKey(o.planKey);
-  const q = quote(o.mediaFeeExclTax, o.setupFeeExclTax > 0, o.months);
+  const q = quote(o.mediaFeeExclTax, o.setupFeeExclTax, o.months);
+  const report = reportLabel(o.termsVersion); // 旧版 v2026-09-09＝月次レポート／現行＝結果報告
   const first = o.invoices.find((i) => i.seq === 1);
   const unpaidCard = o.invoices.find((i) => i.status === "UNPAID" && i.method === "CARD");
   const idx = progressIndex(o.status);
@@ -72,13 +73,13 @@ export default async function TverOrderStatusPage({ params, searchParams }: Prop
     lead = "動画を受け取りました。本部で規定チェックと入稿を進めています。配信開始日はメールでお知らせします。";
     next = <MaterialForm token={token} current={o.materialUrl} replace />;
   } else if (o.status === "LIVE") {
-    lead = `配信中です${o.liveStartDate ? `（${fmtD(o.liveStartDate)} 〜 ${o.liveEndDate ? fmtD(o.liveEndDate) : `${o.months}ヶ月`}）` : ""}。終了後に月次レポートをお送りします。`;
+    lead = `配信中です${o.liveStartDate ? `（${fmtD(o.liveStartDate)} 〜 ${o.liveEndDate ? fmtD(o.liveEndDate) : `${o.months}ヶ月`}）` : ""}。終了後に${report}をお送りします。`;
   } else if (o.status === "COMPLETED") {
     lead = "配信が終了しました。ご利用ありがとうございました。";
     next = o.reportUrl ? (
-      <a className="button" href={o.reportUrl} target="_blank" rel="noopener">月次レポートを開く ↗</a>
+      <a className="button" href={o.reportUrl} target="_blank" rel="noopener">{report}を開く ↗</a>
     ) : (
-      <p className="small">月次レポートは本部よりメールでお送りします。</p>
+      <p className="small">{report}は本部よりメールでお送りします。</p>
     );
   } else if (o.status === "REFUNDED") {
     lead = "考査の結果、今回は出稿ができませんでした。お支払いいただいた料金は全額返金の手続きを行いました。";
@@ -167,10 +168,10 @@ export default async function TverOrderStatusPage({ params, searchParams }: Prop
             <tbody>
               <tr><th scope="row">エリア</th><td>{o.prefName} {o.areaLabel}</td></tr>
               <tr><th scope="row">プラン・契約期間</th><td>{plan?.name ?? o.planKey}（{AD_SECONDS}秒）・{o.months}ヶ月・月払い</td></tr>
-              <tr><th scope="row">再生数の目安</th><td>月 約{o.estImpressions.toLocaleString("ja-JP")}回（推計・保証しない）</td></tr>
+              <tr><th scope="row">再生数の目安</th><td>月 約{o.estImpressions.toLocaleString("ja-JP")}回（推計の目安）</td></tr>
               <tr><th scope="row">動画</th><td>{o.hasVideo ? "お客様がご用意（15秒）" : "なし（制作は担当がご案内）"}</td></tr>
               <tr><th scope="row">月額（税抜）</th><td>{yen(q.mediaFeeExclTax)}</td></tr>
-              <tr><th scope="row">初期登録費（初回のみ）</th><td>{q.setupFeeExclTax ? yen(q.setupFeeExclTax) : "—"}</td></tr>
+              {q.setupFeeExclTax > 0 && <tr><th scope="row">初期登録費（初回のみ）</th><td>{yen(q.setupFeeExclTax)}</td></tr>}
               <tr><th scope="row">お支払い方法</th><td>{o.paymentMethod === "BANK_TRANSFER" ? "銀行振込（毎月請求書）" : "クレジットカード（毎月決済リンク）"}{o.paidAt ? `　／　初月 ${fmtDT(o.paidAt)} 確認済み` : ""}</td></tr>
             </tbody>
             <tfoot>
@@ -198,7 +199,7 @@ export default async function TverOrderStatusPage({ params, searchParams }: Prop
               </p>
             </div>
             <div className="terms" style={{ marginTop: 12, maxHeight: "none" }}>
-              {TERMS.map((a) => (
+              {termsFor(o.termsVersion).map((a) => (
                 <div key={a.no}>
                   <h3>第{a.no}条 {a.title}</h3>
                   {a.body.map((b, i) => (
