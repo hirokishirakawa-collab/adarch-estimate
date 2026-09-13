@@ -6,12 +6,13 @@
 // 「質が同じなら新しい方を先に」という2軸目として使う。
 // ---------------------------------------------------------------
 
-export type SignalKind = "SUBSIDY" | "TVCM" | "RECRUIT" | "FOUND";
+export type SignalKind = "SUBSIDY" | "TVCM" | "RECRUIT" | "ANNIV" | "FOUND";
 
 export const SIGNAL_KIND_LABEL: Record<SignalKind, string> = {
   SUBSIDY: "補助金が通った",
   TVCM: "CMを発表した",
   RECRUIT: "求人を出している",
+  ANNIV: "周年を発表した",
   FOUND: "発掘",
 };
 
@@ -20,6 +21,7 @@ export const SIGNAL_KIND_WEIGHT: Record<SignalKind, number> = {
   SUBSIDY: 3, // 予算がついた＝一番強い
   TVCM: 2, // 広告に金を使う会社だと確定している
   RECRUIT: 1, // 採用に金をかける気がある
+  ANNIV: 1, // 周年の節目で発信に金を使う可能性がある
   FOUND: 0, // シグナルなし
 };
 
