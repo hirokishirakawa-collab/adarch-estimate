@@ -27,7 +27,7 @@ import { issuer, verifyAccessToken, type Scope } from "@/lib/oauth/server";
 import * as os from "@/lib/mcp/os-read-tools";
 import * as osw from "@/lib/mcp/os-write-tools";
 import { todaysOne } from "@/lib/mcp/daily-nudge";
-import { OS_AI_RULES, OS_TOOLS, UI_DEAL_CARD, UI_NEXT_ACTIONS, type OsToolDef } from "@/lib/mcp/tool-catalog";
+import { OS_AI_RULES_MCP, OS_TOOLS, UI_DEAL_CARD, UI_NEXT_ACTIONS, type OsToolDef } from "@/lib/mcp/tool-catalog";
 import { DEAL_CARD_HTML, NEXT_ACTIONS_HTML } from "@/lib/mcp/widgets";
 
 export const maxDuration = 120; // discover_leads（検索→採点→保存）が長い
@@ -281,9 +281,7 @@ const handler = createMcpHandler(
   },
   {
     serverInfo: { name: "adarch-os", version: "1.3.0" },
-    instructions:
-      "Ad Arch（アドアーチ）グループOSのツール。提案文・資料を作るときは list_materials → get_material/get_full_kit でブランドキットを読んでから書く。数字は取得したものだけを使い「目安・税抜」を添える。価格の正本はOS。" +
-      OS_AI_RULES,
+    instructions: OS_AI_RULES_MCP,
     capabilities: { tools: {}, resources: {}, prompts: {} },
     onEvent: (ev) => {
       if (ev.type === "ERROR") console.error("[MCP]", ev.error, ev.context ?? "");

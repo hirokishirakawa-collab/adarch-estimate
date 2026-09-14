@@ -290,7 +290,7 @@ export const OS_READ_TOOLS: OsToolDef[] = [
 export const OS_WRITE_TOOLS: OsToolDef[] = [
   def({
     name: "submit_advertiser_review", kind: "write", title: "TVer業態考査を申請する",
-    description: "TVerに出したい広告主の業態考査を本部に申請する（OS画面の「業態考査申請」と同じ・本部にメール通知）。承認は本部が画面で行い、申請者にメールが届く。法人番号は13桁（無い場合は hasNoCorporateNumber: true）。同じ名前で審査中・承認済みがあれば止まる。承認後に submit_tver_campaign。",
+    description: "TVerに出したい広告主の業態考査を本部に申請する（OS画面の「業態考査申請」と同じ・本部にメール通知）。承認は本部が画面で行い、申請者にメールが届く。法人番号は13桁（無い場合は hasNoCorporateNumber: true）。同じ名前で審査中・承認済みがあれば止まる。承認後に submit_tver_campaign。TVerの申請はこのツールで出す＝メール・Gmail下書き・ask_hq で本部に申請しない。",
     input: z.object({
       name: z.string().describe("広告主様名（正式名称）"),
       websiteUrl: z.string().describe("企業ページのURL"),
@@ -305,7 +305,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   }),
   def({
     name: "submit_tver_campaign", kind: "write", title: "TVer配信を申請する",
-    description: "承認済みの広告主（tver_applications で canApplyCampaign: true）のTVer配信を本部に申請する（OS画面の「TVer配信を申請する」と同じチェック・本部にメール通知）。エリアは areas に都道府県＋市区町村の名前で複数渡す（県をまたぐ組み合わせ・政令市の全区・県全体との混在OK）。どの市を組むかは tver_area_plan(prefecture, allCities: true) と tver_benchmarks で決め、先に preview_tver_campaign で中身を本人に見せてから呼ぶ。本部の審査結果は tver_applications で確かめる。",
+    description: "承認済みの広告主（tver_applications で canApplyCampaign: true）のTVer配信を本部に申請する（OS画面の「TVer配信を申請する」と同じチェック・本部にメール通知）。エリアは areas に都道府県＋市区町村の名前で複数渡す（県をまたぐ組み合わせ・政令市の全区・県全体との混在OK）。どの市を組むかは tver_area_plan(prefecture, allCities: true) と tver_benchmarks で決め、先に preview_tver_campaign で中身を本人に見せてから呼ぶ。本部の審査結果は tver_applications で確かめる（同じ広告主・期間の申請が既にあれば出し直さない）。TVerの申請はこのツールで出す＝メール・Gmail下書き・ask_hq・create_local_ad で本部に申請しない。",
     input: TVER_CAMPAIGN_INPUT,
     run: (v, a) => tva.submitTverCampaign(v, a as tva.TverCampaignToolInput),
     confirm: (a) => {
@@ -499,7 +499,26 @@ export function toAnthropicTools(defs: OsToolDef[]): { name: string; description
   });
 }
 
-/** AIへの共通の決まり（MCPの instructions と アーチくんの system で同じ文を使う） */
+/**
+ * MCP の instructions 用の短い版。Claude はサーバーの instructions を約2,048字で切るため 2,000字以内に保つ
+ * （9/14: 全文2,601字でTVer申請の後半・週次・記録の決まりが届かず、山口のAIがTVer申請をメールで出そうとした）。
+ * 細かい手順は各ツールの description に置く。アーチくんは文字数の制限が無いので OS_AI_RULES の全文を使う。
+ */
+export const OS_AI_RULES_MCP =
+  "Ad Arch（アドアーチ）グループOSのツール。" +
+  "【最優先】TVerの業態考査・配信申請、営業の記録、週次共有はOSのツールで出す＝メール・Gmail下書き・ask_hq・create_local_ad で代わりにしない。" +
+  "【こう言われたら最初にこれ】" +
+  "・TVerを申請したい→tver_applications（同じ広告主・期間の申請が既にあれば本人に伝えて止める）→業態考査が無ければ submit_advertiser_review／承認済みなら preview_tver_campaign を本人に見せてOK後に submit_tver_campaign。" +
+  "・TVerの効果・見積→tver_benchmarks／配信済みの報告→tver_results（盛らない）／どの市から→tver_area_plan(prefecture, allCities: true)。" +
+  "・今日何する→my_next_actions（1→6の順に3〜8行）／週次→my_week→本人に見せて選んでもらい submit_weekly_share。" +
+  "・◯◯市の◯◯業界に営業→plan_campaign（少なければ discover_leads）→prepare_outreach（Gmail下書き・送信は人）。フォームしか無ければ formPaste を人に渡す／送れない先は record_lead_results で電話候補へ。紙DM→prepare_dm／Meta広告→create_local_ad／着地LP→create_landing_page。" +
+  "・提案文・資料→draft_proposal(customerId) の writingGuide の順に書く／勝ち筋→find_similar_wins／媒体の仕様→search_knowledge（返った rules を守る）／決まり・手順→list_wiki→get_wiki。" +
+  "・初めての相手・求人広告・紹介→screen_company。CHECK/STOP は本人に見せる（決めつけない・止めるかは本部）。" +
+  "・見つからない・動きがおかしい→同じ検索を繰り返さず ask_hq。" +
+  "【記録】営業のやり取りや結果が出たら頼まれなくても log_activity / update_deal / record_lead_result で残す（一言「OSに記録します」・3〜8行・金額は書かない）。新しい相手先は search_customers で重複を確かめて create_customer。受注は update_deal(status: CLOSED_WON)＋set_closing_factor。" +
+  "【数字と材料】数字は取得したものだけ使い「目安・税抜」を添える。価格の正本はOS。全社分が見えるが他拠点の金額は出ない。相手先の話の前に search_customers / list_activities で過去のやり取りを読む。提案文・資料はブランドキット（list_materials→get_material/get_full_kit）を読んでから書く。";
+
+/** AIへの共通の決まり（アーチくんの system で使う全文。MCPは上の OS_AI_RULES_MCP） */
 export const OS_AI_RULES =
   "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。はじめて取引する相手・求人広告・紹介で来た相手は、進める前に screen_company(name, corporateNumber, website, address, phone, jobText) を1回通し、CHECK / STOP が返ったら本人に見せて確かめる（止める・進めるは本部が決める。相手を犯罪と決めつける言い方はしない）。" +
   "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。探しても見つからない・OSの動きがおかしいときは、同じ言葉で引き直さず ask_hq(subject, detail) で本部に届ける。媒体の仕様・配信面・条件・他社の提案の仕組みは search_knowledge（資料ライブラリ）で引き、返った rules（自社=そのまま／他社・媒体=価格は卸値・実績は他社分）を必ず守る。" +
