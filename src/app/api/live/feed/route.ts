@@ -88,6 +88,7 @@ export async function GET() {
           id: true,
           updatedAt: true,
           createdAt: true,
+          closedAt: true,
           status: true,
           customer: { select: { name: true, industry: true, prefecture: true } },
           branch: { select: { name: true } },
@@ -197,8 +198,11 @@ export async function GET() {
     const ind = d.customer.industry ? `${d.customer.industry}` : "";
     const isNew = d.updatedAt.getTime() - d.createdAt.getTime() < 60_000;
     const won = d.status === "CLOSED_WON";
+    // 受注は受注日（closedAt）で1回だけ出す。受注後のメモ・決め手の追記で「受注」が出直さないように（2026-09-14）。
+    // 受注日が無い古い受注・受注日が期間外のものは出さない
+    if (won && (!d.closedAt || d.closedAt < since)) continue;
     events.push({
-      at: d.updatedAt.toISOString(),
+      at: (won ? d.closedAt! : d.updatedAt).toISOString(),
       kind: won ? "won" : "deal",
       actor: d.branch.name,
       prefs: [...new Set([...prefsIn(d.branch.name), ...prefsIn(d.customer.prefecture)])],

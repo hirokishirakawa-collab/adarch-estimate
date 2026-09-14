@@ -62,10 +62,12 @@ export async function GET(req: NextRequest) {
         select: { id: true, email: true, groupCompany: { select: { name: true } } },
       }),
       db.deal.findMany({
-        where: { updatedAt: { gte: start, lt: end } },
+        // 受注日がその日で、後から更新された商談も拾う
+        where: { OR: [{ updatedAt: { gte: start, lt: end } }, { closedAt: { gte: start, lt: end } }] },
         // amount は取らない
         select: {
           status: true,
+          closedAt: true,
           assignedToId: true,
           createdById: true,
           customer: { select: { name: true, industry: true } },
@@ -116,7 +118,8 @@ export async function GET(req: NextRequest) {
         (d.createdById ? companyByUserId.get(d.createdById) : null) ??
         d.branch.name;
       bump(actor);
-      if (d.status === "CLOSED_WON") {
+      // 受注の一覧は受注日（closedAt）がその日のものだけ＝受注済みの商談を更新しただけでは載せない（2026-09-14）
+      if (d.status === "CLOSED_WON" && d.closedAt && d.closedAt >= start && d.closedAt < end) {
         const ind = d.customer.industry ? `（${d.customer.industry}）` : "";
         wonList.push(`・${actor}\n  「${d.customer.name}」${ind}を受注`);
       }
