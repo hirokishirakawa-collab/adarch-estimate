@@ -78,7 +78,7 @@ function stamp(iso: string): string {
   return sameDay ? t : `${d.getMonth() + 1}/${d.getDate()} ${t}`;
 }
 
-export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass?: string }) {
+export function GroupChat({ maxHeightClass = "max-h-[560px]", dense = false }: { maxHeightClass?: string; dense?: boolean }) {
   const office = useOfficeState();
   const [items, setItems] = useState<ChatDTO[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -273,15 +273,15 @@ export function GroupChat({ maxHeightClass = "max-h-[560px]" }: { maxHeightClass
       <div ref={listRef} onScroll={onScroll} className={`${maxHeightClass} overflow-y-auto px-3 py-3 space-y-3`}>
         {!loaded && <p className="px-1 py-8 text-center text-[12px] text-zinc-500">読み込み中…</p>}
         {loaded && items.length === 0 && filter && (
-          <div className="px-2 py-8 text-center">
+          <div className={`px-2 ${dense ? "py-2" : "py-8"} text-center`}>
             <p className="text-[13px] text-zinc-300">この案件の会話はまだありません</p>
             <p className="mt-1 text-[11.5px] text-zinc-500 leading-relaxed">「この案件の動線は何でしたか？」のように聞くと、答えがここに残ります。</p>
           </div>
         )}
         {loaded && items.length === 0 && !filter && (
-          <div className="px-2 py-8 text-center">
+          <div className={`px-2 ${dense ? "py-2" : "py-8"} text-center`}>
             <p className="text-[13px] text-zinc-300">まだ投稿はありません</p>
-            <p className="mt-1 text-[11.5px] text-zinc-500 leading-relaxed">
+            <p className={`${dense ? "hidden" : "mt-1"} text-[11.5px] text-zinc-500 leading-relaxed`}>
               「今日は◯◯市を回っています」「TVerの相談、誰か経験ありますか」——そんな一言でいいです。誰もいない時の質問にはアーチくんが返します。
             </p>
           </div>

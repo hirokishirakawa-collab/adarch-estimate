@@ -12,7 +12,6 @@ import { GroupThreadCard } from "@/components/dashboard/group-thread-card";
 import { SalesBoost } from "@/components/dashboard/sales-boost";
 import { getMyGroupThread } from "@/lib/actions/group-support";
 import { LiveBoard } from "@/components/live/live-board";
-import { DashboardChatCard } from "@/components/office/dashboard-chat-card";
 import {
   Users,
   FolderKanban,
@@ -211,6 +210,11 @@ export default async function DashboardPage() {
       )}
     <div className="px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
 
+      {/* GROUP LIVEを先頭に。チャットも同じ面に常設する。 */}
+      {session?.user?.email !== "demo@adarch.co.jp" && session?.user?.isActive !== false && (
+        <LiveBoard compact />
+      )}
+
       {/* ── ヘッダー ── */}
       <div className="flex items-center justify-between">
         <div>
@@ -260,17 +264,7 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      {/* ── みんなのチャット（一番上・投稿0件でも常に出す。本部は投稿を消せる） ── */}
-      {session?.user?.email !== "demo@adarch.co.jp" && session?.user?.isActive !== false && (
-        <DashboardChatCard />
-      )}
-
       <ActivityKpiBar kpi={activityKpi} />
-
-      {/* ── グループライブ（コンパクト版・全画面は /dashboard/live） ── */}
-      {session?.user?.email !== "demo@adarch.co.jp" && session?.user?.isActive !== false && (
-        <LiveBoard compact />
-      )}
 
       {/* ── LINE公式アカウント（MANAGER以上） ── */}
       {role !== "USER" && (
@@ -794,6 +788,12 @@ export default async function DashboardPage() {
         </div>
         <div className="space-y-2.5">
           {[
+            {
+              date: "2026.09.15",
+              title: "GROUP LIVEをダッシュボードの先頭に — 全国の動きとAIの稼働が見える画面へ",
+              desc: "ダッシュボード先頭のGROUP LIVEを、暗い背景・都道府県の輪郭・発光する拠点・読みやすい活動ログの構成にしました。新しい記録が届いたときに、その拠点とログが光ります。AIの動きは匿名のまま同じ画面に表示し、みんなのチャットも常設。活動の詳細から案件を添えて質問できます。全画面のグループライブも同じ見た目です。",
+              tag: "改善",
+            },
             {
               date: "2026.09.15",
               title: "「今月の活動」の横に「今日・グループ全体」の声かけ・商談・受注を表示",

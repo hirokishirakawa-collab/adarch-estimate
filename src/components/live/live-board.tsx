@@ -1,26 +1,16 @@
 "use client";
 
-// ==============================================================
-// グループ稼働ライブボード（管制室ビュー）
-//   ・20秒ごとに /api/live/feed をポーリング
-//   ・日本地図（都道府県ドット）＝直近の動きがある県が光る
-//   ・右にイベントティッカー、上に今日／7日のカウンタ
-//   ・このページだけ意図的にダーク1トーン（管制室）。金額は一切出ない
-// ==============================================================
-
-import { useEffect, useMemo, useRef, useState } from "react";
+// GROUP LIVE: real feed updates drive the map and anonymous AI animations.
+// The existing API, authorization, counts and chat writes are unchanged.
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Cpu, ExternalLink, X } from "lucide-react";
 import { openOfficeThread } from "@/lib/office/store";
 import { GroupChat } from "@/components/office/group-chat";
 import { Avatar } from "@/components/office/avatar";
+import { MAP_POINTS } from "./map-points";
+import { aiKey, eventCopy, eventKey, newKeys, type LiveEvent } from "./live-view";
+import styles from "./live-board.module.css";
 
-interface LiveEvent {
-  at: string;
-  kind: string;
-  actor: string;
-  prefs: string[];
-  text: string;
-  ref?: { kind: string; id: string };
-}
 interface LiveDetail {
   title: string;
   subtitle?: string;
@@ -30,662 +20,272 @@ interface LiveDetail {
   href?: string;
   hrefLabel?: string;
 }
-interface Counts {
-  approach: number;
-  deal: number;
-  won: number;
-  hq: number;
-}
+interface Counts { approach: number; deal: number; won: number; hq: number }
 interface Feed {
   events: LiveEvent[];
-  /** AI ACTIVITY FEED（匿名・県なし＝AIが動いていることだけ） */
   ai?: { at: string; text: string }[];
   counts: { today: Counts; week: Counts };
   prefHeat: Record<string, number>;
   generatedAt: string;
 }
-// グループオフィス: いま OS を開いている人（/api/office/who）
 interface OfficeUser {
-  id: string;
-  name: string;
-  initials: string;
-  avatar: string | null;
-  company: string;
-  pref: string;
-  isHq: boolean;
+  id: string; name: string; initials: string; avatar: string | null;
+  company: string; pref: string; isHq: boolean;
 }
-interface Who {
-  meId: string;
-  users: OfficeUser[];
-}
+interface Who { meId: string; users: OfficeUser[] }
 
-// 都道府県庁所在地の座標（緯度, 経度）。地図はこのドットだけで描く
-const PREF_POS: Record<string, [number, number]> = {
-  北海道: [43.06, 141.35], 青森: [40.82, 140.74], 岩手: [39.7, 141.15],
-  宮城: [38.27, 140.87], 秋田: [39.72, 140.1], 山形: [38.24, 140.36],
-  福島: [37.75, 140.47], 茨城: [36.34, 140.45], 栃木: [36.57, 139.88],
-  群馬: [36.39, 139.06], 埼玉: [35.86, 139.65], 千葉: [35.61, 140.12],
-  東京: [35.69, 139.69], 神奈川: [35.45, 139.64], 新潟: [37.9, 139.02],
-  富山: [36.7, 137.21], 石川: [36.59, 136.63], 福井: [36.07, 136.22],
-  山梨: [35.66, 138.57], 長野: [36.65, 138.18], 岐阜: [35.39, 136.72],
-  静岡: [34.98, 138.38], 愛知: [35.18, 136.91], 三重: [34.73, 136.51],
-  滋賀: [35.0, 135.87], 京都: [35.02, 135.76], 大阪: [34.69, 135.52],
-  兵庫: [34.69, 135.18], 奈良: [34.69, 135.83], 和歌山: [34.23, 135.17],
-  鳥取: [35.5, 134.24], 島根: [35.47, 133.05], 岡山: [34.66, 133.93],
-  広島: [34.4, 132.46], 山口: [34.19, 131.47], 徳島: [34.07, 134.56],
-  香川: [34.34, 134.04], 愛媛: [33.84, 132.77], 高知: [33.56, 133.53],
-  福岡: [33.61, 130.42], 佐賀: [33.25, 130.3], 長崎: [32.74, 129.87],
-  熊本: [32.79, 130.74], 大分: [33.24, 131.61], 宮崎: [31.91, 131.42],
-  鹿児島: [31.56, 130.56],
+const KIND_LABEL: Record<string, string> = {
+  sent: "送付", deal: "商談", won: "受注", log: "活動", move: "動き",
+  booking: "面談予約", tender: "入札○", lead: "リード", tver: "TVer",
+  tool: "営業ツール", auto: "自動検知", visit: "お客様",
 };
-// 沖縄はインセット（左下の枠内）
-const OKINAWA_XY: [number, number] = [52, 330];
-
-function project(lat: number, lng: number): [number, number] {
-  const x = ((lng - 129.2) / (146 - 129.2)) * 340 + 30;
-  const y = ((45.8 - lat) / (45.8 - 30.8)) * 340 + 22;
-  return [x, y];
-}
-
-const KIND_META: Record<string, { label: string; cls: string }> = {
-  sent: { label: "送付", cls: "text-sky-300 border-sky-500/30 bg-sky-500/10" },
-  deal: { label: "商談", cls: "text-indigo-300 border-indigo-500/30 bg-indigo-500/10" },
-  won: { label: "受注", cls: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10" },
-  log: { label: "活動", cls: "text-sky-300 border-sky-500/30 bg-sky-500/10" },
-  move: { label: "動き", cls: "text-sky-300 border-sky-500/30 bg-sky-500/10" },
-  booking: { label: "面談予約", cls: "text-amber-300 border-amber-500/30 bg-amber-500/10" },
-  tender: { label: "入札○", cls: "text-violet-300 border-violet-500/30 bg-violet-500/10" },
-  lead: { label: "リード", cls: "text-teal-300 border-teal-500/30 bg-teal-500/10" },
-  // 2026-09-15: TVerの考査・申請・配信スタート／郵送DM・LP・提案書・パッケージ
-  tver: { label: "TVer", cls: "text-cyan-300 border-cyan-500/30 bg-cyan-500/10" },
-  tool: { label: "営業ツール", cls: "text-orange-300 border-orange-500/30 bg-orange-500/10" },
-  // 脈（2026-09-09）: OSの自動検知・お客様の閲覧（AIの動きは別枠 AI ACTIVITY FEED）
-  auto: { label: "自動検知", cls: "text-fuchsia-300 border-fuchsia-500/30 bg-fuchsia-500/10" },
-  visit: { label: "お客様", cls: "text-lime-300 border-lime-500/30 bg-lime-500/10" },
-};
+const DAY = 86_400_000;
+const POLL_MS = 20_000;
+const CHAT_REF = /^(deal|customer|project|move|sent|tender|package|lead):(.+)$/;
 
 function ago(iso: string): string {
-  const s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000);
-  if (s < 60) return "たった今";
-  if (s < 3600) return `${Math.floor(s / 60)}分前`;
-  if (s < 86400) return `${Math.floor(s / 3600)}時間前`;
-  return `${Math.floor(s / 86400)}日前`;
+  const seconds = Math.max(0, (Date.now() - Date.parse(iso)) / 1000);
+  if (!Number.isFinite(seconds)) return "—";
+  if (seconds < 60) return "たった今";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}分前`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}時間前`;
+  return `${Math.floor(seconds / 86400)}日前`;
 }
-
-// APIが返すURLをそのまま href に入れない。詳細に載る公告URLは外部データなので、
-// http(s) と自サイト内パス以外は弾く（javascript: を踏ませないため）。
-function safeHref(url: string | undefined): string | undefined {
-  const v = (url ?? "").trim();
-  if (!v) return undefined;
-  if (/^https?:\/\//i.test(v)) return v;
-  if (v.startsWith("/") && !v.startsWith("//")) return v;
+function safeHref(url?: string): string | undefined {
+  const value = (url ?? "").trim();
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("/") && !value.startsWith("//")) return value;
   return undefined;
 }
 
 export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
   const [feed, setFeed] = useState<Feed | null>(null);
   const [who, setWho] = useState<Who | null>(null);
-  const [tab, setTab] = useState<"chat" | "feed">("chat");
   const [clock, setClock] = useState("");
   const [error, setError] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // 押した1件のパネル。detail は ref を持つ種別だけ引きに行く
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [freshEvents, setFreshEvents] = useState<Set<string>>(new Set());
+  const [freshAi, setFreshAi] = useState<Set<string>>(new Set());
+  const [showAllAi, setShowAllAi] = useState(false);
+  const seenEvents = useRef<Set<string> | null>(null);
+  const seenAi = useRef<Set<string> | null>(null);
   const [picked, setPicked] = useState<LiveEvent | null>(null);
   const [detail, setDetail] = useState<LiveDetail | null>(null);
   const [detailState, setDetailState] = useState<"idle" | "loading" | "error">("idle");
+  const detailRequest = useRef<AbortController | null>(null);
+  const detailSequence = useRef(0);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const chatRef = useRef<HTMLElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const uid = useId().replace(/:/g, "");
 
-  const open = (e: LiveEvent) => {
-    setPicked(e);
-    setDetail(null);
-    if (!e.ref) {
-      setDetailState("idle");
-      return;
-    }
-    setDetailState("loading");
-    fetch(`/api/live/detail?kind=${e.ref.kind}&id=${encodeURIComponent(e.ref.id)}`, {
-      cache: "no-store",
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: LiveDetail) => {
-        setDetail(d);
-        setDetailState("idle");
-      })
-      .catch(() => setDetailState("error"));
-  };
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const r = await fetch("/api/live/feed", { cache: "no-store" });
-        if (!r.ok) throw new Error();
-        setFeed(await r.json());
-        setError(false);
-      } catch {
-        setError(true);
-      }
-      // 在席者は別便（取れなくてもフィードは出す）
-      fetch("/api/office/who", { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d: Who | null) => {
-          if (d) setWho(d);
-        })
-        .catch(() => {});
-    };
-    load();
-    timer.current = setInterval(load, 20000);
-    const c = setInterval(
-      () =>
-        setClock(
-          new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        ),
-      1000,
-    );
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-      clearInterval(c);
-    };
+  const close = useCallback(() => {
+    detailSequence.current += 1;
+    detailRequest.current?.abort();
+    setPicked(null);
+    openerRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    if (compact) return;
-    const sp = new URLSearchParams(window.location.search);
-    const withId = sp.get("with");
-    if (withId) openOfficeThread(withId);
-    // ?ref=deal:xxx（案件ページの「続きを見る・聞く」）→ チャットタブでその案件の会話を出す
-    const refParam = sp.get("ref");
-    const m = refParam ? /^(deal|customer|project|move|sent|tender|package):(.+)$/.exec(refParam) : null;
-    if (m) {
-      setTab("chat");
-      // 題名は案件ページから ?t= で受け取る（会話がまだ無い案件でも「この案件」にならない）
-      const given = (sp.get("t") ?? "").trim().slice(0, 80) || null;
-      fetch(`/api/office/chat?refKind=${m[1]}&refId=${encodeURIComponent(m[2])}`, { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d: { items?: { ref?: { title: string } | null }[] } | null) => {
-          const title = given ?? d?.items?.find((x) => x.ref)?.ref?.title ?? "この案件";
-          window.dispatchEvent(new CustomEvent("office:filter", { detail: { kind: m[1], id: m[2], title } }));
-        })
-        .catch(() => window.dispatchEvent(new CustomEvent("office:filter", { detail: { kind: m[1], id: m[2], title: given ?? "この案件" } })));
-    }
-  }, [compact]);
-
-  // 在席者を県の位置に並べる（同じ県は横に少しずつずらす）
-  const placed = useMemo(() => {
-    const byPref: Record<string, OfficeUser[]> = {};
-    for (const u of who?.users ?? []) (byPref[u.pref] ??= []).push(u);
-    const out: { u: OfficeUser; x: number; y: number }[] = [];
-    for (const [pref, list] of Object.entries(byPref)) {
-      const base =
-        pref === "沖縄"
-          ? OKINAWA_XY
-          : PREF_POS[pref]
-            ? project(PREF_POS[pref][0], PREF_POS[pref][1])
-            : project(PREF_POS["東京"][0], PREF_POS["東京"][1]);
-      list.forEach((u, i) => out.push({ u, x: base[0] + (i - (list.length - 1) / 2) * 30, y: base[1] - 18 }));
-    }
-    return out;
-  }, [who]);
-
-  const heat = feed?.prefHeat ?? {};
-  const DAY = 86400000;
-  const heatCls = (p: string): "hot" | "warm" | "cool" | "off" => {
-    if (!(p in heat)) return "off";
-    if (heat[p] < DAY) return "hot";
-    if (heat[p] < 7 * DAY) return "warm";
-    return "cool";
+  const open = (event: LiveEvent) => {
+    detailSequence.current += 1;
+    const sequence = detailSequence.current;
+    detailRequest.current?.abort();
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setActiveKey(eventKey(event));
+    setPicked(event);
+    setDetail(null);
+    if (!event.ref) { setDetailState("idle"); return; }
+    const controller = new AbortController();
+    detailRequest.current = controller;
+    setDetailState("loading");
+    fetch(`/api/live/detail?kind=${encodeURIComponent(event.ref.kind)}&id=${encodeURIComponent(event.ref.id)}`, { cache: "no-store", signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("detail")))
+      .then((value: LiveDetail) => {
+        if (sequence !== detailSequence.current) return;
+        setDetail(value); setDetailState("idle");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted && sequence === detailSequence.current) setDetailState("error");
+      });
   };
 
-  const t = feed?.counts.today;
-  const w = feed?.counts.week;
-  const tiles = [
-    { n: t?.approach ?? 0, wn: w?.approach ?? 0, l: "アプローチ" },
-    { n: t?.deal ?? 0, wn: w?.deal ?? 0, l: "商談が動いた" },
-    { n: t?.won ?? 0, wn: w?.won ?? 0, l: "受注", hot: true },
-    { n: t?.hq ?? 0, wn: w?.hq ?? 0, l: "本部・自動検出" },
+  useEffect(() => {
+    let disposed = false;
+    let loading = false;
+    const controller = new AbortController();
+    const load = async () => {
+      if (loading) return;
+      loading = true;
+      const presence = fetch("/api/office/who", { cache: "no-store", signal: controller.signal })
+        .then((response) => response.ok ? response.json() : null)
+        .then((value: Who | null) => { if (!disposed && value) setWho(value); })
+        .catch(() => {});
+      try {
+        const response = await fetch("/api/live/feed", { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error("feed");
+        const value = await response.json() as Feed;
+        if (disposed) return;
+        const keys = value.events.map(eventKey);
+        const aiKeys = (value.ai ?? []).map(aiKey);
+        const incoming = newKeys(seenEvents.current, keys);
+        setFreshEvents(incoming);
+        setFreshAi(newKeys(seenAi.current, aiKeys));
+        // Remember already observed records across temporary omissions in an API snapshot.
+        seenEvents.current = new Set([...(seenEvents.current ?? []), ...keys]);
+        seenAi.current = new Set([...(seenAi.current ?? []), ...aiKeys]);
+        setActiveKey((previous) => incoming.values().next().value ?? (previous && keys.includes(previous) ? previous : keys[0] ?? null));
+        setFeed(value); setError(false);
+      } catch {
+        if (!disposed) setError(true);
+      } finally {
+        await presence;
+        loading = false;
+      }
+    };
+    void load();
+    const poll = setInterval(() => void load(), POLL_MS);
+    const tick = () => setClock(new Date().toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    const timer = setInterval(tick, 1000);
+    return () => { disposed = true; controller.abort(); clearInterval(poll); clearInterval(timer); };
+  }, []);
+
+  useEffect(() => () => { detailSequence.current += 1; detailRequest.current?.abort(); }, []);
+
+  // GroupChat stays mounted, so compose/filter events work from both dashboard sizes.
+  useEffect(() => {
+    if (compact) return;
+    const params = new URLSearchParams(window.location.search);
+    const withId = params.get("with");
+    if (withId) openOfficeThread(withId);
+    const match = CHAT_REF.exec(params.get("ref") ?? "");
+    if (!match) return;
+    let disposed = false;
+    const given = (params.get("t") ?? "").trim().slice(0, 80);
+    const apply = (title: string) => {
+      if (disposed) return;
+      window.dispatchEvent(new CustomEvent("office:filter", { detail: { kind: match[1], id: match[2], title } }));
+      chatRef.current?.scrollIntoView({ block: "nearest" });
+    };
+    fetch(`/api/office/chat?refKind=${match[1]}&refId=${encodeURIComponent(match[2])}`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((value: { items?: { ref?: { title: string } | null }[] } | null) => apply(given || value?.items?.find((item) => item.ref)?.ref?.title || "この案件"))
+      .catch(() => apply(given || "この案件"));
+    return () => { disposed = true; };
+  }, [compact]);
+
+  useEffect(() => {
+    if (!picked) return;
+    const drawer = drawerRef.current;
+    drawer?.focus();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); close(); }
+      if (event.key !== "Tab" || !drawer) return;
+      const focusable = Array.from(drawer.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input, textarea, [tabindex="0"]'));
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (!first) { event.preventDefault(); return; }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", keydown);
+    return () => document.removeEventListener("keydown", keydown);
+  }, [picked, close]);
+
+  const active = feed?.events.find((event) => eventKey(event) === activeKey) ?? feed?.events[0];
+  const selectedPrefs = new Set(active?.prefs ?? []);
+  const animatedPrefs = new Set((feed?.events ?? []).filter((event) => freshEvents.has(eventKey(event))).flatMap((event) => event.prefs));
+  const heat = feed?.prefHeat ?? {};
+  const placed = useMemo(() => {
+    const groups: Record<string, OfficeUser[]> = {};
+    for (const user of who?.users ?? []) (groups[user.pref] ??= []).push(user);
+    return Object.entries(groups).flatMap(([pref, users]) => {
+      const point = MAP_POINTS[pref] ?? MAP_POINTS["東京"];
+      return users.map((user, index) => ({ user, x: point[0] + (index - (users.length - 1) / 2) * 29, y: point[1] - 20 }));
+    });
+  }, [who]);
+  const stats: { key: keyof Counts; label: string }[] = [
+    { key: "approach", label: "今日のアプローチ" }, { key: "deal", label: "今日動いた商談" },
+    { key: "won", label: "今日の受注" }, { key: "hq", label: "今日の本部・自動検出" },
   ];
+  const askAboutPicked = () => {
+    if (!picked?.ref) return;
+    const ref = { kind: picked.ref.kind, id: picked.ref.id, title: detail?.title ?? picked.text, sub: detail?.subtitle ?? detail?.actor ?? picked.actor };
+    close();
+    chatRef.current?.scrollIntoView({ block: "nearest" });
+    window.dispatchEvent(new CustomEvent("office:compose", { detail: ref }));
+  };
 
   return (
-    <div
-      className={`${compact ? "p-4 sm:p-5" : "min-h-[calc(100vh-4rem)] p-5 sm:p-7"} rounded-2xl bg-[#0a0d13] text-zinc-200 relative overflow-hidden`}
-    >
-      {/* 背景グリッド */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(56,120,190,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(56,120,190,0.07) 1px, transparent 1px)",
-          backgroundSize: "44px 44px",
-        }}
-      />
-
-      {/* ヘッダー */}
-      <div className="relative flex items-center gap-3 flex-wrap">
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-60" />
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-400" />
-        </span>
-        <h1 className="text-sm font-bold tracking-[0.2em] text-white">GROUP LIVE</h1>
-        <span className="text-[11px] text-zinc-500">全国の代表の動きがリアルタイムで流れます</span>
-        <div className="ml-auto flex items-center gap-3">
-          {error && <span className="text-[11px] text-rose-400">再接続中…</span>}
-          {compact ? (
-            <a
-              href="/dashboard/live"
-              className="text-[11px] text-sky-300 hover:text-sky-200 border border-sky-500/30 bg-sky-500/10 rounded-full px-2.5 py-1"
-            >
-              全画面で見る →
-            </a>
-          ) : (
-            <span className="font-mono text-[13px] text-zinc-400 tabular-nums">{clock}</span>
-          )}
+    <section className={`${styles.board} ${compact ? styles.compact : ""}`} aria-label="GROUP LIVE">
+      <header className={styles.header}>
+        <div><p className={styles.eyebrow}>GROUP NETWORK</p><h1 className={styles.title}>GROUP LIVE</h1><p className={styles.subtitle}>全国の動きと、AIの稼働がここに集まる。</p></div>
+        <div className={styles.headerTools}>
+          <span className={`${styles.status} ${error ? styles.error : ""}`} role="status"><span className={styles.statusDot} />{error ? "接続を確認中" : feed ? "自動更新" : "接続中"}</span>
+          {compact ? <a className={styles.fullLink} href="/dashboard/live">全画面で見る ↗</a> : <span className={styles.clock}>{clock || "—"} JST</span>}
         </div>
+      </header>
+      <div className={styles.stats}>
+        {stats.map(({ key, label }) => <div className={styles.stat} key={key}><p className={styles.statLabel}>{label}</p><p className={styles.statValue}>{feed ? feed.counts.today[key].toLocaleString("ja-JP") : "—"}<small>件</small></p>{!compact && <p className={styles.statWeek}>7日間 {feed ? feed.counts.week[key].toLocaleString("ja-JP") : "—"}件</p>}</div>)}
       </div>
-
-      {/* カウンタ */}
-      <div
-        className={`relative grid gap-3 ${compact ? "grid-cols-4 mt-4" : "grid-cols-2 sm:grid-cols-4 mt-5"}`}
-      >
-        {tiles.map((s) => (
-          <div
-            key={s.l}
-            className={`rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ${compact ? "px-2.5 py-2" : "px-4 py-3"}`}
-          >
-            <div className="flex items-baseline gap-1.5">
-              <span
-                className={`${compact ? "text-lg" : "text-2xl"} font-bold tabular-nums ${s.hot && s.n > 0 ? "text-emerald-300" : "text-white"}`}
-              >
-                {s.n}
-              </span>
-              <span className="text-[10px] text-zinc-500">今日</span>
-            </div>
-            <div className={`${compact ? "text-[10px]" : "text-[11px]"} text-zinc-400 mt-0.5 truncate`}>{s.l}</div>
-            {!compact && <div className="text-[10px] text-zinc-600 tabular-nums">7日間 {s.wn}</div>}
-          </div>
-        ))}
-      </div>
-
-      {/* 地図 + フィード */}
-      <div
-        className={`relative grid gap-5 items-start ${compact ? "sm:grid-cols-[minmax(220px,36%)_1fr] mt-4" : "lg:grid-cols-[minmax(320px,46%)_1fr] mt-5"}`}
-      >
-        {/* 日本地図（ドット） */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-          <svg viewBox="0 0 400 400" className="w-full h-auto" role="img" aria-label="全国の稼働マップ">
-            <defs>
-              <radialGradient id="glowHot">
-                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.9" />
-                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-            {/* 沖縄インセット枠 */}
-            <rect x="24" y="308" width="56" height="44" rx="6" fill="none" stroke="rgba(255,255,255,0.08)" />
-            {Object.entries(PREF_POS)
-              .map(([name, [lat, lng]]) => ({ name, xy: project(lat, lng) }))
-              .concat([{ name: "沖縄", xy: OKINAWA_XY }])
-              .map(({ name, xy: [x, y] }) => {
-                const h = heatCls(name);
-                return (
-                  <g key={name}>
-                    {h === "hot" && (
-                      <>
-                        <circle cx={x} cy={y} r="14" fill="url(#glowHot)" />
-                        <circle cx={x} cy={y} r="6" fill="none" stroke="#38bdf8" strokeOpacity="0.5">
-                          <animate attributeName="r" values="5;13" dur="1.8s" repeatCount="indefinite" />
-                          <animate attributeName="stroke-opacity" values="0.6;0" dur="1.8s" repeatCount="indefinite" />
-                        </circle>
-                      </>
-                    )}
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r={h === "hot" ? 4 : h === "warm" ? 3.4 : 2.4}
-                      fill={
-                        h === "hot"
-                          ? "#7dd3fc"
-                          : h === "warm"
-                            ? "#38bdf8"
-                            : h === "cool"
-                              ? "#1e4f74"
-                              : "#1c2431"
-                      }
-                    />
-                    {h === "hot" && (
-                      <text x={x + 7} y={y + 3.5} fontSize="9" fill="#bae6fd">
-                        {name}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            {/* いま動いている人（グループオフィス）。押すと個別ひとこと */}
-            <defs>
-              {placed.map(({ u, x, y }) => (
-                <clipPath key={`clip-${u.id}`} id={`lv-clip-${u.id}`}>
-                  <circle cx={x} cy={y} r="13" />
-                </clipPath>
-              ))}
-            </defs>
-            {placed.map(({ u, x, y }) => {
-              const me = u.id === who?.meId;
-              return (
-                <g
-                  key={u.id}
-                  onClick={() => {
-                    if (!me) openOfficeThread(u.id);
-                  }}
-                  className={me ? "" : "cursor-pointer"}
-                  role={me ? undefined : "button"}
-                  style={{ pointerEvents: "all" }}
-                >
-                  <title>{me ? `${u.name}（自分）` : `${u.name}（${u.company || "—"}）— 押すと個別ひとこと`}</title>
-                  {/* 当たり判定（見えない大きめの円） */}
-                  <circle cx={x} cy={y} r="20" fill="transparent" />
-                  <circle cx={x} cy={y} r="14.5" fill="#0a0d13" stroke={me ? "#a7f3d0" : "#34d399"} strokeWidth="1.6" />
-                  {u.avatar ? (
-                    <image
-                      href={u.avatar}
-                      x={x - 13}
-                      y={y - 13}
-                      width="26"
-                      height="26"
-                      clipPath={`url(#lv-clip-${u.id})`}
-                      preserveAspectRatio="xMidYMid slice"
-                    />
-                  ) : (
-                    <>
-                      <circle cx={x} cy={y} r="13" fill={me ? "#0f172a" : "#064e3b"} />
-                      <text x={x} y={y + 3.5} textAnchor="middle" fontSize={u.initials.length > 1 ? "8.5" : "11"} fontWeight="700" fill="#d1fae5">
-                        {u.initials}
-                      </text>
-                    </>
-                  )}
-                  <text x={x} y={y + 23} textAnchor="middle" fontSize="7.5" fill="#bbf7d0" style={{ paintOrder: "stroke", stroke: "#0a0d13", strokeWidth: 2 }}>
-                    {u.name.split(/[\s　]+/)[0]}
-                  </text>
-                </g>
-              );
+      <div className={styles.main}>
+        <section className={styles.mapPanel} aria-label="全国の活動マップ">
+          <div className={styles.panelHead}><h2>ACTIVITY MAP</h2><small>JAPAN</small></div>
+          <svg className={styles.map} viewBox="0 0 513 380" role="img" aria-label="日本の都道府県別活動マップ。活動ログに連動して拠点が光ります">
+            <image href="/live/japan-map.svg" x="0" y="0" width="513" height="380" />
+            {Object.entries(MAP_POINTS).map(([name, [x, y]]) => {
+              const age = heat[name];
+              const selected = selectedPrefs.has(name);
+              const hot = age !== undefined && age < DAY;
+              const warm = age !== undefined && age < 7 * DAY;
+              return <g key={name}>
+                {selected && <><circle cx={x} cy={y} r="21" className={styles.halo} /><circle cx={x} cy={y} r="10" className={styles.ring} /></>}
+                {animatedPrefs.has(name) && <circle key={`${name}-${[...freshEvents].join()}`} cx={x} cy={y} r="7" className={`${styles.ring} ${styles.pulse}`} />}
+                <circle cx={x} cy={y} r={selected ? 3.8 : hot ? 3.2 : 2.1} className={selected ? styles.nodeSelected : hot ? styles.nodeHot : warm ? styles.nodeWarm : styles.nodeOff} />
+                {selected && <text x={x + 12} y={y + 4} className={styles.mapLabel}>{name}</text>}
+              </g>;
             })}
+            <text x="36" y="366" className={styles.mapSmall}>沖縄（別枠）</text>
+            <defs>{placed.map(({ user, x, y }) => <clipPath key={user.id} id={`${uid}-${user.id}`}><circle cx={x} cy={y} r="11" /></clipPath>)}</defs>
+            {placed.map(({ user, x, y }) => <g key={user.id}
+              role={user.id === who?.meId ? undefined : "button"}
+              tabIndex={user.id === who?.meId ? undefined : 0}
+              aria-label={`${user.name} — ${user.id === who?.meId ? "自分" : "個別にひとこと"}`}
+              style={{ cursor: user.id === who?.meId ? "default" : "pointer" }}
+              onClick={() => { if (user.id !== who?.meId) openOfficeThread(user.id); }}
+              onKeyDown={(event) => { if (user.id !== who?.meId && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openOfficeThread(user.id); } }}>
+              <circle cx={x} cy={y} r="19" fill="transparent" />
+              <circle cx={x} cy={y} r="13" fill="#0c121a" stroke="#97acbf" strokeWidth="1.2" />
+              {user.avatar ? <image href={user.avatar} x={x - 11} y={y - 11} width="22" height="22" clipPath={`url(#${uid}-${user.id})`} preserveAspectRatio="xMidYMid slice" /> : <text x={x} y={y + 3} textAnchor="middle" fill="#cfdbea" fontSize="8">{user.initials}</text>}
+            </g>)}
           </svg>
-          <div className={`${compact ? "hidden" : "flex"} items-center gap-4 px-2 pb-1 text-[10px] text-zinc-500`}>
-            <span className="flex items-center gap-1.5">
-              <i className="inline-block w-2 h-2 rounded-full bg-sky-300" />24時間以内
-            </span>
-            <span className="flex items-center gap-1.5">
-              <i className="inline-block w-2 h-2 rounded-full bg-sky-500" />7日以内
-            </span>
-            <span className="flex items-center gap-1.5">
-              <i className="inline-block w-2 h-2 rounded-full bg-[#1e4f74]" />90日以内
-            </span>
-            <span className="flex items-center gap-1.5">
-              <i className="inline-block w-2 h-2 rounded-full bg-emerald-400" />いま動いている
-            </span>
-          </div>
-
-          {/* いま動いている人の一覧（グループオフィス） */}
-          {!compact && who && (
-            <div className="mt-2 px-1 pb-1">
-              <p className="text-[10px] tracking-[0.15em] text-zinc-500 mb-1.5">
-                いま動いている {who.users.length}人
-                {who.users.length > 1 ? " — 押すとひとこと" : ""}
-              </p>
-              {who.users.length <= 1 ? (
-                <p className="text-[11px] text-zinc-600 leading-relaxed">
-                  いまはあなただけです。ここに灯った人には、ひとことで声をかけられます。
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {who.users.map((u) => {
-                    const me = u.id === who.meId;
-                    return (
-                      <button
-                        key={u.id}
-                        type="button"
-                        disabled={me}
-                        onClick={() => openOfficeThread(u.id)}
-                        className={`flex items-center gap-2 rounded-full border pl-1 pr-3 py-1 text-[12.5px] transition-colors ${
-                          me
-                            ? "border-white/10 text-zinc-500 cursor-default"
-                            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20 active:bg-emerald-500/30"
-                        }`}
-                        title={me ? "自分" : "個別にひとことを送る"}
-                      >
-                        <Avatar src={u.avatar} initials={u.initials} size={28} />
-                        <span className="font-medium">{u.name}</span>
-                        <span className="text-zinc-500 text-[11px]">{u.company ? `${u.company}・` : ""}{u.pref}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 右側: みんなのチャット／動き */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
-          {compact ? (
-            <div className="px-4 py-2.5 border-b border-white/[0.06] text-[11px] tracking-[0.15em] text-zinc-500">
-              ACTIVITY FEED
-            </div>
-          ) : (
-            <div className="flex items-center border-b border-white/[0.06]">
-              {(
-                [
-                  { k: "chat", l: "みんなのチャット" },
-                  { k: "feed", l: "動き" },
-                ] as const
-              ).map((t2) => (
-                <button
-                  key={t2.k}
-                  type="button"
-                  onClick={() => setTab(t2.k)}
-                  className={`px-4 py-3 text-[12px] font-semibold tracking-wide border-b-2 -mb-px transition-colors ${
-                    tab === t2.k ? "border-emerald-400 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  {t2.l}
-                </button>
-              ))}
-              <span className="ml-auto pr-4 text-[10px] text-zinc-600">
-                {tab === "chat" ? "全員に見えます" : "商談・リード・送付台帳から自動生成"}
-              </span>
-            </div>
-          )}
-          {!compact && tab === "chat" && <GroupChat />}
-          <div className={`${compact ? "max-h-[300px]" : "max-h-[560px]"} overflow-y-auto divide-y divide-white/[0.04] ${!compact && tab !== "feed" ? "hidden" : ""}`}>
-            {!feed && (
-              <div className="px-4 py-8 text-center text-[12px] text-zinc-500">読み込み中…</div>
-            )}
-            {feed?.events.length === 0 && (
-              <div className="px-4 py-8 text-center text-[12px] text-zinc-500">
-                直近90日の動きがまだありません
-              </div>
-            )}
-            {(compact ? feed?.events.slice(0, 14) : feed?.events)?.map((e, i) => {
-              const meta = KIND_META[e.kind] ?? KIND_META.log;
-              const fresh = Date.now() - Date.parse(e.at) < DAY;
-              return (
-                <button
-                  type="button"
-                  onClick={() => open(e)}
-                  key={e.at + e.text + i}
-                  className={`w-full text-left flex items-start gap-3 px-4 py-2.5 transition-colors
-                              hover:bg-white/[0.05] focus:outline-none focus:bg-white/[0.06]
-                              ${fresh ? "" : "opacity-60"}`}
-                >
-                  <span className="font-mono text-[10px] text-zinc-500 tabular-nums whitespace-nowrap mt-1 w-14">
-                    {ago(e.at)}
-                  </span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap mt-0.5 ${meta.cls}`}
-                  >
-                    {meta.label}
-                  </span>
-                  <div className="min-w-0 text-[12.5px] leading-relaxed">
-                    <span className="text-zinc-400">{e.actor}</span>
-                    <span className="text-zinc-600 mx-1.5">›</span>
-                    <span className={e.kind === "won" ? "text-emerald-200" : "text-zinc-200"}>
-                      {e.text}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+          <div className={styles.mapSelection} aria-live="polite">{active ? <><strong>{active.actor}</strong><span>{active.text}</span></> : <span>{error ? "接続を確認しています" : feed ? "まだ活動の記録はありません" : "活動を読み込み中…"}</span>}</div>
+          <div className={styles.mapFoot}><span>明るい点：24時間以内の動き</span><a href="https://github.com/dataofjapan/land" target="_blank" rel="noopener noreferrer">地図出典</a></div>
+          {who && <div className={styles.presence}><p className={styles.presenceTitle}>いま OS を開いている {who.users.length}人</p><div className={styles.presenceUsers}>{who.users.map((user) => <button key={user.id} type="button" className={styles.person} disabled={user.id === who.meId} onClick={() => openOfficeThread(user.id)} title={user.id === who.meId ? "自分" : `${user.company}・${user.pref} — 個別にひとこと`}><Avatar src={user.avatar} initials={user.initials} size={24} /><span>{user.name}</span></button>)}</div></div>}
+        </section>
+        <section className={styles.feedPanel} aria-label="仲間の活動ログ"><div className={styles.panelHead}><h2>ACTIVITY FEED</h2><small>直近の動き</small></div><div className={styles.feedList}>
+          {!feed && <p className={styles.empty}>{error ? "接続を確認しています。自動で再試行します。" : "活動を読み込み中…"}</p>}
+          {feed?.events.length === 0 && <p className={styles.empty}>直近90日の動きがまだありません</p>}
+          {(compact ? feed?.events.slice(0, 14) : feed?.events)?.map((event) => {
+            const key = eventKey(event), copy = eventCopy(event.text), fresh = freshEvents.has(key);
+            return <button key={key} type="button" className={`${styles.event} ${key === eventKey(active ?? event) ? styles.eventActive : ""} ${fresh ? styles.eventNew : ""}`} onClick={() => open(event)} aria-label={`${event.actor}：${event.text}。詳細を見る`}><div className={styles.eventMeta}><strong>{event.actor}</strong><span className={styles.kind}>{KIND_LABEL[event.kind] ?? "活動"}</span>{fresh && <span className={styles.newBadge}>新着</span>}<time className={styles.eventTime} dateTime={event.at}>{ago(event.at)}</time></div><p className={styles.eventText}>{copy.client && <strong>{copy.client}</strong>}<span>{copy.action}</span></p></button>;
+          })}
+        </div></section>
       </div>
-
-      {/* AI ACTIVITY FEED（2026-09-09 代表指示）: AIの動きだけを別枠で。誰が・どの県かは出さない＝「AIが動いている」ことだけ */}
-      {feed?.ai && feed.ai.length > 0 && (
-        <div className="relative mt-3 rounded-xl border border-orange-500/20 bg-orange-500/[0.04] overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-orange-500/15">
-            <span className="text-[11px] tracking-[0.15em] text-orange-300/80 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-              AI ACTIVITY FEED
-            </span>
-            <span className="text-[10px] text-zinc-600">匿名・グループ全体のAIの動き</span>
-          </div>
-          <div className={`${compact ? "max-h-[132px]" : "max-h-[220px]"} overflow-y-auto divide-y divide-white/[0.04]`}>
-            {feed.ai.slice(0, compact ? 6 : 24).map((a, i) => (
-              <div key={a.at + i} className="flex items-start gap-3 px-4 py-2">
-                <span className="font-mono text-[10px] text-zinc-500 tabular-nums whitespace-nowrap mt-0.5 w-14">{ago(a.at)}</span>
-                <span className="text-[12.5px] text-zinc-300 leading-relaxed">{a.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!compact && (
-        <p className="relative mt-4 text-[10.5px] text-zinc-600">
-          商談・送付台帳などから自動生成（20秒ごと更新）。金額と週次共有は表示されません。AIの動きは匿名です。
-        </p>
-      )}
-
-      {/* 詳細パネル */}
-      {picked && (
-        <div
-          className="fixed inset-0 z-50 flex justify-end bg-black/50"
-          onClick={() => setPicked(null)}
-        >
-          <div
-            className="w-full max-w-sm h-full overflow-y-auto bg-[#0d1119] border-l border-white/10 p-5"
-            onClick={(ev) => ev.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <span
-                className={`text-[10px] px-1.5 py-0.5 rounded border ${
-                  (KIND_META[picked.kind] ?? KIND_META.log).cls
-                }`}
-              >
-                {(KIND_META[picked.kind] ?? KIND_META.log).label}
-              </span>
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] text-zinc-500">{ago(picked.at)}</span>
-                <button
-                  type="button"
-                  onClick={() => setPicked(null)}
-                  className="text-zinc-500 hover:text-zinc-200 transition-colors text-sm leading-none"
-                  aria-label="閉じる"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <p className="text-[11px] text-zinc-500">{detail?.actor ?? picked.actor}</p>
-
-            {detailState === "loading" && (
-              <p className="mt-6 text-[12px] text-zinc-500">読み込み中…</p>
-            )}
-
-            {detailState === "error" && (
-              <>
-                <p className="mt-3 text-[13px] text-zinc-200 leading-relaxed">{picked.text}</p>
-                <p className="mt-4 text-[11px] text-zinc-500">
-                  詳細が取れませんでした（元の記録が消えている可能性があります）
-                </p>
-              </>
-            )}
-
-            {detailState === "idle" && !detail && (
-              <p className="mt-3 text-[13px] text-zinc-200 leading-relaxed">{picked.text}</p>
-            )}
-
-            {detailState === "idle" && detail && (
-              <>
-                <p className="mt-1 text-[15px] font-bold text-zinc-100 leading-snug">
-                  {detail.title}
-                </p>
-                {detail.subtitle && (
-                  <p className="mt-1 text-[11.5px] text-zinc-400">{detail.subtitle}</p>
-                )}
-
-                <dl className="mt-4 space-y-2">
-                  {detail.rows.map((r) => (
-                    <div key={r.label} className="flex gap-3 text-[12px]">
-                      <dt className="w-20 shrink-0 text-zinc-500">{r.label}</dt>
-                      <dd className="text-zinc-200">{r.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-
-                {detail.timeline && detail.timeline.length > 0 && (
-                  <div className="mt-5">
-                    <p className="text-[10px] tracking-[0.15em] text-zinc-500 mb-2">直近の動き</p>
-                    <ul className="space-y-2">
-                      {detail.timeline.map((t2, i) => (
-                        <li key={i} className="flex gap-3 text-[12px]">
-                          <span className="font-mono text-[10px] text-zinc-500 tabular-nums w-10 shrink-0 mt-0.5">
-                            {t2.at}
-                          </span>
-                          <span className="text-zinc-300 leading-relaxed">{t2.text}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {picked.ref && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = detail;
-                      window.dispatchEvent(
-                        new CustomEvent("office:compose", {
-                          detail: { kind: picked.ref!.kind, id: picked.ref!.id, title: d?.title ?? picked.text, sub: d?.subtitle ?? d?.actor ?? picked.actor },
-                        }),
-                      );
-                      setTab("chat");
-                      setPicked(null);
-                    }}
-                    className="mt-6 mr-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                               bg-emerald-600 text-white text-[12px] hover:bg-emerald-500 transition-colors"
-                  >
-                    💬 チャットでこれについて聞く
-                  </button>
-                )}
-                {safeHref(detail.href) && (
-                  <a
-                    href={safeHref(detail.href)}
-                    target={detail.href!.startsWith("http") ? "_blank" : undefined}
-                    rel={detail.href!.startsWith("http") ? "noopener noreferrer" : undefined}
-                    className="mt-6 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                               border border-white/15 text-[12px] text-zinc-200
-                               hover:bg-white/[0.06] transition-colors"
-                  >
-                    {detail.hrefLabel ?? "開く"} ↗
-                  </a>
-                )}
-
-                <p className="mt-6 text-[10px] text-zinc-600 leading-relaxed">
-                  金額はこの画面では表示しません
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+      <section className={styles.ai} aria-label="匿名のAI稼働ログ"><div className={styles.aiHeading}><Cpu aria-hidden="true" /><h2>AI ACTIVITY FEED</h2><small>匿名 · グループ全体</small></div>
+        <div className={styles.aiGrid}>{(feed?.ai ?? []).slice(0, showAllAi ? compact ? 6 : 24 : 3).map((item) => <div key={aiKey(item)} className={`${styles.aiLog} ${freshAi.has(aiKey(item)) ? styles.aiNew : ""}`}><time dateTime={item.at}>{ago(item.at)}</time><p>{item.text}</p></div>)}</div>
+        {feed && !feed.ai?.length && <p className={styles.empty}>AIの動きが記録されると、ここに表示されます</p>}
+        {!feed && <p className={styles.empty}>{error ? "接続を確認しています" : "AIの動きを読み込み中…"}</p>}
+        {(feed?.ai?.length ?? 0) > 3 && <button type="button" className={styles.aiMore} onClick={() => setShowAllAi((value) => !value)} aria-expanded={showAllAi}>{showAllAi ? "閉じる" : "以前のAIの動きも見る"}</button>}
+      </section>
+      <section className={styles.chat} ref={chatRef} aria-label="みんなのチャット"><div className={styles.chatHeading}><h2>みんなのチャット</h2><p>動きの詳細から、その案件を添えて聞けます</p></div><div className={styles.chatSurface}><GroupChat maxHeightClass={compact ? "max-h-[230px]" : "max-h-[420px]"} dense /></div></section>
+      <footer className={styles.footer}><span>20秒ごとに自動更新 · AIの動きは匿名です</span><span>{error && feed ? "表示中の記録：" : "最終更新："}<time>{feed ? new Date(feed.generatedAt).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}</time></span></footer>
+      {picked && <div className={styles.detailOverlay} onClick={close}><div className={styles.detail} ref={drawerRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={`${uid}-detail-title`} onClick={(event) => event.stopPropagation()}>
+        <div className={styles.detailHead}><span className={styles.kind}>{KIND_LABEL[picked.kind] ?? "活動"}</span><time className={styles.eventTime}>{ago(picked.at)}</time><button type="button" className={styles.close} onClick={close} aria-label="詳細を閉じる"><X size={18} /></button></div>
+        <p className={styles.detailSub}>{detail?.actor ?? picked.actor}</p><h2 id={`${uid}-detail-title`} className={styles.detailTitle}>{detail?.title ?? picked.text}</h2>
+        {detailState === "loading" && <p className={styles.detailSub}>詳細を読み込み中…</p>}
+        {detailState === "error" && <p className={styles.detailSub}>詳細を取得できませんでした。</p>}
+        {detail && <>{detail.subtitle && <p className={styles.detailSub}>{detail.subtitle}</p>}<dl className={styles.detailRows}>{detail.rows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>{detail.timeline && detail.timeline.length > 0 && <ul className={styles.detailTimeline}>{detail.timeline.map((item, index) => <li key={`${item.at}-${index}`}><time>{item.at}</time><span>{item.text}</span></li>)}</ul>}</>}
+        <div className={styles.detailActions}>{picked.ref && <button type="button" className={styles.ask} onClick={askAboutPicked}>チャットでこれについて聞く</button>}{safeHref(detail?.href) && <a className={styles.detailLink} href={safeHref(detail?.href)} target={detail?.href?.startsWith("http") ? "_blank" : undefined} rel={detail?.href?.startsWith("http") ? "noopener noreferrer" : undefined}>{detail?.hrefLabel ?? "開く"} <ExternalLink size={12} className="inline" /></a>}</div><p className={styles.detailNote}>金額はこの画面では表示しません</p>
+      </div></div>}
+    </section>
   );
 }
