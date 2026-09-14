@@ -21,6 +21,7 @@ import {
 } from "@/lib/live/labels";
 import { NextResponse } from "next/server";
 import { buildPulseEvents, type PulseKind } from "@/lib/live/pulse";
+import { buildSalesMoveEvents, type SalesMoveKind } from "@/lib/live/sales-moves";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +54,8 @@ export interface LiveEvent {
     | "booking"
     | "tender"
     | "lead"
-    | PulseKind;
+    | PulseKind
+    | SalesMoveKind;
   actor: string; // 拠点名・会社名・「本部」
   prefs: string[];
   text: string;
@@ -152,7 +154,7 @@ export async function GET() {
           prefectureName: true,
         },
         orderBy: { fitCheckedAt: "desc" },
-        take: 20,
+        take: 80, // 1日1行に束ねるので多めに取る
       }),
       // リードの操作（取得・連絡・アポ・営業フォーム送付・返信あり）＝2026-09-09 代表選択。
       // 作成・クロール・プール投入・却下・自動の担当設定は流さない（数だけ多く、人の動きではない）。
@@ -267,15 +269,27 @@ export async function GET() {
       text: `${b.company ? `「${b.company}」から` : ""}面談予約が入りました`,
     });
   }
+  // 入札の○判定は機械の判定なので、1日1行に束ねる（人の動きが埋もれないように＝2026-09-15 代表選択）。
+  // 押したときはその日いちばん新しい案件の詳細を出す
+  const tenderDays = new Map<string, { at: Date; items: typeof tenders }>();
   for (const t of tenders) {
     if (!t.fitCheckedAt) continue;
+    const day = t.fitCheckedAt.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" });
+    const g = tenderDays.get(day) ?? { at: t.fitCheckedAt, items: [] };
+    g.items.push(t);
+    if (t.fitCheckedAt > g.at) g.at = t.fitCheckedAt;
+    tenderDays.set(day, g);
+  }
+  for (const g of tenderDays.values()) {
+    const head = g.items[0];
+    const name = `${head.organizationName ?? ""}「${head.projectName.slice(0, 30)}${head.projectName.length > 30 ? "…" : ""}」`;
     events.push({
-      at: t.fitCheckedAt.toISOString(),
+      at: g.at.toISOString(),
       kind: "tender",
       actor: "入札ファインダー",
-      prefs: prefsIn(t.prefectureName),
-      text: `${t.organizationName ?? ""}「${t.projectName.slice(0, 40)}${t.projectName.length > 40 ? "…" : ""}」を○判定`,
-      ref: { kind: "tender", id: t.id },
+      prefs: [...new Set(g.items.flatMap((t) => prefsIn(t.prefectureName)))],
+      text: g.items.length > 1 ? `入札案件に○が${g.items.length}件（${name}ほか）` : `${name}を○判定`,
+      ref: { kind: "tender", id: head.id },
     });
   }
 
@@ -345,6 +359,13 @@ export async function GET() {
     });
   }
 
+  // TVer・営業の武器・お客様からの相談（2026-09-15）。失敗しても本体は止めない
+  try {
+    for (const m of await buildSalesMoveEvents(since)) events.push(m);
+  } catch (e) {
+    console.error("[live/feed] sales moves failed:", e instanceof Error ? e.message : e);
+  }
+
   // 「脈」＝OSを使う・AIに聞く・OSが自動で見つける・お客様が見る（直近7日・2026-09-09）。
   // 人の営業の動き（上の各種）と同じ列に混ぜる。失敗しても本体は止めない
   let ai: { at: string; text: string }[] = [];
@@ -368,7 +389,8 @@ export async function GET() {
   const countBy = (pred: (e: LiveEvent) => boolean) => {
     const c = { approach: 0, deal: 0, won: 0, hq: 0, auto: 0, visit: 0 };
     for (const e of events.filter(pred)) {
-      if (e.kind === "sent" || e.kind === "move" || e.kind === "log" || e.kind === "lead") c.approach++;
+      // TVerの申請・営業の武器も人の営業の動き＝アプローチに数える
+      if (e.kind === "sent" || e.kind === "move" || e.kind === "log" || e.kind === "lead" || e.kind === "tver" || e.kind === "tool") c.approach++;
       else if (e.kind === "deal") c.deal++;
       // 加盟はこの面に出さない（数字にもフィードにも載せない＝2026-08-28 代表決定）
       else if (e.kind === "won") c.won++;
