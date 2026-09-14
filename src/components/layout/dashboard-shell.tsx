@@ -8,16 +8,18 @@ import { TourGuide, TourHelpButton } from "@/components/onboarding/tour-guide";
 import { OfficeAgent } from "@/components/office/office-agent";
 import { AlertTriangle } from "lucide-react";
 import type { UserRole } from "@/types/roles";
+import type { ReportBranches } from "@/components/layout/report-branch-switch";
 
 interface Props {
   user: { name: string | null; email: string | null; image: string | null; role: UserRole; enabledFeatures?: string[] };
   reportWarning?: "yellow" | "red" | null;
   isActive?: boolean;
   contractDaysLeft?: number | null;
+  reportBranches?: ReportBranches | null;
   children: React.ReactNode;
 }
 
-export function DashboardShell({ user, reportWarning, isActive = true, contractDaysLeft, children }: Props) {
+export function DashboardShell({ user, reportWarning, isActive = true, contractDaysLeft, reportBranches, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -45,6 +47,7 @@ export function DashboardShell({ user, reportWarning, isActive = true, contractD
           user={user}
           onMenuOpen={() => setSidebarOpen(true)}
           onSearchOpen={() => setSearchOpen(true)}
+          reportBranches={reportBranches}
         />
         <main className="flex-1 overflow-y-auto">
           {!isActive && <SuspendedBanner />}

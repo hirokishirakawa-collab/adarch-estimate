@@ -7,6 +7,7 @@ import { WinCelebration } from "@/components/deals/win-celebration";
 import { Toaster } from "sonner";
 import { db } from "@/lib/db";
 import type { UserRole } from "@/types/roles";
+import type { ReportBranches } from "@/components/layout/report-branch-switch";
 
 export default async function DashboardLayout({
   children,
@@ -88,9 +89,26 @@ export default async function DashboardLayout({
     }
   }
 
+  // ── 報告先の県（2拠点の代表のみ）＝上部の切替に出す ──
+  let reportBranches: ReportBranches | null = null;
+  if (role !== "ADMIN" && session.user?.email) {
+    try {
+      const u = await db.user.findUnique({
+        where: { email: session.user.email },
+        select: {
+          branch: { select: { id: true, name: true } },
+          branch2: { select: { id: true, name: true } },
+        },
+      });
+      if (u?.branch && u.branch2) reportBranches = { current: u.branch, other: u.branch2 };
+    } catch (e) {
+      console.error("[layout] Report branch check failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
   return (
     <>
-      <DashboardShell user={user} reportWarning={reportWarning} isActive={isActive} contractDaysLeft={contractDaysLeft}>
+      <DashboardShell user={user} reportWarning={reportWarning} isActive={isActive} contractDaysLeft={contractDaysLeft} reportBranches={reportBranches}>
         {!isActive && <SuspendedRedirect suspendReason={suspendReason} />}
         {children}
       </DashboardShell>

@@ -5,6 +5,7 @@ import { Menu, Search, Settings } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
 import { PresenceBadge } from "@/components/office/presence-badge";
 import { ArchKunToggle } from "@/components/chatbot/arch-kun-toggle";
+import { ReportBranchSwitch, type ReportBranches } from "./report-branch-switch";
 
 // ----------------------------------------------------------------
 // ロールごとの上部バナー（ADMIN のみ表示）
@@ -27,9 +28,10 @@ interface HeaderProps {
   };
   onMenuOpen: () => void;
   onSearchOpen: () => void;
+  reportBranches?: ReportBranches | null;
 }
 
-export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProps) {
+export function Header({ pageTitle, user, onMenuOpen, onSearchOpen, reportBranches }: HeaderProps) {
   const banner = ROLE_BANNERS[user.role];
   const now = new Date();
   const dateStr = now.toLocaleDateString("ja-JP", {
@@ -65,6 +67,9 @@ export function Header({ pageTitle, user, onMenuOpen, onSearchOpen }: HeaderProp
         </div>
 
         <div className="flex items-center gap-3">
+          {/* 報告先の県（2拠点の代表のみ） */}
+          {reportBranches && <ReportBranchSwitch branches={reportBranches} />}
+
           {/* 横断検索 */}
           <button
             onClick={onSearchOpen}
