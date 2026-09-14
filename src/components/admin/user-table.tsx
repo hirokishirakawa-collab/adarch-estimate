@@ -1,14 +1,14 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Loader2, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
-import { updateUserRole, updateUserInfo, deleteUser, toggleFeature, toggleUserActive, toggleLearningExempt } from "@/lib/actions/admin";
+import { Loader2, CheckCircle2, AlertCircle, UserX } from "lucide-react";
+import { updateUserRole, updateUserInfo, withdrawUser, toggleFeature, toggleUserActive, toggleLearningExempt } from "@/lib/actions/admin";
 import { BRANCH_MAP } from "@/lib/data/customers";
 
 // ---------------------------------------------------------------
 // 型
 // ---------------------------------------------------------------
-type SuspendReasonValue = "MONTHLY_REPORT" | "ROYALTY_UNPAID" | "OTHER" | null;
+type SuspendReasonValue = "MONTHLY_REPORT" | "ROYALTY_UNPAID" | "OTHER" | "WITHDRAWN" | null;
 
 type UserRow = {
   id: string;
@@ -33,12 +33,14 @@ const SUSPEND_REASON_LABEL: Record<Exclude<SuspendReasonValue, null>, string> = 
   MONTHLY_REPORT: "月次報告未提出",
   ROYALTY_UNPAID: "ロイヤリティ未払い",
   OTHER: "その他",
+  WITHDRAWN: "脱退",
 };
 
 const SUSPEND_REASON_COLOR: Record<Exclude<SuspendReasonValue, null>, string> = {
   MONTHLY_REPORT: "bg-amber-50 text-amber-700 border-amber-200",
   ROYALTY_UNPAID: "bg-red-50 text-red-700 border-red-200",
   OTHER: "bg-zinc-50 text-zinc-600 border-zinc-200",
+  WITHDRAWN: "bg-zinc-100 text-zinc-500 border-zinc-300",
 };
 
 // 自動営業は個別許可をやめ、加盟代表（MANAGER）なら全員使える運用に変えたのでここには出さない
@@ -241,22 +243,22 @@ function InfoForm({
 }
 
 // ---------------------------------------------------------------
-// 削除フォーム
+// 脱退フォーム（行の削除はしない＝月次報告などの記録は残す）
 // ---------------------------------------------------------------
-function DeleteForm({ userId, disabled }: { userId: string; disabled: boolean }) {
-  const boundAction = deleteUser.bind(null, userId);
+function WithdrawForm({ userId, disabled }: { userId: string; disabled: boolean }) {
+  const boundAction = withdrawUser.bind(null, userId);
   const [state, formAction, isPending] = useActionState(boundAction, null);
 
   return (
     <form
       action={formAction}
       onSubmit={(e) => {
-        if (!window.confirm("このユーザーを削除しますか？")) e.preventDefault();
+        if (!window.confirm("このメンバーを脱退にしますか？\nログインとAI連携が止まり、一覧から消えます。月次報告などの記録は残ります。")) e.preventDefault();
       }}
     >
       <button type="submit" disabled={disabled || isPending} className={`${submitCls} bg-red-600 hover:bg-red-500`}>
-        {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-        削除
+        {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserX className="w-3 h-3" />}
+        脱退
       </button>
       {state?.error && (
         <span className="ml-2 text-xs text-red-600">{state.error}</span>
@@ -580,12 +582,12 @@ export function UserTable({ users, callerEmail, groupCompanies }: Props) {
                     <span className="text-xs text-zinc-500">{fmtDate(user.createdAt)}</span>
                   </td>
 
-                  {/* 削除 */}
+                  {/* 脱退 */}
                   <td className="px-4 py-3 whitespace-nowrap">
                     {isSelf ? (
                       <span className="text-xs text-zinc-300">—</span>
                     ) : (
-                      <DeleteForm userId={user.id} disabled={false} />
+                      <WithdrawForm userId={user.id} disabled={false} />
                     )}
                   </td>
                 </tr>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { NOT_WITHDRAWN } from "@/lib/users/withdrawn";
 import { ChevronLeft, CheckCircle, Circle, Users, ShieldCheck } from "lucide-react";
 
 export default async function AdminLearningProgressPage() {
@@ -19,7 +20,7 @@ export default async function AdminLearningProgressPage() {
       },
     }),
     db.user.findMany({
-      where: { role: { in: ["USER", "MANAGER"] } },
+      where: { role: { in: ["USER", "MANAGER"] }, ...NOT_WITHDRAWN },
       orderBy: { name: "asc" },
       select: { id: true, name: true, email: true, role: true, learningExempt: true, isActive: true },
     }),

@@ -107,6 +107,7 @@ enum SuspendReason {
   MONTHLY_REPORT // 月次報告未提出
   ROYALTY_UNPAID // ロイヤリティ未払い
   OTHER // その他（手動）
+  WITHDRAWN // 脱退（一覧から外す・月次報告などの記録は残す）
 }
 
 enum InvoiceRequestStatus {

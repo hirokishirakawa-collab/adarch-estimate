@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { NOT_WITHDRAWN } from "@/lib/users/withdrawn";
 import { DealForm } from "@/components/deals/deal-form";
 import { TrendingUp, ChevronLeft } from "lucide-react";
 
@@ -19,6 +20,7 @@ export default async function NewDealPage({ searchParams }: PageProps) {
       orderBy: { name: "asc" },
     }),
     db.user.findMany({
+      where: NOT_WITHDRAWN,
       select: { id: true, name: true, email: true },
       orderBy: { name: "asc" },
     }),

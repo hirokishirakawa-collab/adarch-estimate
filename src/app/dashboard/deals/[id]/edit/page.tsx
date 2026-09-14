@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { NOT_WITHDRAWN } from "@/lib/users/withdrawn";
 import { updateDeal } from "@/lib/actions/deal";
 import { DealEditForm } from "@/components/deals/deal-edit-form";
 import { ChevronLeft, TrendingUp } from "lucide-react";
@@ -16,15 +17,10 @@ export default async function EditDealPage({ params }: PageProps) {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as string;
 
-  // 全拠点のユーザーを表示
-  const [deal, users, sessionUser] = await Promise.all([
+  const [deal, sessionUser] = await Promise.all([
     db.deal.findUnique({
       where: { id },
       include: { customer: { select: { name: true } } },
-    }),
-    db.user.findMany({
-      select: { id: true, name: true, email: true },
-      orderBy: { name: "asc" },
     }),
     session?.user?.email
       ? db.user.findUnique({ where: { email: session.user.email }, select: { id: true } })
@@ -32,6 +28,13 @@ export default async function EditDealPage({ params }: PageProps) {
   ]);
 
   if (!deal) notFound();
+
+  // 全拠点のユーザーを表示。脱退者は外すが、今の担当者だけは残す（選択が勝手に変わらないように）
+  const users = await db.user.findMany({
+    where: deal.assignedToId ? { OR: [NOT_WITHDRAWN, { id: deal.assignedToId }] } : NOT_WITHDRAWN,
+    select: { id: true, name: true, email: true },
+    orderBy: { name: "asc" },
+  });
 
   const canViewAmount = role === "ADMIN" || (sessionUser && deal.createdById === sessionUser.id);
   const boundAction = updateDeal.bind(null, deal.id);

@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { UserRole } from "@/types/roles";
 import { logAudit } from "@/lib/audit";
+import { NOT_WITHDRAWN } from "@/lib/users/withdrawn";
 
 // ---------------------------------------------------------------
 // 共通: ADMIN セッション確認
@@ -26,6 +27,7 @@ export async function getAdminUserList() {
   await requireAdmin();
   try {
     return db.user.findMany({
+      where: NOT_WITHDRAWN,
       orderBy: { createdAt: "asc" },
       include: {
         branch:  { select: { name: true } },
@@ -132,10 +134,11 @@ export async function updateUserInfo(
 }
 
 // ---------------------------------------------------------------
-// ユーザー削除（ADMIN 専用）
-// 自分自身は削除不可
+// 脱退（ADMIN 専用・2026-09-15）
+// 行ごとの削除は月次報告（ロイヤリティ請求の根拠）の外部キーで必ず失敗するため、
+// 停止＋理由 WITHDRAWN にして一覧から外す。記録は残す。自分自身は不可
 // ---------------------------------------------------------------
-export async function deleteUser(
+export async function withdrawUser(
   userId: string,
   _prev: { error?: string; success?: boolean } | null,
   _formData: FormData
@@ -147,18 +150,33 @@ export async function deleteUser(
     select: { email: true },
   });
   if (!target) return { error: "ユーザーが見つかりません" };
-  if (target.email === callerEmail) return { error: "自分自身は削除できません" };
+  if (target.email === callerEmail) return { error: "自分自身は脱退にできません" };
 
   try {
-    await db.user.delete({ where: { id: userId } });
-    logAudit({ action: "user_deleted", email: callerEmail, entity: "user", entityId: userId, detail: target.email });
+    await db.user.update({
+      where: { id: userId },
+      data: { isActive: false, suspendReason: "WITHDRAWN" },
+    });
+    logAudit({ action: "user_withdrawn", email: callerEmail, entity: "user", entityId: userId, detail: target.email });
+    await revokeMcpGrants(target.email, "脱退に伴い本部が解除");
   } catch (e) {
-    console.error("[deleteUser] DB error:", e instanceof Error ? e.message : e);
-    return { error: "削除に失敗しました" };
+    console.error("[withdrawUser] DB error:", e instanceof Error ? e.message : e);
+    return { error: "脱退の処理に失敗しました" };
   }
 
   revalidatePath("/dashboard/admin/users");
   return { success: true };
+}
+
+// 停止・脱退したら AI連携（MCP）の接続も同時に失効させる（2026-09-09）。
+// トークン検証は毎回 isActive を見るので停止だけでも呼び出しは止まるが、接続一覧に残さない
+async function revokeMcpGrants(email: string, note: string) {
+  const grants = await db.oAuthGrant.findMany({ where: { userEmail: email, revokedAt: null }, select: { id: true, clientName: true } });
+  if (grants.length === 0) return;
+  await db.oAuthGrant.updateMany({ where: { id: { in: grants.map((g) => g.id) } }, data: { revokedAt: new Date() } });
+  for (const g of grants) {
+    logAudit({ action: "mcp_disconnected", email, entity: "oauth_grant", entityId: g.id, detail: `${g.clientName ?? "AIクライアント"}（${note}）` });
+  }
 }
 
 // ---------------------------------------------------------------
@@ -276,16 +294,8 @@ export async function toggleUserActive(
       entityId: userId,
       detail: `${user.email}: ${user.isActive ? "停止" : "復活"}${newState === false ? ` (理由: ${reason ?? "OTHER"})` : ""}`,
     });
-    // 停止したら AI連携（MCP）の接続も同時に失効させる（2026-09-09）。
-    // トークン検証は毎回 isActive を見るので停止だけでも呼び出しは止まるが、接続一覧に残さない
     if (newState === false) {
-      const grants = await db.oAuthGrant.findMany({ where: { userEmail: user.email, revokedAt: null }, select: { id: true, clientName: true } });
-      if (grants.length > 0) {
-        await db.oAuthGrant.updateMany({ where: { id: { in: grants.map((g) => g.id) } }, data: { revokedAt: new Date() } });
-        for (const g of grants) {
-          logAudit({ action: "mcp_disconnected", email: user.email, entity: "oauth_grant", entityId: g.id, detail: `${g.clientName ?? "AIクライアント"}（利用停止に伴い本部が解除）` });
-        }
-      }
+      await revokeMcpGrants(user.email, "利用停止に伴い本部が解除");
     }
   } catch (e) {
     console.error("[toggleUserActive] DB error:", e instanceof Error ? e.message : e);

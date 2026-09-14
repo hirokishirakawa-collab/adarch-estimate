@@ -15,6 +15,7 @@ import {
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
+import { NOT_WITHDRAWN } from "@/lib/users/withdrawn";
 import { REGION_OPTIONS } from "@/lib/constants/business-cards";
 import { FlagToggles } from "@/components/business-cards/flag-toggles";
 import { PrivateFieldsPanel } from "@/components/business-cards/private-fields-panel";
@@ -86,6 +87,8 @@ export default async function BusinessCardDetailPage(props: {
   const allUsers =
     sessionInfo.role === "ADMIN"
       ? await db.user.findMany({
+          // 脱退者は外す（今の所有者だけは残す＝選択が勝手に変わらないように）
+          where: { OR: [NOT_WITHDRAWN, { id: card.ownerId }] },
           select: { id: true, name: true },
           orderBy: { name: "asc" },
         })

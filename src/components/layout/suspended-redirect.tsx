@@ -12,8 +12,8 @@ export function SuspendedRedirect({ suspendReason }: { suspendReason: string | n
   const router = useRouter();
 
   useEffect(() => {
-    // ロイヤリティ未払い / その他は専用停止ページへ
-    if (suspendReason === "ROYALTY_UNPAID" || suspendReason === "OTHER") {
+    // ロイヤリティ未払い / その他 / 脱退は専用停止ページへ
+    if (suspendReason === "ROYALTY_UNPAID" || suspendReason === "OTHER" || suspendReason === "WITHDRAWN") {
       const isAllowed = ROYALTY_ALLOWED.some((p) => pathname.startsWith(p));
       if (!isAllowed) {
         router.replace("/dashboard/suspended");

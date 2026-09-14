@@ -35,6 +35,7 @@ export default async function SuspendedPage() {
               <p className="text-xs text-red-700 mt-0.5">
                 {user.suspendReason === "ROYALTY_UNPAID" && "最低ロイヤリティのお支払いが確認できておりません"}
                 {user.suspendReason === "OTHER" && "ご契約内容の確認が必要な状況です"}
+                {user.suspendReason === "WITHDRAWN" && "ご利用は終了しています"}
               </p>
             </div>
           </div>
@@ -74,6 +75,15 @@ export default async function SuspendedPage() {
                 <p>
                   詳細につきましては本部よりご連絡いたします。
                   恐れ入りますが、ご不明点は本部までご連絡ください。
+                </p>
+              </div>
+            )}
+
+            {user.suspendReason === "WITHDRAWN" && (
+              <div className="text-sm text-zinc-700 leading-relaxed">
+                <p>
+                  {user.name} 様の Ad Arch OS のご利用は終了しております。
+                  ご不明点は本部までご連絡ください。
                 </p>
               </div>
             )}

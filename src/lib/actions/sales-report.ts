@@ -93,9 +93,9 @@ export async function createRevenueReport(
           items: { create: toItemRows(items) },
         },
       }),
-      // 月次報告提出でアカウント自動復帰（ロイヤリティ未払い停止中は復帰しない）
+      // 月次報告提出でアカウント自動復帰（ロイヤリティ未払い停止中・脱退者は復帰しない）
       db.user.updateMany({
-        where: { id: info.userId, suspendReason: { not: "ROYALTY_UNPAID" } },
+        where: { id: info.userId, suspendReason: { notIn: ["ROYALTY_UNPAID", "WITHDRAWN"] } },
         data: { isActive: true, suspendReason: null },
       }),
     ]);
