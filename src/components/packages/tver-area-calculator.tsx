@@ -57,7 +57,7 @@ export function TverAreaCalculator({
                       <span className="font-semibold">{t.name}</span>
                       {t.mergedWith.length > 0 && <span className="ml-1 text-[10.5px] text-zinc-500">（{t.mergedWith.join("・")}と同額）</span>}
                       {t.recommended && <span className="ml-2 text-[10px] font-bold text-[#B8651A] bg-white border border-[#F19834] rounded px-1.5 py-0.5 align-middle">おすすめ</span>}
-                      <span className="block text-[10.5px] text-zinc-500">住民の{t.perResidents}人に1人へ</span>
+                      <span className="block text-[10.5px] text-zinc-500">{t.perResidents ? `住民の${t.perResidents}人に1人へ` : "人口5万人未満のエリアの1プラン（月額固定）"}</span>
                     </td>
                     <td className="py-2.5 text-right tabular-nums font-bold">
                       ¥{t.monthly.toLocaleString("ja-JP")}
@@ -74,7 +74,7 @@ export function TverAreaCalculator({
             </table>
           </div>
           <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">
-            市町村プラン（15秒・1エリア・初回登録費と管理費なし）の額です。月の再生数＝月額÷再生単価（15秒 ¥{est.unitPrice}）、届く人数＝再生数÷月の平均視聴回数（当社の実配信の実測 {est.freq}回）。
+            市町村プラン（15秒・1エリア・初回登録費と管理費なし）の額です。人口5万人未満のエリアは月額¥30,000の1プラン、5万人以上は人口で決まる3プランです。月の再生数＝月額÷再生単価（15秒 ¥{est.unitPrice}）、届く人数＝再生数÷月の平均視聴回数（当社の実配信の実測 {est.freq}回）。
             月額30万円以上・2エリア以上・週次報告のご希望は「大規模展開」として個別にお見積りします。
             視聴者数は TVer月間利用者（全国4,470万人）を県・市の人口比で推計した値です。{TVER_ESTIMATE_NOTE}
           </p>

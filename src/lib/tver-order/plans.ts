@@ -7,7 +7,7 @@
 //   ・初回登録費・管理費なし（旧版 v2026-09-09 の申込は保存済みの初期登録費をそのまま使う）
 // ==============================================================
 
-import { CITY_PLAN_RATES, FREQ, UNIT_PRICE, cityPlansFor, estimateDelivery } from "@/lib/tver/plan";
+import { CITY_PLAN_RATES, FREQ, SMALL_TOWN_PLAN, UNIT_PRICE, cityPlansFor, estimateDelivery } from "@/lib/tver/plan";
 import type { TverOrderStatus } from "@/generated/prisma/client";
 import { areaPlanFor } from "@/lib/packages/tver-area";
 
@@ -17,6 +17,8 @@ export const TVER_ORDER_PLANS = [
   { key: "light", name: "ライト", perResidents: RATE.light, recommended: false, lead: "テスト配信（反応を見る）", note: "結果を出す目的ならスタンダード以上をお選びください" },
   { key: "standard", name: "スタンダード", perResidents: RATE.standard, recommended: true, lead: "地元の市で認知を取る", note: "" },
   { key: "full", name: "フル", perResidents: RATE.full, recommended: false, lead: "商圏まるごと＝結果を出す基準", note: "" },
+  // 人口5万人未満のエリアはこの1プランだけ（月額¥30,000固定・6ヶ月以上）
+  { key: SMALL_TOWN_PLAN.key, name: SMALL_TOWN_PLAN.name, perResidents: null, recommended: true, lead: "人口5万人未満のエリアの定額プラン", note: "" },
 ] as const;
 export type TverOrderPlanKey = (typeof TVER_ORDER_PLANS)[number]["key"];
 
@@ -105,6 +107,13 @@ export function quote(monthlyFee: number, setupFeeExclTax: number, months = 3): 
 
 export type TverOrderPlanQuote = {
   key: TverOrderPlanKey;
+  name: string;
+  /** 住民の N人に1人（まちのプランは null） */
+  perResidents: number | null;
+  lead: string;
+  note: string;
+  /** このプランにまとめたプラン名（同額） */
+  mergedWith: string[];
   /** 媒体費（税抜・月額）＝人口の式 → 人口2段の下限 */
   mediaFee: number;
   /** 下限を当てる前の人口の式の額（参考） */
@@ -123,7 +132,10 @@ export type TverOrderAreaEstimate = {
   areaLabel: string;
   population: number;
   viewers: number;
-  byPlan: Record<TverOrderPlanKey, TverOrderPlanQuote>;
+  /** このエリアで出すプランだけ（キーで引く用）。人口5万人未満は town だけ */
+  byPlan: Partial<Record<TverOrderPlanKey, TverOrderPlanQuote>>;
+  /** 画面に並べる順（まとめたプランは除く・②は custom で残す・安い順） */
+  plans: TverOrderPlanQuote[];
   unitPrice: number;
   freq: number;
   /** このエリアの最低料金（月額・税抜）と最短期間 */
@@ -142,17 +154,23 @@ export function estimateForArea(prefName: string, code: string): TverOrderAreaEs
   const plan = areaPlanFor(prefName, code);
   if (!plan) return null;
   const cp = cityPlansFor(plan.population);
-  const byPlan = {} as TverOrderAreaEstimate["byPlan"];
-  for (const p of TVER_ORDER_PLANS) {
-    const r = cp.rows[p.key];
+  const byPlan: TverOrderAreaEstimate["byPlan"] = {};
+  const plans: TverOrderPlanQuote[] = [];
+  for (const r of Object.values(cp.rows)) {
+    if (!r) continue;
+    const def = TVER_ORDER_PLANS.find((p) => p.key === r.key)!;
     const d = estimateDelivery(r.fee, { viewers: plan.viewers, population: plan.population });
-    byPlan[p.key] = { key: p.key, mediaFee: r.fee, rawFee: r.raw, impressions: d.impressions, reach: d.reach, pctResidents: d.pctResidents ?? 0, floored: r.floored, custom: r.custom, mergedInto: r.mergedInto };
+    const q: TverOrderPlanQuote = { key: r.key, name: r.name, perResidents: r.perResidents, lead: def.lead, note: def.note, mergedWith: r.mergedWith, mediaFee: r.fee, rawFee: r.raw, impressions: d.impressions, reach: d.reach, pctResidents: d.pctResidents ?? 0, floored: r.floored, custom: r.custom, mergedInto: r.mergedInto };
+    byPlan[r.key] = q;
+    if (!r.mergedInto) plans.push(q);
   }
+  plans.sort((a, b) => a.mediaFee - b.mediaFee);
   return {
     areaLabel: plan.areaLabel,
     population: plan.population,
     viewers: plan.viewers,
     byPlan,
+    plans,
     unitPrice: UNIT_PRICE[15],
     freq: FREQ,
     floor: cp.floor,

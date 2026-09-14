@@ -7,6 +7,8 @@ import type { UserRole } from "@/types/roles";
 import { db } from "@/lib/db";
 import { AD_SECONDS, orderNumberLabel, planByKey, quote } from "@/lib/tver-order/plans";
 import { TVER_ORDER_STATUS_LABEL, appUrl } from "@/lib/tver-order/service";
+import { areaPlanFor } from "@/lib/packages/tver-area";
+import { INVENTORY_CHECK_POP, needsInventoryCheck } from "@/lib/tver/plan";
 import { InvoiceList, OrderAdminPanel } from "./admin-panel";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +26,9 @@ export default async function AdminTverOrderDetail({ params }: { params: Promise
   const plan = planByKey(o.planKey);
   const q = quote(o.mediaFeeExclTax, o.setupFeeExclTax, o.months);
   const statusUrl = `${appUrl()}/order/tver/${o.token}`;
+  // 人口1万人未満のエリアはTVerの在庫が薄い＝本部で在庫確認（本部画面だけの印）
+  const areaPop = areaPlanFor(o.prefName, o.municipalityCode)?.population ?? 0;
+  const inventoryCheck = needsInventoryCheck(areaPop);
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
@@ -35,6 +40,11 @@ export default async function AdminTverOrderDetail({ params }: { params: Promise
         </div>
         <span className="px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-800 text-sm font-medium">{TVER_ORDER_STATUS_LABEL[o.status]}</span>
       </div>
+      {inventoryCheck && (
+        <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <b>在庫確認が必要（人口1万人未満）</b>　{o.areaLabel}の人口は{areaPop.toLocaleString("ja-JP")}人（{INVENTORY_CHECK_POP.toLocaleString("ja-JP")}人未満）。TVerの配信在庫が月の配信に足りるかを、考査申請の前に確認してください。足りない分は配信期間の延長で使い切ります（規約第5条）。
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3 space-y-6">

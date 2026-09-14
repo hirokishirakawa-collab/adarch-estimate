@@ -39,15 +39,15 @@ export function GET(req: NextRequest) {
 <g font-size="16" fill="#6A6A6A">
   <text x="72" y="336">${esc(city.name)}のTVer視聴者</text>
   <text x="440" y="336">月に届く人数の目安</text>
-  <text x="808" y="336">月額（税抜）</text>
+  <text x="808" y="336">月額（税抜）${est.small && rec ? `・${esc(rec.name)}` : ""}</text>
 </g>
 <g font-size="64" font-weight="600" fill="#111111">
   <text x="72" y="412">${fmt(p.viewers)}<tspan font-size="24"> 人</tspan></text>
   <text x="440" y="412">${rec ? `${fmt(rec.reach)}<tspan font-size="24"> 人</tspan>` : "—"}</text>
-  <text x="808" y="412">${est.minMonthly != null ? `¥${fmt(est.minMonthly)}<tspan font-size="24">〜</tspan>` : `<tspan font-size="48">個別見積</tspan>`}</text>
+  <text x="808" y="412">${est.minMonthly == null ? `<tspan font-size="48">個別見積</tspan>` : est.small ? `¥${fmt(est.minMonthly)}` : `¥${fmt(est.minMonthly)}<tspan font-size="24">〜</tspan>`}</text>
 </g>
 <line x1="72" y1="448" x2="1128" y2="448" stroke="#E6E4E0" stroke-width="1"/>
-<text x="72" y="484" font-size="15" fill="#6A6A6A">届く人数は${rec ? `${esc(rec.name)}プランの` : ""}目安（お約束するものではありません）。初回登録費・管理費なし。</text>
+<text x="72" y="484" font-size="15" fill="#6A6A6A">届く人数は${rec ? `「${esc(rec.name)}」の` : ""}目安（お約束するものではありません）。初回登録費・管理費なし。</text>
 <rect x="72" y="520" width="300" height="60" rx="4" fill="#F19834"/>
 <text x="222" y="558" font-size="20" font-weight="600" fill="#111111" text-anchor="middle">エリア限定プランを見る</text>
 <text x="1128" y="566" font-size="26" font-weight="600" fill="#111111" text-anchor="end" letter-spacing="-1">Ad Arch</text>

@@ -103,6 +103,8 @@ export async function createTverOrder(input: CreateTverOrderInput): Promise<{ to
   if (!signerName) return { error: "ご署名（お名前）を入力してください" };
 
   const e = est.byPlan[plan.key];
+  // このエリアで選べないプラン（人口5万人未満で「まちのプラン」以外／5万人以上で「まちのプラン」／同額にまとめたプラン）は受けない
+  if (!e || e.mergedInto) return { error: est.small ? `このエリア（人口5万人未満）は「${est.plans[0]?.name ?? "まちのプラン"}」（月額30,000円）だけのお申込みです` : "このエリアでは選べないプランです。プランを選び直してください" };
   // ②大規模展開（月額30万以上）はWeb申込を受けない。画面を迂回されてもここで止める
   if (e.custom) return { error: "このエリア・プランは月額30万円以上のため、大規模展開（オーダー）のご相談になります。「複数エリアで相談する」からお送りください。" };
   if (!MONTH_OPTIONS.some((m) => m.months === input.months)) return { error: "契約期間を選んでください" };

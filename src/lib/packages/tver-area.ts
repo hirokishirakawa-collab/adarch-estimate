@@ -2,7 +2,7 @@
 // 地域リーチ固定パッケージ（TVer）— エリア別の目安
 //   「この市だと、月額いくらで住民の何%に届くか」を出す。母集団（市内TVer視聴者）は lib/tver/plan.ts（資料と同じ推計）
 //   2026-09-13 代表決定: 料金は lib/tver/plan.ts の料金ルール（①市町村プランの3プラン・人口2段の下限・②の境目）
-//   ・行 = ①市町村プランの3プラン（同額は1枚にまとめる・月額30万以上は②大規模展開の印）＝申込ページと同じ額
+//   ・行 = ①市町村プラン（人口5万人以上: 3プラン・同額は1枚・月額30万以上は②の印／5万人未満: まちのプラン¥30,000の1行）＝申込ページと同じ額
 //   ・月の再生数 = 月額 ÷ 基準単価（15秒 ¥6.6）、月に届く人数 = 再生数 ÷ 実測F 4.78
 //   ・外に出す「月額の目安」は「最低料金〜（おすすめ：スタンダード額）」。旧網羅「3人に1人」は出さない
 //   ・住民比 = 到達人数 ÷ 市の総人口。視聴者比 = 到達人数 ÷ 市内TVer視聴者（推計）
@@ -12,7 +12,7 @@
 
 import { MUNICIPALITIES } from "@/data/tver-municipalities";
 import { PREFECTURES } from "@/lib/constants/crm";
-import { CITY_PLAN_RATES, FREQ, UNIT_PRICE, cityPlansFor, estimateDelivery, planForCodes, type AreaPlan, type CityPlanKey } from "@/lib/tver/plan";
+import { FREQ, UNIT_PRICE, cityPlansFor, estimateDelivery, planForCodes, type AreaPlan, type CityPlanKey } from "@/lib/tver/plan";
 
 export const TVER_AREA_CALCULATOR = "tver-area";
 const GROUP_PREFIX = "group:";
@@ -51,7 +51,8 @@ export function areaPlanFor(prefName: string, code: string): AreaPlan | null {
 export type AreaTier = {
   key: CityPlanKey;
   name: string;
-  perResidents: number;
+  /** 住民の N人に1人（まちのプランは null） */
+  perResidents: number | null;
   monthly: number;
   impressions: number;
   reach: number;
@@ -86,26 +87,23 @@ export function estimateArea(prefName: string, code: string): AreaEstimate | nul
   const plan = planForCodes(expandCodes(prefName, code), 15);
   if (!plan) return null;
   const cp = cityPlansFor(plan.population);
-  const tiers: AreaTier[] = CITY_PLAN_RATES.filter((r) => !cp.rows[r.key].mergedInto)
-    .map((r) => {
-      const row = cp.rows[r.key];
-      const d = estimateDelivery(row.fee, { viewers: plan.viewers, population: plan.population });
-      return {
-        key: r.key,
-        name: r.name,
-        perResidents: r.perResidents,
-        monthly: row.fee,
-        impressions: d.impressions,
-        reach: d.reach,
-        pctResidents: d.pctResidents ?? 0,
-        pctViewers: d.pctViewers ?? 0,
-        floored: row.floored,
-        custom: row.custom,
-        mergedWith: CITY_PLAN_RATES.filter((x) => cp.rows[x.key].mergedInto === r.key).map((x) => x.name),
-        recommended: r.key === cp.defaultPlan,
-      };
-    })
-    .sort((a, b) => a.monthly - b.monthly);
+  const tiers: AreaTier[] = cp.list.map((row) => {
+    const d = estimateDelivery(row.fee, { viewers: plan.viewers, population: plan.population });
+    return {
+      key: row.key,
+      name: row.name,
+      perResidents: row.perResidents,
+      monthly: row.fee,
+      impressions: d.impressions,
+      reach: d.reach,
+      pctResidents: d.pctResidents ?? 0,
+      pctViewers: d.pctViewers ?? 0,
+      floored: row.floored,
+      custom: row.custom,
+      mergedWith: row.mergedWith,
+      recommended: row.key === cp.defaultPlan,
+    };
+  });
   return {
     plan,
     tiers,
@@ -123,6 +121,7 @@ export function estimateArea(prefName: string, code: string): AreaEstimate | nul
 export function monthlyGuideText(e: AreaEstimate): string {
   const yen = (n: number) => `¥${Math.round(n).toLocaleString("ja-JP")}`;
   if (e.minMonthly == null) return "月額30万円以上（大規模展開・個別にお見積り）";
+  if (e.small) return `月額 ${yen(e.minMonthly)}（${e.recommended?.name ?? "まちのプラン"}）`;
   const rec = e.recommended;
   return `月額 ${yen(e.minMonthly)}〜${rec && rec.monthly !== e.minMonthly ? `（おすすめ：${rec.name} ${yen(rec.monthly)}）` : rec ? `（おすすめ：${rec.name}）` : ""}`;
 }

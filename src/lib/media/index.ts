@@ -11,7 +11,7 @@ import { PERIODS, INFO_PERIODS_JP, INFO_PERIODS_IB, JP_PRICES, IB_PRICES, INFO_J
 import { getMediaFeePerStore, STICKER_PROD_BPS, STAND_PROD_BPS, interpolateFee, DESIGN_FEE as SKYLARK_DESIGN_FEE } from "./skylark";
 import { getPrintUnitPrice, PLACEMENT_UNIT, SHIPPING_UNIT, DESIGN_FEE as UNIV_DESIGN_FEE } from "./univ-coop";
 import { dcpFee, deliveryFee } from "./aeon-cinema";
-import { CITY_PLAN_SECONDS, CITY_POP_THRESHOLD, CUSTOM_DESIGN_FEE, CUSTOM_OPS_MIN, CUSTOM_OPS_RATE, CUSTOM_SECONDS, FREQ, TVER_ESTIMATE_NOTE, UNIT_PRICE, cityPlanTerms, estimateDelivery, tverFees } from "@/lib/tver/plan";
+import { SMALL_TOWN_PLAN, CITY_PLAN_SECONDS, CITY_POP_THRESHOLD, CUSTOM_DESIGN_FEE, CUSTOM_OPS_MIN, CUSTOM_OPS_RATE, CUSTOM_SECONDS, FREQ, TVER_ESTIMATE_NOTE, UNIT_PRICE, cityPlanTerms, estimateDelivery, tverFees } from "@/lib/tver/plan";
 import { AEON_THEATERS, CINEMA_AD_COLS } from "@/data/aeon-theaters";
 import { SKYLARK_STORES } from "@/data/skylark-stores";
 import { UNIV_STORES } from "@/data/univ-stores";
@@ -263,11 +263,12 @@ export const MEDIA: MediumDef[] = [
       lines.push("**2つのプラン（税抜）**");
       lines.push("| | 市町村プラン（既製の型） | 大規模展開（オーダー） |\n|---|---|---|");
       lines.push(`| 当てはまる | 1エリア・15秒・月額30万円未満・週次報告なし | 月額30万円以上／2エリア以上／週次報告の希望 のどれか |`);
-      lines.push(`| 月額 | 市の人口で決まる（住民の200／50／20人に1人へ届く3プラン）。最低料金は人口5万人未満のエリア ${yen(cityPlanTerms(1).floor)}・5万人以上 ${yen(cityPlanTerms(CITY_POP_THRESHOLD).floor)} | 個別に設計（OSのTVerシミュレーター） |`);
+      lines.push(`| 月額 | 人口5万人未満のエリア＝「${SMALL_TOWN_PLAN.name}」${yen(SMALL_TOWN_PLAN.fee)}の1プランだけ／5万人以上＝人口で決まる3プラン（住民の200／50／20人に1人へ・最低 ${yen(cityPlanTerms(CITY_POP_THRESHOLD).floor)}） | 個別に設計（OSのTVerシミュレーター） |`);
       lines.push(`| 手数料 | 初回登録費・管理費なし | 設計・考査費 ${yen(CUSTOM_DESIGN_FEE)}（初回）＋運用管理費＝媒体費の${Math.round(CUSTOM_OPS_RATE * 100)}%（最低 ${yen(CUSTOM_OPS_MIN)}／月） |`);
       lines.push(`| 契約期間 | 人口5万人未満のエリアは${cityPlanTerms(1).minMonths}ヶ月以上・5万人以上は${cityPlanTerms(CITY_POP_THRESHOLD).minMonths}ヶ月以上 | 個別 |`);
       lines.push(`| 秒数・変更 | 15秒・途中変更なし | ${CUSTOM_SECONDS.map((s) => `${s}秒`).join("／")}・差し替え可 |`);
       lines.push(`| 報告 | 配信終了後に結果報告 | 週1回 |`);
+      lines.push(`| 在庫で使い切れなかった分 | 返金・追加請求なしで配信期間を延ばして配信 | 個別 |`);
       lines.push("");
       lines.push("**再生単価（税抜・秒数別）**");
       lines.push("| 秒数 | 1再生あたり | 1,000再生あたり |\n|---|---|---|");

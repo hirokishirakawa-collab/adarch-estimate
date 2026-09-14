@@ -245,7 +245,7 @@ export async function getPackage(v: McpViewer, slug: string) {
 //   2026-09-13 代表決定の料金（lib/tver/plan.ts）＝申込ページと同じ額。卸値・取り分・値引きの下限は返さない
 
 const TVER_PLAN_RULES = {
-  cityPlan: "①市町村プラン（Webで申込できる既製の型）: 1エリア・15秒・途中変更なし・配信終了後に結果報告。初回登録費・管理費なし・値引きなし。月額は市の人口で決まり、最低料金は人口5万人未満のエリア¥30,000（6ヶ月以上）・5万人以上¥50,000（3ヶ月以上）",
+  cityPlan: "①市町村プラン（Webで申込できる既製の型）: 1エリア・15秒・途中変更なし・配信終了後に結果報告。初回登録費・管理費なし・値引きなし。人口5万人未満のエリアは「まちのプラン」月額¥30,000の1つだけ（6ヶ月以上）。5万人以上は人口で決まる3プラン（ライト／スタンダード／フル・最低¥50,000・3ヶ月以上）。TVerの在庫で使い切れなかった分は、返金・追加請求なしで配信期間を延ばして配信する",
   customPlan: `②大規模展開（オーダー）: 月額30万円以上／2エリア以上／週次報告の希望 のどれか。15/30/60秒・差し替え可・週1報告。設計・考査費${yen(CUSTOM_DESIGN_FEE)}（初回）＋運用管理費＝媒体費の${CUSTOM_OPS_RATE * 100}%（最低${yen(CUSTOM_OPS_MIN)}／月）。手数料は値引きしない。金額はOSのTVerシミュレーターで出す`,
   estimate: TVER_ESTIMATE_NOTE,
 } as const;
@@ -270,6 +270,7 @@ export function tverAreaPlan(input: { prefecture?: string; city?: string; allCit
           population: est.plan.population,
           tverViewers: Math.round(est.plan.viewers),
           monthlyFromExclTax: est.minMonthly != null ? yen(est.minMonthly) : null,
+          ...(est.small ? { plan: "人口5万人未満＝まちのプラン1つ（月額固定）" } : {}),
           recommended: rec ? { plan: rec.name, monthlyExclTax: yen(rec.monthly), reachPerMonth: Math.round(rec.reach) } : null,
           minMonths: est.minMonths,
           ...(est.minMonthly == null ? { note: "どのプランも月額30万円以上＝大規模展開（個別見積）" } : {}),
@@ -305,7 +306,7 @@ export function tverAreaPlan(input: { prefecture?: string; city?: string; allCit
     minMonths: est.minMonths,
     cityPlans: est.tiers.map((t) => ({
       plan: t.name,
-      perResidents: `住民の${t.perResidents}人に1人へ`,
+      perResidents: t.perResidents ? `住民の${t.perResidents}人に1人へ` : "人口5万人未満のエリアの1プラン（月額固定）",
       monthlyExclTax: yen(t.monthly),
       impressionsPerMonth: Math.round(t.impressions),
       reachPerMonth: Math.round(t.reach),

@@ -6,7 +6,7 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { TVER_ORDER_PLANS, monthOptionsFor, type OrderMonths, approx, quote, yen, type TverOrderAreaEstimate, type TverOrderPlanKey } from "@/lib/tver-order/plans";
-import { TVER_ESTIMATE_NOTE } from "@/lib/tver/plan";
+import { TVER_ESTIMATE_NOTE, TVER_EXTENSION_NOTE } from "@/lib/tver/plan";
 import { TERMS, TERMS_TITLE, TERMS_VERSION } from "@/lib/tver-order/terms";
 import { submitTverOrder, type OrderFormState } from "./actions";
 import { Icon } from "./shared";
@@ -39,7 +39,7 @@ export function OrderForm(props: {
   const applyEstimate = (e: TverOrderAreaEstimate | null) => {
     setEst(e);
     if (!e) return;
-    setPlan((cur) => (!e.byPlan[cur].mergedInto && !e.byPlan[cur].custom ? cur : e.defaultPlan ?? cur));
+    setPlan((cur) => { const c = e.byPlan[cur]; return c && !c.mergedInto && !c.custom ? cur : e.defaultPlan ?? cur; });
     setMonths((cur) => (cur < e.minMonths ? (e.minMonths as OrderMonths) : cur));
   };
   // 県が変わったら市の一覧と目安を取り直す
@@ -149,16 +149,15 @@ export function OrderForm(props: {
               <p className="lead">届けたい規模に合わせて選べます。</p>
               <fieldset className="plans">
                 <legend className="sr-only">配信プラン</legend>
-                {TVER_ORDER_PLANS.map((p) => {
-                  const e = est?.byPlan[p.key];
-                  if (e?.mergedInto) return null; // 同じ額のプランは1枚にまとめる
-                  const merged = est ? TVER_ORDER_PLANS.filter((x) => est.byPlan[x.key].mergedInto === p.key).map((x) => x.name) : [];
-                  if (e?.custom) {
+                {(est?.plans ?? []).map((e) => {
+                  const p = TVER_ORDER_PLANS.find((x) => x.key === e.key)!;
+                  const who = e.perResidents ? `住民の${e.perResidents}人に1人へ` : "月額固定・この1プランだけ";
+                  if (e.custom) {
                     return (
-                      <div className="plan-card" key={p.key}>
+                      <div className="plan-card" key={e.key}>
                         <span className="plan-badge" />
-                        <span className="plan-title">{p.name}</span>
-                        <span className="small">{p.lead}／住民の{p.perResidents}人に1人へ</span>
+                        <span className="plan-title">{e.name}</span>
+                        <span className="small">{e.lead}／{who}</span>
                         <strong className="price">{yen(e.mediaFee)}</strong>
                         <span className="small">媒体費 / 月・税抜の目安</span>
                         <span className="plan-stat">月額30万円以上は「大規模展開」<small>エリアの組み合わせ・運用・週次報告まで個別に設計します</small></span>
@@ -167,19 +166,19 @@ export function OrderForm(props: {
                     );
                   }
                   return (
-                    <label className="plan-card" key={p.key}>
-                      <span className="plan-badge">{p.key === est?.defaultPlan && p.recommended && <span className="badge recommended">おすすめ</span>}</span>
+                    <label className="plan-card" key={e.key}>
+                      <span className="plan-badge">{e.key === est?.defaultPlan && p.recommended && est.plans.length > 1 && <span className="badge recommended">おすすめ</span>}</span>
                       <span className="plan-title">
-                        <input type="radio" name="planKey" value={p.key} checked={plan === p.key} onChange={() => setPlan(p.key)} /> {p.name}
-                        {merged.length > 0 && <small className="small">（{merged.join("・")}と同額）</small>}
+                        <input type="radio" name="planKey" value={e.key} checked={plan === e.key} onChange={() => setPlan(e.key)} /> {e.name}
+                        {e.mergedWith.length > 0 && <small className="small">（{e.mergedWith.join("・")}と同額）</small>}
                       </span>
-                      {p.key === "full" && <span className="plan-ribbon">商圏まるごと＝結果を出す基準</span>}
-                      <span className="small">{p.lead}／住民の{p.perResidents}人に1人へ</span>
-                      <strong className="price">{e ? yen(e.mediaFee) : "—"}</strong>
-                      <span className="small">媒体費 / 月・税抜{e?.floored ? "（この市の最低料金）" : ""}</span>
-                      <span className="plan-stat">月の再生数の目安<strong>{e ? `${approx(e.impressions)}回` : "—"}</strong></span>
-                      <span className="plan-stat">月に届く人数の目安<strong>{e ? `${approx(e.reach, 50)}人` : "—"}</strong><small>{e ? `${cityName}の住民の${e.pctResidents.toFixed(2)}%` : ""}</small></span>
-                      {p.note && <small className="small" style={{ display: "block", marginTop: 6 }}>{p.note}</small>}
+                      {e.key === "full" && <span className="plan-ribbon">商圏まるごと＝結果を出す基準</span>}
+                      <span className="small">{e.lead}／{who}</span>
+                      <strong className="price">{yen(e.mediaFee)}</strong>
+                      <span className="small">媒体費 / 月・税抜{e.floored ? "（この市の最低料金）" : ""}{est?.small ? `・${est.minMonths}ヶ月以上` : ""}</span>
+                      <span className="plan-stat">月の再生数の目安<strong>{`${approx(e.impressions)}回`}</strong></span>
+                      <span className="plan-stat">月に届く人数の目安<strong>{`${approx(e.reach, 50)}人`}</strong><small>{`${cityName}の住民の${e.pctResidents.toFixed(2)}%`}</small></span>
+                      {e.note && <small className="small" style={{ display: "block", marginTop: 6 }}>{e.note}</small>}
                     </label>
                   );
                 })}
@@ -194,11 +193,11 @@ export function OrderForm(props: {
                 </div>
               )}
               <p className="plan-common">
-                15秒CM ／ 1つの市区町村 ／ 価格は市の人口で決まります（月額の最低料金：人口5万人未満のエリア{yen(30_000)}・5万人以上{yen(50_000)}）
+                15秒CM ／ 1つの市区町村 ／ 人口5万人未満のエリアは月額{yen(30_000)}の1プラン・5万人以上は人口で決まる3プラン（最低{yen(50_000)}）
                 <br />
                 初回登録費・管理費なし ／ 配信設定・考査申請は本部 ／ 配信終了後に結果報告
               </p>
-              <p className="small">{TVER_ESTIMATE_NOTE}</p>
+              <p className="small">{TVER_ESTIMATE_NOTE}{TVER_EXTENSION_NOTE}</p>
               <fieldset className="choices choices-inline">
                 <legend><Icon name="calendar" />契約期間</legend>
                 {monthChoices.map((m, i) => (

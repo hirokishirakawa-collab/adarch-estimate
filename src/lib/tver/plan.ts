@@ -186,7 +186,9 @@ export function neighborPlans(plan: AreaPlan, n = 3, seconds: AdSeconds = 15): A
 //     → 再生数・届く人数は「目安」（¥6.6/再生を約束しない・「保証」の表現は使わない）
 //     → 目安の再生数は常に「月額 ÷ 基準単価（15秒¥6.6）」。値引きしても基準単価で割る（値引きぶん目安も下がる）
 //   ① 市町村プラン（既製の型）: 初回登録費なし・管理費なし・1エリア・15秒・途中変更なし・終了後に結果報告のみ・値引きなし
-//        月額 = 人口 ÷ N × 実測F × ¥6.6（千円切上）。下限だけ人口で2段（5万人未満 ¥30,000・6ヶ月以上／5万人以上 ¥50,000・3ヶ月以上）
+//        人口5万人以上: 3プラン。月額 = 人口 ÷ N × 実測F × ¥6.6（千円切上）・下限 ¥50,000・3ヶ月以上
+//        人口5万人未満: 「まちのプラン」1つだけ。月額 ¥30,000 固定・6ヶ月以上（2026-09-13 追加決定）
+//        TVerの在庫で各月に充てる額を使い切れなかった分は、返金・追加請求なしで配信期間を延ばして使い切る（規約第5条）
 //   ② 大規模展開（オーダー）: 月額30万以上／2エリア以上／週次報告の希望 のどれか。15/30/60秒
 //        設計・考査費 ¥150,000（初回）＋運用管理費 = max(媒体費×20%, ¥50,000)／月。手数料は値引き不可
 //        値引きは再生単価だけ・下限は卸値×2（15秒 ¥4.4）
@@ -200,21 +202,31 @@ export const UNIT_PRICE_FLOOR: Record<AdSeconds, number> = { 15: r2(WHOLESALE_UN
 export const TVER_ESTIMATE_NOTE =
   "再生数・届く人数は公的統計と当社の配信実績にもとづく目安です。TVerの配信状況によって上下し、お約束するものではありません。";
 
+/** 在庫不足で使い切れなかった分の扱い（申込ページの短い注記。規約は第5条） */
+export const TVER_EXTENSION_NOTE = "TVerの在庫・配信状況によりその月の配信に充てる額を使い切れなかった場合は、返金・追加請求はせず、配信期間を延ばして配信します。";
+
 export const CITY_PLAN_SECONDS = 15 as const;
-/** 人口の境目（これ未満は小さな市町村の下限） */
+/** 人口の境目（これ未満は小さな市町村＝1プランだけ） */
 export const CITY_POP_THRESHOLD = 50_000;
-/** ①の下限（人口2段） */
+/** 人口5万人未満のエリアの1プラン（2026-09-13 代表追加決定: 月額¥30,000固定・6ヶ月以上。式で超えても¥30,000） */
+export const SMALL_TOWN_PLAN = { key: "town", name: "まちのプラン", fee: 30_000, minMonths: 6 } as const;
+/** これ未満のエリアの申込は本部で在庫確認（本部画面だけに印を出す） */
+export const INVENTORY_CHECK_POP = 10_000;
+export const needsInventoryCheck = (population: number) => population > 0 && population < INVENTORY_CHECK_POP;
+
+/** ①の下限と最短期間。人口5万人未満は ¥30,000 の1プラン（floor＝その固定額） */
 export function cityPlanTerms(population: number): { floor: number; minMonths: 3 | 6; small: boolean } {
-  return population < CITY_POP_THRESHOLD ? { floor: 30_000, minMonths: 6, small: true } : { floor: 50_000, minMonths: 3, small: false };
+  return population < CITY_POP_THRESHOLD ? { floor: SMALL_TOWN_PLAN.fee, minMonths: SMALL_TOWN_PLAN.minMonths, small: true } : { floor: 50_000, minMonths: 3, small: false };
 }
 
-/** ①の3つの到達率（住民の N人に1人へ月に届ける） */
+/** ①の3つの到達率（人口5万人以上のエリア。住民の N人に1人へ月に届ける） */
 export const CITY_PLAN_RATES = [
   { key: "light", name: "ライト", perResidents: 200 },
   { key: "standard", name: "スタンダード", perResidents: 50 },
   { key: "full", name: "フル", perResidents: 20 },
 ] as const;
-export type CityPlanKey = (typeof CITY_PLAN_RATES)[number]["key"];
+export type CityPlanKey = (typeof CITY_PLAN_RATES)[number]["key"] | typeof SMALL_TOWN_PLAN.key;
+export const CITY_PLAN_NAME: Record<CityPlanKey, string> = { light: "ライト", standard: "スタンダード", full: "フル", town: SMALL_TOWN_PLAN.name };
 
 /** ②になる月額（これ以上は大規模展開） */
 export const CUSTOM_MONTHLY_FROM = 300_000;
@@ -225,17 +237,20 @@ export const CUSTOM_SECONDS: AdSeconds[] = [15, 30, 60];
 
 const ceil1000 = (v: number) => Math.ceil(v / 1000) * 1000;
 
-/** ①の月額（人口÷N×F×¥6.6 を千円切上 → 人口2段の下限） */
+/** ①の月額（人口5万人以上: 人口÷N×F×¥6.6 を千円切上 → 下限¥50,000）。人口5万人未満は ¥30,000 固定 */
 export function cityPlanMonthly(population: number, perResidents: number): { fee: number; raw: number; floored: boolean } {
   const raw = ceil1000((population / perResidents) * FREQ * UNIT_PRICE[15]);
-  const { floor } = cityPlanTerms(population);
+  const { floor, small } = cityPlanTerms(population);
+  if (small) return { fee: floor, raw, floored: false };
   return { fee: Math.max(floor, raw), raw, floored: raw < floor };
 }
 
 export type CityPlanRow = {
   key: CityPlanKey;
-  perResidents: number;
-  /** 月額（税抜）＝人口の式 → 人口2段の下限 */
+  name: string;
+  /** 住民の N人に1人（まちのプランは null） */
+  perResidents: number | null;
+  /** 月額（税抜） */
   fee: number;
   raw: number;
   floored: boolean;
@@ -243,42 +258,55 @@ export type CityPlanRow = {
   custom: boolean;
   /** 同じ額の別プランにまとめた＝このプランは出さない（まとめ先のキー） */
   mergedInto: CityPlanKey | null;
+  /** このプランにまとめたプラン名 */
+  mergedWith: string[];
 };
 export type CityPlans = {
   floor: number;
   minMonths: 3 | 6;
   small: boolean;
-  rows: Record<CityPlanKey, CityPlanRow>;
-  /** 出すプラン（まとめ・②を除く）を安い順 */
+  rows: Partial<Record<CityPlanKey, CityPlanRow>>;
+  /** 出す行（まとめたプランを除く・②の行は custom で残す）を安い順 */
+  list: CityPlanRow[];
+  /** 申込できる行（まとめ・②を除く）を安い順 */
   visible: CityPlanRow[];
-  /** 既定で勧めるプラン（スタンダード→ライト→フルの順で出せるもの）。無ければ②だけのエリア */
+  /** 既定で勧めるプラン（まちのプラン／スタンダード→ライト→フル）。無ければ②だけのエリア */
   defaultPlan: CityPlanKey | null;
-  /** 「最低料金〜」に出す額（出せるプランの最安）。null＝どのプランも②（大規模展開の個別見積） */
+  /** 「最低料金〜」に出す額（申込できる最安）。null＝どのプランも②（大規模展開の個別見積） */
   minFee: number | null;
 };
 
-/** ①の3プラン（同額は1枚にまとめる・30万以上は②）。申込ページ・LP・MCP・AI用材料が同じ額を出すための1か所 */
+/** ①のプラン。人口5万人未満＝まちのプラン1つ（¥30,000）／5万人以上＝3プラン（同額は1枚・30万以上は②）。
+ *  申込ページ・申込リンク・シミュレーター・LP・MCP・AI用材料が同じ額を出すための1か所 */
 export function cityPlansFor(population: number): CityPlans {
   const terms = cityPlanTerms(population);
-  const rows = {} as Record<CityPlanKey, CityPlanRow>;
+  if (terms.small) {
+    const row: CityPlanRow = { key: SMALL_TOWN_PLAN.key, name: SMALL_TOWN_PLAN.name, perResidents: null, fee: SMALL_TOWN_PLAN.fee, raw: SMALL_TOWN_PLAN.fee, floored: false, custom: false, mergedInto: null, mergedWith: [] };
+    return { ...terms, rows: { town: row }, list: [row], visible: [row], defaultPlan: row.key, minFee: row.fee };
+  }
+  const rows = {} as Record<(typeof CITY_PLAN_RATES)[number]["key"], CityPlanRow>;
   for (const r of CITY_PLAN_RATES) {
     const m = cityPlanMonthly(population, r.perResidents);
-    rows[r.key] = { key: r.key, perResidents: r.perResidents, fee: m.fee, raw: m.raw, floored: m.floored, custom: m.fee >= CUSTOM_MONTHLY_FROM, mergedInto: null };
+    rows[r.key] = { key: r.key, name: r.name, perResidents: r.perResidents, fee: m.fee, raw: m.raw, floored: m.floored, custom: m.fee >= CUSTOM_MONTHLY_FROM, mergedInto: null, mergedWith: [] };
   }
   // 同じ額は1枚に（スタンダードがあればスタンダード、なければ上位のプランを残す）
-  const keep = (a: CityPlanKey, b: CityPlanKey): CityPlanKey => (a === "standard" || b === "standard" ? "standard" : a === "full" || b === "full" ? "full" : a);
+  type K = (typeof CITY_PLAN_RATES)[number]["key"];
+  const keep = (a: K, b: K): K => (a === "standard" || b === "standard" ? "standard" : a === "full" || b === "full" ? "full" : a);
   const keys = CITY_PLAN_RATES.map((r) => r.key);
   for (let i = 0; i < keys.length; i++) {
     for (let j = i + 1; j < keys.length; j++) {
       const x = rows[keys[i]], y = rows[keys[j]];
       if (x.mergedInto || y.mergedInto || x.fee !== y.fee) continue;
-      const k = keep(x.key, y.key);
-      (k === x.key ? y : x).mergedInto = k;
+      const k = keep(x.key as K, y.key as K);
+      const [kept, gone] = k === x.key ? [x, y] : [y, x];
+      gone.mergedInto = k;
+      kept.mergedWith.push(gone.name);
     }
   }
-  const visible = keys.map((k) => rows[k]).filter((r) => !r.mergedInto && !r.custom).sort((a, b) => a.fee - b.fee);
+  const list = keys.map((k) => rows[k]).filter((r) => !r.mergedInto).sort((a, b) => a.fee - b.fee);
+  const visible = list.filter((r) => !r.custom);
   const defaultPlan = (["standard", "light", "full"] as const).find((k) => !rows[k].mergedInto && !rows[k].custom) ?? null;
-  return { ...terms, rows, visible, defaultPlan, minFee: visible[0]?.fee ?? null };
+  return { ...terms, rows, list, visible, defaultPlan, minFee: visible[0]?.fee ?? null };
 }
 
 export type TverPlanKind = "city" | "custom";

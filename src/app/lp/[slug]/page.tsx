@@ -69,17 +69,17 @@ export default async function LandingPage({ params }: { params: Promise<{ slug: 
                 <b>{fmt(est.plan.viewers)}<span>人</span></b>
               </div>
               <div>
-                <small>{est.recommended ? `${est.recommended.name}プランで月に届く人数（目安）` : "月に届く人数（目安）"}</small>
+                <small>{est.recommended ? `「${est.recommended.name}」で月に届く人数（目安）` : "月に届く人数（目安）"}</small>
                 <b>{est.recommended ? <>{fmt(est.recommended.reach)}<span>人</span></> : "—"}</b>
               </div>
               <div>
                 <small>月額（税抜）</small>
                 {est.minMonthly != null ? (
-                  <b>¥{fmt(est.minMonthly)}<span>〜</span></b>
+                  <b>¥{fmt(est.minMonthly)}<span>{est.small ? "" : "〜"}</span></b>
                 ) : (
                   <b style={{ fontSize: "1.1em" }}>個別見積</b>
                 )}
-                {est.recommended && est.recommended.monthly !== est.minMonthly && <small>おすすめ：{est.recommended.name} ¥{fmt(est.recommended.monthly)}</small>}
+                {est.small && est.recommended ? <small>{est.recommended.name}（{est.minMonths}ヶ月以上）</small> : est.recommended && est.recommended.monthly !== est.minMonthly && <small>おすすめ：{est.recommended.name} ¥{fmt(est.recommended.monthly)}</small>}
               </div>
             </div>
             <p className="numbers-note">税抜。初回登録費・管理費なし。お申込みページで市区町村とプランを選ぶと、その場で月額が出ます。{TVER_ESTIMATE_NOTE}</p>

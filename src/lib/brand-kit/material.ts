@@ -51,14 +51,14 @@ function renderAreaTable(pref: string | null, take = 10): string | null {
     if (!e) continue;
     const rec = e.recommended;
     rows.push(
-      `| ${m.name} | ${fmtInt(m.population)}人 | ${e.minMonthly != null ? `${fmtYen(e.minMonthly)}〜` : "大規模展開（個別見積）"} | ${rec ? `${rec.name} ${fmtYen(rec.monthly)}／月・${fmtInt(rec.reach)}人（${rec.pctResidents.toFixed(1)}%）` : "—"} | ${e.minMonths}ヶ月以上 |`
+      `| ${m.name} | ${fmtInt(m.population)}人 | ${e.minMonthly == null ? "大規模展開（個別見積）" : e.small ? `${fmtYen(e.minMonthly)}（${rec?.name ?? ""}・1プランのみ）` : `${fmtYen(e.minMonthly)}〜`} | ${rec ? `${rec.name} ${fmtYen(rec.monthly)}／月・${fmtInt(rec.reach)}人（${rec.pctResidents.toFixed(1)}%）` : "—"} | ${e.minMonths}ヶ月以上 |`
     );
   }
   if (!rows.length) return null;
   const any = estimateArea(pref, munis[0].code);
   const unit = any ? any.unitPrice : 6.6;
   const freq = any ? any.freq : 4.78;
-  return `前提: 市町村プラン（15秒・1エリア・初回登録費と管理費なし）。月額は市の人口で決まり、最低料金は人口5万人未満のエリア ¥30,000（6ヶ月以上）・5万人以上 ¥50,000（3ヶ月以上）。月の再生数＝月額÷¥${unit.toFixed(1)}、月に届く人数＝再生数÷${freq}回（1人が月に見る平均回数・グループの配信実績）。**${TVER_ESTIMATE_NOTE}** 月額30万円以上・2エリア以上・週次報告の希望は「大規模展開」として個別見積。表にない市は公開ページで市を選ぶと出ます。
+  return `前提: 市町村プラン（15秒・1エリア・初回登録費と管理費なし）。人口5万人未満のエリアは「まちのプラン」月額 ¥30,000 の1プランだけ（6ヶ月以上）。5万人以上は人口で決まる3プラン（最低 ¥50,000・3ヶ月以上）。月の再生数＝月額÷¥${unit.toFixed(1)}、月に届く人数＝再生数÷${freq}回（1人が月に見る平均回数・グループの配信実績）。**${TVER_ESTIMATE_NOTE}** 月額30万円以上・2エリア以上・週次報告の希望は「大規模展開」として個別見積。表にない市は公開ページで市を選ぶと出ます。
 
 | 市区（${pref}・人口順） | 住民 | 月額（最低料金〜） | おすすめプランで月に届く人数（住民比） | 契約期間 |
 |---|---|---|---|---|

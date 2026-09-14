@@ -15,12 +15,11 @@ import { cn } from "@/lib/utils";
 import { SELECTABLE_MUNICIPALITIES, PREFECTURES } from "@/data/tver-municipalities";
 import { SimulatorPDFButton } from "@/components/simulator/simulator-pdf-button";
 import {
-  CITY_PLAN_RATES, CUSTOM_DESIGN_FEE, CUSTOM_MONTHLY_FROM, CUSTOM_OPS_MIN, CUSTOM_OPS_RATE, CUSTOM_SECONDS, FREQ, TVER_ESTIMATE_NOTE, UNIT_PRICE, UNIT_PRICE_FLOOR,
-  type AdSeconds, cityPlanMonthly, cityPlanTerms, clampUnitPrice, classifyTverPlan, countAreas, estimateDelivery, planForCodes, tverFees,
+  SMALL_TOWN_PLAN, CUSTOM_DESIGN_FEE, CUSTOM_MONTHLY_FROM, CUSTOM_OPS_MIN, CUSTOM_OPS_RATE, CUSTOM_SECONDS, FREQ, TVER_ESTIMATE_NOTE, UNIT_PRICE, UNIT_PRICE_FLOOR,
+  type AdSeconds, cityPlansFor, cityPlanTerms, clampUnitPrice, classifyTverPlan, countAreas, estimateDelivery, planForCodes, tverFees,
 } from "@/lib/tver/plan";
 
 const TAX_RATE = 0.1;
-const PLAN_NAME: Record<string, string> = { light: "ライト", standard: "スタンダード", full: "フル" };
 /** 設計・考査費を付けない理由（チェックを外したとき画面とPDFに必ず出す） */
 const REPEAT_ADVERTISER = "2回目以降の広告主（同じ広告主で過去に設計・考査済み）";
 
@@ -206,21 +205,20 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
     const discount = kind === "custom" && unitInput.trim() !== "" ? clampUnitPrice(Number(unitInput), seconds) : null;
     const unit = discount ? discount.price : listUnit;
     let monthly = inputMode === "budget" ? Math.max(0, budget) : Math.round(Math.max(0, plays) * unit);
-    // ①は人口2段の最低料金を下回らない
+    // ①: 人口5万人未満＝まちのプラン ¥30,000 固定／5万人以上＝最低料金 ¥50,000 を下回らない
     const terms = plan ? cityPlanTerms(plan.population) : null;
-    const belowFloor = kind === "city" && !!terms && monthly < terms.floor;
-    if (belowFloor && terms) monthly = terms.floor;
+    const inputMonthly = monthly;
+    const townFixed = kind === "city" && !!terms?.small && monthly !== terms.floor;
+    const belowFloor = kind === "city" && !!terms && !terms.small && monthly < terms.floor;
+    if ((townFixed || belowFloor) && terms) monthly = terms.floor;
     const est = estimateDelivery(monthly, { seconds, viewers: plan?.viewers, population: plan?.population });
     const fees = tverFees(kind, monthly, isFirst);
     const monthlyTotal = monthly + fees.opsFeeMonthly;
-    return { kind, reasons, unit, discount, monthly, belowFloor, terms, est, fees, monthlyTotal, firstTotal: monthlyTotal + fees.designFee };
+    return { kind, reasons, unit, discount, monthly, inputMonthly, belowFloor, townFixed, terms, est, fees, monthlyTotal, firstTotal: monthlyTotal + fees.designFee };
   }, [inputMode, budget, plays, listUnit, areaCount, weeklyReport, seconds, unitInput, plan, isFirst]);
 
-  // ①の3プラン（1エリアのときの参考）
-  const cityPlans = useMemo(() => {
-    if (!plan || areaCount !== 1) return [];
-    return CITY_PLAN_RATES.map((r) => ({ key: r.key, perResidents: r.perResidents, ...cityPlanMonthly(plan.population, r.perResidents) }));
-  }, [plan, areaCount]);
+  // ①のプラン（1エリアのときの参考。申込ページと同じ額・同額はまとめ済み）
+  const cityPlans = useMemo(() => (plan && areaCount === 1 ? cityPlansFor(plan.population).list : []), [plan, areaCount]);
 
   const toggleMuni = useCallback((code: string) => {
     setSelected((prev) => {
@@ -415,7 +413,7 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                   totalAmount={calc.firstTotal}
                   conditions={[
                     `${plan.areaLabel}（${areaCount}エリア）/ 人口 ${formatCount(plan.population)}人`,
-                    `${isCustom ? "大規模展開（オーダー）" : "市町村プラン"}・${seconds}秒`,
+                    `${isCustom ? "大規模展開（オーダー）" : `市町村プラン${calc.terms?.small ? `（${SMALL_TOWN_PLAN.name}）` : ""}`}・${seconds}秒`,
                     `月の媒体費 ${formatYen(calc.monthly)}（税抜）${calc.terms && !isCustom ? `・契約期間${calc.terms.minMonths}ヶ月以上` : ""}`,
                     ...(isCustom
                       ? [
@@ -464,8 +462,13 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
                 </p>
                 {!isCustom && calc.terms && (
                   <p className="text-[11px] text-zinc-400">
-                    この市の最低料金 {formatYen(calc.terms.floor)}／月・契約期間{calc.terms.minMonths}ヶ月以上（人口{calc.terms.small ? "5万人未満" : "5万人以上"}）
+                    {calc.terms.small
+                      ? `人口5万人未満のエリアは「${SMALL_TOWN_PLAN.name}」月額${formatYen(calc.terms.floor)}の1プラン・契約期間${calc.terms.minMonths}ヶ月以上`
+                      : `この市の最低料金 ${formatYen(calc.terms.floor)}／月・契約期間${calc.terms.minMonths}ヶ月以上（人口5万人以上）`}
                   </p>
+                )}
+                {calc.townFixed && (
+                  <p className="text-[11px] font-semibold text-amber-300">人口5万人未満のエリアは月額 {formatYen(calc.monthly)} の1プランのため、入力額（{formatYen(calc.inputMonthly)}）ではなく {formatYen(calc.monthly)} で計算しています</p>
                 )}
                 {calc.belowFloor && (
                   <p className="text-[11px] font-semibold text-amber-300">入力が最低料金を下回るため、最低料金 {formatYen(calc.monthly)} で計算しています</p>
@@ -475,14 +478,14 @@ export function TVerSimulator({ initialBudget }: { initialBudget?: number } = {}
               {/* ①の3プラン（1エリアのとき） */}
               {cityPlans.length > 0 && (
                 <div className="bg-zinc-800 rounded-lg p-3 space-y-1.5">
-                  <p className="text-[10px] text-zinc-400 tracking-wider">この市の市町村プラン（申込ページと同じ額）</p>
+                  <p className="text-[10px] text-zinc-400 tracking-wider">この{calc.terms?.small ? "エリア" : "市"}の市町村プラン（申込ページと同じ額）</p>
                   {cityPlans.map((c) => (
                     <button
                       key={c.key}
                       onClick={() => { setInputMode("budget"); setBudget(c.fee); }}
                       className="w-full flex items-center justify-between text-[11px] px-2 py-1 rounded hover:bg-zinc-700"
                     >
-                      <span className="text-zinc-400">{PLAN_NAME[c.key]}（住民の{c.perResidents}人に1人）</span>
+                      <span className="text-zinc-400">{c.name}{c.perResidents ? `（住民の${c.perResidents}人に1人）` : "（月額固定・この1プランだけ）"}{c.mergedWith.length ? `・${c.mergedWith.join("・")}と同額` : ""}</span>
                       <span className={cn("tabular-nums font-semibold", c.fee >= CUSTOM_MONTHLY_FROM ? "text-amber-300" : "text-zinc-200")}>
                         {formatYen(c.fee)}{c.floored ? "・最低料金" : ""}{c.fee >= CUSTOM_MONTHLY_FROM ? "・大規模展開" : ""}
                       </span>

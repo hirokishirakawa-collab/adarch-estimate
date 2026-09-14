@@ -49,17 +49,19 @@ export default async function TverOrderLinkPage({ searchParams }: { searchParams
 
   const cityName = area.munis.find((m) => m.code === area.city)?.name ?? "";
   // 申込で選べるプラン（同額はまとめる・月額30万以上は大規模展開の相談）
-  const orderable = est ? TVER_ORDER_PLANS.filter((p) => !est.byPlan[p.key].mergedInto && !est.byPlan[p.key].custom) : [];
-  const ex = est?.defaultPlan ? est.byPlan[est.defaultPlan] : null;
-  const exName = est?.defaultPlan ? TVER_ORDER_PLANS.find((p) => p.key === est.defaultPlan)!.name : "";
+  const orderable = est ? est.plans.filter((p) => !p.custom) : [];
+  const ex = est?.defaultPlan ? est.byPlan[est.defaultPlan] ?? null : null;
+  const exName = ex?.name ?? "";
   const monthsText = est ? monthOptionsFor(est.minMonths).map((m) => m.label).join("・") : "";
   const mailText = est
     ? est.orderable
       ? [
           `TVer（民放公式のテレビ配信サービス）で、${cityName}の方に絞って15秒CMを流す「エリア限定プラン」のご案内です。`,
-          `月額（税抜）: ${orderable.map((p) => `${p.name} ${yen(est.byPlan[p.key].mediaFee)}`).join("／")}（初回登録費・管理費なし）`,
+          est.small
+            ? `月額（税抜）: ${exName} ${yen(ex?.mediaFee ?? 30_000)}の1プラン（人口5万人未満のエリア・初回登録費と管理費なし）`
+            : `月額（税抜）: ${orderable.map((p) => `${p.name} ${yen(p.mediaFee)}`).join("／")}（初回登録費・管理費なし）`,
           ex ? `例えば${exName}なら、月に${approx(ex.reach, 50)}人（${cityName}の住民の約${ex.pctResidents.toFixed(1)}%）に届く目安です。再生数・届く人数は目安で、お約束するものではありません。` : "",
-          `契約期間は${monthsText}から、お支払いは月払い（カードまたは銀行振込）。下のページで市・プランを選び、そのままお申込みいただけます。`,
+          `契約期間は${monthsText}から、お支払いは月払い（カードまたは銀行振込）。下のページで${est.small ? "" : "市・プランを選び、"}そのままお申込みいただけます。`,
           url,
         ].filter(Boolean).join("\n")
       : `${cityName}は月額30万円以上になるため、大規模展開（オーダー）として個別にお見積りします。`
@@ -92,16 +94,16 @@ export default async function TverOrderLinkPage({ searchParams }: { searchParams
 
         {est && (
           <div className="grid sm:grid-cols-3 gap-3">
-            {TVER_ORDER_PLANS.map((p) => {
-              const e = est.byPlan[p.key];
-              if (e.mergedInto) return null;
-              const merged = TVER_ORDER_PLANS.filter((x) => est.byPlan[x.key].mergedInto === p.key).map((x) => x.name);
+            {est.plans.map((e) => {
+              const p = TVER_ORDER_PLANS.find((x) => x.key === e.key)!;
+              const merged = e.mergedWith;
+              const who = e.perResidents ? `住民の${e.perResidents}人に1人へ` : `月額固定・${est.minMonths}ヶ月以上`;
               const qq = quote(e.mediaFee, 0, est.minMonths);
               if (e.custom) {
                 return (
                   <div key={p.key} className="rounded-lg border border-dashed border-zinc-300 p-4">
                     <div className="text-sm font-semibold text-zinc-900">{p.name}</div>
-                    <div className="text-[11px] text-zinc-500">{p.lead}・住民の{p.perResidents}人に1人へ</div>
+                    <div className="text-[11px] text-zinc-500">{p.lead}・{who}</div>
                     <div className="mt-2 text-xl font-semibold tabular-nums text-zinc-500">{yen(e.mediaFee)}<span className="text-xs font-normal ml-1">/月・税抜</span></div>
                     <div className="mt-1 text-xs text-zinc-600">月額30万円以上＝②大規模展開（Web申込には出ません）</div>
                     <div className="mt-1 text-[11px] text-zinc-500">設計・考査費と運用管理費がかかります。金額はTVerシミュレーターで</div>
@@ -115,7 +117,7 @@ export default async function TverOrderLinkPage({ searchParams }: { searchParams
                     {merged.length > 0 && <span className="text-[10px] font-normal text-zinc-500">（{merged.join("・")}と同額）</span>}
                     {p.recommended && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#F19834] text-zinc-900">おすすめ</span>}
                   </div>
-                  <div className="text-[11px] text-zinc-500">{p.lead}・住民の{p.perResidents}人に1人へ</div>
+                  <div className="text-[11px] text-zinc-500">{p.lead}・{who}</div>
                   <div className="mt-2 text-2xl font-semibold tabular-nums text-zinc-900">{yen(e.mediaFee)}<span className="text-xs font-normal text-zinc-500 ml-1">/月・税抜</span></div>
                   <div className="mt-1 text-xs text-zinc-600">月 {approx(e.impressions)}再生・{approx(e.reach, 50)}人（住民の{e.pctResidents.toFixed(2)}%）の目安</div>
                   <div className="mt-1 text-[11px] text-zinc-500">税込 {yen(qq.monthlyInclTax)}/月・{est.minMonths}ヶ月で総額 {yen(qq.contractTotalInclTax)}{e.floored ? "・この市の最低料金" : ""}</div>
@@ -125,7 +127,7 @@ export default async function TverOrderLinkPage({ searchParams }: { searchParams
           </div>
         )}
         <p className="text-[11px] text-zinc-500">
-          ①市町村プラン（初回登録費・管理費なし・値引きなし）。価格は市の人口で決まり、最低料金は人口5万人未満のエリア{yen(30_000)}（6ヶ月以上）・5万人以上{yen(50_000)}（3ヶ月以上）。
+          ①市町村プラン（初回登録費・管理費なし・値引きなし）。人口5万人未満のエリアは月額{yen(30_000)}の1プラン（6ヶ月以上）、5万人以上は人口で決まる3プラン（最低{yen(50_000)}・3ヶ月以上）。
           {est ? `${cityName}の契約期間は${monthsText}・月払い。` : ""}{TVER_ESTIMATE_NOTE}
         </p>
 
