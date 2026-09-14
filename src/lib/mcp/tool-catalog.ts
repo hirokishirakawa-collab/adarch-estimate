@@ -348,7 +348,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   def({
     name: "discover_leads", kind: "write", title: "新規リードを探す（リード獲得AI＝Google検索→AI採点→保存）",
     description:
-      "OSにまだ無い会社を、市区町村×業種で新しく探す。OS画面の「リード獲得AI」と同じ＝Google Placesで企業を集め、Webサイト分析と全社の成功プロファイル・今日の判定基準でAIが採点し、リードとして保存する（担当は本人・同名＋同住所は1件・既存は採点だけ更新）。未送付のリードが100件以上あると保存は止まる。保存した先はその場でサイトを1回見て、メールを補完し、営業お断りの会社を対象外にして全社の送付禁止リストへ入れる（cleanup）。チェーン・FC・支店は本部決裁で市の商圏の話が通らないため既定で保存しない（excludeChains: false で戻せる）。dryRun: true で採点だけ見る。1回10社が目安（最大20）。続けて plan_campaign → prepare_outreach。",
+      "OSにまだ無い会社を、市区町村×業種で新しく探す。OS画面の「リード獲得AI」と同じ＝Google Placesで企業を集め、Webサイト分析と全社の成功プロファイル・今日の判定基準でAIが採点し、リードとして保存する（担当は本人・同名＋同住所は1件・既存は採点だけ更新）。未送付のリードが200件以上あると保存は止まる。保存した先はその場でサイトを1回見て、メールを補完し、営業お断りの会社を対象外にして全社の送付禁止リストへ入れる（cleanup）。チェーン・FC・支店は本部決裁で市の商圏の話が通らないため既定で保存しない（excludeChains: false で戻せる）。dryRun: true で採点だけ見る。1回10社が目安（最大20）。続けて plan_campaign → prepare_outreach。",
     input: z.object({ prefecture: z.string().describe("例: 佐賀県"), city: z.string().optional().describe("例: 唐津市"), industry: z.string().describe("例: 歯科医院 / 工務店 / 飲食店"), keywords: z.string().optional().describe("検索語を変えたい時（例: 矯正歯科）"), count: z.number().int().optional().describe("既定10・最大20"), dryRun: bool().optional(), excludeChains: bool().optional().describe("チェーン・FC・支店を保存しない（既定 true）"), skipEnrich: bool().optional().describe("メール補完と営業お断り判定をしない（既定 false）") }),
     run: (v, a) => discoverLeads({ id: v.id, email: v.email, name: v.name, branchId: v.branchId, branchId2: v.branchId2 }, a),
     confirm: (a) => `${[a.prefecture, a.city].filter(Boolean).join("")}の「${a.industry}」を${a.count ?? 10}社、Googleから探してAI採点し、${a.dryRun ? "保存せずに見せます" : "貴社のリードとして保存します"}`,

@@ -29,7 +29,7 @@ export const RELEASE_UNTOUCHED_AFTER_DAYS = 14;
 // ----------------------------------------------------------------
 
 /** 未送付の担当付きリードがこの件数以上なら新規保存を止める */
-export const SAVE_CAP_UNSENT = 100;
+export const SAVE_CAP_UNSENT = 200;
 
 /** 取得の蓋にかかったときのメッセージ（各入口で共通） */
 export function saveCapMessage(unsent: number): string {
