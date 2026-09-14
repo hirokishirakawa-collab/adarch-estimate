@@ -22,7 +22,7 @@ import {
 import { NextResponse } from "next/server";
 import { buildPulseEvents, type PulseKind } from "@/lib/live/pulse";
 import { buildSalesMoveEvents, type SalesMoveKind } from "@/lib/live/sales-moves";
-import { jstDayStart } from "@/lib/jst-range";
+import { buildLiveSummary } from "@/lib/live/summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +60,7 @@ export interface LiveEvent {
   actor: string; // 拠点名・会社名・「本部」
   prefs: string[];
   text: string;
+  result?: "won" | "reply" | "appointment";
   /** 押したときに詳細を引くための参照。無い種別はフィードの情報だけ出す */
   ref?: { kind: "deal" | "move" | "sent" | "tender" | "lead"; id: string };
 }
@@ -194,6 +195,7 @@ export async function GET() {
       actor: s.branch.name,
       prefs: prefsIn(s.branch.name),
       text: `「${s.companyName}」へ初回コンタクトを送付${s.hasResponse ? "（反響あり）" : ""}`,
+      result: s.hasResponse ? "reply" : undefined,
       ref: { kind: "sent", id: s.id },
     });
   }
@@ -207,6 +209,7 @@ export async function GET() {
     events.push({
       at: (won ? d.closedAt! : d.updatedAt).toISOString(),
       kind: won ? "won" : "deal",
+      result: won ? "won" : undefined,
       actor: d.branch.name,
       prefs: [...new Set([...prefsIn(d.branch.name), ...prefsIn(d.customer.prefecture)])],
       text: won
@@ -233,6 +236,7 @@ export async function GET() {
     events.push({
       at: m.movedAt.toISOString(),
       kind: "move",
+      result: m.stage === "WON" ? "won" : m.stage === "REPLIED" ? "reply" : undefined,
       actor: m.groupCompany.name,
       prefs: prefsIn(m.groupCompany.prefecture),
       // 会社名が入っていれば商談と同じ見え方に揃える（ライブは社名を出す面）
@@ -265,6 +269,7 @@ export async function GET() {
     events.push({
       at: b.createdAt.toISOString(),
       kind: "booking",
+      result: "appointment",
       actor: branchName,
       prefs: [],
       text: `${b.company ? `「${b.company}」から` : ""}面談予約が入りました`,
@@ -356,6 +361,7 @@ export async function GET() {
       actor: g.actor,
       prefs: [...new Set(g.leads.flatMap((x) => x.prefs))],
       text: leadLogText(g.kind!, who),
+      result: g.kind === "reply" ? "reply" : g.kind === "appointment" ? "appointment" : undefined,
       ref: { kind: "lead", id: head.id },
     });
   }
@@ -381,27 +387,9 @@ export async function GET() {
   events.sort((a, b) => b.at.localeCompare(a.at));
   const top = events.slice(0, MAX_EVENTS);
 
-  // 集計（今日・7日）
+  // 集計（日本時間の直近3日・今日・従来の7日）。表示上限で切る前の記録を数える。
   const now = Date.now();
-  // 日本時間の0時（サーバーはUTC＝setHours(0) だと朝9時区切りになっていた・2026-09-15）
-  const dayStart = jstDayStart();
-  const in7d = (e: LiveEvent) => now - Date.parse(e.at) < 7 * 86400000;
-  const today = (e: LiveEvent) => Date.parse(e.at) >= dayStart.getTime();
-  const countBy = (pred: (e: LiveEvent) => boolean) => {
-    const c = { approach: 0, deal: 0, won: 0, hq: 0, auto: 0, visit: 0 };
-    for (const e of events.filter(pred)) {
-      // TVerの申請・営業の武器も人の営業の動き＝アプローチに数える
-      if (e.kind === "sent" || e.kind === "move" || e.kind === "log" || e.kind === "lead" || e.kind === "tver" || e.kind === "tool") c.approach++;
-      else if (e.kind === "deal") c.deal++;
-      // 加盟はこの面に出さない（数字にもフィードにも載せない＝2026-08-28 代表決定）
-      else if (e.kind === "won") c.won++;
-      // 脈は既存の4カウンタ（人の営業の動き）に混ぜない
-      else if (e.kind === "auto") c.auto++;
-      else if (e.kind === "visit") c.visit++;
-      else c.hq++;
-    }
-    return c;
-  };
+  const summary = buildLiveSummary(events, new Date(now));
 
   // 都道府県ごとの直近活動（地図の光り方に使う: 経過ミリ秒が小さいほど熱い）
   const prefHeat: Record<string, number> = {};
@@ -415,7 +403,7 @@ export async function GET() {
   return NextResponse.json({
     events: top,
     ai,
-    counts: { today: countBy(today), week: countBy(in7d) },
+    ...summary,
     prefHeat,
     generatedAt: new Date().toISOString(),
   });

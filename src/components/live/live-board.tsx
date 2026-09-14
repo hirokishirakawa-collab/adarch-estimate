@@ -1,14 +1,14 @@
 "use client";
 
 // GROUP LIVE: real feed updates drive the map and anonymous AI animations.
-// The existing API, authorization, counts and chat writes are unchanged.
+// Authorization and chat writes are unchanged. The API supplies calendar-day summaries.
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Cpu, ExternalLink, X } from "lucide-react";
 import { openOfficeThread } from "@/lib/office/store";
 import { GroupChat } from "@/components/office/group-chat";
 import { Avatar } from "@/components/office/avatar";
 import { MAP_POINTS } from "./map-points";
-import { aiKey, eventCopy, eventKey, newKeys, type LiveEvent } from "./live-view";
+import { aiKey, eventCopy, eventKey, eventOutcome, newKeys, periodLabel, type LiveEvent } from "./live-view";
 import styles from "./live-board.module.css";
 
 interface LiveDetail {
@@ -24,7 +24,8 @@ interface Counts { approach: number; deal: number; won: number; hq: number }
 interface Feed {
   events: LiveEvent[];
   ai?: { at: string; text: string }[];
-  counts: { today: Counts; week: Counts };
+  counts: { today: Counts; week: Counts; recent3days?: Counts };
+  periods?: { recent3days: { from: string; to: string } };
   prefHeat: Record<string, number>;
   generatedAt: string;
 }
@@ -191,6 +192,7 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
   }, [picked, close]);
 
   const active = feed?.events.find((event) => eventKey(event) === activeKey) ?? feed?.events[0];
+  const activeOutcome = eventOutcome(active);
   const selectedPrefs = new Set(active?.prefs ?? []);
   const animatedPrefs = new Set((feed?.events ?? []).filter((event) => freshEvents.has(eventKey(event))).flatMap((event) => event.prefs));
   const heat = feed?.prefHeat ?? {};
@@ -203,8 +205,8 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
     });
   }, [who]);
   const stats: { key: keyof Counts; label: string }[] = [
-    { key: "approach", label: "今日のアプローチ" }, { key: "deal", label: "今日動いた商談" },
-    { key: "won", label: "今日の受注" }, { key: "hq", label: "今日の本部・自動検出" },
+    { key: "approach", label: "アプローチ" }, { key: "deal", label: "動いた商談" },
+    { key: "won", label: "受注" }, { key: "hq", label: "本部・自動検出" },
   ];
   const askAboutPicked = () => {
     if (!picked?.ref) return;
@@ -223,11 +225,12 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
           {compact ? <a className={styles.fullLink} href="/dashboard/live">全画面で見る ↗</a> : <span className={styles.clock}>{clock || "—"} JST</span>}
         </div>
       </header>
+      <div className={styles.statsHeading}><h2>直近3日間</h2><span>{periodLabel(feed?.periods?.recent3days)}</span></div>
       <div className={styles.stats}>
-        {stats.map(({ key, label }) => <div className={styles.stat} key={key}><p className={styles.statLabel}>{label}</p><p className={styles.statValue}>{feed ? feed.counts.today[key].toLocaleString("ja-JP") : "—"}<small>件</small></p>{!compact && <p className={styles.statWeek}>7日間 {feed ? feed.counts.week[key].toLocaleString("ja-JP") : "—"}件</p>}</div>)}
+        {stats.map(({ key, label }) => <div className={`${styles.stat} ${key === "won" ? styles.statWon : ""}`} key={key}><p className={styles.statLabel}>{label}</p><p className={styles.statValue}>{feed?.counts.recent3days ? feed.counts.recent3days[key].toLocaleString("ja-JP") : "—"}<small>件</small></p><p className={styles.statToday}>うち今日 <strong>{feed ? feed.counts.today[key].toLocaleString("ja-JP") : "—"}</strong>件</p></div>)}
       </div>
       <div className={styles.main}>
-        <section className={styles.mapPanel} aria-label="全国の活動マップ">
+        <section className={`${styles.mapPanel} ${activeOutcome?.tone === "won" ? styles.mapWon : activeOutcome ? styles.mapPositive : ""}`} aria-label="全国の活動マップ">
           <div className={styles.panelHead}><h2>ACTIVITY MAP</h2><small>JAPAN</small></div>
           <svg className={styles.map} viewBox="0 0 513 380" role="img" aria-label="日本の都道府県別活動マップ。活動ログに連動して拠点が光ります">
             <image href="/live/japan-map.svg" x="0" y="0" width="513" height="380" />
@@ -265,8 +268,8 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
           {!feed && <p className={styles.empty}>{error ? "接続を確認しています。自動で再試行します。" : "活動を読み込み中…"}</p>}
           {feed?.events.length === 0 && <p className={styles.empty}>直近90日の動きがまだありません</p>}
           {(compact ? feed?.events.slice(0, 14) : feed?.events)?.map((event) => {
-            const key = eventKey(event), copy = eventCopy(event.text), fresh = freshEvents.has(key);
-            return <button key={key} type="button" className={`${styles.event} ${key === eventKey(active ?? event) ? styles.eventActive : ""} ${fresh ? styles.eventNew : ""}`} onClick={() => open(event)} aria-label={`${event.actor}：${event.text}。詳細を見る`}><div className={styles.eventMeta}><strong>{event.actor}</strong><span className={styles.kind}>{KIND_LABEL[event.kind] ?? "活動"}</span>{fresh && <span className={styles.newBadge}>新着</span>}<time className={styles.eventTime} dateTime={event.at}>{ago(event.at)}</time></div><p className={styles.eventText}>{copy.client && <strong>{copy.client}</strong>}<span>{copy.action}</span></p></button>;
+            const key = eventKey(event), copy = eventCopy(event.text), fresh = freshEvents.has(key), outcome = eventOutcome(event);
+            return <button key={key} type="button" className={`${styles.event} ${key === eventKey(active ?? event) ? styles.eventActive : ""} ${fresh ? styles.eventNew : ""} ${outcome?.tone === "won" ? styles.eventWon : outcome ? styles.eventPositive : ""}`} onClick={() => open(event)} aria-label={`${event.actor}：${event.text}。詳細を見る`}><div className={styles.eventMeta}><strong>{event.actor}</strong><span className={`${styles.kind} ${outcome ? styles.resultBadge : ""}`}>{outcome?.label ?? KIND_LABEL[event.kind] ?? "活動"}</span>{fresh && <span className={styles.newBadge}>新着</span>}<time className={styles.eventTime} dateTime={event.at}>{ago(event.at)}</time></div><p className={styles.eventText}>{copy.client && <strong>{copy.client}</strong>}<span>{copy.action}</span></p></button>;
           })}
         </div></section>
       </div>
