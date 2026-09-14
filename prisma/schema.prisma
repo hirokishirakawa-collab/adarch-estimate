@@ -221,6 +221,9 @@ enum TverFlyerStatus {
 
 // TVer小口申込（Web完結・/order/tver）の状態
 enum TverOrderStatus {
+  CONSULTING // 相談受付・Web面談/電話の確認待ち（2026-09-14〜 新規はここから。お金は発生しない）
+  PRE_REVIEWING // 面談済み・支払い前の業態考査中
+  ORDER_ISSUED // 考査OK・発注書を送付済み（お客様の確認・署名待ち）
   AWAITING_PAYMENT // 規約同意済み・決済待ち
   PAID // 決済完了＝契約成立（考査前）
   REVIEWING // 本部がTVerへ業態考査を申請中
@@ -2835,10 +2838,25 @@ model TverOrder {
   notes              String?   @db.Text
   detailsCompletedAt DateTime? // 詳細の記入が済んだ日時（＝契約書PDFを作れる）
 
-  // ── 規約同意（電子契約の記録）
-  termsVersion String
-  signerName   String
-  agreedAt     DateTime
+  // ── 相談（2026-09-14〜: 申込ページは相談受付。面談・考査・発注書を経て支払いへ）
+  consultMethod        String? // WEB（Web面談）/ PHONE（電話）
+  consultPreferredTime String? // ご都合のよい時間帯（自由記述）
+  consultMessage       String?   @db.Text // ご相談内容（任意）
+  consultedAt          DateTime? // 面談・電話で確認した日時
+  consultNote          String?   @db.Text // 面談の記録（内部）
+  // ── 業態考査に出す広告主情報（TVerの考査フォームと同じ項目）
+  websiteUrl           String? // 広告主の企業ページURL
+  hasNoCorporateNumber Boolean   @default(false) // 法人番号なし（個人事業主など）
+  productName          String? // 商材名／キャンペーン名
+  productUrl           String? // 商材サイトURL
+  reviewSubmittedAt    DateTime? // 本部がTVerへ業態考査を申請した日時
+  reviewApprovedAt     DateTime? // 業態考査OK
+  orderIssuedAt        DateTime? // 発注書を発行した日時
+
+  // ── 規約同意（電子契約の記録）。相談の段階では空＝発注書に署名した時点で入る
+  termsVersion String?
+  signerName   String?
+  agreedAt     DateTime?
   agreedIp     String?
   agreedUa     String?
 

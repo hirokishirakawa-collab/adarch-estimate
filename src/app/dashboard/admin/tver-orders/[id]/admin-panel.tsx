@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { TverOrderStatus } from "@/generated/prisma/client";
-import { TVER_ORDER_STATUS_LABEL } from "@/lib/tver-order/plans";
-import { confirmPaymentManually, issueNextInvoice, reissueInvoice, syncMfPayment, updateTverOrder } from "@/lib/actions/tver-orders";
+import { MONTH_OPTIONS, TVER_ORDER_PLANS, TVER_ORDER_STATUS_LABEL } from "@/lib/tver-order/plans";
+import { confirmPaymentManually, issueNextInvoice, issueTverOrderDocument, markTverConsulted, recordTverPreReview, reissueInvoice, saveTverReviewInfo, syncMfPayment, updateTverOrder } from "@/lib/actions/tver-orders";
 
 const FLOW: TverOrderStatus[] = ["PAID", "REVIEWING", "MATERIAL_WAITING", "MATERIAL_RECEIVED", "LIVE", "COMPLETED"];
 const NEXT_HINT: Partial<Record<TverOrderStatus, string>> = {
@@ -49,7 +49,7 @@ export function OrderAdminPanel(p: {
         {NEXT_HINT[p.status] && <p className="text-xs text-zinc-500 bg-zinc-50 rounded-lg p-2">{NEXT_HINT[p.status]}</p>}
         {p.status === "PAID" && !p.detailsDone && <p className="text-xs text-orange-700">お客様の詳細記入がまだです（法人番号がないと考査を申請できません）</p>}
         <select name="status" value={status} onChange={(e) => setStatus(e.target.value as TverOrderStatus)} className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white" disabled={!p.paid}>
-          {(Object.keys(TVER_ORDER_STATUS_LABEL) as TverOrderStatus[]).filter((s) => s !== "AWAITING_PAYMENT").map((s) => (
+          {(Object.keys(TVER_ORDER_STATUS_LABEL) as TverOrderStatus[]).filter((s) => !["CONSULTING", "PRE_REVIEWING", "ORDER_ISSUED", "AWAITING_PAYMENT"].includes(s)).map((s) => (
             <option key={s} value={s}>{TVER_ORDER_STATUS_LABEL[s]}{s === suggested ? "（次）" : ""}</option>
           ))}
         </select>
@@ -128,6 +128,99 @@ export function InvoiceList({ orderId, invoices, canIssueNext }: { orderId: stri
       </div>
       <p className="text-xs text-zinc-400">2ヶ月目以降は毎朝のcronが、配信開始日の応当日の7日前に自動で発行・メールします（配信開始日を入れてから）。</p>
       {msg && <p className="text-xs text-zinc-700 bg-zinc-50 rounded-lg p-2">{msg}</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// 相談の段（2026-09-14〜）: ① 面談・電話 → ② 業態考査 → ③ 発注書（本部だけ）
+// ---------------------------------------------------------------
+export function ConsultPanel(p: {
+  id: string; status: TverOrderStatus; consultNote: string;
+  websiteUrl: string; corporateNumber: string; hasNoCorporateNumber: boolean; productName: string; productUrl: string;
+  reviewSubmitted: boolean; reviewApproved: boolean; orderIssued: boolean;
+  planKey: string; months: number; hasVideo: boolean; pdfUrl: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+  const [note, setNote] = useState(p.consultNote);
+  const [reviewNote, setReviewNote] = useState("");
+  const [noCorp, setNoCorp] = useState(p.hasNoCorporateNumber);
+  const run = (fn: () => Promise<{ error?: string; message?: string }>) =>
+    start(async () => {
+      const r = await fn();
+      setMsg(r.error ? `⚠️ ${r.error}` : r.message ?? "保存しました");
+      router.refresh();
+    });
+  const box = "bg-white border border-zinc-200 rounded-xl p-5 space-y-3";
+  const input = "w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm";
+  const editableInfo = p.status === "CONSULTING" || p.status === "PRE_REVIEWING";
+
+  return (
+    <div className="space-y-4">
+      <section className={box}>
+        <h2 className="text-sm font-semibold text-zinc-900">① 面談・お電話</h2>
+        {p.status === "CONSULTING" ? (
+          <>
+            <p className="text-xs text-zinc-500 bg-zinc-50 rounded-lg p-2">案内元（なければ本部）が連絡して、目的・エリア・プラン・動画の有無を確認。済んだら記録を残して「面談済み」へ。考査の情報が未記入なら、お客様へ記入のお願いメールが飛びます。</p>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={4} className={input} placeholder="例: 9/16 電話。モデルハウス見学会の告知・高山市のみ・スタンダード6ヶ月で検討・動画は既存の30秒を15秒に編集希望" />
+            <button type="button" disabled={pending} onClick={() => run(() => markTverConsulted(p.id, note))} className="w-full px-3 py-2 rounded-lg bg-zinc-900 text-white text-sm disabled:opacity-40">面談済みにする</button>
+          </>
+        ) : (
+          <p className="text-xs text-emerald-700">✓ 面談済み{p.consultNote ? <span className="block text-zinc-600 whitespace-pre-wrap mt-1">{p.consultNote}</span> : null}</p>
+        )}
+      </section>
+
+      <section className={box}>
+        <h2 className="text-sm font-semibold text-zinc-900">② 業態考査（お支払い前）</h2>
+        <form action={(fd) => run(() => saveTverReviewInfo(p.id, fd))} className="space-y-2">
+          <label className="block text-xs text-zinc-500">企業ページURL<input name="websiteUrl" defaultValue={p.websiteUrl} className={input} disabled={!editableInfo} /></label>
+          <label className="block text-xs text-zinc-500">法人番号（13桁）<input name="corporateNumber" defaultValue={p.corporateNumber} className={input} disabled={!editableInfo || noCorp} inputMode="numeric" maxLength={13} /></label>
+          <label className="flex items-center gap-2 text-xs text-zinc-600"><input type="checkbox" name="hasNoCorporateNumber" checked={noCorp} onChange={(e) => setNoCorp(e.target.checked)} disabled={!editableInfo} /> 法人番号なし</label>
+          <label className="block text-xs text-zinc-500">商材名／キャンペーン名<input name="productName" defaultValue={p.productName} className={input} disabled={!editableInfo} /></label>
+          <label className="block text-xs text-zinc-500">商材サイトURL<input name="productUrl" defaultValue={p.productUrl} className={input} disabled={!editableInfo} /></label>
+          {editableInfo && <button type="submit" disabled={pending} className="w-full px-3 py-2 rounded-lg border border-zinc-200 text-sm">考査の情報を保存</button>}
+        </form>
+        {p.status === "PRE_REVIEWING" && (
+          <div className="space-y-2 pt-2 border-t border-zinc-100">
+            <p className="text-xs text-zinc-500">{p.reviewApproved ? "✓ 考査OK" : p.reviewSubmitted ? "TVerへ申請済み・結果待ち" : "上の5項目でTVerの業態考査フォームに申請"}</p>
+            <input value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} className={input} placeholder="見送りの時のお客様への一言（任意）" />
+            <div className="grid grid-cols-3 gap-2">
+              <button type="button" disabled={pending || p.reviewSubmitted} onClick={() => run(() => recordTverPreReview(p.id, "SUBMITTED", ""))} className="px-2 py-2 rounded-lg border border-zinc-200 text-xs disabled:opacity-40">申請した</button>
+              <button type="button" disabled={pending || p.reviewApproved} onClick={() => run(() => recordTverPreReview(p.id, "APPROVED", ""))} className="px-2 py-2 rounded-lg bg-emerald-600 text-white text-xs disabled:opacity-40">考査OK</button>
+              <button type="button" disabled={pending} onClick={() => { if (confirm("見送りにします（お客様へメール・お支払いは発生していません）。よろしいですか？")) run(() => recordTverPreReview(p.id, "REJECTED", reviewNote)); }} className="px-2 py-2 rounded-lg border border-rose-200 text-rose-700 text-xs">見送り</button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className={box}>
+        <h2 className="text-sm font-semibold text-zinc-900">③ 発注書（本部だけ）</h2>
+        {p.orderIssued && <p className="text-xs text-emerald-700">✓ 発行済み・お客様の署名待ち　<a className="underline text-orange-600" href={p.pdfUrl} target="_blank" rel="noopener">発注書PDF</a></p>}
+        {(p.reviewApproved || p.orderIssued) ? (
+          <form action={(fd) => { if (confirm(`発注書を${p.orderIssued ? "作り直して再送" : "発行してお客様へメール"}します。よろしいですか？`)) run(() => issueTverOrderDocument(p.id, fd)); }} className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs text-zinc-500">プラン
+                <select name="planKey" defaultValue={p.planKey} className={input}>
+                  {TVER_ORDER_PLANS.map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}
+                </select>
+              </label>
+              <label className="text-xs text-zinc-500">契約期間
+                <select name="months" defaultValue={String(p.months)} className={input}>
+                  {MONTH_OPTIONS.map((m) => <option key={m.months} value={m.months}>{m.label}</option>)}
+                </select>
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-zinc-600"><input type="checkbox" name="hasVideo" defaultChecked={p.hasVideo} /> 15秒の動画はお客様が用意</label>
+            <p className="text-xs text-zinc-400">金額はエリアの人口とOSの料金で自動計算します（このエリアで選べないプラン・期間はエラーで止まります）。</p>
+            <button type="submit" disabled={pending} className="w-full px-3 py-2 rounded-lg bg-orange-500 text-white text-sm disabled:opacity-40">{p.orderIssued ? "発注書を作り直して再送" : "発注書を発行してメール"}</button>
+          </form>
+        ) : (
+          <p className="text-xs text-zinc-400">業態考査がOKになると発行できます</p>
+        )}
+      </section>
+      {msg && <p className="text-sm text-zinc-700 bg-zinc-50 rounded-lg p-3">{msg}</p>}
     </div>
   );
 }

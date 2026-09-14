@@ -40,7 +40,7 @@ export default async function AdminTverReportDetail({ params }: { params: Promis
   if (!r) notFound();
   // 紐づけ候補の申込: 広告主名が近いものを先頭に
   const orders = await db.tverOrder.findMany({
-    where: { status: { notIn: ["CANCELLED", "REFUNDED", "AWAITING_PAYMENT"] } },
+    where: { status: { notIn: ["CANCELLED", "REFUNDED", "AWAITING_PAYMENT", "CONSULTING", "PRE_REVIEWING", "ORDER_ISSUED"] } },
     select: { id: true, number: true, createdAt: true, advertiserName: true, groupCompanyId: true },
     orderBy: { createdAt: "desc" },
     take: 300,

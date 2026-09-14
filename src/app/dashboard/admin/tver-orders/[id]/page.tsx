@@ -6,10 +6,10 @@ import { auth } from "@/lib/auth";
 import type { UserRole } from "@/types/roles";
 import { db } from "@/lib/db";
 import { AD_SECONDS, orderNumberLabel, planByKey, quote } from "@/lib/tver-order/plans";
-import { TVER_ORDER_STATUS_LABEL, appUrl } from "@/lib/tver-order/service";
+import { CONSULT_METHOD_LABEL, TVER_ORDER_STATUS_LABEL, appUrl, isConsultFlow, type ConsultMethod } from "@/lib/tver-order/service";
 import { areaPlanFor } from "@/lib/packages/tver-area";
 import { INVENTORY_CHECK_POP, needsInventoryCheck } from "@/lib/tver/plan";
-import { InvoiceList, OrderAdminPanel } from "./admin-panel";
+import { ConsultPanel, InvoiceList, OrderAdminPanel } from "./admin-panel";
 
 export const dynamic = "force-dynamic";
 const fmt = (d: Date | null | undefined) => (d ? new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "medium", timeStyle: "short" }).format(d) : "—");
@@ -29,6 +29,8 @@ export default async function AdminTverOrderDetail({ params }: { params: Promise
   // 人口1万人未満のエリアはTVerの在庫が薄い＝本部で在庫確認（本部画面だけの印）
   const areaPop = areaPlanFor(o.prefName, o.municipalityCode)?.population ?? 0;
   const inventoryCheck = needsInventoryCheck(areaPop);
+  const consult = isConsultFlow(o);
+  const beforeSign = ["CONSULTING", "PRE_REVIEWING", "ORDER_ISSUED"].includes(o.status);
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full">
@@ -56,11 +58,23 @@ export default async function AdminTverOrderDetail({ params }: { params: Promise
               <p className="text-sm text-zinc-500">本部（?from= なしの申込）</p>
             )}
           </section>
+          {consult && (
+            <section className="bg-white border border-zinc-200 rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-zinc-900 mb-2">ご相談</h2>
+              <Row k="希望の方法" v={`${CONSULT_METHOD_LABEL[o.consultMethod as ConsultMethod] ?? o.consultMethod}${o.consultPreferredTime ? `　／　${o.consultPreferredTime}` : ""}`} />
+              <Row k="ご相談内容" v={o.consultMessage ?? "—"} />
+              <Row k="連絡する人" v={o.groupCompany ? `${o.groupCompany.name}（案内元）` : "本部"} />
+              <Row k="面談・電話" v={o.consultedAt ? `${fmt(o.consultedAt)} 済み` : <span className="text-orange-600">未（連絡待ち）</span>} />
+              <Row k="業態考査" v={o.reviewApprovedAt ? `OK ${fmt(o.reviewApprovedAt)}` : o.reviewSubmittedAt ? `申請済み ${fmt(o.reviewSubmittedAt)}` : "未申請"} />
+              <Row k="発注書" v={o.orderIssuedAt ? <>{fmt(o.orderIssuedAt)} 発行　<a className="text-orange-600 underline" href={`/api/tver-order/${o.token}/order-pdf`} target="_blank" rel="noopener">PDF</a></> : "未発行"} />
+            </section>
+          )}
           <section className="bg-white border border-zinc-200 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-zinc-900 mb-2">広告主</h2>
             <Row k="会社名" v={o.advertiserName} />
             <Row k="ご担当" v={`${o.contactName}　${o.email}　${o.phone}`} />
-            <Row k="法人番号" v={o.corporateNumber ?? <span className="text-orange-600">未記入（決済後にお客様が記入）</span>} />
+            {consult && <Row k="企業ページ / 商材" v={`${o.websiteUrl ?? "—"} / ${o.productName ?? "—"}（${o.productUrl ?? "—"}）`} />}
+            <Row k="法人番号" v={o.hasNoCorporateNumber ? "なし" : o.corporateNumber ?? <span className="text-orange-600">未記入{consult ? "（業態考査の前にお客様か本部が記入）" : "（決済後にお客様が記入）"}</span>} />
             <Row k="本店所在地" v={o.address ? `${o.postalCode ? `〒${o.postalCode} ` : ""}${o.address}` : "未記入"} />
             <Row k="代表者" v={o.representativeName ?? "未記入"} />
             <Row k="業種 / LP" v={`${o.industry ?? "—"} / ${o.landingPageUrl ?? "—"}`} />
@@ -70,7 +84,7 @@ export default async function AdminTverOrderDetail({ params }: { params: Promise
           <section className="bg-white border border-zinc-200 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-zinc-900 mb-2">申込・契約・お支払い</h2>
             <Row k="申込日時" v={fmt(o.createdAt)} />
-            <Row k="規約同意" v={`${o.signerName} が ${fmt(o.agreedAt)} に同意（${o.termsVersion}・IP ${o.agreedIp ?? "—"}）`} />
+            <Row k="規約同意" v={o.agreedAt ? `${o.signerName} が ${fmt(o.agreedAt)} に同意（${o.termsVersion}・IP ${o.agreedIp ?? "—"}）` : "未（発注書への署名で入る）"} />
             <Row k="内訳（税抜）" v={`月額 ${yen(q.mediaFeeExclTax)} × ${o.months}ヶ月${q.setupFeeExclTax ? ` ＋ 初期登録費 ${yen(q.setupFeeExclTax)}（初月に請求）` : "（初期登録費なし）"}`} />
             <Row k="目安" v={`月 約${o.estImpressions.toLocaleString("ja-JP")}再生・約${o.estReach.toLocaleString("ja-JP")}人`} />
             <Row k="契約成立" v={o.paidAt ? `${fmt(o.paidAt)}　初月 ${yen(o.paidAmount ?? 0)}　${o.paymentNote ?? ""}` : <span className="text-orange-600">初月の入金 未確認</span>} />
@@ -86,7 +100,27 @@ export default async function AdminTverOrderDetail({ params }: { params: Promise
             />
           </section>
         </div>
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
+          {consult && beforeSign && (
+            <ConsultPanel
+              id={o.id}
+              status={o.status}
+              consultNote={o.consultNote ?? ""}
+              websiteUrl={o.websiteUrl ?? ""}
+              corporateNumber={o.corporateNumber ?? ""}
+              hasNoCorporateNumber={o.hasNoCorporateNumber}
+              productName={o.productName ?? ""}
+              productUrl={o.productUrl ?? ""}
+              reviewSubmitted={!!o.reviewSubmittedAt}
+              reviewApproved={!!o.reviewApprovedAt}
+              orderIssued={!!o.orderIssuedAt}
+              planKey={o.planKey}
+              months={o.months}
+              hasVideo={o.hasVideo}
+              pdfUrl={`/api/tver-order/${o.token}/order-pdf`}
+            />
+          )}
+          {!(consult && beforeSign) && (
           <OrderAdminPanel
             id={o.id}
             status={o.status}
@@ -99,6 +133,7 @@ export default async function AdminTverOrderDetail({ params }: { params: Promise
             liveEndDate={o.liveEndDate?.toISOString().slice(0, 10) ?? ""}
             reportUrl={o.reportUrl ?? ""}
           />
+          )}
         </div>
       </div>
     </div>

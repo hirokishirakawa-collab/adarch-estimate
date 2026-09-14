@@ -1,11 +1,12 @@
 // ==============================================================
 // TVer小口申込 — 申込の作成・月払いの請求・入金確定・通知（サーバー専用）
 //   契約期間 3/6/12ヶ月・月払い（2026-09-09 代表決定）
-//   1) createTverOrder      規約同意済みの申込を保存 → 初月の請求を発行（2026-09-13〜 初回登録費なし。旧版の申込は保存済みの初期登録費のまま）
-//        カード = Square決済リンクへ送る／振込 = MF請求書を作ってメール
-//   2) confirmInvoicePayment 初月の入金確認＝契約成立（メール・CEOアラート）。2ヶ月目以降＝入金の控えメール
+//   1) createTverConsult    相談の受付（2026-09-14〜。お金は発生しない）→ markConsulted（面談・電話）→ recordPreReview（業態考査）
+//      issueOrderDocument   発注書を発行 → signTverOrder お客様が署名 → 初月の請求を発行
+//        カード = Square決済リンクへ送る／振込 = MF請求書を作ってメール（初回登録費なし。旧版の申込は保存済みの初期登録費のまま）
+//   2) confirmInvoicePayment 初月の入金確認＝契約成立（メール・CEOアラート）。相談からの申込は考査済み＝動画受付へ。2ヶ月目以降＝入金の控えメール
 //   3) runTverOrderBilling   毎朝cron: 次の月の請求を期日7日前に発行＋振込のMF入金取込
-//   4) completeTverOrderDetails 決済後の詳細記入（法人番号・所在地・代表者）→ 考査へ
+//   4) completeTverOrderDetails 旧来の申込（決済が先）の詳細記入（法人番号・所在地・代表者）→ 考査へ
 //   5) notifyTverOrderStatus 本部が状態を進めたとき広告主へメール
 // ==============================================================
 
@@ -21,8 +22,8 @@ import type { TverOrder, TverOrderInvoice, TverOrderStatus } from "@/generated/p
 import { HQ, TERMS_TITLE, TERMS_VERSION, reportLabel } from "./terms";
 import { AD_SECONDS, INDUSTRY_OPTIONS, MONTH_OPTIONS, estimateForArea, orderNumberLabel, planByKey, quote, withTax, yen } from "./plans";
 import { TVER_ESTIMATE_NOTE } from "@/lib/tver/plan";
-import { TVER_ORDER_STATUS_LABEL, progressIndex } from "./plans";
-export { TVER_ORDER_STATUS_LABEL, progressIndex };
+import { TVER_ORDER_STATUS_LABEL, consultProgressIndex, isConsultFlow, progressIndex } from "./plans";
+export { TVER_ORDER_STATUS_LABEL, consultProgressIndex, isConsultFlow, progressIndex };
 
 export function appUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL ?? process.env.AUTH_URL ?? "").replace(/\/$/, "");
@@ -58,117 +59,339 @@ const jstDate = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: "Asia/Tok
 const addMonths = (d: Date, n: number) => { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; };
 
 // ---------------------------------------------------------------
-// 1) 申込の作成 → 初月の請求
+// 1) 相談の受付（2026-09-14〜 申込ページはここ。お金は発生しない）
+//    → 面談・電話（案内元 or 本部）→ 業態考査（支払い前）→ 発注書 → お客様が署名 → 初月の請求
 // ---------------------------------------------------------------
-export type CreateTverOrderInput = {
+export type ConsultMethod = "WEB" | "PHONE";
+export const CONSULT_METHOD_LABEL: Record<ConsultMethod, string> = { WEB: "Web面談", PHONE: "お電話" };
+
+export type CreateTverConsultInput = {
   from?: string | null;
   prefName: string;
   municipalityCode: string;
   planKey: string;
   months: number;
   hasVideo: boolean;
-  paymentMethod: "CARD" | "BANK_TRANSFER";
   advertiserName: string;
   contactName: string;
   email: string;
   phone: string;
-  signerName: string;
-  agreedTerms: boolean;
-  agreedNoGuarantee: boolean;
-  agreedRefund: boolean;
+  websiteUrl: string;
+  consultMethod: string;
+  consultPreferredTime?: string | null;
+  consultMessage?: string | null;
   ip?: string | null;
   ua?: string | null;
 };
 
-export async function createTverOrder(input: CreateTverOrderInput): Promise<{ token?: string; paymentUrl?: string; invoiced?: boolean; error?: string }> {
-  // ── 検証（画面側でも見るが、サーバーで必ずもう一度）
-  if (!prefectureOptions().includes(input.prefName)) return { error: "都道府県を選んでください" };
-  const muni = municipalitiesOf(input.prefName).find((m) => m.code === input.municipalityCode);
-  if (!muni) return { error: "市区町村を選んでください" };
-  const plan = planByKey(input.planKey);
-  if (!plan) return { error: "プランを選んでください" };
-  const est = estimateForArea(input.prefName, input.municipalityCode);
-  if (!est) return { error: "このエリアの目安を計算できませんでした" };
+/** エリア・プラン・期間を検証して、発注書に載せる金額を出す（相談の受付と発注書の発行で同じ判定） */
+function priceFor(prefName: string, municipalityCode: string, planKey: string, months: number) {
+  if (!prefectureOptions().includes(prefName)) return { error: "都道府県を選んでください" } as const;
+  const muni = municipalitiesOf(prefName).find((m) => m.code === municipalityCode);
+  if (!muni) return { error: "市区町村を選んでください" } as const;
+  const plan = planByKey(planKey);
+  if (!plan) return { error: "プランを選んでください" } as const;
+  const est = estimateForArea(prefName, municipalityCode);
+  if (!est) return { error: "このエリアの目安を計算できませんでした" } as const;
+  const e = est.byPlan[plan.key];
+  // このエリアで選べないプラン（人口5万人未満で「まちのプラン」以外／5万人以上で「まちのプラン」／同額にまとめたプラン）は受けない
+  if (!e || e.mergedInto) return { error: est.small ? `このエリア（人口5万人未満）は「${est.plans[0]?.name ?? "まちのプラン"}」（月額30,000円）だけです` : "このエリアでは選べないプランです。プランを選び直してください" } as const;
+  // ②大規模展開（月額30万以上）はこの窓口では受けない。画面を迂回されてもここで止める
+  if (e.custom) return { error: "このエリア・プランは月額30万円以上のため、大規模展開（オーダー）のご相談になります。「複数エリアで相談する」からお送りください。" } as const;
+  if (!MONTH_OPTIONS.some((m) => m.months === months)) return { error: "契約期間を選んでください" } as const;
+  if (months < est.minMonths) return { error: `このエリア（人口5万人未満）の契約期間は${est.minMonths}ヶ月以上です` } as const;
+  return { plan, est, e, q: quote(e.mediaFee, 0, months) } as const; // 初回登録費・管理費なし（2026-09-13）
+}
 
+export async function createTverConsult(input: CreateTverConsultInput): Promise<{ token?: string; error?: string }> {
+  const p = priceFor(input.prefName, input.municipalityCode, input.planKey, input.months);
+  if ("error" in p) return { error: p.error };
   const advertiserName = input.advertiserName.trim().slice(0, 120);
   const contactName = input.contactName.trim().slice(0, 80);
   const email = input.email.trim().toLowerCase().slice(0, 200);
   const phone = input.phone.trim().slice(0, 40);
-  const signerName = input.signerName.trim().slice(0, 80);
+  const websiteUrl = input.websiteUrl.trim().slice(0, 500);
+  const consultMethod = input.consultMethod === "PHONE" ? "PHONE" : input.consultMethod === "WEB" ? "WEB" : null;
   if (!advertiserName) return { error: "会社名を入力してください" };
   if (!contactName) return { error: "ご担当者名を入力してください" };
   if (!EMAIL_RE.test(email)) return { error: "メールアドレスの形式が正しくありません" };
   if (!phone) return { error: "電話番号を入力してください" };
-  if (!input.agreedTerms || !input.agreedNoGuarantee || !input.agreedRefund) return { error: "3つの確認事項すべてにチェックしてください" };
-  if (!signerName) return { error: "ご署名（お名前）を入力してください" };
-
-  const e = est.byPlan[plan.key];
-  // このエリアで選べないプラン（人口5万人未満で「まちのプラン」以外／5万人以上で「まちのプラン」／同額にまとめたプラン）は受けない
-  if (!e || e.mergedInto) return { error: est.small ? `このエリア（人口5万人未満）は「${est.plans[0]?.name ?? "まちのプラン"}」（月額30,000円）だけのお申込みです` : "このエリアでは選べないプランです。プランを選び直してください" };
-  // ②大規模展開（月額30万以上）はWeb申込を受けない。画面を迂回されてもここで止める
-  if (e.custom) return { error: "このエリア・プランは月額30万円以上のため、大規模展開（オーダー）のご相談になります。「複数エリアで相談する」からお送りください。" };
-  if (!MONTH_OPTIONS.some((m) => m.months === input.months)) return { error: "契約期間を選んでください" };
-  const months = input.months;
-  if (months < est.minMonths) return { error: `このエリア（人口5万人未満）の契約期間は${est.minMonths}ヶ月以上です` };
+  if (!/^https?:\/\/\S+\.\S+/.test(websiteUrl)) return { error: "企業ページのURLを http(s):// から入力してください" };
+  if (!consultMethod) return { error: "Web面談かお電話かを選んでください" };
+  const { plan, est, e, q } = p;
   const sender = await loadOrderSender(input.from);
-  const q = quote(e.mediaFee, 0, months); // 初回登録費・管理費なし（2026-09-13）
   const token = randomBytes(24).toString("base64url");
-  const agreedAt = new Date();
 
   const order = await db.tverOrder.create({
     data: {
       token,
+      status: "CONSULTING",
       groupCompanyId: sender?.id ?? null,
       prefName: input.prefName,
       municipalityCode: input.municipalityCode,
       areaLabel: est.areaLabel,
       planKey: plan.key,
       adSeconds: AD_SECONDS,
-      months,
+      months: input.months,
       mediaFeeExclTax: q.mediaFeeExclTax,
       setupFeeExclTax: q.setupFeeExclTax,
       totalInclTax: q.contractTotalInclTax,
       estImpressions: Math.round(e.impressions),
       estReach: Math.round(e.reach),
       hasVideo: input.hasVideo,
-      paymentMethod: input.paymentMethod,
       advertiserName,
       contactName,
       email,
       phone,
+      websiteUrl,
+      consultMethod,
+      consultPreferredTime: input.consultPreferredTime?.trim().slice(0, 200) || null,
+      consultMessage: input.consultMessage?.trim().slice(0, 2000) || null,
+    },
+  });
+  const no = orderNumberLabel(order.number, order.createdAt);
+  const statusUrl = `${appUrl()}/order/tver/${token}`;
+  const who = sender ? `${sender.company}${sender.person ? `（${sender.person}）` : ""}` : HQ.company;
+  const how = CONSULT_METHOD_LABEL[consultMethod];
+  logAudit({ action: "tver_order_consult_created", email, name: advertiserName, entity: "tver_order", entityId: order.id, ipAddress: input.ip ?? undefined, userAgent: input.ua ?? undefined, detail: `${no} ${input.prefName} ${est.areaLabel} ${plan.name} 月額${yen(q.mediaFeeExclTax)}×${input.months}ヶ月（目安） ${how}希望${sender ? ` 紹介=${sender.company}` : ""}` });
+
+  try {
+    await sendMail({
+      to: email,
+      subject: `【Ad Arch】TVer広告のご相談を受け付けました（${no}）`,
+      html: simpleMailHtml(`${esc(advertiserName)}<br>${esc(contactName)} 様`, [
+        `TVer広告 エリア限定プラン（${input.prefName} ${est.areaLabel}）のご相談を受け付けました。ありがとうございます。`,
+        `${who}より${how}でご連絡し、配信の目的・エリア・プラン・動画の有無を確認させていただきます。${order.consultPreferredTime ? `（ご希望の時間帯: ${order.consultPreferredTime}）` : ""}`,
+        "内容の確認とTVerの業態考査のあと、発注書をお送りします。お支払いは発注書をご確認・ご署名いただいてからです。この段階で料金は発生しません。",
+      ], statusUrl, "ご相談の状況を見る"),
+      replyTo: sender?.email ?? HQ.email,
+    });
+  } catch (err) { console.error("[tver-order] consult mail to advertiser failed:", err instanceof Error ? err.message : err); }
+  const body = [
+    `${advertiserName}（ご担当 ${contactName}）`,
+    `連絡先: ${email} ／ ${phone}`,
+    `希望: ${how}${order.consultPreferredTime ? `・${order.consultPreferredTime}` : ""}`,
+    `エリア・プラン（目安）: ${input.prefName} ${est.areaLabel}・${plan.name}・${input.months}ヶ月・月額 ${yen(q.mediaFeeExclTax)}（税抜）`,
+    `企業ページ: ${websiteUrl}`,
+    `動画: ${input.hasVideo ? "あり" : "なし（制作の相談）"}`,
+    ...(order.consultMessage ? [`ご相談内容: ${order.consultMessage}`] : []),
+  ];
+  if (sender?.email) {
+    try {
+      await sendMail({
+        to: sender.email,
+        subject: `【Ad Arch OS】TVerのご相談が届きました・${how}でご連絡ください（${no}・${advertiserName}）`,
+        html: mailShell(`<tr><td style="padding:8px 32px 0;font-size:18px;font-weight:600;">TVerのご相談が届きました（${esc(no)}）</td></tr>
+<tr><td style="padding:12px 32px 0;font-size:14px;line-height:1.8;">貴社のご案内リンクから相談が届きました。<b>${esc(how)}で先方にご連絡</b>し、目的・エリア・プラン・動画の有無を確認してください。確認した内容は本部へお知らせください（考査・発注書・請求は本部が進めます）。</td></tr>
+<tr><td style="padding:12px 32px 0;font-size:13px;line-height:1.9;">${body.map(esc).join("<br>")}</td></tr>
+<tr><td style="padding:12px 32px 24px;font-size:12px;color:#6a6a6a;">お客様の進捗ページ: <a href="${statusUrl}" style="color:#d97f18;">${statusUrl}</a></td></tr>`),
+        replyTo: email,
+      });
+    } catch (err) { console.error("[tver-order] consult mail to partner failed:", err instanceof Error ? err.message : err); }
+  }
+  notifyCeo(`📞 *TVerのご相談（${how}希望）* ${no}\n${body.join("\n")}\n連絡する人: ${sender ? `${sender.company}（案内元）` : "本部"}\n👉 ${appUrl()}/dashboard/admin/tver-orders/${order.id}`).catch(() => {});
+  return { token };
+}
+
+// ---------------------------------------------------------------
+// 1a) 相談 → 面談 → 業態考査 → 発注書（本部の操作。権限の判定は呼び出し側 lib/actions/tver-orders）
+// ---------------------------------------------------------------
+type Actor = { email: string; name?: string | null };
+
+export type ReviewInfoInput = { websiteUrl?: string | null; corporateNumber?: string | null; hasNoCorporateNumber?: boolean; productName?: string | null; productUrl?: string | null };
+
+/** 業態考査の5項目を保存（お客様が進捗ページで／本部が面談の記録と一緒に）。発注書の発行前だけ */
+export async function saveReviewInfo(where: { id: string } | { token: string }, input: ReviewInfoInput, actor: Actor): Promise<{ ok: boolean; error?: string }> {
+  const o = await db.tverOrder.findUnique({ where });
+  if (!o) return { ok: false, error: "申込が見つかりません" };
+  if (!["CONSULTING", "PRE_REVIEWING"].includes(o.status)) return { ok: false, error: "発注書の発行後は変更できません。本部へご連絡ください" };
+  const url = (v: string | null | undefined) => (v ?? "").trim().slice(0, 500);
+  const websiteUrl = url(input.websiteUrl) || o.websiteUrl || "";
+  const productUrl = url(input.productUrl);
+  const productName = (input.productName ?? "").trim().slice(0, 120);
+  const hasNoCorporateNumber = !!input.hasNoCorporateNumber;
+  const corporateNumber = hasNoCorporateNumber ? null : (input.corporateNumber ?? "").replace(/\D/g, "");
+  if (!/^https?:\/\//.test(websiteUrl)) return { ok: false, error: "企業ページのURLを http(s):// から入力してください" };
+  if (!hasNoCorporateNumber && !/^\d{13}$/.test(corporateNumber ?? "")) return { ok: false, error: "法人番号は13桁の数字です（無い場合は「なし」にチェック）" };
+  if (!productName) return { ok: false, error: "商材名／キャンペーン名を入力してください" };
+  if (!/^https?:\/\//.test(productUrl)) return { ok: false, error: "商材サイトのURLを http(s):// から入力してください" };
+  const firstTime = !o.productName;
+  await db.tverOrder.update({ where: { id: o.id }, data: { websiteUrl, corporateNumber, hasNoCorporateNumber, productName, productUrl } });
+  const no = orderNumberLabel(o.number, o.createdAt);
+  logAudit({ action: "tver_order_review_info", email: actor.email, name: actor.name ?? o.advertiserName, entity: "tver_order", entityId: o.id, detail: `${no} ${productName} ${hasNoCorporateNumber ? "法人番号なし" : corporateNumber}` });
+  if (firstTime && "token" in where) {
+    notifyCeo(`📝 *TVer 業態考査の情報が届きました* ${no} ${o.advertiserName}\n商材: ${productName}\n→ 面談の確認が済んでいれば、TVerへ業態考査を申請できます\n👉 ${appUrl()}/dashboard/admin/tver-orders/${o.id}`).catch(() => {});
+  }
+  return { ok: true };
+}
+
+/** 面談・電話で確認した（→ 業態考査の段へ） */
+export async function markConsulted(id: string, note: string, actor: Actor): Promise<{ ok: boolean; error?: string }> {
+  const o = await db.tverOrder.findUnique({ where: { id } });
+  if (!o) return { ok: false, error: "申込が見つかりません" };
+  if (o.status !== "CONSULTING") return { ok: false, error: "相談受付の申込だけ「面談済み」にできます" };
+  await db.tverOrder.update({ where: { id }, data: { status: "PRE_REVIEWING", consultedAt: new Date(), consultNote: note.trim().slice(0, 4000) || o.consultNote } });
+  logAudit({ action: "tver_order_consulted", email: actor.email, name: actor.name ?? undefined, entity: "tver_order", entityId: id, detail: `${orderNumberLabel(o.number, o.createdAt)} 面談・電話済み` });
+  if (!o.productName) {
+    try {
+      await sendMail({
+        to: o.email,
+        subject: `【Ad Arch】TVerの業態考査に必要な情報のご記入のお願い（${orderNumberLabel(o.number, o.createdAt)}）`,
+        html: simpleMailHtml(`${esc(o.advertiserName)}<br>${esc(o.contactName)} 様`, [
+          "先日はお時間をいただき、ありがとうございました。",
+          "TVerの業態考査に必要な情報（法人番号・商材名／キャンペーン名・商材サイトURL）を、下のボタンのページからご記入ください（3分）。考査が通りましたら発注書をお送りします。",
+        ], `${appUrl()}/order/tver/${o.token}`, "考査の情報を記入する"),
+        replyTo: HQ.email,
+      });
+    } catch (err) { console.error("[tver-order] review info request mail failed:", err instanceof Error ? err.message : err); }
+  }
+  return { ok: true };
+}
+
+/** 本部がTVerへ業態考査を申請した／結果（OK=発注書を出せる・NG=見送り） */
+export async function recordPreReview(id: string, step: "SUBMITTED" | "APPROVED" | "REJECTED", note: string, actor: Actor): Promise<{ ok: boolean; error?: string }> {
+  const o = await db.tverOrder.findUnique({ where: { id } });
+  if (!o) return { ok: false, error: "申込が見つかりません" };
+  if (o.status !== "PRE_REVIEWING") return { ok: false, error: "面談済み（考査の段）の申込だけ操作できます" };
+  const no = orderNumberLabel(o.number, o.createdAt);
+  if (step !== "REJECTED" && !o.productName) return { ok: false, error: "業態考査の情報（商材名など）がまだです" };
+  if (step === "SUBMITTED") {
+    await db.tverOrder.update({ where: { id }, data: { reviewSubmittedAt: new Date() } });
+  } else if (step === "APPROVED") {
+    await db.tverOrder.update({ where: { id }, data: { reviewSubmittedAt: o.reviewSubmittedAt ?? new Date(), reviewApprovedAt: new Date() } });
+  } else {
+    await db.tverOrder.update({ where: { id }, data: { status: "CANCELLED", customerNote: note.trim().slice(0, 2000) || o.customerNote } });
+    try {
+      await sendMail({
+        to: o.email,
+        subject: `【Ad Arch】TVerの業態考査の結果のご連絡（${no}）`,
+        html: simpleMailHtml(`${esc(o.advertiserName)}<br>${esc(o.contactName)} 様`, [
+          "TVer広告のご相談をいただき、ありがとうございました。",
+          "TVerの業態考査の結果、今回は出稿のご案内ができませんでした。お支払いは発生していません。",
+          ...(note.trim() ? [note.trim()] : []),
+        ], `${appUrl()}/order/tver/${o.token}`),
+        replyTo: HQ.email,
+      });
+    } catch (err) { console.error("[tver-order] review rejected mail failed:", err instanceof Error ? err.message : err); }
+  }
+  logAudit({ action: "tver_order_pre_review", email: actor.email, name: actor.name ?? undefined, entity: "tver_order", entityId: id, detail: `${no} 業態考査 ${step}${note ? ` ${note.slice(0, 200)}` : ""}` });
+  return { ok: true };
+}
+
+/** 発注書を発行してお客様へメール（プラン・期間は面談の結果で変えてよい。金額はOSの料金で再計算） */
+export async function issueOrderDocument(id: string, input: { planKey: string; months: number; hasVideo: boolean }, actor: Actor): Promise<{ ok: boolean; error?: string }> {
+  const o = await db.tverOrder.findUnique({ where: { id } });
+  if (!o) return { ok: false, error: "申込が見つかりません" };
+  if (!["PRE_REVIEWING", "ORDER_ISSUED"].includes(o.status)) return { ok: false, error: "業態考査の段の申込だけ発注書を発行できます" };
+  if (!o.reviewApprovedAt) return { ok: false, error: "業態考査がOKになってから発行できます" };
+  const p = priceFor(o.prefName, o.municipalityCode, input.planKey, input.months);
+  if ("error" in p) return { ok: false, error: p.error };
+  const { plan, e, q } = p;
+  const updated = await db.tverOrder.update({
+    where: { id },
+    data: {
+      status: "ORDER_ISSUED",
+      orderIssuedAt: new Date(),
+      planKey: plan.key,
+      months: input.months,
+      hasVideo: input.hasVideo,
+      mediaFeeExclTax: q.mediaFeeExclTax,
+      setupFeeExclTax: q.setupFeeExclTax,
+      totalInclTax: q.contractTotalInclTax,
+      estImpressions: Math.round(e.impressions),
+      estReach: Math.round(e.reach),
+    },
+  });
+  const no = orderNumberLabel(updated.number, updated.createdAt);
+  const statusUrl = `${appUrl()}/order/tver/${updated.token}`;
+  try {
+    await sendMail({
+      to: updated.email,
+      subject: `【Ad Arch】発注書をお送りします（${no}）`,
+      html: mailShell(`<tr><td style="padding:8px 32px 0;font-size:20px;font-weight:600;line-height:1.5;">発注書をお送りします</td></tr>
+<tr><td style="padding:14px 32px 0;font-size:14px;line-height:1.8;">${esc(updated.advertiserName)}<br>${esc(updated.contactName)} 様<br><br>TVerの業態考査が通りました。お打ち合わせの内容で発注書をお作りしました。下のボタンのページで発注書と申込規約をご確認いただき、ご署名のうえお支払いへお進みください。</td></tr>
+<tr><td style="padding:20px 32px 0;">${orderTableHtml(updated)}</td></tr>
+<tr><td style="padding:24px 32px 8px;"><a href="${statusUrl}" style="display:inline-block;background:#f19834;color:#111;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:3px;font-size:14px;">発注書を確認して署名する</a></td></tr>
+<tr><td style="padding:8px 32px 20px;font-size:12px;color:#6a6a6a;line-height:1.7;">発注書PDF: <a href="${statusUrl.replace("/order/tver/", "/api/tver-order/")}/order-pdf" style="color:#d97f18;">ダウンロード</a>　／　ご署名と初月のお支払いの確認をもって契約が成立します。</td></tr>`),
+      replyTo: HQ.email,
+    });
+  } catch (err) { console.error("[tver-order] order document mail failed:", err instanceof Error ? err.message : err); }
+  logAudit({ action: "tver_order_document_issued", email: actor.email, name: actor.name ?? undefined, entity: "tver_order", entityId: id, detail: `${no} 発注書 ${plan.name}・${input.months}ヶ月 月額${yen(q.mediaFeeExclTax)}` });
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------
+// 1c) お客様が発注書に署名 → 初月の請求（カード＝Square／振込＝MF請求書）
+// ---------------------------------------------------------------
+export type SignTverOrderInput = {
+  token: string;
+  paymentMethod: "CARD" | "BANK_TRANSFER";
+  signerName: string;
+  agreedTerms: boolean;
+  agreedNoGuarantee: boolean;
+  agreedOrder: boolean;
+  postalCode?: string | null;
+  address: string;
+  representativeName: string;
+  industry?: string | null;
+  landingPageUrl?: string | null;
+  notes?: string | null;
+  ip?: string | null;
+  ua?: string | null;
+};
+
+export async function signTverOrder(input: SignTverOrderInput): Promise<{ token?: string; paymentUrl?: string; invoiced?: boolean; error?: string }> {
+  const o = await db.tverOrder.findUnique({ where: { token: input.token } });
+  if (!o) return { error: "申込が見つかりません" };
+  if (o.status !== "ORDER_ISSUED") return { error: o.agreedAt ? "この発注書はご署名済みです" : "発注書はまだ発行されていません" };
+  const signerName = input.signerName.trim().slice(0, 80);
+  const address = input.address.trim().slice(0, 200);
+  const representativeName = input.representativeName.trim().slice(0, 80);
+  if (!input.agreedTerms || !input.agreedNoGuarantee || !input.agreedOrder) return { error: "3つの確認事項すべてにチェックしてください" };
+  if (!signerName) return { error: "ご署名（お名前）を入力してください" };
+  if (!address) return { error: "本店所在地（住所）を入力してください" };
+  if (!representativeName) return { error: "代表者名を入力してください" };
+  if (input.landingPageUrl && !/^https?:\/\//.test(input.landingPageUrl.trim())) return { error: "リンク先URLは http(s):// から入力してください" };
+  const industry = input.industry && (INDUSTRY_OPTIONS as readonly string[]).includes(input.industry) ? input.industry : null;
+  const q = quote(o.mediaFeeExclTax, o.setupFeeExclTax, o.months);
+  const agreedAt = new Date();
+
+  const updated = await db.tverOrder.update({
+    where: { id: o.id },
+    data: {
+      status: "AWAITING_PAYMENT",
+      paymentMethod: input.paymentMethod,
       termsVersion: TERMS_VERSION,
       signerName,
       agreedAt,
       agreedIp: input.ip?.slice(0, 64) ?? null,
       agreedUa: input.ua?.slice(0, 300) ?? null,
+      postalCode: (input.postalCode ?? "").trim().slice(0, 10) || null,
+      address,
+      representativeName,
+      industry,
+      landingPageUrl: input.landingPageUrl?.trim().slice(0, 500) || null,
+      notes: input.notes?.trim().slice(0, 2000) || o.notes,
+      detailsCompletedAt: agreedAt,
       invoices: {
-        create: {
-          seq: 1,
-          amountExclTax: q.firstExclTax,
-          amountInclTax: q.firstInclTax,
-          includesSetupFee: q.setupFeeExclTax > 0,
-          method: input.paymentMethod,
-          dueDate: new Date(agreedAt.getTime() + 7 * DAY),
-        },
+        create: { seq: 1, amountExclTax: q.firstExclTax, amountInclTax: q.firstInclTax, includesSetupFee: q.setupFeeExclTax > 0, method: input.paymentMethod, dueDate: new Date(agreedAt.getTime() + 7 * DAY) },
       },
     },
     include: { invoices: true },
   });
-  const no = orderNumberLabel(order.number, order.createdAt);
-  const inv = order.invoices[0];
-  logAudit({ action: "tver_order_created", email, name: advertiserName, entity: "tver_order", entityId: order.id, ipAddress: input.ip ?? undefined, userAgent: input.ua ?? undefined, detail: `${no} ${input.prefName} ${est.areaLabel} ${plan.name} 月額${yen(q.mediaFeeExclTax)}×${months}ヶ月 初月税込${yen(q.firstInclTax)} ${input.paymentMethod === "CARD" ? "カード" : "振込"} 規約${TERMS_VERSION} 署名=${signerName}${sender ? ` 紹介=${sender.company}` : ""}` });
-
+  const no = orderNumberLabel(updated.number, updated.createdAt);
+  const plan = planByKey(updated.planKey);
+  logAudit({ action: "tver_order_signed", email: updated.email, name: updated.advertiserName, entity: "tver_order", entityId: updated.id, ipAddress: input.ip ?? undefined, userAgent: input.ua ?? undefined, detail: `${no} 発注書に署名 ${plan?.name ?? updated.planKey} 月額${yen(q.mediaFeeExclTax)}×${updated.months}ヶ月 初月税込${yen(q.firstInclTax)} ${input.paymentMethod === "CARD" ? "カード" : "振込"} 規約${TERMS_VERSION} 署名=${signerName}` });
+  const inv = updated.invoices.find((i) => i.seq === 1)!;
   const r = await issueInvoice(inv.id);
-  if (input.paymentMethod === "BANK_TRANSFER") {
-    notifyCeo(
-      `🏦 *TVer申込（振込・月払い）* ${no}\n${advertiserName}（${input.prefName} ${est.areaLabel}・${plan.name}・${months}ヶ月）月額 ${yen(q.mediaFeeExclTax)}・初月税込 ${yen(q.firstInclTax)}\n` +
-        (r.error ? `⚠️ MF請求書を作れませんでした: ${r.error}\n→ 本部画面から再発行してください\n` : `MF請求書 ${r.billingNumber ?? ""} を送付済み。入金が見えたら「入金を確認」で確定\n`) +
-        `👉 ${appUrl()}/dashboard/admin/tver-orders/${order.id}`
-    ).catch(() => {});
-    return { token, invoiced: true };
-  }
-  if (!r.url) return { token, error: "決済ページを用意できませんでした。お手数ですが、しばらくしてから進捗ページの「お支払いへ進む」からやり直してください。" };
-  return { token, paymentUrl: r.url };
+  notifyCeo(
+    `✍️ *TVer 発注書に署名* ${no}\n${updated.advertiserName}（${updated.prefName} ${updated.areaLabel}・${plan?.name ?? updated.planKey}・${updated.months}ヶ月）月額 ${yen(q.mediaFeeExclTax)}・初月税込 ${yen(q.firstInclTax)}・${input.paymentMethod === "CARD" ? "カード" : "振込"}\n` +
+      (input.paymentMethod === "BANK_TRANSFER" ? (r.error ? `⚠️ MF請求書を作れませんでした: ${r.error}\n→ 本部画面から再発行してください\n` : `MF請求書 ${r.billingNumber ?? ""} を送付済み。入金が見えたら「入金を確認」で確定\n`) : "") +
+      `👉 ${appUrl()}/dashboard/admin/tver-orders/${updated.id}`
+  ).catch(() => {});
+  if (input.paymentMethod === "BANK_TRANSFER") return { token: updated.token, invoiced: true };
+  if (!r.url) return { token: updated.token, error: "決済ページを用意できませんでした。お手数ですが、しばらくしてから進捗ページの「お支払いへ進む」からやり直してください。" };
+  return { token: updated.token, paymentUrl: r.url };
 }
 
 // ---------------------------------------------------------------
@@ -294,8 +517,9 @@ export async function confirmInvoicePayment(invoiceId: string, payment: { amount
   logAudit({ action: "tver_order_invoice_paid", email: payment.actorEmail, name: o.advertiserName, entity: "tver_order", entityId: o.id, detail: `${no} ${inv.seq}/${o.months}ヶ月目 ${yen(payment.amount)} ${payment.note}` });
 
   if (inv.seq === 1 && !o.paidAt) {
-    // ── 契約成立
-    const paid = await db.tverOrder.update({ where: { id: o.id }, data: { status: "PAID", paidAt: payment.paidAt, paidAmount: payment.amount, paymentNote: payment.note } });
+    // ── 契約成立（相談からの申込は業態考査が済んでいる＝そのまま動画の受付へ）
+    const consult = isConsultFlow(o);
+    const paid = await db.tverOrder.update({ where: { id: o.id }, data: { status: consult ? "MATERIAL_WAITING" : "PAID", paidAt: payment.paidAt, paidAmount: payment.amount, paymentNote: payment.note } });
     try {
       await sendMail({ to: paid.email, subject: `【Ad Arch】TVer広告 エリア限定プラン お申込みを承りました（${no}）`, html: confirmationMailHtml(paid, sender, statusUrl), replyTo: HQ.email });
     } catch (e) { console.error("[tver-order] mail to advertiser failed:", e instanceof Error ? e.message : e); }
@@ -306,7 +530,7 @@ export async function confirmInvoicePayment(invoiceId: string, payment: { amount
     }
     notifyCeo(
       `💳 *TVer申込 契約成立（初月入金）* ${no}\n${paid.advertiserName}（${paid.prefName} ${paid.areaLabel}・${plan?.name ?? paid.planKey}・${paid.months}ヶ月）月額 ${yen(paid.mediaFeeExclTax)}\n` +
-        `${sender ? `紹介: ${sender.company}\n` : ""}次: お客様の詳細記入（法人番号・住所・代表者）を待って業態考査を申請\n👉 ${appUrl()}/dashboard/admin/tver-orders/${paid.id}`
+        `${sender ? `紹介: ${sender.company}\n` : ""}${consult ? "次: お客様の動画を受け取り、入稿・クリエイティブ考査へ" : "次: お客様の詳細記入（法人番号・住所・代表者）を待って業態考査を申請"}\n👉 ${appUrl()}/dashboard/admin/tver-orders/${paid.id}`
     ).catch(() => {});
     return { ok: true };
   }
@@ -539,18 +763,20 @@ ${row("お支払い方法", o.paymentMethod === "BANK_TRANSFER" ? "銀行振込�
 }
 
 function confirmationMailHtml(o: TverOrder, sender: OrderSender | null, statusUrl: string): string {
+  const consult = isConsultFlow(o);
   const paid = o.paymentMethod === "BANK_TRANSFER" ? "ご入金" : "決済の完了";
   return mailShell(
     `<tr><td style="padding:8px 32px 0;font-size:20px;font-weight:600;line-height:1.5;">お申込みを承りました</td></tr>
 <tr><td style="padding:14px 32px 0;font-size:14px;line-height:1.8;">${esc(o.advertiserName)}<br>${esc(o.contactName)} 様<br><br>このたびはTVer広告 エリア限定プランをお申込みいただき、ありがとうございます。${paid}を確認しましたので、契約が成立しました。</td></tr>
 <tr><td style="padding:20px 32px 0;">${orderTableHtml(o)}</td></tr>
-<tr><td style="padding:20px 32px 0;font-size:14px;font-weight:600;">次にしていただくこと（3分）</td></tr>
-<tr><td style="padding:6px 32px 0;font-size:13px;line-height:1.9;">進捗ページで <b>法人番号・本店所在地・代表者名</b> をご記入ください。TVerの業態考査に必要な情報です。</td></tr>
-<tr><td style="padding:12px 32px 0;font-size:12px;line-height:1.8;color:#6a6a6a;">本メールは契約内容の控えです。${esc(TERMS_TITLE)}（${esc(o.termsVersion)}）に ${esc(o.signerName)} 様が ${esc(fmtDT(o.agreedAt))} に同意され、${o.paymentMethod === "BANK_TRANSFER" ? "ご入金" : "決済"}の確認をもって契約が成立しました。規約全文は進捗ページからいつでも確認できます。</td></tr>
+${consult ? `<tr><td style="padding:20px 32px 0;font-size:14px;font-weight:600;">次にしていただくこと</td></tr>
+<tr><td style="padding:6px 32px 0;font-size:13px;line-height:1.9;">進捗ページから <b>15秒の動画</b> をお送りください（アップロードまたはURLの共有）${o.hasVideo ? "" : "。動画の制作は" + (sender ? esc(sender.company) : HQ.company) + "がご案内します"}。業態考査は済んでいます。</td></tr>` : `<tr><td style="padding:20px 32px 0;font-size:14px;font-weight:600;">次にしていただくこと（3分）</td></tr>
+<tr><td style="padding:6px 32px 0;font-size:13px;line-height:1.9;">進捗ページで <b>法人番号・本店所在地・代表者名</b> をご記入ください。TVerの業態考査に必要な情報です。</td></tr>`}
+<tr><td style="padding:12px 32px 0;font-size:12px;line-height:1.8;color:#6a6a6a;">本メールは契約内容の控えです。${consult ? "発注書および" : ""}${esc(TERMS_TITLE)}（${esc(o.termsVersion)}）に ${esc(o.signerName)} 様が ${o.agreedAt ? esc(fmtDT(o.agreedAt)) : ""} に同意され、${o.paymentMethod === "BANK_TRANSFER" ? "ご入金" : "決済"}の確認をもって契約が成立しました。規約全文は進捗ページからいつでも確認できます。</td></tr>
 <tr><td style="padding:20px 32px 0;font-size:14px;font-weight:600;">その後の流れ</td></tr>
-<tr><td style="padding:6px 32px 0;font-size:13px;line-height:1.9;color:#111;">1）本部がTVerへ業態考査を申請します（2〜5営業日）<br>2）考査が通りましたら、進捗ページから15秒の動画をお送りください${o.hasVideo ? "" : "（動画の制作は" + (sender ? esc(sender.company) : HQ.company) + "がご案内します）"}<br>3）動画の受領から最短10営業日で配信を開始します（${o.months}ヶ月・2ヶ月目以降は毎月、配信開始日の応当日にその月分をご請求します）<br>4）配信終了後、${reportLabel(o.termsVersion)}をお送りします</td></tr>
+<tr><td style="padding:6px 32px 0;font-size:13px;line-height:1.9;color:#111;">${consult ? "" : "1）本部がTVerへ業態考査を申請します（2〜5営業日）<br>"}${consult ? "1）" : "2）考査が通りましたら、"}進捗ページから15秒の動画をお送りください${o.hasVideo ? "" : "（動画の制作は" + (sender ? esc(sender.company) : HQ.company) + "がご案内します）"}<br>${consult ? "2）" : "3）"}動画の受領から最短10営業日で配信を開始します（${o.months}ヶ月・2ヶ月目以降は毎月、配信開始日の応当日にその月分をご請求します）<br>${consult ? "3）" : "4）"}配信終了後、${reportLabel(o.termsVersion)}をお送りします</td></tr>
 <tr><td style="padding:10px 32px 0;font-size:12px;line-height:1.8;color:#6a6a6a;">${esc(TVER_ESTIMATE_NOTE)}</td></tr>
-<tr><td style="padding:24px 32px 8px;"><a href="${statusUrl}" style="display:inline-block;background:#f19834;color:#111;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:3px;font-size:14px;">進捗ページで詳細を記入する</a></td></tr>
+<tr><td style="padding:24px 32px 8px;"><a href="${statusUrl}" style="display:inline-block;background:#f19834;color:#111;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:3px;font-size:14px;">${consult ? "進捗ページで動画を送る" : "進捗ページで詳細を記入する"}</a></td></tr>
 <tr><td style="padding:8px 32px 20px;font-size:12px;color:#6a6a6a;line-height:1.7;">${o.paymentMethod === "BANK_TRANSFER" ? "" : "領収書はSquareから別途メールで届きます。"}${sender ? `ご案内・ご担当: ${esc(sender.company)}${sender.person ? `（${esc(sender.person)}）` : ""}${sender.email ? ` ${esc(sender.email)}` : ""}` : ""}</td></tr>`
   );
 }
@@ -569,7 +795,7 @@ function detailsMailHtml(o: TverOrder, sender: OrderSender | null, statusUrl: st
 function partnerMailHtml(o: TverOrder, no: string, statusUrl: string): string {
   return mailShell(
     `<tr><td style="padding:8px 32px 0;font-size:18px;font-weight:600;">TVer小口申込が確定しました（${esc(no)}）</td></tr>
-<tr><td style="padding:12px 32px 0;font-size:14px;line-height:1.8;">貴社のご案内リンクから、${esc(o.advertiserName)}（ご担当 ${esc(o.contactName)}）のお申込みが決済完了しました。考査・入稿・レポートは本部が進めます。${o.hasVideo ? "" : "<br><b>動画は「なし」で申込されています。制作のご相談を貴社からお願いします。</b>"}</td></tr>
+<tr><td style="padding:12px 32px 0;font-size:14px;line-height:1.8;">貴社のご案内リンクから、${esc(o.advertiserName)}（ご担当 ${esc(o.contactName)}）のお申込みが${o.paidAt ? "決済完了しました" : "進みました"}。考査・入稿・レポートは本部が進めます。${o.hasVideo ? "" : "<br><b>動画は「なし」で申込されています。制作のご相談を貴社からお願いします。</b>"}</td></tr>
 <tr><td style="padding:20px 32px 0;">${orderTableHtml(o)}</td></tr>
 <tr><td style="padding:12px 32px 0;font-size:13px;line-height:1.8;color:#6a6a6a;">連絡先: ${esc(o.email)}　／　${esc(o.phone)}<br>進捗ページ（お客様と同じ画面）: <a href="${statusUrl}" style="color:#d97f18;">${statusUrl}</a></td></tr>
 <tr><td style="padding:16px 32px 24px;font-size:12px;color:#6a6a6a;">OSの「パッケージ ＞ 地域リーチ固定パッケージ」に自社経由の申込一覧があります。</td></tr>`

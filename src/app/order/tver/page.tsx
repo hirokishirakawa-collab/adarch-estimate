@@ -1,6 +1,7 @@
 // ==============================================================
 // TVer広告 エリア限定プラン お申込み（お客様向け・ログイン不要）  /order/tver?from=<拠点ID>
-//   ・エリア → プラン → 広告主 → 規約同意（電子署名） → お支払い（カード or 振込）を1ページで
+//   ・2026-09-14〜 相談の受付: エリア → プラン（目安）→ ご連絡先 → Web面談/電話の希望。お金は発生しない
+//     面談・電話 → 業態考査 → 発注書に署名 → お支払い は進捗ページ（[token]）で
 //   ・?from= の拠点が「商談中の代表」として出る。無ければ本部
 //   ・proxy.ts の matcher で order/ は除外＝認証を通らない
 //   ・デザイン正本＝~/Desktop/05_媒体・提案資料/TVer小口申込_デザイン_2026-09/preview（アストラ生成）
@@ -16,8 +17,8 @@ import { BrandHeader, HeroArt, Icon, LegalFooter, Referrer } from "./shared";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "TVer広告 エリア限定プラン お申込み｜Ad Arch",
-  description: "民放公式のテレビ配信サービス（TVer）で、あなたの街へ15秒のCMを。エリアとプランを選んでWebで申込完了。",
+  title: "TVer広告 エリア限定プラン ご相談・お申込み｜Ad Arch",
+  description: "民放公式のテレビ配信サービス（TVer）で、あなたの街へ15秒のCMを。エリアとプランを選んで、Web面談かお電話でご相談ください。",
   robots: { index: false, follow: false },
 };
 
@@ -45,7 +46,7 @@ export default async function TverOrderPage({ searchParams }: Props) {
               <br />
               エリア限定プラン
               <br />
-              お申込み
+              ご相談・お申込み
             </h1>
             <p className="lead">
               民放公式のテレビ配信サービス（TVer）
@@ -56,8 +57,8 @@ export default async function TverOrderPage({ searchParams }: Props) {
           <HeroArt />
         </div>
         <ul className="benefits">
-          <li><Icon name="clock" /><span>3分で申込完了</span></li>
-          <li><Icon name="payment" /><span>カード決済・銀行振込（月払い）</span></li>
+          <li><Icon name="clock" /><span>Web面談かお電話で内容を確認</span></li>
+          <li><Icon name="payment" /><span>お支払いは発注書のあと（月払い）</span></li>
           <li><Icon name="calendar" /><span>最短10営業日で配信開始</span></li>
         </ul>
       </section>

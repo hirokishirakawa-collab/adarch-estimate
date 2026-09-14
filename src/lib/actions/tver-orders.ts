@@ -2,7 +2,7 @@
 
 // ==============================================================
 // TVer小口申込 — 本部の操作（ADMINだけ。ページ側の判定と二重）
-//   状態を進める／お客様への連絡文／入金の手動確定／MF入金取込／請求書の再発行／返金・取り下げ
+//   相談の段（面談済み→業態考査→発注書）／状態を進める／お客様への連絡文／入金の手動確定／MF入金取込／請求書の再発行／返金・取り下げ
 // ==============================================================
 
 import { revalidatePath } from "next/cache";
@@ -10,7 +10,7 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import type { TverOrderStatus } from "@/generated/prisma/client";
-import { confirmInvoicePayment, issueInvoice, issueNextInvoiceNow, notifyTverOrderStatus, syncBankTransferFromMf } from "@/lib/tver-order/service";
+import { confirmInvoicePayment, issueInvoice, issueNextInvoiceNow, issueOrderDocument, markConsulted, notifyTverOrderStatus, recordPreReview, saveReviewInfo, syncBankTransferFromMf } from "@/lib/tver-order/service";
 import { orderNumberLabel } from "@/lib/tver-order/plans";
 
 const PATH = "/dashboard/admin/tver-orders";
@@ -111,8 +111,55 @@ export async function cancelUnpaidOrders(ids: string[]): Promise<R> {
   if (!info) return { error: "権限がありません" };
   const list = ids.filter((v) => typeof v === "string" && v.length > 0).slice(0, 200);
   if (list.length === 0) return { error: "対象がありません" };
-  const r = await db.tverOrder.updateMany({ where: { id: { in: list }, paidAt: null, status: "AWAITING_PAYMENT" }, data: { status: "CANCELLED" } });
+  const r = await db.tverOrder.updateMany({ where: { id: { in: list }, paidAt: null, status: { in: ["CONSULTING", "PRE_REVIEWING", "ORDER_ISSUED", "AWAITING_PAYMENT"] } }, data: { status: "CANCELLED" } });
   logAudit({ action: "tver_order_bulk_cancelled", email: info.email, name: info.staffName, entity: "tver_order", detail: `${r.count}件を取り下げ（未入金のみ）` });
   revalidatePath(PATH);
   return { ok: true, message: `${r.count}件を取り下げました（入金済みは対象外）` };
+}
+
+// ---------------------------------------------------------------
+// 相談の段（2026-09-14〜）: 面談済み → 業態考査 → 発注書。発注書を出せるのは本部だけ（代表決定）
+// ---------------------------------------------------------------
+function done(id: string) {
+  revalidatePath(PATH);
+  revalidatePath(`${PATH}/${id}`);
+}
+
+/** 面談・電話で確認した（記録を残して業態考査の段へ。考査の情報が未記入ならお客様へ記入のお願いメール） */
+export async function markTverConsulted(id: string, note: string): Promise<R> {
+  const info = await admin();
+  if (!info) return { error: "権限がありません" };
+  const r = await markConsulted(id, note, { email: info.email, name: info.staffName });
+  done(id);
+  return r.ok ? { ok: true, message: "面談済みにしました（業態考査の段へ）" } : { error: r.error };
+}
+
+/** 業態考査の5項目を本部が保存（面談で聞いた内容） */
+export async function saveTverReviewInfo(id: string, fd: FormData): Promise<R> {
+  const info = await admin();
+  if (!info) return { error: "権限がありません" };
+  const s = (k: string) => String(fd.get(k) ?? "").trim();
+  const r = await saveReviewInfo({ id }, { websiteUrl: s("websiteUrl"), corporateNumber: s("corporateNumber"), hasNoCorporateNumber: fd.get("hasNoCorporateNumber") === "on", productName: s("productName"), productUrl: s("productUrl") }, { email: info.email, name: info.staffName });
+  done(id);
+  return r.ok ? { ok: true, message: "業態考査の情報を保存しました" } : { error: r.error };
+}
+
+/** 業態考査を申請した／OK／見送り */
+export async function recordTverPreReview(id: string, step: "SUBMITTED" | "APPROVED" | "REJECTED", note: string): Promise<R> {
+  const info = await admin();
+  if (!info) return { error: "権限がありません" };
+  if (!["SUBMITTED", "APPROVED", "REJECTED"].includes(step)) return { error: "無効な操作です" };
+  const r = await recordPreReview(id, step, note, { email: info.email, name: info.staffName });
+  done(id);
+  if (!r.ok) return { error: r.error };
+  return { ok: true, message: step === "SUBMITTED" ? "業態考査を申請済みにしました" : step === "APPROVED" ? "考査OK。発注書を発行できます" : "見送りにしました（お客様へメール）" };
+}
+
+/** 発注書を発行（プラン・期間・動画の有無は面談の結果で確定。金額はOSの料金で再計算）→ お客様へメール */
+export async function issueTverOrderDocument(id: string, fd: FormData): Promise<R> {
+  const info = await admin();
+  if (!info) return { error: "権限がありません" };
+  const r = await issueOrderDocument(id, { planKey: String(fd.get("planKey") ?? ""), months: Number(fd.get("months") ?? 0), hasVideo: fd.get("hasVideo") === "on" }, { email: info.email, name: info.staffName });
+  done(id);
+  return r.ok ? { ok: true, message: "発注書を発行し、お客様へメールしました" } : { error: r.error };
 }

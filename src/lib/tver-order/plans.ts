@@ -191,18 +191,26 @@ export const approx = (n: number, unit = 100) => `約${(Math.round(n / unit) * u
 
 // ---- 状態の表示（クライアントからも使うので純粋なこのファイルに置く）
 export const TVER_ORDER_STATUS_LABEL: Record<TverOrderStatus, string> = {
-  AWAITING_PAYMENT: "決済待ち",
+  CONSULTING: "相談受付（面談・電話待ち）",
+  PRE_REVIEWING: "業態考査中（お支払い前）",
+  ORDER_ISSUED: "発注書送付（署名待ち）",
+  AWAITING_PAYMENT: "お支払い待ち",
   PAID: "決済完了（考査前）",
   REVIEWING: "考査中",
   MATERIAL_WAITING: "動画の受付中",
   MATERIAL_RECEIVED: "入稿準備中",
   LIVE: "配信中",
   COMPLETED: "配信終了・レポート済",
-  CANCELLED: "取り下げ",
+  CANCELLED: "取り下げ・見送り",
   REFUNDED: "返金済",
 };
 
-/** 進捗ページの5段（決済完了 → 考査 → 動画受付 → 配信 → レポート）。状態→何段目まで済みか */
+/** 相談から始まった申込か（2026-09-14〜）。旧来の「申込＝即決済」の申込は false */
+export function isConsultFlow(o: { consultMethod: string | null }): boolean {
+  return !!o.consultMethod;
+}
+
+/** 進捗ページの段（旧来: 決済完了 → 考査 → 動画受付 → 配信 → レポート）。状態→何段目まで済みか */
 export function progressIndex(status: TverOrderStatus): number {
   switch (status) {
     case "AWAITING_PAYMENT": return -1;
@@ -216,3 +224,17 @@ export function progressIndex(status: TverOrderStatus): number {
   }
 }
 
+/** 相談から始まった申込の段（面談・電話 → 業態考査 → 発注書 → お支払い → 動画・配信 → 結果報告） */
+export const CONSULT_FLOW_STEPS = ["面談・電話", "業態考査", "発注書", "お支払い", "動画・配信", "結果報告"] as const;
+export function consultProgressIndex(status: TverOrderStatus): number {
+  switch (status) {
+    case "CONSULTING": return -1;
+    case "PRE_REVIEWING": return 0;
+    case "ORDER_ISSUED": return 1;
+    case "AWAITING_PAYMENT": return 2;
+    case "PAID": case "REVIEWING": case "MATERIAL_WAITING": case "MATERIAL_RECEIVED": return 3;
+    case "LIVE": return 4;
+    case "COMPLETED": return 5;
+    default: return -1;
+  }
+}

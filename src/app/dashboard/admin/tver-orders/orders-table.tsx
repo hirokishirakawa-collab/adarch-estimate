@@ -26,6 +26,9 @@ const COLS: { key: Key; label: string; num?: boolean }[] = [
 ];
 
 const badge: Record<string, string> = {
+  CONSULTING: "bg-amber-50 text-amber-700",
+  PRE_REVIEWING: "bg-sky-50 text-sky-700",
+  ORDER_ISSUED: "bg-orange-50 text-orange-700",
   AWAITING_PAYMENT: "bg-zinc-100 text-zinc-600",
   PAID: "bg-orange-50 text-orange-700",
   REVIEWING: "bg-sky-50 text-sky-700",
@@ -55,7 +58,7 @@ export function OrdersTable({ rows }: { rows: OrderRow[] }) {
   }, [rows, sort]);
 
   const toggleAll = () => setSel(sel.size === rows.length ? new Set() : new Set(rows.map((r) => r.id)));
-  const unpaidSelected = rows.filter((r) => sel.has(r.id) && r.status === "AWAITING_PAYMENT").length;
+  const unpaidSelected = rows.filter((r) => sel.has(r.id) && ["CONSULTING", "PRE_REVIEWING", "ORDER_ISSUED", "AWAITING_PAYMENT"].includes(r.status)).length;
 
   return (
     <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
@@ -97,7 +100,7 @@ export function OrdersTable({ rows }: { rows: OrderRow[] }) {
               <tr><td colSpan={COLS.length + 2} className="px-3 py-10 text-center text-zinc-400">申込はまだありません</td></tr>
             )}
             {sorted.map((r) => {
-              const todo = r.status === "PAID" && r.detailsDone ? "考査を申請" : r.status === "PAID" ? "お客様の詳細待ち" : r.status === "MATERIAL_RECEIVED" ? "入稿→配信開始" : r.status === "AWAITING_PAYMENT" && r.payment === "振込" ? "入金待ち" : r.status === "LIVE" ? "終了後レポート" : "";
+              const todo = r.status === "CONSULTING" ? "面談・電話で確認" : r.status === "PRE_REVIEWING" ? "業態考査→発注書" : r.status === "ORDER_ISSUED" ? "お客様の署名待ち" : r.status === "PAID" && r.detailsDone ? "考査を申請" : r.status === "PAID" ? "お客様の詳細待ち" : r.status === "MATERIAL_RECEIVED" ? "入稿→配信開始" : r.status === "AWAITING_PAYMENT" && r.payment === "振込" ? "入金待ち" : r.status === "LIVE" ? "終了後レポート" : "";
               return (
                 <tr key={r.id} className="border-t border-zinc-100 hover:bg-zinc-50/60">
                   <td className="px-3 py-2"><input type="checkbox" checked={sel.has(r.id)} onChange={() => setSel((s) => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} /></td>

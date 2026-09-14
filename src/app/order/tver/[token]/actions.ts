@@ -3,6 +3,7 @@
 // TVer小口申込 — 進捗ページの操作（ログイン不要・token で本人性を担保）
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -61,4 +62,62 @@ export async function submitOrderDetails(_prev: DetailsState, formData: FormData
   if (!r.ok) return { error: r.error };
   revalidatePath(`/order/tver/${token}`);
   return { success: true };
+}
+
+/** 業態考査の情報（企業ページ・法人番号・商材名・商材サイト）をお客様が記入する（発注書の前） */
+export type ReviewInfoState = { error?: string; success?: boolean } | null;
+
+export async function submitReviewInfo(_prev: ReviewInfoState, formData: FormData): Promise<ReviewInfoState> {
+  const s = (k: string) => String(formData.get(k) ?? "").trim();
+  const token = s("token");
+  if (!token) return { error: "無効なリンクです" };
+  const { saveReviewInfo } = await import("@/lib/tver-order/service");
+  const r = await saveReviewInfo(
+    { token },
+    { websiteUrl: s("websiteUrl"), corporateNumber: s("corporateNumber"), hasNoCorporateNumber: formData.get("hasNoCorporateNumber") === "on", productName: s("productName"), productUrl: s("productUrl") },
+    { email: "form@order" }
+  );
+  if (!r.ok) return { error: r.error };
+  revalidatePath(`/order/tver/${token}`);
+  return { success: true };
+}
+
+/** 発注書に署名して、初月のお支払いへ（カード＝Square／振込＝請求書） */
+export type SignState = { error?: string } | null;
+
+export async function submitSignature(_prev: SignState, formData: FormData): Promise<SignState> {
+  const s = (k: string) => String(formData.get(k) ?? "").trim();
+  const b = (k: string) => formData.get(k) === "on" || formData.get(k) === "1" || formData.get(k) === "true";
+  const token = s("token");
+  if (!token) return { error: "無効なリンクです" };
+  const h = await headers();
+  const ip = h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || null;
+  const { signTverOrder } = await import("@/lib/tver-order/service");
+  let r: Awaited<ReturnType<typeof signTverOrder>>;
+  try {
+    r = await signTverOrder({
+      token,
+      paymentMethod: s("paymentMethod") === "BANK_TRANSFER" ? "BANK_TRANSFER" : "CARD",
+      signerName: s("signerName"),
+      agreedTerms: b("agreedTerms"),
+      agreedNoGuarantee: b("agreedNoGuarantee"),
+      agreedOrder: b("agreedOrder"),
+      postalCode: s("postalCode") || null,
+      address: s("address"),
+      representativeName: s("representativeName"),
+      industry: s("industry") || null,
+      landingPageUrl: s("landingPageUrl") || null,
+      notes: s("notes") || null,
+      ip,
+      ua: h.get("user-agent"),
+    });
+  } catch (e) {
+    console.error("[order/tver] sign error:", e);
+    return { error: "送信に失敗しました。しばらくしてからもう一度お試しください。" };
+  }
+  if (r.error) return { error: r.error };
+  revalidatePath(`/order/tver/${token}`);
+  if (r.invoiced) redirect(`/order/tver/${token}?invoiced=1`);
+  if (r.paymentUrl) redirect(r.paymentUrl);
+  return { error: "決済ページに進めませんでした" };
 }

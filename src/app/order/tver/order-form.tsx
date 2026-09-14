@@ -1,14 +1,14 @@
 "use client";
 
-// TVer小口申込 — 5ステップの申込フォーム（1ページ・縦積み・右にサマリー）
-//   金額は画面で仮計算し、確定はサーバー（lib/tver-order/service.ts）が正。
+// TVer小口申込 — 相談フォーム（1ページ・縦積み・右にサマリー）
+//   2026-09-14〜 ここではお金は発生しない＝エリア・プランの目安と連絡先・面談の希望だけ受ける。
+//   面談・電話 → 業態考査 → 発注書に署名 → 支払い は進捗ページ（/order/tver/<token>）で。金額の確定は発注書（本部）。
 //   2026-09-13〜 ①市町村プラン: 初回登録費・管理費なし／人口5万人で下限2段・最短期間／月額30万以上のプランは申込を出さず相談へ（計算は lib/tver/plan.ts）
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { TVER_ORDER_PLANS, monthOptionsFor, type OrderMonths, approx, quote, yen, type TverOrderAreaEstimate, type TverOrderPlanKey } from "@/lib/tver-order/plans";
 import { TVER_ESTIMATE_NOTE, TVER_EXTENSION_NOTE } from "@/lib/tver/plan";
-import { TERMS, TERMS_TITLE, TERMS_VERSION } from "@/lib/tver-order/terms";
-import { submitTverOrder, type OrderFormState } from "./actions";
+import { submitTverConsult, type OrderFormState } from "./actions";
 import { Icon } from "./shared";
 import { getAreaEstimate, getMunicipalities, submitMultiAreaConsult, type ConsultState } from "./area-actions";
 
@@ -30,10 +30,10 @@ export function OrderForm(props: {
   const [plan, setPlan] = useState<TverOrderPlanKey>(props.initialEstimate?.defaultPlan ?? "standard");
   const [months, setMonths] = useState<OrderMonths>((props.initialEstimate?.minMonths ?? 3) as OrderMonths);
   const [hasVideo, setHasVideo] = useState(true);
-  const [payment, setPayment] = useState<"CARD" | "BANK_TRANSFER">("CARD");
+  const [method, setMethod] = useState<"WEB" | "PHONE">("WEB");
   const [consultOpen, setConsultOpen] = useState(false);
   const [loading, startLoading] = useTransition();
-  const [state, formAction, isPending] = useActionState<OrderFormState, FormData>(submitTverOrder, null);
+  const [state, formAction, isPending] = useActionState<OrderFormState, FormData>(submitTverConsult, null);
 
   // エリアが変わったら、選べないプラン（まとめた・30万以上）と最短期間未満の期間を直す
   const applyEstimate = (e: TverOrderAreaEstimate | null) => {
@@ -80,9 +80,8 @@ export function OrderForm(props: {
       <nav className="progress" aria-label="申込ステップ">
         <a href="#step-1" aria-current="step"><b>1</b> エリア</a>
         <a href="#step-2"><b>2</b> プラン</a>
-        <a href="#step-3"><b>3</b> 広告主</a>
-        <a href="#step-4"><b>4</b> 契約</a>
-        <a href="#step-5"><b>5</b> お支払い</a>
+        <a href="#step-3"><b>3</b> ご連絡先</a>
+        <a href="#step-4"><b>4</b> ご相談</a>
       </nav>
       <div className="order-layout">
         <main>
@@ -146,7 +145,7 @@ export function OrderForm(props: {
             <section className="step" id="step-2">
               <p className="eyebrow">02 / PLAN</p>
               <h2><Icon name="tv" />プランを選ぶ</h2>
-              <p className="lead">届けたい規模に合わせて選べます。</p>
+              <p className="lead">届けたい規模に合わせて、ご希望のプランをお選びください（金額はご相談のあと発注書で確定します）。</p>
               <fieldset className="plans">
                 <legend className="sr-only">配信プラン</legend>
                 {(est?.plans ?? []).map((e) => {
@@ -220,121 +219,85 @@ export function OrderForm(props: {
               {!hasVideo && (
                 <div className="note">
                   <strong>ご案内</strong>
-                  <p>制作は{props.senderCompany ? `担当の${props.senderCompany}` : "担当拠点"}がご案内します（制作費は別途）。申込はそのまま進められます。</p>
+                  <p>制作は{props.senderCompany ? `担当の${props.senderCompany}` : "担当拠点"}がご案内します（制作費は別途）。ご相談はそのまま進められます。</p>
                 </div>
               )}
             </section>
 
-            {/* ── 3 広告主（決済前は最小限。法人番号・住所・代表者は決済後に進捗ページで） */}
+            {/* ── 3 ご連絡先（業態考査の残り＝法人番号・商材名・商材サイトは面談のあとに） */}
             <section className="step" id="step-3">
-              <p className="eyebrow">03 / ADVERTISER</p>
+              <p className="eyebrow">03 / CONTACT</p>
               <h2><Icon name="company" />会社とご連絡先</h2>
-              <p className="lead">ここでは4項目だけ。法人番号・所在地・代表者名は、お支払い後の進捗ページでご記入いただきます（法人のお客様のみお申込みいただけます）。</p>
+              <p className="lead">法人のお客様のみご利用いただけます。TVerの業態考査に必要な残りの情報は、面談のあとにご案内します。</p>
               <div className="field-grid">
                 <label className="field">会社名<span className="required">必須</span><input type="text" name="advertiserName" required autoComplete="organization" /></label>
                 <label className="field">ご担当者名<span className="required">必須</span><input type="text" name="contactName" required autoComplete="name" /></label>
                 <label className="field">メール<span className="required">必須</span><input type="email" name="email" required autoComplete="email" /></label>
                 <label className="field">電話<span className="required">必須</span><input type="tel" name="phone" required autoComplete="tel" /></label>
               </div>
+              <label className="field">企業ページのURL<span className="required">必須</span><input type="url" name="websiteUrl" required placeholder="https://" autoComplete="url" /></label>
             </section>
 
-            {/* ── 4 契約 */}
+            {/* ── 4 ご相談（Web面談 or 電話） */}
             <section className="step" id="step-4">
-              <p className="eyebrow">04 / AGREEMENT</p>
-              <h2><Icon name="contract" />規約を確認して署名する</h2>
-              <p className="lead">お申込みの前に、全文をご確認ください。</p>
-              <div className="terms" tabIndex={0} aria-label="申込規約全文">
-                <p className="small">{TERMS_TITLE} {TERMS_VERSION}</p>
-                {TERMS.map((a) => (
-                  <div key={a.no}>
-                    <h3>第{a.no}条 {a.title}</h3>
-                    {a.body.map((b, i) => (
-                      <p key={i}>{i + 1}. {b}</p>
-                    ))}
-                  </div>
-                ))}
-              </div>
-              <div className="consents">
-                <label><input type="checkbox" name="agreedTerms" required /> <span>申込規約に同意します</span></label>
-                <label><input type="checkbox" name="agreedNoGuarantee" required /> <span>再生数・到達人数は目安であり、実際の配信結果とは異なる場合があることを理解しました</span></label>
-                <label><input type="checkbox" name="agreedRefund" required /> <span>TVerの考査で出稿不可となった場合は全額返金となることを理解しました</span></label>
-              </div>
-              <label className="field">ご署名（お名前をフルネームで入力）<span className="required">必須</span><input type="text" name="signerName" required /></label>
-              <p className="small">電子署名として、同意日時・IPアドレス・規約の版（{TERMS_VERSION}）を記録します。</p>
-            </section>
-
-            {/* ── 5 お支払い */}
-            <section className="step" id="step-5">
-              <p className="eyebrow">05 / PAYMENT</p>
-              <h2><Icon name="payment" />内容を確認して、お支払い</h2>
-              <p className="lead">お支払いは月払いです。いまお支払いいただくのは初月分だけです（初回登録費・管理費なし）。2ヶ月目以降は配信開始日の応当日にその月分をご請求します。</p>
-              <table className="order-table">
-                <caption>お申込み内容（月払い）</caption>
+              <p className="eyebrow">04 / CONSULTATION</p>
+              <h2><Icon name="calendar" />Web面談かお電話で、内容を確認します</h2>
+              <p className="lead">
+                {props.senderCompany ? `担当の${props.senderCompany}` : "担当"}から、配信の目的・エリア・プラン・動画の有無を確認させていただきます。
+                TVerの業態考査のあと発注書をお送りし、ご署名いただいてからお支払いです。<b>この送信で料金は発生しません。</b>
+              </p>
+              <fieldset className="choices choices-inline">
+                <legend>ご希望の方法</legend>
+                <label><input type="radio" name="consultMethod" value="WEB" checked={method === "WEB"} onChange={() => setMethod("WEB")} /> Web面談（30分ほど）</label>
+                <label><input type="radio" name="consultMethod" value="PHONE" checked={method === "PHONE"} onChange={() => setMethod("PHONE")} /> お電話（15分ほど）</label>
+              </fieldset>
+              <label className="field">ご都合のよい曜日・時間帯<span className="small">任意</span><input type="text" name="consultPreferredTime" placeholder="例: 平日の午後／火・木の10時以降" /></label>
+              <label className="field">ご相談内容<span className="small">任意</span><textarea name="consultMessage" rows={3} placeholder="例: 新しいモデルハウスのオープンを地元に知らせたい" /></label>
+              <table className="order-table" style={{ marginTop: 20 }}>
+                <caption>ご希望の内容（目安）</caption>
                 <thead><tr><th scope="col">項目</th><th scope="col">内容・金額</th></tr></thead>
                 <tbody>
                   <tr><th scope="row">エリア</th><td>{areaLabel}</td></tr>
                   <tr><th scope="row">プラン・契約期間</th><td>{planDef.name}（15秒）・{months}ヶ月</td></tr>
-                  <tr><th scope="row">月額（税抜）</th><td>{yen(q.mediaFeeExclTax)}</td></tr>
+                  <tr><th scope="row">月額（税抜・目安）</th><td>{yen(q.mediaFeeExclTax)}</td></tr>
                   <tr><th scope="row">初回登録費・管理費</th><td>なし</td></tr>
-                  <tr><th scope="row">初月の消費税（10%）</th><td>{yen(q.firstTax)}</td></tr>
-                  <tr><th scope="row">2ヶ月目以降（税込・毎月）</th><td>{yen(q.monthlyInclTax)}</td></tr>
-                  <tr><th scope="row">契約総額（税込・{months}ヶ月）</th><td>{yen(q.contractTotalInclTax)}</td></tr>
+                  <tr><th scope="row">契約総額（税込・{months}ヶ月・目安）</th><td>{yen(q.contractTotalInclTax)}</td></tr>
                 </tbody>
-                <tfoot>
-                  <tr><th scope="row">初月のお支払い<span className="small">（税込）</span></th><td><strong className="total">{yen(q.firstInclTax)}</strong></td></tr>
-                </tfoot>
               </table>
-              <fieldset className="choices choices-inline" style={{ marginTop: 20 }}>
-                <legend>お支払い方法</legend>
-                <label><input type="radio" name="paymentMethod" value="CARD" checked={payment === "CARD"} onChange={() => setPayment("CARD")} /> クレジットカード（Square）</label>
-                <label><input type="radio" name="paymentMethod" value="BANK_TRANSFER" checked={payment === "BANK_TRANSFER"} onChange={() => setPayment("BANK_TRANSFER")} /> 銀行振込（請求書払い）</label>
-              </fieldset>
               {state?.error && (
                 <p id="form-error" className="note" role="alert" style={{ marginTop: 16, color: "var(--pressed)" }}>
                   <strong>送信できませんでした</strong>
                   <br />
                   {state.error}
-                  {state.token && (
-                    <>
-                      <br />
-                      <a href={`/order/tver/${state.token}`}>進捗ページを開く →</a>
-                    </>
-                  )}
                 </p>
               )}
               <button className="button payment-button" type="submit" disabled={isPending || !city || !canOrder}>
-                {isPending ? "送信中…" : payment === "CARD" ? "初月分をカードで支払って申込を確定する" : "初月分の請求書を受け取って申込む"} <span aria-hidden="true">→</span>
+                {isPending ? "送信中…" : `この内容で${method === "WEB" ? "Web面談" : "お電話"}を申し込む`} <span aria-hidden="true">→</span>
               </button>
-              <p className="payment-help">
-                {payment === "CARD" ? (
-                  <>Square の安全な決済画面に移動します<br />初月の決済完了で契約成立・2ヶ月目以降は毎月メールで決済リンクをお送りします</>
-                ) : (
-                  <>初月分の請求書（PDF）をメールでお送りします・お支払い期限は発行から7日<br />ご入金の確認で契約成立・2ヶ月目以降は毎月請求書をお送りします</>
-                )}
-              </p>
-              <h3 className="flow-title">{payment === "CARD" ? "決済後" : "ご入金後"}の流れ</h3>
+              <p className="payment-help">お支払いはまだ発生しません<br />確認メールと、ご相談の状況を見られるページをお送りします</p>
+              <h3 className="flow-title">ご相談のあとの流れ</h3>
               <ol className="after-flow">
-                <li><span>01</span><strong>初月の{payment === "CARD" ? "決済完了" : "入金確認"}</strong><small>契約成立・控えのメールが届きます</small></li>
-                <li><span>02</span><strong>詳細記入 → 考査</strong><small>法人番号・所在地を3分で記入。本部が2〜5営業日で考査申請</small></li>
-                <li><span>03</span><strong>動画の受付 → 配信開始</strong><small>動画受領から最短10営業日・{months}ヶ月配信</small></li>
-                <li><span>04</span><strong><Icon name="report" />結果報告</strong><small>配信終了後に結果を1枚でお届け</small></li>
+                <li><span>01</span><strong>{method === "WEB" ? "Web面談" : "お電話"}で確認</strong><small>目的・エリア・プラン・動画の有無</small></li>
+                <li><span>02</span><strong>業態考査</strong><small>法人番号・商材名などを3分で記入。本部がTVerへ申請</small></li>
+                <li><span>03</span><strong>発注書に署名 → お支払い</strong><small>月払い（カード／銀行振込）・初月のお支払いで契約成立</small></li>
+                <li><span>04</span><strong><Icon name="report" />動画の受付 → 配信 → 結果報告</strong><small>動画受領から最短10営業日で配信開始</small></li>
               </ol>
             </section>
           </form>
         </main>
         <aside className="summary" aria-label="お申込み内容サマリー">
-          <p className="summary-label">お申込み内容</p>
+          <p className="summary-label">ご希望の内容</p>
           <p className="summary-selection">
             <span>{areaLabel}</span>
             <br />
             <b>{planDef.name}・{months}ヶ月</b>
           </p>
           <div aria-live="polite" aria-atomic="true">
-            <span className="small">初月のお支払い（税込）</span>
-            <strong className="summary-total">{yen(q.firstInclTax)}</strong>
+            <span className="small">月額（税抜・目安）</span>
+            <strong className="summary-total">{yen(q.mediaFeeExclTax)}</strong>
           </div>
-          <p className="summary-detail small">{canOrder ? `月額${yen(q.mediaFeeExclTax)}＋消費税。2ヶ月目以降 ${yen(q.monthlyInclTax)}／月` : "このエリアは大規模展開のご相談になります"}</p>
-          <a href="#step-5" className="summary-link">内容・お支払いを確認 <span aria-hidden="true">↓</span></a>
+          <p className="summary-detail small">{canOrder ? `金額はご相談のあと発注書で確定します。この申込で料金は発生しません` : "このエリアは大規模展開のご相談になります"}</p>
+          <a href="#step-4" className="summary-link">面談・お電話を申し込む <span aria-hidden="true">↓</span></a>
         </aside>
       </div>
     </>
