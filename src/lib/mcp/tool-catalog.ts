@@ -13,6 +13,12 @@ import * as ins from "./os-insight-tools";
 import * as camp from "./os-campaign-tools";
 import * as wk from "./os-weekly-tools";
 import * as tv from "./os-tver-tools";
+import * as tva from "./os-tver-apply-tools";
+import {
+  AD_DURATION_OPTIONS, AGE_GROUP_OPTIONS, BUDGET_TYPE_OPTIONS, COMPANION_MOBILE_OPTIONS, COMPANION_PC_OPTIONS, DEMOGRAPHIC_OPTIONS,
+  DEVICE_OPTIONS, GENDER_TARGET_OPTIONS, GENRE_EXCLUDE_OPTIONS, GENRE_OPTIONS, INCOME_OPTIONS, INTEREST_OPTIONS,
+  SUB_GENRE_EXCLUDE_OPTIONS, TV_VIEWING_OPTIONS,
+} from "@/lib/constants/tver-campaign";
 import { createLocalCampaign } from "@/lib/meta-ads/local-campaign";
 import { resolveMetaConfig } from "@/lib/meta-ads/account";
 import { appUrl } from "@/lib/tver-order/service";
@@ -45,6 +51,41 @@ const def = <A extends z.ZodObject>(d: OsToolDef<A>): OsToolDef => d as unknown 
  */
 const bool = () =>
   z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean());
+
+/** TVer配信申請の選択肢（画面の TverCampaignForm と同じ値）。説明に「値=表示名」を載せてAIに選ばせる */
+const optEnum = (opts: readonly { value: string; label: string }[]) =>
+  z.enum(opts.map((o) => o.value) as [string, ...string[]]);
+const optList = (opts: readonly { value: string; label: string }[]) => opts.map((o) => `${o.value}=${o.label}`).join(" / ");
+
+const TVER_CAMPAIGN_INPUT = z.object({
+  advertiserId: z.string().describe("tver_applications の advertisers で canApplyCampaign: true の advertiserId"),
+  campaignName: z.string().describe("キャンペーン名（例: ○○工務店 高松・丸亀 秋キャンペーン）"),
+  budgetJpy: z.number().int().describe("広告予算（円・税抜）"),
+  startDate: z.string().describe("配信開始日 YYYY-MM-DD"),
+  endDate: z.string().describe("配信終了日 YYYY-MM-DD"),
+  budgetType: optEnum(BUDGET_TYPE_OPTIONS).describe(optList(BUDGET_TYPE_OPTIONS)),
+  areas: z.array(z.object({
+    prefecture: z.string().describe("例: 香川県"),
+    city: z.string().optional().describe("省略で県全体。例: 高松市／札幌市（=全区）／札幌市北区。TVer配信エリアの市区町村名"),
+  })).min(1).max(500).describe("配信エリア。複数の市区町村・県をまたいだ組み合わせ・県全体との混在ができる"),
+  adDurations: z.array(optEnum(AD_DURATION_OPTIONS)).optional().describe(`広告の秒数（既定 15）: ${optList(AD_DURATION_OPTIONS)}`),
+  devices: z.array(optEnum(DEVICE_OPTIONS)).optional().describe(`既定は全デバイス: ${optList(DEVICE_OPTIONS)}`),
+  genderTarget: optEnum(GENDER_TARGET_OPTIONS).optional().describe(optList(GENDER_TARGET_OPTIONS)),
+  ageGroups: z.array(optEnum(AGE_GROUP_OPTIONS)).optional().describe(`年齢（省略で指定なし）: ${optList(AGE_GROUP_OPTIONS)}`),
+  interests: z.array(optEnum(INTEREST_OPTIONS)).optional().describe(`興味関心: ${optList(INTEREST_OPTIONS)}`),
+  incomes: z.array(optEnum(INCOME_OPTIONS)).optional().describe(`世帯年収: ${optList(INCOME_OPTIONS)}`),
+  tvViewings: z.array(optEnum(TV_VIEWING_OPTIONS)).optional().describe(`テレビ視聴傾向: ${optList(TV_VIEWING_OPTIONS)}`),
+  demographics: z.array(optEnum(DEMOGRAPHIC_OPTIONS)).optional().describe(`デモグラフィック: ${optList(DEMOGRAPHIC_OPTIONS)}`),
+  genres: z.array(optEnum(GENRE_OPTIONS)).optional().describe(`配信するジャンル: ${optList(GENRE_OPTIONS)}`),
+  genreExcludes: z.array(optEnum(GENRE_EXCLUDE_OPTIONS)).optional().describe(`除外ジャンル: ${optList(GENRE_EXCLUDE_OPTIONS)}`),
+  subGenreExcludes: z.array(optEnum(SUB_GENRE_EXCLUDE_OPTIONS)).optional().describe(`除外サブジャンル: ${optList(SUB_GENRE_EXCLUDE_OPTIONS)}`),
+  frequency: z.object({
+    period: z.number().int().optional(), weekly: z.number().int().optional(), daily: z.number().int().optional(), hourly: z.number().int().optional(),
+  }).optional().describe("フリークエンシーキャップ（期間/1週間/1日/1時間あたりの回数）"),
+  companionMobile: optEnum(COMPANION_MOBILE_OPTIONS).optional().describe(optList(COMPANION_MOBILE_OPTIONS)),
+  companionPc: optEnum(COMPANION_PC_OPTIONS).optional().describe(optList(COMPANION_PC_OPTIONS)),
+  landingPageUrl: z.string().optional().describe("クリック先のURL（任意）"),
+});
 
 export const UI_DEAL_CARD = "ui://adarch-os/deal-card.html";
 export const UI_NEXT_ACTIONS = "ui://adarch-os/next-actions.html";
@@ -112,6 +153,18 @@ export const OS_READ_TOOLS: OsToolDef[] = [
     description: "グループ全社のTVer配信実績を「どの規模の市町村（人口帯）で・月いくら打つと（月額帯）・どうなったか（30日あたり表示回数・到達人数・住民比・完全視聴率・CTR・年齢/デバイス構成）」で引く。提案前・見積前・『効果はどのくらい？』『この市で月◯万だとどれくらい？』に呼ぶ。市名か人口と、想定の月額を渡すと近い帯の実績だけを返す。他拠点の案件は広告主名を伏せ金額は帯だけ＝比率と規模を『型』として借りる。",
     input: z.object({ industry: z.string().optional().describe("例: 建設 / 歯科 / 飲食"), prefecture: z.string().optional().describe("例: 福岡県"), city: z.string().optional().describe("例: 久留米市（prefecture と一緒に。人口をマスターから引く）"), population: z.number().int().optional().describe("商圏の人口を直接渡す時"), monthlyBudget: z.number().int().optional().describe("想定の月額（税抜・円）。近い月額帯の実績に絞る"), adSeconds: z.number().int().optional().describe("15 / 30 / 60"), limit: z.number().int().optional().describe("既定12・最大30") }),
     run: (v, a) => tv.tverBenchmarks(v, a),
+  }),
+  def({
+    name: "tver_applications", kind: "read", title: "TVerの業態考査・配信申請の状況",
+    description: "自拠点（本部は全社）のTVer業態考査（広告主の承認状況）と配信申請（本部の審査状況・エリア・期間・予算）を新しい順に返す。配信申請を出す前に、広告主が APPROVED か（canApplyCampaign）をここで確かめる。未申請・REJECTED なら submit_advertiser_review から。",
+    input: z.object({ limit: z.number().int().optional().describe("既定20・最大50") }),
+    run: (v, a) => tva.tverApplications(v, a),
+  }),
+  def({
+    name: "preview_tver_campaign", kind: "read", title: "TVer配信申請の下見（保存しない）",
+    description: "submit_tver_campaign と同じ入力で、画面と同じチェックだけを通し、エリアをTVer正本の区分に直した一覧（市区町村ごとの人口・合計人口）・期間・予算・ターゲティングを返す。保存も通知もしない。エリア名の誤り・曖昧さは候補つきで返るので直して呼び直す。結果を本人に見せてOKをもらってから submit_tver_campaign。",
+    input: TVER_CAMPAIGN_INPUT,
+    run: (v, a) => tva.previewTverCampaign(v, a as tva.TverCampaignToolInput),
   }),
   def({
     name: "search_wiki", kind: "read", title: "本部Wikiを検索",
@@ -235,6 +288,31 @@ export const OS_READ_TOOLS: OsToolDef[] = [
 // ---------------- 書き込み ----------------
 
 export const OS_WRITE_TOOLS: OsToolDef[] = [
+  def({
+    name: "submit_advertiser_review", kind: "write", title: "TVer業態考査を申請する",
+    description: "TVerに出したい広告主の業態考査を本部に申請する（OS画面の「業態考査申請」と同じ・本部にメール通知）。承認は本部が画面で行い、申請者にメールが届く。法人番号は13桁（無い場合は hasNoCorporateNumber: true）。同じ名前で審査中・承認済みがあれば止まる。承認後に submit_tver_campaign。",
+    input: z.object({
+      name: z.string().describe("広告主様名（正式名称）"),
+      websiteUrl: z.string().describe("企業ページのURL"),
+      productUrl: z.string().describe("広告する商材・サービスのページURL"),
+      corporateNumber: z.string().optional().describe("法人番号（13桁の数字）"),
+      hasNoCorporateNumber: bool().optional().describe("法人番号が無い（個人事業主など）"),
+      desiredStartDate: z.string().optional().describe("広告展開の希望日 YYYY-MM-DD"),
+      remarks: z.string().optional().describe("本部への備考（業種・訴求内容など）"),
+    }),
+    run: (v, a) => tva.submitAdvertiserReview(v, a),
+    confirm: (a) => `TVer業態考査を本部に申請します: ${a.name}（${a.hasNoCorporateNumber ? "法人番号なし" : `法人番号 ${a.corporateNumber ?? "未入力"}`}）`,
+  }),
+  def({
+    name: "submit_tver_campaign", kind: "write", title: "TVer配信を申請する",
+    description: "承認済みの広告主（tver_applications で canApplyCampaign: true）のTVer配信を本部に申請する（OS画面の「TVer配信を申請する」と同じチェック・本部にメール通知）。エリアは areas に都道府県＋市区町村の名前で複数渡す（県をまたぐ組み合わせ・政令市の全区・県全体との混在OK）。どの市を組むかは tver_area_plan(prefecture, allCities: true) と tver_benchmarks で決め、先に preview_tver_campaign で中身を本人に見せてから呼ぶ。本部の審査結果は tver_applications で確かめる。",
+    input: TVER_CAMPAIGN_INPUT,
+    run: (v, a) => tva.submitTverCampaign(v, a as tva.TverCampaignToolInput),
+    confirm: (a) => {
+      const areas = (a.areas as { prefecture: string; city?: string }[]).map((x) => (x.city ? `${x.prefecture}${x.city}` : `${x.prefecture}全体`));
+      return `TVer配信を本部に申請します: 「${a.campaignName}」¥${Number(a.budgetJpy).toLocaleString("ja-JP")}（税抜）・${a.startDate}〜${a.endDate}・エリア${areas.length}件（${areas.slice(0, 8).join("、")}${areas.length > 8 ? " ほか" : ""}）`;
+    },
+  }),
   def({
     name: "log_activity", kind: "write", title: "活動を記録（会話の要約を残す）",
     description: "電話・メール・訪問・Web会議・その他のやり取りを、顧客（customerId）または商談（dealId）に1件記録する。会話で営業のやり取りが出たら、相手・要点・次の一手を3〜8行にまとめて残す。type: CALL / EMAIL / VISIT / MEETING / OTHER。occurredAt は YYYY-MM-DD（省略で今日）。",
@@ -427,5 +505,6 @@ export const OS_AI_RULES =
   "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。探しても見つからない・OSの動きがおかしいときは、同じ言葉で引き直さず ask_hq(subject, detail) で本部に届ける。媒体の仕様・配信面・条件・他社の提案の仕組みは search_knowledge（資料ライブラリ）で引き、返った rules（自社=そのまま／他社・媒体=価格は卸値・実績は他社分）を必ず守る。" +
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。TVerの提案・見積・『効果はどのくらい？』『この市で月◯万だとどれくらい？』には tver_benchmarks(prefecture, city, monthlyBudget, industry) を先に呼び、matrix（人口帯×月額帯→30日あたり表示回数・到達人数・住民比・完全視聴率）を「目安・税抜」で添える。配信済みのお客様への報告は tver_results(reportId) の数字をそのまま使う（盛らない）。" +
   "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。メールが無い相手は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）をそのまま人に渡す＝AIがフォームに投稿しない。送れない相手（画像認証・フォームなし）は record_lead_result(leadId, phoneCandidate: true, note: 理由) で電話候補に回す。選別の結果（対象外・電話候補）は1件ずつではなく record_lead_results(items) でまとめて記録する。どの市から当たるか迷ったら tver_area_plan(prefecture, allCities: true) を1回。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad。" +
+  "「TVerの配信申請を出したい」「このお客様でTVerを申請して」には、tver_applications で広告主の業態考査を確かめ、無ければ submit_advertiser_review（本部の承認待ちになる）、承認済みなら tver_area_plan(prefecture, allCities: true) と tver_benchmarks で組み合わせる市区町村と予算を決め、preview_tver_campaign でエリア一覧・人口・期間・予算・ターゲティングを本人に見せてOKをもらってから submit_tver_campaign で申請する。" +
   "「週次を出して」「今週の週次」「本部への週次共有」には my_week を1回呼び、返った記録だけから 声かけ数・返事数・いちばん近い受注候補 を埋めて本人に見せ、先週の『次の一手』が動いたか（DONE/PARTIAL/NOT）と 本部に頼みたいこと（hqRequest）を本人に選んでもらってから submit_weekly_share で提出する（OSに無い声かけは本人に聞いて足す。盛らない）。" +
   "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注が決まったら update_deal(status: CLOSED_WON) で受注にし、set_closing_factor で決め手を残す。";

@@ -10,9 +10,19 @@ import {
   getCompanionMobileLabel,
   getCompanionPcLabel,
   getFreqCapUnitLabel,
-  getAreaLabel,
   getGenderTargetLabel,
+  AD_DURATION_OPTIONS,
+  DEVICE_OPTIONS,
+  AGE_GROUP_OPTIONS,
+  INTEREST_OPTIONS,
+  INCOME_OPTIONS,
+  TV_VIEWING_OPTIONS,
+  DEMOGRAPHIC_OPTIONS,
+  GENRE_OPTIONS,
+  GENRE_EXCLUDE_OPTIONS,
+  SUB_GENRE_EXCLUDE_OPTIONS,
 } from "@/lib/constants/tver-campaign";
+import { areaPopulation, describeAreas } from "@/lib/tver-campaign/submit";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -26,6 +36,41 @@ function fmtDate(d: Date | null | undefined): string {
 function fmtBudget(v: unknown): string {
   const n = Number(v);
   return isNaN(n) ? "—" : `¥${n.toLocaleString("ja-JP")}`;
+}
+
+type Opt = readonly { value: string; label: string }[];
+const labels = (opts: Opt, v: unknown) =>
+  Array.isArray(v) && v.length > 0 ? v.map((x) => opts.find((o) => o.value === x)?.label ?? String(x)).join("、") : null;
+
+/** settings(JSON) → 表示行。指定のない項目は出さない */
+function settingRows(settings: unknown): [string, string][] {
+  if (!settings || typeof settings !== "object") return [];
+  const s = settings as Record<string, unknown>;
+  const f = (s.frequency ?? {}) as Record<string, number | null>;
+  const freq = [
+    f.period && `期間 ${f.period}回`, f.weekly && `1週間 ${f.weekly}回`, f.daily && `1日 ${f.daily}回`, f.hourly && `1時間 ${f.hourly}回`,
+  ].filter(Boolean).join(" / ");
+  const hourly = s.hourlyRatios && typeof s.hourlyRatios === "object"
+    ? Object.entries(s.hourlyRatios as Record<string, number>).map(([h, r]) => `${h.padStart(2, "0")}時 ${r}%`).join("、")
+    : null;
+  const rows: [string, string | null][] = [
+    ["広告再生時間", labels(AD_DURATION_OPTIONS, s.adDurations)],
+    ["デバイス", labels(DEVICE_OPTIONS, s.devices)],
+    ["年齢", labels(AGE_GROUP_OPTIONS, s.ageGroups)],
+    ["デモグラフィック", labels(DEMOGRAPHIC_OPTIONS, s.demographics)],
+    ["興味関心", labels(INTEREST_OPTIONS, s.interests)],
+    ["世帯年収", labels(INCOME_OPTIONS, s.incomes)],
+    ["テレビ視聴傾向", labels(TV_VIEWING_OPTIONS, s.tvViewings)],
+    ["ジャンル", labels(GENRE_OPTIONS, s.genres)],
+    ["除外ジャンル", labels(GENRE_EXCLUDE_OPTIONS, s.genreExcludes)],
+    ["除外サブジャンル", labels(SUB_GENRE_EXCLUDE_OPTIONS, s.subGenreExcludes)],
+    ["フリークエンシー（詳細）", freq || null],
+    ["時間毎予算割合", hourly],
+    ["日予算の設定", s.dailyBudget ? "あり" : null],
+    ["配信最終日の日予算", s.lastDayBudget ? "あり" : null],
+    ["申請経路", s.via === "AI" ? "AI連携" : null],
+  ];
+  return rows.filter((r): r is [string, string] => !!r[1]);
 }
 
 export default async function TverCampaignDetailPage({ params }: Props) {
@@ -114,22 +159,36 @@ export default async function TverCampaignDetailPage({ params }: Props) {
               <td className="px-5 py-3">
                 {campaign.areas.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
-                    {campaign.areas.map((code) => (
+                    {describeAreas(campaign.areas).map((a) => (
                       <span
-                        key={code}
+                        key={a.label}
                         className="inline-flex items-center px-2 py-0.5 text-[11px]
                                    font-medium rounded-full bg-blue-50 text-blue-700
                                    border border-blue-200"
                       >
-                        {getAreaLabel(code)}
+                        {a.label}
                       </span>
                     ))}
+                    <span className="w-full text-[11px] text-zinc-400">
+                      人口 計{areaPopulation(campaign.areas).toLocaleString("ja-JP")}人（住民基本台帳 2025年1月1日）
+                    </span>
                   </div>
                 ) : (
                   <span className="text-sm text-zinc-400">未設定</span>
                 )}
               </td>
             </tr>
+
+            {/* ターゲティング・配信設定（申請フォーム／AI連携の settings） */}
+            {settingRows(campaign.settings).map(([label, value]) => (
+              <tr key={label}>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-zinc-500
+                               whitespace-nowrap bg-zinc-50 align-top">
+                  {label}
+                </th>
+                <td className="px-5 py-3 text-sm text-zinc-800">{value}</td>
+              </tr>
+            ))}
 
             {/* LP URL */}
             {campaign.landingPageUrl && (

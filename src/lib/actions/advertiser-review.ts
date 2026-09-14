@@ -3,11 +3,8 @@
 import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import {
-  sendAdvertiserReviewCreatedNotification,
-  sendAdvertiserReviewResultNotification,
-} from "@/lib/notifications";
-import { validateCorporateNumber } from "@/lib/constants/advertiser-review";
+import { sendAdvertiserReviewResultNotification } from "@/lib/notifications";
+import { createAdvertiserReviewRecord } from "@/lib/tver-campaign/submit";
 import type { Prisma } from "@/generated/prisma/client";
 import { getSessionInfo, getBranchFilter } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
@@ -30,48 +27,14 @@ export async function createAdvertiserReview(
   const desiredStartDateRaw  = (formData.get("desiredStartDate")     as string)?.trim() || null;
   const remarks              = (formData.get("remarks")              as string)?.trim() || null;
 
-  // バリデーション
-  if (!name)       return { error: "広告主様名を入力してください" };
-  if (!websiteUrl) return { error: "企業ページURLを入力してください" };
-  if (!productUrl) return { error: "商材サイトURLを入力してください" };
-
-  const corpValidation = validateCorporateNumber(corporateNumber ?? undefined, hasNoCorporateNumber);
-  if (corpValidation !== true) return { error: corpValidation };
-
   const desiredStartDate = desiredStartDateRaw ? new Date(desiredStartDateRaw) : null;
-  if (desiredStartDate && isNaN(desiredStartDate.getTime()))
-    return { error: "広告展開希望日の形式が正しくありません" };
 
-  let createdId: string;
-  try {
-    const created = await db.advertiserReview.create({
-      data: {
-        name,
-        websiteUrl,
-        corporateNumber:      hasNoCorporateNumber ? null : corporateNumber,
-        hasNoCorporateNumber,
-        productUrl,
-        desiredStartDate,
-        remarks,
-        createdById:  info.userId,
-        creatorEmail: info.email,
-        branchId:     info.branchId as string,
-      },
-    });
-    createdId = created.id;
-    logAudit({ action: "advertiser_review_created", email: info.email, name: info.staffName, entity: "advertiser_review", entityId: created.id, detail: name });
-  } catch (e) {
-    console.error("[createAdvertiserReview] DB error:", e instanceof Error ? e.message : e);
-    return { error: "保存に失敗しました" };
-  }
-
-  // 管理者へ通知
-  sendAdvertiserReviewCreatedNotification({
-    reviewId:    createdId,
-    advertiserName: name,
-    staffName:   info.staffName,
-    productUrl,
-  }).catch((e) => console.error("[createAdvertiserReview] notification error:", e));
+  // チェック・保存・本部への通知は AI連携と共通
+  const result = await createAdvertiserReviewRecord(
+    { userId: info.userId, email: info.email, staffName: info.staffName, branchId: info.branchId as string },
+    { name, websiteUrl, productUrl, corporateNumber, hasNoCorporateNumber, desiredStartDate, remarks }
+  );
+  if (!result.ok) return { error: result.error };
 
   revalidatePath("/dashboard/tver-review");
   redirect("/dashboard/tver-review");
