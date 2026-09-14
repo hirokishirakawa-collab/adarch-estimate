@@ -74,7 +74,8 @@ function isBlockedIp(ip: string): boolean {
 const BLOCKED_PATH_PATTERNS: RegExp[] = [
   // 環境変数・機密ファイル
   /\.env($|\.)/, // .env, .env.local, .env.production, .env.save 等
-  /\/(credentials|secrets|private[_-]?key|id_rsa)/i,
+  // 資格バッジ /dashboard/learning/credentials だけは除外（2026-09-14 まで403で開けなかった）
+  /^(?!\/dashboard\/learning\/credentials\/?$).*\/(credentials|secrets|private[_-]?key|id_rsa)/i,
   /\/auth\.json$/,
   /\/google-services\.json$/,
   // バージョン管理・OS
