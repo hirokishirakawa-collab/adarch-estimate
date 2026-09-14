@@ -34,6 +34,7 @@ const HARDCODED_BLOCKED_IPS = new Set([
   "45.148.10.21",  // 2026-04-20 .env/credentials スキャンボット
   "45.88.138.44",  // 2026-05-17 設定ファイル探索ボット (pip.conf, .terraform, .vercel など)
   "146.190.63.248", // 2026-05-17 leakix.net 公開スキャナー (DigitalOcean)
+  "34.23.247.225", // 2026-09-14 設定ファイル探索ボット（UAをAIクローラーに偽装・毎回変える）
 ]);
 
 /** 環境変数からの追加ブロックIP（カンマ区切り） */
@@ -107,6 +108,14 @@ const BLOCKED_PATH_PATTERNS: RegExp[] = [
   /\/actuator(\/|$)/i,        // Spring Boot Actuator
   /\/_profiler(\/|$)/i,       // Symfony / Laravel
   /\/server-status$/i,        // Apache mod_status
+  // 鍵・設定ファイル探索（2026-09-14 34.23.247.225 攻撃由来）
+  /\/(env|firebase-config|service[_-]?account)\.(js|json)$/i,
+  /\/(serverless\.ya?ml|rclone\.conf)$/i,
+  /\/\.idea(\/|$)/i,
+  /\/debug\/vars$/i,
+  /\/_payload\.json$/i,       // Nuxt のペイロード探索（OSはNext.js）
+  /\.(php|bak|old|orig|swp)~$/i, // wp-config.php~ などエディタのバックアップ名
+  /^\/api\/v\d+\/config$/i,
 ];
 
 // ----------------------------------------------------------------
@@ -177,6 +186,27 @@ const ALERT_ACTIONS = new Set([
   "unauthorized_access",
 ]);
 
+/**
+ * Chat通知の間引き: 同じIP×同じ種類は10分に1通（監査ログは毎回記録する）
+ * 2026-09-14 スキャンボット1台で数十通が一度に届いたため
+ */
+const ALERT_COOLDOWN_MS = 10 * 60_000;
+const lastAlertAt = new Map<string, number>();
+
+function shouldSendAlert(action: string, ip: string): boolean {
+  const now = Date.now();
+  const key = `${action}:${ip}`;
+  const last = lastAlertAt.get(key);
+  if (last !== undefined && now - last < ALERT_COOLDOWN_MS) return false;
+  lastAlertAt.set(key, now);
+  if (lastAlertAt.size > 100) {
+    for (const [k, t] of lastAlertAt) {
+      if (now - t >= ALERT_COOLDOWN_MS) lastAlertAt.delete(k);
+    }
+  }
+  return true;
+}
+
 /** セキュリティ通知先スペース */
 const SECURITY_CHAT_SPACE_ID = process.env.SECURITY_CHAT_SPACE_ID ?? "AAQAxSqou_g";
 
@@ -205,7 +235,7 @@ async function recordSecurityEvent(
   }
 
   // 2. 重要イベントは Google Chat に即時通知
-  if (ALERT_ACTIONS.has(action)) {
+  if (ALERT_ACTIONS.has(action) && shouldSendAlert(action, ipAddress)) {
     try {
       const { sendChatMessage } = await import("@/lib/google-chat");
       const labels: Record<string, string> = {
@@ -220,6 +250,7 @@ async function recordSecurityEvent(
         `ユーザー: ${email ?? "anonymous"}`,
         `詳細: ${detail}`,
         `UA: ${userAgent.slice(0, 100)}`,
+        `（以後10分間はこのIPの同じ通知を止めます・記録は監査ログに残ります）`,
       ].join("\n");
       await sendChatMessage(SECURITY_CHAT_SPACE_ID, text);
     } catch {
