@@ -119,6 +119,8 @@ export async function createDeal(
         data: {
           title,
           status: status as DealStatus,
+          // 受注・失注のまま作ったときも受注日を残す（ライブ・朝のまとめ・お祝いは受注日で拾う＝2026-09-14）
+          ...(status === "CLOSED_WON" || status === "CLOSED_LOST" ? { closedAt: new Date() } : {}),
           amount: amount ?? null,
           probability,
           expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : null,
