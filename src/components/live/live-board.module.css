@@ -24,3 +24,10 @@
 .eventWon:hover,.eventWon.eventActive{background:linear-gradient(90deg,#214631,#152a20)}
 .eventPositive:hover,.eventPositive.eventActive{background:linear-gradient(90deg,#3e321f,#251f17)}
 @media(max-width:640px){.statsHeading{margin-top:18px}.statValue{font-size:32px}.statToday{font-size:10px}}
+
+/* Let the map determine the shared row height, then fill it with scrollable activity. */
+@media(min-width:641px){
+  .feedPanel{display:flex;flex-direction:column;min-height:0}
+  .feedPanel .panelHead{flex:none}
+  .feedList,.compact .feedList{height:0;min-height:0;max-height:none;flex:1 1 0}
+}
