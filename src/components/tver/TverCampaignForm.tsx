@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useMemo, useState, useTransition } from "react";
+import { MUNICIPALITIES } from "@/data/tver-municipalities";
 import { Loader2, Search, X, ExternalLink } from "lucide-react";
 import { getApprovedAdvertiserById } from "@/lib/actions/advertiser-review";
 import {
@@ -20,6 +21,9 @@ import {
   INCOME_OPTIONS,
   TV_VIEWING_OPTIONS,
   DEMOGRAPHIC_OPTIONS,
+  TVER_PREFECTURES,
+  prefLabelOf,
+  municipalityOf,
 } from "@/lib/constants/tver-campaign";
 
 type Advertiser = { id: string; name: string; productUrl: string };
@@ -87,11 +91,22 @@ export function TverCampaignForm({ action, advertisers }: Props) {
     });
   }
 
+  // 県を丸ごと選んだら、その県の市区町村指定は重複になるので外す
+  function dropMunicipalitiesOf(next: Set<string>, prefCode: string) {
+    const prefName = prefLabelOf(prefCode);
+    for (const c of [...next]) {
+      if (municipalityOf(c)?.prefName === prefName) next.delete(c);
+    }
+  }
+
   function toggleArea(code: string) {
     setSelectedAreas((prev) => {
       const next = new Set(prev);
       if (next.has(code)) next.delete(code);
-      else next.add(code);
+      else {
+        next.add(code);
+        dropMunicipalitiesOf(next, code);
+      }
       return next;
     });
   }
@@ -102,7 +117,10 @@ export function TverCampaignForm({ action, advertisers }: Props) {
       const allSelected = areas.every((a) => next.has(a.code));
       for (const a of areas) {
         if (allSelected) next.delete(a.code);
-        else next.add(a.code);
+        else {
+          next.add(a.code);
+          dropMunicipalitiesOf(next, a.code);
+        }
       }
       return next;
     });
@@ -112,6 +130,64 @@ export function TverCampaignForm({ action, advertisers }: Props) {
     const all = TVER_AREA_GROUPS.flatMap((g) => g.areas.map((a) => a.code));
     setSelectedAreas(new Set(all));
   }
+
+  // ── 市区町村で細かく指定（TVer正本の市区町村マスター）
+  const [muniPref, setMuniPref]   = useState("");
+  const [muniQuery, setMuniQuery] = useState("");
+  const muniPrefCode = TVER_PREFECTURES.find((a) => a.label === muniPref)?.code ?? "";
+  const muniPrefWhole = muniPrefCode !== "" && selectedAreas.has(muniPrefCode);
+
+  /** 県内の選択肢。政令市は「○○市（全区）」を先頭に置き、区のコードをまとめて付け外しする。人口順 */
+  const muniOptions = useMemo(() => {
+    if (!muniPref) return [];
+    const rows = MUNICIPALITIES.filter((m) => m.prefName === muniPref && m.population > 0);
+    const wards = new Map<string, { codes: string[]; population: number }>();
+    for (const m of rows) {
+      const w = /^(.+市).+区$/.exec(m.name);
+      if (!w) continue;
+      const g = wards.get(w[1]) ?? { codes: [], population: 0 };
+      g.codes.push(m.code);
+      g.population += m.population;
+      wards.set(w[1], g);
+    }
+    return [
+      ...[...wards.entries()].map(([city, g]) => ({ key: `group:${city}`, name: `${city}（全区）`, codes: g.codes, population: g.population })),
+      ...rows.map((m) => ({ key: m.code, name: m.name, codes: [m.code], population: m.population })),
+    ].sort((a, b) => b.population - a.population);
+  }, [muniPref]);
+
+  const muniVisible = muniQuery.trim()
+    ? muniOptions.filter((o) => o.name.includes(muniQuery.trim()))
+    : muniOptions;
+
+  function toggleMunicipality(codes: string[]) {
+    setSelectedAreas((prev) => {
+      const next = new Set(prev);
+      const allSelected = codes.every((c) => next.has(c));
+      for (const c of codes) {
+        if (allSelected) next.delete(c);
+        else next.add(c);
+      }
+      return next;
+    });
+  }
+
+  function setMunicipalities(codes: string[], on: boolean) {
+    setSelectedAreas((prev) => {
+      const next = new Set(prev);
+      for (const c of codes) {
+        if (on) next.add(c);
+        else next.delete(c);
+      }
+      return next;
+    });
+  }
+
+  const selectedPrefCount = [...selectedAreas].filter((c) => prefLabelOf(c) !== undefined).length;
+  const selectedMunicipalities = [...selectedAreas]
+    .map((c) => municipalityOf(c))
+    .filter((m): m is NonNullable<typeof m> => !!m)
+    .sort((a, b) => a.code.localeCompare(b.code));
 
   function clearAll() {
     setSelectedAreas(new Set());
@@ -645,7 +721,7 @@ export function TverCampaignForm({ action, advertisers }: Props) {
                 {AGE_GROUP_OPTIONS.map((opt) => (
                   <label
                     key={opt.value}
-                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                    className={`relative px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
                       ${selectedAges.has(opt.value)
                         ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
                         : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
@@ -683,7 +759,7 @@ export function TverCampaignForm({ action, advertisers }: Props) {
                 {INTEREST_OPTIONS.map((opt) => (
                   <label
                     key={opt.value}
-                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                    className={`relative px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
                       ${selectedInterests.has(opt.value)
                         ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
                         : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
@@ -719,7 +795,7 @@ export function TverCampaignForm({ action, advertisers }: Props) {
                 {INCOME_OPTIONS.map((opt) => (
                   <label
                     key={opt.value}
-                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                    className={`relative px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
                       ${selectedIncomes.has(opt.value)
                         ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
                         : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
@@ -755,7 +831,7 @@ export function TverCampaignForm({ action, advertisers }: Props) {
                 {TV_VIEWING_OPTIONS.map((opt) => (
                   <label
                     key={opt.value}
-                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                    className={`relative px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
                       ${selectedTvViewings.has(opt.value)
                         ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
                         : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
@@ -791,7 +867,7 @@ export function TverCampaignForm({ action, advertisers }: Props) {
                 {DEMOGRAPHIC_OPTIONS.map((opt) => (
                   <label
                     key={opt.value}
-                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                    className={`relative px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
                       ${selectedDemographics.has(opt.value)
                         ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
                         : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
@@ -838,7 +914,7 @@ export function TverCampaignForm({ action, advertisers }: Props) {
                 {GENRE_OPTIONS.map((opt) => (
                   <label
                     key={opt.value}
-                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                    className={`relative px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
                       ${selectedGenres.has(opt.value)
                         ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
                         : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
@@ -874,7 +950,7 @@ export function TverCampaignForm({ action, advertisers }: Props) {
                 {GENRE_EXCLUDE_OPTIONS.map((opt) => (
                   <label
                     key={opt.value}
-                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                    className={`relative px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
                       ${selectedGenreExcludes.has(opt.value)
                         ? "bg-red-50 border-red-300 text-red-700 font-semibold"
                         : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
@@ -910,7 +986,7 @@ export function TverCampaignForm({ action, advertisers }: Props) {
                 {SUB_GENRE_EXCLUDE_OPTIONS.map((opt) => (
                   <label
                     key={opt.value}
-                    className={`px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
+                    className={`relative px-2.5 py-1.5 rounded-md text-xs cursor-pointer border transition-colors
                       ${selectedSubGenreExcludes.has(opt.value)
                         ? "bg-red-50 border-red-300 text-red-700 font-semibold"
                         : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
@@ -1023,7 +1099,12 @@ export function TverCampaignForm({ action, advertisers }: Props) {
             全解除
           </button>
           <span className="text-[11px] text-zinc-400 ml-1">
-            {selectedAreas.size > 0 ? `${selectedAreas.size}エリア選択中` : "未選択"}
+            {selectedAreas.size > 0
+              ? [
+                  selectedPrefCount > 0 ? `${selectedPrefCount}都道府県` : "",
+                  selectedMunicipalities.length > 0 ? `${selectedMunicipalities.length}市区町村` : "",
+                ].filter(Boolean).join("＋") + "を選択中"
+              : "未選択"}
           </span>
         </div>
 
@@ -1050,7 +1131,7 @@ export function TverCampaignForm({ action, advertisers }: Props) {
                   {group.areas.map((area) => (
                     <label
                       key={area.code}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px]
+                      className={`relative flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px]
                                   cursor-pointer border transition-colors
                                   ${selectedAreas.has(area.code)
                                     ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
@@ -1072,6 +1153,117 @@ export function TverCampaignForm({ action, advertisers }: Props) {
               </div>
             );
           })}
+        </div>
+
+        {/* 市区町村で細かく指定 */}
+        <div className="mt-4 p-3 border border-zinc-200 rounded-lg">
+          <p className="text-xs font-bold text-zinc-700">市区町村で指定する</p>
+          <p className="mt-0.5 text-[11px] text-zinc-400">
+            TVer広告の市区町村配信エリアと同じ区分です。県全体に配信する場合は上の都道府県を選んでください。
+          </p>
+
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <select
+              value={muniPref}
+              onChange={(e) => { setMuniPref(e.target.value); setMuniQuery(""); }}
+              className={inputCls}
+            >
+              <option value="">都道府県を選択</option>
+              {TVER_PREFECTURES.map((a) => (
+                <option key={a.code} value={a.label}>{a.label}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={muniQuery}
+              onChange={(e) => setMuniQuery(e.target.value)}
+              placeholder="市区町村名で絞り込み（例: 高松）"
+              disabled={!muniPref}
+              className={inputCls}
+            />
+          </div>
+
+          {muniPref && (
+            muniPrefWhole ? (
+              <p className="mt-2 text-[11px] text-blue-700">
+                {muniPref}は県全体を選択中です。市区町村で絞る場合は、上の「{muniPref}」を外してください。
+              </p>
+            ) : (
+              <>
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMunicipalities(muniVisible.flatMap((o) => o.codes), true)}
+                  disabled={muniVisible.length === 0}
+                  className="px-2.5 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50
+                             border border-blue-200 rounded-md hover:bg-blue-100 disabled:opacity-40 transition-colors"
+                >
+                  {muniQuery.trim() ? "表示中をすべて選択" : `${muniPref}の市区町村をすべて選択`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMunicipalities(muniVisible.flatMap((o) => o.codes), false)}
+                  disabled={muniVisible.length === 0}
+                  className="px-2.5 py-1 text-[11px] font-semibold text-zinc-500 bg-zinc-50
+                             border border-zinc-200 rounded-md hover:bg-zinc-100 disabled:opacity-40 transition-colors"
+                >
+                  {muniQuery.trim() ? "表示中をすべて外す" : `${muniPref}の選択をすべて外す`}
+                </button>
+                <span className="text-[11px] text-zinc-400">複数選べます（他の県の市区町村とも組み合わせ可）</span>
+              </div>
+              <div className="mt-2 max-h-64 overflow-y-auto flex flex-wrap gap-1.5 content-start">
+                {muniVisible.map((o) => {
+                  const allOn = o.codes.every((c) => selectedAreas.has(c));
+                  return (
+                    <button
+                      key={o.key}
+                      type="button"
+                      onClick={() => toggleMunicipality(o.codes)}
+                      className={`px-2 py-1 rounded-md text-[11px] border transition-colors
+                                  ${allOn
+                                    ? "bg-blue-50 border-blue-300 text-blue-700 font-semibold"
+                                    : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
+                    >
+                      {o.name}
+                      <span className="ml-1 text-zinc-400 font-normal">
+                        {o.population >= 10_000 ? `${Math.round(o.population / 10_000)}万人` : `${o.population.toLocaleString()}人`}
+                      </span>
+                    </button>
+                  );
+                })}
+                {muniVisible.length === 0 && (
+                  <span className="text-[11px] text-zinc-400">該当する市区町村がありません</span>
+                )}
+              </div>
+              </>
+            )
+          )}
+
+          {selectedMunicipalities.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-zinc-100">
+              <p className="text-[11px] font-semibold text-zinc-500 mb-1.5">選択中の市区町村</p>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedMunicipalities.map((m) => (
+                  <span
+                    key={m.code}
+                    className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-[11px] rounded-full
+                               bg-blue-50 text-blue-700 border border-blue-200"
+                  >
+                    {m.prefName} {m.name}
+                    <button
+                      type="button"
+                      onClick={() => toggleMunicipality([m.code])}
+                      className="p-0.5 rounded-full hover:bg-blue-100"
+                      aria-label={`${m.name}を外す`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    <input type="hidden" name="areas" value={m.code} />
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

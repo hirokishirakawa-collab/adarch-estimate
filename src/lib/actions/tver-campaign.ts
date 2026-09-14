@@ -7,6 +7,7 @@ import { sendTverCampaignCreatedEmail } from "@/lib/resend";
 import type { Prisma } from "@/generated/prisma/client";
 import { getSessionInfo, getBranchFilter } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
+import { prefLabelOf, isMunicipalityCode } from "@/lib/constants/tver-campaign";
 
 // ---------------------------------------------------------------
 // TVer配信申請を作成する
@@ -31,7 +32,11 @@ export async function createTverCampaign(
   const companionPc       = (formData.get("companionPc")       as string)?.trim() || "NONE";
   const landingPageUrl    = (formData.get("landingPageUrl")    as string)?.trim() || null;
   const genderTarget      = (formData.get("genderTarget")      as string)?.trim() || "ALL";
-  const areas             = formData.getAll("areas").map((v) => (v as string).trim()).filter(Boolean);
+  // 都道府県コード（hokkaido 等）か、TVer正本の市区町村コード（5桁）だけを受け付ける
+  const areas             = [...new Set(
+    formData.getAll("areas").map((v) => (v as string).trim())
+      .filter((c) => c && (prefLabelOf(c) !== undefined || isMunicipalityCode(c)))
+  )];
   const settingsRaw       = (formData.get("settings") as string)?.trim() || null;
   let settingsJson: Prisma.InputJsonValue | null = null;
   if (settingsRaw) {

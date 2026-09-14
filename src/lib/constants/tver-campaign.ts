@@ -2,6 +2,8 @@
 // TVer配信申請 定数
 // ---------------------------------------------------------------
 
+import { MUNICIPALITIES } from "@/data/tver-municipalities";
+
 export const TVER_CAMPAIGN_STATUS_OPTIONS = [
   { value: "SUBMITTED", label: "申請済み",  className: "bg-blue-50 text-blue-700 border-blue-200" },
   { value: "APPROVED",  label: "承認",      className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -311,7 +313,31 @@ export const TVER_AREA_MAP: Record<string, string> = Object.fromEntries(
   TVER_AREA_GROUPS.flatMap((g) => g.areas.map((a) => [a.code, a.label]))
 );
 
+/** 都道府県の一覧（北から順） */
+export const TVER_PREFECTURES: { code: string; label: string }[] =
+  TVER_AREA_GROUPS.flatMap((g) => g.areas.map((a) => ({ code: a.code as string, label: a.label as string })));
+
+/** 都道府県コード（hokkaido 等）→ 都道府県名 */
+export function prefLabelOf(code: string): string | undefined {
+  return TVER_AREA_MAP[code];
+}
+
+/** 配信エリアの市区町村（TVer正本の5桁コード・人口0の廃止区は除く） */
+const MUNICIPALITY_MAP = new Map(
+  MUNICIPALITIES.filter((m) => m.population > 0).map((m) => [m.code, m])
+);
+
+export function isMunicipalityCode(code: string): boolean {
+  return MUNICIPALITY_MAP.has(code);
+}
+
+export function municipalityOf(code: string) {
+  return MUNICIPALITY_MAP.get(code);
+}
+
 export function getAreaLabel(code: string): string {
+  const m = MUNICIPALITY_MAP.get(code);
+  if (m) return `${m.prefName} ${m.name}`;
   return TVER_AREA_MAP[code] ?? code;
 }
 
