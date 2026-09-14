@@ -22,6 +22,7 @@ import {
 import { NextResponse } from "next/server";
 import { buildPulseEvents, type PulseKind } from "@/lib/live/pulse";
 import { buildSalesMoveEvents, type SalesMoveKind } from "@/lib/live/sales-moves";
+import { jstDayStart } from "@/lib/jst-range";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -382,8 +383,8 @@ export async function GET() {
 
   // 集計（今日・7日）
   const now = Date.now();
-  const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
+  // 日本時間の0時（サーバーはUTC＝setHours(0) だと朝9時区切りになっていた・2026-09-15）
+  const dayStart = jstDayStart();
   const in7d = (e: LiveEvent) => now - Date.parse(e.at) < 7 * 86400000;
   const today = (e: LiveEvent) => Date.parse(e.at) >= dayStart.getTime();
   const countBy = (pred: (e: LiveEvent) => boolean) => {
