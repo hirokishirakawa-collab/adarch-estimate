@@ -20,10 +20,15 @@ export function DealStatusEditor({ dealId, customerId, currentStatus }: Props) {
   const current = DEAL_STATUS_OPTIONS.find((o) => o.value === status);
 
   function handleChange(newStatus: string) {
+    const prevStatus = status;
     setStatus(newStatus);
     setSaved(false);
     startTransition(async () => {
-      await updateDealStatus(dealId, customerId, newStatus);
+      const res = await updateDealStatus(dealId, customerId, newStatus);
+      if (res.error) {
+        setStatus(prevStatus);
+        return;
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     });

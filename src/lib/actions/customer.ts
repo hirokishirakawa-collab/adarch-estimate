@@ -9,6 +9,7 @@ import { sendCustomerNotification, notifyAdmins } from "@/lib/notifications";
 import { logAudit } from "@/lib/audit";
 import { getMockBranchId } from "@/lib/data/customers";
 import { enrichCustomersAfterResponse } from "@/lib/clients/enqueue";
+import { updateDealStatus as updateDealStatusOnDeal } from "@/lib/actions/deal";
 import type {
   ActivityType,
   DealStatus,
@@ -175,16 +176,17 @@ export async function createActivityLog(
 // ---------------------------------------------------------------
 // 商談ステータスを更新する
 // ---------------------------------------------------------------
+// 商談一覧（カンバン）と同じ処理に寄せる（2026-09-15）。
+// ここだけ status を書き換えるだけで、受注日（closedAt）・プロジェクト作成・受注通知・操作記録・権限確認が抜けていた
+// ＝朝のまとめ・GROUP LIVE・今月の受注に載らない受注ができていた
 export async function updateDealStatus(
   dealId: string,
   customerId: string,
   status: string
-): Promise<void> {
-  await db.deal.update({
-    where: { id: dealId },
-    data: { status: status as DealStatus },
-  });
+): Promise<{ error?: string }> {
+  const result = await updateDealStatusOnDeal(dealId, status as DealStatus);
   revalidatePath(`/dashboard/customers/${customerId}`);
+  return result;
 }
 
 // ---------------------------------------------------------------
