@@ -61,7 +61,7 @@ export default async function TverOrderLinkPage({ searchParams }: { searchParams
             ? `月額（税抜）: ${exName} ${yen(ex?.mediaFee ?? 30_000)}の1プラン（人口5万人未満のエリア・初回登録費と管理費なし）`
             : `月額（税抜）: ${orderable.map((p) => `${p.name} ${yen(p.mediaFee)}`).join("／")}（初回登録費・管理費なし）`,
           ex ? `例えば${exName}なら、月に${approx(ex.reach, 50)}人（${cityName}の住民の約${ex.pctResidents.toFixed(1)}%）に届く目安です。再生数・届く人数は目安で、お約束するものではありません。` : "",
-          `契約期間は${monthsText}から、お支払いは月払い（カードまたは銀行振込）。下のページで${est.small ? "" : "市・プランを選び、"}そのままお申込みいただけます。`,
+          `契約期間は${monthsText}から、お支払いは月払い（カードまたは銀行振込）です。下のページから${est.small ? "" : "市・プランを選んで"}ご相談ください。Web面談かお電話で内容を確認し、TVerの考査のあと発注書をお送りします（ご相談の段階では料金はかかりません）。`,
           url,
         ].filter(Boolean).join("\n")
       : `${cityName}は月額30万円以上になるため、大規模展開（オーダー）として個別にお見積りします。`
@@ -75,7 +75,7 @@ export default async function TverOrderLinkPage({ searchParams }: { searchParams
         </div>
         <div>
           <h1 className="text-lg font-semibold text-zinc-900">TVer申込リンク</h1>
-          <p className="text-xs text-zinc-500">県と市を選んで、お客様に渡すURLをコピー。開いた先でお客様が申込〜お支払いまで完結します（契約・請求・考査・配信は本部）</p>
+          <p className="text-xs text-zinc-500">県と市を選んで、お客様に渡すURLをコピー。開いた先でお客様がご相談を送り、代表がWeb面談かお電話で内容を確認します（考査・発注書・請求・配信は本部）</p>
         </div>
       </div>
 
@@ -155,7 +155,7 @@ export default async function TverOrderLinkPage({ searchParams }: { searchParams
         </div>
 
         <div className="text-xs text-zinc-500">
-          申込が入ると、案内元の拠点（{chosen ? chosen.name : "本部"}）に確定・入金・動画到着の通知が届きます。一覧は
+          ご相談が入ると、案内元の拠点（{chosen ? chosen.name : "本部"}）にメールが届きます。Web面談かお電話でご連絡ください。一覧は
           <Link href="/dashboard/packages/local-reach-tver" className="text-orange-700 underline mx-1">パッケージ「地域リーチ固定パッケージ」</Link>
           {isAdmin && <>／本部は<Link href="/dashboard/admin/tver-orders" className="text-orange-700 underline mx-1">TVer小口申込</Link></>}
         </div>
