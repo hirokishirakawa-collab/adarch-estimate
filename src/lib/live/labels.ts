@@ -87,9 +87,11 @@ export const LIVE_LEAD_LOG_WHERE = {
 };
 
 /** LeadLog 1件がライブのどの操作か。対象外なら null */
-export type LeadLogKind = "claim" | "form" | "reply" | "appointment" | "contact";
+export type LeadLogKind = "claim" | "form" | "reply" | "appointment" | "contact" | "opened" | "clicked";
 export function leadLogKind(action: string, detail: string | null | undefined): LeadLogKind | null {
   if (action === "CLAIMED") return "claim";
+  // MailSuite の開封・クリック（送った先の動き。ライブにだけ流し、朝のまとめ・声かけ数には入れない）
+  if (action === "MAIL_TRACKING") return detail?.startsWith("【MailSuite】クリック") ? "clicked" : detail?.startsWith("【MailSuite】開封") ? "opened" : null;
   if (action === "FORM_SENT") return "form";
   if (action === "OUTREACH_RESULT") return detail?.startsWith("送付結果を「返信あり」") ? "reply" : null;
   if (action === "STATUS_CHANGED") {
@@ -112,5 +114,9 @@ export function leadLogText(kind: LeadLogKind, who: string): string {
       return `${who}とアポ獲得`;
     case "contact":
       return `${who}に連絡`;
+    case "opened":
+      return `${who}がメールを開封`;
+    case "clicked":
+      return `${who}がメールのリンクをクリック`;
   }
 }

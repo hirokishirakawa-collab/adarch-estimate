@@ -47,6 +47,7 @@ function prefsIn(text: string | null | undefined): string[] {
 export interface LiveEvent {
   at: string; // ISO
   kind:
+    | "mail"
     | "sent"
     | "deal"
     | "won"
@@ -162,7 +163,8 @@ export async function GET() {
       // 作成・クロール・プール投入・却下・自動の担当設定は流さない（数だけ多く、人の動きではない）。
       // detail の自由記述（送付本文・メモ）は出さない＝種別から文言を組む。
       db.leadLog.findMany({
-        where: { createdAt: { gte: since }, ...LIVE_LEAD_LOG_WHERE },
+        // MailSuite の開封・クリック（MAIL_TRACKING）はライブにだけ足す＝朝のまとめの共用条件には入れない
+        where: { createdAt: { gte: since }, OR: [...LIVE_LEAD_LOG_WHERE.OR, { action: "MAIL_TRACKING" }] },
         select: {
           id: true,
           createdAt: true,
@@ -339,7 +341,9 @@ export async function GET() {
     const kind = leadLogKind(l.action, l.detail);
     if (!kind) continue;
     const key = `${l.lead.id}:${kind}`;
-    const t = l.createdAt.getTime();
+    // 開封・クリックは登録した時刻でなく MailSuite の通知の日時で並べる
+    const notifiedAt = kind === "opened" || kind === "clicked" ? Date.parse(l.detail?.match(/\n日時: (\S+)/)?.[1] ?? "") : NaN;
+    const t = Number.isFinite(notifiedAt) ? notifiedAt : l.createdAt.getTime();
     const prev = seenLead.get(key);
     if (prev !== undefined && prev - t < 30 * 60_000) continue;
     seenLead.set(key, t);
@@ -357,11 +361,11 @@ export async function GET() {
     const who = `「${head.name}」${head.industry ? `（${head.industry}）` : ""}${g.leads.length > 1 ? `ほか${g.leads.length - 1}社` : ""}`;
     events.push({
       at: new Date(g.at).toISOString(),
-      kind: "lead",
+      kind: g.kind === "opened" || g.kind === "clicked" ? "mail" : "lead",
       actor: g.actor,
       prefs: [...new Set(g.leads.flatMap((x) => x.prefs))],
       text: leadLogText(g.kind!, who),
-      result: g.kind === "reply" ? "reply" : g.kind === "appointment" ? "appointment" : undefined,
+      result: g.kind === "reply" || g.kind === "clicked" ? "reply" : g.kind === "appointment" ? "appointment" : undefined,
       ref: { kind: "lead", id: head.id },
     });
   }

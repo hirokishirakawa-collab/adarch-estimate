@@ -14,6 +14,8 @@ export function buildLiveSummary(events: readonly SummaryEvent[], now: Date = ne
     for (const event of events) {
       const at = Date.parse(event.at);
       if (!Number.isFinite(at) || at > end || (exclusiveStart ? at <= start : at < start)) continue;
+      // Recipient-side mail opens/clicks are shown in the feed but are not group activity counts.
+      if (event.kind === "mail") continue;
       if (["sent", "move", "log", "lead", "tver", "tool"].includes(event.kind)) counts.approach++;
       else if (event.kind === "deal") counts.deal++;
       else if (event.kind === "won") counts.won++;
