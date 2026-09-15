@@ -19,6 +19,8 @@ const SORTS: { value: SentMessageSort; label: string }[] = [
   { value: "new", label: "新しい順" },
   { value: "count", label: "送った数の多い順" },
   { value: "replied", label: "返信の多い順" },
+  { value: "opened", label: "開封の多い順" },
+  { value: "clicked", label: "クリックの多い順" },
 ];
 
 const parseDay = (s?: string) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T00:00:00+09:00`) : undefined);

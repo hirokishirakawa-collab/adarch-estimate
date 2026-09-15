@@ -76,7 +76,7 @@ export interface SentMessageGroup {
   variants: SentMessageVariant[];
 }
 
-export type SentMessageSort = "new" | "count" | "replied";
+export type SentMessageSort = "new" | "count" | "replied" | "opened" | "clicked";
 
 export interface SentMessageQuery {
   from?: Date;
@@ -179,6 +179,8 @@ export async function getSentMessageGroups(q: SentMessageQuery = {}): Promise<Se
   list.sort((a, b) =>
     sort === "count" ? b.sent - a.sent || +b.lastSentAt - +a.lastSentAt
     : sort === "replied" ? b.replied - a.replied || b.sent - a.sent
+    : sort === "opened" ? b.opened - a.opened || b.sent - a.sent
+    : sort === "clicked" ? b.clicked - a.clicked || b.sent - a.sent
     : +b.lastSentAt - +a.lastSentAt,
   );
   return list;
