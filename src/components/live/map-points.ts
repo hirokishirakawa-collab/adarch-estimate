@@ -186,8 +186,9 @@ export const MAP_POINTS: Record<string, readonly [number, number]> = {
     270.59,
     240.42
   ],
+  // Okinawa uses the enlarged map projection; anchor the marker on its main island.
   "沖縄": [
-    66.9,
-    323.88
+    148.47,
+    121.17
   ]
 };

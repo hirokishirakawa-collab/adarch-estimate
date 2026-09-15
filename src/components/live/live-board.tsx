@@ -232,8 +232,13 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
       <div className={styles.main}>
         <section className={`${styles.mapPanel} ${activeOutcome?.tone === "won" ? styles.mapWon : activeOutcome ? styles.mapPositive : ""}`} aria-label="全国の活動マップ">
           <div className={styles.panelHead}><h2>ACTIVITY MAP</h2><small>JAPAN</small></div>
-          <svg className={styles.map} viewBox="0 0 513 380" role="img" aria-label="日本の都道府県別活動マップ。活動ログに連動して拠点が光ります">
+          <svg className={styles.map} viewBox="0 0 513 380" role="img" aria-label="沖縄を含む47都道府県の活動マップ。沖縄は拡大表示し、活動ログに連動して拠点が光ります">
             <image href="/live/japan-map.svg" x="0" y="0" width="513" height="380" />
+            <g aria-label="沖縄県の拡大図">
+              <path d="M28,205H198L230,173" fill="none" stroke="#3d4958" strokeWidth=".75" />
+              <text x="36" y="74" fill="#d4dce6" fontSize="14" fontWeight="500">沖縄</text>
+              <text x="75" y="74" className={styles.mapSmall}>拡大図</text>
+            </g>
             {Object.entries(MAP_POINTS).map(([name, [x, y]]) => {
               const age = heat[name];
               const selected = selectedPrefs.has(name);
@@ -246,7 +251,6 @@ export function LiveBoard({ compact = false }: { compact?: boolean } = {}) {
                 {selected && <text x={x + 12} y={y + 4} className={styles.mapLabel}>{name}</text>}
               </g>;
             })}
-            <text x="36" y="366" className={styles.mapSmall}>沖縄（別枠）</text>
             <defs>{placed.map(({ user, x, y }) => <clipPath key={user.id} id={`${uid}-${user.id}`}><circle cx={x} cy={y} r="11" /></clipPath>)}</defs>
             {placed.map(({ user, x, y }) => <g key={user.id}
               role={user.id === who?.meId ? undefined : "button"}
