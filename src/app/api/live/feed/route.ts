@@ -333,8 +333,22 @@ export async function GET() {
   }
   // 同じリードへ同じ操作を短時間に押し直した記録（連絡済み→未対応→連絡済み 等）は最新の1件だけ残し、
   // 同じ拠点が同じ操作を数分内に続けた分（一括操作で11社を「連絡済み」等）は1行に畳む＝フィードを埋めないため
+  // MailSuite の開封・クリックは「何回目か」を添える（期間の外の分も含めて、届いた通知の数で数える）
+  const mailLeadIds = [...new Set(leadLogs.filter((l) => l.action === "MAIL_TRACKING").map((l) => l.lead.id))];
+  const mailTimes = new Map<string, number[]>();
+  if (mailLeadIds.length) {
+    for (const m of await db.leadLog.findMany({ where: { action: "MAIL_TRACKING", leadId: { in: mailLeadIds } }, select: { leadId: true, detail: true, createdAt: true } })) {
+      const k = leadLogKind("MAIL_TRACKING", m.detail);
+      if (!k) continue;
+      const at = Date.parse(m.detail?.match(/\n日時: (\S+)/)?.[1] ?? "");
+      const key = `${m.leadId}:${k}`;
+      mailTimes.set(key, [...(mailTimes.get(key) ?? []), Number.isFinite(at) ? at : m.createdAt.getTime()]);
+    }
+  }
+  const nthMail = (key: string, at: number) => (mailTimes.get(key) ?? []).filter((x) => x <= at).length;
+
   const seenLead = new Map<string, number>();
-  type LeadGroup = { at: number; kind: ReturnType<typeof leadLogKind>; actor: string; leads: { id: string; name: string; industry: string | null; prefs: string[] }[] };
+  type LeadGroup = { at: number; kind: ReturnType<typeof leadLogKind>; actor: string; leads: { id: string; name: string; industry: string | null; prefs: string[]; nth?: number }[] };
   const groups: LeadGroup[] = [];
   for (const l of leadLogs) {
     if (l.action === "FORM_SENT" && inLedger.has(l.lead.id)) continue;
@@ -350,10 +364,11 @@ export async function GET() {
     const actor = l.lead.assignee?.branch?.name ?? branchOfStaff.get(l.staffName) ?? "グループ";
     const prefs = [...new Set([...prefsIn(actor), ...prefsIn(l.lead.prefecture ?? l.lead.area)])];
     const last = groups[groups.length - 1];
+    const nth = kind === "opened" || kind === "clicked" ? nthMail(key, t) : undefined;
     if (last && last.kind === kind && last.actor === actor && last.at - t < 5 * 60_000) {
-      last.leads.push({ id: l.lead.id, name: l.lead.name, industry: l.lead.industry, prefs });
+      last.leads.push({ id: l.lead.id, name: l.lead.name, industry: l.lead.industry, prefs, nth });
     } else {
-      groups.push({ at: t, kind, actor, leads: [{ id: l.lead.id, name: l.lead.name, industry: l.lead.industry, prefs }] });
+      groups.push({ at: t, kind, actor, leads: [{ id: l.lead.id, name: l.lead.name, industry: l.lead.industry, prefs, nth }] });
     }
   }
   for (const g of groups) {
@@ -364,7 +379,7 @@ export async function GET() {
       kind: g.kind === "opened" || g.kind === "clicked" ? "mail" : "lead",
       actor: g.actor,
       prefs: [...new Set(g.leads.flatMap((x) => x.prefs))],
-      text: leadLogText(g.kind!, who),
+      text: leadLogText(g.kind!, who) + (g.leads.length === 1 && (head.nth ?? 0) > 1 ? `（${head.nth}回目）` : ""),
       result: g.kind === "reply" || g.kind === "clicked" ? "reply" : g.kind === "appointment" ? "appointment" : undefined,
       ref: { kind: "lead", id: head.id },
     });
