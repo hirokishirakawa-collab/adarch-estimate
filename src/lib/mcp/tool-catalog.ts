@@ -27,6 +27,7 @@ import { prepareDm } from "@/lib/dm/prepare-dm";
 import { listAdBuyers } from "@/lib/ad-buyers/list";
 import { screenCompany } from "@/lib/compliance/screen";
 import { AD_PLATFORMS } from "@/lib/ad-buyers/platforms";
+import { recordMailTracking } from "@/lib/outreach/mail-tracking";
 
 export type ToolKind = "read" | "write";
 
@@ -446,6 +447,21 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     input: z.object({ leadIds: z.array(z.string()).min(1).max(50), sent: bool().optional().describe("false で「送らなかった」＝下書きの取りやめ") }),
     run: (v, a) => camp.confirmSent(v, a),
     confirm: (a) => (a.sent === false ? `${a.leadIds.length}件の下書きを取りやめます（送付日も台帳も動かしません）` : `${a.leadIds.length}件を「送った」として確定します（送付日・全社の送付台帳に載ります）`),
+  }),
+  def({
+    name: "record_mail_tracking", kind: "write", title: "MailSuiteの開封・クリックを記録する",
+    description:
+      "MailSuite（旧Mailtrack）を使っている人の開封・クリック通知を、送った先のリードに記録する（グループの「送った営業文」に開封・クリックした社数として出る）。『MailSuiteの履歴を登録して』と言われたら、本人のGmailで from:notification@mailsuite.com の通知を探し、件名から kind（読みました=open／リンクをクリックしました=click）・who（相手のメールアドレス）・subject（「」の中の件名）・at（通知の受信日時 ISO）を1通知1件で渡す。相手が名前でしか出ていない通知はアドレスで照合できないので登録されない。自分が担当で送付確定済みのリードだけに入る。同じ通知は二重に入らない。開封は目安（相手側の自動チェックでも開封になる）。",
+    input: z.object({
+      items: z.array(z.object({
+        kind: z.enum(["open", "click"]),
+        who: z.string().describe("通知に出ている相手のメールアドレス"),
+        subject: z.string().describe("通知の「」内の件名"),
+        at: z.string().optional().describe("通知の受信日時（ISO 8601）"),
+      })).min(1).max(200),
+    }),
+    run: (v, a) => recordMailTracking(v, a.items.map((i) => ({ ...i, at: i.at ? new Date(i.at) : undefined }))),
+    confirm: (a) => `MailSuiteの開封・クリック${a.items.length}件を、送った先のリードに記録します`,
   }),
   def({
     name: "create_landing_page", kind: "write", title: "業種×市の営業用LPを作る",

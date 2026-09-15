@@ -399,6 +399,12 @@ const NAV_SECTIONS: NavSection[] = [
         minRole: "USER",
       },
       {
+        href: "/dashboard/outreach-messages",
+        label: "送った営業文",
+        icon: Send,
+        minRole: "USER",
+      },
+      {
         href: "/dashboard/project-matching",
         label: "案件マッチング",
         icon: Handshake,
@@ -846,6 +852,7 @@ const PROPOSE_TAB_ITEMS: NavItem[] = [
   { href: "/dashboard/seminars", label: "セミナー録画ライブラリ（全社共有）", icon: Video, minRole: "USER" },
   { href: "/dashboard/knowledge", label: "資料ライブラリ（OSの頭脳）", icon: Brain, minRole: "USER" },
   { href: "/dashboard/sales-approaches", label: "アプローチ事例集", icon: Send, minRole: "USER" },
+  { href: "/dashboard/outreach-messages", label: "送った営業文", icon: Send, minRole: "USER" },
   { href: "/dashboard/playbook", label: "営業プレイブック", icon: BookOpen, minRole: "USER" },
   { href: "/dashboard/sales-insights", label: "営業分析レポート", icon: Activity, minRole: "USER" },
   { href: "/dashboard/project-matching", label: "案件マッチング", icon: Handshake, minRole: "USER" },
