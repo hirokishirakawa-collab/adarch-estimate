@@ -101,18 +101,27 @@ export function NotificationBell() {
     setUnreadCount(0);
   };
 
+  // 本文がある通知は、押すとその場で全文を開く（ページへ移るのは「開く」から）
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const markRead = async (n: Notification) => {
+    if (n.isRead) return;
+    await fetch("/api/notifications/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [n.id] }),
+    });
+    setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
+    setUnreadCount((c) => Math.max(0, c - 1));
+  };
+
   const handleClick = async (n: Notification) => {
-    if (!n.isRead) {
-      await fetch("/api/notifications/read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: [n.id] }),
-      });
-      setNotifications((prev) =>
-        prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x))
-      );
-      setUnreadCount((c) => Math.max(0, c - 1));
+    if (n.message) {
+      setExpandedId((id) => (id === n.id ? null : n.id));
+      await markRead(n);
+      return;
     }
+    await markRead(n);
     if (n.linkUrl) {
       router.push(n.linkUrl);
     }
@@ -158,11 +167,16 @@ export function NotificationBell() {
                 通知はありません
               </div>
             ) : (
-              notifications.map((n) => (
-                <button
+              notifications.map((n) => {
+                const expanded = expandedId === n.id;
+                return (
+                <div
                   key={n.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleClick(n)}
-                  className={`w-full text-left px-4 py-3 border-b border-zinc-100 hover:bg-zinc-50 transition-colors flex items-start gap-3 ${
+                  onKeyDown={(e) => { if (e.key === "Enter") handleClick(n); }}
+                  className={`w-full text-left px-4 py-3 border-b border-zinc-100 hover:bg-zinc-50 transition-colors flex items-start gap-3 cursor-pointer ${
                     !n.isRead ? "bg-amber-50/50" : ""
                   }`}
                 >
@@ -176,20 +190,35 @@ export function NotificationBell() {
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-zinc-900 truncate">
+                    <p className={`text-sm font-medium text-zinc-900 ${expanded ? "break-words" : "truncate"}`}>
                       {n.title}
                     </p>
                     {n.message && (
-                      <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">
+                      <p className={`text-xs text-zinc-500 mt-0.5 ${expanded ? "whitespace-pre-wrap break-words" : "line-clamp-2"}`}>
                         {n.message}
                       </p>
                     )}
-                    <p className="text-[11px] text-zinc-400 mt-1">
-                      {relativeTime(n.createdAt)}
-                    </p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <p className="text-[11px] text-zinc-400">
+                        {relativeTime(n.createdAt)}
+                      </p>
+                      {n.message && !expanded && (
+                        <span className="text-[11px] text-zinc-400">押すと全文</span>
+                      )}
+                      {n.message && expanded && n.linkUrl && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setOpen(false); router.push(n.linkUrl!); }}
+                          className="text-[11px] text-amber-600 hover:text-amber-800 font-medium"
+                        >
+                          開く →
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </button>
-              ))
+                </div>
+                );
+              })
             )}
           </div>
         </div>

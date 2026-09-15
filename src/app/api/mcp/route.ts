@@ -74,6 +74,31 @@ function logOs(w: Who, tool: string, input: unknown, action: "mcp_os_read" | "mc
   });
 }
 
+/** 想定外の失敗を、利用者に伝わる一言にする（中身は監査ログに残す＝サーバーのログが消えても追える） */
+function failureReason(e: unknown): string {
+  const err = e as { message?: string; status?: number; code?: string; name?: string } | null;
+  const msg = String(err?.message ?? e ?? "");
+  const m = msg.match(/Google Places API エラー \((\d+)\)/);
+  if (m) return `Googleの検索が一時的に使えませんでした（${m[1]}）`;
+  if (typeof err?.status === "number" && /anthropic|overloaded|rate_limit|api_error/i.test(`${err?.name} ${msg}`)) {
+    return `採点AIが混み合っていました（${err.status}）`;
+  }
+  if (typeof err?.code === "string" && /^P\d{4}$/.test(err.code)) return `保存の段階で止まりました（コード ${err.code}）`;
+  return "";
+}
+
+function logOsError(w: Who, tool: string, e: unknown) {
+  const err = e as { message?: string; code?: string; status?: number } | null;
+  void logAudit({
+    action: "mcp_os_error",
+    email: w.email,
+    name: w.name,
+    entity: "mcp_tool",
+    entityId: tool,
+    detail: [err?.code, err?.status, err?.message ?? String(e)].filter((x) => x != null && x !== "").join(" | ").slice(0, 1000),
+  });
+}
+
 // ---- 書き込みのレート上限（プロセス内・1人あたり） ----------------------------------
 const WRITE_PER_MINUTE = 20;
 const WRITE_PER_DAY = 300;
@@ -219,7 +244,9 @@ const handler = createMcpHandler(
         } catch (e) {
           if (e instanceof osw.WriteError) return fail(e.message);
           console.error(`[MCP] ${t.name} 失敗:`, e);
-          return fail(isWrite ? "保存に失敗しました。時間をおいて再度お試しください" : "取得に失敗しました。時間をおいて再度お試しください");
+          logOsError(w, t.name, e);
+          const reason = failureReason(e);
+          return fail(`${isWrite ? "保存に失敗しました" : "取得に失敗しました"}${reason ? `（${reason}）` : ""}。時間をおいて再度お試しください`);
         }
       };
       const cfg = {
