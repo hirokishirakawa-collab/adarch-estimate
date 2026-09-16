@@ -21,6 +21,7 @@ import {
 } from "@/lib/constants/group-support";
 import { logAudit } from "@/lib/audit";
 import { sendGroupSupportAlertEmail, sendGroupSupportAlertChat } from "@/lib/resend";
+import { autoAnswerCases } from "./auto-cases";
 
 export type WeeklySource = "FORM" | "AI" | "WEBHOOK";
 
@@ -130,6 +131,17 @@ export async function saveWeeklyShareV2(input: {
     detail: `${weekId} v2 status=${status} source=${source} outreach=${answers.outreachCount} hq=${answers.hqRequest}`,
   });
 
+  // 「他拠点の受注例」はOSがその場で返す（本部の手作業をゼロに・2026-09-16）
+  let autoAnswered = 0;
+  if (answers.hqRequest === "CASES") {
+    try {
+      const r = await autoAnswerCases(company, weekId);
+      autoAnswered = r.count;
+    } catch (e) {
+      console.error("[group-support/submit] Auto cases error:", e);
+    }
+  }
+
   // 本部への依頼があれば即時通知（メール＋Chat）
   if (hasHqRequest(answers.hqRequest)) {
     const alertPayload = {
@@ -138,7 +150,9 @@ export async function saveWeeklyShareV2(input: {
       companyId: company.id,
       weekId,
       requestLabel: hqRequestLabel(answers.hqRequest),
-      note: answers.hqNote ?? "",
+      note: [answers.hqNote ?? "", autoAnswered > 0 ? `※ OSが受注例${autoAnswered}件を自動でお渡し済みです（金額なし）` : ""]
+        .filter(Boolean)
+        .join("\n"),
       summary,
     };
     sendGroupSupportAlertEmail(alertPayload).catch((e) => console.error("[group-support/submit] Alert email error:", e));

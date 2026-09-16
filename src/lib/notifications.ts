@@ -1728,6 +1728,12 @@ export async function createInAppNotification(params: {
   title: string;
   message?: string;
   linkUrl?: string;
+  /**
+   * Chat・メールへ転送するときだけ差し替える本文。
+   * OS のベルには message（全文）を出し、外へは短い見出しだけ出したいときに使う。
+   * 省略時は message をそのまま転送する。
+   */
+  forwardMessage?: string;
   /** true のとき notifyViaEmail の設定に関係なくメールを送る（見落としてはいけない通知用） */
   forceEmail?: boolean;
 }) {
@@ -1756,7 +1762,8 @@ export async function createInAppNotification(params: {
     if (!user) return;
 
     const fullUrl = params.linkUrl ? appUrl(params.linkUrl) : "";
-    const textBody = [params.title, params.message, fullUrl]
+    const forwarded = params.forwardMessage ?? params.message;
+    const textBody = [params.title, forwarded, fullUrl]
       .filter(Boolean)
       .join("\n");
 
@@ -1772,7 +1779,7 @@ export async function createInAppNotification(params: {
       const html = `
         <div style="font-family: sans-serif; max-width: 480px;">
           <h3 style="margin: 0 0 8px; color: #333;">${escapeHtml(params.title)}</h3>
-          ${params.message ? `<p style="margin: 0 0 12px; color: #555;">${escapeHtml(params.message)}</p>` : ""}
+          ${forwarded ? `<p style="margin: 0 0 12px; color: #555;">${escapeHtml(forwarded)}</p>` : ""}
           ${fullUrl ? `<a href="${fullUrl}" style="display: inline-block; padding: 8px 16px; background: #1a1a1a; color: #fff; border-radius: 6px; text-decoration: none; font-size: 14px;">確認する</a>` : ""}
           <hr style="margin: 16px 0; border: none; border-top: 1px solid #eee;" />
           <p style="font-size: 11px; color: #999;">Ad-Arch Group OS からの通知です</p>

@@ -242,10 +242,13 @@ export async function updateGroupCompany(
 // ----------------------------------------------------------------
 // 週次共有への返信（本部 → 加盟代表）
 //
-// Google Chat のスペースには本文を流さない。「返信が届いた」ことだけを
-// 知らせて、中身は OS にログインしないと読めない状態にする。
-// スペース上でやり取りが公開されている見え方を避けるための設計。
+// Google Chat のスペースには「OSから返信しました：」＋本文をそのまま流し、
+// OS のベル通知にも本文を入れる（2026-09-16 代表指示）。
+// メールだけは今まで通り見出しだけ。長い返信は切って、続きは OS で読んでもらう。
 // ----------------------------------------------------------------
+/** スペースに流す本文の上限（Google Chat の1通の上限に余裕を持たせる） */
+const CHAT_BODY_MAX = 2000;
+
 export type ReplyState = { error?: string; success?: boolean } | null;
 
 export async function replyToWeeklySubmission(
@@ -277,11 +280,15 @@ export async function replyToWeeklySubmission(
       },
     });
 
-    // 加盟代表のスペースへ「届いた」ことだけ流す。本文はここに載せない。
+    // 加盟代表のスペースへ本文ごと流す（代表指示 2026-09-16）。長すぎるときだけ切る。
     if (company.chatSpaceId) {
+      const body =
+        content.length > CHAT_BODY_MAX
+          ? `${content.slice(0, CHAT_BODY_MAX)}…（続きは OS で）`
+          : content;
       sendChatMessage(
         company.chatSpaceId,
-        ["本部から返信が届きました", "OS を開いてご確認ください", appUrl("/dashboard")].join("\n")
+        [`OSから返信しました：`, body, "", appUrl("/dashboard")].join("\n")
       ).catch((e) => console.error("[group-support:chat]", e));
     }
 
@@ -295,7 +302,10 @@ export async function replyToWeeklySubmission(
         userId: p.id,
         type: "GROUP_REPLY",
         title: "本部から返信が届きました",
-        message: weekId ? `${weekId} の共有について` : undefined,
+        // OS のベルには本文をそのまま出す（代表指示 2026-09-16）
+        message: content,
+        // メール・個人スペースへは見出しだけ。中身は OS とスペースで読む
+        forwardMessage: weekId ? `${weekId} の共有について` : "OS を開いて内容をご確認ください",
         linkUrl: "/dashboard",
         // 見落とすと往復が途切れるので、本人の通知設定に関係なくメールを送る
         forceEmail: true,

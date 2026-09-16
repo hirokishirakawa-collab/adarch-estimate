@@ -50,7 +50,7 @@ export function WeeklyReplyForm({ groupCompanyId, weekId, ownerName }: Props) {
           {isPending ? "送信中..." : "返信する"}
         </button>
         <span className="text-[10px] text-zinc-400">
-          スペースには「返信が届きました」だけが流れます
+          スペースに「OSから返信しました：」＋この本文がそのまま流れます
         </span>
       </div>
     </form>
