@@ -27,3 +27,7 @@
 - 2026-09-16 13:46 月次報告の閲覧方針／代表が「本部以外は自分の報告以外見れないようにして」と明示。全員分を見られるのはADMINのみ。代表MANAGERの一覧はcreatedById本人に限定、他人IDの直接閲覧/更新/削除を拒否。USERの既存アクセス不可を維持。現行の本番反映コードで要件を満たし隔離テスト7件再通過、AIの全件照会もADMIN限定を確認／権限コードの追加変更・本番変更なし
 
 - 2026-09-16 13:49 src/components/workspace/{workspace-hub.tsx,hub-visuals.tsx}・src/app/dashboard/workspace.css・src/app/dashboard/work/[group]/page.tsx・src/lib/workspace/update-history.json・AGENTS.md／代表が確認画面後に「本番反映して」と明示承認。4分類のイラスト・主要入口・アイコン・軽い動きと更新案内を反映。認証/月次報告/DB処理は差分なし。型・ESLint・本番ビルド・ナビ10件/月次権限7件・PC/390px確認済／本番反映作業中（結果は追記）
+
+- 2026-09-16 13:53 カテゴリ画面のデザイン6ファイル（workspace-hub.tsx・hub-visuals.tsx・workspace.css・work/[group]/page.tsx・update-history.json・AGENTS.md）／代表の「本番反映して」を受けf610e9adをGitHub mainへpush。Railway SUCCESS（13:51:47 JST、deployment c130562a-2d18-4f29-9bfa-9f8ad22752a5）。本番4分類・イラスト・主要入口・機能検索・更新情報・390px表示を確認。月次報告/認証/DB/GROUP LIVEは差分なし、権限17テストと型/ビルド成功。元フォルダのコードとgit状態は変更せず（作業開始時HEAD 3de0f22c、次回fetchして本番との差分を確認すること）／本番反映した（f610e9ad）
+
+- 2026-09-16 15:10 GROUP LIVE（顧客登録・顧客の活動記録）／朝のまとめ（新しい顧客）／会議メモ新設（prisma MeetingNote・lib/meetings・/dashboard/meetings・MCP log_meeting・navigation/items.json）／送った営業文の既定を結果順（Wilson下側95%）／update-history.json 3件。代表の明示承認を受け 07301cb9・3de0f22c・deea9e18 を main へ push、Railway 成功。本番DBは新規テーブル meeting_notes と型 MeetingVisibility の追加のみ（migrate diff で確認・既存テーブルの変更削除ゼロ／prisma/migrations/20260916150000_add_meeting_notes）。本番で公開範囲を実データ検証（PRIVATE=他代表404・一覧に出ない／GROUP=匿名版のみ・社名は◯◯に伏せる・要約と次の一手は出ない／ALLOWED=指名者のみ原文・指名外404／ADMINは常に原文）、テスト行は削除しテーブルは空。型・ESLint・本番ビルド・ナビテスト通過（既存の失敗3件は変更前後で同じ）。Codexの新ナビへ載せ替えたため旧サイドバーへの追加は取り下げ／本番反映した（deea9e18）
