@@ -322,6 +322,33 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     confirm: (a) => `活動を記録します（${a.dealId ? "商談" : "顧客"}・${a.type ?? "OTHER"}）:\n${a.content.slice(0, 300)}`,
   }),
   def({
+    name: "log_meeting", kind: "write", title: "Web会議の要約をOSに残す（守秘つき）",
+    description:
+      "Web会議・訪問の中身を会議メモとして1件残す。要約（summary）・懸念や宿題（objections）・次の一手（nextActions）は原文＝書いた人と本部と指名した人（allowedEmails）だけが読む。全社に出るのは匿名版＝sharedSummary・concerns（クライアントが気にしていた点）・winPoints（刺さった点・勝ちパターン）だけで、ここには社名・人名・金額を書かない（業種・都道府県・規模の言い方までにする）。visibility: PRIVATE=自分と本部だけ（既定）／ALLOWED=指名した人まで／GROUP=匿名版を全社に出す（GROUPのときは sharedSummary が必須）。meetingAt は YYYY-MM-DD、customerId / dealId は自拠点のものだけ紐づく。会議の出席者名や録画の文字起こしをそのまま貼らず、要点にしてから残す。",
+    input: z.object({
+      title: z.string().describe("会議名（社名を入れてよい＝原文側）"),
+      summary: z.string().describe("要約（原文側・話した順に要点を3〜15行）"),
+      customerId: z.string().optional(),
+      dealId: z.string().optional(),
+      meetingAt: z.string().optional().describe("実施日 YYYY-MM-DD（省略で今日）"),
+      durationMin: z.number().int().optional(),
+      source: z.string().optional().describe("ZOOM / MEET / TEAMS / VISIT / PHONE / OTHER"),
+      counterpart: z.string().optional().describe("相手の出席者（役職まで）"),
+      industry: z.string().optional().describe("業種（匿名版に出る）"),
+      prefecture: z.string().optional().describe("都道府県（匿名版に出る）"),
+      concerns: z.array(z.string()).optional().describe("クライアントが気にしていた点（匿名版に出る＝社名を書かない）"),
+      winPoints: z.array(z.string()).optional().describe("刺さった点・勝ちパターン（匿名版に出る＝社名を書かない）"),
+      objections: z.array(z.string()).optional().describe("懸念・宿題（原文側）"),
+      nextActions: z.array(z.string()).optional().describe("次の一手（原文側）"),
+      sharedSummary: z.string().optional().describe("全社に出す匿名版の要約1〜3行（社名・人名なし）。GROUPのときは必須"),
+      visibility: z.string().optional().describe("PRIVATE / ALLOWED / GROUP（既定 PRIVATE）"),
+      allowedEmails: z.array(z.string()).optional().describe("原文を開く人のメールアドレス"),
+    }),
+    run: (v, a) => osw.logMeeting(v, a as osw.LogMeetingInput),
+    confirm: (a) =>
+      `会議メモを残します（${a.visibility ?? "PRIVATE"}＝${a.visibility === "GROUP" ? "匿名版を全社に出す" : a.visibility === "ALLOWED" ? "指名した人まで" : "自分と本部だけ"}）: 「${a.title}」\n${a.summary.slice(0, 300)}`,
+  }),
+  def({
     name: "create_customer", kind: "write", title: "顧客を登録",
     description: "会話に出た新しい取引先・見込み客を貴社の顧客として登録する。登録前に search_customers で重複を確認する。status: PROSPECT / ACTIVE / INACTIVE、rank: A / B / C。金額は入れない。",
     input: z.object({ name: z.string(), nameKana: z.string().optional(), contactName: z.string().optional(), phone: z.string().optional(), email: z.string().optional(), website: z.string().optional(), industry: z.string().optional(), prefecture: z.string().optional(), address: z.string().optional(), notes: z.string().optional(), status: z.string().optional(), rank: z.string().optional() }),

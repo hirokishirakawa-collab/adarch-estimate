@@ -2696,15 +2696,15 @@ model TverDeliveryReport {
   //   卸値・自動計算（卸値×MULT）はCSVのまま残し、内訳は表示回数で比例按分して見せる
   //   予算＝媒体実費（卸値ベース・税抜・円）。TVerに出す媒体費の枠。拠点・お客様に出る予算はこれ×MULT
   //   budgetMode: PERIOD＝期間予算（期間の長さに関係なくこの額を使い切る・TVerの主流）／MONTHLY＝月額（期間の月数を掛ける）
-  monthlyBudget      Int?
-  budgetMode         String  @default("MONTHLY")
-  sellAmountAdjusted Int? // 調整後の売価（税抜・円）。null＝調整なし
+  monthlyBudget        Int?
+  budgetMode           String    @default("MONTHLY")
+  sellAmountAdjusted   Int? // 調整後の売価（税抜・円）。null＝調整なし
   //   単価の条件が特殊な案件（グロス請求・別案件込みの調整単価など）は true。
   //   金額は今までどおり出すが、全社の単価の目安（一覧の分析・tver_benchmarks）からは外す。展開の型は参考にできる
-  excludeFromBenchmark Boolean @default(false)
-  adjustNote         String? // 調整の理由（本部内・必須入力）
-  adjustedAt         DateTime?
-  adjustedByEmail    String?
+  excludeFromBenchmark Boolean   @default(false)
+  adjustNote           String? // 調整の理由（本部内・必須入力）
+  adjustedAt           DateTime?
+  adjustedByEmail      String?
 
   // ── 合計（卸値は本部だけ。拠点には sell* だけを見せる）
   impressions       Int
@@ -5753,4 +5753,69 @@ model SeminarRecording {
 
   @@index([isActive, createdAt])
   @@map("seminar_recordings")
+}
+
+// ==============================================================
+// MeetingNote — Web会議・訪問の要約（2026-09-16 代表指示）
+//   Zoom等の会議の中身を、守秘を守ったままOSに貯めて「勝ちパターン」と
+//   「クライアントが気にしている点」をグループの資産にする。
+//   ⚠️ 二段構え: 原文（社名・発言つき）は書いた人＋本部＋指名した人だけ。
+//      全社に出るのは社名・人名を伏せた匿名版（sharedSummary）だけ。
+//   顧客・商談・拠点はIDだけ持つ（名前は表示時に引く）。金額は持たない。
+// ==============================================================
+
+/// 会議要約の公開範囲。PRIVATE=書いた人と本部だけ／ALLOWED=指名した人にも原文を開く／GROUP=匿名版を全社に出す（原文は書いた人・本部・指名した人だけ）
+enum MeetingVisibility {
+  PRIVATE
+  ALLOWED
+  GROUP
+}
+
+model MeetingNote {
+  id          String   @id @default(cuid())
+  title       String // 会議名（例: 株式会社◯◯ 初回ヒアリング）
+  meetingAt   DateTime // 実施日時
+  durationMin Int? // 分
+  /// ZOOM / MEET / TEAMS / VISIT / PHONE / OTHER
+  source      String   @default("ZOOM")
+
+  /// 紐づけ（任意・名前は表示時に引く）
+  customerId String?
+  dealId     String?
+  branchId   String?
+
+  /// 相手側の出席者（役職まで。氏名は任意＝原文側にだけ出る）
+  counterpart String?
+  /// 分類（匿名版で使う）
+  industry    String?
+  prefecture  String?
+
+  /// 原文の要約（守秘側）
+  summary       String   @db.Text
+  /// クライアントが気にしている点
+  concerns      String[] @default([])
+  /// 刺さった点・勝ちパターン
+  winPoints     String[] @default([])
+  /// 懸念・宿題・反論
+  objections    String[] @default([])
+  /// 次の一手
+  nextActions   String[] @default([])
+  /// 全社に出す匿名版（社名・人名なし）。GROUP のときだけ使う
+  sharedSummary String?  @db.Text
+
+  visibility    MeetingVisibility @default(PRIVATE)
+  /// 原文を開く人（メールアドレス）
+  allowedEmails String[]          @default([])
+
+  createdByEmail String
+  createdByName  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([dealId])
+  @@index([branchId])
+  @@index([meetingAt(sort: Desc)])
+  @@map("meeting_notes")
 }

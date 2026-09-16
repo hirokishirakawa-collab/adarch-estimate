@@ -124,6 +124,103 @@ export async function logActivity(v: McpViewer, input: LogActivityInput) {
   return { id: row.id, target: "customer" as const, customerId: c.id, customer: c.name, type, at: day(row.createdAt) };
 }
 
+// ---- 会議メモ（Web会議・訪問の要約）------------------------------------------
+// 守秘の面なので、既定は「自分と本部だけ」。全社に出るのは匿名版（sharedSummary・
+// concerns・winPoints）だけで、要約の原文・宿題・次の一手は指名した人までに留まる。
+
+export interface LogMeetingInput {
+  title: string;
+  summary: string;
+  customerId?: string;
+  dealId?: string;
+  meetingAt?: string;
+  durationMin?: number;
+  source?: string;
+  counterpart?: string;
+  industry?: string;
+  prefecture?: string;
+  concerns?: string[];
+  winPoints?: string[];
+  objections?: string[];
+  nextActions?: string[];
+  sharedSummary?: string;
+  visibility?: string;
+  allowedEmails?: string[];
+}
+
+const MEETING_SOURCES = ["ZOOM", "MEET", "TEAMS", "VISIT", "PHONE", "OTHER"];
+const MEETING_VISIBILITIES = ["PRIVATE", "ALLOWED", "GROUP"];
+const bullets = (v: string[] | undefined, label: string) => {
+  const list = (v ?? []).map((s) => s.trim()).filter(Boolean).slice(0, 12);
+  for (const t of list) maxLen(t, 300, label);
+  return list;
+};
+
+export async function logMeeting(v: McpViewer, input: LogMeetingInput) {
+  const title = input.title?.trim();
+  const summary = input.summary?.trim();
+  need(title, "会議名（title）を入れてください");
+  need(summary, "要約（summary）を入れてください");
+  maxLen(title, 200, "会議名");
+  maxLen(summary, 8000, "要約");
+
+  const source = (input.source ?? "ZOOM").toUpperCase();
+  need(MEETING_SOURCES.includes(source), `source は ${MEETING_SOURCES.join(" / ")} のどれかにしてください`);
+  const visibility = (input.visibility ?? "PRIVATE").toUpperCase();
+  need(MEETING_VISIBILITIES.includes(visibility), `visibility は ${MEETING_VISIBILITIES.join(" / ")} のどれかにしてください`);
+  const sharedSummary = trimOrNull(input.sharedSummary);
+  maxLen(sharedSummary, 3000, "匿名版の要約");
+  need(
+    visibility !== "GROUP" || sharedSummary,
+    "全社に出す（GROUP）ときは、社名・人名を伏せた sharedSummary を入れてください"
+  );
+
+  // 相手先・商談は自拠点のものだけ紐づけられる
+  const customer = input.customerId ? await ownedCustomer(v, input.customerId) : null;
+  const deal = input.dealId ? await ownedDeal(v, input.dealId) : null;
+  const at = input.meetingAt ? parseDay(input.meetingAt, "meetingAt") : null;
+
+  const row = await db.meetingNote.create({
+    data: {
+      title,
+      summary,
+      meetingAt: at ?? new Date(),
+      durationMin: input.durationMin && input.durationMin > 0 ? Math.floor(input.durationMin) : null,
+      source,
+      customerId: customer?.id ?? null,
+      dealId: deal?.id ?? null,
+      branchId: v.branchId,
+      counterpart: trimOrNull(input.counterpart),
+      industry: trimOrNull(input.industry),
+      prefecture: trimOrNull(input.prefecture),
+      concerns: bullets(input.concerns, "気にしている点"),
+      winPoints: bullets(input.winPoints, "刺さった点"),
+      objections: bullets(input.objections, "懸念・宿題"),
+      nextActions: bullets(input.nextActions, "次の一手"),
+      sharedSummary,
+      visibility: visibility as "PRIVATE" | "ALLOWED" | "GROUP",
+      allowedEmails: (input.allowedEmails ?? []).map((e) => e.trim().toLowerCase()).filter((e) => e.includes("@")).slice(0, 30),
+      createdByEmail: v.email,
+      createdByName: staffOf(v),
+    },
+    select: { id: true, meetingAt: true, visibility: true },
+  });
+
+  return {
+    id: row.id,
+    url: `/dashboard/meetings/${row.id}`,
+    customer: customer?.name ?? null,
+    at: day(row.meetingAt),
+    visibility: row.visibility,
+    note:
+      row.visibility === "GROUP"
+        ? "全社には匿名版（社名・人名なし）だけが出ます"
+        : row.visibility === "ALLOWED"
+          ? "指名した人だけが原文を読めます"
+          : "自分と本部だけが読めます",
+  };
+}
+
 // ---- 履歴の読み取り -----------------------------------------------------------
 
 export interface ListActivitiesInput {

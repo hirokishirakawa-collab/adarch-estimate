@@ -76,7 +76,30 @@ export interface SentMessageGroup {
   variants: SentMessageVariant[];
 }
 
-export type SentMessageSort = "new" | "count" | "replied" | "opened" | "clicked";
+export type SentMessageSort = "result" | "new" | "count" | "replied" | "opened" | "clicked";
+
+// 「一番結果が出ている文面」を上に出すための点数。
+//   返信率をそのまま並べると「1社に送って1社返信＝100%」が最上位に来てしまい、
+//   下駄を履かせて均すと今度は「1社に送って返信ゼロ」が「11社に送って返信ゼロ」より上に来る。
+//   そこで率の「確からしい下限」（Wilsonの下側95%）で見る。返信ゼロはどれだけ送っても0、
+//   返信があるものだけが前に出て、同じ率なら送った数が多いほうが上になる。
+//   返信 > クリック > 開封 の順に重く見る（開封はMailSuiteの目安）。
+function lowerBound(hit: number, n: number): number {
+  if (n <= 0 || hit <= 0) return 0;
+  const z = 1.96;
+  const p = hit / n;
+  const d = 1 + (z * z) / n;
+  const c = p + (z * z) / (2 * n) - z * Math.sqrt((p * (1 - p) + (z * z) / (4 * n)) / n);
+  return Math.max(0, c / d);
+}
+function resultScore(g: { sent: number; replied: number; clicked: number; opened: number }): number {
+  return lowerBound(g.replied, g.sent) * 1000 + lowerBound(g.clicked, g.sent) * 100 + lowerBound(g.opened, g.sent) * 10;
+}
+
+/** 返信率（%・送った数が0なら0）。画面に出す用 */
+export function replyRate(g: { sent: number; replied: number }): number {
+  return g.sent > 0 ? Math.round((g.replied / g.sent) * 100) : 0;
+}
 
 export interface SentMessageQuery {
   from?: Date;
@@ -175,9 +198,10 @@ export async function getSentMessageGroups(q: SentMessageQuery = {}): Promise<Se
   }
 
   const list = [...groups.values()].map(({ variantMap, openSet, clickSet, ...g }) => ({ ...g, opened: openSet.size, clicked: clickSet.size, variants: [...variantMap.values()] }));
-  const sort = q.sort ?? "new";
+  const sort = q.sort ?? "result";
   list.sort((a, b) =>
-    sort === "count" ? b.sent - a.sent || +b.lastSentAt - +a.lastSentAt
+    sort === "result" ? resultScore(b) - resultScore(a) || b.replied - a.replied || b.sent - a.sent || +b.lastSentAt - +a.lastSentAt
+    : sort === "count" ? b.sent - a.sent || +b.lastSentAt - +a.lastSentAt
     : sort === "replied" ? b.replied - a.replied || b.sent - a.sent
     : sort === "opened" ? b.opened - a.opened || b.sent - a.sent
     : sort === "clicked" ? b.clicked - a.clicked || b.sent - a.sent

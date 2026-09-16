@@ -87,6 +87,18 @@
     "section": "相手・商談"
   },
   {
+    "href": "/dashboard/meetings",
+    "label": "会議メモ（守秘つき）",
+    "minRole": "USER",
+    "aliases": [
+      "Web会議の要約",
+      "商談メモ",
+      "議事録"
+    ],
+    "group": "sales",
+    "section": "相手・商談"
+  },
+  {
     "href": "/dashboard/projects/new",
     "label": "案件の作成",
     "minRole": "USER",

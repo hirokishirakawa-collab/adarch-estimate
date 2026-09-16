@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Mail } from "lucide-react";
-import { getSentMessageGroups, type SentMessageSort } from "@/lib/outreach/sent-messages";
+import { getSentMessageGroups, replyRate, type SentMessageSort } from "@/lib/outreach/sent-messages";
 import { CopyUrlButton } from "./copy-url-button";
 import { MailTrackingForm } from "./mail-tracking-form";
 
@@ -16,6 +16,7 @@ interface Props {
 }
 
 const SORTS: { value: SentMessageSort; label: string }[] = [
+  { value: "result", label: "結果が出ている順" },
   { value: "new", label: "新しい順" },
   { value: "count", label: "送った数の多い順" },
   { value: "replied", label: "返信の多い順" },
@@ -27,7 +28,7 @@ const parseDay = (s?: string) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(
 
 export default async function OutreachMessagesPage({ searchParams }: Props) {
   const params = await searchParams;
-  const sort = (SORTS.find((s) => s.value === params.sort)?.value ?? "new") as SentMessageSort;
+  const sort = (SORTS.find((s) => s.value === params.sort)?.value ?? "result") as SentMessageSort;
   const from = parseDay(params.from);
   const toDay = parseDay(params.to);
   const to = toDay ? new Date(+toDay + 86_400_000) : undefined;
@@ -42,7 +43,8 @@ export default async function OutreachMessagesPage({ searchParams }: Props) {
         <div>
           <h2 className="text-lg font-bold text-zinc-900">送った営業文</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            グループの誰かがメール・フォームで送った文面を、そのまま参考にできます（宛名は伏せています）
+            グループの誰かがメール・フォームで送った文面を、そのまま参考にできます（宛名は伏せています）。
+            はじめは<strong className="text-zinc-700">結果が出ている順</strong>（返信 → クリック → 開封の率。送った数が少ないものは控えめに見ます）
           </p>
         </div>
       </div>
@@ -75,10 +77,13 @@ export default async function OutreachMessagesPage({ searchParams }: Props) {
         </p>
       ) : (
         <div className="space-y-3">
-          {groups.map((g) => (
-            <div key={g.id} className="bg-white rounded-lg border border-zinc-200 px-4 py-3">
+          {groups.map((g, i) => (
+            <div key={g.id} className={`bg-white rounded-lg border px-4 py-3 ${sort === "result" && i === 0 && (g.replied > 0 || g.clicked > 0 || g.opened > 0) ? "border-emerald-300 ring-1 ring-emerald-100" : "border-zinc-200"}`}>
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-0">
+                  {sort === "result" && i === 0 && (g.replied > 0 || g.clicked > 0 || g.opened > 0) && (
+                    <p className="text-[10px] font-bold text-emerald-700 mb-0.5">いま一番結果が出ている文面</p>
+                  )}
                   <Link href={`/dashboard/outreach-messages/${g.id}`} className="text-sm font-bold text-zinc-900 hover:underline">
                     {g.title}
                   </Link>
@@ -98,6 +103,7 @@ export default async function OutreachMessagesPage({ searchParams }: Props) {
                   <div><p className="text-[10px] text-zinc-400">クリック</p><p className="text-lg font-bold text-sky-800">{g.clicked}</p></div>
                   <div><p className="text-[10px] text-zinc-400">返信</p><p className="text-lg font-bold text-emerald-700">{g.replied}</p></div>
                   <div><p className="text-[10px] text-zinc-400">返事待ち</p><p className="text-lg font-bold text-zinc-500">{g.waiting}</p></div>
+                  <div><p className="text-[10px] text-zinc-400">返信率</p><p className="text-lg font-bold text-emerald-800">{replyRate(g)}<small className="text-xs font-normal">%</small></p></div>
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-2">
