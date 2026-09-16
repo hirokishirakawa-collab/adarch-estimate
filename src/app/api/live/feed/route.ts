@@ -56,6 +56,7 @@ export interface LiveEvent {
     | "booking"
     | "tender"
     | "lead"
+    | "customer"
     | PulseKind
     | SalesMoveKind;
   actor: string; // 拠点名・会社名・「本部」
@@ -63,7 +64,7 @@ export interface LiveEvent {
   text: string;
   result?: "won" | "reply" | "appointment";
   /** 押したときに詳細を引くための参照。無い種別はフィードの情報だけ出す */
-  ref?: { kind: "deal" | "move" | "sent" | "tender" | "lead"; id: string };
+  ref?: { kind: "deal" | "move" | "sent" | "tender" | "lead" | "customer"; id: string };
 }
 
 export async function GET() {
@@ -79,12 +80,27 @@ export async function GET() {
 
   const since = new Date(Date.now() - WINDOW_DAYS * 86400000);
 
-  const [sent, deals, dealLogs, moves, bookings, tenders, leadLogs] =
+  const [sent, customers, deals, dealLogs, moves, bookings, tenders, leadLogs] =
     await Promise.all([
       db.autoSalesSentDomain.findMany({
         where: { sentAt: { gte: since } },
         select: { id: true, sentAt: true, companyName: true, hasResponse: true, branch: { select: { name: true } } },
         orderBy: { sentAt: "desc" },
+        take: 40,
+      }),
+      // 顧客登録＝新しい取引先がOSに増えた動き（2026-09-16 代表指示でライブに追加）。
+      // 社名まで出すのは商談と同じ線引き。金額・メモ・連絡先は出さない。
+      db.customer.findMany({
+        where: { createdAt: { gte: since } },
+        select: {
+          id: true,
+          createdAt: true,
+          name: true,
+          industry: true,
+          prefecture: true,
+          branch: { select: { name: true } },
+        },
+        orderBy: { createdAt: "desc" },
         take: 40,
       }),
       db.deal.findMany({
@@ -199,6 +215,17 @@ export async function GET() {
       text: `「${s.companyName}」へ初回コンタクトを送付${s.hasResponse ? "（反響あり）" : ""}`,
       result: s.hasResponse ? "reply" : undefined,
       ref: { kind: "sent", id: s.id },
+    });
+  }
+  for (const c of customers) {
+    const ind = c.industry ? `（${c.industry}）` : "";
+    events.push({
+      at: c.createdAt.toISOString(),
+      kind: "customer",
+      actor: c.branch.name,
+      prefs: [...new Set([...prefsIn(c.branch.name), ...prefsIn(c.prefecture)])],
+      text: `「${c.name}」${ind}を顧客に登録`,
+      ref: { kind: "customer", id: c.id },
     });
   }
   for (const d of deals) {

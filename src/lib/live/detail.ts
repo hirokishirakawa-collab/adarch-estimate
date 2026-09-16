@@ -16,6 +16,7 @@ import {
   leadLogKind,
   leadLogText,
 } from "@/lib/live/labels";
+import { CUSTOMER_STATUS_OPTIONS, SOURCE_OPTIONS } from "@/lib/constants/crm";
 
 export interface LiveDetail {
   title: string;
@@ -27,8 +28,19 @@ export interface LiveDetail {
   hrefLabel?: string;
 }
 
-export type LiveDetailKind = "deal" | "move" | "sent" | "tender" | "lead";
-export const LIVE_DETAIL_KINDS: LiveDetailKind[] = ["deal", "move", "sent", "tender", "lead"];
+export type LiveDetailKind = "deal" | "move" | "sent" | "tender" | "lead" | "customer";
+export const LIVE_DETAIL_KINDS: LiveDetailKind[] = ["deal", "move", "sent", "tender", "lead", "customer"];
+
+const CUSTOMER_STATUS_LABEL: Record<string, string> = Object.fromEntries(
+  CUSTOMER_STATUS_OPTIONS.map((o) => [o.value, o.label])
+);
+// 流入経路は画面の選択肢の言い方に直す（過去の取り込み分は元の値のまま出す）
+const CUSTOMER_SOURCE_LABEL: Record<string, string> = {
+  ...Object.fromEntries(SOURCE_OPTIONS.map((o) => [o.value, o.label])),
+  GMAIL_ARCHIVE: "過去のメールから取込",
+  DRIVE_ARCHIVE: "Driveの資料から取込",
+  WORKS_ARCHIVE: "過去の制作実績から取込",
+};
 
 // 外部データ由来のURLをそのままリンクにしない（javascript: 等を弾く）
 export function safeHref(url: string | null | undefined): string | undefined {
@@ -213,6 +225,50 @@ export async function getLiveDetail(kind: string, id: string): Promise<LiveDetai
       rows,
       href: safeHref(t.documentUrl) ?? "/dashboard/tender-finder",
       hrefLabel: safeHref(t.documentUrl) ? "公告を開く" : "入札ファインダーへ",
+    };
+  }
+
+  if (kind === "customer") {
+    // 連絡先・メモ・ランク・金額は取らない＝ライブは社名・業種・所在地・段階まで
+    const customer = await db.customer.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        industry: true,
+        prefecture: true,
+        status: true,
+        source: true,
+        staffName: true,
+        createdAt: true,
+        branch: { select: { name: true } },
+        deals: {
+          select: { createdAt: true, status: true },
+          orderBy: { createdAt: "desc" },
+          take: 3,
+        },
+        _count: { select: { deals: true } },
+      },
+    });
+    if (!customer) return null;
+    const rows = [
+      { label: "段階", value: CUSTOMER_STATUS_LABEL[customer.status] ?? customer.status },
+      { label: "登録日", value: fmt(customer.createdAt) },
+    ];
+    if (customer.staffName) rows.push({ label: "登録した人", value: customer.staffName });
+    if (customer.source) rows.push({ label: "入口", value: CUSTOMER_SOURCE_LABEL[customer.source] ?? customer.source });
+    rows.push({ label: "商談", value: customer._count.deals ? `${customer._count.deals}件` : "まだなし" });
+    return {
+      title: customer.name,
+      subtitle: [customer.industry, customer.prefecture].filter(Boolean).join(" ・ "),
+      actor: customer.branch.name,
+      rows,
+      timeline: customer.deals.map((d) => ({
+        at: fmt(d.createdAt),
+        text: `商談 — ${DEAL_STATUS_LABEL[d.status] ?? d.status}`,
+      })),
+      href: `/dashboard/customers/${customer.id}`,
+      hrefLabel: "顧客を開く",
     };
   }
 
