@@ -1,3 +1,4 @@
+import { guidedWikiBody } from "@/lib/workspace/wiki-guidance";
 import { db } from "@/lib/db";
 
 export interface WikiSearchResult {
@@ -74,7 +75,7 @@ export async function searchWikiArticles(
   return scored
     .filter((a) => a.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+    .slice(0, limit).map(article => ({...article, body: guidedWikiBody(article.title, article.body)}));
 }
 
 /** 題名や見出しを「語」に割る（2〜20文字・小文字）。「〜の使い方」「〜について」等の飾りは落とす */

@@ -88,7 +88,7 @@ export default async function SeminarsPage() {
             const lineText = `【録画のご案内】${r.title}\n${r.presenterName}（${r.ownerCompany}）が話した${r.durationMin ? `${r.durationMin}分の` : ""}セミナーです。${r.audience ? `${r.audience}向け。` : ""}\nこちらから見られます → ${link}\n見終わったら、30分の個別相談も承ります。`;
             const mine = r.ownerEmail === email;
             return (
-              <li key={r.id} className="bg-white border border-zinc-200 rounded-xl p-4 flex flex-col sm:flex-row gap-4">
+              <li id={`recording-${r.id}`} key={r.id} className="bg-white border border-zinc-200 rounded-xl p-4 flex flex-col sm:flex-row gap-4">
                 <div className="sm:w-56 shrink-0">
                   {info.embedUrl ? (
                     <div className="aspect-video rounded-lg overflow-hidden bg-zinc-100">

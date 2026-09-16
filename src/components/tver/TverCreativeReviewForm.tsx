@@ -9,11 +9,12 @@ type Advertiser = { id: string; name: string };
 interface Props {
   action: (prev: { error?: string } | null, formData: FormData) => Promise<{ error?: string }>;
   advertisers: Advertiser[];
+  initialAdvertiserId?: string;
 }
 
-export function TverCreativeReviewForm({ action, advertisers }: Props) {
+export function TverCreativeReviewForm({ action, advertisers, initialAdvertiserId }: Props) {
   const [state, formAction, isPending] = useActionState(action, null);
-  const [selectedId, setSelectedId]   = useState("");
+  const [selectedId, setSelectedId]   = useState(advertisers.some(a => a.id === initialAdvertiserId) ? initialAdvertiserId! : "");
   const [fetched, setFetched]         = useState<{ name: string } | null>(null);
   const [isFetching, startFetch]      = useTransition();
 

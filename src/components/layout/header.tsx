@@ -1,107 +1,69 @@
-import Link from "next/link";
-import { cn } from "@/lib/utils";
-import type { UserRole } from "@/types/roles";
-import { Menu, Search, Settings } from "lucide-react";
+"use client";
+import { usePathname } from "next/navigation";
+import { Menu, Search } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
 import { PresenceBadge } from "@/components/office/presence-badge";
 import { ArchKunToggle } from "@/components/chatbot/arch-kun-toggle";
-import { ReportBranchSwitch, type ReportBranches } from "./report-branch-switch";
-
-// ----------------------------------------------------------------
-// ロールごとの上部バナー（ADMIN のみ表示）
-// ----------------------------------------------------------------
-const ROLE_BANNERS: Partial<
-  Record<UserRole, { label: string; bgClass: string; textClass: string }>
-> = {
-  ADMIN: {
-    label: "管理者モード — 全データ・財務情報へのアクセスが有効です",
-    bgClass: "bg-gradient-to-r from-indigo-500/[0.06] via-cyan-500/[0.04] to-indigo-500/[0.06] border-b border-indigo-500/[0.06]",
-    textClass: "text-indigo-500/80",
-  },
-};
-
+import {
+  ReportBranchSwitch,
+  type ReportBranches,
+} from "./report-branch-switch";
+import { navigationForPath } from "@/lib/navigation/catalog";
+import { AiWorkButton } from "@/components/workspace/ai-work-button";
+import type { UserRole } from "@/types/roles";
 interface HeaderProps {
   pageTitle: string;
-  user: {
-    name?: string | null;
-    role: UserRole;
-  };
+  user: { name?: string | null; role: UserRole; aiConnected?: boolean };
   onMenuOpen: () => void;
   onSearchOpen: () => void;
   reportBranches?: ReportBranches | null;
 }
-
-export function Header({ pageTitle, user, onMenuOpen, onSearchOpen, reportBranches }: HeaderProps) {
-  const banner = ROLE_BANNERS[user.role];
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("ja-JP", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-  });
-
+export function Header({
+  pageTitle,
+  user,
+  onMenuOpen,
+  onSearchOpen,
+  reportBranches,
+}: HeaderProps) {
+  const pathname = usePathname();
+  const current = navigationForPath(pathname);
   return (
-    <header className="flex-shrink-0 relative z-10">
-      {/* ADMIN バナー */}
-      {banner && (
-        <div className={cn("px-6 py-1.5 flex items-center gap-2", banner.bgClass)}>
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-          <p className={cn("text-[11px] font-medium", banner.textClass)}>
-            {banner.label}
-          </p>
+    <header className="os-topbar">
+      <div className="os-topbar-start">
+        <button
+          type="button"
+          aria-label="メニューを開く"
+          className="os-menu-button os-icon-button"
+          onClick={onMenuOpen}
+        >
+          <Menu size={20} />
+        </button>
+        <span className="os-current-title">
+          {current.group?.label ?? pageTitle}
+        </span>
+        <button
+          type="button"
+          onClick={onSearchOpen}
+          className="os-search-trigger"
+          aria-label="顧客・案件・資料・機能を検索"
+        >
+          <Search size={17} aria-hidden />
+          <span>顧客・案件・資料を探す</span>
+          <kbd>⌘K</kbd>
+        </button>
+      </div>
+      {reportBranches && (
+        <div className="os-report-switch">
+          <ReportBranchSwitch branches={reportBranches} />
         </div>
       )}
-
-      {/* メインヘッダー */}
-      <div className="h-14 px-4 sm:px-6 bg-white/80 backdrop-blur-xl border-b border-black/[0.06] flex items-center justify-between">
-        <div className="flex items-center">
-          {/* モバイル用ハンバーガーボタン */}
-          <button
-            className="md:hidden mr-3 p-1.5 rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
-            onClick={onMenuOpen}
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <h1 className="text-base font-semibold text-zinc-900">{pageTitle}</h1>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* 報告先の県（2拠点の代表のみ） */}
-          {reportBranches && <ReportBranchSwitch branches={reportBranches} />}
-
-          {/* 横断検索 */}
-          <button
-            onClick={onSearchOpen}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-500 text-xs hover:bg-zinc-200 hover:text-zinc-700 transition-colors"
-          >
-            <Search className="w-3.5 h-3.5" />
-            <span className="hidden sm:block">検索...</span>
-            <kbd className="hidden sm:block text-[10px] bg-zinc-200 px-1.5 py-0.5 rounded">⌘K</kbd>
-          </button>
-
-          {/* いま動いている人（グループオフィス） */}
+      <div className="os-topbar-actions">
+        <span className="os-header-presence">
           <PresenceBadge />
-
-          {/* 通知ベル */}
-          <NotificationBell />
-
-          {/* アーチくん 表示/非表示 */}
-          <ArchKunToggle />
-
-          {/* 設定 */}
-          <Link
-            href="/dashboard/settings"
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors text-xs"
-            title="通知設定"
-          >
-            <Settings className="w-4 h-4" />
-            <span className="hidden sm:block">通知設定</span>
-          </Link>
-
-          {/* 日付 */}
-          <p className="hidden md:block text-xs text-zinc-400">{dateStr}</p>
-        </div>
+        </span>
+        <NotificationBell />
+        <ArchKunToggle />
+        <AiWorkButton connected={user.aiConnected} />
       </div>
     </header>
   );

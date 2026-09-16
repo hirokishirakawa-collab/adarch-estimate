@@ -1,0 +1,955 @@
+[
+  {
+    "href": "/dashboard",
+    "label": "ホーム",
+    "minRole": "USER",
+    "aliases": [
+      "ダッシュボード"
+    ],
+    "group": "home",
+    "section": "グループの動き"
+  },
+  {
+    "href": "/dashboard/partner-status",
+    "label": "稼働ステータス申告",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "procedures",
+    "section": "報告・請求"
+  },
+  {
+    "href": "/dashboard/leads/list",
+    "label": "見込み先",
+    "minRole": "USER",
+    "aliases": [
+      "① リード管理",
+      "リード管理・営業報告"
+    ],
+    "group": "sales",
+    "section": "相手・商談"
+  },
+  {
+    "href": "/dashboard/line",
+    "label": "LINE公式アカウント",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "projects",
+    "section": "案件・広告の運用"
+  },
+  {
+    "href": "/dashboard/meta-ads",
+    "label": "Meta広告（地域限定）",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "projects",
+    "section": "案件・広告の運用"
+  },
+  {
+    "href": "/dashboard/live",
+    "label": "GROUP LIVE",
+    "minRole": "USER",
+    "aliases": [
+      "GROUP LIVE（みんなの動き）",
+      "グループライブ"
+    ],
+    "group": "home",
+    "section": "グループの動き"
+  },
+  {
+    "href": "/dashboard/customers",
+    "label": "顧客",
+    "minRole": "USER",
+    "aliases": [
+      "顧客管理（起点）"
+    ],
+    "group": "sales",
+    "section": "相手・商談"
+  },
+  {
+    "href": "/dashboard/clients",
+    "label": "取引先マップ",
+    "minRole": "USER",
+    "aliases": [
+      "取引先マップ",
+      "取引先マップ（実績・口コミ・傾向）"
+    ],
+    "group": "sales",
+    "section": "相手・商談"
+  },
+  {
+    "href": "/dashboard/deals",
+    "label": "商談",
+    "minRole": "USER",
+    "aliases": [
+      "② 商談管理（SFA）"
+    ],
+    "group": "sales",
+    "section": "相手・商談"
+  },
+  {
+    "href": "/dashboard/projects/new",
+    "label": "案件の作成",
+    "minRole": "USER",
+    "aliases": [
+      "③ プロジェクト登録"
+    ],
+    "group": "projects",
+    "section": "案件・広告の運用"
+  },
+  {
+    "href": "/dashboard/sales",
+    "label": "営業フロー",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "sales",
+    "section": "結果から学ぶ"
+  },
+  {
+    "href": "/dashboard/regulars",
+    "label": "レギュラー案件",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "projects",
+    "section": "案件・広告の運用"
+  },
+  {
+    "href": "/dashboard/estimates",
+    "label": "公式見積もり",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "sales",
+    "section": "相手・商談"
+  },
+  {
+    "href": "/dashboard/leads",
+    "label": "新しい相手を探す",
+    "minRole": "USER",
+    "aliases": [
+      "リード獲得AI"
+    ],
+    "group": "sales",
+    "section": "次の相手を探す"
+  },
+  {
+    "href": "/dashboard/subsidy-finder",
+    "label": "補助金ファインダー（広告費の財源）",
+    "minRole": "USER",
+    "aliases": [
+      "補助金ファインダー"
+    ],
+    "group": "sales",
+    "section": "次の相手を探す"
+  },
+  {
+    "href": "/dashboard/anniversary-finder",
+    "label": "周年ファインダー（記念広告の商機）",
+    "minRole": "USER",
+    "aliases": [
+      "周年ファインダー"
+    ],
+    "group": "sales",
+    "section": "次の相手を探す"
+  },
+  {
+    "href": "/dashboard/ad-buyer-finder",
+    "label": "広告出稿者ファインダー（広告費を払っている店）",
+    "minRole": "USER",
+    "aliases": [
+      "広告出稿者ファインダー"
+    ],
+    "group": "sales",
+    "section": "次の相手を探す"
+  },
+  {
+    "href": "/dashboard/tender-finder",
+    "label": "入札ファインダー（自治体の案件）",
+    "minRole": "USER",
+    "aliases": [
+      "入札ファインダー"
+    ],
+    "group": "sales",
+    "section": "次の相手を探す"
+  },
+  {
+    "href": "/dashboard/award-finder",
+    "label": "広告賞ファインダー（クライアントとの会話のきっかけ）",
+    "minRole": "USER",
+    "aliases": [
+      "広告賞ファインダー"
+    ],
+    "group": "sales",
+    "section": "次の相手を探す"
+  },
+  {
+    "href": "/dashboard/leads/tvcm-pool",
+    "label": "TVer広告 案件プール",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "sales",
+    "section": "次の相手を探す"
+  },
+  {
+    "href": "/dashboard/leads/tvcm",
+    "label": "TVer広告 案件クロール（本部）",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/leads/tvcm-history",
+    "label": "TVer広告 案件履歴（本部）",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/video-achievements",
+    "label": "他社の制作実績を探す",
+    "minRole": "USER",
+    "aliases": [
+      "競合実績スクレイピング",
+      "競合実績スクレイピング（自動収集）"
+    ],
+    "group": "sales",
+    "section": "次の相手を探す"
+  },
+  {
+    "href": "/dashboard/franchise-leads",
+    "label": "加盟リード獲得AI",
+    "minRole": "USER",
+    "requiredFeature": "franchise-leads",
+    "aliases": [],
+    "group": "sales",
+    "section": "結果から学ぶ"
+  },
+  {
+    "href": "/dashboard/creator-leads",
+    "label": "クリエイター発掘AI",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/outreach-pipeline",
+    "label": "アウトリーチ",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "sales",
+    "section": "提案・連絡を準備する"
+  },
+  {
+    "href": "/dashboard/auto-sales/history",
+    "label": "送付済み企業・履歴",
+    "minRole": "MANAGER",
+    "aliases": [
+      "送付済み企業（全社）"
+    ],
+    "group": "sales",
+    "section": "結果から学ぶ"
+  },
+  {
+    "href": "/dashboard/projects",
+    "label": "案件一覧",
+    "minRole": "USER",
+    "aliases": [
+      "プロジェクト一覧"
+    ],
+    "group": "projects",
+    "section": "案件・広告の運用"
+  },
+  {
+    "href": "/dashboard/group-profiles",
+    "label": "メンバー紹介",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "projects",
+    "section": "TVer・協力者"
+  },
+  {
+    "href": "/dashboard/strategy-advisor",
+    "label": "提案戦略アドバイザー（AI）",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "sales",
+    "section": "提案・連絡を準備する"
+  },
+  {
+    "href": "/dashboard/tver-simulator",
+    "label": "TVer広告シミュレーター",
+    "minRole": "USER",
+    "aliases": [
+      "TVer広告"
+    ],
+    "group": "library",
+    "section": "商品・媒体"
+  },
+  {
+    "href": "/dashboard/taxi-ads-simulator",
+    "label": "タクシー広告（TOKYO PRIME）",
+    "minRole": "USER",
+    "aliases": [
+      "タクシー広告"
+    ],
+    "group": "library",
+    "section": "商品・媒体"
+  },
+  {
+    "href": "/dashboard/skylark-simulator",
+    "label": "すかいらーくインストア",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "library",
+    "section": "商品・媒体"
+  },
+  {
+    "href": "/dashboard/univ-coop-simulator",
+    "label": "大学生協広告",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "library",
+    "section": "商品・媒体"
+  },
+  {
+    "href": "/dashboard/aeon-cinema-simulator",
+    "label": "イオンシネマ",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "library",
+    "section": "商品・媒体"
+  },
+  {
+    "href": "/dashboard/golfcart-simulator",
+    "label": "ゴルフカート（Golfcart Vision）",
+    "minRole": "USER",
+    "aliases": [
+      "ゴルフカート"
+    ],
+    "group": "library",
+    "section": "商品・媒体"
+  },
+  {
+    "href": "/dashboard/omochannel-simulator",
+    "label": "おもチャンネル（アパホテル）",
+    "minRole": "USER",
+    "aliases": [
+      "おもチャンネル"
+    ],
+    "group": "library",
+    "section": "商品・媒体"
+  },
+  {
+    "href": "/dashboard/violation-report",
+    "label": "コンプライアンス相談",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "procedures",
+    "section": "本部への相談・共有"
+  },
+  {
+    "href": "/dashboard/sales-insights",
+    "label": "営業分析レポート",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "sales",
+    "section": "結果から学ぶ"
+  },
+  {
+    "href": "/dashboard/group-moves",
+    "label": "グループの動き",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "home",
+    "section": "グループの動き"
+  },
+  {
+    "href": "/dashboard/sales-approaches",
+    "label": "アプローチ事例集",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "library",
+    "section": "事例・材料・使い方"
+  },
+  {
+    "href": "/dashboard/outreach-messages",
+    "label": "送った営業文",
+    "minRole": "USER",
+    "aliases": [
+      "送った営業文（結果が出ている順）"
+    ],
+    "group": "sales",
+    "section": "結果から学ぶ"
+  },
+  {
+    "href": "/dashboard/project-matching",
+    "label": "案件マッチング",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "projects",
+    "section": "TVer・協力者"
+  },
+  {
+    "href": "/dashboard/playbook",
+    "label": "営業プレイブック",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "library",
+    "section": "事例・材料・使い方"
+  },
+  {
+    "href": "/dashboard/packages",
+    "label": "パッケージ",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "library",
+    "section": "商品・媒体"
+  },
+  {
+    "href": "/dashboard/tver-order-link",
+    "label": "お客様に渡すTVer相談リンク",
+    "minRole": "USER",
+    "aliases": [
+      "TVer申込リンク",
+      "TVer申込リンク（お客様に渡す）"
+    ],
+    "group": "sales",
+    "section": "提案・連絡を準備する"
+  },
+  {
+    "href": "/dashboard/tver-reports",
+    "label": "TVer配信実績",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "projects",
+    "section": "TVer・協力者"
+  },
+  {
+    "href": "/dashboard/billing",
+    "label": "請求依頼",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "procedures",
+    "section": "報告・請求"
+  },
+  {
+    "href": "/dashboard/payments",
+    "label": "支払明細",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "procedures",
+    "section": "報告・請求"
+  },
+  {
+    "href": "/dashboard/royalty",
+    "label": "ロイヤリティ",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "procedures",
+    "section": "報告・請求"
+  },
+  {
+    "href": "/dashboard/billing/settings",
+    "label": "経理情報の登録",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "procedures",
+    "section": "報告・請求"
+  },
+  {
+    "href": "/dashboard/sales-report",
+    "label": "月次報告",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "procedures",
+    "section": "報告・請求"
+  },
+  {
+    "href": "/dashboard/business-cards",
+    "label": "名刺管理",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "sales",
+    "section": "相手・商談"
+  },
+  {
+    "href": "/dashboard/wiki",
+    "label": "社内Wiki",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "library",
+    "section": "事例・材料・使い方"
+  },
+  {
+    "href": "/dashboard/knowledge",
+    "label": "資料ライブラリ",
+    "minRole": "USER",
+    "aliases": [
+      "資料ライブラリ（OSの頭脳）"
+    ],
+    "group": "library",
+    "section": "事例・材料・使い方"
+  },
+  {
+    "href": "/dashboard/portfolio",
+    "label": "実績フォルダ検索",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "library",
+    "section": "事例・材料・使い方"
+  },
+  {
+    "href": "https://drive.google.com/drive/folders/11CJPv-D_37Vn1zntRzI9Qqc2SV89fKPT?usp=drive_link",
+    "label": "実績フォルダ（Drive）",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "library",
+    "external": true,
+    "section": "事例・材料・使い方"
+  },
+  {
+    "href": "https://drive.google.com/drive/folders/1p9QtqSbPrBAkof5-10jeusyG6T2y7cB8?usp=drive_link",
+    "label": "グループ運用データ（Drive）",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "procedures",
+    "external": true,
+    "section": "本部への相談・共有"
+  },
+  {
+    "href": "/dashboard/tver-review",
+    "label": "TVer業態考査申請",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "projects",
+    "section": "TVer・協力者"
+  },
+  {
+    "href": "/dashboard/tver-campaign",
+    "label": "TVer配信申請",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "projects",
+    "section": "TVer・協力者"
+  },
+  {
+    "href": "/dashboard/tver-creative-review",
+    "label": "TVer クリエイティブ考査申請",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "projects",
+    "section": "TVer・協力者"
+  },
+  {
+    "href": "/dashboard/media",
+    "label": "媒体依頼",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "projects",
+    "section": "案件・広告の運用"
+  },
+  {
+    "href": "/dashboard/tver-flyer",
+    "label": "TVerチラシ制作サポート",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "projects",
+    "section": "TVer・協力者"
+  },
+  {
+    "href": "/dashboard/signage",
+    "label": "端末・動作状況",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "projects",
+    "section": "案件・広告の運用"
+  },
+  {
+    "href": "/dashboard/signage/playlists",
+    "label": "プレイリスト（枠）",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "projects",
+    "section": "案件・広告の運用"
+  },
+  {
+    "href": "/dashboard/signage/assets",
+    "label": "素材",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "projects",
+    "section": "案件・広告の運用"
+  },
+  {
+    "href": "/dashboard/vault",
+    "label": "AdArch Vault（素材コピー）",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "library",
+    "section": "事例・材料・使い方"
+  },
+  {
+    "href": "/dashboard/brand-kit",
+    "label": "ブランド・制作の材料",
+    "minRole": "USER",
+    "aliases": [
+      "ブランドキット（資料の型・AI用材料）"
+    ],
+    "group": "library",
+    "section": "事例・材料・使い方"
+  },
+  {
+    "href": "https://calendar.app.google/pfFBZxmHbNFFp6cs5",
+    "label": "本部打ち合わせ予約",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "procedures",
+    "external": true,
+    "section": "本部への相談・共有"
+  },
+  {
+    "href": "/dashboard/learning",
+    "label": "ラーニング",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "library",
+    "section": "事例・材料・使い方"
+  },
+  {
+    "href": "/dashboard/creators",
+    "label": "クリエイター検索",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "projects",
+    "section": "TVer・協力者"
+  },
+  {
+    "href": "/dashboard/admin/sales-overview",
+    "label": "代表別 営業ダッシュボード",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/group-profiles/highlights",
+    "label": "連携案件ハイライト",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/group-support",
+    "label": "グループサポート",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/partner-status",
+    "label": "パートナー稼働管理",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/bookings",
+    "label": "面談予約管理",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/violation-reports",
+    "label": "コンプライアンス相談管理",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/payments",
+    "label": "支払明細管理",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/group-invoices",
+    "label": "グループ請求書",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/royalty",
+    "label": "ロイヤリティ状況",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/royalty/check",
+    "label": "ロイヤリティ入金チェック",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/tver-orders",
+    "label": "TVer小口申込",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/tver-reports",
+    "label": "TVer配信実績（取込・確認）",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/partner-billing",
+    "label": "パートナー経理管理",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/users",
+    "label": "メンバー管理",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/learning",
+    "label": "ラーニング管理",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/login-logs",
+    "label": "操作ログ",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/audit-logs",
+    "label": "操作ログ（詳細）",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/api-usage",
+    "label": "API利用状況",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/ai-usage",
+    "label": "AI活用度",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/admin/chatbot-logs",
+    "label": "チャットボット履歴",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/creators/admin",
+    "label": "クリエイター管理",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/leads/awaiting",
+    "label": "返事待ち・結果の記録",
+    "minRole": "USER",
+    "aliases": [
+      "返事待ち（結果入力）"
+    ],
+    "group": "sales",
+    "section": "相手・商談"
+  },
+  {
+    "href": "/dashboard/leads/dm",
+    "label": "郵送DM（チラシDM）",
+    "minRole": "USER",
+    "aliases": [],
+    "group": "sales",
+    "section": "提案・連絡を準備する"
+  },
+  {
+    "href": "/dashboard/seminars",
+    "label": "セミナー録画",
+    "minRole": "USER",
+    "aliases": [
+      "セミナー録画ライブラリ（全社共有）"
+    ],
+    "group": "library",
+    "section": "事例・材料・使い方"
+  },
+  {
+    "href": "/dashboard/admin/knowledge",
+    "label": "資料ライブラリの登録（本部）",
+    "minRole": "ADMIN",
+    "aliases": [],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/ai",
+    "label": "AIで進める",
+    "group": "settings",
+    "section": "AI",
+    "minRole": "USER",
+    "aliases": []
+  },
+  {
+    "href": "/dashboard/ai-connect",
+    "label": "AI接続",
+    "group": "settings",
+    "section": "AI",
+    "minRole": "USER",
+    "aliases": [
+      "AIと直接つなぐ"
+    ]
+  },
+  {
+    "href": "/dashboard/settings",
+    "label": "通知・個人設定",
+    "group": "settings",
+    "section": "設定",
+    "minRole": "USER",
+    "aliases": []
+  },
+  {
+    "href": "/dashboard/activity",
+    "label": "活動の振り返り",
+    "group": "sales",
+    "section": "結果から学ぶ",
+    "minRole": "USER",
+    "aliases": [
+      "旧ダッシュボード"
+    ]
+  },
+  {
+    "href": "/dashboard/tver",
+    "label": "TVerの進行状況",
+    "group": "projects",
+    "section": "TVer・協力者",
+    "minRole": "USER",
+    "aliases": []
+  },
+  {
+    "href": "/dashboard/library",
+    "label": "資料・事例を横断検索",
+    "aliases": [],
+    "minRole": "USER",
+    "group": "library",
+    "section": "探す"
+  },
+  {
+    "href": "/dashboard/guide",
+    "label": "AIとOSの使い方",
+    "aliases": [],
+    "minRole": "USER",
+    "group": "library",
+    "section": "手順を確認する"
+  },
+  {
+    "href": "/dashboard/updates",
+    "label": "更新履歴",
+    "aliases": [],
+    "minRole": "USER",
+    "group": "home",
+    "section": "振り返る"
+  },
+  {
+    "href": "/dashboard/next-actions",
+    "label": "今日の一手",
+    "aliases": [],
+    "minRole": "USER",
+    "group": "home",
+    "section": "仕事を進める"
+  },
+  {
+    "href": "/dashboard/procedures",
+    "label": "自社の提出・連絡",
+    "aliases": [],
+    "minRole": "USER",
+    "group": "procedures",
+    "section": "確認する"
+  },
+  {
+    "href": "/dashboard/work/sales",
+    "label": "顧客・営業",
+    "group": "sales",
+    "minRole": "USER",
+    "section": "入口",
+    "aliases": []
+  },
+  {
+    "href": "/dashboard/work/projects",
+    "label": "案件・申請",
+    "group": "projects",
+    "minRole": "USER",
+    "section": "入口",
+    "aliases": []
+  },
+  {
+    "href": "/dashboard/work/library",
+    "label": "資料・事例",
+    "group": "library",
+    "minRole": "USER",
+    "section": "入口",
+    "aliases": []
+  },
+  {
+    "href": "/dashboard/work/procedures",
+    "label": "手続き",
+    "group": "procedures",
+    "minRole": "USER",
+    "section": "入口",
+    "aliases": []
+  },
+  {
+    "href": "/dashboard/admin/workspace",
+    "label": "本部の対応待ち",
+    "group": "admin",
+    "minRole": "ADMIN",
+    "section": "入口",
+    "aliases": []
+  }
+]

@@ -1,3 +1,5 @@
+import "./workspace.css";
+import localFont from "next/font/local";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
@@ -8,6 +10,8 @@ import { Toaster } from "sonner";
 import { db } from "@/lib/db";
 import type { UserRole } from "@/types/roles";
 import type { ReportBranches } from "@/components/layout/report-branch-switch";
+
+const osFont = localFont({ src: [{path:"./fonts/ibm-plex-sans-jp-regular.woff2",weight:"400"},{path:"./fonts/ibm-plex-sans-jp-semibold.woff2",weight:"600"}], variable:"--font-os",display:"swap",preload:false });
 
 export default async function DashboardLayout({
   children,
@@ -30,7 +34,12 @@ export default async function DashboardLayout({
     suspendReason = dbUser?.suspendReason ?? null;
   }
 
+  const aiConnected = session.user?.email && isActive
+    ? (await db.oAuthGrant.count({ where: { userEmail: session.user.email, revokedAt: null, expiresAt: { gt: new Date() } } })) > 0
+    : false;
+
   const user = {
+    aiConnected: !!aiConnected,
     name: session.user?.name ?? null,
     email: session.user?.email ?? null,
     image: session.user?.image ?? null,
@@ -107,7 +116,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <>
+    <div className={osFont.variable}>
       <DashboardShell user={user} reportWarning={reportWarning} isActive={isActive} contractDaysLeft={contractDaysLeft} reportBranches={reportBranches}>
         {!isActive && <SuspendedRedirect suspendReason={suspendReason} />}
         {children}
@@ -115,6 +124,6 @@ export default async function DashboardLayout({
       <ChatbotWidget />
       {isActive && <WinCelebration />}
       <Toaster richColors position="top-right" />
-    </>
+    </div>
   );
 }

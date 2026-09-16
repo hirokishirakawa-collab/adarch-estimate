@@ -1,17 +1,19 @@
 "use client";
+import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { TourGuide, TourHelpButton } from "@/components/onboarding/tour-guide";
+import { SectionNavigation } from "@/components/workspace/section-navigation";
 import { OfficeAgent } from "@/components/office/office-agent";
 import { AlertTriangle } from "lucide-react";
 import type { UserRole } from "@/types/roles";
 import type { ReportBranches } from "@/components/layout/report-branch-switch";
 
 interface Props {
-  user: { name: string | null; email: string | null; image: string | null; role: UserRole; enabledFeatures?: string[] };
+  user: { name: string | null; email: string | null; image: string | null; role: UserRole; enabledFeatures?: string[]; aiConnected?: boolean };
   reportWarning?: "yellow" | "red" | null;
   isActive?: boolean;
   contractDaysLeft?: number | null;
@@ -20,6 +22,8 @@ interface Props {
 }
 
 export function DashboardShell({ user, reportWarning, isActive = true, contractDaysLeft, reportBranches, children }: Props) {
+  const pathname = usePathname();
+  const businessPage = /^\/dashboard\/(customers|deals|projects|estimates|tver-review|tver-campaign|tver-creative-review|knowledge|wiki|ai-connect|sales-report|partner-status|group-support|admin)(?:\/|$)/.test(pathname);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -36,10 +40,7 @@ export function DashboardShell({ user, reportWarning, isActive = true, contractD
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#fafbfe] relative">
-      {/* Ambient background glow */}
-      <div className="pointer-events-none absolute -top-[200px] -right-[200px] w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(99,102,241,0.06)_0%,rgba(6,182,212,0.03)_40%,transparent_70%)]" />
-      <div className="pointer-events-none absolute -bottom-[300px] -left-[100px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(16,185,129,0.04)_0%,transparent_60%)]" />
+    <div className="os-workspace flex h-dvh overflow-hidden relative">
       <Sidebar user={user} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} reportWarning={reportWarning} isSuspended={!isActive} />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative z-[1]">
         <Header
@@ -54,10 +55,11 @@ export function DashboardShell({ user, reportWarning, isActive = true, contractD
           {contractDaysLeft !== null && contractDaysLeft !== undefined && contractDaysLeft > 0 && contractDaysLeft <= 90 && (
             <ContractRenewalBanner daysLeft={contractDaysLeft} />
           )}
-          {children}
+          <SectionNavigation />
+          <div className={businessPage ? "os-business-surface" : undefined}>{children}</div>
         </main>
       </div>
-      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <GlobalSearch open={searchOpen && (isActive || user.role === "ADMIN")} onClose={() => setSearchOpen(false)} role={user.role} enabledFeatures={user.enabledFeatures} />
       <TourGuide />
       <TourHelpButton />
       {/* グループオフィス（在席・ひとこと・5分音声）— 全画面に常駐 */}

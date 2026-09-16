@@ -1,0 +1,483 @@
+[
+  {
+    "href": "/dashboard",
+    "label": "ダッシュボード",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/partner-status",
+    "label": "稼働ステータス申告",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/leads/list",
+    "label": "リード管理・営業報告",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/line",
+    "label": "LINE公式アカウント",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/meta-ads",
+    "label": "Meta広告（地域限定）",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/live",
+    "label": "GROUP LIVE（みんなの動き）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/customers",
+    "label": "顧客管理（起点）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/clients",
+    "label": "取引先マップ（実績・口コミ・傾向）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/deals",
+    "label": "② 商談管理（SFA）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/projects/new",
+    "label": "③ プロジェクト登録",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/sales",
+    "label": "営業フロー",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/regulars",
+    "label": "レギュラー案件",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/estimates",
+    "label": "公式見積もり",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/leads",
+    "label": "リード獲得AI",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/subsidy-finder",
+    "label": "補助金ファインダー（広告費の財源）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/anniversary-finder",
+    "label": "周年ファインダー（記念広告の商機）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/ad-buyer-finder",
+    "label": "広告出稿者ファインダー（広告費を払っている店）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/tender-finder",
+    "label": "入札ファインダー（自治体の案件）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/award-finder",
+    "label": "広告賞ファインダー（クライアントとの会話のきっかけ）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/leads/tvcm-pool",
+    "label": "TVer広告 案件プール",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/leads/tvcm",
+    "label": "TVer広告 案件クロール（本部）",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/leads/tvcm-history",
+    "label": "TVer広告 案件履歴（本部）",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/video-achievements",
+    "label": "競合実績スクレイピング（自動収集）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/franchise-leads",
+    "label": "加盟リード獲得AI",
+    "minRole": "USER",
+    "requiredFeature": "franchise-leads"
+  },
+  {
+    "href": "/dashboard/creator-leads",
+    "label": "クリエイター発掘AI",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/outreach-pipeline",
+    "label": "アウトリーチ",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/auto-sales/history",
+    "label": "送付済み企業（全社）",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/projects",
+    "label": "プロジェクト一覧",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/group-profiles",
+    "label": "メンバー紹介",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/strategy-advisor",
+    "label": "提案戦略アドバイザー（AI）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/tver-simulator",
+    "label": "TVer広告シミュレーター",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/taxi-ads-simulator",
+    "label": "タクシー広告（TOKYO PRIME）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/skylark-simulator",
+    "label": "すかいらーくインストア",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/univ-coop-simulator",
+    "label": "大学生協広告",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/aeon-cinema-simulator",
+    "label": "イオンシネマ",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/golfcart-simulator",
+    "label": "ゴルフカート（Golfcart Vision）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/omochannel-simulator",
+    "label": "おもチャンネル（アパホテル）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/violation-report",
+    "label": "コンプライアンス相談",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/sales-insights",
+    "label": "営業分析レポート",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/group-moves",
+    "label": "グループの動き",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/sales-approaches",
+    "label": "アプローチ事例集",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/outreach-messages",
+    "label": "送った営業文",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/project-matching",
+    "label": "案件マッチング",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/playbook",
+    "label": "営業プレイブック",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/packages",
+    "label": "パッケージ",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/tver-order-link",
+    "label": "TVer申込リンク",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/tver-reports",
+    "label": "TVer配信実績",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/billing",
+    "label": "請求依頼",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/payments",
+    "label": "支払明細",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/royalty",
+    "label": "ロイヤリティ",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/billing/settings",
+    "label": "経理情報の登録",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/sales-report",
+    "label": "月次報告",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/business-cards",
+    "label": "名刺管理",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/wiki",
+    "label": "社内Wiki",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/knowledge",
+    "label": "資料ライブラリ（OSの頭脳）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/portfolio",
+    "label": "実績フォルダ検索",
+    "minRole": "USER"
+  },
+  {
+    "href": "https://drive.google.com/drive/folders/11CJPv-D_37Vn1zntRzI9Qqc2SV89fKPT?usp=drive_link",
+    "label": "実績フォルダ（Drive）",
+    "minRole": "USER"
+  },
+  {
+    "href": "https://drive.google.com/drive/folders/1p9QtqSbPrBAkof5-10jeusyG6T2y7cB8?usp=drive_link",
+    "label": "グループ運用データ（Drive）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/tver-review",
+    "label": "TVer業態考査申請",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/tver-campaign",
+    "label": "TVer配信申請",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/tver-creative-review",
+    "label": "TVer クリエイティブ考査申請",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/media",
+    "label": "媒体依頼",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/tver-flyer",
+    "label": "TVerチラシ制作サポート",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/signage",
+    "label": "端末・動作状況",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/signage/playlists",
+    "label": "プレイリスト（枠）",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/signage/assets",
+    "label": "素材",
+    "minRole": "MANAGER"
+  },
+  {
+    "href": "/dashboard/vault",
+    "label": "AdArch Vault（素材コピー）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/brand-kit",
+    "label": "ブランドキット（資料の型・AI用材料）",
+    "minRole": "USER"
+  },
+  {
+    "href": "https://calendar.app.google/pfFBZxmHbNFFp6cs5",
+    "label": "本部打ち合わせ予約",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/learning",
+    "label": "ラーニング",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/creators",
+    "label": "クリエイター検索",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/admin/sales-overview",
+    "label": "代表別 営業ダッシュボード",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/group-profiles/highlights",
+    "label": "連携案件ハイライト",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/group-support",
+    "label": "グループサポート",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/partner-status",
+    "label": "パートナー稼働管理",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/bookings",
+    "label": "面談予約管理",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/violation-reports",
+    "label": "コンプライアンス相談管理",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/payments",
+    "label": "支払明細管理",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/group-invoices",
+    "label": "グループ請求書",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/royalty",
+    "label": "ロイヤリティ状況",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/royalty/check",
+    "label": "ロイヤリティ入金チェック",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/tver-orders",
+    "label": "TVer小口申込",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/tver-reports",
+    "label": "TVer配信実績（取込・確認）",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/partner-billing",
+    "label": "パートナー経理管理",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/users",
+    "label": "メンバー管理",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/learning",
+    "label": "ラーニング管理",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/login-logs",
+    "label": "操作ログ",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/audit-logs",
+    "label": "操作ログ（詳細）",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/api-usage",
+    "label": "API利用状況",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/ai-usage",
+    "label": "AI活用度",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/admin/chatbot-logs",
+    "label": "チャットボット履歴",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/creators/admin",
+    "label": "クリエイター管理",
+    "minRole": "ADMIN"
+  },
+  {
+    "href": "/dashboard/leads/awaiting",
+    "label": "返事待ち（結果入力）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/leads/dm",
+    "label": "郵送DM（チラシDM）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/seminars",
+    "label": "セミナー録画ライブラリ（全社共有）",
+    "minRole": "USER"
+  },
+  {
+    "href": "/dashboard/admin/knowledge",
+    "label": "資料ライブラリの登録（本部）",
+    "minRole": "ADMIN"
+  }
+]

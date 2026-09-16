@@ -40,11 +40,12 @@ type AdvertiserDetail = {
 interface Props {
   action: (prev: { error?: string } | null, formData: FormData) => Promise<{ error?: string }>;
   advertisers: Advertiser[];
+  initialAdvertiserId?: string;
 }
 
-export function TverCampaignForm({ action, advertisers }: Props) {
+export function TverCampaignForm({ action, advertisers, initialAdvertiserId }: Props) {
   const [state, formAction, isPending] = useActionState(action, null);
-  const [selectedId, setSelectedId]   = useState("");
+  const [selectedId, setSelectedId]   = useState(advertisers.some(a => a.id === initialAdvertiserId) ? initialAdvertiserId! : "");
   const [detail, setDetail]           = useState<AdvertiserDetail | null>(null);
   const [isFetching, startFetch]      = useTransition();
   const [hasFreqCap, setHasFreqCap]   = useState(true);

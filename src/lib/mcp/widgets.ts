@@ -62,7 +62,7 @@ export const NEXT_ACTIONS_HTML = `<!doctype html><html lang="ja"><head><meta cha
       if(!s.count)return '';
       return '<div class="sec"><span class="n">'+esc(s.no)+'</span><b>'+esc(s.title)+'</b> <span class="muted">'+esc(s.count)+'件</span><ul>'+s.items.slice(0,5).map(line).join("")+'</ul></div>';
     }).join("");
-    root.innerHTML=head+(body||'<div class="muted">今日は急ぎの項目がありません</div>')+'<div class="foot">1→6 の順に優先 ／ 金額は含まない</div>';
+    root.innerHTML=head+(body||'<div class="muted">今日は急ぎの項目がありません</div>')+'<div class="foot">0→8 の順に優先 ／ 金額は含まない</div>';
   }
   render();
   window.addEventListener("openai:set_globals",render);

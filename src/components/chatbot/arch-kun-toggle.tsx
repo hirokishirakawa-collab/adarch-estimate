@@ -28,7 +28,7 @@ export function ArchKunToggle() {
         "flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors text-xs",
         hidden
           ? "text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100"
-          : "text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+          : "text-[#9a4c05] hover:text-[#111] hover:bg-[#f7f6f4]"
       )}
     >
       <ArchKunIcon className={cn(hidden && "opacity-60")} />

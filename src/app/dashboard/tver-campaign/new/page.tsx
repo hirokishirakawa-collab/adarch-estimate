@@ -3,8 +3,10 @@ import { TverCampaignForm } from "@/components/tver/TverCampaignForm";
 import { createTverCampaign } from "@/lib/actions/tver-campaign";
 import { getApprovedAdvertisers } from "@/lib/actions/advertiser-review";
 
-export default async function NewTverCampaignPage() {
+export default async function NewTverCampaignPage({ searchParams }: { searchParams: Promise<{ advertiserId?: string }> }) {
   const advertisers = await getApprovedAdvertisers();
+  const { advertiserId } = await searchParams;
+  const initialAdvertiserId = advertisers.some(a => a.id === advertiserId) ? advertiserId : undefined;
 
   return (
     <div className="px-6 py-6 max-w-3xl mx-auto w-full">
@@ -21,7 +23,7 @@ export default async function NewTverCampaignPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-zinc-200 p-6">
-        <TverCampaignForm action={createTverCampaign} advertisers={advertisers} />
+        <TverCampaignForm action={createTverCampaign} advertisers={advertisers} initialAdvertiserId={initialAdvertiserId} />
       </div>
     </div>
   );

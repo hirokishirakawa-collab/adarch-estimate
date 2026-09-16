@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { searchWorkspaceLibrary } from "@/lib/workspace/library-search";
 import { db } from "@/lib/db";
 import { ARCHIVE_BRANCH_ID, getMockBranchId } from "@/lib/data/customers";
 import type { UserRole } from "@/types/roles";
@@ -11,21 +12,23 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (session.user.isActive === false && session.user.role !== "ADMIN") return Response.json({ error: "Forbidden" }, { status: 403 });
+
   const role = (session.user.role ?? "MANAGER") as UserRole;
   const email = session.user.email ?? "";
   const userBranchId = getMockBranchId(email, role);
 
   const url = new URL(request.url);
-  const q = url.searchParams.get("q")?.trim() ?? "";
+  const q = url.searchParams.get("q")?.trim().slice(0, 120) ?? "";
 
   if (!q || q.length < 2) {
-    return Response.json({ customers: [], projects: [], deals: [], packages: [] });
+    return Response.json({ customers: [], projects: [], deals: [], library: [] });
   }
 
   const branchFilter = userBranchId ? { branchId: userBranchId } : {};
 
   try {
-    const [customers, projects, deals, packages] = await Promise.all([
+    const [customers, projects, deals, library] = await Promise.all([
       db.customer.findMany({
         where: {
           ...branchFilter,
@@ -59,23 +62,10 @@ export async function GET(request: Request) {
         take: 5,
         orderBy: { updatedAt: "desc" },
       }),
-      // パッケージ（全社共通・拠点フィルタなし。終了は出さない）
-      db.salesPackage.findMany({
-        where: {
-          status: { in: ["ACTIVE", "PROPOSED"] },
-          OR: [
-            { name: { contains: q, mode: "insensitive" } },
-            { tagline: { contains: q, mode: "insensitive" } },
-            { category: { contains: q, mode: "insensitive" } },
-          ],
-        },
-        select: { id: true, name: true, category: true, slug: true, status: true },
-        take: 5,
-        orderBy: { updatedAt: "desc" },
-      }),
+      searchWorkspaceLibrary({role, email}, {q, limit: 5}),
     ]);
 
-    return Response.json({ customers, projects, deals, packages });
+    return Response.json({ customers, projects, deals, library });
   } catch (e) {
     console.error("[GET /api/search]", e);
     return Response.json({ error: "Internal server error" }, { status: 500 });

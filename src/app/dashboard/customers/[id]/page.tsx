@@ -1,3 +1,4 @@
+import { CustomerContinuation } from "@/components/workspace/customer-continuation";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -164,7 +165,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       {/* ===== ヘッダーカード ===== */}
       <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
         <div className="px-6 py-5">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
             {/* 左: バッジ群 + 会社名 */}
             <div className="flex-1 min-w-0">
               {/* バッジ行 */}
@@ -237,7 +238,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
             {/* 右: アクションボタン群 + 活動件数 */}
             <div className="text-right flex-shrink-0 flex flex-col items-end gap-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <LockButton
                   customerId={id}
                   isLocked={isLocked}
@@ -275,8 +276,10 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         </div>
       </div>
 
+      <CustomerContinuation customerId={id} customerName={dbCustomer.name} deals={dbDeals} projectCount={dbProjects.length} lastActivityAt={activities[0]?.createdAt ?? null} />
+
       {/* ===== クイック入力 ===== */}
-      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      <div id="record-activity" className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-zinc-100 flex items-center gap-2 bg-gradient-to-r from-blue-50 to-white">
           <span className="text-base">✏️</span>
           <h3 className="text-xs font-semibold text-blue-700">活動を記録する</h3>
@@ -465,7 +468,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       )}
 
       {/* ===== プロジェクト・見積 俯瞰 ===== */}
-      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      <div id="customer-projects" className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/60">
           <div className="flex items-center gap-2">
             <span className="text-zinc-400"><FolderKanban className="w-3.5 h-3.5" /></span>
@@ -591,7 +594,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       </div>
 
       {/* ===== 商談（プロジェクト統括）===== */}
-      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      <div id="customer-deals" className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/60">
           <div className="flex items-center gap-2">
             <span className="text-zinc-400"><TrendingUp className="w-3.5 h-3.5" /></span>

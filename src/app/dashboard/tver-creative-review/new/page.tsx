@@ -4,8 +4,10 @@ import { getApprovedAdvertisers } from "@/lib/actions/advertiser-review";
 import { createTverCreativeReview } from "@/lib/actions/tver-creative-review";
 import { TverCreativeReviewForm } from "@/components/tver/TverCreativeReviewForm";
 
-export default async function TverCreativeReviewNewPage() {
+export default async function TverCreativeReviewNewPage({ searchParams }: { searchParams: Promise<{ advertiserId?: string }> }) {
   const advertisers = await getApprovedAdvertisers();
+  const { advertiserId } = await searchParams;
+  const initialAdvertiserId = advertisers.some(a => a.id === advertiserId) ? advertiserId : undefined;
 
   return (
     <div className="px-6 py-6 max-w-2xl mx-auto w-full">
@@ -29,7 +31,7 @@ export default async function TverCreativeReviewNewPage() {
           承認済み広告主がありません。先にTVer業態考査申請を行い、承認を受けてください。
         </div>
       ) : (
-        <TverCreativeReviewForm action={createTverCreativeReview} advertisers={advertisers} />
+        <TverCreativeReviewForm action={createTverCreativeReview} advertisers={advertisers} initialAdvertiserId={initialAdvertiserId} />
       )}
     </div>
   );

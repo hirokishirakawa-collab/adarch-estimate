@@ -1,220 +1,199 @@
 "use client";
-import { useEffect, useRef, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Search, Building2, FolderOpen, Handshake, X } from "lucide-react";
 
-type SearchResults = {
-  customers: { id: string; name: string; nameKana: string | null }[];
-  projects: { id: string; title: string; status: string }[];
-  deals: { id: string; title: string; status: string; customerId: string }[];
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { Search, X } from "lucide-react";
+import { searchNavigation } from "@/lib/navigation/catalog";
+import type { UserRole } from "@/types/roles";
+
+type SearchResult = {
+  id: string;
+  title: string;
+  href: string;
+  source?: string;
 };
-
-interface Props {
+type ResponseData = {
+  customers?: { id: string; name: string }[];
+  projects?: { id: string; title: string }[];
+  deals?: { id: string; title: string }[];
+  library?: SearchResult[];
+};
+type Props = {
   open: boolean;
   onClose: () => void;
+  role: UserRole;
+  enabledFeatures?: string[];
+};
+
+export function GlobalSearch(props: Props) {
+  return props.open ? <SearchDialog {...props} /> : null;
 }
 
-export function GlobalSearch({ open, onClose }: Props) {
+function SearchDialog({ onClose, role, enabledFeatures = [] }: Props) {
+  const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResults>({
-    customers: [],
-    projects: [],
-    deals: [],
-  });
-  const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
-
-  // モーダルが開いたらクリア＆フォーカス
+  const [response, setResponse] = useState<{
+    query: string;
+    data?: ResponseData;
+    error?: string;
+  } | null>(null);
+  const q = query.trim();
   useEffect(() => {
-    if (open) {
-      setQuery("");
-      setResults({ customers: [], projects: [], deals: [] });
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  }, [open]);
-
-  // ESC キーで閉じる
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const element = dialog.current;
+    const previous = document.activeElement as HTMLElement | null;
+    element?.showModal();
+    return () => {
+      element?.close();
+      if (previous?.isConnected) previous.focus();
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
-
-  // デバウンスして検索 API を呼び出す
+  }, []);
   useEffect(() => {
-    if (!query || query.length < 2) {
-      setResults({ customers: [], projects: [], deals: [] });
-      return;
-    }
-
+    if (q.length < 2) return;
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
-      setLoading(true);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data);
-        }
-      } catch {
-        // ネットワークエラーは無視
-      } finally {
-        setLoading(false);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok)
+          throw new Error(
+            "検索できませんでした。時間をおいて再度お試しください。",
+          );
+        const data: ResponseData = await res.json();
+        if (!controller.signal.aborted) setResponse({ query: q, data });
+      } catch (error) {
+        if (!controller.signal.aborted)
+          setResponse({
+            query: q,
+            error:
+              error instanceof Error ? error.message : "検索できませんでした。",
+          });
       }
     }, 300);
-
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  const navigate = useCallback(
-    (path: string) => {
-      router.push(path);
-      onClose();
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [q]);
+  const current = response?.query === q ? response : null;
+  const data = current?.data;
+  const groups = [
+    {
+      title: "顧客",
+      rows: (data?.customers ?? []).map((r) => ({
+        ...r,
+        title: r.name,
+        href: `/dashboard/customers/${r.id}`,
+      })),
     },
-    [router, onClose]
-  );
-
-  const hasResults =
-    results.customers.length > 0 ||
-    results.projects.length > 0 ||
-    results.deals.length > 0;
-
-  if (!open) return null;
-
+    {
+      title: "商談",
+      rows: (data?.deals ?? []).map((r) => ({
+        ...r,
+        href: `/dashboard/deals/${r.id}`,
+      })),
+    },
+    {
+      title: "案件",
+      rows: (data?.projects ?? []).map((r) => ({
+        ...r,
+        href: `/dashboard/projects/${r.id}`,
+      })),
+    },
+    { title: "資料・事例・手順", rows: data?.library ?? [] },
+  ];
+  const menus = q ? searchNavigation(q, role, enabledFeatures).slice(0, 8) : [];
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/30 backdrop-blur-sm"
-      onClick={onClose}
+    <dialog
+      ref={dialog}
+      className="os-search-dialog"
+      aria-label="OS内を検索"
+      onCancel={onClose}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
-      <div
-        className="w-full max-w-lg mx-4 bg-white rounded-xl shadow-2xl border border-zinc-200 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* 入力欄 */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100">
-          <Search className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="顧客・案件・商談を検索..."
-            className="flex-1 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none bg-transparent"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              className="text-zinc-400 hover:text-zinc-600 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-          <kbd className="text-[10px] bg-zinc-100 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-200">
-            ESC
-          </kbd>
-        </div>
-
-        {/* 検索結果 */}
-        <div className="max-h-80 overflow-y-auto">
-          {loading && (
-            <div className="py-8 text-center text-sm text-zinc-400">
-              検索中...
-            </div>
-          )}
-
-          {!loading && query.length >= 2 && !hasResults && (
-            <div className="py-8 text-center text-sm text-zinc-400">
-              「{query}」に一致する結果がありません
-            </div>
-          )}
-
-          {/* 顧客 */}
-          {!loading && results.customers.length > 0 && (
-            <div>
-              <div className="px-4 py-2 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider bg-zinc-50 border-b border-zinc-100">
-                顧客
-              </div>
-              {results.customers.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => navigate(`/dashboard/customers/${c.id}`)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 text-left transition-colors border-b border-zinc-50"
-                >
-                  <Building2 className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm text-zinc-800 truncate">{c.name}</p>
-                    {c.nameKana && (
-                      <p className="text-xs text-zinc-400 truncate">{c.nameKana}</p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* 案件（プロジェクト） */}
-          {!loading && results.projects.length > 0 && (
-            <div>
-              <div className="px-4 py-2 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider bg-zinc-50 border-b border-zinc-100">
-                案件
-              </div>
-              {results.projects.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => navigate(`/dashboard/projects/${p.id}`)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 text-left transition-colors border-b border-zinc-50"
-                >
-                  <FolderOpen className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                  <p className="text-sm text-zinc-800 truncate">{p.title}</p>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* 商談 */}
-          {!loading && results.deals.length > 0 && (
-            <div>
-              <div className="px-4 py-2 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider bg-zinc-50 border-b border-zinc-100">
-                商談
-              </div>
-              {results.deals.map((d) => (
-                <button
-                  key={d.id}
-                  onClick={() =>
-                    navigate(`/dashboard/customers/${d.customerId}`)
-                  }
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 text-left transition-colors border-b border-zinc-50"
-                >
-                  <Handshake className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                  <p className="text-sm text-zinc-800 truncate">{d.title}</p>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* 空の状態（未入力） */}
-          {!query && (
-            <div className="py-8 text-center text-sm text-zinc-400">
-              顧客名・案件名・商談名を入力してください
-            </div>
-          )}
-        </div>
-
-        {/* フッター */}
-        <div className="px-4 py-2 border-t border-zinc-100 flex items-center gap-4 text-[11px] text-zinc-400">
-          <span>
-            <kbd className="bg-zinc-100 px-1 rounded border border-zinc-200">↵</kbd>{" "}
-            選択して移動
-          </span>
-          <span>
-            <kbd className="bg-zinc-100 px-1 rounded border border-zinc-200">ESC</kbd>{" "}
-            閉じる
-          </span>
-        </div>
+      <div className="os-search-input">
+        <Search size={18} aria-hidden />
+        <input
+          autoFocus
+          aria-label="顧客・案件・資料・機能名"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="顧客・案件・資料・機能名を検索"
+          maxLength={120}
+        />
+        <button
+          className="os-icon-button"
+          type="button"
+          onClick={onClose}
+          aria-label="検索を閉じる"
+        >
+          <X size={18} />
+        </button>
       </div>
-    </div>
+      <div className="os-search-results">
+        {!q && (
+          <p className="os-description">
+            機能は旧名称でも探せます。顧客・案件・資料は2文字から検索します。
+          </p>
+        )}
+        {menus.length > 0 && (
+          <section>
+            <h2>機能・画面</h2>
+            {menus.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                target={item.external ? "_blank" : undefined}
+                rel={item.external ? "noopener noreferrer" : undefined}
+              >
+                {item.label}
+                <span>{item.section}</span>
+              </Link>
+            ))}
+          </section>
+        )}
+        <div role="status">
+          {q.length >= 2 && !current && (
+            <p className="os-description">検索中…</p>
+          )}
+          {current?.error && <p className="os-notice">{current.error}</p>}
+          {data && !groups.some((group) => group.rows.length) && (
+            <p className="os-description">
+              一致する顧客・案件・資料はありません。
+            </p>
+          )}
+          {q.length === 1 && (
+            <p className="os-description">
+              顧客・案件・資料は、あと1文字入力すると検索できます。
+            </p>
+          )}
+        </div>
+        {q.length >= 2 &&
+          groups.map(
+            (group) =>
+              group.rows.length > 0 && (
+                <section key={group.title}>
+                  <h2>{group.title}</h2>
+                  {group.rows.map((row: SearchResult) => (
+                    <Link
+                      key={`${row.href}:${row.id}`}
+                      href={row.href}
+                      onClick={onClose}
+                    >
+                      {row.title}
+                      {row.source && <span>{row.source}</span>}
+                    </Link>
+                  ))}
+                </section>
+              ),
+          )}
+      </div>
+      <p className="os-search-footer">
+        Tabで結果へ移動・Enterで開く・Escで閉じる
+      </p>
+    </dialog>
   );
 }

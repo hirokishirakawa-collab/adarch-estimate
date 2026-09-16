@@ -1,3 +1,4 @@
+import { wikiGuidance } from "@/lib/workspace/wiki-guidance";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
@@ -27,6 +28,7 @@ export default async function WikiArticlePage({ params }: PageProps) {
 
   const article = await db.wikiArticle.findFirst({ where, include: { tags: true } });
   if (!article) notFound();
+  const guidance = wikiGuidance(article.title, article.body);
   const canEdit = role === "ADMIN" || !userBranchId || article.branchId === userBranchId;
 
   const fmt = (d: Date) =>
@@ -95,6 +97,7 @@ export default async function WikiArticlePage({ params }: PageProps) {
         </div>
       </div>
 
+      {guidance && <aside className="os-notice"><p>{guidance.notice}</p><Link href={guidance.href}>現在の使い方を確認 →</Link></aside>}
       {/* 記事本文 */}
       <div className="bg-white rounded-xl border border-zinc-200 px-6 py-6">
         <WikiArticleContent body={article.body} />

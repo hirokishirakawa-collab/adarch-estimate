@@ -1,3 +1,4 @@
+import { guidedWikiBody } from "@/lib/workspace/wiki-guidance";
 // ==============================================================
 // MCP: OS読み取りツール（scope = os:read）
 //   顧客・商談・見積はグループ全社分を読める（2026-09-08 代表決定「他拠点の売上だけ見えなければ、あとは全部連携」）。
@@ -634,7 +635,7 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
         no: 2,
         title: "見込み日を過ぎた商談",
         count: overdue.length,
-        next: "結果が出ていれば update_deal(status) か受注ならOS画面。延びたなら update_deal(expectedCloseDate)",
+        next: "結果が出ていれば update_deal(status)。受注なら CLOSED_WON と set_closing_factor。延びたなら update_deal(expectedCloseDate)",
         items: overdue.map((d) => ({ dealId: d.id, customer: d.customer.name, title: d.title, status: d.status, expectedCloseDate: day(d.expectedCloseDate), daysOver: d.expectedCloseDate ? daysSince(d.expectedCloseDate, now) : null })),
       },
       {
@@ -702,11 +703,11 @@ export async function listWiki(v: McpViewer, input: { tag?: string; limit?: numb
     take: clampLimit(input.limit, 50, 100),
     select: { id: true, title: true, updatedAt: true, tags: { select: { name: true } }, body: true },
   });
-  return rows.map((a) => ({ id: a.id, title: a.title, tags: a.tags.map((t) => t.name), updatedAt: day(a.updatedAt), chars: a.body.length, lead: a.body.replace(/\s+/g, " ").slice(0, 120) }));
+  return rows.map((a) => ({ id: a.id, title: a.title, tags: a.tags.map((t) => t.name), updatedAt: day(a.updatedAt), chars: a.body.length, lead: guidedWikiBody(a.title, a.body).replace(/\s+/g, " ").slice(0, 120) }));
 }
 
 export async function getWiki(v: McpViewer, id: string) {
   const a = await db.wikiArticle.findFirst({ where: { id, ...wikiVisible(v) }, select: { id: true, title: true, body: true, authorName: true, updatedAt: true, tags: { select: { name: true } } } });
   if (!a) return { error: "記事が見つからないか、閲覧できません" };
-  return { id: a.id, title: a.title, tags: a.tags.map((t) => t.name), author: a.authorName, updatedAt: day(a.updatedAt), body: a.body };
+  return { id: a.id, title: a.title, tags: a.tags.map((t) => t.name), author: a.authorName, updatedAt: day(a.updatedAt), body: guidedWikiBody(a.title, a.body) };
 }

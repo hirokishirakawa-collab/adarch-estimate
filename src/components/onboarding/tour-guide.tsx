@@ -22,74 +22,11 @@ const TOURS: Record<string, TourStep[]> = {
   // メイン
   // ================================================================
   "/dashboard": [
-    {
-      popover: {
-        title: "Ad Arch OS へようこそ！",
-        description: "このツアーでは、OSの基本的な使い方をご案内します。1分ほどで完了します。",
-      },
-    },
-    {
-      element: "[data-tour='sidebar']",
-      popover: {
-        title: "サイドバー",
-        description: "すべての機能はここからアクセスできます。営業・制作・経理など、カテゴリ別に整理されています。",
-        side: "right",
-      },
-    },
-    {
-      element: "[data-tour='lead-ai']",
-      popover: {
-        title: "リード獲得AI",
-        description: "エリアと業種を指定するだけで、AIが見込み顧客を自動検索・スコアリングします。",
-        side: "bottom",
-      },
-    },
-    {
-      element: "[data-tour='digest']",
-      popover: {
-        title: "グループダイジェスト",
-        description: "直近3日間のグループ全体の活動をAIが自動分析・要約します。毎日更新されます。",
-        side: "bottom",
-      },
-    },
-    {
-      element: "[data-tour='guide-flow']",
-      popover: {
-        title: "基本の流れ",
-        description: "① 顧客登録 → ② 商談管理 → ③ プロジェクト追加。この流れで案件を管理します。",
-        side: "top",
-      },
-    },
-    {
-      element: "[data-tour='quick-actions']",
-      popover: {
-        title: "クイックアクション",
-        description: "よく使う操作にすぐアクセスできます。まずは「顧客を登録」から始めてみましょう。",
-        side: "top",
-      },
-    },
-    {
-      element: "[data-tour='notification-bell']",
-      popover: {
-        title: "通知センター",
-        description: "商談受注・提案書閲覧・月次報告などの通知をリアルタイムで確認できます。ベルアイコンをクリックしてください。",
-        side: "bottom",
-      },
-    },
-    {
-      element: "[data-tour='sidebar']",
-      popover: {
-        title: "お気に入りピン留め",
-        description: "各ページの★アイコンをクリックすると、サイドバーの上部にピン留めされます。最大5ページまで。",
-        side: "right",
-      },
-    },
-    {
-      popover: {
-        title: "ツアー完了！",
-        description: "基本的な使い方は以上です。各ページにも個別ガイドがあります。右下の「？」ボタンからいつでも再開できます。",
-      },
-    },
+    { popover: { title: "Ad Arch OS", description: "みんなの動きを見て、今日の一手へ。AIと一緒に仕事を進める入口です。" } },
+    { element: "[data-tour='sidebar']", popover: { title: "仕事の入口は5つ", description: "ホーム・顧客と営業・案件と申請・資料と事例・自分の手続きに整理しました。以前の機能名でも上部の検索から探せます。", side: "right" } },
+    { element: "[data-tour='next-actions']", popover: { title: "今日の一手", description: "接続したAIに聞く「今日何する」と同じ候補を表示します。確認する相手を開いて、続きを進めましょう。", side: "top" } },
+    { element: "[data-tour='notification-bell']", popover: { title: "連絡を確認", description: "通知の全文はベルから。自分と本部のやり取りはホームの「自分への連絡」に表示します。", side: "bottom" } },
+    { popover: { title: "AIで続きを", description: "右上の「AIで進める」で対象付きの依頼文をコピーし、OSに接続したClaude・ChatGPTへ渡せます。準備したものを確認して、次の操作へ進みます。" } },
   ],
 
   // ================================================================

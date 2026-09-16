@@ -8,7 +8,7 @@ import { ExpandableText } from "./expandable-text";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 
 interface Props {
-  searchParams: Promise<{ result?: string; industry?: string }>;
+  searchParams: Promise<{ result?: string; industry?: string; id?: string }>;
 }
 
 function fmtDate(d: Date): string {
@@ -22,12 +22,13 @@ export default async function SalesApproachesPage({ searchParams }: Props) {
   const isAdmin = session?.user?.role === "ADMIN";
   const params = await searchParams;
   const [approaches, stats] = await Promise.all([
-    getSalesApproaches({ result: params.result, industry: params.industry }),
+    getSalesApproaches({ id: params.id, result: params.result, industry: params.industry }),
     getSalesApproachStats(),
   ]);
 
   return (
     <div className="px-6 py-6 max-w-screen-xl mx-auto w-full space-y-5">
+      {params.id && <Link href="/dashboard/sales-approaches" className="os-button-secondary">すべての事例を見る →</Link>}
       {/* ヘッダー */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
@@ -130,7 +131,8 @@ export default async function SalesApproachesPage({ searchParams }: Props) {
             const res = getResultOption(a.result);
             return (
               <div key={a.id} className="bg-white rounded-xl border border-zinc-200 p-4">
-                {/* ヘッダー */}
+                {params.id && <Link href="/dashboard/sales-approaches" className="os-button-secondary">すべての事例を見る →</Link>}
+      {/* ヘッダー */}
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full border ${res.className}`}>
                     {res.label}

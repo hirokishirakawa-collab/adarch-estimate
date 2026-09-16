@@ -206,7 +206,7 @@ export const OS_READ_TOOLS: OsToolDef[] = [
   def({
     name: "my_next_actions", kind: "read", title: "今日の一手",
     description:
-      "「今日何する」「朝の確認」に答える材料。自分の拠点に絞って 1) 返事待ちが7日超 2) 見込み日を過ぎた商談 3) 30日動いていない商談 4) 3か月以内に周年（自県） 5) 使える補助金 6) 今週シグナルが立った会社（自県）を返す。1→6 の順に優先し、3〜8行にまとめて提案する。各項目の next に次に呼ぶツールが入っている。金額は含まない。",
+      "「今日何する」「朝の確認」に答える材料。自分の担当・拠点の範囲で 0) 受注の決め手が未記入 1) 返事待ちが7日超 2) 見込み日を過ぎた商談 3) 30日動いていない商談 4) 3か月以内に周年（自県） 5) 使える補助金 6) 今週シグナルが立った会社（自県） 7) 電話候補 8) 準備したまま未送付の会社を返す。0→8 の順に優先し、3〜8行にまとめて提案する。各項目の next に次に呼ぶツールが入っている。金額は含まない。",
     input: z.object({ limit: z.number().int().optional().describe("各項目の件数（既定5・最大10）") }),
     run: (v, a) => os.myNextActions(v, a),
     uiTemplate: UI_NEXT_ACTIONS,
@@ -433,12 +433,12 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     confirm: (a) => `${[a.prefecture, a.city].filter(Boolean).join("")}の「${a.industry}」を${a.count ?? 10}社、Googleから探してAI採点し、${a.dryRun ? "保存せずに見せます" : "貴社のリードとして保存します"}`,
   }),
   def({
-    name: "prepare_outreach", kind: "write", title: "営業メールをGmailの下書きにする（送付を記録）",
+    name: "prepare_outreach", kind: "write", title: "営業メールを準備する（まだ送付しない）",
     description:
-      "AIが書いた件名と本文を、そのリード宛の Gmail 下書きリンクにする。ここでは「下書きを作った」ことだけを残す＝送付日も全社の送付台帳もまだ動かない（送信ボタンを押したかはOSに分からないため）。人が送ったら confirm_sent(leadIds) を呼んで確定する。送信ボタンは人が押す（無人送信はしない）。営業お断り・他拠点の送付済み・自拠点が1か月以内に送った先（1か月ルール）は止まる。金額は本文に書かない。メールが無い会社は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）で返す＝貼って送信を押すのは人。",
+      "AIが書いた件名と本文を、そのリード宛の Gmail 作成画面リンクにする。ここでは「下書きを作った」ことだけを残す＝送付日も全社の送付台帳もまだ動かない（送信ボタンを押したかはOSに分からないため）。人が送ったら confirm_sent(leadIds) を呼んで確定する。送信ボタンは人が押す（無人送信はしない）。営業お断り・他拠点の送付済み・自拠点が1か月以内に送った先（1か月ルール）は止まる。金額は本文に書かない。メールが無い会社は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）で返す＝貼って送信を押すのは人。",
     input: z.object({ leadId: z.string(), subject: z.string().describe("件名（120字以内）"), body: z.string().describe("本文（4000字以内・金額なし）"), appeal: z.string().optional().describe("訴求の切り口を一言（例: 周年×TVer）"), packageSlug: z.string().optional(), resend: bool().optional().describe("1か月以内に自拠点が送った先へ、承知のうえで送り直す") }),
     run: (v, a) => camp.prepareOutreach(v, a),
-    confirm: (a) => `営業メールを下書きにし、送付として記録します:\n件名: ${a.subject}\n${a.body.slice(0, 200)}…`,
+    confirm: (a) => `営業メールの文面と作成画面リンクを準備します。送付済みにはしません:\n件名: ${a.subject}\n${a.body.slice(0, 200)}…`,
   }),
   def({
     name: "confirm_sent", kind: "write", title: "送ったことを確定する（送付日・全社の送付台帳に載る）",
@@ -523,10 +523,10 @@ export function toAnthropicTools(defs: OsToolDef[]): { name: string; description
 export const OS_AI_RULES_MCP =
   "Ad Arch（アドアーチ）グループOSのツール。" +
   "【最優先】TVerの業態考査・配信申請、営業の記録、週次共有はOSのツールで出す＝メール・Gmail下書き・ask_hq・create_local_ad で代わりにしない。" +
-  "【こう言われたら最初にこれ】" +
+  "完了時は「準備・記録したこと／本人が次に行うこと／OSで続きを開くURL」を返す。既存の顧客・商談IDが渡されたらその続きを扱う。【こう言われたら最初にこれ】" +
   "・TVerを申請したい→tver_applications（同じ広告主・期間の申請が既にあれば本人に伝えて止める）→業態考査が無ければ submit_advertiser_review／承認済みなら preview_tver_campaign を本人に見せてOK後に submit_tver_campaign。" +
   "・TVerの効果・見積→tver_benchmarks／配信済みの報告→tver_results（盛らない）／どの市から→tver_area_plan(prefecture, allCities: true)。" +
-  "・今日何する→my_next_actions（1→6の順に3〜8行）／週次→my_week→本人に見せて選んでもらい submit_weekly_share。" +
+  "・今日何する→my_next_actions（0→8の順に3〜8行）／週次→my_week→本人に見せて選んでもらい submit_weekly_share。" +
   "・◯◯市の◯◯業界に営業→plan_campaign（少なければ discover_leads）→prepare_outreach（Gmail下書き・送信は人）。フォームしか無ければ formPaste を人に渡す／送れない先は record_lead_results で電話候補へ。紙DM→prepare_dm／Meta広告→create_local_ad／着地LP→create_landing_page。" +
   "・提案文・資料→draft_proposal(customerId) の writingGuide の順に書く／勝ち筋→find_similar_wins／媒体の仕様→search_knowledge（返った rules を守る）／決まり・手順→list_wiki→get_wiki。" +
   "・初めての相手・求人広告・紹介→screen_company。CHECK/STOP は本人に見せる（決めつけない・止めるかは本部）。" +
@@ -537,7 +537,7 @@ export const OS_AI_RULES_MCP =
 /** AIへの共通の決まり（アーチくんの system で使う全文。MCPは上の OS_AI_RULES_MCP） */
 export const OS_AI_RULES =
   "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。はじめて取引する相手・求人広告・紹介で来た相手は、進める前に screen_company(name, corporateNumber, website, address, phone, jobText) を1回通し、CHECK / STOP が返ったら本人に見せて確かめる（止める・進めるは本部が決める。相手を犯罪と決めつける言い方はしない）。" +
-  "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、1→6 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。探しても見つからない・OSの動きがおかしいときは、同じ言葉で引き直さず ask_hq(subject, detail) で本部に届ける。媒体の仕様・配信面・条件・他社の提案の仕組みは search_knowledge（資料ライブラリ）で引き、返った rules（自社=そのまま／他社・媒体=価格は卸値・実績は他社分）を必ず守る。" +
+  "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、0→8 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。探しても見つからない・OSの動きがおかしいときは、同じ言葉で引き直さず ask_hq(subject, detail) で本部に届ける。媒体の仕様・配信面・条件・他社の提案の仕組みは search_knowledge（資料ライブラリ）で引き、返った rules（自社=そのまま／他社・媒体=価格は卸値・実績は他社分）を必ず守る。" +
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。TVerの提案・見積・『効果はどのくらい？』『この市で月◯万だとどれくらい？』には tver_benchmarks(prefecture, city, monthlyBudget, industry) を先に呼び、matrix（人口帯×月額帯→30日あたり表示回数・到達人数・住民比・完全視聴率）を「目安・税抜」で添える。配信済みのお客様への報告は tver_results(reportId) の数字をそのまま使う（盛らない）。" +
   "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。メールが無い相手は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）をそのまま人に渡す＝AIがフォームに投稿しない。送れない相手（画像認証・フォームなし）は record_lead_result(leadId, phoneCandidate: true, note: 理由) で電話候補に回す。選別の結果（対象外・電話候補）は1件ずつではなく record_lead_results(items) でまとめて記録する。どの市から当たるか迷ったら tver_area_plan(prefecture, allCities: true) を1回。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad。" +
   "「TVerの配信申請を出したい」「このお客様でTVerを申請して」には、tver_applications で広告主の業態考査を確かめ、無ければ submit_advertiser_review（本部の承認待ちになる）、承認済みなら tver_area_plan(prefecture, allCities: true) と tver_benchmarks で組み合わせる市区町村と予算を決め、preview_tver_campaign でエリア一覧・人口・期間・予算・ターゲティングを本人に見せてOKをもらってから submit_tver_campaign で申請する。" +

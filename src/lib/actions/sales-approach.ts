@@ -86,6 +86,7 @@ export async function createSalesApproach(
 // 一覧取得
 // ---------------------------------------------------------------
 export async function getSalesApproaches(filters?: {
+  id?: string;
   result?: string;
   industry?: string;
 }) {
@@ -93,6 +94,7 @@ export async function getSalesApproaches(filters?: {
   if (!info) return [];
 
   const where: Prisma.SalesApproachWhereInput = {};
+  if (filters?.id) where.id = filters.id;
   if (filters?.result)   where.result   = filters.result as Prisma.SalesApproachWhereInput["result"];
   if (filters?.industry) where.industry = filters.industry;
 
