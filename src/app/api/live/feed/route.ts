@@ -80,7 +80,7 @@ export async function GET() {
 
   const since = new Date(Date.now() - WINDOW_DAYS * 86400000);
 
-  const [sent, customers, deals, dealLogs, moves, bookings, tenders, leadLogs] =
+  const [sent, customers, deals, dealLogs, activityLogs, moves, bookings, tenders, leadLogs] =
     await Promise.all([
       db.autoSalesSentDomain.findMany({
         where: { sentAt: { gte: since } },
@@ -126,6 +126,26 @@ export async function GET() {
             select: {
               id: true,
               customer: { select: { name: true, industry: true } },
+              branch: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
+      // 顧客に直接つけた活動記録（訪問・電話・メール等）＝商談がまだ無い相手の動き。
+      // 自動で入る更新履歴（SYSTEM）と自由記述（content）は出さない＝種別ラベルだけ。
+      db.activityLog.findMany({
+        where: { createdAt: { gte: since }, type: { not: "SYSTEM" } },
+        select: {
+          createdAt: true,
+          type: true,
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              industry: true,
+              prefecture: true,
               branch: { select: { name: true } },
             },
           },
@@ -258,6 +278,17 @@ export async function GET() {
       prefs: prefsIn(l.deal.branch.name),
       text: `「${l.deal.customer.name}」${ind ? `（${ind}）` : ""}に${ACTIVITY_LABEL[l.type] ?? "フォロー"}`,
       ref: { kind: "deal", id: l.deal.id },
+    });
+  }
+  for (const a of activityLogs) {
+    const c = a.customer;
+    events.push({
+      at: a.createdAt.toISOString(),
+      kind: "log",
+      actor: c.branch.name,
+      prefs: [...new Set([...prefsIn(c.branch.name), ...prefsIn(c.prefecture)])],
+      text: `「${c.name}」${c.industry ? `（${c.industry}）` : ""}に${ACTIVITY_LABEL[a.type] ?? "フォロー"}`,
+      ref: { kind: "customer", id: c.id },
     });
   }
   for (const m of moves) {

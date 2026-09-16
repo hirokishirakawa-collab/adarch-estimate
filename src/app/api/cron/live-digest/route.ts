@@ -57,9 +57,20 @@ export async function GET(req: NextRequest) {
   const dry = req.nextUrl.searchParams.get("dry") === "1";
 
   try {
-    const [users, deals, dealLogs, moves, sent, leads, bookings, leadLogs] = await Promise.all([
+    const [users, customers, deals, dealLogs, activityLogs, moves, sent, leads, bookings, leadLogs] = await Promise.all([
       db.user.findMany({
-        select: { id: true, email: true, groupCompany: { select: { name: true } } },
+        select: { id: true, name: true, email: true, groupCompany: { select: { name: true } } },
+      }),
+      // その日に増えた新しい顧客（ライブの「顧客登録」と同じ材料）
+      db.customer.findMany({
+        where: { createdAt: { gte: start, lt: end } },
+        select: {
+          name: true,
+          industry: true,
+          staffName: true,
+          branch: { select: { name: true } },
+        },
+        orderBy: { createdAt: "asc" },
       }),
       db.deal.findMany({
         // 受注日がその日で、後から更新された商談も拾う
@@ -75,6 +86,11 @@ export async function GET(req: NextRequest) {
         },
       }),
       db.dealLog.count({ where: { createdAt: { gte: start, lt: end }, type: { not: "SYSTEM" } } }),
+      // 顧客に直接つけた活動記録（自動の更新履歴＝SYSTEM は除く）
+      db.activityLog.findMany({
+        where: { createdAt: { gte: start, lt: end }, type: { not: "SYSTEM" } },
+        select: { staffName: true, customer: { select: { branch: { select: { name: true } } } } },
+      }),
       db.groupMove.findMany({
         where: { movedAt: { gte: start, lt: end } },
         select: { stage: true, industry: true, groupCompany: { select: { name: true } } },
@@ -102,16 +118,32 @@ export async function GET(req: NextRequest) {
     //   ユーザー経由で加盟会社名へ寄せ、辿れないものだけ拠点名のまま残す。
     const companyByUserId = new Map<string, string>();
     const companyByEmail = new Map<string, string>();
+    // 顧客・活動記録は記録者の「名前」しか持たない（「歌丸 翔馬」「shoma utamaru」など
+    // ログイン名やメールの左側が入る）。表記ゆれを吸収して同じ加盟会社に寄せる。
+    const companyByStaff = new Map<string, string>();
     for (const u of users) {
       if (!u.groupCompany?.name) continue;
       companyByUserId.set(u.id, u.groupCompany.name);
       companyByEmail.set(u.email, u.groupCompany.name);
+      for (const key of [u.name, u.email, u.email.split("@")[0].replace(/[._-]+/g, " ")]) {
+        if (key) companyByStaff.set(key.trim().toLowerCase(), u.groupCompany.name);
+      }
     }
+    const actorOfStaff = (staffName: string | null, fallback: string) =>
+      (staffName ? companyByStaff.get(staffName.trim().toLowerCase()) : null) ?? fallback;
 
     const byActor = new Map<string, number>();
     const bump = (name: string) => byActor.set(name, (byActor.get(name) ?? 0) + 1);
 
     const wonList: string[] = [];
+    const newCustomers: string[] = [];
+    for (const c of customers) {
+      const actor = actorOfStaff(c.staffName, c.branch.name);
+      bump(actor);
+      const ind = c.industry ? `（${c.industry}）` : "";
+      newCustomers.push(`・${actor}\n  「${c.name}」${ind}`);
+    }
+    for (const a of activityLogs) bump(actorOfStaff(a.staffName, a.customer.branch.name));
     for (const d of deals) {
       const actor =
         (d.assignedToId ? companyByUserId.get(d.assignedToId) : null) ??
@@ -155,7 +187,7 @@ export async function GET(req: NextRequest) {
       if (actor) bump(actor);
     }
 
-    const approach = moves.length + sent.length + dealLogs + leadActions;
+    const approach = moves.length + sent.length + dealLogs + activityLogs.length + leadActions + customers.length;
     const dealMoved = deals.length;
     const total = approach + dealMoved + leads + bookings;
 
@@ -173,10 +205,20 @@ export async function GET(req: NextRequest) {
       `☀️ *昨日のグループ（${label}）*`,
       ``,
       `受注 ${wonList.length}件／商談が動いた ${dealMoved}件／アプローチ ${approach}件`,
-      leads || bookings
-        ? `資料請求 ${leads}件／面談予約 ${bookings}件`
+      leads || bookings || customers.length
+        ? [
+            customers.length ? `新しい顧客 ${customers.length}件` : null,
+            `資料請求 ${leads}件`,
+            `面談予約 ${bookings}件`,
+          ]
+            .filter((x) => x !== null)
+            .join("／")
         : null,
       wonList.length ? `\n🎉 *受注*\n${wonList.join("\n")}` : null,
+      // 新しい顧客は多い日があるので5件まで（残りは件数だけ）
+      newCustomers.length
+        ? `\n🆕 *新しい顧客*\n${newCustomers.slice(0, 5).join("\n")}${newCustomers.length > 5 ? `\n  ほか${newCustomers.length - 5}件` : ""}`
+        : null,
       ranking.length ? `\n*動いた拠点*\n${ranking.join("\n")}` : null,
       appUrl ? `\n👉 ${appUrl}/dashboard/live` : null,
     ]
