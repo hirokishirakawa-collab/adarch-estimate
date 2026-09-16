@@ -1,4 +1,5 @@
 import "./workspace.css";
+import "./connected.css";
 import localFont from "next/font/local";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";

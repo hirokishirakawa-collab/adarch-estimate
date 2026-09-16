@@ -3,7 +3,7 @@
 import { useRef, useState, useId } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, Copy, X, Check } from "lucide-react";
+import { Sparkles, Copy, X, Check, Link2, ShieldCheck, ArrowRight } from "lucide-react";
 import { navigationForPath } from "@/lib/navigation/catalog";
 import {
   buildAiWorkPrompt,
@@ -25,7 +25,9 @@ export function AiWorkButton({
   const dialog = useRef<HTMLDialogElement>(null);
   const text = useRef<HTMLTextAreaElement>(null);
   const [status, setStatus] = useState("");
+  const [copied, setCopied] = useState(false);
   const titleId = useId();
+  const targetLabel = context?.label ?? navigationForPath(pathname).label;
   const prompt = buildAiWorkPrompt({
     label: navigationForPath(pathname).label,
     path: pathname,
@@ -34,10 +36,12 @@ export function AiWorkButton({
   async function copy() {
     try {
       await navigator.clipboard.writeText(prompt);
+      setCopied(true);
       setStatus(
         "コピーしました。接続したClaude／ChatGPTの会話に貼り付けてください。",
       );
     } catch {
+      setCopied(false);
       text.current?.focus();
       text.current?.select();
       setStatus(
@@ -52,6 +56,7 @@ export function AiWorkButton({
         className={secondary ? "os-button-secondary" : "os-button-primary"}
         onClick={() => {
           setStatus("");
+          setCopied(false);
           dialog.current?.showModal();
         }}
       >
@@ -60,14 +65,14 @@ export function AiWorkButton({
       </button>
       <dialog
         ref={dialog}
-        className="os-ai-dialog"
+        className={`os-ai-dialog os-ai-drawer ${copied ? "is-copied" : ""}`}
         aria-labelledby={titleId}
         onClick={(e) => {
           if (e.target === e.currentTarget) dialog.current?.close();
         }}
       >
         <div className="os-dialog-head">
-          <span className="os-eyebrow">AI WORKSPACE</span>
+          <span className="os-eyebrow"><Sparkles size={15} aria-hidden /> CONNECTED WORKSPACE</span>
           <button
             type="button"
             aria-label="閉じる"
@@ -77,10 +82,16 @@ export function AiWorkButton({
             <X size={18} />
           </button>
         </div>
-        <h2 id={titleId}>いつものAIで、続きを。</h2>
+        <h2 id={titleId}>この仕事を、AIへ。</h2>
         <p className="os-description">
-          対象を含む依頼文をコピーして、OSにつないだClaude／ChatGPTへ渡します。
+          今見ている仕事を添えて、いつものClaude／ChatGPTへ。
         </p>
+        <div className="os-ai-context-block">
+          <p className="os-eyebrow">CONTEXT / 引き継ぐ対象</p>
+          <div className="os-ai-context-row"><Link2 size={17} aria-hidden /><strong>{targetLabel}</strong></div>
+          {context?.customerName && context.customerName !== targetLabel && <p className="os-ai-customer">顧客：{context.customerName}</p>}
+          <div className="os-ai-scope"><ShieldCheck size={15} aria-hidden /><span>参照できる情報は、本人の閲覧権限に従います。</span></div>
+        </div>
         {connected === false && (
           <p className="os-notice">
             AIの接続がまだありません。
@@ -93,13 +104,14 @@ export function AiWorkButton({
           </p>
         )}
         <label className="os-field">
-          AIに渡す依頼文
-          <textarea ref={text} readOnly value={prompt} rows={9} />
+          <span className="os-eyebrow">REQUEST / AIに渡す依頼文</span>
+          <textarea ref={text} readOnly value={prompt} rows={8} />
         </label>
-        <button type="button" className="os-button-primary" onClick={copy}>
-          {status ? <Check size={16} /> : <Copy size={16} />}依頼文をコピー
+        <button type="button" className="os-button-primary os-ai-copy" onClick={copy}>
+          {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}{copied ? "依頼文をコピーしました" : "依頼文をコピー"}<ArrowRight size={16} aria-hidden />
         </button>
-        <p role="status" className="os-description">
+        <div className="os-ai-copy-line" aria-hidden />
+        <p role="status" className="os-description os-copy-status">
           {status}
         </p>
         <div className="os-dialog-footer">

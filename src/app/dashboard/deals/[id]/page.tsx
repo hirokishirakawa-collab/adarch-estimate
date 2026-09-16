@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { RecordConnection } from "@/components/workspace/work-connection";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -76,7 +77,7 @@ export default async function DealDetailPage({ params }: PageProps) {
   const isClosedStatus = deal.status === "CLOSED_WON" || deal.status === "CLOSED_LOST";
 
   return (
-    <div className="px-6 py-6 max-w-4xl mx-auto w-full">
+    <div className="os-record-page px-6 py-6 max-w-4xl mx-auto w-full">
       {/* ─── 戻るリンク ─── */}
       <Link
         href="/dashboard/deals"
@@ -188,6 +189,8 @@ export default async function DealDetailPage({ params }: PageProps) {
           )}
         </div>
       </div>
+
+      <RecordConnection customer={deal.customer} label={deal.title} dealId={deal.id} path={`/dashboard/deals/${deal.id}`} />
 
       {/* ─── 受注の決め手（CLOSED_WONのみ） ─── */}
       {deal.status === "CLOSED_WON" && (

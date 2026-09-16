@@ -125,7 +125,7 @@ export function Sidebar({
               width={132}
               height={27}
             />
-            <span>GROUP OPERATING SYSTEM</span>
+            <span>CONNECTED OS</span>
           </Link>
           <button
             type="button"
@@ -145,6 +145,7 @@ export function Sidebar({
             月次報告が未提出です <span>提出する →</span>
           </Link>
         )}
+        <p className="os-nav-caption">WORKSPACE</p>
         <nav
           className="os-primary-nav"
           data-tour="sidebar"

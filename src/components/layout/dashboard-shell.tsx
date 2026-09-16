@@ -23,7 +23,7 @@ interface Props {
 
 export function DashboardShell({ user, reportWarning, isActive = true, contractDaysLeft, reportBranches, children }: Props) {
   const pathname = usePathname();
-  const businessPage = /^\/dashboard\/(customers|deals|projects|estimates|tver-review|tver-campaign|tver-creative-review|knowledge|wiki|ai-connect|sales-report|partner-status|group-support|admin)(?:\/|$)/.test(pathname);
+  const businessPage = pathname !== "/dashboard" && pathname !== "/dashboard/live";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -50,7 +50,7 @@ export function DashboardShell({ user, reportWarning, isActive = true, contractD
           onSearchOpen={() => setSearchOpen(true)}
           reportBranches={reportBranches}
         />
-        <main className="flex-1 overflow-y-auto">
+        <main className="os-main flex-1 overflow-y-auto">
           {!isActive && <SuspendedBanner />}
           {contractDaysLeft !== null && contractDaysLeft !== undefined && contractDaysLeft > 0 && contractDaysLeft <= 90 && (
             <ContractRenewalBanner daysLeft={contractDaysLeft} />

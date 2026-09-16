@@ -9,7 +9,8 @@ import {
   type NavigationItem,
 } from "@/lib/navigation/catalog";
 import { AiWorkButton } from "./ai-work-button";
-import { HUB_THEMES, HubIllustration, hubItemIcon } from "./hub-visuals";
+import { HUB_THEMES, hubItemIcon } from "./hub-visuals";
+import { WorkConnection } from "./work-connection";
 
 export function WorkspaceHub({
   group,
@@ -54,7 +55,7 @@ export function WorkspaceHub({
   const sections =
     sort === "name" ? ["名前順"] : [...new Set(visible.map((i) => i.section))];
   return (
-    <div className={`os-page ${theme ? "os-creative-hub" : ""}`}>
+    <div className={`os-page ${theme ? "os-creative-hub os-connected-hub" : ""}`}>
       {theme ? <>
         <header className="os-hub-welcome">
           <div className="os-hub-intro">
@@ -62,14 +63,13 @@ export function WorkspaceHub({
             <h1>{definition.label}</h1>
             <p className="os-hub-invitation">{theme.invitation}</p>
             <p className="os-description">{definition.description}</p>
-            <AiWorkButton secondary label="AIと一緒に進める" />
           </div>
-          <HubIllustration group={group} />
+          <WorkConnection group={group} />
         </header>
         {!query.trim() && features.length > 0 && <div className="os-hub-launches" aria-label="主な入口">
           {features.map(({item,verb,description,icon:Icon},index) => <Link href={item.href} key={item.href} className={`os-hub-launch ${index === 0 ? "os-hub-launch-featured" : ""}`}>
             <div className="os-launch-top"><span>{verb}</span><ArrowUpRight size={20} aria-hidden /></div>
-            <div className="os-launch-visual" aria-hidden><span className="os-launch-orbit"/><Icon size={46} strokeWidth={1.25} /></div>
+            <div className="os-launch-visual" aria-hidden><Icon size={32} strokeWidth={1.25} /></div>
             <h2>{item.label}</h2>
             <p>{description}</p>
           </Link>)}

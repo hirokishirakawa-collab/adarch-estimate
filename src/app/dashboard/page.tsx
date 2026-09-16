@@ -5,21 +5,14 @@ import Link from "next/link";
 import { LiveBoard } from "@/components/live/live-board";
 import { NextActions } from "@/components/workspace/next-actions";
 import { PersonalInbox } from "@/components/workspace/personal-inbox";
+import { HomeHeading } from "@/components/workspace/work-connection";
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   return (
-    <div className="os-page">
-      <div className="os-page-head">
-        <div>
-          <h1>ホーム</h1>
-          <p className="os-description">みんなの動きから、今日の一手へ。</p>
-        </div>
-        <Link className="os-button-secondary" href="/dashboard/ai">
-          AIでできる仕事 →
-        </Link>
-      </div>
+    <div className="os-page os-connected-home">
+      <HomeHeading />
       {session.user.email !== "demo@adarch.co.jp" &&
         session.user.isActive !== false && (
           <div data-tour="group-live">

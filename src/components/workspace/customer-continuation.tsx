@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AiWorkButton } from "./ai-work-button";
 import { DEAL_STATUS_OPTIONS } from "@/lib/constants/deals";
+import { ConnectionPath } from "./work-connection";
 
 type Deal = {
   id: string;
@@ -28,7 +29,7 @@ export function CustomerContinuation({
     <section className="os-next-step" aria-label="この顧客の続きを進める">
       <div className="os-next-step-top">
         <div>
-          <p className="os-eyebrow">NEXT STEP</p>
+          <p className="os-eyebrow">CONNECTED CONTEXT</p>
           <h2>このお客様の続きを。</h2>
           <p className="os-description">
             {lastActivityAt
@@ -46,6 +47,7 @@ export function CustomerContinuation({
           }}
         />
       </div>
+      <ConnectionPath steps={["顧客", "商談", "案件・見積"]} />
       {active.slice(0, 3).map((deal) => (
         <div key={deal.id} className="os-action-row">
           <div className="os-action-copy">

@@ -112,9 +112,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const hasFilter  = !!(q || rankParam || prefecture || status || locked || mine);
 
   return (
-    <div className="px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
+    <div className="os-record-index px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
       {/* ===== ヘッダー ===== */}
-      <div className="flex items-start justify-between">
+      <div className="os-record-heading flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
             <Users
@@ -157,7 +157,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
 
       {/* ===== 導線ガイド: リード → 顧客 → プロジェクト ===== */}
       {/* 顧客管理は営業の起点。ここから前後（リード・プロジェクト）へ迷わず動けるようにする。 */}
-      <div className="bg-white rounded-xl border border-zinc-200 px-5 py-4">
+      <div className="os-customer-flow bg-white rounded-xl border border-zinc-200 px-5 py-4">
         <p className="text-[11px] font-semibold text-zinc-500 mb-3">
           案件が前に進む順番 — 顧客管理はこの真ん中にあります
         </p>

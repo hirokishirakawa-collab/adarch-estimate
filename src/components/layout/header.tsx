@@ -39,6 +39,8 @@ export function Header({
           <Menu size={20} />
         </button>
         <span className="os-current-title">
+          <span className="os-header-label">WORKSPACE</span>
+          <span aria-hidden="true">/</span>
           {current.group?.label ?? pageTitle}
         </span>
         <button
@@ -58,12 +60,13 @@ export function Header({
         </div>
       )}
       <div className="os-topbar-actions">
+        {user.aiConnected && <span className="os-ai-connection-status"><span aria-hidden="true" />AI接続済み</span>}
         <span className="os-header-presence">
           <PresenceBadge />
         </span>
         <NotificationBell />
         <ArchKunToggle />
-        <AiWorkButton connected={user.aiConnected} />
+        <AiWorkButton connected={user.aiConnected} label="AIと進める" />
       </div>
     </header>
   );

@@ -4,6 +4,16 @@ import Link from "next/link";
 import { searchWorkspaceLibrary } from "@/lib/workspace/library-search";
 import type { UserRole } from "@/types/roles";
 import { AiWorkButton } from "@/components/workspace/ai-work-button";
+import { ArrowUpRight, BookOpen, FileText, Layers, Film, Images } from "lucide-react";
+
+const sourceVisuals = {
+  material: { icon: FileText, label: "MATERIAL" },
+  package: { icon: Layers, label: "PACKAGE" },
+  wiki: { icon: BookOpen, label: "GUIDE" },
+  case: { icon: FileText, label: "CASE STUDY" },
+  portfolio: { icon: Images, label: "CREATIVE" },
+  seminar: { icon: Film, label: "SEMINAR" },
+};
 export default async function LibrarySearchPage({
   searchParams,
 }: {
@@ -26,7 +36,7 @@ export default async function LibrarySearchPage({
     input,
   );
   return (
-    <div className="os-page">
+    <div className="os-page os-connected-library">
       <div className="os-page-head">
         <div>
           <h1>資料・事例を探す</h1>
@@ -84,22 +94,26 @@ export default async function LibrarySearchPage({
       </p>
       <div className="os-library-results">
         {rows.length ? (
-          rows.map((row) => (
+          rows.map((row) => {
+            const visual = sourceVisuals[row.kind];
+            const Icon = visual.icon;
+            return (
             <Link
               key={`${row.kind}:${row.id}`}
               href={row.href}
               className="os-library-result"
             >
-              <span>
+              <div className="os-material-cover" aria-hidden><span>{visual.label}</span><Icon size={36} strokeWidth={1.2} /><ArrowUpRight size={16} /></div>
+              <div className="os-material-copy"><span>
                 {row.source} · 更新{" "}
                 {new Intl.DateTimeFormat("ja-JP", {
                   timeZone: "Asia/Tokyo",
                 }).format(new Date(row.updatedAt))}
               </span>
               <h3>{row.title}</h3>
-              <p>{row.excerpt}</p>
+              <p>{row.excerpt}</p></div>
             </Link>
-          ))
+          );})
         ) : (
           <p className="os-empty">
             該当する資料がありません。別の言葉や種類で検索してください。

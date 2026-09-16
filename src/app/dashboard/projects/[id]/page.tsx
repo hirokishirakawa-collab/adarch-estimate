@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { RecordConnection } from "@/components/workspace/work-connection";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -80,7 +81,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     project.status !== "CANCELLED";
 
   return (
-    <div className="px-6 py-6 space-y-5 max-w-screen-xl mx-auto w-full">
+    <div className="os-record-page px-6 py-6 space-y-5 max-w-screen-xl mx-auto w-full">
       {/* パンくず */}
       <div className="flex items-center gap-2 text-xs text-zinc-500">
         <Link href="/dashboard/projects" className="hover:text-zinc-800 transition-colors">
@@ -166,6 +167,8 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           </div>
         </div>
       </div>
+
+      <RecordConnection customer={project.customer} label={project.title} path={`/dashboard/projects/${project.id}`} />
 
       {/* サマリーカード（ADMIN のみ金額表示） */}
       {showFinancials && (

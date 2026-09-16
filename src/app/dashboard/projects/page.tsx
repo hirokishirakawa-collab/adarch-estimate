@@ -65,9 +65,9 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
   const totalAll = totalByStatus.reduce((s, r) => s + r._count.status, 0);
 
   return (
-    <div className="px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
+    <div className="os-record-index px-6 py-6 space-y-5 max-w-screen-2xl mx-auto w-full">
       {/* ヘッダー */}
-      <div className="flex items-start justify-between">
+      <div className="os-record-heading flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-violet-50 rounded-xl flex items-center justify-center">
             <FolderKanban
