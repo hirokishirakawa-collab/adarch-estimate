@@ -17,3 +17,13 @@
 - 2026-09-15 14:02 public/live/japan-map.svg・src/components/live/{map-points.ts,live-board.tsx}・AGENTS.md／代表が対象4ファイルの本番反映を明示承認。他の最新更新82532d7へ同一差分を統合し25eec23をmainへpush。統合後ビルド通過、Railway成功（14:00:43 JST）。本番ダッシュボード/全画面で「沖縄」「拡大図」と拡大した地形、沖縄本島の活動点座標、別枠表記なし・横はみ出しなしを確認。沖縄代表の在席アイコンはローカル確認用データで検証済み。本番の在席/活動は作成せず／本番反映した（25eec23）
 
 - 2026-09-16 13:23 共通ナビ・ホーム・顧客導線・AI引き継ぎ・TVer・資料検索・本部画面と関連テスト（一覧: docs/release-files-20260916.txt）／代表の全8項目実装承認と確認画面後の「これでデプロイしましょう」を受けた本番反映。GROUP LIVE・沖縄・集計を保持。別作業の未公開5a862c9cを含めず本番3de0f22cへ統合。10テスト・型・ビルド・PC/スマホ表示確認済／本番反映作業中（完了結果は確認記録へ追記）
+
+- 2026-09-16 13:29 OS全体整理57ファイル（docs/release-files-20260916.txt）／代表が確認画面を了承し本番反映を明示承認。abfbab4dをGitHub mainへpush、Railway SUCCESS（2026-09-16 13:26:35 JST、deployment 51b0664b-0ea7-417d-9777-33b3d2d43699）。本番ホーム・4仕事入口・TVer・資料・本部・AIの表示、実データ検索、AI依頼文、390px表示と沖縄地図を確認。DB変更・業務送信なし。元フォルダの別作業5a862c9cは未公開のまま保持（次回fetch後に本番との分岐を確認、force pushしない）／本番反映した（abfbab4d）
+
+- 2026-09-16 13:33 月次報告と新ナビ/検索の閲覧権限確認／認証・月次報告処理は前本番と差分なし。本人限定の一覧・他人IDの閲覧/更新/削除拒否・USER/未ログイン拒否の隔離テスト7件通過。本部ADMIN制限・月次報告を共通検索へ含めないことを確認／追加の本番変更なし（abfbab4dを検証）
+
+- 2026-09-16 13:46 src/components/workspace/{workspace-hub.tsx,hub-visuals.tsx}・src/app/dashboard/workspace.css・src/app/dashboard/work/[group]/page.tsx／代表の「分類は良いが文字ばかりで業務的」の指摘を受け4分類に専用イラスト・大きな入口・機能アイコン・控えめな動きを追加。既存の分類とサーバーの権限フィルタを維持。PC/390px・検索・USERの月次報告リンク非表示・ADMIN画面維持、型/ESLint/ナビ10テスト確認済／本番反映していない（確認画面でレビュー待ち）
+
+- 2026-09-16 13:46 月次報告の閲覧方針／代表が「本部以外は自分の報告以外見れないようにして」と明示。全員分を見られるのはADMINのみ。代表MANAGERの一覧はcreatedById本人に限定、他人IDの直接閲覧/更新/削除を拒否。USERの既存アクセス不可を維持。現行の本番反映コードで要件を満たし隔離テスト7件再通過、AIの全件照会もADMIN限定を確認／権限コードの追加変更・本番変更なし
+
+- 2026-09-16 13:49 src/components/workspace/{workspace-hub.tsx,hub-visuals.tsx}・src/app/dashboard/workspace.css・src/app/dashboard/work/[group]/page.tsx・src/lib/workspace/update-history.json・AGENTS.md／代表が確認画面後に「本番反映して」と明示承認。4分類のイラスト・主要入口・アイコン・軽い動きと更新案内を反映。認証/月次報告/DB処理は差分なし。型・ESLint・本番ビルド・ナビ10件/月次権限7件・PC/390px確認済／本番反映作業中（結果は追記）
