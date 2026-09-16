@@ -524,7 +524,19 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
   // リードは「自分の担当」か「担当なし（自県）」。本部は自分の担当だけ
   const leadMine: Prisma.LeadWhereInput = isHq(v) ? { assigneeId: v.id } : { OR: [{ assigneeId: v.id }, { assigneeId: null, ...prefFilter }] };
 
-  const [waiting, overdue, openDeals, foundedLeads, subsidies, signals, phoneCandidates, prepared] = await Promise.all([
+  const [noFactor, waiting, overdue, openDeals, foundedLeads, subsidies, signals, phoneCandidates, prepared] = await Promise.all([
+    // 0. 受注したのに「決め手」が未記入（直近90日）＝次の人の武器が1件ずつ消えている
+    db.deal.findMany({
+      where: {
+        ...branch,
+        status: "CLOSED_WON",
+        closingFactor: null,
+        closedAt: { gte: new Date(now.getTime() - 90 * DAY_MS) },
+      },
+      orderBy: { closedAt: "desc" },
+      take: 3,
+      select: { id: true, title: true, closedAt: true, customer: { select: { name: true } } },
+    }),
     // 1. 返事待ちが7日超（送付済み・結果未入力）
     db.lead.findMany({
       where: { ...leadAlive, ...leadMine, sentAt: { not: null, lt: new Date(now.getTime() - 7 * DAY_MS) }, outreachResult: null },
@@ -600,8 +612,17 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
   return {
     for: { name: v.name, company: company?.name ?? (isHq(v) ? "本部" : null), prefecture: pref },
     asOf: day(now),
-    order: "1→8 の順に優先。1〜3 と 8 は今日中に動く（8は下書きを送ったかどうかの確定）。4〜7 は声をかける先の候補（7は電話でしか当たれない先）",
+    order: "0→8 の順に優先。0 は1問聞くだけ（30秒）。1〜3 と 8 は今日中に動く（8は下書きを送ったかどうかの確定）。4〜7 は声をかける先の候補（7は電話でしか当たれない先）",
     sections: [
+      {
+        no: 0,
+        title: "受注の決め手が未記入（1問だけ聞く）",
+        count: noFactor.length,
+        next:
+          "『◯◯さんの受注、決め手は何でしたか？』と1件だけ聞いて、返ってきた言葉をそのまま set_closing_factor(dealId, closingFactor) で残す。" +
+          "推測で書かない。ここが全社の勝ち筋になる（find_similar_wins で全員が引く）",
+        items: noFactor.map((d) => ({ dealId: d.id, customer: d.customer.name, title: d.title, closedAt: day(d.closedAt) })),
+      },
       {
         no: 1,
         title: "返事待ちが7日超",

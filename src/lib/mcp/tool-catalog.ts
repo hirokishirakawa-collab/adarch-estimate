@@ -344,14 +344,14 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   }),
   def({
     name: "update_deal", kind: "write", title: "商談を更新（状態・確度・予定日・メモ追記）",
-    description: "商談（id）の status / probability / expectedCloseDate を更新し、appendNote でメモを追記する（上書きはしない）。失注は CLOSED_LOST。受注は CLOSED_WON＝OS画面で受注にしたときと同じく受注日の記録・プロジェクト自動作成・本部への受注通知が動く（受注済みの商談は変更できない）。受注にしたら set_closing_factor で決め手も残す。",
+    description: "商談（id）の status / probability / expectedCloseDate を更新し、appendNote でメモを追記する（上書きはしない）。失注は CLOSED_LOST。受注は CLOSED_WON＝OS画面で受注にしたときと同じく受注日の記録・プロジェクト自動作成・本部への受注通知が動く（受注済みの商談は変更できない）。受注にしたら、その場で本人に『今回の決め手は何でしたか？』と必ず聞いて set_closing_factor で残す（省略しない・推測で書かない）。",
     input: z.object({ id: z.string(), status: z.string().optional(), probability: z.number().int().optional(), expectedCloseDate: z.string().optional(), appendNote: z.string().optional() }),
     run: (v, a) => osw.updateDeal(v, a),
     confirm: (a) => `商談を更新します: ${[a.status && (a.status.toUpperCase() === "CLOSED_WON" ? "受注に確定（プロジェクト自動作成・本部に通知）" : `状態→${a.status}`), a.probability !== undefined && `確度→${a.probability}%`, a.expectedCloseDate && `見込み→${a.expectedCloseDate}`, a.appendNote && `メモ追記「${a.appendNote.slice(0, 120)}」`].filter(Boolean).join(" / ")}`,
   }),
   def({
     name: "set_closing_factor", kind: "write", title: "受注の決め手を記録",
-    description: "受注した（またはほぼ決まった）商談（id）に「何が決め手だったか」を残す。文面・提案内容・関係性・タイミングなど。グループの成功事例学習に使う（find_similar_wins で全員が引ける）。",
+    description: "受注した（またはほぼ決まった）商談（id）に「何が決め手だったか」を残す。受注を記録したら必ず本人に聞いてから呼ぶ。文面・提案内容・関係性・タイミングなど。グループの成功事例学習に使う（find_similar_wins で全員が引ける）。",
     input: z.object({ id: z.string(), closingFactor: z.string() }),
     run: (v, a) => osw.setClosingFactor(v, a),
     confirm: (a) => `受注の決め手を残します:\n${a.closingFactor.slice(0, 300)}`,

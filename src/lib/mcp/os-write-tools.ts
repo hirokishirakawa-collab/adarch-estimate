@@ -431,7 +431,14 @@ export async function updateDeal(v: McpViewer, input: UpdateDealInput) {
 
   return {
     id: u.id, title: u.title, status: u.status, probability: u.probability, expectedCloseDate: day(u.expectedCloseDate), changed,
-    ...(won ? { next: "受注にしました（プロジェクトを自動作成・本部に通知）。決め手は set_closing_factor で残せます" } : {}),
+    ...(won
+      ? {
+          next: "受注にしました（プロジェクトを自動作成・本部に通知）",
+          mustAsk:
+            "このあと必ず『今回の決め手は何でしたか？』と本人に聞いて、返ってきた言葉をそのまま set_closing_factor(id, closingFactor) で残す。" +
+            "ここを飛ばさない（グループ全員が find_similar_wins で引く材料になる）。自分で推測して書かない。",
+        }
+      : {}),
   };
 }
 

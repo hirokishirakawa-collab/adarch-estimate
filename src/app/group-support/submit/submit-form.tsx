@@ -125,9 +125,6 @@ function WeeklyShareForm({
             </option>
           ))}
         </select>
-        <p className="text-[11px] text-zinc-400">
-          「他拠点の受注例・実績」を選ぶと、OSがその場で受注例をお渡しします（OSのベルに届きます）
-        </p>
         <textarea
           name="hqNote"
           rows={2}

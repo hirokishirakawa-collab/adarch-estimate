@@ -84,14 +84,25 @@ export const HQ_REQUEST_OPTIONS = [
   { value: "NEW_PLAN", label: "この業種・この相手向けの新しいプランを作ってほしい", short: "新プラン" },
   { value: "MEDIA_TERMS", label: "媒体の枠・条件を本部から交渉してほしい（TVer・サイネージ・LINEなど）", short: "媒体条件の交渉" },
   { value: "JOINT_PROPOSAL", label: "本部名義で一緒に提案したい（大型・自治体・複数県）", short: "本部名義で共同提案" },
-  { value: "CASES", label: "他拠点の受注例・実績を出してほしい", short: "他拠点の受注例" },
   { value: "PRICING", label: "値引き・条件の可否を判断してほしい", short: "値引き・条件の判断" },
   { value: "NONE", label: "なし", short: "なし" },
 ] as const;
+
+/**
+ * 今は出していない選択肢（履歴の表示用に残す）。
+ * CASES「他拠点の受注例・実績」は 2026-09-16 に取り下げ＝人が書いた「決め手」が
+ * 全社で5件しかなく、何度頼まれても同じ5件しか返せないため。
+ * 決め手が貯まったら、この行を HQ_REQUEST_OPTIONS に戻すだけで復活する。
+ */
+const HQ_REQUEST_RETIRED = [
+  { value: "CASES", label: "他拠点の受注例・実績を出してほしい", short: "他拠点の受注例" },
+] as const;
+const HQ_REQUEST_ALL = [...HQ_REQUEST_OPTIONS, ...HQ_REQUEST_RETIRED];
+
 export type HqRequest = (typeof HQ_REQUEST_OPTIONS)[number]["value"];
 export const HQ_REQUEST_VALUES = HQ_REQUEST_OPTIONS.map((o) => o.value) as HqRequest[];
-export const hqRequestLabel = (v: string | null | undefined) => HQ_REQUEST_OPTIONS.find((o) => o.value === v)?.label ?? (v || "—");
-export const hqRequestShort = (v: string | null | undefined) => HQ_REQUEST_OPTIONS.find((o) => o.value === v)?.short ?? (v || "—");
+export const hqRequestLabel = (v: string | null | undefined) => HQ_REQUEST_ALL.find((o) => o.value === v)?.label ?? (v || "—");
+export const hqRequestShort = (v: string | null | undefined) => HQ_REQUEST_ALL.find((o) => o.value === v)?.short ?? (v || "—");
 
 /** 先週の「次の一手」は動いた？（AI連携の答え合わせ） */
 export const FOLLOW_UP_OPTIONS = [
