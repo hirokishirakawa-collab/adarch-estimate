@@ -11,12 +11,15 @@ import {
 import { AiWorkButton } from "./ai-work-button";
 import { HUB_THEMES, hubItemIcon } from "./hub-visuals";
 import { WorkConnection } from "./work-connection";
-import { SalesHub } from "./sales-hub";
+import { TaskHub } from "./task-hub";
 
 type WorkspaceHubProps = { group: NavigationGroup; items: NavigationItem[]; children?: React.ReactNode };
 
 export function WorkspaceHub(props: WorkspaceHubProps) {
-  return props.group === "sales" ? <SalesHub items={props.items}>{props.children}</SalesHub> : <StandardWorkspaceHub {...props} />;
+  if (props.group === "sales" || props.group === "projects" || props.group === "library") {
+    return <TaskHub key={props.group} group={props.group} items={props.items}>{props.children}</TaskHub>;
+  }
+  return <StandardWorkspaceHub {...props} />;
 }
 
 function StandardWorkspaceHub({
