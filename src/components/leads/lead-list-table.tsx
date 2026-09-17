@@ -1055,6 +1055,34 @@ function LeadRow({
         </div>
       </td>
     </tr>
+    {/* 本部からあなた宛ての候補先: 選んだ理由（メモ内の【本部から・◯◯】）を行の下に全文で出す。メモ欄は1行で切れて読めないため */}
+    {lead.signalKind === "HQ_PICK" &&
+      (() => {
+        const reasons = (lead.memo ?? "")
+          .split(/(?=【本部から・)/)
+          .map((part) => part.trim().match(/^【本部から・(.+?)】([\s\S]*)$/))
+          .filter((m): m is RegExpMatchArray => !!m);
+        if (reasons.length === 0) return null;
+        return (
+          <tr className="border-b border-zinc-100">
+            <td colSpan={canSelect ? 10 : 9} className="px-4 pb-3 pt-0">
+              <div className="rounded-md bg-zinc-50 border border-zinc-200 px-4 py-3 space-y-2">
+                <p className="text-[11px] font-bold text-zinc-500">本部が選んだ理由</p>
+                {reasons.map((m, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="shrink-0 mt-0.5 text-[11px] font-bold text-zinc-800 bg-white border border-orange-300 rounded px-1.5 py-0.5">
+                      {m[1]}
+                    </span>
+                    <p className="text-[13px] leading-relaxed text-zinc-800 whitespace-pre-wrap break-words">
+                      {m[2].trim()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </td>
+          </tr>
+        );
+      })()}
     {hearingOpen && (
       <tr>
         <td colSpan={canSelect ? 10 : 9} className="px-0 py-0">
