@@ -3,10 +3,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo as getViewer, createBranchId } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { enrichCustomersAfterResponse } from "@/lib/clients/enqueue";
-import type { UserRole } from "@/types/roles";
 import type { CustomerStatus } from "@/generated/prisma/client";
 
 // ---------------------------------------------------------------
@@ -36,11 +35,14 @@ export async function POST(req: NextRequest) {
   }
 
   // ロール未設定は最小権限(USER)に倒す。MANAGER等を既定にしない（権限昇格の防止）
-  const role = (session.user.role ?? "USER") as UserRole;
   const email = session.user.email ?? "";
   const staffName = session.user.name ?? email ?? "不明";
-  const branchId = getMockBranchId(email, role);
-  const effectiveBranchId = branchId ?? "branch_hq";
+  // 拠点はDBの所属で決める（2026-09-17）
+  const viewer = await getViewer();
+  const effectiveBranchId = viewer ? createBranchId(viewer) : null;
+  if (!effectiveBranchId) {
+    return NextResponse.json({ error: "拠点が割り当てられていません。本部にお問い合わせください。" }, { status: 403 });
+  }
 
   let rows: ImportRow[];
   try {

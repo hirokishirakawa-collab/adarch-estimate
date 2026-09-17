@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
 import { RevenueReportList } from "@/components/sales-report/revenue-report-list";
 import { AdminRevenueSummary } from "@/components/sales-report/admin-revenue-summary";
 import { AdminReportList } from "@/components/sales-report/admin-report-list";
@@ -17,7 +16,6 @@ export default async function SalesReportPage() {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   const email = session?.user?.email ?? "";
-  getMockBranchId(email, role); // ロール確認のみ
 
   // USER ロールはアクセス不可
   if (role === "USER") redirect("/dashboard");

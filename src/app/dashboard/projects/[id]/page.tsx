@@ -3,7 +3,7 @@ import { RecordConnection } from "@/components/workspace/work-connection";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo, ownBranchWhere } from "@/lib/session";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
 import { EXPENSE_CATEGORY_OPTIONS } from "@/lib/constants/expenses";
 import { ESTIMATION_STATUS_OPTIONS } from "@/lib/constants/estimates";
@@ -35,11 +35,11 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も見えない）
+  const info = await getSessionInfo();
+  const branchWhere = info ? ownBranchWhere(info) : { branchId: "__unassigned__" };
 
-  const whereClause =
-    role === "ADMIN" || !userBranchId ? { id } : { id, branchId: userBranchId };
+  const whereClause = { id, ...branchWhere };
 
   const project = await db.project.findFirst({
     where: whereClause,

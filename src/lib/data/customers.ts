@@ -4,7 +4,6 @@
 // CSVインポートによる自動生成（76件・14拠点）
 // ==============================================================
 
-import type { UserRole } from "@/types/roles";
 
 // ---------------------------------------------------------------
 // 拠点マスタ（既存14拠点 + 47都道府県）
@@ -85,22 +84,6 @@ export const ARCHIVE_BRANCH_ID = "branch_archive";
 export type BranchId = keyof typeof BRANCH_MAP;
 export type BranchInfo = (typeof BRANCH_MAP)[BranchId];
 
-// メール → 拠点IDマッピング
-const EMAIL_TO_BRANCH: Record<string, string> = {
-  "hiroki.shirakawa@adarch.co.jp": "branch_hq",
-  "ishikawa@adarch.co.jp": "branch_isk",
-  "kagawa_okayama@adarch.co.jp": "branch_kgo",
-  "mtakahashi@adarch.co.jp": "branch_kyt",
-  "katagiri@adarch.co.jp": "branch_tky",
-  "shoma.utamaru@adarch.co.jp": "branch_ymc",
-  "s.keita@adarch.co.jp": "branch_hkd",
-  "toru.shiraishi@adarch.co.jp": "branch_tk2",
-  "takashi.miyamoto@adarch.co.jp": "branch_kns",
-  "okinawa@adarch.co.jp": "branch_okn",
-  "tokushima@adarch.co.jp": "branch_tks",
-  "ibaraki@adarch.co.jp": "branch_ibk",
-  "hamaguchi@adarch.co.jp": "branch_fku",
-};
 
 // ---------------------------------------------------------------
 // 型定義
@@ -2125,17 +2108,8 @@ export const DUMMY_CUSTOMERS: DummyCustomer[] = [
   },
 ];
 
-// ---------------------------------------------------------------
-// Phase 1: メールアドレスからモック branchId を取得
-// Phase 2: DB の users テーブルから取得する
-// ---------------------------------------------------------------
-export function getMockBranchId(
-  email: string,
-  role: UserRole
-): string | null {
-  if (role === "ADMIN") return null; // 本部 = 全拠点
-  return EMAIL_TO_BRANCH[email.toLowerCase()] ?? null;
-}
+// 拠点の判定は lib/session.ts（ownBranchIds / ownBranchWhere / canSeeBranch）に一本化した（2026-09-17）。
+// 以前ここにあったメール→拠点の固定表は、表に無い代表に全拠点を見せていたため削除。
 
 // ---------------------------------------------------------------
 // 商談金額マスキング
@@ -2144,13 +2118,15 @@ export function getMockBranchId(
 // ---------------------------------------------------------------
 export function maskAmount(
   amount: number | null,
-  userBranchId: string | null,
+  // "ALL"＝本部（全拠点の金額を見る）。それ以外は自拠点のID一覧（lib/session.ts の ownBranchIds）。
+  // ⚠️ 以前は null を「全額表示」にしていたため、固定表に無い代表に他拠点の金額が出ていた（2026-09-17 修正）
+  visibleBranchIds: string[] | "ALL",
   dealBranchId: string
 ): { display: string; masked: boolean } {
   const format = (n: number) => "¥" + n.toLocaleString("ja-JP");
   if (amount === null) return { display: "—", masked: false };
-  if (userBranchId === null) return { display: format(amount), masked: false };
-  if (userBranchId === dealBranchId) return { display: format(amount), masked: false };
+  if (visibleBranchIds === "ALL") return { display: format(amount), masked: false };
+  if (visibleBranchIds.includes(dealBranchId)) return { display: format(amount), masked: false };
   return { display: "***", masked: true };
 }
 

@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendCustomerNotification, notifyAdmins } from "@/lib/notifications";
 import { logAudit } from "@/lib/audit";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo as getViewer, createBranchId } from "@/lib/session";
 import { enrichCustomersAfterResponse } from "@/lib/clients/enqueue";
 import { updateDealStatus as updateDealStatusOnDeal } from "@/lib/actions/deal";
 import type {
@@ -29,13 +29,12 @@ export async function createCustomer(
   const session = await auth();
   if (!session?.user) return { error: "ログインが必要です" };
 
-  const role = (session.user.role ?? "MANAGER") as UserRole;
   const email = session.user.email ?? "";
   const staffName = session.user.name ?? session.user.email ?? "不明";
-  const branchId = getMockBranchId(email, role);
-
-  // ADMIN の場合はフォームから branchId を受け取る（暫定: 本部固定）
-  const effectiveBranchId = branchId ?? "branch_hq";
+  // 拠点はDBの所属で決める（2026-09-17）。固定表に無い代表の顧客が本部に入っていたのを直す
+  const viewer = await getViewer();
+  const effectiveBranchId = viewer ? createBranchId(viewer) : null;
+  if (!effectiveBranchId) return { error: "拠点が割り当てられていません。本部にお問い合わせください。" };
 
   // ---- 必須項目 ----
   const name = (formData.get("name") as string)?.trim();

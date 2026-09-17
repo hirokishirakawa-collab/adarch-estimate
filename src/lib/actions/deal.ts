@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db } from "@/lib/db";
-import { getSessionInfo, getBranchFilter } from "@/lib/session";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo, getBranchFilter, canSeeBranch } from "@/lib/session";
 import type { DealStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 import { sendDealNotification, notifyAdmins } from "@/lib/notifications";
@@ -605,10 +604,7 @@ export async function setDealRegular(
   // 拠点スコープ: ADMIN以外は自拠点の商談のみ編集可（IDOR防止）
   const target = await db.deal.findUnique({ where: { id: dealId }, select: { branchId: true } });
   if (!target) return { error: "商談が見つかりません" };
-  if (info.role !== "ADMIN") {
-    const userBranchId = getMockBranchId(info.email, info.role);
-    if (userBranchId && target.branchId !== userBranchId) return { error: "権限がありません" };
-  }
+  if (!canSeeBranch(info, target.branchId)) return { error: "権限がありません" };
 
   try {
     await db.deal.update({

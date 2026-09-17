@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
 import { RevenueReportForm } from "@/components/sales-report/revenue-report-form";
 import { updateRevenueReport } from "@/lib/actions/sales-report";
 import { BarChart2 } from "lucide-react";
@@ -18,7 +17,6 @@ export default async function EditSalesReportPage({ params }: Props) {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   const email = session?.user?.email ?? "";
-  getMockBranchId(email, role); // ロール確認のみ
 
   if (role === "USER") redirect("/dashboard");
 

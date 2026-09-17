@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
-import type { UserRole } from "@/types/roles";
+import { getSessionInfo, ownBranchWhere } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -18,14 +17,9 @@ export async function GET(
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const role = (session.user.role ?? "MANAGER") as UserRole;
-  const email = session.user.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
-
-  const whereClause =
-    role === "ADMIN" || !userBranchId
-      ? { id }
-      : { id, branchId: userBranchId };
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝出さない）
+  const info = await getSessionInfo();
+  const whereClause = { id, ...(info ? ownBranchWhere(info) : { branchId: "__unassigned__" }) };
 
   const estimation = await db.estimation.findFirst({
     where: whereClause,

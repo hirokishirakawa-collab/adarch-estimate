@@ -54,7 +54,8 @@ export type CustomerRow = {
 interface Props {
   customers: CustomerRow[];
   userRole: UserRole;
-  userBranchId: string | null;
+  /** 金額を見てよい拠点。"ALL"＝本部 */
+  visibleBranchIds: string[] | "ALL";
 }
 
 // ---------------------------------------------------------------
@@ -131,7 +132,7 @@ function DealStatusBadge({ status }: { status: string }) {
 // ---------------------------------------------------------------
 // CustomerTable
 // ---------------------------------------------------------------
-export function CustomerTable({ customers, userRole, userBranchId }: Props) {
+export function CustomerTable({ customers, userRole, visibleBranchIds }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const isAdmin = userRole === "ADMIN";
@@ -332,7 +333,7 @@ export function CustomerTable({ customers, userRole, userBranchId }: Props) {
               const amountResult = latestDeal
                 ? maskAmount(
                     latestDeal.amount ?? null,
-                    userBranchId,
+                    visibleBranchIds,
                     latestDeal.branchId
                   )
                 : null;

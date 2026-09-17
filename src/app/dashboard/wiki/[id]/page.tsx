@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo, ownBranchIds, canSeeBranch } from "@/lib/session";
 import { WikiArticleContent } from "@/components/wiki/wiki-article-content";
 import { deleteArticle } from "@/lib/actions/wiki";
 import { BookOpen, ChevronLeft, Pencil } from "lucide-react";
@@ -19,17 +19,17 @@ export default async function WikiArticlePage({ params }: PageProps) {
 
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も見えない）
+  const info = await getSessionInfo();
 
   // 本部（branch_hq）の記事＝ヘルプガイドは全拠点が読める（編集・削除は本部＝ADMINのみ）
   const where =
-    role === "ADMIN" || !userBranchId ? { id } : { id, branchId: { in: [userBranchId, "branch_hq"] } };
+    role === "ADMIN" && info ? { id } : { id, branchId: { in: [...(info ? ownBranchIds(info) : []), "branch_hq"] } };
 
   const article = await db.wikiArticle.findFirst({ where, include: { tags: true } });
   if (!article) notFound();
   const guidance = wikiGuidance(article.title, article.body);
-  const canEdit = role === "ADMIN" || !userBranchId || article.branchId === userBranchId;
+  const canEdit = !!info && canSeeBranch(info, article.branchId);
 
   const fmt = (d: Date) =>
     new Intl.DateTimeFormat("ja-JP", {

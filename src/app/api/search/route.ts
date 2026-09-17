@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { searchWorkspaceLibrary } from "@/lib/workspace/library-search";
 import { db } from "@/lib/db";
-import { ARCHIVE_BRANCH_ID, getMockBranchId } from "@/lib/data/customers";
+import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
+import { getSessionInfo, ownBranchWhere } from "@/lib/session";
 import type { UserRole } from "@/types/roles";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,8 @@ export async function GET(request: Request) {
 
   const role = (session.user.role ?? "MANAGER") as UserRole;
   const email = session.user.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も出さない）
+  const info = await getSessionInfo();
 
   const url = new URL(request.url);
   const q = url.searchParams.get("q")?.trim().slice(0, 120) ?? "";
@@ -25,7 +27,7 @@ export async function GET(request: Request) {
     return Response.json({ customers: [], projects: [], deals: [], library: [] });
   }
 
-  const branchFilter = userBranchId ? { branchId: userBranchId } : {};
+  const branchFilter = info ? ownBranchWhere(info) : { branchId: "__unassigned__" };
 
   try {
     const [customers, projects, deals, library] = await Promise.all([

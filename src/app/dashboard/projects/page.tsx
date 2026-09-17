@@ -4,7 +4,7 @@ import { Plus, FolderKanban } from "lucide-react";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { FavoriteButton } from "@/components/layout/favorite-button";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo, ownBranchWhere } from "@/lib/session";
 import type { UserRole } from "@/types/roles";
 import type { ProjectStatus } from "@/generated/prisma/client";
 import { ProjectTable } from "@/components/projects/project-table";
@@ -27,14 +27,14 @@ interface PageProps {
 export default async function ProjectsPage({ searchParams }: PageProps) {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も見えない）
+  const info = await getSessionInfo();
+  const branchWhere = info ? ownBranchWhere(info) : { branchId: "__unassigned__" };
 
   const { q = "", status = "", overdue = "", page = "1" } = await searchParams;
   const currentPage = Math.max(1, parseInt(page, 10) || 1);
 
   // フィルタ
-  const branchWhere = role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId };
   const textWhere   = q ? { title: { contains: q, mode: "insensitive" as const } } : {};
   const statusWhere = status ? { status: status as ProjectStatus } : {};
   const overdueWhere = overdue

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo, ownBranchWhere, canSeeBranch } from "@/lib/session";
 import { ESTIMATION_STATUS_OPTIONS } from "@/lib/constants/estimates";
 import type { UserRole } from "@/types/roles";
 import { cn } from "@/lib/utils";
@@ -36,11 +36,11 @@ export default async function EstimateDetailPage({ params }: PageProps) {
 
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も見えない）
+  const info = await getSessionInfo();
+  const branchWhere = info ? ownBranchWhere(info) : { branchId: "__unassigned__" };
 
-  const whereClause =
-    role === "ADMIN" || !userBranchId ? { id } : { id, branchId: userBranchId };
+  const whereClause = { id, ...branchWhere };
 
   const estimation = await db.estimation.findFirst({
     where: whereClause,
@@ -55,7 +55,7 @@ export default async function EstimateDetailPage({ params }: PageProps) {
   if (!estimation) notFound();
 
   // 金額表示: ADMIN（全拠点）/ MANAGER（自拠点）のみ。USER・他拠点はマスク
-  const canViewAmount = role === "ADMIN" || (role === "MANAGER" && estimation.branchId === userBranchId);
+  const canViewAmount = !!info && (role === "ADMIN" || (role === "MANAGER" && canSeeBranch(info, estimation.branchId)));
 
   const statusOpt = ESTIMATION_STATUS_OPTIONS.find((o) => o.value === estimation.status);
 

@@ -72,6 +72,44 @@ const PREF_TO_LEGACY_BRANCH: Record<string, string> = {
   pref_yamanashi: "branch_hq",
 };
 
+// ---------------------------------------------------------------
+// 自拠点に閉じる画面（案件・見積・レギュラー・金額）の判定（2026-09-17 代表指示）
+//   本部＝全部、代表＝自分の拠点だけ。拠点はコードの固定表ではなくDBの所属（users.branchId / branchId2）で決める。
+//   ⚠️ 旧拠点の対応表では山梨・福島・宮城・岐阜が branch_hq に寄せてある。そのまま使うと
+//      本部の案件が見えてしまうので、対応表から来た branch_hq は含めない（本人の所属が本部のときだけ含む）。
+//   ⚠️ 所属が無い人は「全部」ではなく「何も見えない」にする。
+// ---------------------------------------------------------------
+const HQ_BRANCH_ID = "branch_hq";
+
+export function ownBranchIds(info: Pick<SessionInfo, "role" | "branchId" | "branchId2">): string[] {
+  const base = [info.branchId, info.branchId2].filter((id): id is string => !!id);
+  const legacy = base
+    .map((id) => PREF_TO_LEGACY_BRANCH[id])
+    .filter((id): id is string => !!id && id !== HQ_BRANCH_ID);
+  return [...new Set([...base, ...legacy])];
+}
+
+/** Prisma の where に混ぜる拠点条件。本部は {}、所属なしは一致しない条件 */
+export function ownBranchWhere(info: Pick<SessionInfo, "role" | "branchId" | "branchId2">) {
+  if (info.role === "ADMIN") return {};
+  const ids = ownBranchIds(info);
+  if (ids.length === 0) return { branchId: "__unassigned__" };
+  if (ids.length === 1) return { branchId: ids[0] };
+  return { branchId: { in: ids } };
+}
+
+/** その拠点のデータを見てよいか（金額の表示・編集可否など） */
+export function canSeeBranch(info: Pick<SessionInfo, "role" | "branchId" | "branchId2">, branchId: string | null | undefined): boolean {
+  if (info.role === "ADMIN") return true;
+  return !!branchId && ownBranchIds(info).includes(branchId);
+}
+
+/** 新しく作る記録の拠点。本部はその本人の所属（無ければ branch_hq）、代表は所属が無ければ null＝作らせない */
+export function createBranchId(info: Pick<SessionInfo, "role" | "branchId">): string | null {
+  if (info.branchId) return info.branchId;
+  return info.role === "ADMIN" ? HQ_BRANCH_ID : null;
+}
+
 export function getBranchFilter(info: Pick<SessionInfo, "role" | "branchId" | "branchId2">) {
   if (info.role === "ADMIN") return {};
   const base = [info.branchId, info.branchId2].filter((id): id is string => !!id);

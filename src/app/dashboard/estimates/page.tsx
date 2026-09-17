@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import Link from "next/link";
 import { Plus, FileText } from "lucide-react";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo, ownBranchWhere, canSeeBranch } from "@/lib/session";
 import type { UserRole } from "@/types/roles";
 import { EstimateListWithFilters } from "@/components/estimates/estimate-list-with-filters";
 import { ESTIMATION_STATUS_OPTIONS } from "@/lib/constants/estimates";
@@ -12,10 +12,10 @@ import { FavoriteButton } from "@/components/layout/favorite-button";
 export default async function EstimatesPage() {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も見えない）
+  const info = await getSessionInfo();
+  const branchWhere = info ? ownBranchWhere(info) : { branchId: "__unassigned__" };
 
-  const branchWhere = role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId };
 
   const [estimations, totalByStatus, projects] = await Promise.all([
     db.estimation.findMany({
@@ -90,7 +90,7 @@ export default async function EstimatesPage() {
         <EstimateListWithFilters
           estimations={estimations.map((e) => {
             // 金額表示: ADMIN（全拠点）/ MANAGER（自拠点）のみ。USER・他拠点はマスク
-            const canView = role === "ADMIN" || (role === "MANAGER" && e.branchId === userBranchId);
+            const canView = !!info && (role === "ADMIN" || (role === "MANAGER" && canSeeBranch(info, e.branchId)));
             return {
               ...e,
               projectId: e.project?.id ?? null,

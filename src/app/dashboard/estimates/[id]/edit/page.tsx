@@ -3,8 +3,7 @@ import Link from "next/link";
 import { ChevronLeft, FileText } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
-import type { UserRole } from "@/types/roles";
+import { getSessionInfo, ownBranchWhere } from "@/lib/session";
 import { EstimateForm, type EstimationInitialData } from "@/components/estimates/estimate-form";
 
 interface PageProps {
@@ -22,12 +21,11 @@ export default async function EditEstimatePage({ params }: PageProps) {
 
   const session = await auth();
   const staffName = session?.user?.name ?? session?.user?.email ?? "不明";
-  const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も見えない）
+  const info = await getSessionInfo();
+  const branchWhere = info ? ownBranchWhere(info) : { branchId: "__unassigned__" };
 
-  const whereClause =
-    role === "ADMIN" || !userBranchId ? { id } : { id, branchId: userBranchId };
+  const whereClause = { id, ...branchWhere };
 
   const [estimation, templates, customers, projects] = await Promise.all([
     db.estimation.findFirst({
@@ -41,12 +39,12 @@ export default async function EditEstimatePage({ params }: PageProps) {
       orderBy: { sortOrder: "asc" },
     }),
     db.customer.findMany({
-      where: role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId },
+      where: branchWhere,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     db.project.findMany({
-      where: role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId },
+      where: branchWhere,
       select: { id: true, title: true },
       orderBy: { createdAt: "desc" },
       take: 100,

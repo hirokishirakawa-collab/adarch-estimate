@@ -3,11 +3,11 @@ import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  getMockBranchId,
   maskAmount,
   BRANCH_MAP,
 } from "@/lib/data/customers";
 import { db } from "@/lib/db";
+import { getSessionInfo, ownBranchIds, ownBranchWhere } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/roles";
 import {
@@ -66,7 +66,10 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も見えない）
+  const info = await getSessionInfo();
+  const branchWhere = info ? ownBranchWhere(info) : { branchId: "__unassigned__" };
+  const visibleBranchIds: string[] | "ALL" = info?.role === "ADMIN" ? "ALL" : info ? ownBranchIds(info) : [];
   const staffName = session?.user?.name ?? session?.user?.email ?? "不明";
 
   // DB からすべて取得（顧客・商談・活動履歴・セッションユーザー）
@@ -98,7 +101,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       ? db.branch.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
     db.project.findMany({
-      where: { customerId: id, ...(role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId }) },
+      where: { customerId: id, ...branchWhere },
       include: {
         estimations: {
           include: { items: { select: { amount: true } } },
@@ -111,7 +114,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       where: {
         customerId: id,
         projectId: null,
-        ...(role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId }),
+        ...branchWhere,
       },
       include: { items: { select: { amount: true } } },
       orderBy: { createdAt: "desc" },
@@ -628,7 +631,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               const lost = dbDeals.filter((d) => d.status === "CLOSED_LOST");
               const totalAmount = dbDeals.reduce((sum, d) => {
                 if (!d.amount) return sum;
-                const { masked: m } = maskAmount(Number(d.amount), userBranchId, d.branchId);
+                const { masked: m } = maskAmount(Number(d.amount), visibleBranchIds, d.branchId);
                 return m ? sum : sum + Number(d.amount);
               }, 0);
 
@@ -661,7 +664,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               {dbDeals.map((deal) => {
                 const { display, masked } = maskAmount(
                   deal.amount ? Number(deal.amount) : null,
-                  userBranchId,
+                  visibleBranchIds,
                   deal.branchId
                 );
                 const statusOpt = DEAL_STATUS_OPTIONS.find((o) => o.value === deal.status);

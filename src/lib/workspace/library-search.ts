@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { knowledgeWhere } from "@/lib/knowledge/search";
-import { getMockBranchId } from "@/lib/data/customers";
+import { ownBranchIds } from "@/lib/session";
 import type { UserRole } from "@/types/roles";
 import { wikiGuidance } from "./wiki-guidance";
 
@@ -38,7 +38,11 @@ export async function searchWorkspaceLibrary(
   const q = (input.q ?? "").trim().slice(0, 120);
   const take = Math.min(30, Math.max(1, input.limit ?? 20));
   const isAdmin = viewer.role === "ADMIN";
-  const branch = getMockBranchId(viewer.email, viewer.role);
+  // Wikiは「自拠点の記事＋本部の記事」。拠点はDBの所属で決める（固定表に無い代表に全拠点の記事が出ていた＝2026-09-17）
+  const me = isAdmin
+    ? null
+    : await db.user.findUnique({ where: { email: viewer.email }, select: { branchId: true, branchId2: true } });
+  const wikiBranches = [...(me ? ownBranchIds({ role: viewer.role, branchId: me.branchId, branchId2: me.branchId2 }) : []), "branch_hq"];
   const updatedAt = libraryDateRange(input.from, input.to);
   const orderBy =
     input.sort === "name"
@@ -89,9 +93,7 @@ export async function searchWorkspaceLibrary(
       !input.kind || input.kind === "all" || input.kind === "wiki"
         ? db.wikiArticle.findMany({
             where: {
-              ...(!isAdmin && branch
-                ? { branchId: { in: [branch, "branch_hq"] } }
-                : {}),
+              ...(!isAdmin ? { branchId: { in: wikiBranches } } : {}),
               ...(!isAdmin
                 ? {
                     NOT: {

@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo, ownBranchWhere } from "@/lib/session";
 import { EditProjectForm } from "@/components/projects/edit-project-form";
-import type { UserRole } from "@/types/roles";
 import { ChevronLeft, FolderKanban } from "lucide-react";
 
 interface PageProps {
@@ -13,14 +11,11 @@ interface PageProps {
 
 export default async function EditProjectPage({ params }: PageProps) {
   const { id } = await params;
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も見えない）
+  const info = await getSessionInfo();
+  const branchWhere = info ? ownBranchWhere(info) : { branchId: "__unassigned__" };
 
-  const session = await auth();
-  const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
-
-  const whereClause =
-    role === "ADMIN" || !userBranchId ? { id } : { id, branchId: userBranchId };
+  const whereClause = { id, ...branchWhere };
 
   const [project, customers] = await Promise.all([
     db.project.findFirst({
@@ -28,7 +23,7 @@ export default async function EditProjectPage({ params }: PageProps) {
       include: { customer: { select: { id: true, name: true } } },
     }),
     db.customer.findMany({
-      where: role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId },
+      where: branchWhere,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

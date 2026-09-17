@@ -3,8 +3,7 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { ChevronLeft, FolderKanban } from "lucide-react";
 import { NewProjectForm } from "@/components/projects/new-project-form";
-import { getMockBranchId } from "@/lib/data/customers";
-import type { UserRole } from "@/types/roles";
+import { getSessionInfo, ownBranchWhere } from "@/lib/session";
 
 interface PageProps {
   searchParams: Promise<{ customerId?: string }>;
@@ -13,9 +12,9 @@ interface PageProps {
 export default async function NewProjectPage({ searchParams }: PageProps) {
   const session = await auth();
   const staffName = session?.user?.name ?? session?.user?.email ?? "不明";
-  const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も見えない）
+  const info = await getSessionInfo();
+  const branchWhere = info ? ownBranchWhere(info) : { branchId: "__unassigned__" };
 
   const { customerId } = await searchParams;
 
@@ -30,7 +29,7 @@ export default async function NewProjectPage({ searchParams }: PageProps) {
       : Promise.resolve(null),
     // ロール別に顧客一覧を取得
     db.customer.findMany({
-      where: role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId },
+      where: branchWhere,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
 import { Target, Plus, Link2 } from "lucide-react";
 import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { AchievementTracker } from "@/components/video-achievements/achievement-tracker";

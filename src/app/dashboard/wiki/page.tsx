@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo, ownBranchIds } from "@/lib/session";
 import { BookOpen, Plus, Search } from "lucide-react";
 import type { UserRole } from "@/types/roles";
 import type { Prisma } from "@/generated/prisma/client";
@@ -15,12 +15,12 @@ export default async function WikiPage({ searchParams }: PageProps) {
 
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
-  const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も見えない）
+  const info = await getSessionInfo();
 
   const where: Prisma.WikiArticleWhereInput = {
     // 本部（branch_hq）の記事＝ヘルプガイドは全拠点が読める
-    ...(role === "ADMIN" || !userBranchId ? {} : { branchId: { in: [userBranchId, "branch_hq"] } }),
+    ...(role === "ADMIN" && info ? {} : { branchId: { in: [...(info ? ownBranchIds(info) : []), "branch_hq"] } }),
     ...(q
       ? {
           OR: [

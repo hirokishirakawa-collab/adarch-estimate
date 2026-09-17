@@ -6,7 +6,7 @@ import { WikiHelpLink } from "@/components/wiki/wiki-help-link";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo, ownBranchIds } from "@/lib/session";
 import type { UserRole } from "@/types/roles";
 import type { CustomerRank, CustomerStatus } from "@/generated/prisma/client";
 import { CustomerSearch } from "@/components/customers/customer-search";
@@ -33,7 +33,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
+  // 金額を見てよい拠点（本部＝全部・代表＝自拠点だけ）。一覧そのものはグループ全体の顧客を出す仕様のまま
+  const info = await getSessionInfo();
+  const visibleBranchIds: string[] | "ALL" = info?.role === "ADMIN" ? "ALL" : info ? ownBranchIds(info) : [];
 
   const params = await searchParams;
   const q          = params.q?.trim() ?? "";
@@ -233,7 +235,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       <CustomerTable
         customers={customers}
         userRole={role}
-        userBranchId={userBranchId}
+        visibleBranchIds={visibleBranchIds}
       />
       </div>
 

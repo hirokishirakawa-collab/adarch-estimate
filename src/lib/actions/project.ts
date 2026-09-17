@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo as getViewer, ownBranchWhere, createBranchId } from "@/lib/session";
 import type { ProjectStatus, ExpenseCategory, BillingStatus, ProjectLogType } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 import { logAudit } from "@/lib/audit";
@@ -14,14 +14,23 @@ import { sendProjectNotification } from "@/lib/notifications";
 // ---------------------------------------------------------------
 // 共通ユーティリティ
 // ---------------------------------------------------------------
+// 拠点はDBの所属で判定する（2026-09-17）。以前はコードの固定表に無い代表が branch_hq 扱いになり、
+// 本部の案件を編集できた・作った案件が本部に入っていた。
 async function getSessionInfo() {
   const session = await auth();
   if (!session?.user) return null;
-  const role = (session.user.role ?? "MANAGER") as UserRole;
-  const email = session.user.email ?? "";
+  const viewer = await getViewer();
+  if (!viewer) return null;
+  const role = viewer.role as UserRole;
+  const email = viewer.email;
   const staffName = session.user.name ?? session.user.email ?? "不明";
-  const branchId = getMockBranchId(email, role) ?? "branch_hq";
-  return { role, email, staffName, branchId };
+  return { role, email, staffName, viewer, branchWhere: ownBranchWhere(viewer) };
+}
+
+/** 自拠点（本部は全部）の案件だけ返す。他拠点・存在しないIDは null */
+async function ownedProject(info: NonNullable<Awaited<ReturnType<typeof getSessionInfo>>>, projectId: string) {
+  if (!projectId) return null;
+  return db.project.findFirst({ where: { id: projectId, ...info.branchWhere }, select: { id: true, branchId: true } });
 }
 
 // プロジェクトステータスのラベル
@@ -52,7 +61,9 @@ export async function createProject(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
-  const { staffName, branchId } = info;
+  const { staffName } = info;
+  const branchId = createBranchId(info.viewer);
+  if (!branchId) return { error: "拠点が割り当てられていません。本部にお問い合わせください。" };
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "プロジェクト名は必須です" };
@@ -98,10 +109,10 @@ export async function updateProject(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
-  const { staffName, branchId, role } = info;
+  const { staffName } = info;
 
-  // 既存データ取得
-  const whereClause = role === "ADMIN" ? { id: projectId } : { id: projectId, branchId };
+  // 既存データ取得（自拠点の案件だけ。本部は全部）
+  const whereClause = { id: projectId, ...info.branchWhere };
   const existing = await db.project.findFirst({ where: whereClause });
   if (!existing) return { error: "プロジェクトが見つかりません" };
 
@@ -216,7 +227,11 @@ export async function createExpense(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
-  const { staffName, branchId } = info;
+  const { staffName } = info;
+  const project = await ownedProject(info, projectId);
+  if (!project) return { error: "プロジェクトが見つかりません" };
+  // 経費は案件の拠点に付ける（登録した人の拠点ではなく）
+  const branchId = project.branchId;
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "経費名は必須です" };
@@ -272,6 +287,8 @@ export async function updateBillingStatus(
 ): Promise<void> {
   const info = await getSessionInfo();
   if (!info) return;
+  // 請求ステータスの変更は本部だけ（画面の出し分けだけに頼らず、ここでも止める）
+  if (info.role !== "ADMIN") return;
   const { staffName } = info;
 
   const BILLING_LABELS: Record<BillingStatus, string> = {
@@ -315,8 +332,9 @@ export async function deleteExpense(
   const { staffName } = info;
 
   try {
+    const project = await ownedProject(info, projectId);
     const expense = await db.expense.findUnique({ where: { id: expenseId } });
-    if (!expense) return { error: "経費が見つかりません" };
+    if (!project || !expense || expense.projectId !== project.id) return { error: "経費が見つかりません" };
 
     await db.expense.delete({ where: { id: expenseId } });
 
@@ -357,6 +375,7 @@ export async function addProjectLog(
 
   if (!projectId) return { error: "プロジェクトIDが必要です" };
   if (!content) return { error: "内容を入力してください" };
+  if (!(await ownedProject(info, projectId))) return { error: "プロジェクトが見つかりません" };
 
   try {
     await db.projectLog.create({

@@ -4,21 +4,23 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo as getViewer, canSeeBranch, createBranchId } from "@/lib/session";
 import type { UserRole } from "@/types/roles";
 import { logAudit } from "@/lib/audit";
 
 // ---------------------------------------------------------------
 // 共通ユーティリティ
 // ---------------------------------------------------------------
+// 拠点はDBの所属で判定する（2026-09-17）
 async function getSessionInfo() {
   const session = await auth();
   if (!session?.user) return null;
-  const role = (session.user.role ?? "MANAGER") as UserRole;
-  const email = session.user.email ?? "";
+  const viewer = await getViewer();
+  if (!viewer) return null;
+  const role = viewer.role as UserRole;
+  const email = viewer.email;
   const name = session.user.name ?? session.user.email ?? "不明";
-  const branchId = getMockBranchId(email, role) ?? "branch_hq";
-  return { role, email, name, branchId };
+  return { role, email, name, viewer, branchId: createBranchId(viewer) };
 }
 
 async function syncTags(tagNames: string[]) {
@@ -46,6 +48,7 @@ export async function createArticle(
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
   const { name, branchId } = info;
+  if (!branchId) return { error: "拠点が割り当てられていません。本部にお問い合わせください。" };
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "タイトルは必須です" };
@@ -125,11 +128,11 @@ export async function updateArticle(
   redirect(`/dashboard/wiki/${articleId}`);
 }
 
-/** 本部（branch_hq）の記事は全拠点が読めるが、編集・削除は本部（ADMIN）のみ */
-async function canModifyArticle(info: { role: string }, articleId: string): Promise<boolean> {
+/** 本部（branch_hq）の記事は全拠点が読めるが、編集・削除は本部（ADMIN）のみ。拠点の記事はその拠点だけ */
+async function canModifyArticle(info: { role: string; viewer: Parameters<typeof canSeeBranch>[0] }, articleId: string): Promise<boolean> {
   if (info.role === "ADMIN") return true;
   const a = await db.wikiArticle.findUnique({ where: { id: articleId }, select: { branchId: true } });
-  return !!a && a.branchId !== "branch_hq";
+  return !!a && a.branchId !== "branch_hq" && canSeeBranch(info.viewer, a.branchId);
 }
 
 // ---------------------------------------------------------------

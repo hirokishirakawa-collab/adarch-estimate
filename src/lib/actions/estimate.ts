@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo as getViewer, canSeeBranch, createBranchId } from "@/lib/session";
 import type { EstimationStatus } from "@/generated/prisma/client";
 import type { UserRole } from "@/types/roles";
 import { sendEstimateNotification } from "@/lib/notifications";
@@ -13,14 +13,16 @@ import { logAudit } from "@/lib/audit";
 // ---------------------------------------------------------------
 // 共通ユーティリティ
 // ---------------------------------------------------------------
+// 拠点はDBの所属で判定する（2026-09-17）。固定表に無い代表が本部扱いにならないように
 async function getSessionInfo() {
   const session = await auth();
   if (!session?.user) return null;
-  const role = (session.user.role ?? "MANAGER") as UserRole;
-  const email = session.user.email ?? "";
+  const viewer = await getViewer();
+  if (!viewer) return null;
+  const role = viewer.role as UserRole;
+  const email = viewer.email;
   const staffName = session.user.name ?? session.user.email ?? "不明";
-  const branchId = getMockBranchId(email, role) ?? "branch_hq";
-  return { role, email, staffName, branchId };
+  return { role, email, staffName, viewer };
 }
 
 // ---------------------------------------------------------------
@@ -43,7 +45,9 @@ export async function createEstimation(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
-  const { staffName, branchId } = info;
+  const { staffName } = info;
+  const branchId = createBranchId(info.viewer);
+  if (!branchId) return { error: "拠点が割り当てられていません。本部にお問い合わせください。" };
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "見積タイトルは必須です" };
@@ -151,7 +155,7 @@ export async function updateEstimation(
 ): Promise<{ error?: string }> {
   const info = await getSessionInfo();
   if (!info) return { error: "ログインが必要です" };
-  const { role, staffName, branchId: userBranchId } = info;
+  const { staffName } = info;
 
   const estimationId = (formData.get("estimationId") as string)?.trim();
   if (!estimationId) return { error: "見積IDが指定されていません" };
@@ -162,7 +166,7 @@ export async function updateEstimation(
     select: { id: true, branchId: true, status: true, title: true },
   });
   if (!existing) return { error: "見積が見つかりません" };
-  if (role !== "ADMIN" && existing.branchId !== userBranchId) {
+  if (!canSeeBranch(info.viewer, existing.branchId)) {
     return { error: "編集権限がありません" };
   }
   if (existing.status === "ACCEPTED") {
@@ -287,6 +291,9 @@ export async function updateEstimationStatus(
 ): Promise<void> {
   const info = await getSessionInfo();
   if (!info) return;
+  // 自拠点（本部は全部）の見積だけ状態を変えられる
+  const target = await db.estimation.findUnique({ where: { id: estimationId }, select: { branchId: true } });
+  if (!target || !canSeeBranch(info.viewer, target.branchId)) return;
 
   try {
     await db.estimation.update({

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { Repeat, TrendingUp, CalendarClock } from "lucide-react";
 import { db } from "@/lib/db";
-import { getMockBranchId } from "@/lib/data/customers";
+import { getSessionInfo, ownBranchWhere } from "@/lib/session";
 import type { UserRole } from "@/types/roles";
 
 function fmtDate(d: Date | null): string {
@@ -19,9 +19,9 @@ export default async function RegularsPage() {
   const session = await auth();
   const role = (session?.user?.role ?? "MANAGER") as UserRole;
   if (role === "USER") redirect("/dashboard");
-  const email = session?.user?.email ?? "";
-  const userBranchId = getMockBranchId(email, role);
-  const branchWhere = role === "ADMIN" || !userBranchId ? {} : { branchId: userBranchId };
+  // 拠点はDBの所属で判定（本部＝全部・代表＝自拠点だけ・所属なし＝何も見えない）
+  const info = await getSessionInfo();
+  const branchWhere = info ? ownBranchWhere(info) : { branchId: "__unassigned__" };
 
   const regulars = await db.deal.findMany({
     where: { isRegular: true, ...branchWhere },
