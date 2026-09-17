@@ -25,6 +25,7 @@ import {
   prefLabelOf,
   municipalityOf,
 } from "@/lib/constants/tver-campaign";
+import { areaUnits } from "@/lib/tver-campaign/area-budgets";
 
 type Advertiser = { id: string; name: string; productUrl: string };
 
@@ -50,6 +51,9 @@ export function TverCampaignForm({ action, advertisers, initialAdvertiserId }: P
   const [isFetching, startFetch]      = useTransition();
   const [hasFreqCap, setHasFreqCap]   = useState(true);
   const [selectedAreas, setSelectedAreas] = useState<Set<string>>(new Set());
+  const [budgetValue, setBudgetValue] = useState("");
+  // エリアごとの媒体費（キー = areaUnits の key）
+  const [areaBudgetInputs, setAreaBudgetInputs] = useState<Record<string, string>>({});
 
   // 拡張設定
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set(["PC", "SP_IOS", "SP_ANDROID", "CTV"]));
@@ -192,6 +196,25 @@ export function TverCampaignForm({ action, advertisers, initialAdvertiserId }: P
 
   function clearAll() {
     setSelectedAreas(new Set());
+  }
+
+  // ── エリアごとの媒体費（エリアが2つ以上のとき・合計＝広告予算）
+  const units = useMemo(() => areaUnits([...selectedAreas].sort()), [selectedAreas]);
+  const budgetNum = Math.round(Number(budgetValue) || 0);
+  const areaBudgetTotal = units.reduce((a, u) => a + (Math.round(Number(areaBudgetInputs[u.key]) || 0)), 0);
+  const areaBudgetDiff = budgetNum - areaBudgetTotal;
+
+  // 広告予算を重み（均等＝全て1・人口比＝人口）で割り、端数は重みの大きいエリアに寄せる
+  function splitBudget(weightOf: (u: (typeof units)[number]) => number) {
+    if (budgetNum <= 0 || units.length === 0) return;
+    let weights = units.map(weightOf);
+    if (weights.every((w) => w <= 0)) weights = units.map(() => 1);
+    const sum = weights.reduce((a, w) => a + w, 0);
+    const amounts = weights.map((w) => Math.floor((budgetNum * w) / sum));
+    let rest = budgetNum - amounts.reduce((a, n) => a + n, 0);
+    const order = weights.map((w, i) => [w, i] as const).sort((a, b) => b[0] - a[0]).map(([, i]) => i);
+    for (let k = 0; rest > 0; k = (k + 1) % order.length, rest--) amounts[order[k]] += 1;
+    setAreaBudgetInputs(Object.fromEntries(units.map((u, i) => [u.key, String(amounts[i])])));
   }
 
   const inputCls =
@@ -448,6 +471,8 @@ export function TverCampaignForm({ action, advertisers, initialAdvertiserId }: P
               <input
                 type="number"
                 name="budget"
+                value={budgetValue}
+                onChange={(e) => setBudgetValue(e.target.value)}
                 placeholder="1000000"
                 required
                 min={1}
@@ -1266,6 +1291,83 @@ export function TverCampaignForm({ action, advertisers, initialAdvertiserId }: P
           })}
         </div>
 
+        {/* エリアごとの媒体費（2エリア以上） */}
+        {units.length >= 2 && (
+          <div className="mt-5 p-4 border-2 border-amber-300 rounded-xl bg-amber-50/60">
+            <p className="text-sm font-bold text-amber-900">
+              エリアごとの媒体費<span className="text-red-500 ml-0.5">*</span>
+            </p>
+            <p className="mt-1 text-xs text-amber-800">
+              複数のエリアを選んだときは、どのエリアにいくら入れるかを指定してください。合計を広告予算（円・税抜）と一致させてください。
+            </p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => splitBudget(() => 1)}
+                disabled={budgetNum <= 0}
+                className="px-2.5 py-1 text-[11px] font-semibold text-amber-800 bg-white
+                           border border-amber-300 rounded-md hover:bg-amber-100 disabled:opacity-40 transition-colors"
+              >
+                広告予算を均等に割る
+              </button>
+              <button
+                type="button"
+                onClick={() => splitBudget((u) => u.population)}
+                disabled={budgetNum <= 0}
+                className="px-2.5 py-1 text-[11px] font-semibold text-amber-800 bg-white
+                           border border-amber-300 rounded-md hover:bg-amber-100 disabled:opacity-40 transition-colors"
+              >
+                人口比で割る
+              </button>
+              {budgetNum <= 0 && (
+                <span className="text-[11px] text-amber-700">先に上の「広告予算」を入力すると、自動で割り振れます</span>
+              )}
+            </div>
+
+            <div className="mt-3 divide-y divide-amber-200 border border-amber-200 rounded-lg bg-white">
+              {units.map((u) => (
+                <div key={u.key} className="flex items-center gap-3 px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-zinc-800 truncate">{u.label}</p>
+                    <p className="text-[11px] text-zinc-400">
+                      人口 {u.population >= 10_000 ? `${Math.round(u.population / 10_000)}万人` : `${u.population.toLocaleString()}人`}
+                    </p>
+                  </div>
+                  <div className="relative w-40 shrink-0">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400">¥</span>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      value={areaBudgetInputs[u.key] ?? ""}
+                      onChange={(e) => setAreaBudgetInputs((prev) => ({ ...prev, [u.key]: e.target.value }))}
+                      placeholder="0"
+                      className={`${inputCls} pl-7 text-right`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-xs">
+              <span className="text-zinc-600">
+                合計 <span className="font-bold">¥{areaBudgetTotal.toLocaleString("ja-JP")}</span>
+              </span>
+              <span className="text-zinc-600">広告予算 ¥{budgetNum.toLocaleString("ja-JP")}</span>
+              {areaBudgetDiff === 0 && budgetNum > 0 ? (
+                <span className="font-semibold text-emerald-700">一致しています</span>
+              ) : (
+                <span className="font-semibold text-red-600">
+                  {areaBudgetDiff > 0
+                    ? `あと ¥${areaBudgetDiff.toLocaleString("ja-JP")} 割り振ってください`
+                    : `¥${(-areaBudgetDiff).toLocaleString("ja-JP")} 多すぎます`}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ════════════════════════════════════
@@ -1309,6 +1411,9 @@ export function TverCampaignForm({ action, advertisers, initialAdvertiserId }: P
           genreExcludes: useGenreExclude ? [...selectedGenreExcludes] : [],
           subGenreExcludes: useSubGenreExclude ? [...selectedSubGenreExcludes] : [],
           hourlyRatios: useHourlyBudget ? hourlyRatios : null,
+          areaBudgets: units.length >= 2
+            ? units.map((u) => ({ codes: u.codes, amountJpy: Math.round(Number(areaBudgetInputs[u.key]) || 0) }))
+            : null,
           frequency: {
             period: freqPeriod.enabled ? Number(freqPeriod.value) || null : null,
             weekly: freqWeekly.enabled ? Number(freqWeekly.value) || null : null,

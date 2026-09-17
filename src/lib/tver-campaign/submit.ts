@@ -12,6 +12,7 @@ import { sendAdvertiserReviewCreatedNotification } from "@/lib/notifications";
 import { validateCorporateNumber } from "@/lib/constants/advertiser-review";
 import { logAudit } from "@/lib/audit";
 import { MUNICIPALITIES } from "@/data/tver-municipalities";
+import { areaPopulation, areaUnits, checkAreaBudgets, type AreaBudget } from "@/lib/tver-campaign/area-budgets";
 import {
   BUDGET_TYPE_OPTIONS,
   COMPANION_MOBILE_OPTIONS,
@@ -19,11 +20,12 @@ import {
   GENDER_TARGET_OPTIONS,
   FREQ_CAP_UNIT_OPTIONS,
   TVER_PREFECTURES,
-  getAreaLabel,
   isMunicipalityCode,
   municipalityOf,
   prefLabelOf,
 } from "@/lib/constants/tver-campaign";
+
+export { areaPopulation };
 
 export interface TverActor {
   userId: string;
@@ -44,20 +46,6 @@ export function normalizeAreaCodes(raw: string[]): string[] {
   const codes = [...new Set(raw.map((c) => c.trim()).filter((c) => c && (prefLabelOf(c) !== undefined || isMunicipalityCode(c))))];
   const wholePrefs = new Set(codes.map((c) => prefLabelOf(c)).filter(Boolean));
   return codes.filter((c) => !isMunicipalityCode(c) || !wholePrefs.has(municipalityOf(c)!.prefName));
-}
-
-/** 選んだエリアの人口（住民基本台帳 2025-01-01） */
-export function areaPopulation(codes: string[]): number {
-  let n = 0;
-  for (const c of codes) {
-    const m = municipalityOf(c);
-    if (m) n += m.population;
-    else {
-      const pref = prefLabelOf(c);
-      if (pref) n += LIVE_MUNIS.filter((x) => x.prefName === pref).reduce((a, x) => a + x.population, 0);
-    }
-  }
-  return n;
 }
 
 function findPref(s: string) {
@@ -106,26 +94,7 @@ export function resolveTverAreas(items: AreaQuery[]): { codes: string[]; errors:
 
 /** 表示用: 県はそのまま、政令市の区がそろっていれば「○○市（全区）」にまとめる */
 export function describeAreas(codes: string[]): { label: string; population: number }[] {
-  const out: { label: string; population: number }[] = [];
-  const chosen = new Set(codes);
-  const done = new Set<string>();
-  for (const c of codes) {
-    if (done.has(c)) continue;
-    const m = municipalityOf(c);
-    if (!m) { out.push({ label: getAreaLabel(c), population: areaPopulation([c]) }); continue; }
-    const w = /^(.+市).+区$/.exec(m.name);
-    if (w) {
-      const all = LIVE_MUNIS.filter((x) => x.prefName === m.prefName && x.name.startsWith(w[1]) && /区$/.test(x.name));
-      if (all.every((x) => chosen.has(x.code))) {
-        all.forEach((x) => done.add(x.code));
-        out.push({ label: `${m.prefName} ${w[1]}（全区）`, population: all.reduce((a, x) => a + x.population, 0) });
-        continue;
-      }
-    }
-    done.add(c);
-    out.push({ label: `${m.prefName} ${m.name}`, population: m.population });
-  }
-  return out;
+  return areaUnits(codes).map(({ label, population }) => ({ label, population }));
 }
 
 // ---- 配信申請 ---------------------------------------------------------------
@@ -153,7 +122,7 @@ const has = (opts: readonly { value: string }[], v: string) => opts.some((o) => 
 export async function validateTverCampaign(
   input: TverCampaignInput,
   advertiserWhere: Prisma.AdvertiserReviewWhereInput = {}
-): Promise<Result<{ advertiserName: string; areas: string[] }>> {
+): Promise<Result<{ advertiserName: string; areas: string[]; areaBudgets: (AreaBudget & { label: string })[] | null }>> {
   if (!input.advertiserId) return fail("広告主を選択してください");
   if (!input.campaignName?.trim()) return fail("キャンペーン名を入力してください");
   if (input.campaignName.trim().length > 200) return fail("キャンペーン名は200文字以内にしてください");
@@ -172,6 +141,13 @@ export async function validateTverCampaign(
   const areas = normalizeAreaCodes(input.areas);
   if (areas.length === 0) return fail("配信エリアを1つ以上選択してください");
 
+  // エリアが2つ以上なら、エリアごとの媒体費（settings.areaBudgets）の合計＝広告予算
+  const rawSettings = input.settings && typeof input.settings === "object" && !Array.isArray(input.settings)
+    ? (input.settings as Record<string, unknown>)
+    : {};
+  const budgets = checkAreaBudgets(areas, input.budget, rawSettings.areaBudgets);
+  if (!budgets.ok) return fail(budgets.error);
+
   if (input.landingPageUrl) {
     try { new URL(input.landingPageUrl); }
     catch { return fail("リンク先LP URLの形式が正しくありません"); }
@@ -184,7 +160,21 @@ export async function validateTverCampaign(
   });
   if (!advertiser) return fail("選択された広告主は承認済みではありません");
 
-  return { ok: true, advertiserName: advertiser.name, areas };
+  return { ok: true, advertiserName: advertiser.name, areas, areaBudgets: budgets.areaBudgets };
+}
+
+/** 保存する settings の areaBudgets を、確かめた形（ラベルつき・エリア順）に置き換える */
+function settingsWithAreaBudgets(
+  settings: Prisma.InputJsonValue | null | undefined,
+  areaBudgets: (AreaBudget & { label: string })[] | null
+): Prisma.InputJsonValue | undefined {
+  const base = settings && typeof settings === "object" && !Array.isArray(settings)
+    ? { ...(settings as Record<string, Prisma.InputJsonValue>) }
+    : null;
+  const saved = areaBudgets as unknown as Prisma.InputJsonValue;
+  if (!base) return areaBudgets ? { areaBudgets: saved } : (settings ?? undefined);
+  delete base.areaBudgets;
+  return areaBudgets ? { ...base, areaBudgets: saved } : base;
 }
 
 /** 配信申請を保存し、本部へメールで知らせる */
@@ -192,7 +182,7 @@ export async function createTverCampaignRecord(
   actor: TverActor,
   input: TverCampaignInput,
   opts: { advertiserWhere?: Prisma.AdvertiserReviewWhereInput; via?: "AI" } = {}
-): Promise<Result<{ id: string; advertiserName: string; areas: string[] }>> {
+): Promise<Result<{ id: string; advertiserName: string; areas: string[]; areaBudgets: (AreaBudget & { label: string })[] | null }>> {
   const checked = await validateTverCampaign(input, opts.advertiserWhere);
   if (!checked.ok) return checked;
 
@@ -213,7 +203,7 @@ export async function createTverCampaignRecord(
         genderTarget:    (input.genderTarget ?? "ALL") as Prisma.TverCampaignCreateInput["genderTarget"],
         areas:           checked.areas,
         landingPageUrl:  input.landingPageUrl ?? null,
-        settings:        input.settings ?? undefined,
+        settings:        settingsWithAreaBudgets(input.settings, checked.areaBudgets),
         status:          "SUBMITTED",
         createdById:     actor.userId,
         creatorEmail:    actor.email,
@@ -241,7 +231,7 @@ export async function createTverCampaignRecord(
     staffName:      opts.via === "AI" ? `${actor.staffName}（AI連携）` : actor.staffName,
   }).catch((e) => console.error("[createTverCampaignRecord] email error:", e));
 
-  return { ok: true, id, advertiserName: checked.advertiserName, areas: checked.areas };
+  return { ok: true, id, advertiserName: checked.advertiserName, areas: checked.areas, areaBudgets: checked.areaBudgets };
 }
 
 // ---- 業態考査 ---------------------------------------------------------------

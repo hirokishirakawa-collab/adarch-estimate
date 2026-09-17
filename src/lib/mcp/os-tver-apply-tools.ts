@@ -123,6 +123,7 @@ export interface TverCampaignToolInput {
   endDate: string;
   budgetType: string;
   areas: AreaQuery[];
+  areaBudgets?: (AreaQuery & { budgetJpy: number })[];
   adDurations?: string[];
   devices?: string[];
   genderTarget?: string;
@@ -145,6 +146,11 @@ function toCampaignInput(input: TverCampaignToolInput): { data: TverCampaignInpu
   if (!Array.isArray(input.areas) || input.areas.length === 0) throw new WriteError("areas を1つ以上指定してください（例: [{prefecture: '香川県', city: '高松市'}, {prefecture: '香川県', city: '丸亀市'}]）");
   const { codes, errors } = resolveTverAreas(input.areas);
   if (errors.length) throw new WriteError(`エリアを直してください: ${errors.join(" / ")}`);
+  const areaBudgets = (input.areaBudgets ?? []).map((b) => {
+    const r = resolveTverAreas([{ prefecture: b.prefecture, city: b.city }]);
+    if (r.errors.length) throw new WriteError(`areaBudgets のエリアを直してください: ${r.errors.join(" / ")}`);
+    return { codes: r.codes, amountJpy: Number(b.budgetJpy) };
+  });
   const f = input.frequency ?? {};
   for (const [k, n] of Object.entries(f)) {
     if (n != null && (!Number.isInteger(n) || n <= 0)) throw new WriteError(`frequency.${k} は1以上の整数にしてください`);
@@ -161,6 +167,7 @@ function toCampaignInput(input: TverCampaignToolInput): { data: TverCampaignInpu
     genreExcludes: input.genreExcludes ?? [],
     subGenreExcludes: input.subGenreExcludes ?? [],
     hourlyRatios: null,
+    areaBudgets: areaBudgets.length ? areaBudgets : null,
     frequency: { period: f.period ?? null, weekly: f.weekly ?? null, daily: f.daily ?? null, hourly: f.hourly ?? null },
     dailyBudget: false,
     lastDayBudget: false,
@@ -186,7 +193,13 @@ function toCampaignInput(input: TverCampaignToolInput): { data: TverCampaignInpu
   };
 }
 
-function summary(data: TverCampaignInput, areaList: { label: string; population: number }[], population: number, advertiserName: string) {
+function summary(
+  data: TverCampaignInput,
+  areaList: { label: string; population: number }[],
+  population: number,
+  advertiserName: string,
+  areaBudgets: { label: string; amountJpy: number }[] | null
+) {
   const s = data.settings as Record<string, unknown>;
   return {
     advertiser: advertiserName,
@@ -198,6 +211,7 @@ function summary(data: TverCampaignInput, areaList: { label: string; population:
     areaCount: areaList.length,
     totalPopulation: population,
     areaCodes: data.areas.map((c) => ({ code: c, label: getAreaLabel(c) })),
+    areaBudgets: areaBudgets?.map((a) => ({ area: a.label, budgetExclTax: yen(a.amountJpy) })) ?? null,
     targeting: {
       gender: data.genderTarget, adDurations: s.adDurations, devices: s.devices, ageGroups: s.ageGroups, interests: s.interests,
       incomes: s.incomes, tvViewings: s.tvViewings, demographics: s.demographics, genres: s.genres, genreExcludes: s.genreExcludes,
@@ -213,9 +227,9 @@ export async function previewTverCampaign(v: McpViewer, input: TverCampaignToolI
   if (!checked.ok) return { ok: false, error: checked.error, next: "直してから preview_tver_campaign を呼び直す" };
   return {
     ok: true,
-    ...summary(data, areaList, population, checked.advertiserName),
+    ...summary(data, areaList, population, checked.advertiserName, checked.areaBudgets),
     note: "人口は住民基本台帳（2025年1月1日）。届く人数・再生数の目安は tver_benchmarks / tver_area_plan で",
-    next: "この内容（エリアの一覧・人口・期間・予算・ターゲティング）を本人に見せ、OKをもらってから submit_tver_campaign を同じ入力で呼ぶ",
+    next: "この内容（エリアの一覧・人口・エリアごとの媒体費・期間・予算・ターゲティング）を本人に見せ、OKをもらってから submit_tver_campaign を同じ入力で呼ぶ",
   };
 }
 
@@ -228,7 +242,7 @@ export async function submitTverCampaign(v: McpViewer, input: TverCampaignToolIn
     id: r.id,
     status: "SUBMITTED",
     url: `${appUrl()}/dashboard/tver-campaign/${r.id}`,
-    ...summary(data, areaList, population, r.advertiserName),
+    ...summary(data, areaList, population, r.advertiserName, r.areaBudgets),
     next: "本部に通知しました。審査の結果は tver_applications で確かめられます",
   };
 }

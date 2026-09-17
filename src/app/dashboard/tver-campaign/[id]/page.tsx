@@ -43,6 +43,14 @@ const labels = (opts: Opt, v: unknown) =>
   Array.isArray(v) && v.length > 0 ? v.map((x) => opts.find((o) => o.value === x)?.label ?? String(x)).join("、") : null;
 
 /** settings(JSON) → 表示行。指定のない項目は出さない */
+/** 申請時に入れたエリアごとの媒体費（2エリア以上の申請のみ） */
+function areaBudgetsOf(settings: unknown): { label: string; amountJpy: number }[] | null {
+  if (!settings || typeof settings !== "object") return null;
+  const list = (settings as Record<string, unknown>).areaBudgets;
+  if (!Array.isArray(list) || list.length === 0) return null;
+  return list.map((a) => ({ label: String(a?.label ?? ""), amountJpy: Number(a?.amountJpy) || 0 }));
+}
+
 function settingRows(settings: unknown): [string, string][] {
   if (!settings || typeof settings !== "object") return [];
   const s = settings as Record<string, unknown>;
@@ -157,7 +165,21 @@ export default async function TverCampaignDetailPage({ params }: Props) {
                 配信エリア
               </th>
               <td className="px-5 py-3">
-                {campaign.areas.length > 0 ? (
+                {areaBudgetsOf(campaign.settings) ? (
+                  <div>
+                    <ul className="divide-y divide-zinc-100 border border-zinc-200 rounded-lg">
+                      {areaBudgetsOf(campaign.settings)!.map((a) => (
+                        <li key={a.label} className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm">
+                          <span className="text-zinc-700">{a.label}</span>
+                          <span className="font-semibold text-zinc-900 tabular-nums">¥{a.amountJpy.toLocaleString("ja-JP")}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-[11px] text-zinc-400">
+                      エリアごとの媒体費（円・税抜）／人口 計{areaPopulation(campaign.areas).toLocaleString("ja-JP")}人（住民基本台帳 2025年1月1日）
+                    </p>
+                  </div>
+                ) : campaign.areas.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
                     {describeAreas(campaign.areas).map((a) => (
                       <span

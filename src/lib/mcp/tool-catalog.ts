@@ -69,6 +69,11 @@ const TVER_CAMPAIGN_INPUT = z.object({
     prefecture: z.string().describe("例: 香川県"),
     city: z.string().optional().describe("省略で県全体。例: 高松市／札幌市（=全区）／札幌市北区。TVer配信エリアの市区町村名"),
   })).min(1).max(500).describe("配信エリア。複数の市区町村・県をまたいだ組み合わせ・県全体との混在ができる"),
+  areaBudgets: z.array(z.object({
+    prefecture: z.string().describe("例: 香川県"),
+    city: z.string().optional().describe("areas と同じ書き方（省略で県全体・札幌市=全区）"),
+    budgetJpy: z.number().int().describe("このエリアの媒体費（円・税抜）"),
+  })).optional().describe("エリアごとの媒体費。配信エリアが2つ以上（県・市（全区）・市区町村のまとまりで数える）なら必須＝areas の全エリア分を入れ、合計を budgetJpy と一致させる。どこにいくら入れるかは本人に確かめる"),
   adDurations: z.array(optEnum(AD_DURATION_OPTIONS)).optional().describe(`広告の秒数（既定 15）: ${optList(AD_DURATION_OPTIONS)}`),
   devices: z.array(optEnum(DEVICE_OPTIONS)).optional().describe(`既定は全デバイス: ${optList(DEVICE_OPTIONS)}`),
   genderTarget: optEnum(GENDER_TARGET_OPTIONS).optional().describe(optList(GENDER_TARGET_OPTIONS)),
