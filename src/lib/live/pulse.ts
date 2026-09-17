@@ -87,7 +87,7 @@ export async function buildPulseEvents(opts: { days?: number } = {}): Promise<{ 
     }),
     db.apiUsageLog.findMany({ where: { createdAt: { gte: since }, feature: { in: ["chatbot", "proposals/generate", "outreach/draft", "leads/draft", "leads/advise", "strategy-advisor"] } }, orderBy: { createdAt: "desc" }, take: 300, select: { email: true, feature: true, createdAt: true } }),
     db.lead.findMany({
-      where: { signalAt: { gte: since }, signalKind: { notIn: ["MANUAL", "FOUND"] }, status: { notIn: ["SKIPPED", "ARCHIVED"] } },
+      where: { signalAt: { gte: since }, signalKind: { notIn: ["MANUAL", "FOUND", "HQ_PICK"] }, status: { notIn: ["SKIPPED", "ARCHIVED"] } },
       orderBy: { signalAt: "desc" },
       take: 300,
       select: { signalAt: true, signalKind: true, prefecture: true, area: true, industry: true },

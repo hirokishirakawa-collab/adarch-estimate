@@ -6,7 +6,7 @@
 // 「質が同じなら新しい方を先に」という2軸目として使う。
 // ---------------------------------------------------------------
 
-export type SignalKind = "SUBSIDY" | "TVCM" | "RECRUIT" | "ANNIV" | "FOUND";
+export type SignalKind = "SUBSIDY" | "TVCM" | "RECRUIT" | "ANNIV" | "FOUND" | "HQ_PICK";
 
 export const SIGNAL_KIND_LABEL: Record<SignalKind, string> = {
   SUBSIDY: "補助金が通った",
@@ -14,6 +14,7 @@ export const SIGNAL_KIND_LABEL: Record<SignalKind, string> = {
   RECRUIT: "求人を出している",
   ANNIV: "周年を発表した",
   FOUND: "発掘",
+  HQ_PICK: "本部からの候補先（あなた宛て）",
 };
 
 /** シグナルの強さ。同じ鮮度ならこの順で優先する */
@@ -23,6 +24,7 @@ export const SIGNAL_KIND_WEIGHT: Record<SignalKind, number> = {
   RECRUIT: 1, // 採用に金をかける気がある
   ANNIV: 1, // 周年の節目で発信に金を使う可能性がある
   FOUND: 0, // シグナルなし
+  HQ_PICK: 3, // 本部が担当者を決めて渡した候補（担当者本人にだけ見せる）
 };
 
 /** 鮮度の帯。声かけの優先度はここで決まる */

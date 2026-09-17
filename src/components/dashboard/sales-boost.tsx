@@ -84,7 +84,7 @@ export async function SalesBoost({ userEmail }: { userEmail: string }) {
       },
     }),
     scoped
-      ? db.lead.count({ where: { ...prefFilter, signalAt: { gte: weekAgo } } })
+      ? db.lead.count({ where: { ...prefFilter, signalAt: { gte: weekAgo }, OR: [{ signalKind: null }, { signalKind: { not: "HQ_PICK" } }] } })
       : Promise.resolve(0),
     db.salesApproach.findMany({
       // 直近90日のみ。古い実績を「最新」のように見せない

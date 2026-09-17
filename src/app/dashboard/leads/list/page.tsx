@@ -28,6 +28,7 @@ interface PageProps {
     industry?: string;
     area?: string;
     source?: string;
+    signal?: string;
     sort?: string;
     page?: string;
   }>;
@@ -48,6 +49,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   const industryParam = params.industry ?? "";
   const areaParam = params.area ?? "";
   const sourceParam = params.source ?? "";
+  const signalParam = params.signal === "HQ_PICK" ? "HQ_PICK" : "";
   const sortParam = params.sort ?? "";
   const page = Math.max(1, parseInt(params.page ?? "1") || 1);
 
@@ -76,6 +78,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
     industry?: string;
     area?: { contains: string; mode: "insensitive" };
     source?: LeadSource;
+    signalKind?: string;
     NOT?: { source: LeadSource; assigneeId: null };
   };
 
@@ -101,6 +104,7 @@ export default async function LeadListPage({ searchParams }: PageProps) {
   if (industryParam) where.industry = industryParam;
   if (areaParam) where.area = { contains: areaParam, mode: "insensitive" };
   if (sourceParam) where.source = sourceParam as LeadSource;
+  if (signalParam) where.signalKind = signalParam;
 
   // ソート
   // 既定は「シグナル順」。買う気配が立った日が新しいものから当たる。
@@ -316,6 +320,19 @@ export default async function LeadListPage({ searchParams }: PageProps) {
             >
               <UserCheck className="w-3.5 h-3.5" />
               {isMine ? "自分のリードのみ" : "自分のリード"}
+            </Link>
+          )}
+          {me && (
+            <Link
+              href={signalParam ? "/dashboard/leads/list" : `/dashboard/leads/list?assigneeId=${me.id}&signal=HQ_PICK`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border ${
+                signalParam
+                  ? "bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800"
+                  : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50"
+              }`}
+              title="本部があなた宛てに選んだ候補先（選んだ理由はメモ欄）"
+            >
+              本部からあなた宛て
             </Link>
           )}
           <Link

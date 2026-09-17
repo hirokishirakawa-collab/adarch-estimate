@@ -19,6 +19,7 @@ import { searchKnowledge } from "@/lib/knowledge/search";
 import { KNOWLEDGE_USE_RULES, ORIGIN_SHORT } from "@/lib/knowledge/rules";
 import { searchWikiArticles } from "@/lib/wiki-search";
 import { nextAnniversary } from "@/lib/anniversary/calc";
+import { SIGNAL_KIND_LABEL, type SignalKind } from "@/lib/leads/signal";
 import { PHONE_CANDIDATE, OUTREACH_PREPARED } from "@/lib/constants/leads";
 import type { UserRole } from "@/types/roles";
 
@@ -525,7 +526,7 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
   // リードは「自分の担当」か「担当なし（自県）」。本部は自分の担当だけ
   const leadMine: Prisma.LeadWhereInput = isHq(v) ? { assigneeId: v.id } : { OR: [{ assigneeId: v.id }, { assigneeId: null, ...prefFilter }] };
 
-  const [noFactor, waiting, overdue, openDeals, foundedLeads, subsidies, signals, phoneCandidates, prepared] = await Promise.all([
+  const [noFactor, waiting, overdue, openDeals, foundedLeads, subsidies, signals, phoneCandidates, prepared, hqPicks] = await Promise.all([
     // 0. 受注したのに「決め手」が未記入（直近90日）＝次の人の武器が1件ずつ消えている
     db.deal.findMany({
       where: {
@@ -576,7 +577,8 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
     // 6. 今週シグナルが立った会社（自県）
     base
       ? db.lead.findMany({
-          where: { ...leadAlive, ...prefFilter, signalAt: { gte: new Date(now.getTime() - 7 * DAY_MS) } },
+          // 本部があなた宛てに渡した候補（HQ_PICK）は担当者本人だけに見せる＝9 に出す
+          where: { ...leadAlive, ...prefFilter, signalAt: { gte: new Date(now.getTime() - 7 * DAY_MS) }, OR: [{ signalKind: null }, { signalKind: { not: "HQ_PICK" } }] },
           orderBy: { signalAt: "desc" },
           take,
           select: { id: true, name: true, industry: true, signalAt: true, signalKind: true, assignee: { select: { name: true } } },
@@ -596,6 +598,13 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
       take,
       select: { id: true, name: true, industry: true, email: true, websiteUrl: true, logs: { where: { action: OUTREACH_PREPARED }, orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } } },
     }),
+    // 9. 本部からあなた宛ての候補先（担当者を決めて渡したもの）
+    db.lead.findMany({
+      where: { ...leadAlive, assigneeId: v.id, signalKind: "HQ_PICK", outreachResult: null },
+      orderBy: { signalAt: "desc" },
+      take: 20,
+      select: { id: true, name: true, industry: true, prefecture: true, area: true, websiteUrl: true, memo: true, signalAt: true },
+    }),
   ]);
 
   const stalled = openDeals
@@ -613,7 +622,7 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
   return {
     for: { name: v.name, company: company?.name ?? (isHq(v) ? "本部" : null), prefecture: pref },
     asOf: day(now),
-    order: "0→8 の順に優先。0 は1問聞くだけ（30秒）。1〜3 と 8 は今日中に動く（8は下書きを送ったかどうかの確定）。4〜7 は声をかける先の候補（7は電話でしか当たれない先）",
+    order: "0→9 の順に優先。0 は1問聞くだけ（30秒）。1〜3 と 8 は今日中に動く（8は下書きを送ったかどうかの確定）。4〜7 と 9 は声をかける先の候補（7は電話でしか当たれない先／9は本部があなた宛てに選んだ先で、理由つき）",
     sections: [
       {
         no: 0,
@@ -664,7 +673,7 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
         title: "今週シグナルが立った会社（自県）",
         count: signals.length,
         next: "買う気配が立った直後に当たる。連絡したら log_activity",
-        items: signals.map((l) => ({ leadId: l.id, name: l.name, industry: l.industry, signal: l.signalKind, signalAt: day(l.signalAt), assignee: l.assignee?.name ?? null })),
+        items: signals.map((l) => ({ leadId: l.id, name: l.name, industry: l.industry, signal: SIGNAL_KIND_LABEL[l.signalKind as SignalKind] ?? l.signalKind, signalAt: day(l.signalAt), assignee: l.assignee?.name ?? null })),
       },
       {
         no: 7,
@@ -687,6 +696,13 @@ export async function myNextActions(v: McpViewer, input: { limit?: number }) {
           preparedAt: day(l.logs[0]?.createdAt),
           daysWaiting: l.logs[0]?.createdAt ? daysSince(l.logs[0].createdAt, now) : null,
         })),
+      },
+      {
+        no: 9,
+        title: "本部からあなた宛ての候補先",
+        count: hqPicks.length,
+        next: "why（本部が選んだ理由）をそのまま切り口にして声をかける。下書きは prepare_outreach、連絡したら log_activity、結果は record_lead_result",
+        items: hqPicks.map((l) => ({ leadId: l.id, name: l.name, industry: l.industry, area: l.area ?? l.prefecture, url: l.websiteUrl, why: stripSensitiveLines(l.memo ?? "").slice(0, 300) || null, deliveredAt: day(l.signalAt) })),
       },
     ],
   };
