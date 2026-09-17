@@ -43,7 +43,7 @@ Ad-Arch Group OS は広告代理店グループ「アドアーチ」の業務統
 - **既存顧客の一括登録** (/dashboard/customers) — 貼り付け・CSV・「URLからAI読み取り」でまとめて登録し、そのまま広告提案へ
 - **広告媒体シミュレーター** — TVer (/dashboard/tver-simulator)、タクシー (/dashboard/taxi-ads-simulator)、スカイラーク、大学生協、イオンシネマ等の媒体別お見積り
 - **継続案件（レギュラー）管理** (/dashboard/regulars) — 固定収入(MRR)・更新日を可視化
-- **TVer広告 案件プール** (/dashboard/leads/tvcm-pool) — 本部抽出リードを先着claim
+- **本部からの候補先** (/dashboard/leads/tvcm-pool) — 本部抽出リードを先着claim
 - **支払明細管理** (/dashboard/payments) / **経理情報の登録** (/dashboard/billing/settings) — 支払明細PDF・法人区分・インボイス・振込口座
 - **ロイヤリティ・請求書のOS閲覧** (/dashboard/royalty)
 - **営業プレイブック** (/dashboard/playbook) — 実績ベースのAI生成
@@ -150,7 +150,7 @@ const LEGACY_TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "search_tvcm_leads",
     description:
-      "TVer広告 案件プール（source=PR_TIMES_TVCM）の状況を取得する。未claim件数・自分のclaim件数を返す。",
+      "本部からの候補先（source=PR_TIMES_TVCM）の状況を取得する。未claim件数・自分のclaim件数を返す。",
     input_schema: {
       type: "object" as const,
       properties: {

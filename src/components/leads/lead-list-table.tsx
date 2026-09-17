@@ -781,7 +781,7 @@ function LeadRow({
         {lead.source === "PR_TIMES_TVCM" ? (
           <span
             className="text-[11px] text-zinc-400"
-            title="TVer広告 案件プール由来（AIスコアリング対象外）"
+            title="本部からの候補先由来（AIスコアリング対象外）"
           >
             —
           </span>

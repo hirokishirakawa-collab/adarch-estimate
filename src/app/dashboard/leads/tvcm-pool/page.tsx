@@ -243,7 +243,7 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
           </div>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">
-              TVer広告 案件プール
+              本部からの候補先
             </h2>
             <p className="text-xs text-zinc-500">
               本部が抽出した動画コンテンツ発表企業のリスト。「私がやります」で先着順に担当を確保
@@ -259,7 +259,7 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
               href="/dashboard/leads/tvcm"
               className="text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg flex items-center gap-1 border border-rose-200"
             >
-              プールに追加（クロール）
+              候補先に追加（クロール）
             </Link>
           )}
           <Link
@@ -276,7 +276,7 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
         <p className="text-xs font-semibold text-zinc-700 mb-3">使い方</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-[11px]">
           <div>
-            <p className="text-xs font-medium text-zinc-800">1. プールを見る</p>
+            <p className="text-xs font-medium text-zinc-800">1. 候補先を見る</p>
             <p className="text-zinc-500 mt-0.5">
               本部が抽出した、採用動画・プロモーションムービー・ブランディング動画を公開した企業のリストを確認
             </p>
@@ -377,7 +377,7 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
       <section>
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <Inbox className="w-4 h-4 text-rose-600" />
-          <h3 className="text-sm font-semibold text-zinc-900">未claim案件プール（TVer広告営業）</h3>
+          <h3 className="text-sm font-semibold text-zinc-900">まだ担当者のいない候補先</h3>
           <span className="text-[10px] font-medium text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
             {unclaimedLeads.length}件
           </span>
@@ -460,7 +460,7 @@ export default async function TvcmPoolPage({ searchParams }: SearchParamsProps) 
               現在、未claimのTVer広告案件はありません。
             </p>
             <p className="text-[11px] text-zinc-400 mt-1">
-              本部がプールに新規追加するまでお待ちください。
+              本部が候補先を追加するまでお待ちください。
             </p>
           </div>
         ) : (

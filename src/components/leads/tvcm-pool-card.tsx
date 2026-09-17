@@ -55,7 +55,7 @@ export interface TvcmPoolLead {
 interface Props {
   lead: TvcmPoolLead;
   claimable: boolean; // true = 未claim（claim可能）、false = 自分がclaim済み
-  isAdmin?: boolean; // true のとき本部向けの「プールから外す」削除操作を表示
+  isAdmin?: boolean; // true のとき本部向けの「候補先から外す」削除操作を表示
   // 一括claimモード用（claimable=true 時のみ意味を持つ）
   selectable?: boolean;
   selected?: boolean;
@@ -111,7 +111,7 @@ export function TvcmPoolCard({ lead, claimable, isAdmin = false, selectable = fa
       : "";
     if (
       !confirm(
-        `${lead.name} をプールから外します（却下扱い）。よろしいですか？${dupMsg}\n履歴には記録が残り、次回クロールでも復活しません。`,
+        `${lead.name} を候補先から外します（却下扱い）。よろしいですか？${dupMsg}\n履歴には記録が残り、次回クロールでも復活しません。`,
       )
     ) {
       return;
@@ -122,14 +122,14 @@ export function TvcmPoolCard({ lead, claimable, isAdmin = false, selectable = fa
         if (res.success) {
           setRemoved(true);
         } else {
-          setResultMsg({ kind: "err", text: res.error ?? "プールから外せませんでした" });
+          setResultMsg({ kind: "err", text: res.error ?? "候補先から外せませんでした" });
         }
       } else {
         const res = await transitionTvcmLeadStatus(lead.id, "reject");
         if (res.success) {
           setRemoved(true);
         } else {
-          setResultMsg({ kind: "err", text: res.error ?? "プールから外せませんでした" });
+          setResultMsg({ kind: "err", text: res.error ?? "候補先から外せませんでした" });
         }
       }
     });
@@ -139,7 +139,7 @@ export function TvcmPoolCard({ lead, claimable, isAdmin = false, selectable = fa
     return (
       <div className="bg-zinc-50 rounded-xl border border-zinc-200 px-4 py-3 text-[11px] text-zinc-400 flex items-center gap-1.5">
         <Trash2 className="w-3 h-3" />
-        「{lead.name}」をプールから外しました
+        「{lead.name}」を候補先から外しました
       </div>
     );
   }
@@ -214,7 +214,7 @@ export function TvcmPoolCard({ lead, claimable, isAdmin = false, selectable = fa
           <button
             onClick={handleRemove}
             disabled={isRemoving}
-            title="プールから外す（却下扱い・本部のみ）"
+            title="候補先から外す（却下扱い・本部のみ）"
             className="text-[11px] font-medium text-zinc-400 hover:text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-lg flex items-center gap-1 disabled:opacity-50 shrink-0"
           >
             {isRemoving ? (

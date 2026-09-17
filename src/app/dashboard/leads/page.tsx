@@ -56,7 +56,7 @@ export default async function LeadsPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <p className="text-sm font-bold text-zinc-900">
-                TVer広告 案件プール
+                本部からの候補先
               </p>
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-gradient-to-r from-rose-600 to-pink-600 px-2 py-0.5 rounded-full">
                 <Flame className="w-2.5 h-2.5" />
@@ -88,7 +88,7 @@ export default async function LeadsPage() {
             )}
             <div className="inline-flex items-center gap-1 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-4 py-2 rounded-lg group-hover:translate-x-0.5 transition-transform">
               <HandMetal className="w-3.5 h-3.5" />
-              プールへ
+              候補先へ
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
           </div>

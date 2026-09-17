@@ -105,7 +105,7 @@ export function leadLogKind(action: string, detail: string | null | undefined): 
 export function leadLogText(kind: LeadLogKind, who: string): string {
   switch (kind) {
     case "claim":
-      return `${who}を案件プールから取得`;
+      return `${who}を本部の候補先から取得`;
     case "form":
       return `${who}へ営業フォームを送付`;
     case "reply":

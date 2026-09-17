@@ -28,7 +28,7 @@ export default async function TvcmLeadsPage() {
               TVer広告 案件クロール（本部）
             </h2>
             <p className="text-xs text-zinc-500">
-              YouTube / PR TIMES から動画コンテンツ発表企業を抽出し、TVer広告案件プールへ投入
+              YouTube / PR TIMES から動画コンテンツ発表企業を抽出し、本部からの候補先へ投入
             </p>
           </div>
         </div>
@@ -63,9 +63,9 @@ export default async function TvcmLeadsPage() {
             </p>
           </div>
           <div>
-            <p className="text-xs font-medium text-zinc-800">4. プール投入</p>
+            <p className="text-xs font-medium text-zinc-800">4. 候補先に追加</p>
             <p className="text-zinc-500 mt-0.5">
-              本部の判断で「プールへ」「却下」を選別、全パートナーへ配信
+              本部の判断で「候補先へ」「却下」を選別、全パートナーへ配信
             </p>
           </div>
         </div>

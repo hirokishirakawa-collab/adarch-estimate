@@ -49,7 +49,7 @@ export function TvcmHistoryList({ leads }: Props) {
   ) => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
-    const verb = decision === "pool" ? "プール投入" : "却下";
+    const verb = decision === "pool" ? "候補先に追加" : "却下";
 
     startTransition(async () => {
       const res = await bulkTransitionTvcmLeads(ids, decision, reason ?? null);
@@ -67,7 +67,7 @@ export function TvcmHistoryList({ leads }: Props) {
     if (ids.length === 0) return;
     if (
       !confirm(
-        `選択した ${ids.length}件 を一括でプールに投入します。Google Chatに都道府県内訳付きで通知されます。よろしいですか？`,
+        `選択した ${ids.length}件 を一括で候補先に追加します。Google Chatに都道府県内訳付きで通知されます。よろしいですか？`,
       )
     )
       return;
@@ -116,7 +116,7 @@ export function TvcmHistoryList({ leads }: Props) {
               ) : (
                 <Plus className="w-3 h-3" />
               )}
-              一括プール投入（チャット通知）
+              一括で候補先に追加（チャット通知）
             </button>
             <button
               type="button"

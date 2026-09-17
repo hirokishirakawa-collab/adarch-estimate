@@ -77,7 +77,7 @@ export function TvcmPoolUnclaimedSection({ leads, isAdmin }: Props) {
     if (selectedIds.size === 0) return;
     if (
       !confirm(
-        `選択した ${selectedIds.size} 件をプールから外します（却下扱い）。よろしいですか？\n履歴には記録が残り、次回クロールでも復活しません。`,
+        `選択した ${selectedIds.size} 件を候補先から外します（却下扱い）。よろしいですか？\n履歴には記録が残り、次回クロールでも復活しません。`,
       )
     ) {
       return;
@@ -91,7 +91,7 @@ export function TvcmPoolUnclaimedSection({ leads, isAdmin }: Props) {
       }
       setResultMsg({
         kind: "ok",
-        text: `${res.updated}件 をプールから外しました`,
+        text: `${res.updated}件 を候補先から外しました`,
       });
       setSelectedIds(new Set());
     });
@@ -120,10 +120,10 @@ export function TvcmPoolUnclaimedSection({ leads, isAdmin }: Props) {
               onClick={handleBulkReject}
               disabled={isPending}
               className="text-xs font-medium text-rose-700 bg-white border border-rose-300 hover:bg-rose-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-50"
-              title="プールから外す（却下扱い・本部のみ）"
+              title="候補先から外す（却下扱い・本部のみ）"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              プールから外す
+              候補先から外す
             </button>
           )}
           <button

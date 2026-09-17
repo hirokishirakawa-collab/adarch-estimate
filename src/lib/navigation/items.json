@@ -194,7 +194,7 @@
   },
   {
     "href": "/dashboard/leads/tvcm-pool",
-    "label": "TVer広告 案件プール",
+    "label": "本部からの候補先",
     "minRole": "USER",
     "aliases": [],
     "group": "sales",

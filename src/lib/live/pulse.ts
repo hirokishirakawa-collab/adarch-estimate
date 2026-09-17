@@ -195,7 +195,7 @@ export async function buildPulseEvents(opts: { days?: number } = {}): Promise<{ 
     if (l.createdAt > g.at) g.at = l.createdAt;
     tvGroups.set(day, g);
   }
-  for (const g of tvGroups.values()) events.push({ at: g.at.toISOString(), kind: "auto", actor: "TVer案件プール", prefs: [...g.prefs], text: `テレビCM出稿企業の新着 ${g.n}件（先着で取れます）` });
+  for (const g of tvGroups.values()) events.push({ at: g.at.toISOString(), kind: "auto", actor: "本部からの候補先", prefs: [...g.prefs], text: `テレビCM出稿企業の新着 ${g.n}件（先着で取れます）` });
 
   // ---- お客様側: LP閲覧・LINE友だち ----
   const lpCompanyIds = [...new Set(lps.map((p) => p.groupCompanyId).filter((x): x is string => !!x))];

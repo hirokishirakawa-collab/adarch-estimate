@@ -162,7 +162,7 @@ export function TvcmSearchPanel() {
   const handlePoolAll = useCallback(async () => {
     const undecided = allResults.filter((c) => !decidedMap.has(c.companyName));
     if (undecided.length === 0) return;
-    if (!confirm(`未判定の${undecided.length}件を全てプールに投入します。よろしいですか？\n（却下したい案件があれば先に個別に却下してください）`)) return;
+    if (!confirm(`未判定の${undecided.length}件を全て候補先に追加します。よろしいですか？\n（却下したい案件があれば先に個別に却下してください）`)) return;
 
     setDecidingName("__bulk__");
     try {
@@ -331,7 +331,7 @@ export function TvcmSearchPanel() {
               className="w-full text-xs border border-zinc-300 rounded-lg px-3 py-1.5 bg-white"
             />
             <p className="text-[10px] text-zinc-500 mt-0.5">
-              プール投入／却下／claim／受注を行った企業を除外。0で無効化。既定30日
+              候補先に追加／却下／claim／受注を行った企業を除外。0で無効化。既定30日
             </p>
           </div>
         </div>
@@ -347,7 +347,7 @@ export function TvcmSearchPanel() {
             <li>上場企業（既にエージェンシー関係を持つ可能性）</li>
           </ul>
           <p className="text-[10px] text-amber-600 mt-1">
-            ※ 全国対象（東京含む）。全候補をリスト表示し、代表が「プール投入」または「却下」を選択してください。
+            ※ 全国対象（東京含む）。全候補をリスト表示し、代表が「候補先に追加」または「却下」を選択してください。
           </p>
         </div>
 
@@ -453,7 +453,7 @@ export function TvcmSearchPanel() {
               <div className="text-[10px] text-amber-600 mb-0.5">警告付き候補</div>
               <div className="text-lg font-bold text-amber-600">{stats.excluded}</div>
             </div>
-            <div title="プール／却下／claim 等で判断済みのリードを直近N日分除外">
+            <div title="候補先への追加／却下／claim 等で判断済みのリードを直近N日分除外">
               <div className="text-[10px] text-blue-500 mb-0.5">判断済み除外</div>
               <div className="text-lg font-bold text-blue-600">{stats.hidden ?? 0}</div>
             </div>

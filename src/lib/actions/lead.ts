@@ -1088,7 +1088,7 @@ export async function transitionTvcmLeadStatus(
         action: decision === "pool" ? "POOLED" : "REJECTED",
         detail:
           decision === "pool"
-            ? "履歴画面からプール投入"
+            ? "履歴画面から候補先に追加"
             : `履歴画面から却下${reasonLabel ? `［${reasonLabel}］` : ""}`,
         staffName,
       },
@@ -1100,7 +1100,7 @@ export async function transitionTvcmLeadStatus(
       const metaText = meta ? `（${meta}）` : "";
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
       const poolUrl = `${appUrl}/dashboard/leads/tvcm-pool`;
-      const message = `📢 TVer広告 案件プールに「${lead.name}」を追加${metaText}\n👉 先着順！${poolUrl}`;
+      const message = `📢 本部からの候補先に「${lead.name}」を追加${metaText}\n👉 先着順！${poolUrl}`;
       after(async () => {
         try {
           await sendChatMessage(LEAD_CHAT_SPACE_ID, message);
@@ -1168,7 +1168,7 @@ export async function bulkTransitionTvcmLeads(
     const reasonValue = decision === "reject" ? (rejectReason ?? null) : null;
     const reasonLabel = getLeadRejectReason(reasonValue)?.label ?? null;
     const logDetail = decision === "pool"
-      ? "履歴画面から一括プール投入"
+      ? "履歴画面から一括で候補先に追加"
       : `履歴画面から一括却下${reasonLabel ? `［${reasonLabel}］` : ""}`;
 
     // プール投入: 既に UNTOUCHED のものは Chat 通知に含めない（重複通知防止）
@@ -1223,7 +1223,7 @@ export async function bulkTransitionTvcmLeads(
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
       const poolUrl = `${appUrl}/dashboard/leads/tvcm-pool`;
       const message = [
-        `📢 TVer広告 案件プールに ${newlyPooled.length}件 を一括投入しました`,
+        `📢 本部からの候補先に ${newlyPooled.length}件 を一括投入しました`,
         `地域内訳: ${prefSummary}`,
         ``,
         ...companyLines,
@@ -1305,7 +1305,7 @@ export async function claimTvcmLead(
       data: {
         leadId,
         action: "CLAIMED",
-        detail: `TVer広告案件プールから claim`,
+        detail: `本部からの候補先から claim`,
         staffName,
       },
     });
@@ -1390,7 +1390,7 @@ export async function bulkClaimTvcmLeads(
         data: beforeClaim.slice(0, claimed).map((l) => ({
           leadId: l.id,
           action: "CLAIMED",
-          detail: `TVer広告案件プールから 一括claim`,
+          detail: `本部からの候補先から 一括claim`,
           staffName,
         })),
       });
@@ -1454,7 +1454,7 @@ export async function saveTvcmLeadsFromSearch(
   const logDetailPrefix =
     decision === "reject"
       ? `TVer広告案件 却下記録${reasonLabel ? `［${reasonLabel}］` : ""}`
-      : "TVer広告 案件プール投入";
+      : "本部からの候補先に追加";
 
   let savedCount = 0;
   const savedPrefectures: string[] = [];
@@ -1557,7 +1557,7 @@ export async function saveTvcmLeadsFromSearch(
 
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
       const poolUrl = `${appUrl}/dashboard/leads/tvcm-pool`;
-      const message = `📢 TVCM/動画PR 案件プールに ${savedCount}件 追加されました\n地域内訳: ${prefSummary}\n\n👉 先着順！「私がやります」でclaim:\n${poolUrl}`;
+      const message = `📢 本部からの候補先に ${savedCount}件 追加されました\n地域内訳: ${prefSummary}\n\n👉 先着順！「私がやります」でclaim:\n${poolUrl}`;
 
       after(async () => {
         try {

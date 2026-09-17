@@ -113,7 +113,7 @@ export default async function TvcmHistoryPage({ searchParams }: SearchParams) {
   const tabs: { value: StatusFilter; label: string; icon: typeof Database; count: number; color: string }[] = [
     { value: "all", label: "すべて", icon: Database, count: counts.all, color: "zinc" },
     { value: "CRAWLED", label: "未判定", icon: Database, count: counts.CRAWLED, color: "zinc" },
-    { value: "UNTOUCHED", label: "プール中", icon: Inbox, count: counts.UNTOUCHED, color: "blue" },
+    { value: "UNTOUCHED", label: "候補先に掲載中", icon: Inbox, count: counts.UNTOUCHED, color: "blue" },
     { value: "ACTIVE", label: "営業中", icon: PhoneCall, count: counts.ACTIVE, color: "violet" },
     { value: "DEAL_CONVERTED", label: "受注", icon: Trophy, count: counts.DEAL_CONVERTED, color: "emerald" },
     { value: "SKIPPED", label: "却下", icon: XCircle, count: counts.SKIPPED, color: "red" },
@@ -129,7 +129,7 @@ export default async function TvcmHistoryPage({ searchParams }: SearchParams) {
           <div>
             <h2 className="text-lg font-bold text-zinc-900">TVer広告 案件 クロール履歴</h2>
             <p className="text-xs text-zinc-500">
-              全クロール候補をデータ保全。後からプール投入・却下を判断できます（本部のみ）。並びは 地方 → 大阪・名古屋 → 東京 → 所在地不明
+              全クロール候補をデータ保全。後から候補先に追加・却下を判断できます（本部のみ）。並びは 地方 → 大阪・名古屋 → 東京 → 所在地不明
             </p>
           </div>
         </div>
@@ -145,7 +145,7 @@ export default async function TvcmHistoryPage({ searchParams }: SearchParams) {
             href="/dashboard/leads/tvcm-pool"
             className="text-xs text-blue-600 hover:underline flex items-center gap-1"
           >
-            プール画面へ <ArrowRight className="w-3 h-3" />
+            候補先の画面へ <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
       </div>

@@ -71,7 +71,7 @@ const STATUS_CONFIG: Record<
   { label: string; bg: string; text: string; icon: typeof Inbox }
 > = {
   CRAWLED: { label: "クロール済（未判定）", bg: "bg-zinc-100", text: "text-zinc-700", icon: Database },
-  UNTOUCHED: { label: "プール中", bg: "bg-blue-50", text: "text-blue-700", icon: Inbox },
+  UNTOUCHED: { label: "候補先に掲載中", bg: "bg-blue-50", text: "text-blue-700", icon: Inbox },
   CALLED: { label: "架電済", bg: "bg-violet-50", text: "text-violet-700", icon: PhoneCall },
   APPOINTMENT: { label: "アポ獲得", bg: "bg-amber-50", text: "text-amber-700", icon: Calendar },
   DEAL_CONVERTED: { label: "受注済", bg: "bg-emerald-50", text: "text-emerald-700", icon: Trophy },
@@ -98,12 +98,12 @@ export function TvcmHistoryCard({
   const [reasonOpen, setReasonOpen] = useState(false);
 
   const handlePool = () => {
-    if (!confirm(`${lead.name} を プール投入 にします。よろしいですか？`)) return;
+    if (!confirm(`${lead.name} を 候補先に追加 にします。よろしいですか？`)) return;
     startTransition(async () => {
       const res = await transitionTvcmLeadStatus(lead.id, "pool");
       if (res.success) {
         setCurrentStatus("UNTOUCHED");
-        setResultMsg("プール投入しました");
+        setResultMsg("候補先に追加しました");
       } else {
         setResultMsg(res.error ?? "失敗");
       }
@@ -276,7 +276,7 @@ export function TvcmHistoryCard({
                   className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-50"
                 >
                   {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                  プールへ
+                  候補先へ
                 </button>
                 <button
                   onClick={() => setReasonOpen(true)}

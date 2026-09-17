@@ -65,7 +65,7 @@ function StatusBadge({
     { label: string; bg: string; text: string; icon: typeof Inbox }
   > = {
     CRAWLED: { label: "クロール済", bg: "bg-zinc-100", text: "text-zinc-700", icon: Database },
-    UNTOUCHED: { label: "プール中", bg: "bg-blue-50", text: "text-blue-700", icon: Inbox },
+    UNTOUCHED: { label: "候補先に掲載中", bg: "bg-blue-50", text: "text-blue-700", icon: Inbox },
     CALLED: { label: "架電済", bg: "bg-violet-50", text: "text-violet-700", icon: PhoneCall },
     APPOINTMENT: { label: "アポ獲得", bg: "bg-amber-50", text: "text-amber-700", icon: Calendar },
     DEAL_CONVERTED: { label: "受注済", bg: "bg-emerald-50", text: "text-emerald-700", icon: Trophy },
@@ -127,7 +127,7 @@ export function TvcmResultsTable({
           disabled={decidingName !== null || undecidedCount === 0}
         >
           <Plus className="w-3 h-3" />
-          未判定を全てプール投入
+          未判定を全て候補先に追加
         </button>
       </div>
 
@@ -248,7 +248,7 @@ export function TvcmResultsTable({
                   {decision === "pool" ? (
                     <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1">
                       <Check className="w-3 h-3" />
-                      プール投入済
+                      候補先に追加済
                     </span>
                   ) : decision === "reject" ? (
                     <span className="text-xs font-medium text-zinc-500 bg-zinc-100 border border-zinc-200 px-3 py-1.5 rounded-lg flex items-center gap-1">
@@ -276,7 +276,7 @@ export function TvcmResultsTable({
                         ) : (
                           <>
                             <Plus className="w-3 h-3" />
-                            プールへ
+                            候補先へ
                           </>
                         )}
                       </button>

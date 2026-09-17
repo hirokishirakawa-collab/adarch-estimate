@@ -290,7 +290,7 @@ export const LEAD_SOURCE_OPTIONS = [
   { value: "GBIZINFO",          label: "BtoB リード",   shortLabel: "BtoB",     className: "bg-indigo-50 text-indigo-700 border-indigo-200",   icon: "🏢" },
   { value: "CINEMA_AD",         label: "シネアド",      shortLabel: "シネアド", className: "bg-purple-50 text-purple-700 border-purple-200",   icon: "🎬" },
   { value: "RECRUIT_SEARCH",    label: "採用リード",    shortLabel: "採用",     className: "bg-amber-50 text-amber-700 border-amber-200",      icon: "💼" },
-  { value: "PR_TIMES_TVCM",     label: "TVer広告プール", shortLabel: "TVer",    className: "bg-rose-50 text-rose-700 border-rose-200",         icon: "📺" },
+  { value: "PR_TIMES_TVCM",     label: "本部からの候補先", shortLabel: "本部",    className: "bg-rose-50 text-rose-700 border-rose-200",         icon: "📺" },
   { value: "VIDEO_ACHIEVEMENT", label: "競合実績",      shortLabel: "競合",     className: "bg-orange-50 text-orange-700 border-orange-200",   icon: "🔥" },
   { value: "CSV_IMPORT",        label: "CSVインポート",  shortLabel: "CSV",     className: "bg-zinc-100 text-zinc-600 border-zinc-200",        icon: "📋" },
   { value: "MANUAL",            label: "手動登録",      shortLabel: "手動",     className: "bg-zinc-100 text-zinc-600 border-zinc-200",        icon: "✏️" },
