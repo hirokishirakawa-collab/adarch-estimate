@@ -285,6 +285,26 @@ function applyFilters(c: TvcmLeadCandidate): TvcmLeadResult {
  *
  * context.userId が null の場合は createdById=null（cron 用途）
  */
+const AI_READ_KEY = "tvcm-crawl:ai-read-urls";
+const AI_READ_KEEP_DAYS = 45;
+
+async function loadAiReadUrls(): Promise<Record<string, string>> {
+  const row = await db.appSetting.findUnique({ where: { key: AI_READ_KEY }, select: { value: true } }).catch(() => null);
+  if (!row) return {};
+  try {
+    return JSON.parse(row.value) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+async function saveAiReadUrls(urls: Record<string, string>) {
+  const cutoff = new Date(Date.now() - AI_READ_KEEP_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const kept = Object.fromEntries(Object.entries(urls).filter(([, d]) => d >= cutoff));
+  const value = JSON.stringify(kept);
+  await db.appSetting.upsert({ where: { key: AI_READ_KEY }, create: { key: AI_READ_KEY, value }, update: { value } });
+}
+
 export async function runTvcmCrawl(
   options: TvcmCrawlOptions,
   context: { userId: string | null; staffName: string; isCron?: boolean },
@@ -334,6 +354,20 @@ export async function runTvcmCrawl(
   let aiNoToolBlock = 0;
   let aiEmptyCompany = 0;
   let aiSuccess = 0;
+
+  // 毎朝の自動実行では、一度AIで読んだ記事を AI_READ_KEEP_DAYS 日は読み直さない。
+  // PR TIMES の検索結果は同じ記事が数日並び、同業として保存しない記事は DB で重複を判定できないため
+  // URL を app_settings に覚える（2026-09-17・Consoleクレジット消費の削減）。手動クロールは従来どおり全件読む
+  const rememberRead = context.isCron ?? false;
+  const aiReadUrls: Record<string, string> = rememberRead ? await loadAiReadUrls() : {};
+  const today = new Date().toISOString().slice(0, 10);
+  let aiSkippedRead = 0;
+  const notReadYet = (items: { url: string; title: string }[]) => {
+    if (!rememberRead) return items;
+    const fresh = items.filter((it) => !aiReadUrls[it.url]);
+    aiSkippedRead += items.length - fresh.length;
+    return fresh;
+  };
 
   async function collectFromYouTube(): Promise<TvcmLeadResult[]> {
     if (!youtubeApiKey) {
@@ -516,7 +550,7 @@ ${v.channelDescription.slice(0, 3000)}
     console.log(`[tvcm-crawler] PR TIMES raw: ${prTimesRaw} articles (${keywords.length} keywords)`);
     if (collected.length === 0) return [];
 
-    const targets = collected.slice(0, options.totalLimit);
+    const targets = notReadYet(collected).slice(0, options.totalLimit);
 
     async function extractPr(
       item: { url: string; title: string },
@@ -550,6 +584,7 @@ ${article.bodyText}`;
           tools: EXTRACT_TOOL,
           tool_choice: { type: "tool", name: "extract_tvcm_lead" },
         });
+        aiReadUrls[item.url] = today;
         const toolBlock = response.content.find(
           (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use",
         );
@@ -621,7 +656,7 @@ ${article.bodyText}`;
     console.log(`[tvcm-crawler] @Press raw: ${atPressRaw} articles (${keywords.length} keywords)`);
     if (collected.length === 0) return [];
 
-    const targets = collected.slice(0, options.totalLimit);
+    const targets = notReadYet(collected).slice(0, options.totalLimit);
 
     async function extractAtPress(
       item: { url: string; title: string },
@@ -655,6 +690,7 @@ ${article.bodyText}`;
           tools: EXTRACT_TOOL,
           tool_choice: { type: "tool", name: "extract_tvcm_lead" },
         });
+        aiReadUrls[item.url] = today;
         const toolBlock = response.content.find(
           (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use",
         );
@@ -722,6 +758,11 @@ ${article.bodyText}`;
   }).catch(() => {});
 
   const allResults = (await Promise.all(tasks)).flat();
+
+  if (rememberRead) {
+    console.log(`[tvcm-crawler] 既読のためAIを呼ばなかった記事: ${aiSkippedRead}件`);
+    await saveAiReadUrls(aiReadUrls).catch((e) => console.error("[tvcm-crawler] 既読URLの保存に失敗", e));
+  }
 
   // 同一企業名の重複排除
   const dedupedMap = new Map<string, TvcmLeadResult>();
