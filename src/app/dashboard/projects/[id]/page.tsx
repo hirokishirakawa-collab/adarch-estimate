@@ -11,7 +11,6 @@ import { ProjectLogTimeline } from "@/components/projects/project-log-timeline";
 import { ProjectLogForm } from "@/components/projects/project-log-form";
 import { ExpenseForm } from "@/components/projects/expense-form";
 import { ExpenseList } from "@/components/projects/expense-list";
-import { BillingStatusButton } from "@/components/projects/billing-status-button";
 import type { UserRole } from "@/types/roles";
 import {
   ChevronLeft,
@@ -119,7 +118,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <BillingStatusButton projectId={project.id} billingStatus={project.billingStatus} isAdmin={role === "ADMIN"} />
+            {/* 請求ステータスの表示は外した（2026-09-17 代表判断）。戻すときは BillingStatusButton を置き直す */}
             <Link
               href={`/dashboard/projects/${project.id}/edit`}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"

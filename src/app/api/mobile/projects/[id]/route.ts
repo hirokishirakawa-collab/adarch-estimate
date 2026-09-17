@@ -210,6 +210,11 @@ export async function PATCH(
       );
     }
 
+    // 請求ステータスの変更は本部だけ（Web画面・サーバーアクションと同じ線引き）
+    if (body.billingStatus !== undefined && user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const validBillingStatuses: BillingStatus[] = [
       "UNBILLED",
       "BILLED",

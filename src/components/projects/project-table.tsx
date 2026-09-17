@@ -5,7 +5,6 @@ import { BRANCH_MAP } from "@/lib/data/customers";
 import { PROJECT_STATUS_OPTIONS } from "@/lib/constants/projects";
 import { ChevronRight, Calendar, User, Building2, Repeat } from "lucide-react";
 import { DeleteProjectButton } from "./delete-project-button";
-import { BillingBadge } from "./billing-status-button";
 import type { BillingStatus } from "@/generated/prisma/client";
 
 export type ProjectRow = {
@@ -86,7 +85,8 @@ export function ProjectTable({ projects, isAdmin = false }: Props) {
 
   const groups = groupByCustomer(projects);
   // 顧客列を除いた列数（詳細リンク列 + admin削除列を含む）
-  const colSpan = isAdmin ? 7 : 6;
+  // 請求ステータスの列は外した（2026-09-17 代表「しばらく消していい・あまり見ない」）。データと部品は残している
+  const colSpan = isAdmin ? 6 : 5;
 
   return (
     <div>
@@ -108,9 +108,6 @@ export function ProjectTable({ projects, isAdmin = false }: Props) {
               </th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-28">
                 拠点
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-28">
-                請求
               </th>
               <th className="w-10" />
               {isAdmin && <th className="w-10" />}
@@ -220,11 +217,6 @@ export function ProjectTable({ projects, isAdmin = false }: Props) {
                         ) : (
                           <span className="text-xs text-zinc-400">{project.branchId}</span>
                         )}
-                      </td>
-
-                      {/* 請求ステータス */}
-                      <td className="px-4 py-3">
-                        <BillingBadge status={project.billingStatus} />
                       </td>
 
                       {/* 詳細リンク */}
