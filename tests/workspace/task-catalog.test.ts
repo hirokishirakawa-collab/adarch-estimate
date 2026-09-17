@@ -6,7 +6,7 @@ import type { UserRole } from "../../src/types/roles";
 
 const groups = Object.keys(TASK_HUBS) as TaskGroup[];
 
-test("every permitted destination appears exactly once with a task and description in all three hubs", () => {
+test("every permitted destination appears exactly once with a task and description in all four hubs", () => {
   for (const group of groups) {
     for (const role of ["USER", "MANAGER", "ADMIN"] as UserRole[]) {
       const items = NAVIGATION_ITEMS.filter((item) => item.group === group && canUseNavigation(item, role));
@@ -36,7 +36,7 @@ test("ungranted tools stay out of cards and search, including franchise gates an
   const suspended = NAVIGATION_ITEMS.filter((item) => canUseNavigation(item, "MANAGER", [], true));
   for (const group of groups) {
     assert.deepEqual(toolsForItems(group, []), []);
-    assert.deepEqual(toolsForItems(group, suspended), []);
+    assert.deepEqual(toolsForItems(group, suspended).map((tool) => tool.item.href), group === "procedures" ? ["/dashboard/sales-report"] : []);
   }
 });
 
@@ -65,4 +65,17 @@ test("future authorized items and external destinations remain reachable without
   const drive = toolsForItems("library", NAVIGATION_ITEMS).filter((tool) => tool.item.external);
   assert.equal(drive.length, 1);
   assert.equal(drive[0].item.href, NAVIGATION_ITEMS.find((item) => item.group === "library" && item.external)?.href);
+});
+
+test("procedures preserve the three directions, member-only entries and both external destinations", () => {
+  const all = toolsForItems("procedures", NAVIGATION_ITEMS);
+  const byTask = (id: string) => all.filter((tool) => tool.task === id).map((tool) => tool.item.href);
+  assert.deepEqual(byTask("client-billing"), ["/dashboard/billing"]);
+  assert.deepEqual(byTask("from-hq"), ["/dashboard/partner-status", "/dashboard/payments", "/dashboard/royalty"]);
+  assert.deepEqual(byTask("to-hq"), ["/dashboard/sales-report", "/dashboard/billing/settings", "/dashboard/procedures"]);
+  const user = toolsForItems("procedures", NAVIGATION_ITEMS.filter((item) => canUseNavigation(item, "USER")));
+  for (const restricted of ["/dashboard/sales-report", "/dashboard/royalty", "/dashboard/payments", "/dashboard/billing/settings", "/dashboard/violation-report"]) {
+    assert.equal(user.some((tool) => tool.item.href === restricted), false);
+  }
+  assert.deepEqual(all.filter((tool) => tool.item.external).map((tool) => tool.item.href).sort(), NAVIGATION_ITEMS.filter((item) => item.group === "procedures" && item.external).map((item) => item.href).sort());
 });

@@ -3,6 +3,8 @@ import { BookOpen, BriefcaseBusiness, Building2, CheckCheck, ClipboardCheck, Con
 import type { HubTask } from "@/lib/workspace/task-catalog";
 
 const icons: Record<string, [LucideIcon, LucideIcon, LucideIcon]> = {
+  "client-billing": [FilePenLine, Send, Building2], "from-hq": [Building2, ClipboardCheck, CheckCheck],
+  "to-hq": [ClipboardCheck, Send, Building2], "hq-support": [MessageSquareText, Users, CheckCheck],
   find: [Radar, Building2, Search], prepare: [FilePenLine, Sparkles, Send],
   reply: [MessageSquareText, Send, CheckCheck], manage: [BriefcaseBusiness, ContactRound, Flag],
   progress: [BriefcaseBusiness, ClipboardCheck, Flag], request: [ClipboardCheck, CheckCheck, Send],

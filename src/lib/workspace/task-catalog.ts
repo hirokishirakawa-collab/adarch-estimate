@@ -7,7 +7,7 @@ const SALES_TASKS: HubTask[] = [
   { id: "manage", scene: "network", number: "04", english: "CONTINUE", title: "顧客・商談を見る", caption: "これまでの会話と、提案の続きを確認する", hint: "相手の情報か、提案の進み具合か", next: "次の提案を用意するときは「提案・連絡を準備する」へ。" },
 ];
 
-export type TaskGroup = "sales" | "projects" | "library";
+export type TaskGroup = "sales" | "projects" | "library" | "procedures";
 export type HubScene = "orbit" | "sheets" | "messages" | "network";
 export type HubTask = { id: string; number: string; english: string; title: string; caption: string; hint: string; next: string; scene: HubScene; titleLines?: readonly string[] };
 export type HubTool = { task: string; title: string; description: string; item: NavigationItem };
@@ -98,9 +98,29 @@ const LIBRARY_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
   "/dashboard/seminars": { task: "learn", title: "セミナーの録画を見る", description: "共有されているセミナーの録画を探す。" },
 };
 
+const PROCEDURE_TASKS: HubTask[] = [
+  { id: "client-billing", scene: "sheets", number: "01", english: "CLIENTS", title: "お客様への請求", caption: "本部 → 各社クライアント", hint: "本部に請求を依頼する", next: "請求に使う自社情報は「各社から本部へ」で登録できます。" },
+  { id: "from-hq", scene: "orbit", number: "02", english: "FROM HQ", title: "本部から各社へ", caption: "稼働ステータス・支払明細など", hint: "本部 → グループ各社", next: "本部へ確認したいことは「相談・共有する」へ。" },
+  { id: "to-hq", scene: "network", number: "03", english: "TO HQ", title: "各社から本部へ", caption: "月次報告・経理情報の登録", hint: "各社 → 本部", next: "提出や連絡の内容に迷ったときは「相談・共有する」へ。" },
+  { id: "hq-support", scene: "messages", number: "04", english: "SUPPORT", title: "相談・共有する", caption: "打ち合わせの予約・相談・共有", hint: "本部への相談・共有", next: "提出・報告の入口は「各社から本部へ」にあります。" },
+];
+const PROCEDURE_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
+  "/dashboard/billing": { task: "client-billing", title: "お客様への請求を依頼する", description: "本部から各社クライアントへの請求を依頼する。" },
+  "/dashboard/partner-status": { task: "from-hq", title: "稼働ステータスを申告する", description: "自社の現在の稼働状況を申告する。" },
+  "/dashboard/payments": { task: "from-hq", title: "支払明細を確認する", description: "本部からの支払明細を確認する。" },
+  "/dashboard/royalty": { task: "from-hq", title: "ロイヤリティを確認する", description: "自社のロイヤリティの情報を確認する。" },
+  "/dashboard/sales-report": { task: "to-hq", title: "月次報告を提出する", description: "月次報告の画面を開き、報告・確認を進める。" },
+  "/dashboard/billing/settings": { task: "to-hq", title: "経理情報を登録する", description: "請求に使う自社の情報を登録・確認する。" },
+  "/dashboard/procedures": { task: "to-hq", title: "自社の提出・連絡を確認する", description: "自社で行う提出や、本部への連絡の入口をまとめて見る。" },
+  "https://calendar.app.google/pfFBZxmHbNFFp6cs5": { task: "hq-support", title: "本部との打ち合わせを予約する", description: "予約ページを開き、打ち合わせの日時を選ぶ。" },
+  "/dashboard/violation-report": { task: "hq-support", title: "コンプライアンスを相談する", description: "本部へのコンプライアンス相談窓口を開く。" },
+  "https://drive.google.com/drive/folders/1p9QtqSbPrBAkof5-10jeusyG6T2y7cB8?usp=drive_link": { task: "hq-support", title: "グループ運用データを見る", description: "Driveの共有フォルダを開く。" },
+};
+
 export const TASK_HUBS = {
   sales: { label: "顧客・営業", english: "YOUR NEXT MOVE", invitation: "次の仕事を、ここから。", tasks: SALES_TASKS, tools: SALES_TOOL_DESCRIPTIONS },
   projects: { label: "案件・申請", english: "MAKE IT HAPPEN", invitation: "仕事を、ひとつ先へ。", tasks: PROJECT_TASKS, tools: PROJECT_TOOL_DESCRIPTIONS },
+  procedures: { label: "手続き", english: "KEEP THINGS MOVING", invitation: "必要な手続きを、迷わず。", tasks: PROCEDURE_TASKS, tools: PROCEDURE_TOOL_DESCRIPTIONS },
   library: { label: "資料・事例", english: "IDEAS INTO ACTION", invitation: "次の提案に、いい材料を。", tasks: LIBRARY_TASKS, tools: LIBRARY_TOOL_DESCRIPTIONS },
 } satisfies Record<TaskGroup, { label: string; english: string; invitation: string; tasks: HubTask[]; tools: Record<string, ToolDescription> }>;
 
