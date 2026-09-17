@@ -3,7 +3,7 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { auth } from "@/lib/auth";
 import { checkRateLimit, SCRAPE_RATE_LIMIT } from "@/lib/rate-limit";
 import { safeFetch, SsrfError } from "@/lib/security/ssrf-guard";
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
   const title = $("title").first().text().trim();
   const bodyText = $("body").text().replace(/\s+/g, " ").trim().slice(0, 15000);
 
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("customers-enrich", { apiKey });
 
   const prompt = `あなたは企業Webサイトから「会社情報」を抽出する専門AIです。
 顧客台帳に登録するための基本情報を、以下のテキストから読み取ってください。

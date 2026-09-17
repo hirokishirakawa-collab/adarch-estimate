@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
 【Web】${body.website?.trim() || "なし"}`;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("outreach-draft", { apiKey });
     const response = await client.messages.create({
       model: "claude-sonnet-5",
       thinking: { type: "disabled" },

@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { db } from "@/lib/db";
 import { STATUS_CONFIG, getWeekId, hasHqRequest, hqRequestLabel, followUpLabel } from "@/lib/constants/group-support";
 import { sendGroupWeeklyReportEmail } from "@/lib/notifications";
@@ -108,7 +108,7 @@ ${notSubmitted.map((c) => `- ${c.name}（${c.ownerName}）`).join("\n") || "な�
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
     if (!anthropicApiKey) throw new Error("ANTHROPIC_API_KEY not set");
 
-    const client = new Anthropic({ apiKey: anthropicApiKey });
+    const client = createAnthropic("cron-group-support-report", { apiKey: anthropicApiKey });
     const message = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 2048,

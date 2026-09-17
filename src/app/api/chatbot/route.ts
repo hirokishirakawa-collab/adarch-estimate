@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { searchWikiArticles, formatArticlesForPrompt } from "@/lib/wiki-search";
 import { searchKnowledge, formatKnowledgeForPrompt } from "@/lib/knowledge/search";
@@ -429,7 +430,7 @@ export async function POST(req: NextRequest) {
   history.push({ role: "user", content: message.trim() });
 
   // Claude API 呼び出し（ストリーミング + Tool Use + プロンプトキャッシュ）
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("chatbot", { apiKey });
   const systemPrompt = [
     { type: "text" as const, text: BASE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" as const } },
     { type: "text" as const, text: dynamicContext },

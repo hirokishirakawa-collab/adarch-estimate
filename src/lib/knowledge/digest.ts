@@ -5,6 +5,7 @@
 // ==============================================================
 
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import type { KnowledgeOrigin } from "@/generated/prisma/client";
 import { KNOWLEDGE_USE_RULES } from "./rules";
 
@@ -59,7 +60,7 @@ export async function buildDigest(input: {
 }): Promise<DigestResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY が未設定です");
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("knowledge-digest", { apiKey });
   const originLabel = input.origin === "OWN" ? "【自社】アドアーチ自身の資料" : "【他社・媒体】他社・媒体社の資料";
   const user = `## この資料の出どころ
 ${originLabel}

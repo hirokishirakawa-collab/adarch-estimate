@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { btobScoreSchema } from "@/lib/validations";
@@ -198,7 +199,7 @@ BtoB企業リストを受け取り、動画制作・広告営業のリード（�
   const basisSection = scoringBasis ? `\n${basisPromptText(scoringBasis, body.industry, body.area)}\n` : "";
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("leads-btob-score", { apiKey });
 
     async function scoreBatch(batchIndices: number[]) {
       const batchSummary = batchIndices

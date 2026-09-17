@@ -3,6 +3,7 @@ export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { db } from "@/lib/db";
 import { notifyCeo } from "@/lib/google-chat";
 import { ARCHIVE_BRANCH_ID } from "@/lib/data/customers";
@@ -114,7 +115,7 @@ function plainText(d: Digest): string {
 async function compose(d: Digest): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("cron-ai-sales-manager", { apiKey });
   try {
     const res = await client.messages.create({
       model: "claude-sonnet-5",

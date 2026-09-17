@@ -3,7 +3,7 @@
 // ==============================================================
 
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 
 export const runtime = "nodejs";
 
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Claude API 呼び出し
-    const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+    const client = createAnthropic("telegram-webhook", { apiKey: ANTHROPIC_API_KEY });
     const response = await client.messages.create({
       model: "claude-sonnet-5",
       thinking: { type: "disabled" },

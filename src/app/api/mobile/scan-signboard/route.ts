@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const client = new Anthropic({ apiKey: anthropicApiKey });
+    const client = createAnthropic("mobile-scan-signboard", { apiKey: anthropicApiKey });
 
     const locationNote =
       latitude != null && longitude != null

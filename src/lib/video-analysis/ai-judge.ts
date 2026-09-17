@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { readFileSync } from "fs";
 import type { DetectedChange } from "./types";
 
-const client = new Anthropic();
+const client = createAnthropic("video-ai-judge");
 
 interface FramePair {
   timecode: number;

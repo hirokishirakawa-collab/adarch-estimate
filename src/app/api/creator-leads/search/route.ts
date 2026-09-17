@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { resolveCreatorAccess } from "@/lib/creator-leads/access";
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
 Vook・foriio・個人サイト・公開SNSなどを検索し、実在を確認した上で、URLと適合スコアを付けてください。最後に必ず output_creators ツールで結果を返してください。`;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("creator-leads-search", { apiKey });
     const response = await client.messages.create({
       model: "claude-sonnet-5",
       thinking: { type: "disabled" },

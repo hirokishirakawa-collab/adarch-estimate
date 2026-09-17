@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatPackagePrice, parseDeliverables, parseFulfillment, parseOptions } from "@/lib/packages/types";
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
     .map((w) => `- ${w.industry}／${w.result}: ${(w.learnings || w.messageBody).slice(0, 160)}`)
     .join("\n");
 
-  const client = new Anthropic();
+  const client = createAnthropic("packages-draft");
   try {
     const res = await client.messages.create({
       model: "claude-sonnet-5",

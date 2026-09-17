@@ -3,7 +3,7 @@
 // ユーザーの自然言語クエリからDBを検索し、提案文を生成
 // ==============================================================
 
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -12,7 +12,7 @@ import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const anthropic = new Anthropic();
+const anthropic = createAnthropic("portfolio-ai-search");
 
 export async function POST(req: NextRequest) {
   const session = await auth();

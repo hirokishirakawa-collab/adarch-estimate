@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyMobileToken } from "../../_lib/verify-mobile-token";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
@@ -179,7 +180,7 @@ Use the output_scores tool to return results.
   }
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("mobile-leads-score", { apiKey });
 
     async function scoreBatch(batchIndices: number[]) {
       const batchSummary = batchIndices

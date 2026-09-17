@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { validateBody, franchiseLeadAdviseSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 この企業へのグループ参画のお声がけアプローチを提案してください。用語規制・価格非開示を厳守し、JSON形式のみで返答してください。`;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("franchise-leads-advise", { apiKey });
     const response = await client.messages.create({
       model: "claude-sonnet-5",
       thinking: { type: "disabled" },

@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { recruitScoreSchema } from "@/lib/validations";
@@ -233,7 +234,7 @@ export async function POST(req: NextRequest) {
   const basisSection = scoringBasis ? `\n${basisPromptText(scoringBasis, body.industry, body.area)}\n` : "";
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("leads-recruit-score", { apiKey });
 
     async function scoreBatch(batchIndices: number[]) {
       const batchSummary = batchIndices

@@ -3,7 +3,7 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { auth } from "@/lib/auth";
 import { checkRateLimit, SCRAPE_RATE_LIMIT } from "@/lib/rate-limit";
 
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
   const bodyText = $("body").text().replace(/\s+/g, " ").trim().slice(0, 20000);
 
   // Claude AI で構造化
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("scrape-works", { apiKey });
 
   const prompt = `【システム】
 あなたは映像制作会社のWebサイトから「クライアント実績」を抽出する専門AIです。

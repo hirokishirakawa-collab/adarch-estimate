@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { auth } from "@/lib/auth";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "companyName と productionCompany は必須です" }, { status: 400 });
   }
 
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("video-achievement-advisor", { apiKey });
 
   const prompt = `あなたはアドアーチグループの営業支援AIです。
 競合の${productionCompany}が${companyName}（${industry}業）に制作した

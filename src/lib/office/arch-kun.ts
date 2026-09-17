@@ -7,6 +7,7 @@
 // ==============================================================
 
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { db } from "@/lib/db";
 import { searchWikiArticles, formatArticlesForPrompt } from "@/lib/wiki-search";
 import { searchKnowledge, formatKnowledgeForPrompt } from "@/lib/knowledge/search";
@@ -100,7 +101,7 @@ export async function composeBotReply(input: {
     .map((m) => `${m.isBot ? "アーチくん" : m.name + "さん"}: ${m.text}`)
     .join("\n");
 
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("arch-kun", { apiKey });
   try {
     const res = await client.messages.create({
       model: "claude-sonnet-5",

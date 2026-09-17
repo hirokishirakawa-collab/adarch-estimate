@@ -9,6 +9,7 @@
 // ==============================================================
 
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import JSZip from "jszip";
 import * as cheerio from "cheerio";
 import { lookup } from "dns/promises";
@@ -174,7 +175,7 @@ const PDF_SYSTEM = `あなたは資料の文字起こし係です。渡された
 export async function extractPdf(buf: Buffer): Promise<ExtractResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY が未設定です");
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("knowledge-extract", { apiKey });
   const stream = client.messages.stream({
     model: "claude-sonnet-5",
     max_tokens: 64000,

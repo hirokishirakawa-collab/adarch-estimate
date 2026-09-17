@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 
-const anthropic = new Anthropic();
+const anthropic = createAnthropic("auto-sales-playbook-generate");
 
 // アドアーチグループで効果が確認されている参考文
 const REFERENCE_PITCH = `茨城県水戸市を拠点に映像制作をしているFUJIYAMA STUDIO代表 山口 亜弓と申します。

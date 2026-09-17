@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { MEDIA_MATRIX, MEDIA_ORDER } from "@/lib/strategy-matrix";
@@ -162,7 +162,7 @@ ${freeTextSection}
 
 上記条件、特に業種・業界の特性とクライアントの課題・お悩みを最優先で踏まえ、最適な広告プランをJSON形式で提案してください。課題・お悩みがある場合は、それに正面から応答する形でstrategyConcept・reason・actionsを記載してください。`;
 
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("strategy-advisor", { apiKey });
 
   const stream = await client.messages.stream({
     model: "claude-sonnet-5",

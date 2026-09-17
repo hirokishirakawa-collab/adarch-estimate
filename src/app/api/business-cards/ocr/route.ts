@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("business-cards-ocr", { apiKey });
 
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",

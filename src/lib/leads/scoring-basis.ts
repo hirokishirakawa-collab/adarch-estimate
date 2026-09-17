@@ -19,6 +19,7 @@ import { PREFECTURES } from "@/lib/constants/crm";
 import type { Prisma } from "@/generated/prisma/client";
 import { normalizeCompanyName } from "@/lib/leads/match-score";
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 
 export const BASIS_WINDOW_DAYS = 180;
 export const BASIS_MIN_DELTA = -6;
@@ -142,7 +143,7 @@ async function guessFamiliesByName(items: { id: string; name: string }[]): Promi
   if (!items.length) return {};
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return {};
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("lead-scoring-basis", { apiKey });
   const out: Record<string, string> = {};
   const fams = FAMILY_NAMES.join("／");
   for (let i = 0; i < items.length; i += 60) {

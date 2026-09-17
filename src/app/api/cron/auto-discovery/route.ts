@@ -3,7 +3,7 @@ export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { db } from "@/lib/db";
 import { DISCOVERY_KEYWORDS } from "@/lib/constants/video-achievements";
 
@@ -189,7 +189,7 @@ async function extractAchievements(
   $("script, style, nav, footer, header").remove();
   const text = $("body").text().replace(/\s+/g, " ").slice(0, 8000);
 
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("cron-auto-discovery", { apiKey });
 
   const prompt = `【システム】
 あなたは映像制作会社のWebサイトから「クライアント実績」を抽出する専門AIです。

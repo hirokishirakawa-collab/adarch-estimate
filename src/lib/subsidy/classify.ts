@@ -10,6 +10,7 @@
 // ==============================================================
 
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import type { AdCostFit } from "@/generated/prisma/client";
 
 const MODEL = "claude-sonnet-5";
@@ -149,7 +150,7 @@ export async function classifySubsidies(
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("[subsidy] ANTHROPIC_API_KEY が設定されていません");
 
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("subsidy-classify", { apiKey });
   const results: ClassifyResult[] = [];
   let failedBatches = 0;
 

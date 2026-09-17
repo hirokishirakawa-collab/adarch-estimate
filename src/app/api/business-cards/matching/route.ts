@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 const TTL_DAYS = 7;
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
       )
       .join("\n");
 
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("business-cards-matching", { apiKey });
 
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",

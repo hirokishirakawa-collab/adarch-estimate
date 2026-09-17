@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateBody, cinemaScoreSchema } from "@/lib/validations";
@@ -188,7 +189,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("leads-cinema-score", { apiKey });
 
     async function scoreBatch(batchIndices: number[]) {
       const batchSummary = batchIndices

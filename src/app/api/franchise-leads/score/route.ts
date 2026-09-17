@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { validateBody, franchiseLeadScoreSchema } from "@/lib/validations";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
@@ -105,7 +106,7 @@ ${placeSummary}
 上記の企業リストをAd Archグループ加盟候補としてスコアリングしてください。`;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("franchise-leads-score", { apiKey });
     const response = await client.messages.create({
       model: "claude-sonnet-5",
       thinking: { type: "disabled" },

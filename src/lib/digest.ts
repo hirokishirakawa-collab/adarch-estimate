@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { db } from "@/lib/db";
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24時間
@@ -364,7 +364,7 @@ async function generateSummary(data: DigestStats, prev: BasicStats): Promise<str
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("dashboard-digest", { apiKey });
 
   const branchText = data.activeBranches.length > 0
     ? data.activeBranches.map((b) => `${b.name}（${b.count}件）`).join("、")

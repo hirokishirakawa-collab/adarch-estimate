@@ -217,8 +217,8 @@ export async function generateFlyerCatchCopy(requestId: string): Promise<{ text?
   const plan = planForCodes(r.municipalityCodes, toSeconds(String(r.adSeconds)));
   if (!plan) return { error: "商圏の計算に失敗しました" };
 
-  const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey });
+  const { createAnthropic } = await import("@/lib/ai/anthropic-client");
+  const client = createAnthropic("tver-flyer", { apiKey });
 
   const prompt = [
     `あなたは地方の中小企業向けにTVer広告を提案する広告会社のコピーライターです。`,

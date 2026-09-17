@@ -4,6 +4,7 @@
 //   OS画面（/api/leads/score）と AI連携（discover_leads）の両方から呼ぶ。
 // ==============================================================
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import type { PlaceLead, YouTubeChannelInfo } from "@/lib/constants/leads";
 import { analyzeWebsite } from "@/lib/leads/analyze-website";
 import { searchYouTubeChannel } from "@/lib/leads/search-youtube";
@@ -198,7 +199,7 @@ export async function runLeadScoring(body: ScoreLeadsInput, branchIds: string[],
     batches.push(indices.slice(i, i + BATCH_SIZE));
   }
 
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("lead-score-pipeline", { apiKey });
 
     async function scoreBatch(batchIndices: number[]) {
       const batchSummary = batchIndices

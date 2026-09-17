@@ -9,6 +9,7 @@
 // ==============================================================
 
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import type { TenderFit, TenderWorkType } from "@/generated/prisma/client";
 
 const MODEL = "claude-sonnet-5";
@@ -189,7 +190,7 @@ export async function classifyTenders(
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("[tender] ANTHROPIC_API_KEY が設定されていません");
 
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("tender-classify", { apiKey });
   const batches: ClassifyInput[][] = [];
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     batches.push(items.slice(i, i + BATCH_SIZE));

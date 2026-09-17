@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { db } from "@/lib/db";
 import {
   TVCM_SEARCH_KEYWORDS,
@@ -317,7 +318,7 @@ export async function runTvcmCrawl(
   const keywords = options.keywords?.length
     ? options.keywords
     : Array.from(TVCM_SEARCH_KEYWORDS).slice(0, 12);
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("tvcm-crawl", { apiKey });
 
   // 切り分け診断: 各ソースの「生記事数」（AI判定前）を記録
   let youtubeRaw = 0;

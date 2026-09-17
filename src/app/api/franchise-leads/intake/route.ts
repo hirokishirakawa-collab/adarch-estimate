@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { validateBody, franchiseLeadIntakeSchema } from "@/lib/validations";
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   const { text } = parsed.data;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("franchise-leads-intake", { apiKey });
     const response = await client.messages.create({
       model: "claude-sonnet-5",
       thinking: { type: "disabled" },

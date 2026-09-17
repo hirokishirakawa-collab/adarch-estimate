@@ -7,6 +7,7 @@
 // ==============================================================
 
 import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { db } from "@/lib/db";
 import type { KnowledgeOrigin } from "@/generated/prisma/client";
 import { KNOWLEDGE_USE_RULES, ORIGIN_SHORT } from "./rules";
@@ -150,7 +151,7 @@ export async function askKnowledge(input: {
     citations: { enabled: true },
   }));
 
-  const client = new Anthropic({ apiKey });
+  const client = createAnthropic("knowledge-ask", { apiKey });
   const model = "claude-sonnet-5";
   const res = await client.messages.create({
     model,

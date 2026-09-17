@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic } from "@/lib/ai/anthropic-client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { MEDIA_MATRIX, MEDIA_ORDER } from "@/lib/strategy-matrix";
@@ -159,7 +159,7 @@ ${body.memo ? `営業メモ: ${body.memo}` : ""}
 この企業への最適な営業アプローチを提案してください。`;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = createAnthropic("leads-advise", { apiKey });
     const response = await client.messages.create({
       model: "claude-sonnet-5",
       thinking: { type: "disabled" },
