@@ -64,7 +64,7 @@ const PREF_TO_LEGACY_BRANCH: Record<string, string> = {
   pref_tokushima: "branch_tks",
   pref_ishikawa:  "branch_isk",
   pref_okinawa:   "branch_okn",
-  pref_saitama:   "branch_tky",
+  // pref_saitama は対応なし: branch_tky は千葉（片桐さん）の旧拠点。埼玉とは見合わない（2026-09-17 代表決定）
   pref_fukushima: "branch_hq",
   pref_miyagi:    "branch_hq",
   pref_shiga:     "branch_kns",
