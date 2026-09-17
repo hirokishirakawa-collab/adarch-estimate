@@ -11,8 +11,15 @@ import {
 import { AiWorkButton } from "./ai-work-button";
 import { HUB_THEMES, hubItemIcon } from "./hub-visuals";
 import { WorkConnection } from "./work-connection";
+import { SalesHub } from "./sales-hub";
 
-export function WorkspaceHub({
+type WorkspaceHubProps = { group: NavigationGroup; items: NavigationItem[]; children?: React.ReactNode };
+
+export function WorkspaceHub(props: WorkspaceHubProps) {
+  return props.group === "sales" ? <SalesHub items={props.items}>{props.children}</SalesHub> : <StandardWorkspaceHub {...props} />;
+}
+
+function StandardWorkspaceHub({
   group,
   items,
   children,
