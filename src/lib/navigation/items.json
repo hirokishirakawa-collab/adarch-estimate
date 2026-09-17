@@ -10,14 +10,6 @@
     "section": "グループの動き"
   },
   {
-    "href": "/dashboard/partner-status",
-    "label": "稼働ステータス申告",
-    "minRole": "MANAGER",
-    "aliases": [],
-    "group": "procedures",
-    "section": "本部 → 各社クライアント"
-  },
-  {
     "href": "/dashboard/leads/list",
     "label": "見込み先",
     "minRole": "USER",
@@ -436,6 +428,14 @@
     "aliases": [],
     "group": "procedures",
     "section": "本部 → 各社クライアント"
+  },
+  {
+    "href": "/dashboard/partner-status",
+    "label": "稼働ステータス申告",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "procedures",
+    "section": "本部 → グループ各社"
   },
   {
     "href": "/dashboard/payments",
