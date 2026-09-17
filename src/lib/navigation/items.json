@@ -15,7 +15,7 @@
     "minRole": "MANAGER",
     "aliases": [],
     "group": "procedures",
-    "section": "報告・請求"
+    "section": "本部 → 各社クライアント"
   },
   {
     "href": "/dashboard/leads/list",
@@ -353,14 +353,6 @@
     "section": "商品・媒体"
   },
   {
-    "href": "/dashboard/violation-report",
-    "label": "コンプライアンス相談",
-    "minRole": "MANAGER",
-    "aliases": [],
-    "group": "procedures",
-    "section": "本部への相談・共有"
-  },
-  {
     "href": "/dashboard/sales-insights",
     "label": "営業分析レポート",
     "minRole": "USER",
@@ -443,7 +435,7 @@
     "minRole": "USER",
     "aliases": [],
     "group": "procedures",
-    "section": "報告・請求"
+    "section": "本部 → 各社クライアント"
   },
   {
     "href": "/dashboard/payments",
@@ -451,7 +443,7 @@
     "minRole": "MANAGER",
     "aliases": [],
     "group": "procedures",
-    "section": "報告・請求"
+    "section": "本部 → グループ各社"
   },
   {
     "href": "/dashboard/royalty",
@@ -459,15 +451,7 @@
     "minRole": "MANAGER",
     "aliases": [],
     "group": "procedures",
-    "section": "報告・請求"
-  },
-  {
-    "href": "/dashboard/billing/settings",
-    "label": "経理情報の登録",
-    "minRole": "MANAGER",
-    "aliases": [],
-    "group": "procedures",
-    "section": "報告・請求"
+    "section": "本部 → グループ各社"
   },
   {
     "href": "/dashboard/sales-report",
@@ -475,7 +459,23 @@
     "minRole": "MANAGER",
     "aliases": [],
     "group": "procedures",
-    "section": "報告・請求"
+    "section": "各社 → 本部"
+  },
+  {
+    "href": "/dashboard/billing/settings",
+    "label": "経理情報の登録",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "procedures",
+    "section": "各社 → 本部"
+  },
+  {
+    "href": "/dashboard/violation-report",
+    "label": "コンプライアンス相談",
+    "minRole": "MANAGER",
+    "aliases": [],
+    "group": "procedures",
+    "section": "本部への相談・共有"
   },
   {
     "href": "/dashboard/business-cards",
