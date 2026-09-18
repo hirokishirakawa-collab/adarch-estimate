@@ -48,16 +48,20 @@ export interface GeoPoint {
   formatted: string;
 }
 
-/** 市区町村の中心座標（Google Geocoding）。キーが無ければ null */
+/** 市区町村の中心座標（Google Geocoding）。キーが無ければ null
+ *  キーごとにGoogle Cloudのプロジェクトが違い、Geocoding APIが有効なのは片方だけのことがある
+ *  （2026-09-18: GOOGLE_API_KEY は REQUEST_DENIED・GOOGLE_PLACES_API_KEY は OK）→ 取れるまで順に試す */
 export async function geocodeCity(prefecture: string, cityName: string): Promise<GeoPoint | null> {
-  const key = process.env.GOOGLE_API_KEY ?? process.env.GOOGLE_PLACES_API_KEY;
-  if (!key) return null;
+  const keys = [process.env.GOOGLE_API_KEY, process.env.GOOGLE_PLACES_API_KEY].filter((k): k is string => !!k);
   const q = encodeURIComponent(`${prefecture}${cityName}`);
-  const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${q}&region=jp&language=ja&key=${key}`, { cache: "no-store" });
-  if (!res.ok) return null;
-  const j = (await res.json()) as { results?: { geometry: { location: { lat: number; lng: number } }; formatted_address: string }[] };
-  const r = j.results?.[0];
-  return r ? { latitude: r.geometry.location.lat, longitude: r.geometry.location.lng, formatted: r.formatted_address } : null;
+  for (const key of keys) {
+    const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${q}&region=jp&language=ja&key=${key}`, { cache: "no-store" });
+    if (!res.ok) continue;
+    const j = (await res.json()) as { status?: string; results?: { geometry: { location: { lat: number; lng: number } }; formatted_address: string }[] };
+    const r = j.results?.[0];
+    if (r) return { latitude: r.geometry.location.lat, longitude: r.geometry.location.lng, formatted: r.formatted_address };
+  }
+  return null;
 }
 
 async function graph<T>(cfg: MetaConfig, path: string, body: Record<string, unknown>): Promise<T> {
