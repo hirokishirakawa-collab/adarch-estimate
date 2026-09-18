@@ -5769,6 +5769,7 @@ model MetaAdRecord {
   metaAdsetId      String?
   metaAdId         String?
   status           String    @default("PAUSED") // PAUSED / ACTIVE / ENDED
+  activatedAt      DateTime? // 初めて ACTIVE になった時刻＝GROUP LIVE の「配信スタート」（2026-09-18 代表指示）
   impressions      Int?
   reach            Int?
   clicks           Int? // リンククリック

@@ -576,7 +576,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   def({
     name: "record_local_ad", kind: "write", title: "作ったMeta広告をOSに記録する",
     description:
-      "Meta公式コネクタで地域限定広告を作った直後に1回呼ぶ。市・業種・半径・年齢・性別・ターゲット（職種・経営者などの細分化と、その要約）・日額・期間・LP・画像URL・見出し・本文と、Metaの広告アカウントID・キャンペーンID・広告セットID・広告IDを残す。同じキャンペーンIDなら上書き。これが全社で「どの市で・どの画像/訴求で・何回クリックされたか」を見比べる材料になる。industry は広告主の業種（自社の集客なら省略）。",
+      "Meta公式コネクタで地域限定広告を作った直後に1回呼ぶ。市・業種・半径・年齢・性別・ターゲット（職種・経営者などの細分化と、その要約）・日額・期間・LP・画像URL・見出し・本文と、Metaの広告アカウントID・キャンペーンID・広告セットID・広告IDを残す。同じキャンペーンIDなら上書き。配信をオンにしたら status: ACTIVE で記録する（初めて ACTIVE になった時にGROUP LIVEへ「◯◯市で地域限定広告の配信がスタート」が流れる・停止中は流れない）。これが全社で「どの市で・どの画像/訴求で・何回クリックされたか」を見比べる材料になる。industry は広告主の業種（自社の集客なら省略）。",
     input: z.object({ prefecture: z.string(), city: z.string(), industry: z.string().optional(), radiusKm: z.number().optional(), ageMin: z.number().int().optional(), ageMax: z.number().int().optional(), genders: z.string().optional().describe("all / male / female"), audienceLabel: z.string().optional().describe("ターゲットの要約（例: 経営者（中小企業のオーナー）・35〜64歳）"), audience: z.array(z.object({ field: z.string().describe("work_positions / behaviors / industries / interests / work_employers"), id: z.string(), name: z.string() })).optional().describe("広告セットに入れた細分化（meta_targeting_search の結果）"), dailyBudgetJpy: z.number().int(), startDate: z.string().optional().describe("YYYY-MM-DD"), endDate: z.string().optional().describe("YYYY-MM-DD"), landingUrl: z.string(), imageUrl: z.string().optional(), headline: z.string(), primaryText: z.string(), adAccountId: z.string().describe("数字（act_ なしでも可）"), campaignId: z.string(), adsetId: z.string().optional(), adId: z.string().optional(), status: z.string().optional().describe("PAUSED / ACTIVE / ENDED（既定 PAUSED）") }),
     run: (v, a) => recordLocalAd(v, a),
     confirm: (a) => `Meta広告をOSに記録します: ${a.prefecture}${a.city}・キャンペーン ${a.campaignId}`,
@@ -584,7 +584,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   def({
     name: "update_local_ad_results", kind: "write", title: "Meta広告の成果をOSに書き足す",
     description:
-      "記録済みのMeta広告（campaignId）の成果を書き足す。先に Meta公式コネクタ（ads_get_ad_entities など）で表示回数・リーチ・リンククリック・消化金額（円）を取ってくる。数字は取れたものだけ・盛らない。配信を止めた/終わったら status も更新する。「成果どう？」「広告の結果を見て」と言われたら、見せるのと同時にこれで残す。",
+      "記録済みのMeta広告（campaignId）の成果を書き足す。先に Meta公式コネクタ（ads_get_ad_entities など）で表示回数・リーチ・リンククリック・消化金額（円）を取ってくる。数字は取れたものだけ・盛らない。Meta公式コネクタで配信をオンにした（ads_activate_entity 等）ら、すぐ status: ACTIVE で呼ぶ＝GROUP LIVEに配信スタートが流れる。配信を止めた/終わったら status も更新する。「成果どう？」「広告の結果を見て」と言われたら、見せるのと同時にこれで残す。",
     input: z.object({ campaignId: z.string(), impressions: z.number().int().optional(), reach: z.number().int().optional(), clicks: z.number().int().optional().describe("リンククリック"), spendJpy: z.number().int().optional().describe("消化金額（円）"), status: z.string().optional().describe("PAUSED / ACTIVE / ENDED") }),
     run: (v, a) => updateLocalAdResults(v, a),
     confirm: (a) => `Meta広告の成果をOSに書き足します: キャンペーン ${a.campaignId}`,

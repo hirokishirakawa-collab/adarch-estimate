@@ -16,7 +16,7 @@ export function buildLiveSummary(events: readonly SummaryEvent[], now: Date = ne
       if (!Number.isFinite(at) || at > end || (exclusiveStart ? at <= start : at < start)) continue;
       // Recipient-side mail opens/clicks are shown in the feed but are not group activity counts.
       if (event.kind === "mail") continue;
-      if (["sent", "move", "log", "lead", "tver", "tool", "customer"].includes(event.kind)) counts.approach++;
+      if (["sent", "move", "log", "lead", "tver", "tool", "ad", "customer"].includes(event.kind)) counts.approach++;
       else if (event.kind === "deal") counts.deal++;
       else if (event.kind === "won") counts.won++;
       else if (event.kind === "auto") counts.auto++;

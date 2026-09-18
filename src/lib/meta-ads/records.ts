@@ -75,7 +75,9 @@ export async function recordLocalAd(v: McpViewer, a: RecordLocalAdInput) {
     landingUrl: a.landingUrl.trim(), imageUrl: a.imageUrl?.trim() || null, headline: a.headline.trim().slice(0, 200), primaryText: a.primaryText.trim().slice(0, 2000),
     metaAdAccountId: account, metaAdsetId: digits(a.adsetId) || null, metaAdId: digits(a.adId) || null, status,
   };
-  const existing = await db.metaAdRecord.findUnique({ where: { metaCampaignId: campaignId }, select: { id: true, createdByEmail: true, branchId: true, estDailyMin: true } });
+  const existing = await db.metaAdRecord.findUnique({ where: { metaCampaignId: campaignId }, select: { id: true, createdByEmail: true, branchId: true, estDailyMin: true, activatedAt: true } });
+  // 初めて ACTIVE になった時刻＝GROUP LIVE に「配信スタート」を流す（停止中の記録は流さない）
+  if (status === "ACTIVE" && !existing?.activatedAt) Object.assign(data, { activatedAt: new Date() });
   // 記録した時点の想定（対象人数と日額の目安）を残す＝一覧で実績と見比べる。取れなくても記録は止めない
   if (!existing?.estDailyMin) {
     const est = await estimateLocalAudience({ prefecture: pref, city: city.name, radiusKm: data.radiusKm, ageMin: data.ageMin ?? undefined, ageMax: data.ageMax ?? undefined, genders: genders as "all" | "male" | "female", audience }).catch(() => null);
@@ -105,14 +107,14 @@ export interface UpdateLocalAdResultsInput {
 export async function updateLocalAdResults(v: McpViewer, a: UpdateLocalAdResultsInput) {
   need(v.role !== "USER", "広告の記録は代表（MANAGER以上）のみです");
   const campaignId = digits(a.campaignId);
-  const rec = await db.metaAdRecord.findUnique({ where: { metaCampaignId: campaignId }, select: { id: true, branchId: true } });
+  const rec = await db.metaAdRecord.findUnique({ where: { metaCampaignId: campaignId }, select: { id: true, branchId: true, activatedAt: true } });
   need(rec, "このキャンペーンはOSに記録がありません。先に record_local_ad で記録してください");
   need(isHq(v) || rec.branchId === v.branchId, "他拠点の広告は更新できません");
   const n = (x: number | undefined) => (x == null || !Number.isFinite(x) ? undefined : Math.max(0, Math.round(x)));
   const status = a.status && ["PAUSED", "ACTIVE", "ENDED"].includes(a.status.toUpperCase()) ? a.status.toUpperCase() : undefined;
   const r = await db.metaAdRecord.update({
     where: { id: rec.id },
-    data: { impressions: n(a.impressions), reach: n(a.reach), clicks: n(a.clicks), spendJpy: n(a.spendJpy), ...(status ? { status } : {}), resultsUpdatedAt: new Date() },
+    data: { impressions: n(a.impressions), reach: n(a.reach), clicks: n(a.clicks), spendJpy: n(a.spendJpy), ...(status ? { status } : {}), ...(status === "ACTIVE" && !rec.activatedAt ? { activatedAt: new Date() } : {}), resultsUpdatedAt: new Date() },
     select: { impressions: true, clicks: true },
   });
   return { ok: true, ctrPct: ctr(r.clicks, r.impressions) };

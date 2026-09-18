@@ -3,13 +3,14 @@
 //   tver  : 業態考査の申請／OK、配信の申請、配信スタート
 //   tool  : 郵送DMの用意・発送、営業LPの作成、Web提案書の作成、パッケージの販売開始
 //   visit : TVer申込ページからの相談・申込（お客様の名前は出さない）
+//   ad    : 地域限定Meta広告の配信スタート（初めて ACTIVE になった時刻＝2026-09-18 代表指示。停止中の記録は流さない）
 //   ⚠️ 金額は取得しない。DM・LP・提案書・相談は相手先名も出さない（市・業種まで）。
 //      業態考査・配信は商談と同じく広告主名を出す（ライブは社名を出す面＝2026-08-24 代表決定）
 // ==============================================================
 
 import { db } from "@/lib/db";
 
-export type SalesMoveKind = "tver" | "tool" | "visit";
+export type SalesMoveKind = "tver" | "tool" | "visit" | "ad";
 export interface SalesMoveEvent {
   at: string;
   kind: SalesMoveKind;
@@ -24,7 +25,7 @@ const prefsIn = (...texts: (string | null | undefined)[]) =>
 
 export async function buildSalesMoveEvents(since: Date): Promise<SalesMoveEvent[]> {
   const now = new Date();
-  const [reviews, campaigns, orders, dmKits, lps, proposals, packages] = await Promise.all([
+  const [reviews, campaigns, orders, dmKits, lps, proposals, packages, ads] = await Promise.all([
     db.advertiserReview.findMany({
       where: { OR: [{ createdAt: { gte: since } }, { reviewedAt: { gte: since }, status: "APPROVED" }] },
       select: { createdAt: true, reviewedAt: true, status: true, name: true, branch: { select: { name: true } } },
@@ -75,11 +76,18 @@ export async function buildSalesMoveEvents(since: Date): Promise<SalesMoveEvent[
       orderBy: { approvedAt: "desc" },
       take: 20,
     }),
+    // 金額（日額・消化）は取らない。市・業種まで
+    db.metaAdRecord.findMany({
+      where: { activatedAt: { gte: since } },
+      select: { activatedAt: true, prefecture: true, cityName: true, industry: true, branchId: true, groupCompanyId: true },
+      orderBy: { activatedAt: "desc" },
+      take: 40,
+    }),
   ]);
 
   // DM・LPは拠点／加盟会社をIDだけで持っている＝名前を後から引く
-  const branchIds = [...new Set([...dmKits, ...lps].map((r) => r.branchId).filter((x): x is string => !!x))];
-  const companyIds = [...new Set([...dmKits, ...lps].map((r) => r.groupCompanyId).filter((x): x is string => !!x))];
+  const branchIds = [...new Set([...dmKits, ...lps, ...ads].map((r) => r.branchId).filter((x): x is string => !!x))];
+  const companyIds = [...new Set([...dmKits, ...lps, ...ads].map((r) => r.groupCompanyId).filter((x): x is string => !!x))];
   const [branches, companies] = await Promise.all([
     branchIds.length ? db.branch.findMany({ where: { id: { in: branchIds } }, select: { id: true, name: true } }) : [],
     companyIds.length ? db.groupCompany.findMany({ where: { id: { in: companyIds } }, select: { id: true, name: true } }) : [],
@@ -117,6 +125,12 @@ export async function buildSalesMoveEvents(since: Date): Promise<SalesMoveEvent[
     const prefs = prefsIn(o.prefName);
     push(o.createdAt, "visit", actor, prefs, `${o.areaLabel}のTVerエリア限定プランに、お客様から${o.consultMethod ? "相談" : "申込"}が入りました`);
     if (o.liveStartDate) push(o.liveStartDate, "tver", actor, prefs, `${o.areaLabel}でTVer配信がスタート`);
+  }
+
+  // ---- 地域限定Meta広告 ----
+  for (const a of ads) {
+    if (!a.activatedAt) continue;
+    push(a.activatedAt, "ad", actorOf(a), prefsIn(a.prefecture), `${a.prefecture}${a.cityName}で${a.industry ? `${a.industry}の` : ""}地域限定広告の配信がスタート`);
   }
 
   // ---- 営業の武器 ----
