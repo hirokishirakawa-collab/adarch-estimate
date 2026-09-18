@@ -21,7 +21,7 @@ import {
 } from "@/lib/constants/tver-campaign";
 import { createLocalCampaign } from "@/lib/meta-ads/local-campaign";
 import { recordLocalAd, updateLocalAdResults, listLocalAdRecords } from "@/lib/meta-ads/records";
-import { searchMetaTargeting } from "@/lib/meta-ads/targeting";
+import { searchMetaTargeting, estimateLocalAudience } from "@/lib/meta-ads/targeting";
 import { appUrl } from "@/lib/tver-order/service";
 import { discoverLeads } from "@/lib/leads/discover";
 import { prepareDm } from "@/lib/dm/prepare-dm";
@@ -303,6 +303,13 @@ export const OS_READ_TOOLS: OsToolDef[] = [
       "Meta広告を細かく当てるための候補（MetaのID）を探す。kind: job_title（職種・役職 例: 代表取締役・オーナー経営者）／behavior（行動 例: 中小企業のオーナー・ビジネスページの管理者）／industry（業界 例: 建設）／interest（興味 例: リノベーション）／employer（勤務先）。query は日本語で。返った id と name を本人に見せて選んでもらい、Meta公式コネクタの ads_create_ad_set の targeting.flexible_spec に {\"<targetingField>\":[{id,name}]} で入れる。IDは作らない（このツールの結果だけ使う）。細かくしすぎると届く人が減る＝市の半径と合わせて本人に確認。作った後は record_local_ad の audience / audienceLabel に同じものを残す。",
     input: z.object({ kind: z.enum(["job_title", "employer", "interest", "behavior", "industry"]), query: z.string().optional().describe("探す言葉（例: 経営者 / 代表 / 建設）"), limit: z.number().int().optional().describe("既定20・最大50") }),
     run: (_v, a) => searchMetaTargeting(a),
+  }),
+  def({
+    name: "meta_audience_estimate", kind: "read", title: "Meta広告の対象人数と日額の目安を出す（市×半径×ターゲット）",
+    description:
+      "市の中心から半径◯kmに住む・最近いた人のうち、年齢・ターゲット（meta_targeting_search で選んだ職種・経営者など）に当てはまる人数をMetaの推定で出し、日額の目安を返す。日額は『対象の6割に1週間で3回見せる』× OSに記録した全社の1,000回表示あたりの費用で計算（Metaの予算ではない・目安・税抜）。dailyBudgetJpy を渡すとその日額が多いか少ないかも返す。広告を作る前（create_local_ad の後・Metaで作る前）に呼び、人数と日額を本人に見せて決めてもらう。",
+    input: z.object({ prefecture: z.string(), city: z.string(), radiusKm: z.number().optional().describe("既定10"), ageMin: z.number().int().optional().describe("既定25"), ageMax: z.number().int().optional().describe("既定65"), genders: z.enum(["all", "male", "female"]).optional(), audience: z.array(z.object({ field: z.string().describe("work_positions / behaviors / industries / interests / work_employers"), id: z.string(), name: z.string() })).optional().describe("meta_targeting_search で選んだもの"), dailyBudgetJpy: z.number().int().optional().describe("考えている日額（円）") }),
+    run: (_v, a) => estimateLocalAudience(a),
   }),
 ];
 
@@ -602,7 +609,7 @@ export const OS_AI_RULES_MCP =
   "・TVerを申請したい→tver_applications（同じ広告主・期間の申請が既にあれば本人に伝えて止める）→業態考査が無ければ submit_advertiser_review／承認済みなら preview_tver_campaign を本人に見せてOK後に submit_tver_campaign。" +
   "・TVerの効果・見積→tver_benchmarks／配信済みの報告→tver_results（盛らない）／どの市から→tver_area_plan(prefecture, allCities: true)。" +
   "・今日何する→my_next_actions（0→9の順に3〜8行）／週次→my_week→本人に見せて選んでもらい submit_weekly_share。" +
-  "・◯◯市の◯◯業界に営業→plan_campaign（少なければ discover_leads）→prepare_outreach（Gmail下書き・送信は人）。フォームしか無ければ formPaste を人に渡す／送れない先は record_lead_results で電話候補へ。紙DM→prepare_dm／Meta広告→create_local_ad で設計（職種・経営者などに絞るなら meta_targeting_search）→Meta公式コネクタで停止中に作成→record_local_ad で記録（成果は update_local_ad_results・見比べは local_ad_results）／着地LP→create_landing_page。" +
+  "・◯◯市の◯◯業界に営業→plan_campaign（少なければ discover_leads）→prepare_outreach（Gmail下書き・送信は人）。フォームしか無ければ formPaste を人に渡す／送れない先は record_lead_results で電話候補へ。紙DM→prepare_dm／Meta広告→create_local_ad で設計（職種・経営者などに絞るなら meta_targeting_search）→meta_audience_estimate で対象人数と日額の目安を本人に見せる→Meta公式コネクタで停止中に作成→record_local_ad で記録（成果は update_local_ad_results・見比べは local_ad_results）／着地LP→create_landing_page。" +
   "・提案文・資料→draft_proposal(customerId) の writingGuide の順に書く／勝ち筋→find_similar_wins／媒体の仕様→search_knowledge（返った rules を守る）／決まり・手順→list_wiki→get_wiki。" +
   "・初めての相手・求人広告・紹介→screen_company。CHECK/STOP は本人に見せる（決めつけない・止めるかは本部）。" +
   "・見つからない・動きがおかしい→同じ検索を繰り返さず ask_hq。" +
