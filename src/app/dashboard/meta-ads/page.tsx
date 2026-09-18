@@ -69,6 +69,7 @@ export default async function MetaAdsPage() {
                 <tr className="text-[11px] text-zinc-500 border-b border-zinc-100">
                   <th className="px-4 py-2 text-left font-semibold">画像</th>
                   <th className="px-4 py-2 text-left font-semibold">市・拠点</th>
+                  <th className="px-4 py-2 text-left font-semibold">ターゲット</th>
                   <th className="px-4 py-2 text-left font-semibold">見出し</th>
                   <th className="px-4 py-2 text-left font-semibold">期間</th>
                   <th className="px-4 py-2 text-right font-semibold">表示</th>
@@ -82,7 +83,7 @@ export default async function MetaAdsPage() {
                   <tr key={r.id}>
                     <td className="px-4 py-2">
                       {/* 画像は各社のドメインにあり、OSのCSP（img-src）で縮小表示できない＝リンクで開く */}
-                      {r.imageUrl ? (
+                      {r.imageUrl && /^https?:\/\//i.test(r.imageUrl) ? (
                         <a href={r.imageUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-700 underline whitespace-nowrap">画像を開く</a>
                       ) : (
                         <span className="text-xs text-zinc-400">—</span>
@@ -91,6 +92,10 @@ export default async function MetaAdsPage() {
                     <td className="px-4 py-2 whitespace-nowrap">
                       {r.area}
                       <span className="block text-[11px] text-zinc-500">{r.branch}{r.industry ? `・${r.industry}` : ""}</span>
+                    </td>
+                    <td className="px-4 py-2 text-xs min-w-[10rem]">
+                      {r.audience.label ?? (r.audience.detail.length ? r.audience.detail.join("・") : "指定なし")}
+                      {r.audience.age && <span className="block text-[11px] text-zinc-500">{r.audience.age}{r.audience.genders && r.audience.genders !== "all" ? `・${r.audience.genders === "male" ? "男性" : "女性"}` : ""}</span>}
                     </td>
                     <td className="px-4 py-2 min-w-[14rem]">{r.headline}</td>
                     <td className="px-4 py-2 text-xs text-zinc-500 whitespace-nowrap">{r.period ?? "—"}</td>

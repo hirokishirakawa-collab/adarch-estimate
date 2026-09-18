@@ -5748,6 +5748,11 @@ model MetaAdRecord {
   cityName         String
   industry         String? // 広告主の業種（自社の集客なら null）
   radiusKm         Float     @default(10)
+  ageMin           Int?
+  ageMax           Int?
+  genders          String? // all / male / female
+  audienceLabel    String? // 人が読むターゲットの要約（例: 経営者（中小企業のオーナー）・35〜64歳）
+  audienceSpec     Json? // [{ field: "work_positions" | "behaviors" | "industries" | "interests" | "work_employers", id, name }]
   dailyBudgetJpy   Int
   startDate        DateTime?
   endDate          DateTime?

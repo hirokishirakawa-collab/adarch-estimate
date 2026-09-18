@@ -30,6 +30,11 @@ export interface RecordLocalAdInput {
   city: string;
   industry?: string;
   radiusKm?: number;
+  ageMin?: number;
+  ageMax?: number;
+  genders?: string;
+  audienceLabel?: string;
+  audience?: { field: string; id: string; name: string }[];
   dailyBudgetJpy: number;
   startDate?: string;
   endDate?: string;
@@ -56,11 +61,16 @@ export async function recordLocalAd(v: McpViewer, a: RecordLocalAdInput) {
   need(/^\d{5,}$/.test(account), "adAccountId はMetaの広告アカウントID（数字）を入れてください");
   need(Number.isFinite(a.dailyBudgetJpy) && a.dailyBudgetJpy > 0, "dailyBudgetJpy（日額・円）を入れてください");
   need(/^https?:\/\//.test(a.landingUrl ?? ""), "landingUrl は https:// から始めてください");
+  need(!a.imageUrl?.trim() || /^https?:\/\//i.test(a.imageUrl.trim()), "imageUrl は https:// から始めてください");
   need(a.headline?.trim() && a.primaryText?.trim(), "見出しと本文を入れてください");
+  const FIELDS = ["work_positions", "work_employers", "behaviors", "industries", "interests"];
+  const audience = (a.audience ?? []).filter((x) => x && FIELDS.includes(x.field) && /^\d{5,}$/.test(String(x.id)) && x.name?.trim()).map((x) => ({ field: x.field, id: String(x.id), name: x.name.trim().slice(0, 100) })).slice(0, 30);
+  const age = (n: number | undefined) => (n == null || !Number.isFinite(n) ? null : Math.min(65, Math.max(13, Math.round(n))));
+  const genders = ["all", "male", "female"].includes((a.genders ?? "all").toLowerCase()) ? (a.genders ?? "all").toLowerCase() : "all";
   const status = ["PAUSED", "ACTIVE", "ENDED"].includes((a.status ?? "PAUSED").toUpperCase()) ? (a.status ?? "PAUSED").toUpperCase() : "PAUSED";
   const data = {
     prefecture: pref, cityCode: city.code, cityName: city.name, industry: a.industry?.trim() || null,
-    radiusKm: a.radiusKm ?? 10, dailyBudgetJpy: Math.round(a.dailyBudgetJpy), startDate: toDate(a.startDate), endDate: toDate(a.endDate),
+    radiusKm: a.radiusKm ?? 10, ageMin: age(a.ageMin), ageMax: age(a.ageMax), genders, audienceLabel: a.audienceLabel?.trim().slice(0, 120) || null, audienceSpec: audience.length ? audience : undefined, dailyBudgetJpy: Math.round(a.dailyBudgetJpy), startDate: toDate(a.startDate), endDate: toDate(a.endDate),
     landingUrl: a.landingUrl.trim(), imageUrl: a.imageUrl?.trim() || null, headline: a.headline.trim().slice(0, 200), primaryText: a.primaryText.trim().slice(0, 2000),
     metaAdAccountId: account, metaAdsetId: digits(a.adsetId) || null, metaAdId: digits(a.adId) || null, status,
   };
@@ -103,7 +113,7 @@ export async function updateLocalAdResults(v: McpViewer, a: UpdateLocalAdResults
 }
 
 /** 画面・AI共通の一覧。自拠点は全項目、他拠点は社名・費用・文面の作成者を伏せる */
-export async function listLocalAdRecords(v: Pick<McpViewer, "role" | "branchId">, opts: { scope?: "mine" | "group"; industry?: string; prefecture?: string; limit?: number } = {}) {
+export async function listLocalAdRecords(v: Pick<McpViewer, "role" | "branchId">, opts: { scope?: "mine" | "group"; industry?: string; prefecture?: string; audience?: string; limit?: number } = {}) {
   const hq = isHq(v);
   const mineOnly = opts.scope !== "group" && !hq;
   const rows = await db.metaAdRecord.findMany({
@@ -111,6 +121,7 @@ export async function listLocalAdRecords(v: Pick<McpViewer, "role" | "branchId">
       ...(mineOnly ? { branchId: v.branchId } : {}),
       ...(opts.industry ? { industry: { contains: opts.industry } } : {}),
       ...(opts.prefecture ? { prefecture: { contains: opts.prefecture.replace(/[都府県]$/, "") } } : {}),
+      ...(opts.audience ? { audienceLabel: { contains: opts.audience } } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: Math.min(100, Math.max(1, opts.limit ?? 30)),
@@ -127,6 +138,13 @@ export async function listLocalAdRecords(v: Pick<McpViewer, "role" | "branchId">
       area: `${r.prefecture}${r.cityName}`,
       industry: r.industry,
       radiusKm: r.radiusKm,
+      // ターゲットは費用でないので他拠点にも見せる（どの層に当てるとクリックされるかの材料）
+      audience: {
+        label: r.audienceLabel,
+        age: r.ageMin || r.ageMax ? `${r.ageMin ?? 18}〜${r.ageMax ?? 65}歳` : null,
+        genders: r.genders,
+        detail: Array.isArray(r.audienceSpec) ? (r.audienceSpec as { field: string; name: string }[]).map((x) => `${x.name}`) : [],
+      },
       period: [ymd(r.startDate), ymd(r.endDate)].filter(Boolean).join("〜") || null,
       headline: r.headline,
       primaryText: r.primaryText,
