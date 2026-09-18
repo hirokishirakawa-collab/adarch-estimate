@@ -81,3 +81,29 @@ export async function disconnectMetaAdAccount(): Promise<Result> {
   revalidatePath(BASE);
   return { ok: true, message: "接続を解除しました" };
 }
+
+// ==============================================================
+// 想定費用（対象人数と日額の目安）— Meta広告画面の計算欄・見積書の「Meta広告の想定費用から入れる」
+//   本部の接続で Meta の推定人数を読むだけ（無料・何も作らない）。ログインしていれば誰でも
+// ==============================================================
+export type AudienceEstimateInput = { prefecture: string; city: string; radiusKm: number; ageMin: number; ageMax: number; preset: string; dailyBudgetJpy?: number };
+
+export async function estimateMetaAudience(input: AudienceEstimateInput) {
+  try {
+    await requireSession();
+  } catch (e) {
+    return { ok: false as const, note: (e as Error).message };
+  }
+  const { estimateLocalAudience, AUDIENCE_PRESETS } = await import("@/lib/meta-ads/targeting");
+  if (!input.prefecture?.trim() || !input.city?.trim()) return { ok: false as const, note: "都道府県と市区町村を入れてください" };
+  const preset = AUDIENCE_PRESETS[input.preset] ?? AUDIENCE_PRESETS.none;
+  try {
+    const r = await estimateLocalAudience({
+      prefecture: input.prefecture.trim(), city: input.city.trim(), radiusKm: input.radiusKm, ageMin: input.ageMin, ageMax: input.ageMax,
+      audience: preset.audience, dailyBudgetJpy: input.dailyBudgetJpy || undefined,
+    });
+    return r.ok ? { ...r, presetLabel: preset.label } : r;
+  } catch (e) {
+    return { ok: false as const, note: e instanceof Error ? e.message : "計算できませんでした" };
+  }
+}

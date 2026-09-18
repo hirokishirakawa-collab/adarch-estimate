@@ -9,6 +9,7 @@ import { getSessionInfo } from "@/lib/session";
 import { listLocalAdRecords } from "@/lib/meta-ads/records";
 import { CopyTextButton } from "@/components/packages/copy-text-button";
 import { MetaConnectForm } from "@/components/meta-ads/connect-form";
+import { AudienceEstimator } from "@/components/meta-ads/audience-estimator";
 import { db } from "@/lib/db";
 
 const META_MCP_URL = "https://mcp.facebook.com/ads";
@@ -70,6 +71,15 @@ export default async function MetaAdsPage() {
         </div>
       </div>
 
+      {/* 2026-09-18 代表決定: 想定費用（対象人数と日額の目安）を画面でも出す。見積書にも同じ計算で入れられる */}
+      <div className="bg-white border border-zinc-200 rounded-xl p-5 space-y-3">
+        <div>
+          <p className="text-sm font-bold text-zinc-900">想定費用を出す（対象人数と日額の目安）</p>
+          <p className="text-xs text-zinc-500 mt-0.5">市の中心から半径◯kmに住んでいる・最近いた人のうち、ターゲットに当てはまる人数（Metaの推定）と、日額の目安を出します。日額はOSの計算です（対象の6割に1週間で3回見せる×全社の実績）。見積書の画面からも、同じ計算で明細に入れられます。</p>
+        </div>
+        <AudienceEstimator />
+      </div>
+
       {info.role === "ADMIN" && (
         <div className={`bg-white border rounded-xl p-5 space-y-3 ${daysLeft != null && daysLeft <= 14 ? "border-orange-300" : "border-zinc-200"}`}>
           <div>
@@ -110,6 +120,7 @@ export default async function MetaAdsPage() {
                   <th className="px-4 py-2 text-left font-semibold">ターゲット</th>
                   <th className="px-4 py-2 text-left font-semibold">見出し</th>
                   <th className="px-4 py-2 text-left font-semibold">期間</th>
+                  <th className="px-4 py-2 text-left font-semibold">想定と実績</th>
                   <th className="px-4 py-2 text-right font-semibold">表示</th>
                   <th className="px-4 py-2 text-right font-semibold">クリック</th>
                   <th className="px-4 py-2 text-right font-semibold">クリック率</th>
@@ -137,6 +148,14 @@ export default async function MetaAdsPage() {
                     </td>
                     <td className="px-4 py-2 min-w-[14rem]">{r.headline}</td>
                     <td className="px-4 py-2 text-xs text-zinc-500 whitespace-nowrap">{r.period ?? "—"}</td>
+                    <td className="px-4 py-2 text-xs whitespace-nowrap">
+                      {r.estimate ? <span className="block text-zinc-600">想定 対象{r.estimate.audience}・日額{r.estimate.daily}</span> : <span className="block text-zinc-400">想定 —</span>}
+                      {r.own && "dailyBudgetJpy" in r && (
+                        <span className="block text-zinc-800">
+                          実績 日額{r.dailyBudgetJpy?.toLocaleString("ja-JP")}円{r.spendJpy != null ? `・費用${r.spendJpy.toLocaleString("ja-JP")}円` : ""}{"cpmJpy" in r && r.cpmJpy != null ? `・1,000回表示あたり${r.cpmJpy.toLocaleString("ja-JP")}円` : ""}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-2 text-right tabular-nums">{r.impressions?.toLocaleString("ja-JP") ?? "—"}</td>
                     <td className="px-4 py-2 text-right tabular-nums">{r.clicks?.toLocaleString("ja-JP") ?? "—"}</td>
                     <td className="px-4 py-2 text-right tabular-nums">{r.ctrPct != null ? `${r.ctrPct}%` : "—"}</td>

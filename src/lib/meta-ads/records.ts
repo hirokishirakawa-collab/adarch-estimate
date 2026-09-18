@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { resolveCity, resolvePref } from "@/lib/mcp/os-campaign-tools";
 import { WriteError } from "@/lib/mcp/os-write-tools";
 import type { McpViewer } from "@/lib/mcp/os-read-tools";
+import { estimateLocalAudience } from "@/lib/meta-ads/targeting";
 
 function need(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new WriteError(msg);
@@ -74,7 +75,12 @@ export async function recordLocalAd(v: McpViewer, a: RecordLocalAdInput) {
     landingUrl: a.landingUrl.trim(), imageUrl: a.imageUrl?.trim() || null, headline: a.headline.trim().slice(0, 200), primaryText: a.primaryText.trim().slice(0, 2000),
     metaAdAccountId: account, metaAdsetId: digits(a.adsetId) || null, metaAdId: digits(a.adId) || null, status,
   };
-  const existing = await db.metaAdRecord.findUnique({ where: { metaCampaignId: campaignId }, select: { id: true, createdByEmail: true, branchId: true } });
+  const existing = await db.metaAdRecord.findUnique({ where: { metaCampaignId: campaignId }, select: { id: true, createdByEmail: true, branchId: true, estDailyMin: true } });
+  // 記録した時点の想定（対象人数と日額の目安）を残す＝一覧で実績と見比べる。取れなくても記録は止めない
+  if (!existing?.estDailyMin) {
+    const est = await estimateLocalAudience({ prefecture: pref, city: city.name, radiusKm: data.radiusKm, ageMin: data.ageMin ?? undefined, ageMax: data.ageMax ?? undefined, genders: genders as "all" | "male" | "female", audience }).catch(() => null);
+    if (est?.ok) Object.assign(data, { estAudienceLower: est.numbers.audienceLower, estAudienceUpper: est.numbers.audienceUpper, estDailyMin: est.numbers.dailyMin, estDailyMax: est.numbers.dailyMax });
+  }
   if (existing) {
     need(isHq(v) || existing.branchId === v.branchId, "このキャンペーンは別の拠点が記録済みです");
     const r = await db.metaAdRecord.update({ where: { id: existing.id }, data, select: { id: true } });
@@ -156,6 +162,9 @@ export async function listLocalAdRecords(v: Pick<McpViewer, "role" | "branchId">
       clicks: r.clicks,
       ctrPct: ctr(r.clicks, r.impressions),
       ...(own ? { dailyBudgetJpy: r.dailyBudgetJpy, spendJpy: r.spendJpy, campaignId: r.metaCampaignId } : {}),
+      // 想定（記録した時点）は費用でなく目安なので全社に見せる。実績の費用・1,000回表示あたりは自拠点だけ
+      estimate: r.estDailyMin != null ? { audience: `${(r.estAudienceLower ?? 0).toLocaleString("ja-JP")}〜${(r.estAudienceUpper ?? 0).toLocaleString("ja-JP")}人`, daily: `${r.estDailyMin.toLocaleString("ja-JP")}〜${(r.estDailyMax ?? r.estDailyMin).toLocaleString("ja-JP")}円` } : null,
+      ...(own ? { cpmJpy: r.spendJpy != null && r.impressions ? Math.round((r.spendJpy / r.impressions) * 1000) : null } : {}),
       resultsUpdatedAt: ymd(r.resultsUpdatedAt),
       createdAt: ymd(r.createdAt),
     };

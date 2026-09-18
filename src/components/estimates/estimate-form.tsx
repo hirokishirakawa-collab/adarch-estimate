@@ -6,6 +6,7 @@ import { Loader2, Save, Send, Plus, Eye, EyeOff, Scissors } from "lucide-react";
 import { createEstimation, updateEstimation } from "@/lib/actions/estimate";
 import { EstimationItemRow, type TemplateOption, type ItemState } from "./estimate-item-row";
 import { cn } from "@/lib/utils";
+import { AudienceEstimator, type MetaEstimateLine } from "@/components/meta-ads/audience-estimator";
 
 type Customer = { id: string; name: string };
 type Project  = { id: string; title: string };
@@ -99,6 +100,13 @@ export function EstimateForm({ staffName, templates, customers, projects, mode =
   }, []);
 
   const addItem = () => setItems((prev) => [...prev, emptyItem()]);
+  const [showMeta, setShowMeta] = useState(false);
+  // Meta広告の想定費用から明細を入れる（空の1行だけならそれと差し替える）
+  const addMetaLines = (lines: MetaEstimateLine[]) => {
+    const rows = lines.map((l) => ({ ...emptyItem(), ...l }));
+    setItems((prev) => (prev.length === 1 && !prev[0].name && !prev[0].unitPrice ? rows : [...prev, ...rows]));
+    setShowMeta(false);
+  };
 
   // 合計計算
   const subtotal       = items.reduce((s, it) => s + Math.round(it.quantity * it.unitPrice), 0);
@@ -266,11 +274,25 @@ export function EstimateForm({ staffName, templates, customers, projects, mode =
         <button
           type="button"
           onClick={addItem}
-          className="mt-2 flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+          className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           明細を追加
         </button>
+        <button
+          type="button"
+          onClick={() => setShowMeta((v) => !v)}
+          className="mt-2 ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Meta広告の想定費用から入れる
+        </button>
+        {showMeta && (
+          <div className="mt-3 border border-orange-200 rounded-lg p-4">
+            <p className="text-xs text-zinc-500 mb-3">市・半径・ターゲットから対象人数と日額の目安を出し、「媒体費」と「運用手数料」の2行を明細に入れます（手数料の率は貴社で決めてください）。</p>
+            <AudienceEstimator onApply={addMetaLines} />
+          </div>
+        )}
       </div>
 
       {/* TVerの料金ルール（2026-09-13 代表決定）: 手数料は値引き不可・値引きは再生単価だけ（下限あり） */}

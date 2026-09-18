@@ -546,7 +546,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   def({
     name: "create_local_ad", kind: "write", title: "地域限定のMeta広告の設計を出す（作成はMeta公式コネクタで）",
     description:
-      "市を指定して、Facebook/Instagram の地域限定広告の設計（市の中心の緯度経度・半径km・日額・期間・見出し・本文・リンク先・画像）を返す。OSはMetaに直接は作らない（2026-09-18〜）。作成は、本人のAIにつないだ Meta公式の広告コネクタ（https://mcp.facebook.com/ads）で、返った設計どおりに ads_create_campaign（OUTCOME_TRAFFIC）→ ads_create_ad_set（targeting.geo_locations.custom_locations に市の中心と半径・targeting_automation.advantage_audience=0・日額）→ ads_create_creative（image_url・link_url・headline・message）→ ads_create_ad の順に、必ず停止中で作る。作る前に本人へ一覧で見せて確認をもらい、作ったらプレビューを見せ、続けて record_local_ad でOSに記録する。配信ONは本人の明示の指示があるときだけ。Meta公式コネクタが無い場合は、つなぎ方＝OS /dashboard/meta-ads を案内する。費用・運用は貴社のアカウント。",
+      "市を指定して、Facebook/Instagram の地域限定広告の設計（市の中心の緯度経度・半径km・日額・期間・見出し・本文・リンク先・画像）を返す。OSはMetaに直接は作らない（2026-09-18〜）。作成は、本人のAIにつないだ Meta公式の広告コネクタ（https://mcp.facebook.com/ads）で、返った設計（estimate＝対象人数と日額の目安つき）どおりに ads_create_campaign（OUTCOME_TRAFFIC）→ ads_create_ad_set（targeting.geo_locations.custom_locations に市の中心と半径・targeting_automation.advantage_audience=0・日額）→ ads_create_creative（image_url・link_url・headline・message）→ ads_create_ad の順に、必ず停止中で作る。作る前に本人へ一覧で見せて確認をもらい、作ったらプレビューを見せ、続けて record_local_ad でOSに記録する。配信ONは本人の明示の指示があるときだけ。Meta公式コネクタが無い場合は、つなぎ方＝OS /dashboard/meta-ads を案内する。費用・運用は貴社のアカウント。",
     input: z.object({ name: z.string().describe("キャンペーン名"), prefecture: z.string(), city: z.string(), dailyBudgetJpy: z.number().int().describe("日額（円・100以上）"), days: z.number().int().describe("配信日数（1〜90）"), landingUrl: z.string().describe("LPかTVer申込ページのURL"), headline: z.string().describe("見出し（40字以内）"), primaryText: z.string().describe("本文（125字以内が目安）"), bannerUrl: z.string().optional().describe("PNG/JPGのURL（ネット上で見られるもの）"), radiusKm: z.number().optional(), ageMin: z.number().int().optional().describe("既定25"), ageMax: z.number().int().optional().describe("既定65"), audience: z.string().optional().describe("当てたい人（例: 経営者・工務店の職人・子育て世帯）。meta_targeting_search で候補IDを探して flexible_spec に入れる") }),
     run: async (v, a) => {
       if (v.role === "USER") throw new osw.WriteError("地域限定広告は代表（MANAGER以上）のみです");
@@ -554,9 +554,13 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
       // null を渡す＝Metaには送らず設計だけ返す（市の位置が取れない時は注意つき）
       const r = await createLocalCampaign({ name: a.name, prefecture: a.prefecture, cityName: a.city, dailyBudgetJpy: a.dailyBudgetJpy, days: a.days, landingUrl: a.landingUrl, headline: a.headline, primaryText: a.primaryText, bannerUrl: banner, radiusKm: a.radiusKm, ageMin: a.ageMin, ageMax: a.ageMax }, null);
       const geo = r.payloads.meta.geo;
+      // 2026-09-18 代表決定: 設計には想定費用（対象人数と日額の目安）を必ず付ける。ターゲットを絞ったら meta_audience_estimate で出し直す
+      const estimate = geo ? await estimateLocalAudience({ prefecture: a.prefecture, city: a.city, radiusKm: a.radiusKm, ageMin: a.ageMin, ageMax: a.ageMax, dailyBudgetJpy: a.dailyBudgetJpy }).catch(() => null) : null;
       return {
         design: r.payloads,
         cityCenter: geo,
+        estimate: estimate ?? "想定費用を出せませんでした（meta_audience_estimate で出し直す）",
+        estimateNote: "作る前に、対象人数・日額の目安・この日額が多いか少ないか（yourBudget）を本人に見せる。職種・経営者などに絞ったら meta_audience_estimate(audience) で出し直す",
         imageOk: /\.(png|jpe?g)(\?|$)/i.test(banner) ? true : "画像はネット上で見られるPNG/JPGのURLを渡すか、Meta公式コネクタの画像アップロードを使う",
         next: geo
           ? "Meta公式コネクタで、この設計どおり停止中で作る（campaign→ad_set→creative→ad）。本人に見せて確認→作成→プレビュー→ record_local_ad でOSに記録"

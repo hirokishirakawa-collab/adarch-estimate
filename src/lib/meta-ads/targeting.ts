@@ -65,6 +65,22 @@ export async function searchMetaTargeting(input: { kind: TargetingKind; query?: 
 //       対象の6割に・1週間で3回見せる回数 × 1,000回表示あたりの費用（OSに記録した全社の実績。無ければ本部アカウントの過去実績の幅）
 // ==============================================================
 
+/** 画面・見積書で選べるターゲット（IDはMeta全体で共通。2026-09-18 関市広告で使った経営者層） */
+export const AUDIENCE_PRESETS: Record<string, { label: string; audience: { field: string; id: string; name: string }[] }> = {
+  none: { label: "指定なし（年齢だけ）", audience: [] },
+  owners: {
+    label: "経営者・代表者",
+    audience: [
+      { field: "behaviors", id: "6002714898572", name: "中小企業のオーナー" },
+      { field: "behaviors", id: "6020530281783", name: "ビジネスページの管理者" },
+      { field: "work_positions", id: "136911256338025", name: "代表者" },
+      { field: "work_positions", id: "213365325344846", name: "代表取締役" },
+      { field: "work_positions", id: "412472872275336", name: "代表者(個人事業主)" },
+      { field: "work_positions", id: "454122974645077", name: "オーナー経営者" },
+    ],
+  },
+};
+
 const REACH_SHARE = 0.6;
 const WEEKLY_FREQUENCY = 3;
 /** 記録が足りないときの幅（本部アカウントの過去実績 2024〜2026: 1,000回表示あたり 約250円〜2,000円） */
@@ -82,9 +98,9 @@ export async function estimateLocalAudience(input: {
 }) {
   const { geocodeCity } = await import("@/lib/meta-ads/local-campaign");
   const geo = await geocodeCity(input.prefecture, input.city).catch(() => null);
-  if (!geo) return { ok: false, note: "市の中心の位置が取れませんでした（都道府県名と市区町村名を確かめてください）" };
+  if (!geo) return { ok: false as const, note: "市の中心の位置が取れませんでした（都道府県名と市区町村名を確かめてください）" };
   const token = await hqToken();
-  if (!token) return { ok: false, note: "本部のMeta接続がありません。本部に連絡してください" };
+  if (!token) return { ok: false as const, note: "本部のMeta接続がありません。本部に連絡してください" };
   const hq = await db.metaAdAccount.findFirst({ where: { branchId: null, isActive: true }, select: { adAccountId: true } });
   const radius = Math.min(80, Math.max(1, input.radiusKm ?? 10));
   const FIELDS = ["work_positions", "work_employers", "behaviors", "industries", "interests"];
@@ -100,7 +116,7 @@ export async function estimateLocalAudience(input: {
   const params = new URLSearchParams({ targeting_spec: JSON.stringify(spec), optimization_goal: "LINK_CLICKS" });
   const res = await fetch(`${GRAPH}/act_${hq!.adAccountId.replace(/^act_/, "")}/delivery_estimate?${params}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
   const j = (await res.json()) as { data?: { estimate_mau_lower_bound?: number; estimate_mau_upper_bound?: number; estimate_ready?: boolean }[]; error?: { message: string; code?: number } };
-  if (!res.ok || j.error) return { ok: false, note: j.error?.code === 190 ? "本部のMeta接続（トークン）の期限が切れています。本部に連絡してください" : `Metaの見積もりでエラー: ${j.error?.message ?? res.status}` };
+  if (!res.ok || j.error) return { ok: false as const, note: j.error?.code === 190 ? "本部のMeta接続（トークン）の期限が切れています。本部に連絡してください" : `Metaの見積もりでエラー: ${j.error?.message ?? res.status}` };
   const lo = j.data?.[0]?.estimate_mau_lower_bound ?? 0;
   const hi = j.data?.[0]?.estimate_mau_upper_bound ?? lo;
   const mid = (lo + hi) / 2;
@@ -115,8 +131,10 @@ export async function estimateLocalAudience(input: {
   const daily = cpm.map((c) => Math.max(100, Math.round((weeklyImps / 1000) * c / 7 / 100) * 100)) as [number, number];
   const b = input.dailyBudgetJpy;
   return {
-    ok: true,
-    area: `${geo.formatted}の中心から半径${radius}km・${spec.age_min}〜${spec.age_max}歳${narrowed ? `・${Object.values(byField).flat().map((x) => x.name).join("／")}` : ""}`,
+    ok: true as const,
+    // 画面・見積書・記録で使う数字
+    numbers: { audienceLower: lo, audienceUpper: hi, dailyMin: daily[0], dailyMax: daily[1], cpmMin: Math.round(cpm[0]), cpmMax: Math.round(cpm[1]), fromRecords: cpms.length >= 3 },
+    area: `${geo.formatted.replace(/^日本、/, "")}の中心から半径${radius}km・${spec.age_min}〜${spec.age_max}歳${narrowed ? `・${Object.values(byField).flat().map((x) => x.name).join("／")}` : ""}`,
     audienceMonthly: `${lo.toLocaleString("ja-JP")}〜${hi.toLocaleString("ja-JP")}人（Metaの推定）`,
     tooSmall: hi < 1000 ? "対象が1,000人未満＝配信が止まりやすい。半径を広げるか絞り込みを減らす" : null,
     dailyBudgetGuide: `日額${daily[0].toLocaleString("ja-JP")}〜${daily[1].toLocaleString("ja-JP")}円（目安・税抜）`,

@@ -5753,6 +5753,10 @@ model MetaAdRecord {
   genders          String? // all / male / female
   audienceLabel    String? // 人が読むターゲットの要約（例: 経営者（中小企業のオーナー）・35〜64歳）
   audienceSpec     Json? // [{ field: "work_positions" | "behaviors" | "industries" | "interests" | "work_employers", id, name }]
+  estAudienceLower Int? // 記録した時点の想定（meta_audience_estimate と同じ計算）＝実績と見比べる
+  estAudienceUpper Int?
+  estDailyMin      Int?
+  estDailyMax      Int?
   dailyBudgetJpy   Int
   startDate        DateTime?
   endDate          DateTime?
