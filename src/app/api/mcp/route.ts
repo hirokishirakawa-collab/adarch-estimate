@@ -11,13 +11,12 @@
 //   ・ツール定義は src/lib/mcp/tool-catalog.ts に一本化（OS内のアーチくんと共用）
 //   ・Prompts: /proposal /after_meeting /morning（Claude側でスラッシュ一発）
 //   ・ChatGPT Apps SDK: 商談カード・今日の一手のウィジェット資源（ui://…）＋ outputTemplate
-//   ・書き込み前の確認（Elicitation）: 2026-07-28 仕様の多段往復（inputRequired）に対応したクライアントにだけ出す。
-//     非対応（Claude.ai / ChatGPT の現行コネクタ・2025年仕様）は従来通りそのまま書く
+//   ・書き込み前の確認（Elicitation）は 9/18 に停止: Cowork が 2026-07-28 仕様を名乗るのに確認を出さず固まり、
+//     書き込みが全部タイムアウトしたため。確認は AI 側がチャットで行う（どのクライアントでもそのまま書く）
 //   ・書き込みのレート上限（1人あたり 20回/分・300回/日）
 // ==============================================================
 
-import type { AuthInfo, ClientCapabilities } from "@modelcontextprotocol/server";
-import { acceptedContent, inputRequired, inputResponse } from "@modelcontextprotocol/server";
+import type { AuthInfo } from "@modelcontextprotocol/server";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
@@ -34,7 +33,6 @@ export const maxDuration = 120; // discover_leads（検索→採点→保存）�
 
 type Ctx = {
   http?: { authInfo?: AuthInfo };
-  mcpReq?: { envelope?: unknown; inputResponses?: Record<string, unknown> };
 };
 
 interface Who {
@@ -120,14 +118,6 @@ function writeAllowed(email: string): string | null {
   return null;
 }
 
-// ---- 書き込み前の確認（対応クライアントだけ） ------------------------------------------
-/** 2026-07-28 仕様（リクエスト封筒あり）で、フォーム型の Elicitation を名乗るクライアントか */
-function canConfirm(ctx: Ctx, caps: ClientCapabilities | undefined): boolean {
-  if (!ctx.mcpReq || ctx.mcpReq.envelope === undefined) return false; // 2025年仕様＝ステートレスでは往復できない
-  const el = caps?.elicitation as { form?: unknown } | undefined;
-  return !!el && (el.form !== undefined || Object.keys(el).length === 0);
-}
-
 const handler = createMcpHandler(
   (server) => {
     // ---------------- ブランドキット ----------------
@@ -210,23 +200,6 @@ const handler = createMcpHandler(
         if (isWrite) {
           const limited = writeAllowed(w.email);
           if (limited) return fail(limited);
-          // 対応クライアントには書き込み前に確認を出す（多段往復）。返答が無ければ確認を要求し、断られたら書かない
-          if (t.confirm && canConfirm(ctx, server.server.getClientCapabilities())) {
-            const view = inputResponse(ctx.mcpReq?.inputResponses, "confirm");
-            if (view.kind === "missing") {
-              return inputRequired({
-                inputRequests: {
-                  confirm: inputRequired.elicit({
-                    message: `${t.confirm(args)}\n\nOSに書き込んでよいですか？`,
-                    // 必須にすると未選択のままAcceptで弾かれる（9/13 声あり）＝Acceptだけで書き込み、外したときだけ止める
-                    requestedSchema: { type: "object", properties: { ok: { type: "boolean", title: "書き込む", description: "はい＝OSに記録する", default: true } } },
-                  }),
-                },
-              });
-            }
-            const ok = view.kind === "elicit" && view.action === "accept" && acceptedContent<{ ok?: boolean }>(ctx.mcpReq?.inputResponses, "confirm")?.ok !== false;
-            if (!ok) return text("書き込みを取りやめました（確認で「いいえ」が選ばれました）");
-          }
         }
 
         logOs(w, t.name, args, isWrite ? "mcp_os_write" : "mcp_os_read");
