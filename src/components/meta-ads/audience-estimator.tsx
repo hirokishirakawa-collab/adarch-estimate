@@ -3,24 +3,42 @@
 // Meta広告の想定費用（対象人数と日額の目安）— /dashboard/meta-ads と見積書で使う
 //   onApply を渡すと「見積書に入れる」ボタンが出る（媒体費＋運用手数料の2行）
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Loader2, Calculator } from "lucide-react";
 import { estimateMetaAudience } from "@/lib/actions/meta-ads";
+import { AUDIENCE_PRESETS } from "@/lib/meta-ads/audience-presets";
+import { PREFECTURES, SELECTABLE_MUNICIPALITIES } from "@/data/tver-municipalities";
+import { planForCodes } from "@/lib/tver/plan";
 
 type Result = Awaited<ReturnType<typeof estimateMetaAudience>>;
 export type MetaEstimateLine = { name: string; spec: string; quantity: number; unit: string; unitPrice: number };
 
 const cls = "w-full px-2.5 py-1.5 text-sm bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300";
 const yen = (n: number) => n.toLocaleString("ja-JP");
+/** TVerの想定視聴者数（OSのTVer料金と同じ推計: 全国4,470万×県の人口比×市の人口シェア） */
+const tverViewers = (code: string) => planForCodes([code])?.viewers ?? 0;
+const man = (n: number) => (n >= 10_000 ? `約${(Math.round(n / 1_000) / 10).toLocaleString("ja-JP")}万人` : `約${yen(Math.round(n / 100) * 100)}人`);
+const GROUPS = [...new Set(AUDIENCE_PRESETS.map((p) => p.group).filter(Boolean))];
 
 export function AudienceEstimator({ onApply }: { onApply?: (lines: MetaEstimateLine[]) => void }) {
-  const [f, setF] = useState({ prefecture: "", city: "", radiusKm: 10, ageMin: 25, ageMax: 65, preset: "none", dailyBudgetJpy: 0, days: 7, feePct: 20 });
+  const [f, setF] = useState({ prefCode: "", cityCode: "", radiusKm: 10, ageMin: 25, ageMax: 65, preset: "none", dailyBudgetJpy: 0, days: 7, feePct: 20 });
   const [res, setRes] = useState<Result | null>(null);
   const [pending, start] = useTransition();
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setF((p) => ({ ...p, [k]: e.target.type === "number" ? Number(e.target.value) : e.target.value }));
 
-  const run = () => start(async () => setRes(await estimateMetaAudience(f)));
+  // 市区町村はTVerの配信エリアの一覧から（人口の多い順）。各市にTVerの想定視聴者数を添える
+  const cities = useMemo(
+    () => SELECTABLE_MUNICIPALITIES.filter((m) => m.prefCode === f.prefCode && m.population > 0).sort((a, b) => b.population - a.population).map((m) => ({ ...m, viewers: tverViewers(m.code) })),
+    [f.prefCode],
+  );
+  const city = cities.find((m) => m.code === f.cityCode) ?? null;
+  const prefName = PREFECTURES.find((p) => p.code === f.prefCode)?.name ?? "";
+
+  const run = () => {
+    if (!city) return setRes({ ok: false, note: "市区町村を選んでください" });
+    start(async () => setRes(await estimateMetaAudience({ prefecture: prefName, city: city.name, radiusKm: f.radiusKm, ageMin: f.ageMin, ageMax: f.ageMax, preset: f.preset, dailyBudgetJpy: f.dailyBudgetJpy })));
+  };
 
   const ok = res && res.ok ? res : null;
   // 見積書に入れる日額＝入れた日額（無ければ目安の真ん中を100円単位で）
@@ -32,13 +50,27 @@ export function AudienceEstimator({ onApply }: { onApply?: (lines: MetaEstimateL
     // 見積書のフォームの中に置くので、Enterで見積書が送信されないようにする（Enter＝計算）
     <div className="space-y-3" onKeyDown={(e) => { if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") { e.preventDefault(); run(); } }}>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <label className="text-[11px] text-zinc-500">都道府県<input className={cls} value={f.prefecture} onChange={set("prefecture")} placeholder="岐阜県" /></label>
-        <label className="text-[11px] text-zinc-500">市区町村<input className={cls} value={f.city} onChange={set("city")} placeholder="関市" /></label>
+        <label className="text-[11px] text-zinc-500">都道府県
+          <select className={cls} value={f.prefCode} onChange={(e) => { setF((p) => ({ ...p, prefCode: e.target.value, cityCode: "" })); setRes(null); }}>
+            <option value="">選んでください</option>
+            {PREFECTURES.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
+          </select>
+        </label>
+        <label className="text-[11px] text-zinc-500">市区町村（TVerのエリア・視聴者数）
+          <select className={cls} value={f.cityCode} onChange={set("cityCode")}>
+            <option value="">選んでください</option>
+            {cities.map((m) => <option key={m.code} value={m.code}>{m.name}（TVer視聴者 {man(m.viewers)}）</option>)}
+          </select>
+        </label>
         <label className="text-[11px] text-zinc-500">半径（km）<input type="number" min={1} max={80} className={cls} value={f.radiusKm} onChange={set("radiusKm")} /></label>
         <label className="text-[11px] text-zinc-500">ターゲット
           <select className={cls} value={f.preset} onChange={set("preset")}>
             <option value="none">指定なし（年齢だけ）</option>
-            <option value="owners">経営者・代表者</option>
+            {GROUPS.map((g) => (
+              <optgroup key={g} label={g}>
+                {AUDIENCE_PRESETS.filter((p) => p.group === g).map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+              </optgroup>
+            ))}
           </select>
         </label>
         <label className="text-[11px] text-zinc-500">年齢（下）<input type="number" min={18} max={65} className={cls} value={f.ageMin} onChange={set("ageMin")} /></label>
@@ -55,7 +87,8 @@ export function AudienceEstimator({ onApply }: { onApply?: (lines: MetaEstimateL
       {ok && (
         <div className="bg-orange-50/60 border border-orange-200 rounded-lg p-3 space-y-1.5 text-sm text-zinc-800">
           <p className="text-xs text-zinc-500">{ok.area}{f.preset !== "none" ? `（${ok.presetLabel}）` : ""}</p>
-          <p>対象：<b>{ok.audienceMonthly}</b></p>
+          {city && <p>TVerの想定視聴者：<b>{city.name} {man(city.viewers)}</b>（TVerの市町村プランで届けられる人の母数・推計）</p>}
+          <p>Metaの対象：<b>{ok.audienceMonthly}</b>（半径{f.radiusKm}kmの円で数えるので、市の境界とは少しずれます）</p>
           <p>日額の目安：<b>{yen(ok.numbers.dailyMin)}〜{yen(ok.numbers.dailyMax)}円</b>（目安・税抜）{"yourBudget" in ok && ok.yourBudget ? <span className="block text-[13px] text-orange-800">→ {ok.yourBudget}</span> : null}</p>
           {ok.tooSmall && <p className="text-[13px] text-rose-700">{ok.tooSmall}</p>}
           <p className="text-[11px] text-zinc-500">{ok.howCalculated}</p>

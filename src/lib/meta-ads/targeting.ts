@@ -65,22 +65,6 @@ export async function searchMetaTargeting(input: { kind: TargetingKind; query?: 
 //       対象の6割に・1週間で3回見せる回数 × 1,000回表示あたりの費用（OSに記録した全社の実績。無ければ本部アカウントの過去実績の幅）
 // ==============================================================
 
-/** 画面・見積書で選べるターゲット（IDはMeta全体で共通。2026-09-18 関市広告で使った経営者層） */
-export const AUDIENCE_PRESETS: Record<string, { label: string; audience: { field: string; id: string; name: string }[] }> = {
-  none: { label: "指定なし（年齢だけ）", audience: [] },
-  owners: {
-    label: "経営者・代表者",
-    audience: [
-      { field: "behaviors", id: "6002714898572", name: "中小企業のオーナー" },
-      { field: "behaviors", id: "6020530281783", name: "ビジネスページの管理者" },
-      { field: "work_positions", id: "136911256338025", name: "代表者" },
-      { field: "work_positions", id: "213365325344846", name: "代表取締役" },
-      { field: "work_positions", id: "412472872275336", name: "代表者(個人事業主)" },
-      { field: "work_positions", id: "454122974645077", name: "オーナー経営者" },
-    ],
-  },
-};
-
 const REACH_SHARE = 0.6;
 const WEEKLY_FREQUENCY = 3;
 /** 記録が足りないときの幅（本部アカウントの過去実績 2024〜2026: 1,000回表示あたり 約250円〜2,000円） */
@@ -135,8 +119,9 @@ export async function estimateLocalAudience(input: {
     // 画面・見積書・記録で使う数字
     numbers: { audienceLower: lo, audienceUpper: hi, dailyMin: daily[0], dailyMax: daily[1], cpmMin: Math.round(cpm[0]), cpmMax: Math.round(cpm[1]), fromRecords: cpms.length >= 3 },
     area: `${geo.formatted.replace(/^日本、/, "")}の中心から半径${radius}km・${spec.age_min}〜${spec.age_max}歳${narrowed ? `・${Object.values(byField).flat().map((x) => x.name).join("／")}` : ""}`,
-    audienceMonthly: `${lo.toLocaleString("ja-JP")}〜${hi.toLocaleString("ja-JP")}人（Metaの推定）`,
-    tooSmall: hi < 1000 ? "対象が1,000人未満＝配信が止まりやすい。半径を広げるか絞り込みを減らす" : null,
+    // Metaは1,000人未満を細かく出さない（下限1,000で返る）
+    audienceMonthly: hi <= 1000 ? "1,000人未満（Metaの推定の下限）" : `${lo.toLocaleString("ja-JP")}〜${hi.toLocaleString("ja-JP")}人（Metaの推定）`,
+    tooSmall: hi <= 1000 ? "対象が1,000人未満＝配信が止まりやすい。半径を広げる・年齢の幅を広げる・ほかのターゲットと組み合わせる" : null,
     dailyBudgetGuide: `日額${daily[0].toLocaleString("ja-JP")}〜${daily[1].toLocaleString("ja-JP")}円（目安・税抜）`,
     ...(b ? { yourBudget: b < daily[0] ? `日額${b}円は目安より少ない＝届く人が対象の6割より減る` : b > daily[1] ? `日額${b}円は目安より多い＝同じ人に何度も出る（週3回より多い）` : `日額${b}円は目安の範囲内` } : {}),
     howCalculated: `対象の${REACH_SHARE * 100}%に1週間で${WEEKLY_FREQUENCY}回見せる（週${weeklyImps.toLocaleString("ja-JP")}回表示）× 1,000回表示あたり${Math.round(cpm[0])}〜${Math.round(cpm[1])}円（${cpms.length >= 3 ? `OSに記録した全社の実績${cpms.length}件・${narrowed ? "絞り込みあり" : "絞り込みなし"}` : "記録がまだ少ないため本部アカウントの過去実績の幅"}）。Metaが出した予算ではなくOSの計算。配信3日後に実績で見直す`,

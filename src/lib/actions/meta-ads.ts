@@ -94,9 +94,10 @@ export async function estimateMetaAudience(input: AudienceEstimateInput) {
   } catch (e) {
     return { ok: false as const, note: (e as Error).message };
   }
-  const { estimateLocalAudience, AUDIENCE_PRESETS } = await import("@/lib/meta-ads/targeting");
+  const { estimateLocalAudience } = await import("@/lib/meta-ads/targeting");
+  const { presetByKey } = await import("@/lib/meta-ads/audience-presets");
   if (!input.prefecture?.trim() || !input.city?.trim()) return { ok: false as const, note: "都道府県と市区町村を入れてください" };
-  const preset = AUDIENCE_PRESETS[input.preset] ?? AUDIENCE_PRESETS.none;
+  const preset = presetByKey(input.preset);
   try {
     const r = await estimateLocalAudience({
       prefecture: input.prefecture.trim(), city: input.city.trim(), radiusKm: input.radiusKm, ageMin: input.ageMin, ageMax: input.ageMax,
