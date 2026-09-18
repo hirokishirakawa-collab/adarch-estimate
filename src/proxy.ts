@@ -397,6 +397,6 @@ export const config = {
     // order/ と api/tver-order/ はTVer小口申込（お客様向け・ログイン不要・token で本人性を担保）。
     // r/ はセミナー録画の公開視聴ページ（お客様向け・ログイン不要・録画IDだけで開く）。
   // api/mcp・api/oauth・oauth/・.well-known はAI連携（MCP）用。api/mcp はBearerトークン、oauth/authorize はハンドラ内で auth() を見る（クエリ付きURLでログインへ戻すため）。
-    "/((?!api/auth|api/mcp|api/oauth|oauth/|\\.well-known|api/version|api/cron|api/packages/image/|api/line/webhook|api/square/webhook|l/|f/|api/contact|api/signage/d|signage/player|api/lp-view|api/franchise-leads/intake|api/franchise-leads/booking-signal|api/group-support|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|move|feedback/|order/|lp/|api/banner/|api/tver-order/|test-form|p/|r/|partner|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
+    "/((?!api/auth|api/journal/publish(?:/|$)|api/mcp|api/oauth|oauth/|\\.well-known|api/version|api/cron|api/packages/image/|api/line/webhook|api/square/webhook|l/|f/|api/contact|api/signage/d|signage/player|api/lp-view|api/franchise-leads/intake|api/franchise-leads/booking-signal|api/group-support|api/portfolio/sync|api/tracking|api/telegram|api/storage|api/creators|group-support/submit|move|feedback/|order/|lp/|api/banner/|api/tver-order/|test-form|p/|r/|partner|creators|dashboard/studio/share/|_next/static|_next/image|favicon.ico|logo-adarch\\.png|logo_white\\.png|groupLogo_yoko_White\\.png|public).*)",
   ],
 };

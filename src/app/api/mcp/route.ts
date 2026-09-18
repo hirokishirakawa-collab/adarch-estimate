@@ -68,7 +68,7 @@ function logOs(w: Who, tool: string, input: unknown, action: "mcp_os_read" | "mc
     name: w.name,
     entity: "mcp_tool",
     entityId: tool,
-    detail: `[${w.clientName ?? "AI"}] ${JSON.stringify(input ?? {})}`.slice(0, 1000),
+    detail: `[${w.clientName ?? "AI"}] ${JSON.stringify(tool.startsWith("journal_") ? { journal: true } : input ?? {})}`.slice(0, 1000),
   });
 }
 

@@ -963,5 +963,28 @@
     "minRole": "ADMIN",
     "section": "入口",
     "aliases": []
+  },
+  {
+    "href": "/dashboard/journal",
+    "label": "Journalに記事を書く",
+    "minRole": "USER",
+    "aliases": [
+      "ジャーナル",
+      "記事投稿",
+      "代表紹介"
+    ],
+    "group": "library",
+    "section": "発信・実績"
+  },
+  {
+    "href": "/dashboard/admin/journal",
+    "label": "Journalの編集",
+    "minRole": "ADMIN",
+    "aliases": [
+      "ジャーナル承認",
+      "記事公開"
+    ],
+    "group": "procedures",
+    "section": "本部管理"
   }
 ]

@@ -5871,3 +5871,44 @@ model MeetingNote {
   @@index([meetingAt(sort: Desc)])
   @@map("meeting_notes")
 }
+
+// Journal: 投稿と公開用スナップショットを分離。営業・報告データとは結合しない。
+model JournalEntry {
+  id                String   @id @default(uuid())
+  ownerId           String
+  ownerName         String
+  branchId          String
+  groupCompanyId    String?
+  externalId        String
+  kind              String
+  slug              String
+  title             String
+  content           Json
+  status            String   @default("DRAFT")
+  revision          Int      @default(1)
+  approvedRevision  Int?
+  approvedBy        String?
+  approvedAt        DateTime?
+  publicSnapshot    Json?
+  firstPublishedAt  DateTime?
+  deliveredRevision Int?
+  deliveredAt       DateTime?
+  reviewNote        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@unique([ownerId, externalId])
+  @@unique([kind, slug])
+  @@index([ownerId, updatedAt])
+  @@index([status, updatedAt])
+  @@map("journal_entries")
+}
+
+model JournalAsset {
+  id        String   @id @default(uuid())
+  ownerId   String
+  sha256    String
+  data      Bytes
+  createdAt DateTime @default(now())
+  @@unique([ownerId, sha256])
+  @@map("journal_assets")
+}

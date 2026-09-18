@@ -7,6 +7,7 @@
 // ==============================================================
 
 import { z } from "zod";
+import { JOURNAL_TOOLS } from "@/lib/journal/tools";
 import * as os from "./os-read-tools";
 import * as osw from "./os-write-tools";
 import * as ins from "./os-insight-tools";
@@ -591,7 +592,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
   }),
 ];
 
-export const OS_TOOLS: OsToolDef[] = [...OS_READ_TOOLS, ...OS_WRITE_TOOLS];
+export const OS_TOOLS: OsToolDef[] = [...OS_READ_TOOLS, ...OS_WRITE_TOOLS, ...JOURNAL_TOOLS];
 
 /** Anthropic Messages API の tools 形式（OS内のアーチくん用）。zod v4 の JSON Schema 変換を使う */
 export function toAnthropicTools(defs: OsToolDef[]): { name: string; description: string; input_schema: { type: "object"; properties?: Record<string, unknown>; required?: string[] } }[] {
