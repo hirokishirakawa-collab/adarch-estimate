@@ -20,7 +20,7 @@ import {
   SUB_GENRE_EXCLUDE_OPTIONS, TV_VIEWING_OPTIONS,
 } from "@/lib/constants/tver-campaign";
 import { createLocalCampaign } from "@/lib/meta-ads/local-campaign";
-import { resolveMetaConfig } from "@/lib/meta-ads/account";
+import { recordLocalAd, updateLocalAdResults, listLocalAdRecords } from "@/lib/meta-ads/records";
 import { appUrl } from "@/lib/tver-order/service";
 import { discoverLeads } from "@/lib/leads/discover";
 import { prepareDm } from "@/lib/dm/prepare-dm";
@@ -289,6 +289,13 @@ export const OS_READ_TOOLS: OsToolDef[] = [
     }),
     run: (v, a) => listAdBuyers(v, { ...a, limit: Math.min(200, Math.max(1, Math.floor(a.limit ?? 50))) }),
   }),
+  def({
+    name: "local_ad_results", kind: "read", title: "Meta広告の記録と成果（自拠点／全社の見比べ）",
+    description:
+      "OSに記録したMeta地域限定広告の一覧。scope: mine（既定・自拠点／本部は全社）か group（全社の見比べ）。どの市・業種で、どの見出し・画像が何回表示され何回クリックされたか（クリック率つき）。他拠点の分は社名・費用・リンク先を伏せる＝訴求と数字を『型』として借りる。新しい広告の文面・画像を考える前に呼ぶ。",
+    input: z.object({ scope: z.enum(["mine", "group"]).optional(), industry: z.string().optional(), prefecture: z.string().optional(), limit: z.number().int().optional().describe("既定30・最大100") }),
+    run: (v, a) => listLocalAdRecords(v, a),
+  }),
 ];
 
 // ---------------- 書き込み ----------------
@@ -522,18 +529,43 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     confirm: (a) => `郵送DMの材料を作り、${a.leadIds.length}件を送付として記録します（${a.prefecture} ${a.city}${a.catchCopy ? `／${a.catchCopy}` : ""}）`,
   }),
   def({
-    name: "create_local_ad", kind: "write", title: "地域限定のMeta広告を作る（少額・貴社の広告アカウントで）",
+    name: "create_local_ad", kind: "write", title: "地域限定のMeta広告の設計を出す（作成はMeta公式コネクタで）",
     description:
-      "市を指定して、Facebook/Instagram に地域限定（中心から半径km）の少額広告を貴社の広告アカウントで作る。例: 唐津市に日額500円で7日、LPへ誘導。バナーは省略するとOSの数字で描く /api/banner/tver を使う。作成は PAUSED（配信ONは人が広告マネージャで／activate: true で最初からON）。貴社のMeta広告アカウントがOSに未接続（/dashboard/meta-ads）なら、送る内容の組み立て（dryRun）だけ返す。費用・運用は貴社のアカウント。",
-    input: z.object({ name: z.string().describe("キャンペーン名"), prefecture: z.string(), city: z.string(), dailyBudgetJpy: z.number().int().describe("日額（円・100以上）"), days: z.number().int().describe("配信日数（1〜90）"), landingUrl: z.string().describe("LPかTVer申込ページのURL"), headline: z.string().describe("見出し（40字以内）"), primaryText: z.string().describe("本文（125字以内が目安）"), bannerUrl: z.string().optional().describe("PNG/JPGのURL。省略でOSの型バナー（SVG＝ドライラン用）"), radiusKm: z.number().optional(), activate: bool().optional() }),
+      "市を指定して、Facebook/Instagram の地域限定広告の設計（市の中心の緯度経度・半径km・日額・期間・見出し・本文・リンク先・画像）を返す。OSはMetaに直接は作らない（2026-09-18〜）。作成は、本人のAIにつないだ Meta公式の広告コネクタ（https://mcp.facebook.com/ads）で、返った設計どおりに ads_create_campaign（OUTCOME_TRAFFIC）→ ads_create_ad_set（targeting.geo_locations.custom_locations に市の中心と半径・targeting_automation.advantage_audience=0・日額）→ ads_create_creative（image_url・link_url・headline・message）→ ads_create_ad の順に、必ず停止中で作る。作る前に本人へ一覧で見せて確認をもらい、作ったらプレビューを見せ、続けて record_local_ad でOSに記録する。配信ONは本人の明示の指示があるときだけ。Meta公式コネクタが無い場合は、つなぎ方＝OS /dashboard/meta-ads を案内する。費用・運用は貴社のアカウント。",
+    input: z.object({ name: z.string().describe("キャンペーン名"), prefecture: z.string(), city: z.string(), dailyBudgetJpy: z.number().int().describe("日額（円・100以上）"), days: z.number().int().describe("配信日数（1〜90）"), landingUrl: z.string().describe("LPかTVer申込ページのURL"), headline: z.string().describe("見出し（40字以内）"), primaryText: z.string().describe("本文（125字以内が目安）"), bannerUrl: z.string().optional().describe("PNG/JPGのURL（ネット上で見られるもの）"), radiusKm: z.number().optional() }),
     run: async (v, a) => {
-      if (v.role === "USER") throw new osw.WriteError("地域限定広告の作成は代表（MANAGER以上）のみです");
-      const banner = a.bannerUrl ?? `${appUrl()}/api/banner/tver?${new URLSearchParams({ pref: a.prefecture, city: a.city, headline: a.headline }).toString()}`;
-      const cfg = await resolveMetaConfig(v); // 呼んだ人の拠点の接続（本部は本部の行）。無ければ dryRun
-      const r = await createLocalCampaign({ name: a.name, prefecture: a.prefecture, cityName: a.city, dailyBudgetJpy: a.dailyBudgetJpy, days: a.days, landingUrl: a.landingUrl, headline: a.headline, primaryText: a.primaryText, bannerUrl: banner, radiusKm: a.radiusKm, activate: a.activate }, cfg);
-      return { ...r, bannerUrl: banner, account: cfg ? cfg.accountName : null, connectAt: cfg ? null : `${appUrl()}/dashboard/meta-ads` };
+      if (v.role === "USER") throw new osw.WriteError("地域限定広告は代表（MANAGER以上）のみです");
+      const banner = a.bannerUrl ?? "";
+      // null を渡す＝Metaには送らず設計だけ返す（市の位置が取れない時は注意つき）
+      const r = await createLocalCampaign({ name: a.name, prefecture: a.prefecture, cityName: a.city, dailyBudgetJpy: a.dailyBudgetJpy, days: a.days, landingUrl: a.landingUrl, headline: a.headline, primaryText: a.primaryText, bannerUrl: banner, radiusKm: a.radiusKm }, null);
+      const geo = r.payloads.meta.geo;
+      return {
+        design: r.payloads,
+        cityCenter: geo,
+        imageOk: /\.(png|jpe?g)(\?|$)/i.test(banner) ? true : "画像はネット上で見られるPNG/JPGのURLを渡すか、Meta公式コネクタの画像アップロードを使う",
+        next: geo
+          ? "Meta公式コネクタで、この設計どおり停止中で作る（campaign→ad_set→creative→ad）。本人に見せて確認→作成→プレビュー→ record_local_ad でOSに記録"
+          : r.note,
+        connectAt: `${appUrl()}/dashboard/meta-ads`,
+      };
     },
-    confirm: (a) => `Meta広告を作ります: ${a.prefecture}${a.city}・日額¥${a.dailyBudgetJpy}×${a.days}日・${a.activate ? "作成後すぐ配信" : "PAUSEDで作成"}`,
+    confirm: (a) => `Meta広告の設計を出します: ${a.prefecture}${a.city}・日額¥${a.dailyBudgetJpy}×${a.days}日（Metaにはまだ作りません）`,
+  }),
+  def({
+    name: "record_local_ad", kind: "write", title: "作ったMeta広告をOSに記録する",
+    description:
+      "Meta公式コネクタで地域限定広告を作った直後に1回呼ぶ。市・業種・半径・日額・期間・LP・画像URL・見出し・本文と、Metaの広告アカウントID・キャンペーンID・広告セットID・広告IDを残す。同じキャンペーンIDなら上書き。これが全社で「どの市で・どの画像/訴求で・何回クリックされたか」を見比べる材料になる。industry は広告主の業種（自社の集客なら省略）。",
+    input: z.object({ prefecture: z.string(), city: z.string(), industry: z.string().optional(), radiusKm: z.number().optional(), dailyBudgetJpy: z.number().int(), startDate: z.string().optional().describe("YYYY-MM-DD"), endDate: z.string().optional().describe("YYYY-MM-DD"), landingUrl: z.string(), imageUrl: z.string().optional(), headline: z.string(), primaryText: z.string(), adAccountId: z.string().describe("数字（act_ なしでも可）"), campaignId: z.string(), adsetId: z.string().optional(), adId: z.string().optional(), status: z.string().optional().describe("PAUSED / ACTIVE / ENDED（既定 PAUSED）") }),
+    run: (v, a) => recordLocalAd(v, a),
+    confirm: (a) => `Meta広告をOSに記録します: ${a.prefecture}${a.city}・キャンペーン ${a.campaignId}`,
+  }),
+  def({
+    name: "update_local_ad_results", kind: "write", title: "Meta広告の成果をOSに書き足す",
+    description:
+      "記録済みのMeta広告（campaignId）の成果を書き足す。先に Meta公式コネクタ（ads_get_ad_entities など）で表示回数・リーチ・リンククリック・消化金額（円）を取ってくる。数字は取れたものだけ・盛らない。配信を止めた/終わったら status も更新する。「成果どう？」「広告の結果を見て」と言われたら、見せるのと同時にこれで残す。",
+    input: z.object({ campaignId: z.string(), impressions: z.number().int().optional(), reach: z.number().int().optional(), clicks: z.number().int().optional().describe("リンククリック"), spendJpy: z.number().int().optional().describe("消化金額（円）"), status: z.string().optional().describe("PAUSED / ACTIVE / ENDED") }),
+    run: (v, a) => updateLocalAdResults(v, a),
+    confirm: (a) => `Meta広告の成果をOSに書き足します: キャンペーン ${a.campaignId}`,
   }),
 ];
 
@@ -559,7 +591,7 @@ export const OS_AI_RULES_MCP =
   "・TVerを申請したい→tver_applications（同じ広告主・期間の申請が既にあれば本人に伝えて止める）→業態考査が無ければ submit_advertiser_review／承認済みなら preview_tver_campaign を本人に見せてOK後に submit_tver_campaign。" +
   "・TVerの効果・見積→tver_benchmarks／配信済みの報告→tver_results（盛らない）／どの市から→tver_area_plan(prefecture, allCities: true)。" +
   "・今日何する→my_next_actions（0→9の順に3〜8行）／週次→my_week→本人に見せて選んでもらい submit_weekly_share。" +
-  "・◯◯市の◯◯業界に営業→plan_campaign（少なければ discover_leads）→prepare_outreach（Gmail下書き・送信は人）。フォームしか無ければ formPaste を人に渡す／送れない先は record_lead_results で電話候補へ。紙DM→prepare_dm／Meta広告→create_local_ad／着地LP→create_landing_page。" +
+  "・◯◯市の◯◯業界に営業→plan_campaign（少なければ discover_leads）→prepare_outreach（Gmail下書き・送信は人）。フォームしか無ければ formPaste を人に渡す／送れない先は record_lead_results で電話候補へ。紙DM→prepare_dm／Meta広告→create_local_ad で設計→Meta公式コネクタで停止中に作成→record_local_ad で記録（成果は update_local_ad_results・見比べは local_ad_results）／着地LP→create_landing_page。" +
   "・提案文・資料→draft_proposal(customerId) の writingGuide の順に書く／勝ち筋→find_similar_wins／媒体の仕様→search_knowledge（返った rules を守る）／決まり・手順→list_wiki→get_wiki。" +
   "・初めての相手・求人広告・紹介→screen_company。CHECK/STOP は本人に見せる（決めつけない・止めるかは本部）。" +
   "・見つからない・動きがおかしい→同じ検索を繰り返さず ask_hq。" +
@@ -571,7 +603,7 @@ export const OS_AI_RULES =
   "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。はじめて取引する相手・求人広告・紹介で来た相手は、進める前に screen_company(name, corporateNumber, website, address, phone, jobText) を1回通し、CHECK / STOP が返ったら本人に見せて確かめる（止める・進めるは本部が決める。相手を犯罪と決めつける言い方はしない）。" +
   "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、0→8 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。探しても見つからない・OSの動きがおかしいときは、同じ言葉で引き直さず ask_hq(subject, detail) で本部に届ける。媒体の仕様・配信面・条件・他社の提案の仕組みは search_knowledge（資料ライブラリ）で引き、返った rules（自社=そのまま／他社・媒体=価格は卸値・実績は他社分）を必ず守る。" +
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。TVerの提案・見積・『効果はどのくらい？』『この市で月◯万だとどれくらい？』には tver_benchmarks(prefecture, city, monthlyBudget, industry) を先に呼び、matrix（人口帯×月額帯→30日あたり表示回数・到達人数・住民比・完全視聴率）を「目安・税抜」で添える。配信済みのお客様への報告は tver_results(reportId) の数字をそのまま使う（盛らない）。" +
-  "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。メールが無い相手は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）をそのまま人に渡す＝AIがフォームに投稿しない。送れない相手（画像認証・フォームなし）は record_lead_result(leadId, phoneCandidate: true, note: 理由) で電話候補に回す。選別の結果（対象外・電話候補）は1件ずつではなく record_lead_results(items) でまとめて記録する。どの市から当たるか迷ったら tver_area_plan(prefecture, allCities: true) を1回。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad。" +
+  "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。メールが無い相手は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）をそのまま人に渡す＝AIがフォームに投稿しない。送れない相手（画像認証・フォームなし）は record_lead_result(leadId, phoneCandidate: true, note: 理由) で電話候補に回す。選別の結果（対象外・電話候補）は1件ずつではなく record_lead_results(items) でまとめて記録する。どの市から当たるか迷ったら tver_area_plan(prefecture, allCities: true) を1回。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad で設計→Meta公式コネクタ（mcp.facebook.com/ads）で停止中に作成→record_local_ad で記録。" +
   "「TVerの配信申請を出したい」「このお客様でTVerを申請して」には、tver_applications で広告主の業態考査を確かめ、無ければ submit_advertiser_review（本部の承認待ちになる）、承認済みなら tver_area_plan(prefecture, allCities: true) と tver_benchmarks で組み合わせる市区町村と予算を決め、preview_tver_campaign でエリア一覧・人口・期間・予算・ターゲティングを本人に見せてOKをもらってから submit_tver_campaign で申請する。" +
   "「週次を出して」「今週の週次」「本部への週次共有」には my_week を1回呼び、返った記録だけから 声かけ数・返事数・いちばん近い受注候補 を埋めて本人に見せ、先週の『次の一手』が動いたか（DONE/PARTIAL/NOT）と 本部に頼みたいこと（hqRequest）を本人に選んでもらってから submit_weekly_share で提出する（OSに無い声かけは本人に聞いて足す。盛らない）。" +
   "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注が決まったら update_deal(status: CLOSED_WON) で受注にし、set_closing_factor で決め手を残す。";

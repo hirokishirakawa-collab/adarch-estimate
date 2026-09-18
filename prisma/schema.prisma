@@ -5731,6 +5731,48 @@ model MetaAdAccount {
   @@map("meta_ad_accounts")
 }
 
+// ==============================================================
+// MetaAdRecord — AIがMeta公式コネクタで作った地域限定広告の記録（2026-09-18 代表決定）
+//   作成はAI↔Meta（mcp.facebook.com/ads）。OSには「どの市で・どの画像/訴求で・何回クリックされたか」を残し、全社で見比べる
+//   成果はAIがMetaから取ってきて書き足す（OSはMetaのトークンを持たない）。他拠点の費用は出さない
+// ==============================================================
+
+model MetaAdRecord {
+  id               String    @id @default(cuid())
+  branchId         String? // 作った人の拠点（本部は null）
+  groupCompanyId   String?
+  createdByEmail   String
+  createdByName    String?
+  prefecture       String
+  cityCode         String?
+  cityName         String
+  industry         String? // 広告主の業種（自社の集客なら null）
+  radiusKm         Float     @default(10)
+  dailyBudgetJpy   Int
+  startDate        DateTime?
+  endDate          DateTime?
+  landingUrl       String
+  imageUrl         String?
+  headline         String
+  primaryText      String    @db.Text
+  metaAdAccountId  String // 数字のみ（act_ なし）
+  metaCampaignId   String    @unique
+  metaAdsetId      String?
+  metaAdId         String?
+  status           String    @default("PAUSED") // PAUSED / ACTIVE / ENDED
+  impressions      Int?
+  reach            Int?
+  clicks           Int? // リンククリック
+  spendJpy         Int?
+  resultsUpdatedAt DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([branchId])
+  @@index([createdAt(sort: Desc)])
+  @@map("meta_ad_records")
+}
+
 /// セミナー録画ライブラリ（グループ全社で共有）。置き場はYouTube限定公開URL。どの拠点も自社の窓口付き（/r/<id>?from=<加盟会社ID>）で送れる
 model SeminarRecording {
   id             String    @id @default(cuid())

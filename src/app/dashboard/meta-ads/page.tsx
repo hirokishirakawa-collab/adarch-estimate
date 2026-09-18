@@ -1,14 +1,12 @@
 // ==============================================================
-// /dashboard/meta-ads — 拠点のMeta広告アカウントをOSにつなぐ（MANAGER以上）
-//   出稿は各拠点のアカウント・費用・責任で。本部は接続状況（件数）だけ見える
-//   つなぐと、AIに「唐津市に日額500円で7日、このLPへ」と言えば地域限定広告が作れる（create_local_ad）
+// /dashboard/meta-ads — Meta広告（地域限定）のつなぎ方と、記録した広告の一覧（MANAGER以上）
+//   出稿は各拠点のアカウント・費用・責任で
+//   2026-09-18〜 作成はAI↔Meta公式コネクタ（mcp.facebook.com/ads）。OSは設計（create_local_ad）と記録（record_local_ad）＝この画面は「つなぎ方」と「記録した広告」
 // ==============================================================
 import { redirect } from "next/navigation";
 import { Megaphone } from "lucide-react";
-import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
-import { branchIdForNewAccount } from "@/lib/line/access";
-import { MetaConnectForm } from "@/components/meta-ads/connect-form";
+import { listLocalAdRecords } from "@/lib/meta-ads/records";
 import { CopyTextButton } from "@/components/packages/copy-text-button";
 
 const META_MCP_URL = "https://mcp.facebook.com/ads";
@@ -21,10 +19,7 @@ export default async function MetaAdsPage() {
   const info = await getSessionInfo();
   if (!info) redirect("/login");
   if (info.role === "USER") redirect("/dashboard");
-  const branchId = branchIdForNewAccount(info);
-  const mine = branchId === undefined ? null : await db.metaAdAccount.findFirst({ where: { branchId } });
-  const branches = info.role === "ADMIN" ? await db.metaAdAccount.findMany({ where: { branchId: { not: null } }, include: { branch: { select: { name: true } } }, orderBy: { createdAt: "asc" } }) : [];
-  const fmt = (d: Date | null | undefined) => (d ? d.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" }) : "—");
+  const records = await listLocalAdRecords({ role: info.role, branchId: info.branchId ?? null });
 
   return (
     <div className="px-6 py-6 max-w-screen-lg mx-auto w-full space-y-6">
@@ -41,7 +36,7 @@ export default async function MetaAdsPage() {
       {/* 2026-09-18 Meta公式の広告コネクタ（MCP）で作成まで確認＝アプリ・トークン不要。各社はこちらを案内する */}
       <div className="bg-white border border-orange-200 rounded-xl p-5 space-y-3">
         <div>
-          <p className="text-sm font-bold text-zinc-900">おすすめ：Meta公式コネクタでつなぐ（アプリ・トークン不要）</p>
+          <p className="text-sm font-bold text-zinc-900">つなぎ方：Meta公式コネクタ（アプリ・トークン不要）</p>
           <p className="text-xs text-zinc-500 mt-0.5">お使いのAI（Claude／ChatGPT）に、Metaが公式に出している広告コネクタを足すだけです。つなぐと、AIから貴社の広告アカウントで広告を作れます（作成は停止中・配信ONは本人）。</p>
         </div>
         <ol className="list-decimal pl-5 space-y-1.5 text-[13px] text-zinc-700">
@@ -61,50 +56,58 @@ export default async function MetaAdsPage() {
         </div>
       </div>
 
-      {/* 従来のトークン接続はたたんで残す（2026-09-18 代表決定・本部はこの接続で稼働中） */}
-      <details className="bg-white border border-zinc-200 rounded-xl p-5 group" open={!!mine}>
-        <summary className="cursor-pointer list-none text-sm font-bold text-zinc-700">
-          従来の方法（上級者向け）：OSに直接つなぐ（アプリとトークンを使う）<span className="text-xs font-normal text-zinc-400 ml-2 group-open:hidden">開く ▾</span>
-        </summary>
-        <div className="mt-3 space-y-4">
-        <p className="text-xs text-zinc-500">Metaでアプリとシステムユーザーを作り、トークンを貼る方法です。トークンは60日で切れるため貼り直しが要ります。通常は上の公式コネクタをお使いください。</p>
-        {mine && (
-          <p className="text-sm text-zinc-700 mb-4">
-            接続中: <b>{mine.adAccountName ?? mine.adAccountId}</b>（{mine.currency ?? "—"}）／ページID {mine.pageId} ／ 最終確認 {fmt(mine.lastVerifiedAt)}
-          </p>
-        )}
-        {branchId === undefined ? (
-          <p className="text-sm text-rose-700">拠点が割り当てられていないため接続できません。本部にお問い合わせください。</p>
+      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-zinc-100 bg-zinc-50">
+          <p className="text-xs font-semibold text-zinc-600">記録した広告（{info.role === "ADMIN" ? "全社" : "自拠点"}）— AIが作った後に record_local_ad で残した分。成果はAIに「広告の結果を見て」と頼むと書き足されます</p>
+        </div>
+        {records.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs text-zinc-400">まだ記録された広告はありません</p>
         ) : (
-          <MetaConnectForm existing={mine ? { name: mine.name, adAccountId: mine.adAccountId, pageId: mine.pageId } : null} />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] text-zinc-500 border-b border-zinc-100">
+                  <th className="px-4 py-2 text-left font-semibold">画像</th>
+                  <th className="px-4 py-2 text-left font-semibold">市・拠点</th>
+                  <th className="px-4 py-2 text-left font-semibold">見出し</th>
+                  <th className="px-4 py-2 text-left font-semibold">期間</th>
+                  <th className="px-4 py-2 text-right font-semibold">表示</th>
+                  <th className="px-4 py-2 text-right font-semibold">クリック</th>
+                  <th className="px-4 py-2 text-right font-semibold">クリック率</th>
+                  <th className="px-4 py-2 text-left font-semibold">状態</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {records.map((r) => (
+                  <tr key={r.id}>
+                    <td className="px-4 py-2">
+                      {r.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={r.imageUrl} alt="" className="w-20 h-auto rounded border border-zinc-200" />
+                      ) : (
+                        <span className="text-xs text-zinc-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      {r.area}
+                      <span className="block text-[11px] text-zinc-500">{r.branch}{r.industry ? `・${r.industry}` : ""}</span>
+                    </td>
+                    <td className="px-4 py-2 min-w-[14rem]">{r.headline}</td>
+                    <td className="px-4 py-2 text-xs text-zinc-500 whitespace-nowrap">{r.period ?? "—"}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{r.impressions?.toLocaleString("ja-JP") ?? "—"}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{r.clicks?.toLocaleString("ja-JP") ?? "—"}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{r.ctrPct != null ? `${r.ctrPct}%` : "—"}</td>
+                    <td className="px-4 py-2 text-xs whitespace-nowrap">
+                      {r.status === "ACTIVE" ? "配信中" : r.status === "ENDED" ? "終了" : "停止中"}
+                      {r.resultsUpdatedAt && <span className="block text-[11px] text-zinc-400">成果 {r.resultsUpdatedAt}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-
-      <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 text-sm text-zinc-700 space-y-2">
-        <p className="font-semibold">従来の方法で用意するもの（Meta Business Suite）</p>
-        <ol className="list-decimal pl-5 space-y-1 text-[13px]">
-          <li>広告アカウントID（広告マネージャ → 設定。「act_」で始まる番号）</li>
-          <li>広告の名義になる Facebookページ のID</li>
-          <li>アクセストークン＝ビジネス設定 → システムユーザー → トークンを生成（権限: ads_management・pages_read_engagement）。広告アカウントとページへのアクセス権をそのシステムユーザーに付ける</li>
-        </ol>
-        <p className="text-[13px]">つないだ後の使い方: AIに「唐津市に日額500円で7日、さっきのLPへ広告を出して」。作成は「停止」状態＝内容を広告マネージャで確認して配信をONに（「最初からON」と言えばそのまま配信）。画像はネット上で見られるPNG/JPGのURLを渡してください。</p>
       </div>
-        </div>
-      </details>
-
-      {info.role === "ADMIN" && (
-        <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-zinc-100 bg-zinc-50"><p className="text-xs font-semibold text-zinc-600">拠点の接続状況（本部は件数と接続の有無だけ・広告の中身は見ない）</p></div>
-          <table className="w-full text-sm">
-            <thead><tr className="text-[11px] text-zinc-500 border-b border-zinc-100"><th className="px-4 py-2 text-left font-semibold">拠点</th><th className="px-4 py-2 text-left font-semibold">表示名</th><th className="px-4 py-2 text-left font-semibold">通貨</th><th className="px-4 py-2 text-right font-semibold">最終確認</th></tr></thead>
-            <tbody className="divide-y divide-zinc-100">
-              {branches.length === 0 && <tr><td colSpan={4} className="px-4 py-5 text-center text-xs text-zinc-400">まだ接続した拠点はありません</td></tr>}
-              {branches.map((b) => (
-                <tr key={b.id}><td className="px-4 py-2">{b.branch?.name ?? "—"}</td><td className="px-4 py-2">{b.name}</td><td className="px-4 py-2">{b.currency ?? "—"}</td><td className="px-4 py-2 text-right text-xs text-zinc-500">{fmt(b.lastVerifiedAt)}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }
