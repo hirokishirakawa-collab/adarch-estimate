@@ -109,12 +109,11 @@ export function buildPayloads(input: LocalCampaignInput, geo: GeoPoint | null, c
         targeting_automation: { advantage_audience: 0 },
       },
     },
-    image: { url: input.bannerUrl },
     creative: {
       name: `${input.name} / creative`,
       object_story_spec: {
         page_id: cfg?.pageId ?? "<META_PAGE_ID>",
-        link_data: { link: input.landingUrl, message: input.primaryText, name: input.headline, call_to_action: { type: "LEARN_MORE", value: { link: input.landingUrl } }, image_hash: "<uploaded>" },
+        link_data: { link: input.landingUrl, message: input.primaryText, name: input.headline, call_to_action: { type: "LEARN_MORE", value: { link: input.landingUrl } }, picture: input.bannerUrl },
       },
     },
     ad: { name: `${input.name} / ad`, status: input.activate ? "ACTIVE" : "PAUSED" },
@@ -147,15 +146,17 @@ export async function createLocalCampaign(input: LocalCampaignInput, account?: M
     throw new Error("bannerUrl は PNG か JPG にしてください（Metaの画像要件）。/api/banner/tver?format=png を使うか、画像URLを渡してください");
   }
   const camp = await graph<{ id: string }>(cfg, `${cfg.adAccountId}/campaigns`, payloads.campaign);
-  const adset = await graph<{ id: string }>(cfg, `${cfg.adAccountId}/adsets`, { ...payloads.adset, campaign_id: camp.id });
-  const img = await graph<{ images: Record<string, { hash: string }> }>(cfg, `${cfg.adAccountId}/adimages`, payloads.image);
-  const hash = Object.values(img.images)[0]?.hash;
-  if (!hash) throw new Error("画像のアップロードに失敗しました");
-  const creative = await graph<{ id: string }>(cfg, `${cfg.adAccountId}/adcreatives`, {
-    name: payloads.creative.name,
-    object_story_spec: { ...payloads.creative.object_story_spec, link_data: { ...payloads.creative.object_story_spec.link_data, image_hash: hash } },
-  });
-  const ad = await graph<{ id: string }>(cfg, `${cfg.adAccountId}/ads`, { ...payloads.ad, adset_id: adset.id, creative: { creative_id: creative.id } });
+  // 途中で失敗したら作りかけのキャンペーンを消す（2026-09-18 広告セットだけ残った）
+  let adset: { id: string }, ad: { id: string };
+  try {
+    adset = await graph<{ id: string }>(cfg, `${cfg.adAccountId}/adsets`, { ...payloads.adset, campaign_id: camp.id });
+    // 画像は adimages でアップロードせず URL（picture）で渡す＝アプリの権限段階で adimages が断られるため
+    const creative = await graph<{ id: string }>(cfg, `${cfg.adAccountId}/adcreatives`, payloads.creative);
+    ad = await graph<{ id: string }>(cfg, `${cfg.adAccountId}/ads`, { ...payloads.ad, adset_id: adset.id, creative: { creative_id: creative.id } });
+  } catch (err) {
+    await graph(cfg, camp.id, { status: "DELETED" }).catch(() => {});
+    throw err;
+  }
   if (input.activate) {
     await graph(cfg, `${camp.id}`, { status: "ACTIVE" });
     await graph(cfg, `${adset.id}`, { status: "ACTIVE" });
