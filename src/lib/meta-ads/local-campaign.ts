@@ -69,8 +69,13 @@ async function graph<T>(cfg: MetaConfig, path: string, body: Record<string, unkn
   for (const [k, v] of Object.entries(body)) form.set(k, typeof v === "string" ? v : JSON.stringify(v));
   // トークンはURL・本文に載せず Authorization ヘッダーで
   const res = await fetch(`${GRAPH}/${path}`, { method: "POST", body: form, headers: { Authorization: `Bearer ${cfg.accessToken}` } });
-  const j = (await res.json()) as T & { error?: { message: string; code?: number } };
-  if (!res.ok || j.error) throw new Error(`Meta API ${path}: ${j.error?.message ?? res.status}`);
+  const j = (await res.json()) as T & { error?: { message: string; code?: number; error_subcode?: number; error_user_title?: string; error_user_msg?: string } };
+  if (!res.ok || j.error) {
+    const e = j.error;
+    // 「Invalid parameter」だけでは原因が分からない（2026-09-18）→ Metaの詳しい説明まで残す
+    const detail = [e?.error_user_title, e?.error_user_msg, e?.error_subcode ? `subcode ${e.error_subcode}` : ""].filter(Boolean).join(" / ");
+    throw new Error(`Meta API ${path}: ${e?.message ?? res.status}${detail ? `（${detail}）` : ""}`);
+  }
   return j;
 }
 
@@ -81,7 +86,8 @@ export function buildPayloads(input: LocalCampaignInput, geo: GeoPoint | null, c
   const budget = Math.max(100, Math.round(input.dailyBudgetJpy)); // JPYは最小単位が1円
   const radius = Math.max(1, Math.min(80, input.radiusKm ?? 10));
   return {
-    campaign: { name: input.name, objective: "OUTCOME_TRAFFIC", status: "PAUSED", special_ad_categories: [] as string[] },
+    // 予算は広告セットごと＝広告セット間の予算共有はしない（Metaが明示を必須化）
+    campaign: { name: input.name, objective: "OUTCOME_TRAFFIC", status: "PAUSED", special_ad_categories: [] as string[], is_adset_budget_sharing_enabled: false },
     adset: {
       name: `${input.name} / ${input.cityName} ${radius}km`,
       daily_budget: budget,
@@ -99,6 +105,8 @@ export function buildPayloads(input: LocalCampaignInput, geo: GeoPoint | null, c
         age_min: input.ageMin ?? 25,
         age_max: input.ageMax ?? 65,
         publisher_platforms: ["facebook", "instagram"],
+        // 市の半径・年齢をMetaに広げさせない（Advantage+オーディエンスの指定をMetaが必須化）
+        targeting_automation: { advantage_audience: 0 },
       },
     },
     image: { url: input.bannerUrl },
