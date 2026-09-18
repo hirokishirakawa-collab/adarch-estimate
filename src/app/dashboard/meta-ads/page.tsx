@@ -8,6 +8,8 @@ import { Megaphone } from "lucide-react";
 import { getSessionInfo } from "@/lib/session";
 import { listLocalAdRecords } from "@/lib/meta-ads/records";
 import { CopyTextButton } from "@/components/packages/copy-text-button";
+import { MetaConnectForm } from "@/components/meta-ads/connect-form";
+import { db } from "@/lib/db";
 
 const META_MCP_URL = "https://mcp.facebook.com/ads";
 const ASK_EXAMPLE = "OSで◯◯県◯◯市の地域限定広告の設計を出して、その位置を使って、Metaで◯◯市の中心から半径10km・日額500円・7日間・（LPのURL）・（画像のURL）の広告を停止中で作って。作ったらプレビューを見せて";
@@ -15,11 +17,23 @@ const ASK_EXAMPLE = "OSで◯◯県◯◯市の地域限定広告の設計を出
 export const metadata = { title: "Meta広告（地域限定）" };
 export const dynamic = "force-dynamic";
 
+const TOKEN_DAYS = 60;
+/** 本部トークンの期限の目安（最後に貼った日＋60日）と残り日数 */
+function tokenExpiry(lastVerifiedAt: Date | null) {
+  if (!lastVerifiedAt) return { expiresAt: null, daysLeft: null };
+  const expiresAt = new Date(lastVerifiedAt.getTime() + TOKEN_DAYS * 86_400_000);
+  return { expiresAt, daysLeft: Math.ceil((expiresAt.getTime() - Date.now()) / 86_400_000) };
+}
+
 export default async function MetaAdsPage() {
   const info = await getSessionInfo();
   if (!info) redirect("/login");
   if (info.role === "USER") redirect("/dashboard");
   const records = await listLocalAdRecords({ role: info.role, branchId: info.branchId ?? null });
+  // 本部のターゲット検索用の接続（ADMINだけ・branchId=null の行）。トークンは60日で切れる
+  const hq = info.role === "ADMIN" ? await db.metaAdAccount.findFirst({ where: { branchId: null } }) : null;
+  const { expiresAt, daysLeft } = tokenExpiry(hq?.lastVerifiedAt ?? null);
+  const jp = (d: Date) => d.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" });
 
   return (
     <div className="px-6 py-6 max-w-screen-lg mx-auto w-full space-y-6">
@@ -55,6 +69,30 @@ export default async function MetaAdsPage() {
           <p className="text-[12px] text-zinc-500">市の中心の位置はOSが出します。画像はネット上で見られるPNG/JPGのURLを渡すか、AIにアップロードしてもらいます。広告費・運用は貴社のアカウントです。</p>
         </div>
       </div>
+
+      {info.role === "ADMIN" && (
+        <div className={`bg-white border rounded-xl p-5 space-y-3 ${daysLeft != null && daysLeft <= 14 ? "border-orange-300" : "border-zinc-200"}`}>
+          <div>
+            <p className="text-sm font-bold text-zinc-900">本部：ターゲット検索の接続（本部だけに表示）</p>
+            <p className="text-xs text-zinc-500 mt-0.5">各社のAIが「経営者・職種・業界」などのターゲット候補を探すとき、この本部の接続でMetaを検索します（検索のみ・無料）。トークンは{TOKEN_DAYS}日で切れるので、切れる前に貼り直してください。</p>
+          </div>
+          {hq ? (
+            <p className={`text-sm ${daysLeft != null && daysLeft <= 14 ? "text-orange-700 font-semibold" : "text-zinc-700"}`}>
+              接続中: <b>{hq.adAccountName ?? hq.adAccountId}</b>（{hq.currency ?? "—"}）／最後に貼った日 {hq.lastVerifiedAt ? jp(hq.lastVerifiedAt) : "—"}
+              {expiresAt && <>／期限の目安 {jp(expiresAt)}（{daysLeft != null && daysLeft > 0 ? `あと${daysLeft}日` : "期限切れの可能性"}）</>}
+            </p>
+          ) : (
+            <p className="text-sm text-rose-700">未接続です。ターゲット検索が使えません。</p>
+          )}
+          <details className="text-sm" open={!hq || (daysLeft != null && daysLeft <= 14)}>
+            <summary className="cursor-pointer text-xs text-zinc-500">トークンを貼り直す</summary>
+            <div className="mt-3 space-y-3">
+              <p className="text-xs text-zinc-500">Meta Business Suite の「設定」→「システムユーザー」→「Ad Arch OS」→「トークンを生成」（アプリ: Ad Arch OS／60日間／権限: ads_management・pages_read_engagement）。表示されたトークンを下に貼り、「接続テストして保存」を押す。</p>
+              <MetaConnectForm existing={hq ? { name: hq.name, adAccountId: hq.adAccountId, pageId: hq.pageId } : null} />
+            </div>
+          </details>
+        </div>
+      )}
 
       <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 border-b border-zinc-100 bg-zinc-50">

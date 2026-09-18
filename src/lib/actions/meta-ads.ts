@@ -23,7 +23,8 @@ export async function saveMetaAdAccount(_prev: Result | null, fd: FormData): Pro
   } catch (e) {
     return { error: (e as Error).message };
   }
-  if (info.role === "USER") return { error: "接続は代表（MANAGER以上）のみ行えます" };
+  // 2026-09-18〜 各社は Meta公式コネクタ。この接続は本部のターゲット検索用だけ＝本部（ADMIN）のみ
+  if (info.role !== "ADMIN") return { error: "この接続は本部のみ行えます（各社は Meta公式コネクタをお使いください）" };
   const branchId = branchIdForNewAccount(info);
   if (branchId === undefined) return { error: "拠点が割り当てられていないアカウントでは接続できません" };
 
@@ -70,6 +71,7 @@ export async function disconnectMetaAdAccount(): Promise<Result> {
   } catch (e) {
     return { error: (e as Error).message };
   }
+  if (info.role !== "ADMIN") return { error: "この接続は本部のみ操作できます" };
   const branchId = branchIdForNewAccount(info);
   if (branchId === undefined) return { error: "権限がありません" };
   const row = await db.metaAdAccount.findFirst({ where: { branchId } });
