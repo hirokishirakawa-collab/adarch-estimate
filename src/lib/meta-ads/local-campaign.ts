@@ -139,7 +139,7 @@ export async function createLocalCampaign(input: LocalCampaignInput, account?: M
   const payloads = buildPayloads(input, geo, cfg);
   const noGeo = `${input.prefecture}${input.cityName}の位置を取得できないため、広告は作成しません（全国配信を防ぐため）。本部にお知らせください`;
   if (!cfg) {
-    return { dryRun: true, status: "DRY_RUN", payloads, note: geo ? "貴社のMeta広告アカウントがOSに未接続のため、送る内容の組み立てだけ行いました。OSの「Meta広告（地域限定）」画面で広告アカウントID・ページID・アクセストークンを貼ると、この内容でそのまま作成できます（費用・運用は貴社のアカウント）" : `送る内容の組み立てだけ行いました。ただし${noGeo}` };
+    return { dryRun: true, status: "DRY_RUN", payloads, note: geo ? "貴社のMeta広告アカウントがOSに未接続のため、送る内容の組み立てだけ行いました。Meta公式の広告コネクタ（https://mcp.facebook.com/ads）をAIにつないでいれば、この内容（市の中心・半径・予算・期間・文面・リンク先）でMeta側に停止中で作成できます。つなぎ方はOSの「Meta広告（地域限定）」画面にあります（費用・運用は貴社のアカウント）" : `送る内容の組み立てだけ行いました。ただし${noGeo}` };
   }
   if (!geo) throw new Error(noGeo);
   if (!/\.(png|jpe?g)(\?|$)/i.test(input.bannerUrl)) {

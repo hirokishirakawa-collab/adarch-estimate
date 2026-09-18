@@ -9,6 +9,10 @@ import { db } from "@/lib/db";
 import { getSessionInfo } from "@/lib/session";
 import { branchIdForNewAccount } from "@/lib/line/access";
 import { MetaConnectForm } from "@/components/meta-ads/connect-form";
+import { CopyTextButton } from "@/components/packages/copy-text-button";
+
+const META_MCP_URL = "https://mcp.facebook.com/ads";
+const ASK_EXAMPLE = "OSで◯◯県◯◯市の地域限定広告の設計を出して、その位置を使って、Metaで◯◯市の中心から半径10km・日額500円・7日間・（LPのURL）・（画像のURL）の広告を停止中で作って。作ったらプレビューを見せて";
 
 export const metadata = { title: "Meta広告（地域限定）" };
 export const dynamic = "force-dynamic";
@@ -34,7 +38,32 @@ export default async function MetaAdsPage() {
         </div>
       </div>
 
+      {/* 2026-09-18 Meta公式の広告コネクタ（MCP）で作成まで確認＝アプリ・トークン不要。各社はこちらを案内する */}
+      <div className="bg-white border border-orange-200 rounded-xl p-5 space-y-3">
+        <div>
+          <p className="text-sm font-bold text-zinc-900">おすすめ：Meta公式コネクタでつなぐ（アプリ・トークン不要）</p>
+          <p className="text-xs text-zinc-500 mt-0.5">お使いのAI（Claude／ChatGPT）に、Metaが公式に出している広告コネクタを足すだけです。つなぐと、AIから貴社の広告アカウントで広告を作れます（作成は停止中・配信ONは本人）。</p>
+        </div>
+        <ol className="list-decimal pl-5 space-y-1.5 text-[13px] text-zinc-700">
+          <li><b>Claude</b>：claude.ai の「設定」→「コネクタ」→「カスタムコネクタを追加」。名前は「Meta Ads」、URLは下のもの。<b>ChatGPT</b>：設定の「コネクタ」から同じURLを追加</li>
+          <li>「連携／接続」→ Metaのログインと許可の画面で、<b>貴社のビジネス</b>と<b>広告アカウント</b>を選んで許可する（Claude Codeを開いたままつないだ場合は、開き直すと使えます）</li>
+          <li>AIに「Metaで使える広告アカウントを一覧にして」と頼み、貴社の広告アカウントが出ればOK</li>
+        </ol>
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="text-[13px] bg-zinc-50 border border-zinc-200 rounded-md px-2 py-1">{META_MCP_URL}</code>
+          <CopyTextButton text={META_MCP_URL} label="URLをコピー" />
+        </div>
+        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 space-y-2">
+          <p className="text-xs font-semibold text-zinc-700">つないだ後の頼み方（OSとMetaの両方をつないだ状態）</p>
+          <p className="text-[13px] text-zinc-700">{ASK_EXAMPLE}</p>
+          <CopyTextButton text={ASK_EXAMPLE} label="頼み方をコピー" />
+          <p className="text-[12px] text-zinc-500">市の中心の位置はOSが出します。画像はネット上で見られるPNG/JPGのURLを渡すか、AIにアップロードしてもらいます。広告費・運用は貴社のアカウントです。</p>
+        </div>
+      </div>
+
       <div className="bg-white border border-zinc-200 rounded-xl p-5">
+        <p className="text-sm font-bold text-zinc-900 mb-1">従来の方法：OSに直接つなぐ（アプリとトークンを使う）</p>
+        <p className="text-xs text-zinc-500 mb-4">Metaでアプリとシステムユーザーを作り、トークンを貼る方法です。トークンは60日で切れるため貼り直しが要ります。通常は上の公式コネクタをお使いください。</p>
         {mine && (
           <p className="text-sm text-zinc-700 mb-4">
             接続中: <b>{mine.adAccountName ?? mine.adAccountId}</b>（{mine.currency ?? "—"}）／ページID {mine.pageId} ／ 最終確認 {fmt(mine.lastVerifiedAt)}
@@ -48,7 +77,7 @@ export default async function MetaAdsPage() {
       </div>
 
       <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 text-sm text-zinc-700 space-y-2">
-        <p className="font-semibold">用意するもの（Meta Business Suite）</p>
+        <p className="font-semibold">従来の方法で用意するもの（Meta Business Suite）</p>
         <ol className="list-decimal pl-5 space-y-1 text-[13px]">
           <li>広告アカウントID（広告マネージャ → 設定。「act_」で始まる番号）</li>
           <li>広告の名義になる Facebookページ のID</li>
