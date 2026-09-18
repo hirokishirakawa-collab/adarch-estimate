@@ -88,9 +88,10 @@ export function buildPayloads(input: LocalCampaignInput, geo: GeoPoint | null, c
       end_time: end.toISOString(),
       status: "PAUSED",
       targeting: {
+        // 市の位置が取れない時に全国へ広げない（2026-09-18 全国配信になりかけた）。作成側で止める
         geo_locations: geo
           ? { custom_locations: [{ latitude: geo.latitude, longitude: geo.longitude, radius, distance_unit: "kilometer" }] }
-          : { countries: ["JP"] },
+          : "<市の位置を取得できませんでした＝作成しません>",
         age_min: input.ageMin ?? 25,
         age_max: input.ageMax ?? 65,
         publisher_platforms: ["facebook", "instagram"],
@@ -125,9 +126,11 @@ export async function createLocalCampaign(input: LocalCampaignInput, account?: M
   const cfg = account ?? metaConfig();
   const geo = await geocodeCity(input.prefecture, input.cityName).catch(() => null);
   const payloads = buildPayloads(input, geo, cfg);
+  const noGeo = `${input.prefecture}${input.cityName}の位置を取得できないため、広告は作成しません（全国配信を防ぐため）。本部にお知らせください`;
   if (!cfg) {
-    return { dryRun: true, status: "DRY_RUN", payloads, note: "貴社のMeta広告アカウントがOSに未接続のため、送る内容の組み立てだけ行いました。OSの「Meta広告（地域限定）」画面で広告アカウントID・ページID・アクセストークンを貼ると、この内容でそのまま作成できます（費用・運用は貴社のアカウント）" };
+    return { dryRun: true, status: "DRY_RUN", payloads, note: geo ? "貴社のMeta広告アカウントがOSに未接続のため、送る内容の組み立てだけ行いました。OSの「Meta広告（地域限定）」画面で広告アカウントID・ページID・アクセストークンを貼ると、この内容でそのまま作成できます（費用・運用は貴社のアカウント）" : `送る内容の組み立てだけ行いました。ただし${noGeo}` };
   }
+  if (!geo) throw new Error(noGeo);
   if (!/\.(png|jpe?g)(\?|$)/i.test(input.bannerUrl)) {
     throw new Error("bannerUrl は PNG か JPG にしてください（Metaの画像要件）。/api/banner/tver?format=png を使うか、画像URLを渡してください");
   }
