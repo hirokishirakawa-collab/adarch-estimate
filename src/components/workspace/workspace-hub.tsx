@@ -16,7 +16,7 @@ import { TaskHub } from "./task-hub";
 type WorkspaceHubProps = { group: NavigationGroup; items: NavigationItem[]; children?: React.ReactNode };
 
 export function WorkspaceHub(props: WorkspaceHubProps) {
-  if (props.group === "sales" || props.group === "projects" || props.group === "library" || props.group === "procedures") {
+  if (props.group === "sales" || props.group === "projects" || props.group === "library" || props.group === "publishing" || props.group === "procedures") {
     return <TaskHub key={props.group} group={props.group} items={props.items}>{props.children}</TaskHub>;
   }
   return <StandardWorkspaceHub {...props} />;

@@ -269,8 +269,8 @@
     "label": "メンバー紹介",
     "minRole": "USER",
     "aliases": [],
-    "group": "projects",
-    "section": "TVer・協力者"
+    "group": "publishing",
+    "section": "発信・紹介"
   },
   {
     "href": "/dashboard/strategy-advisor",
@@ -566,8 +566,8 @@
     "label": "TVerチラシ制作サポート",
     "minRole": "MANAGER",
     "aliases": [],
-    "group": "projects",
-    "section": "TVer・協力者"
+    "group": "publishing",
+    "section": "発信・チラシ"
   },
   {
     "href": "/dashboard/signage",
@@ -819,8 +819,8 @@
     "label": "郵送DM（チラシDM）",
     "minRole": "USER",
     "aliases": [],
-    "group": "sales",
-    "section": "提案・連絡を準備する"
+    "group": "publishing",
+    "section": "発信・チラシ"
   },
   {
     "href": "/dashboard/seminars",
@@ -829,8 +829,8 @@
     "aliases": [
       "セミナー録画ライブラリ（全社共有）"
     ],
-    "group": "library",
-    "section": "事例・材料・使い方"
+    "group": "publishing",
+    "section": "発信・セミナー"
   },
   {
     "href": "/dashboard/admin/knowledge",
@@ -949,6 +949,21 @@
     "aliases": []
   },
   {
+    "href": "/dashboard/work/publishing",
+    "label": "発信",
+    "minRole": "USER",
+    "aliases": [
+      "Journal",
+      "ジャーナル",
+      "セミナー",
+      "チラシ",
+      "DM",
+      "メンバー紹介"
+    ],
+    "group": "publishing",
+    "section": "入口"
+  },
+  {
     "href": "/dashboard/work/procedures",
     "label": "手続き",
     "group": "procedures",
@@ -973,8 +988,8 @@
       "記事投稿",
       "代表紹介"
     ],
-    "group": "library",
-    "section": "発信・実績"
+    "group": "publishing",
+    "section": "発信・記事"
   },
   {
     "href": "/dashboard/admin/journal",
@@ -984,7 +999,7 @@
       "ジャーナル承認",
       "記事公開"
     ],
-    "group": "procedures",
-    "section": "本部管理"
+    "group": "admin",
+    "section": "本部の管理"
   }
 ]

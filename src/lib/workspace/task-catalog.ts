@@ -7,7 +7,7 @@ const SALES_TASKS: HubTask[] = [
   { id: "manage", scene: "network", number: "04", english: "CONTINUE", title: "顧客・商談を見る", caption: "これまでの会話と、提案の続きを確認する", hint: "相手の情報か、提案の進み具合か", next: "次の提案を用意するときは「提案・連絡を準備する」へ。" },
 ];
 
-export type TaskGroup = "sales" | "projects" | "library" | "procedures";
+export type TaskGroup = "sales" | "projects" | "library" | "publishing" | "procedures";
 export type HubScene = "orbit" | "sheets" | "messages" | "network";
 export type HubTask = { id: string; number: string; english: string; title: string; caption: string; hint: string; next: string; scene: HubScene; titleLines?: readonly string[] };
 export type HubTool = { task: string; title: string; description: string; item: NavigationItem };
@@ -26,7 +26,6 @@ const SALES_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
   "/dashboard/estimates": { task: "prepare", title: "見積もりを作る", description: "公式見積もりで、提案する内容をまとめる。" },
   "/dashboard/strategy-advisor": { task: "prepare", title: "提案の切り口をAIに相談する", description: "提案戦略アドバイザーで、相手に合う提案を考える。" },
   "/dashboard/tver-order-link": { task: "prepare", title: "TVerの相談リンクを用意する", description: "お客様に渡すTVer相談リンクを確認する。" },
-  "/dashboard/leads/dm": { task: "prepare", title: "郵送DMを準備する", description: "チラシと送付先を用意する。" },
   "/dashboard/subsidy-finder": { task: "prepare", title: "使える補助金を探す", description: "広告費・制作費の財源になる制度を探す。" },
   "/dashboard/award-finder": { task: "prepare", title: "応募できる広告賞を探す", description: "クライアントとの会話に使う、広告賞の情報を探す。" },
   "/dashboard/video-achievements": { task: "prepare", title: "他社の制作実績を探す", description: "提案の参考にする、他社の映像実績を調べる。" },
@@ -70,9 +69,7 @@ const PROJECT_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
   "/dashboard/signage": { task: "operate", title: "サイネージの端末を見る", description: "端末の登録情報と動作状況を確認する。" },
   "/dashboard/signage/playlists": { task: "operate", title: "サイネージの再生枠を組む", description: "プレイリストから、再生する内容を整える。" },
   "/dashboard/signage/assets": { task: "operate", title: "サイネージの素材を管理する", description: "端末で再生する素材を確認する。" },
-  "/dashboard/tver-flyer": { task: "operate", title: "TVerの営業チラシを作る", description: "チラシ制作サポートで、営業に使う材料を用意する。" },
   "/dashboard/project-matching": { task: "team", title: "案件マッチングを見る", description: "協力できる仕事や募集を確認する。" },
-  "/dashboard/group-profiles": { task: "team", title: "グループのメンバーを見る", description: "各メンバーの紹介から、相談先を探す。" },
   "/dashboard/creators": { task: "team", title: "クリエイターを探す", description: "制作を相談するクリエイターを検索する。" },
 };
 const LIBRARY_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
@@ -95,7 +92,20 @@ const LIBRARY_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
   "/dashboard/playbook": { task: "learn", title: "営業の進め方を確認する", description: "営業プレイブックから、実践の手順を探す。" },
   "/dashboard/wiki": { task: "learn", title: "社内Wikiで調べる", description: "社内で共有している知識を確認する。" },
   "/dashboard/learning": { task: "learn", title: "研修で学ぶ", description: "ラーニングの学習コンテンツを開く。" },
-  "/dashboard/seminars": { task: "learn", title: "セミナーの録画を見る", description: "共有されているセミナーの録画を探す。" },
+};
+
+const PUBLISHING_TASKS: HubTask[] = [
+  { id: "write", scene: "sheets", number: "01", english: "WRITE", title: "記事を書く", caption: "仕事や地域の話を、Journalに載せる", hint: "書いた原稿は本部が確認してから公開", next: "書いた人の紹介は「自分を紹介する」で整えられます。" },
+  { id: "profile", scene: "network", number: "02", english: "PROFILE", title: "自分を紹介する", caption: "メンバー紹介で、人柄と仕事を伝える", hint: "紹介ページを確認する", next: "話して伝えるなら「セミナーで伝える」へ。" },
+  { id: "seminar", scene: "messages", number: "03", english: "SEMINAR", title: "セミナーで伝える", caption: "自社のセミナー録画を、窓口付きリンクで届ける", hint: "録画を登録・共有する", next: "紙で届けるなら「チラシ・DMを届ける」へ。" },
+  { id: "print", scene: "orbit", number: "04", english: "PRINT", title: "チラシ・DMを届ける", caption: "営業チラシと郵送DMを用意する", hint: "届けるものを選ぶ", next: "反応があったら「顧客・営業」で結果を残せます。" },
+];
+const PUBLISHING_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
+  "/dashboard/journal": { task: "write", title: "Journalに記事を書く", description: "タイトル・写真・本文を入れて、本部に確認を依頼する。" },
+  "/dashboard/group-profiles": { task: "profile", title: "メンバー紹介を見る", description: "自分と仲間の紹介から、人柄と仕事を伝える。" },
+  "/dashboard/seminars": { task: "seminar", title: "セミナーの録画を登録・共有する", description: "自社の窓口付きリンクで、録画をお客様に送る。" },
+  "/dashboard/tver-flyer": { task: "print", title: "TVerの営業チラシを作る", description: "チラシ制作サポートで、営業に使う材料を用意する。" },
+  "/dashboard/leads/dm": { task: "print", title: "郵送DMを準備する", description: "チラシと送付先を用意する。" },
 };
 
 const PROCEDURE_TASKS: HubTask[] = [
@@ -122,6 +132,7 @@ export const TASK_HUBS = {
   projects: { label: "案件・申請", english: "MAKE IT HAPPEN", invitation: "仕事を、ひとつ先へ。", tasks: PROJECT_TASKS, tools: PROJECT_TOOL_DESCRIPTIONS },
   procedures: { label: "手続き", english: "KEEP THINGS MOVING", invitation: "必要な手続きを、迷わず。", tasks: PROCEDURE_TASKS, tools: PROCEDURE_TOOL_DESCRIPTIONS },
   library: { label: "資料・事例", english: "IDEAS INTO ACTION", invitation: "次の提案に、いい材料を。", tasks: LIBRARY_TASKS, tools: LIBRARY_TOOL_DESCRIPTIONS },
+  publishing: { label: "発信", english: "TELL YOUR STORY", invitation: "地域と人のことを、外に届ける。", tasks: PUBLISHING_TASKS, tools: PUBLISHING_TOOL_DESCRIPTIONS },
 } satisfies Record<TaskGroup, { label: string; english: string; invitation: string; tasks: HubTask[]; tools: Record<string, ToolDescription> }>;
 
 /** Only destinations granted by the server may become cards, links or search results. */

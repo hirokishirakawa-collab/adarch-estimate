@@ -8,6 +8,7 @@ const paths: Partial<Record<NavigationGroup, string[]>> = {
   sales: ["顧客", "商談", "提案"],
   projects: ["案件", "制作", "納品"],
   library: ["資料", "事例", "提案"],
+  publishing: ["記事", "紹介", "発信"],
   procedures: ["自分の記録", "本部", "確認"],
 };
 

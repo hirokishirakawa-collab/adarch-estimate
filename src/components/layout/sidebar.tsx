@@ -10,6 +10,7 @@ import {
   Layers,
   BookOpen,
   ClipboardCheck,
+  Megaphone,
   Building2,
   Settings2,
   Star,
@@ -42,6 +43,7 @@ const icons = {
   sales: Users,
   projects: Layers,
   library: BookOpen,
+  publishing: Megaphone,
   procedures: ClipboardCheck,
 };
 type Favorite = { id: string; path: string; label: string };

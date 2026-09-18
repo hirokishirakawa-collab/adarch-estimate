@@ -6,6 +6,7 @@ export type NavigationGroup =
   | "sales"
   | "projects"
   | "library"
+  | "publishing"
   | "procedures"
   | "admin"
   | "settings";
@@ -44,6 +45,12 @@ export const NAVIGATION_GROUPS = [
     label: "資料・事例",
     href: "/dashboard/work/library",
     description: "提案と制作に使う材料を、ひとつの入口に。",
+  },
+  {
+    id: "publishing",
+    label: "発信",
+    href: "/dashboard/work/publishing",
+    description: "記事・紹介・セミナー・チラシで、外に届ける。",
   },
   {
     id: "procedures",

@@ -14,7 +14,7 @@ export default async function WorkHubPage({
   params: Promise<{ group: string }>;
 }) {
   const { group } = await params;
-  if (!["sales", "projects", "library", "procedures"].includes(group))
+  if (!["sales", "projects", "library", "publishing", "procedures"].includes(group))
     notFound();
   const session = await auth();
   if (!session?.user) redirect("/login");

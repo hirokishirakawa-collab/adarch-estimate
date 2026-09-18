@@ -25,7 +25,7 @@ export const HUB_THEMES: Partial<Record<NavigationGroup, HubTheme>> = {
     features: [
       { href: "/dashboard/projects", verb: "つくる", description: "進んでいる仕事の続きを。", icon: Clapperboard },
       { href: "/dashboard/tver", verb: "届ける", description: "広告主の考査から配信まで。", icon: Video },
-      { href: "/dashboard/group-profiles", verb: "つながる", description: "一緒につくる仲間を見つける。", icon: Users },
+      { href: "/dashboard/creators", verb: "つながる", description: "一緒につくる仲間を見つける。", icon: Users },
     ],
   },
   library: {
