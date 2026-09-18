@@ -81,9 +81,9 @@ export default async function MetaAdsPage() {
                 {records.map((r) => (
                   <tr key={r.id}>
                     <td className="px-4 py-2">
+                      {/* 画像は各社のドメインにあり、OSのCSP（img-src）で縮小表示できない＝リンクで開く */}
                       {r.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={r.imageUrl} alt="" className="w-20 h-auto rounded border border-zinc-200" />
+                        <a href={r.imageUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-700 underline whitespace-nowrap">画像を開く</a>
                       ) : (
                         <span className="text-xs text-zinc-400">—</span>
                       )}
