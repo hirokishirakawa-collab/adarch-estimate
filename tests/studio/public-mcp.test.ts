@@ -5,6 +5,7 @@ import { STUDIO_TOOLS, STUDIO_INSTRUCTIONS, STUDIO_CONSULT_PROMPT, CREATOR_INSTR
 import { addBusinessMinutes } from "../../src/lib/studio/business-hours";
 import { normalizePrefecture } from "../../src/lib/studio/routing";
 import { clientIp } from "../../src/lib/contact/guard";
+import { isStudioHost, isStudioAllowedPath, STUDIO_ALLOWED_PATHS } from "../../src/lib/studio/host";
 import { STUDIO_TERMS, STUDIO_TERMS_VERSION, studioTermsHtml } from "../../src/lib/studio/terms";
 import { CREATOR_PAYMENT_TEXT, CREATOR_COPYRIGHT_TEXT } from "../../src/lib/creators/terms";
 
@@ -147,6 +148,23 @@ test("制作者向けのページ：約束に読める表現と翌々月払い�
   assert.match(CREATOR_PAYMENT_TEXT, /支払期日は請求書の有無にかかわらず変わりません/);
   assert.match(CREATOR_COPYRIGHT_TEXT, /対価は報酬に含みます/);
   assert.match(CREATOR_COPYRIGHT_TEXT, /著作者人格権は行使しない/);
+});
+
+test("studio ドメイン：判定・開いてよいパス・振り分けの順番", () => {
+  assert.equal(isStudioHost("studio.adarch.co.jp"), true);
+  assert.equal(isStudioHost("STUDIO.adarch.co.jp:443"), true);
+  assert.equal(isStudioHost("adarch-estimate-production.up.railway.app"), false);
+  assert.equal(isStudioHost("studio.adarch.co.jp.evil.example"), false);
+  assert.equal(isStudioHost(null), false);
+  assert.deepEqual([...STUDIO_ALLOWED_PATHS], ["/", "/mcp", "/mcp/creator", "/terms"]);
+  const conf = readFileSync("next.config.ts", "utf8");
+  for (const p of ["/", "/mcp", "/mcp/creator", "/terms", "/style.css", "/images/hero.jpg"]) assert.equal(isStudioAllowedPath(p), true, p);
+  for (const p of ["/dashboard", "/login", "/api/mcp", "/api/mcp/public", "/.well-known/oauth-protected-resource", "/oauth/authorize", "/mcp/creator/x", "/a/../b.css", "/api/version.json"]) assert.equal(isStudioAllowedPath(p), false, p);
+  const order = ['source: "/", has: studio, destination: "/api/mcp/public/site"', 'source: "/mcp", has: studio, destination: "/api/mcp/public"', 'source: "/mcp/creator", has: studio, destination: "/api/mcp/public/creator"', 'source: "/terms", has: studio, destination: "/api/mcp/public/terms"', 'has: studio, destination: "/api/mcp/public/not-found"'];
+  let at = -1;
+  for (const o of order) { const i = conf.indexOf(o); assert.ok(i > at, o); at = i; } // 「それ以外は404」が最後
+  const proxy = readFileSync("src/proxy.ts", "utf8");
+  assert.ok(proxy.indexOf("isStudioHost(hostname)") < proxy.indexOf("// 2. 未認証アクセス"), "studio の振り分けは認証（ログインへの転送）より前");
 });
 
 test("県名をそろえる", () => {

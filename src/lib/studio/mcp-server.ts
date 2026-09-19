@@ -14,11 +14,13 @@ import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { clientIp } from "@/lib/contact/guard";
 import { infoLimited, ipHash } from "./guard";
+import { STUDIO_ORIGIN, isStudioHost } from "./host";
+import { studioTermsUrl } from "./terms";
 import {
   CREATOR_CONSULT_PROMPT,
   CREATOR_INSTRUCTIONS,
   STUDIO_CONSULT_PROMPT,
-  STUDIO_INSTRUCTIONS,
+  studioInstructions,
   toolsFor,
   type StudioAudience,
   type StudioCaller,
@@ -31,10 +33,10 @@ const fail = (s: string) => ({ content: [{ type: "text" as const, text: s }], is
 
 function caller(ctx: Ctx): StudioCaller {
   const extra = (ctx.http?.authInfo?.extra ?? {}) as Partial<StudioCaller>;
-  return { ipHash: extra.ipHash ?? "unknown", userAgent: extra.userAgent ?? null };
+  return { ipHash: extra.ipHash ?? "unknown", userAgent: extra.userAgent ?? null, termsUrl: extra.termsUrl ?? studioTermsUrl() };
 }
 
-function buildHandler(audience: StudioAudience) {
+function buildHandler(audience: StudioAudience, termsUrl: string) {
   const tools = toolsFor(audience);
   const entity = audience === "creator" ? "studio_creator" : "studio_client";
   return createMcpHandler(
@@ -88,7 +90,7 @@ function buildHandler(audience: StudioAudience) {
     },
     {
       serverInfo: { name: audience === "creator" ? "adarch-studio-creator" : "adarch-studio", version: "1.1.0" },
-      instructions: audience === "creator" ? CREATOR_INSTRUCTIONS : STUDIO_INSTRUCTIONS,
+      instructions: audience === "creator" ? CREATOR_INSTRUCTIONS : studioInstructions(termsUrl),
       capabilities: { tools: {}, prompts: {} },
       onEvent: (ev) => {
         if (ev.type === "ERROR") console.error(`[studio-mcp:${audience}]`, ev.error, ev.context ?? "");
@@ -99,17 +101,26 @@ function buildHandler(audience: StudioAudience) {
 
 /** URLごとの route の中身（GET/POST/DELETE/OPTIONS） */
 export function studioRoute(audience: StudioAudience) {
-  const handler = buildHandler(audience);
+  // 入口のドメインごとに説明文（利用条件のURL）が違うので、ハンドラーを2つ持つ（作るのは最初の呼び出し時）
+  const handlers = new Map<"os" | "studio", ReturnType<typeof buildHandler>>();
+  const handlerFor = (studio: boolean) => {
+    const key = studio ? "studio" : "os";
+    let h = handlers.get(key);
+    if (!h) handlers.set(key, (h = buildHandler(audience, studio ? `${STUDIO_ORIGIN}/terms` : studioTermsUrl())));
+    return h;
+  };
   /** 呼び出し元（IPのハッシュとUA）をツールへ渡す。Bearer は読まない */
   const withCaller = async (req: Request): Promise<Response> => {
+    // studio.adarch.co.jp から来たときは利用条件のURLも studio ドメインで返す（Host だけで判定＝rewrites と同じ条件）
+    const studio = isStudioHost(req.headers.get("host"));
     const auth: AuthInfo = {
       token: "",
       clientId: `public-${audience}`,
       scopes: [],
-      extra: { ipHash: ipHash(clientIp(req.headers)), userAgent: req.headers.get("user-agent") },
+      extra: { ipHash: ipHash(clientIp(req.headers)), userAgent: req.headers.get("user-agent"), termsUrl: studio ? `${STUDIO_ORIGIN}/terms` : studioTermsUrl() },
     };
     (req as Request & { auth?: AuthInfo }).auth = auth;
-    return handler(req);
+    return handlerFor(studio)(req);
   };
   const OPTIONS = () =>
     new Response(null, {

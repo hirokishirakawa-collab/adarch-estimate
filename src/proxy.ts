@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { hasMinRole } from "@/types/roles";
 import type { UserRole } from "@/types/roles";
 import type { NextAuthRequest } from "next-auth";
+import { isStudioAllowedPath, isStudioHost } from "@/lib/studio/host";
 
 // ----------------------------------------------------------------
 // パス設定
@@ -283,6 +284,14 @@ export default auth((req: NextAuthRequest) => {
   // 0c. スキャナーが狙う不正パス → 即403（ログ・レートリミット不要）
   if (isBlockedPath(pathname)) {
     return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  // 0studio. Ad Arch Studio の自社ドメイン（studio.adarch.co.jp）。ログイン・OSの画面へは一切進めない
+  //   開いてよい4つのパスと紹介ページのCSS・画像だけ通し（行き先へのリライトは next.config.ts の rewrites）、それ以外は404
+  //   判定は Host だけ（next.config の rewrites と同じ条件。利用者が書ける x-forwarded-host は見ない）
+  if (isStudioHost(hostname)) {
+    if (isStudioAllowedPath(pathname)) return NextResponse.next();
+    return new NextResponse("Not Found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }
 
   // 0d. 商談予約システムの公開ページ・API（認証不要）

@@ -23,6 +23,34 @@ const nextConfig: NextConfig = {
     ],
   },
   // ----------------------------------------------------------------
+  // Ad Arch Studio の自社ドメイン（studio.adarch.co.jp）だけの振り分け（2026-09-20）
+  //   Host が studio.adarch.co.jp のときだけ効く。OSのドメインの動きは変わらない。
+  //   /mcp・/mcp/creator・/terms・/（＋紹介ページのCSS・画像）だけを窓口へ。それ以外（OSの画面・API・/.well-known 含む）は全部404
+  //   ＝OSの認証の案内（oauth-protected-resource 等）を返さない＝AIがログインを求めに来ない
+  //   ⚠️ ホスト名は src/lib/studio/host.ts と同じ値（next.config は @/ を import できないため直書き）
+  //   beforeFiles は上から順に「続けて」当てはめる（2026-09-20 実測: 前の行で書き換えた後の行き先にも次の行が当たる）。
+  //   そのため最後の「それ以外は404」は、前の行の行き先（/api/mcp/public・/creator・/terms・/site）を除いて当てる。
+  //   結果として studio ドメインで /api/mcp/public・/creator・/terms・/site を直接開いても同じ公開の中身が返る（OSの情報は無い）
+  //   紹介ページのファイルは src/app/api/mcp/public/site/[[...path]]/route.ts が public/studio/ から返す（無いファイルは素の404）
+  // ----------------------------------------------------------------
+  async rewrites() {
+    const studio = [{ type: "host" as const, value: "studio.adarch.co.jp" }];
+    return {
+      beforeFiles: [
+        // 紹介ページ（public/studio/index.html）と、そこから相対パスで読むCSS・画像（拡張子つきのパス）
+        { source: "/", has: studio, destination: "/api/mcp/public/site" },
+        { source: "/mcp", has: studio, destination: "/api/mcp/public" },
+        { source: "/mcp/creator", has: studio, destination: "/api/mcp/public/creator" },
+        { source: "/terms", has: studio, destination: "/api/mcp/public/terms" },
+        { source: "/:file((?!api/)[^?#]+\\.[A-Za-z0-9]{1,5})", has: studio, destination: "/api/mcp/public/site/:file" },
+        // それ以外は全部404（前の行の行き先は除く）
+        { source: "/:path((?!api/mcp/public(?:/creator|/terms|/site(?:/.*)?)?$).*)", has: studio, destination: "/api/mcp/public/not-found" },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
+  // ----------------------------------------------------------------
   // セキュリティヘッダー（全レスポンスに付与）
   // ----------------------------------------------------------------
   async headers() {

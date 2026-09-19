@@ -1,0 +1,47 @@
+<!doctype html>
+<!--
+  Ad Arch Studio 紹介ページ（仮・1枚）＝ https://studio.adarch.co.jp/
+  差し替え方: Codex の成果物 site/ の中身（index.html・CSS・画像）を、このフォルダ public/studio/ にそのままコピーする。
+  ・index.html から相対パスで読むファイル（style.css・images/hero.jpg など）は /style.css・/images/hero.jpg として届く
+  ・外部から読めるのは Google Fonts だけ（CSP）。外部CDN・外部スクリプトは不可
+  ・仮ページのあいだは noindex（検索に出さない）。本番の紹介ページで外すかは代表が決める
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ad Arch Studio — あなたのAIに、プロの相談先を。</title>
+<meta name="description" content="動画制作・撮影・SNS運用・広告媒体の相談窓口。お使いのClaudeやChatGPTにつなぐだけで使えます。">
+<style>
+  body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;color:#18181b;background:#fafaf9}
+  main{max-width:720px;margin:0 auto;padding:72px 24px 96px;line-height:1.9}
+  h1{font-size:28px;line-height:1.5;margin:0 0 16px}
+  .lead{color:#3f3f46;margin:0 0 40px}
+  h2{font-size:16px;margin:36px 0 8px}
+  code{display:block;background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:12px 14px;font-size:14px;word-break:break-all}
+  .accent{color:#ea580c}
+  footer{margin-top:56px;font-size:13px;color:#71717a}
+  a{color:inherit}
+</style>
+</head>
+<body>
+<main>
+  <p class="accent">Ad Arch Studio</p>
+  <h1>あなたのAIに、プロの相談先を。</h1>
+  <p class="lead">動画制作・撮影・SNS運用・広告媒体の相談窓口です。撮影がしたくなったら、全国どこでもアドアーチが対応します。地域の媒体が欲しくなったら、その地域の媒体もアドアーチがお応えします。</p>
+
+  <h2>企業の方</h2>
+  <p>お使いのClaude・ChatGPTのコネクタに、次のURLを追加してください。ログインは不要です。</p>
+  <code>https://studio.adarch.co.jp/mcp</code>
+
+  <h2>制作者の方</h2>
+  <p>撮影・編集の技術や、広告媒体の入稿仕様を確認できます。</p>
+  <code>https://studio.adarch.co.jp/mcp/creator</code>
+
+  <footer>
+    <a href="/terms">ご利用条件</a>　運営：Ad Arch株式会社
+  </footer>
+</main>
+</body>
+</html>

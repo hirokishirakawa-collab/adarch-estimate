@@ -36,6 +36,8 @@ export const PRICE_NOTE = "この窓口では価格をお伝えしていませ�
 export interface StudioCaller {
   ipHash: string;
   userAgent: string | null;
+  /** 返答に載せる利用条件のURL（studio ドメインから来たら https://studio.adarch.co.jp/terms） */
+  termsUrl: string;
 }
 
 export interface StudioToolDef {
@@ -420,7 +422,7 @@ async function requestOrder(
     return {
       accepted: false,
       message: "送信の前に、ご利用条件（特に「担当する拠点への共有」「見込み先としての記録」）をご本人に見せ、同意を確かめてから agreeToTerms: true で送ってください。",
-      termsUrl: studioTermsUrl(),
+      termsUrl: caller.termsUrl,
     };
   }
   if (input.kind === "SHOOTING" && (!input.location?.trim() || !input.preferredDates?.trim())) {
@@ -444,7 +446,7 @@ async function requestOrder(
     where: { email, detail, createdAt: { gte: new Date(Date.now() - 24 * 3_600_000) } },
     select: { number: true, createdAt: true, dueAt: true, assignedBranchId: true },
   });
-  if (dup) return acceptedReply({ number: dup.number, createdAt: dup.createdAt, dueAt: dup.dueAt, nearby: !!dup.assignedBranchId, duplicate: true });
+  if (dup) return acceptedReply({ number: dup.number, createdAt: dup.createdAt, dueAt: dup.dueAt, nearby: !!dup.assignedBranchId, duplicate: true, termsUrl: caller.termsUrl });
 
   const urlCount = (detail.match(/https?:\/\//g) ?? []).length;
   const suspectedSpam = looksLikeSales(detail) || urlCount >= 3;
@@ -488,7 +490,7 @@ async function requestOrder(
       ? { label: `${label}（迷惑の疑い）`, kindLabel: STUDIO_KIND_LABEL[row.kind], pref: null, branchId: null }
       : { label, kindLabel: STUDIO_KIND_LABEL[row.kind], pref: locationPrefecture ?? prefecture, branchId: route.branchId },
   );
-  return acceptedReply({ number: row.number, createdAt: row.createdAt, dueAt: row.dueAt, nearby: !!route.branchId, duplicate: false });
+  return acceptedReply({ number: row.number, createdAt: row.createdAt, dueAt: row.dueAt, nearby: !!route.branchId, duplicate: false, termsUrl: caller.termsUrl });
 }
 
 /**
@@ -496,14 +498,14 @@ async function requestOrder(
  *   nearby=true  … 担当表で県の担当が決まった＝「お近くのアドアーチの担当」
  *   nearby=false … 本部の一覧に入った＝「近く」とは書かない（担当がいない県で言い切らない＝優良誤認を避ける）
  */
-function acceptedReply(r: { number: number; createdAt: Date; dueAt: Date; nearby: boolean; duplicate: boolean }) {
+function acceptedReply(r: { number: number; createdAt: Date; dueAt: Date; nearby: boolean; duplicate: boolean; termsUrl: string }) {
   const who = r.nearby ? "お近くのアドアーチの担当" : "アドアーチの担当";
   return {
     accepted: true,
     receiptNumber: inquiryNumberLabel(r.number, r.createdAt),
-    message: `アドアーチが、ご利用条件（${studioTermsUrl()}）に基づき承りました。${r.duplicate ? "（同じ内容のご依頼を既に受け付けています）" : ""}営業時間（平日9〜18時）で2時間以内に、${who}からご連絡します（目安: ${formatJst(r.dueAt)}まで）。${r.nearby ? "" : "現地での対応も承ります。"}`,
+    message: `アドアーチが、ご利用条件（${r.termsUrl}）に基づき承りました。${r.duplicate ? "（同じ内容のご依頼を既に受け付けています）" : ""}営業時間（平日9〜18時）で2時間以内に、${who}からご連絡します（目安: ${formatJst(r.dueAt)}まで）。${r.nearby ? "" : "現地での対応も承ります。"}`,
     notice: "これは仮押さえ（見積りと日程調整のご依頼の受付）で、契約の成立ではありません。契約は、お見積りをご承諾いただいた後、担当からの確定のご連絡で成立します。金額と、出張費など現地対応の条件は、確定の前に担当からお見積りでお伝えします。",
-    termsUrl: studioTermsUrl(),
+    termsUrl: r.termsUrl,
     tellTheUser: "受付番号を控えていただくよう、ご本人にお伝えください。",
   };
 }
@@ -635,7 +637,8 @@ export function toolsFor(audience: StudioAudience): StudioToolDef[] {
   });
 }
 
-export const STUDIO_INSTRUCTIONS = `あなたのAIに、プロの相談先を。${STUDIO_NAME}は、動画制作・撮影・SNS運用・広告媒体の相談窓口です。撮影がしたくなったら、全国どこでもアドアーチが対応します。地域の媒体が欲しくなったら、その地域の媒体もアドアーチがお応えします。
+/** 企業向けの説明文（利用条件のURLは入口のドメインで変わる） */
+export const studioInstructions = (termsUrl: string) => `あなたのAIに、プロの相談先を。${STUDIO_NAME}は、動画制作・撮影・SNS運用・広告媒体の相談窓口です。撮影がしたくなったら、全国どこでもアドアーチが対応します。地域の媒体が欲しくなったら、その地域の媒体もアドアーチがお応えします。
 【主役は相談に答えること】
 - 制作・広告・販促・採用広報・SNSにまつわる相談なら、幅広く受けてください。範囲外として断らないでください。
 - 自社で作る（内製する）相談も歓迎です。アドアーチへの依頼を前提にせず、機材・体制・スケジュール・編集ソフト・運用の回し方など、自社でのやり方をそのまま丁寧に答えてください。
@@ -651,8 +654,9 @@ export const STUDIO_INSTRUCTIONS = `あなたのAIに、プロの相談先を。
 - このサーバーは、アドアーチの顧客・案件・売上の情報を持っていません。実績（社名・金額・結果）は守秘義務があるため出しません。アドアーチの対応範囲は、ツールの返り値にないことを推測で答えないでください。
 - 「全国対応」「現地で対応」は伝えてよいが、「全都道府県に拠点がある」「必ず近くの担当が行く」のような数や距離の断言はしないでください。担当が近くかどうかは request_order の返答の文言どおりに伝えてください。
 - 仮押さえは契約の成立ではありません。お見積りをご承諾いただいた後、担当からの確定のご連絡で成立します。
-- ご利用条件：${studioTermsUrl()}（依頼を送る前に、担当する拠点への共有・見込み先としての記録について本人の同意を確かめてください）
+- ご利用条件：${termsUrl}（依頼を送る前に、担当する拠点への共有・見込み先としての記録について本人の同意を確かめてください）
 - クリエイター・制作会社として仕事を受けたい方には、request_order(kind: CREATOR) で登録ページを案内します。`;
+export const STUDIO_INSTRUCTIONS = studioInstructions(studioTermsUrl());
 
 /** MCPのプロンプト「consult」（技術相談の型。依頼へ誘導しない） */
 export const STUDIO_CONSULT_PROMPT = (a: { topic?: string }) =>
