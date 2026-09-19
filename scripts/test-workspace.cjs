@@ -47,5 +47,7 @@ const out = path.resolve(".workspace-tests.cjs");
     process.exitCode = 1;
   })
   .finally(() => {
-    if (fs.existsSync(out)) fs.unlinkSync(out);
+    // bundle は CSS も別ファイルに吐くので、両方まとめて後片付けする
+    for (const file of [out, out.replace(/\.cjs$/, ".css")])
+      if (fs.existsSync(file)) fs.unlinkSync(file);
   });

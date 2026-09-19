@@ -151,8 +151,16 @@ test("JST date boundaries are inclusive and invalid dates are ignored", () => {
 });
 test("library separates external sources, excludes HQ records for members, and links packages by slug", async () => {
   const seen: any[] = [];
+  let lookedUpEmail = "";
   const date = new Date("2026-09-16T00:00:00Z");
   globalThis.__testDb = {
+    // Wikiの拠点は固定表ではなくDBの所属で決める（2026-09-17の拠点スコープ修正）
+    user: {
+      findUnique: async (args) => {
+        lookedUpEmail = args.where.email;
+        return { branchId: "pref_okinawa", branchId2: null };
+      },
+    },
     knowledgeSource: {
       findMany: async (args) => {
         seen.push(args);
@@ -197,8 +205,14 @@ test("library separates external sources, excludes HQ records for members, and l
     { role: "USER", email: "preview@example.invalid" },
     { q: "確認用" },
   );
+  assert.equal(lookedUpEmail, "preview@example.invalid");
   assert.equal(seen[0].where.hqOnly, false);
   assert.equal(seen[0].where.status, "READY");
+  assert.deepEqual(seen[1].where.branchId.in, [
+    "pref_okinawa",
+    "branch_okn",
+    "branch_hq",
+  ]);
   assert.ok(seen[1].where.NOT);
   assert.match(rows.find((row) => row.kind === "material")!.source, /他社/);
   assert.equal(

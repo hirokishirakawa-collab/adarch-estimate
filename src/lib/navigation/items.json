@@ -188,7 +188,9 @@
     "href": "/dashboard/leads/tvcm-pool",
     "label": "本部からの候補先",
     "minRole": "USER",
-    "aliases": [],
+    "aliases": [
+      "TVer広告 案件プール"
+    ],
     "group": "sales",
     "section": "次の相手を探す"
   },

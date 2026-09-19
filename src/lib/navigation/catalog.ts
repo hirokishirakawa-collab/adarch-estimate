@@ -140,9 +140,12 @@ export function searchNavigation(
                 ? 20
                 : normalize(item.label).startsWith(word)
                   ? 10
-                  : name.includes(word)
-                    ? 5
-                    : 1),
+                  : // 今の画面名で当たるものを、旧称（aliases）だけで当たるものより上に出す
+                    normalize(item.label).includes(word)
+                    ? 7
+                    : name.includes(word)
+                      ? 5
+                      : 1),
             0,
           )
         : -1;
