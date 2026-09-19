@@ -461,6 +461,9 @@ export async function GET() {
     console.error("[live/feed] pulse failed:", e instanceof Error ? e.message : e);
   }
 
+  // 未来の日付の記録（予定日を記録日にした活動など）は出さない＝先頭に居座り「たった今」と出続けるため（2026-09-19）
+  const nowMs = Date.now();
+  for (let i = events.length - 1; i >= 0; i--) if (Date.parse(events[i].at) > nowMs + 60_000) events.splice(i, 1);
   events.sort((a, b) => b.at.localeCompare(a.at));
   const top = events.slice(0, MAX_EVENTS);
 

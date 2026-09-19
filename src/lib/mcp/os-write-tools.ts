@@ -111,6 +111,8 @@ export async function logActivity(v: McpViewer, input: LogActivityInput) {
   const type = (input.type ?? "OTHER").toUpperCase() as ActivityType;
   need(ACTIVITY_TYPES.includes(type), `type は ${ACTIVITY_TYPES.join(" / ")} のどれかにしてください`);
   const at = parseDay(input.occurredAt, "occurredAt");
+  // 活動記録は「済んだこと」。未来の日付で入れるとGROUP LIVEの先頭に「たった今」で居座る（2026-09-19）
+  need(!at || at.getTime() <= Date.now() + 86_400_000, "occurredAt に未来の日付は入れられません（活動記録は済んだことだけ。予定は記録しないでください）");
   const staffName = staffOf(v);
 
   if (input.dealId) {

@@ -53,3 +53,5 @@
 - 2026-09-18 23:06 src/app/dashboard/library/page.tsx・src/components/workspace/library-browser.tsx・library-browser.module.css・src/lib/workspace/update-history.json・AGENTS.md／代表のカラフル案承認と「ok デプロイして」を受け、白地・大きな検索・種類別の淡い色・2列一覧（スマホ1列）を実装。既存検索/認証/閲覧権限/DB処理を維持。検索・種類切替・日付と解除・名前順・AIパネル・USER向けリンク非表示・390px/320pxを確認。ESLint・ビルド成功、全体型エラー1件は変更前後同一（signage/schedulesのparseScheduleBodyエクスポート）／本番反映作業中（完了は確認記録に追記）
 
 - 2026-09-19 11:05 共通導線6ファイル（task-hub.tsx・task-hub.module.css・header.tsx・workspace.css・update-history.json・AGENTS.md）／代表が設計案に「それがいいです。反映してください」と承認。最新本番990bf4b0から独立cloneで、5ページの入口をPC横一列116px・スマホ小型2列90pxへ、候補を全入口の直下に固定。選択中は薄橙・主な行動は橙・上部AIは補助色。許可済みの機能だけを表示する処理を保持。全20入口のPC/320px、390px、検索/名前順/追加候補/キーボード順/AI開閉、権限・検索5テスト、ESLint・型・本番ビルド成功／本番反映作業中（完了は記録へ追記）
+
+- 2026-09-19 12:30 src/app/api/live/feed/route.ts・src/lib/mcp/os-write-tools.ts・update-history.json・AGENTS.md／代表の指摘「アマゾン・NISEKOがいつもたった今」。原因=活動記録のcreatedAtが未来（10/13・10/9、log_activityのoccurredAtに予定日）→フィード先頭に居座り相対時刻が負。フィードは未来(>現在+1分)の行を除外、log_activityは翌日以降の日付を拒否。記録自体は削除しない。代表承認で本番反映
