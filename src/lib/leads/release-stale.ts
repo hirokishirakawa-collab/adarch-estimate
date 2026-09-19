@@ -49,7 +49,7 @@ export async function checkSaveCap(
       assigneeId: userId,
       status: "UNTOUCHED",
       sentAt: null,
-      source: { not: "PR_TIMES_TVCM" },
+      source: { notIn: ["PR_TIMES_TVCM", "STUDIO_MCP"] }, // AI窓口（STUDIO_MCP）の依頼は相手から来たもの＝蓋・自動解放の対象外
     },
   });
   if (unsent >= SAVE_CAP_UNSENT) {
@@ -86,7 +86,7 @@ export async function releaseStaleAssignedLeads(): Promise<number> {
         status: rule.status,
         assigneeId: { not: null },
         updatedAt: { lt: threshold },
-        source: { not: "PR_TIMES_TVCM" },
+        source: { notIn: ["PR_TIMES_TVCM", "STUDIO_MCP"] }, // AI窓口（STUDIO_MCP）の依頼は相手から来たもの＝蓋・自動解放の対象外
       },
       select: {
         id: true,

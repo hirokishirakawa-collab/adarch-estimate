@@ -300,6 +300,7 @@ enum LeadSource {
   SIGNBOARD_SCAN
   PR_TIMES_TVCM
   VIDEO_ACHIEVEMENT
+  STUDIO_MCP // Ad Arch Studio（公開のAI窓口）の依頼から（2026-09-20）
 }
 
 enum AutoSalesTargetType {
@@ -5986,6 +5987,8 @@ model StudioInquiry {
   ipHash                 String // IPは生で持たない（sha256）
   userAgent              String?
   suspectedSpam          Boolean             @default(false)
+  leadId                 String? // 営業の流れに乗せたリード（同じ会社があれば既存に紐づけ・内部だけ）
+  customerId             String? // 既存の顧客に同じ会社がいたとき（新しくリードは作らない）
   assignedGroupCompanyId String? // 内部の振り分け先（外には出さない）
   assignedBranchId       String? // null＝本部の一覧
   routeReason            String // 県／順番／本部 など

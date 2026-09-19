@@ -14,6 +14,7 @@ import { logAudit } from "@/lib/audit";
 import { clearStudioCache } from "@/lib/studio/guard";
 import { normalizePrefecture } from "@/lib/studio/routing";
 import { inquiryNumberLabel } from "@/lib/studio/labels";
+import { followReassign } from "@/lib/studio/lead-link";
 import type { Prisma } from "@/generated/prisma/client";
 
 type R = { ok?: true; error?: string; message?: string };
@@ -45,7 +46,7 @@ const cleanIds = (ids: string[]) => ids.filter((v) => typeof v === "string" && v
 export async function reassignStudioInquiry(id: string, assignmentId: string | null): Promise<R> {
   const info = await admin();
   if (!info) return { error: "権限がありません" };
-  const row = await db.studioInquiry.findUnique({ where: { id }, select: { history: true } });
+  const row = await db.studioInquiry.findUnique({ where: { id }, select: { history: true, leadId: true } });
   if (!row) return { error: "見つかりません" };
   let target: { groupCompanyId: string | null; branchId: string | null; label: string } = { groupCompanyId: null, branchId: null, label: "本部" };
   if (assignmentId) {
@@ -63,6 +64,7 @@ export async function reassignStudioInquiry(id: string, assignmentId: string | n
       history: pushHistory(row.history, { by: info.staffName, action: "付け替え", note: target.label }),
     },
   });
+  await followReassign(row.leadId, target.branchId, target.groupCompanyId).catch(() => {});
   logAudit({ action: "studio_inquiry_reassigned", email: info.email, name: info.staffName, entity: "studio_inquiry", entityId: id, detail: target.label });
   refresh();
   return { ok: true, message: `${target.label}に付け替えました` };

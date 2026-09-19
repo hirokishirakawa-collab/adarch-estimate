@@ -74,8 +74,8 @@ export function StudioSettings(props: {
           <p className="text-xs text-zinc-500 mt-1">印を付けたものだけが外から見えます。金額は外に出しません（本文の金額・卸・原価・ロイヤリティ等の行は自動で落とします）。媒体の入稿仕様は、媒体社の資料も選べますが、外に出るのは取り込み時に整理した「仕様の要点」だけです。</p>
         </div>
         <PickList title="アドアーチができること（稼働中のパッケージ・金額は出ません）" type="PACKAGE" options={props.packages} initial={props.published.PACKAGE} pending={pending} run={run} />
-        <PickList title="制作の技術：自社の資料" type="KNOWLEDGE" options={props.knowledge} initial={props.published.KNOWLEDGE} pending={pending} run={run} />
-        <PickList title="制作の技術：Wiki記事" type="WIKI" options={props.wikis} initial={props.published.WIKI} pending={pending} run={run} />
+        <PickList title="制作・SNS運用の技術：自社の資料" type="KNOWLEDGE" options={props.knowledge} initial={props.published.KNOWLEDGE} pending={pending} run={run} />
+        <PickList title="制作・SNS運用の技術／進め方の手本：Wiki記事（「進め方の手本」タグの記事は手本として出ます）" type="WIKI" options={props.wikis} initial={props.published.WIKI} pending={pending} run={run} />
         <PickList title="媒体の入稿仕様（資料ライブラリ）" type="SPEC" options={props.specs} initial={props.published.SPEC} pending={pending} run={run} />
         {msg && <p className="text-xs text-zinc-700">{msg}</p>}
       </section>

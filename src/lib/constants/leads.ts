@@ -295,6 +295,7 @@ export const LEAD_SOURCE_OPTIONS = [
   { value: "CSV_IMPORT",        label: "CSVインポート",  shortLabel: "CSV",     className: "bg-zinc-100 text-zinc-600 border-zinc-200",        icon: "📋" },
   { value: "MANUAL",            label: "手動登録",      shortLabel: "手動",     className: "bg-zinc-100 text-zinc-600 border-zinc-200",        icon: "✏️" },
   { value: "SIGNBOARD_SCAN",    label: "看板スキャン",  shortLabel: "看板",     className: "bg-teal-50 text-teal-700 border-teal-200",         icon: "📷" },
+  { value: "STUDIO_MCP",        label: "AI窓口からの依頼", shortLabel: "AI窓口", className: "bg-sky-50 text-sky-700 border-sky-200",            icon: "💬" },
 ] as const;
 
 export type LeadSourceValue = (typeof LEAD_SOURCE_OPTIONS)[number]["value"];

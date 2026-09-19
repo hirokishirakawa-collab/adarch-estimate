@@ -1,5 +1,10 @@
 // ==============================================================
-// Ad Arch Studio（公開MCP）のツール7本 — 「あなたのAIに、プロの相談先を」＝制作・広告の技術相談の窓口（ログインなし）
+// Ad Arch Studio（公開MCP）のツール — 「あなたのAIに、プロの相談先を」＝制作・広告・SNS運用の技術相談の窓口（ログインなし）
+//   つなぐURLは2本（2026-09-20 代表決定）。実装は共通で、URLごとに登録するツールの組み合わせと説明文だけを変える
+//     企業向け   /api/mcp/public          … CLIENT_TOOL_NAMES（依頼の受付 request_order あり）
+//     制作者向け /api/mcp/public/creator  … CREATOR_TOOL_NAMES（依頼の受付なし・登録の案内だけ）
+//   見せてはいけない情報の線は両方同じ（申告で権限は変わらない）
+//   実績（社名・金額・結果）は守秘義務があるので使わない。代わりに本部が書いた「進め方の手本」を返す（2026-09-20 代表決定）
 //   値段は返さない（2026-09-20 代表決定「値段を外し、技術相談を厚く」）。金額は依頼を受けた担当が見積でお伝えする
 //   外から見える相手は常に「アドアーチ」。どの県本部が担当するかは返さない（振り分けは内部だけ）。
 //   ⚠️ ここから OS のツール台帳（tool-catalog / os-read-tools / os-write-tools）やブランドキットは読み込まない。
@@ -22,6 +27,7 @@ import { cached, inquiryLimited } from "./guard";
 import { normalizePrefecture, routeInquiry } from "./routing";
 import { addBusinessMinutes, formatJst } from "./business-hours";
 import { notifyNewInquiry } from "./notify";
+import { linkInquiryToLead } from "./lead-link";
 import { STUDIO_KIND_LABEL, inquiryNumberLabel } from "./labels";
 
 export const STUDIO_NAME = "アドアーチ（Ad Arch Studio）";
@@ -219,10 +225,12 @@ async function listServices(input: { category?: string }) {
 const HQ_TITLE = /ADMIN向け|ADMIN専用|本部のみ/i;
 const PUBLIC_BANNED_LINE = [
   /ロイヤリティ/, /加盟金/, /本部のみ/, /ADMIN/i, /社外秘/, /取り扱い注意/,
+  // 実績・事例（社名・金額・結果は守秘義務があるので出さない）
+  /実績|事例|導入社|導入企業|お客様の声/,
   // 金額の表現（値段は返さない）
   /[¥￥]\s*\d/, /\d[\d,，.]*\s*(円|万円|千円|億円)/, /\$\s*\d/, /万円|千円|億円/, /単価|料金|価格|見積|税抜|税込|手数料|費用|原価|マージン|CPM|CPC|CPV/i,
 ];
-/** 外に出す文章から、外に出せない行（卸・原価・金額・社内向け）を落とす */
+/** 外に出す文章から、外に出せない行（卸・原価・金額・実績・社内向け）を落とす */
 export function publicText(text: string | null | undefined): string {
   return stripSensitiveLines(text)
     .split(/\r?\n/)
@@ -231,7 +239,10 @@ export function publicText(text: string | null | undefined): string {
     .trim();
 }
 
-type Guide = { id: string; type: "資料" | "記事"; title: string; summary: string; body: string };
+/** Wikiで「進め方の手本」を表すタグ。このタグ＋公開の印の記事だけが how_to_proceed に出る */
+export const HANDBOOK_TAG = "進め方の手本";
+
+type Guide = { id: string; type: "資料" | "記事"; title: string; summary: string; body: string; handbook: boolean };
 
 async function publishedGuides(): Promise<Guide[]> {
   return cached("studio:guides", 10 * 60 * 1000, async () => {
@@ -242,11 +253,11 @@ async function publishedGuides(): Promise<Guide[]> {
       kIds.length
         ? db.knowledgeSource.findMany({ where: { id: { in: kIds }, origin: "OWN", hqOnly: false, status: "READY" }, select: { id: true, title: true, summary: true, content: true } })
         : Promise.resolve([]),
-      wIds.length ? db.wikiArticle.findMany({ where: { id: { in: wIds } }, select: { id: true, title: true, body: true } }) : Promise.resolve([]),
+      wIds.length ? db.wikiArticle.findMany({ where: { id: { in: wIds } }, select: { id: true, title: true, body: true, tags: { select: { name: true } } } }) : Promise.resolve([]),
     ]);
     const guides: Guide[] = [
-      ...ks.map((k) => ({ id: `k_${k.id}`, type: "資料" as const, title: k.title, summary: publicText(k.summary).slice(0, 400), body: publicText(k.content) })),
-      ...ws.filter((w) => !HQ_TITLE.test(w.title)).map((w) => ({ id: `w_${w.id}`, type: "記事" as const, title: w.title, summary: publicText(w.body).slice(0, 200), body: publicText(w.body) })),
+      ...ks.map((k) => ({ id: `k_${k.id}`, type: "資料" as const, title: k.title, summary: publicText(k.summary).slice(0, 400), body: publicText(k.content), handbook: false })),
+      ...ws.filter((w) => !HQ_TITLE.test(w.title)).map((w) => ({ id: `w_${w.id}`, type: "記事" as const, title: w.title, summary: publicText(w.body).slice(0, 200), body: publicText(w.body), handbook: w.tags.some((t) => t.name === HANDBOOK_TAG) })),
     ];
     const order = new Map(items.map((i, n) => [`${i.type === "KNOWLEDGE" ? "k" : "w"}_${i.refId}`, n]));
     return guides.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
@@ -269,7 +280,7 @@ function scoreByWords<T extends { title: string; text: string }>(rows: T[], quer
 
 /** 制作の技術（尺・縦横・撮影準備・照明/音声・SNSの形式など）。id を渡すと全文 */
 async function productionGuide(input: { query?: string; id?: string; limit?: number }) {
-  const all = await publishedGuides();
+  const all = (await publishedGuides()).filter((g) => !g.handbook);
   if (input.id) {
     const g = all.find((x) => x.id === input.id);
     if (!g) return { error: "その材料は公開されていません。production_guide(query) で id を確認してください。" };
@@ -283,6 +294,33 @@ async function productionGuide(input: { query?: string; id?: string; limit?: num
       all.length === 0
         ? "公開中の材料はまだありません。一般的な制作の知識で答えてかまいませんが、アドアーチの実績・対応範囲は推測で答えないでください。"
         : "全文は production_guide(id) で。材料に書いていないアドアーチの実績・対応範囲は、推測で答えないでください。",
+  };
+}
+
+/**
+ * 進め方の手本（業種×目的 → 本部が書いた理想の進め方）。元は「進め方の手本」タグ＋公開の印のWiki記事だけ。
+ * ⚠️ 実際の顧客・案件・金額のデータは読まない（守秘義務）
+ */
+async function howToProceed(input: { industry?: string; purpose?: string; id?: string }) {
+  const all = (await publishedGuides()).filter((g) => g.handbook);
+  if (input.id) {
+    const g = all.find((x) => x.id === input.id);
+    if (!g) return { error: "その手本は公開されていません。how_to_proceed(industry, purpose) で探してください。" };
+    return { id: g.id, title: g.title, body: g.body };
+  }
+  const query = [input.industry, input.purpose].filter(Boolean).join(" ");
+  const hits = scoreByWords(all.map((g) => ({ ...g, text: g.body })), query, 3);
+  if (all.length === 0 || hits.length === 0) {
+    return {
+      handbooks: [],
+      note: "この業種・目的の手本はまだ公開されていません。一般的な制作・広告の考え方で、目的→届けたい相手→中身→形式・尺→撮影・制作→配信・運用→振り返り の順に進め方を組み立てて答えてください。アドアーチの実績は出さないでください。",
+    };
+  }
+  const [top, ...rest] = hits;
+  return {
+    handbook: { id: top.id, title: top.title, body: top.body.length > 12_000 ? `${top.body.slice(0, 12_000)}\n…（以下省略）` : top.body },
+    others: rest.map((g) => ({ id: g.id, title: g.title })),
+    note: "手本をそのまま読み上げず、相手の業種・目的・規模に合わせて「御社ならこう進めるのが理想」と組み立て直して答えてください。実績（社名・金額・結果）は出さないでください。",
   };
 }
 
@@ -331,6 +369,23 @@ async function mediaSpecs(input: { media?: string; limit?: number }) {
       all.length === 0
         ? "公開中の媒体仕様はまだありません。一般的な知識で答える場合は、最新の入稿規定は媒体の公式で必ず確認するよう添えてください。"
         : "仕様の要点です（資料の時点のもの）。入稿の前に、媒体の最新の規定で必ず確認してください。",
+  };
+}
+
+// ---------------- 登録の案内（制作者向け） ----------------
+//   ⚠️ 「アドアーチから仕事が回る」「稼げる」とは言わない（特商法の業務提供誘引販売の訴求を避ける）。登録の事実だけ
+function creatorRegister() {
+  return {
+    registerUrl: `${publicBaseUrl()}/creators/register`,
+    facts: [
+      "登録は無料です。登録に伴う費用は発生しません",
+      "18歳以上の方が対象で、法人・個人のどちらでも登録できます",
+      "スキル・経験・活動エリア・機材・作品（URL）などを登録します",
+      "登録の内容を確かめるため、オンラインで面談をお願いすることがあります",
+      "登録にあたって守秘義務契約への同意が必要です",
+      "登録は、案件のご紹介を約束するものではありません",
+    ],
+    note: "登録の手続きはページの案内に沿って本人が行います。仕事の量や収入の見込みについては、この窓口ではお答えしません。",
   };
 }
 
@@ -412,10 +467,17 @@ async function requestOrder(
       dueAt,
       history: [{ at: now.toISOString(), by: "公開MCP", action: "受付", note: route.reason }],
     },
-    select: { number: true, createdAt: true, dueAt: true, kind: true },
+    select: { id: true, number: true, createdAt: true, dueAt: true, kind: true },
   });
 
   const label = inquiryNumberLabel(row.number, row.createdAt);
+  // 連絡先を残した依頼だけ、担当拠点のリード（クライアント候補）にする。迷惑の疑いは除く。内部だけ＝返答には何も足さない
+  if (!suspectedSpam) {
+    await linkInquiryToLead({
+      inquiryId: row.id, receiptLabel: label, kindLabel: STUDIO_KIND_LABEL[row.kind], companyName: input.companyName, email, phone: input.phone?.trim() || null,
+      prefecture: locationPrefecture ?? prefecture, branchId: route.branchId, groupCompanyId: route.groupCompanyId,
+    }).catch((e) => console.error("[studio] リードへの紐づけに失敗:", e instanceof Error ? e.message : e));
+  }
   await notifyNewInquiry(
     suspectedSpam
       ? { label: `${label}（迷惑の疑い）`, kindLabel: STUDIO_KIND_LABEL[row.kind], pref: null, branchId: null }
@@ -447,12 +509,24 @@ const flag = () => z.preprocess((v) => (v === "true" ? true : v === "false" ? fa
 
 export const STUDIO_TOOLS: StudioToolDef[] = [
   def({
-    name: "production_guide",
-    title: "制作の技術を調べる（尺・縦横・撮影準備・照明/音声・SNSの形式など）",
+    name: "how_to_proceed",
+    title: "進め方の手本（業種×目的で、理想の進め方）",
     description:
-      "アドアーチが公開している制作の技術資料・記事を探す。用途別の尺、縦横の比率、撮影の準備、照明・音声、SNSごとの形式、編集の進め方などの相談に答える前に呼ぶ。query で探し、id を渡すと全文。材料に無いことは一般的な知識で答えてよいが、アドアーチの実績・対応範囲は推測しない。",
+      "相手の業種と目的（例: 飲食×採用動画、工務店×見学会の集客、美容室×SNS運用）を渡すと、アドアーチが書いた「理想の進め方」の手本を返す。相談の最初に、相手の業種と目的を聞いてから呼び、手本に沿って「御社ならこう進めるのが理想」と組み立てて答える。手本が無いときも、返り値の案内に沿って進め方を組み立てる。実績（社名・金額・結果）は出さない。",
     input: z.object({
-      query: z.string().max(100).optional().describe("例: 採用動画 尺 / 縦型 撮影 / インタビュー 音声"),
+      industry: z.string().max(40).optional().describe("業種（例: 飲食 / 工務店 / 美容室 / 製造業）"),
+      purpose: z.string().max(60).optional().describe("目的（例: 採用動画 / 集客 / SNS運用 / 新商品の告知）"),
+      id: z.string().max(40).optional().describe("別の手本を全文で読むときの id"),
+    }),
+    run: (a) => howToProceed(a),
+  }),
+  def({
+    name: "production_guide",
+    title: "制作・SNS運用の技術を調べる（尺・縦横・撮影準備・照明/音声・投稿の形式や頻度など）",
+    description:
+      "アドアーチが公開している制作・SNS運用の技術資料・記事を探す。用途別の尺、縦横の比率、撮影の準備、照明・音声、編集の進め方、SNS運用（投稿の形式・頻度・縦型動画・数字の見方）などの相談に答える前に呼ぶ。query で探し、id を渡すと全文。材料に無いことは一般的な知識で答えてよいが、アドアーチの実績・対応範囲は推測しない。",
+    input: z.object({
+      query: z.string().max(100).optional().describe("例: 採用動画 尺 / 縦型 撮影 / インタビュー 音声 / インスタ 投稿頻度 / リール 数字の見方"),
       id: z.string().max(40).optional().describe("全文を読むときの id（query の結果のもの）"),
       limit: z.number().int().optional().describe("既定8・最大20"),
     }),
@@ -531,22 +605,55 @@ export const STUDIO_TOOLS: StudioToolDef[] = [
     }),
     run: (a, caller) => requestOrder(a, caller),
   }),
+  def({
+    name: "creator_register",
+    title: "クリエイター・制作会社の登録の案内",
+    description: "撮影・編集などの制作者として登録したい人に、登録ページのURLと、登録について決まっている事実（無料・対象・手続き・守秘義務）だけを返す。仕事の量や収入の見込みは答えない。",
+    input: z.object({}),
+    run: () => creatorRegister(),
+  }),
 ];
 
-export const STUDIO_INSTRUCTIONS = `あなたのAIに、プロの相談先を。${STUDIO_NAME}は、動画制作・撮影・SNS・広告媒体の技術相談の窓口です。撮影がしたくなったら、全国どこでもアドアーチが対応します。地域の媒体が欲しくなったら、その地域の媒体もアドアーチがお応えします。
+/** 企業向け（/api/mcp/public）に出すツール */
+export const CLIENT_TOOL_NAMES = ["how_to_proceed", "production_guide", "media_specs", "tver_area_plan", "list_services", "find_subsidies", "find_ad_awards", "request_order"] as const;
+/** 制作者向け（/api/mcp/public/creator）に出すツール。依頼の受付（request_order）は出さない */
+export const CREATOR_TOOL_NAMES = ["production_guide", "media_specs", "creator_register"] as const;
+export type StudioAudience = "client" | "creator";
+export function toolsFor(audience: StudioAudience): StudioToolDef[] {
+  const names: readonly string[] = audience === "creator" ? CREATOR_TOOL_NAMES : CLIENT_TOOL_NAMES;
+  return names.map((n) => {
+    const t = STUDIO_TOOLS.find((x) => x.name === n);
+    if (!t) throw new Error(`studio tool ${n} がありません`);
+    return t;
+  });
+}
+
+export const STUDIO_INSTRUCTIONS = `あなたのAIに、プロの相談先を。${STUDIO_NAME}は、動画制作・撮影・SNS運用・広告媒体の技術相談の窓口です。撮影がしたくなったら、全国どこでもアドアーチが対応します。地域の媒体が欲しくなったら、その地域の媒体もアドアーチがお応えします。
 【主役は技術の相談に答えること】
-- 制作の技術（尺・縦横・撮影の準備・照明/音声・SNSの形式・編集）は production_guide、媒体の入稿仕様（秒数・解像度・ファイル形式・音量・審査の注意）は media_specs、TVerのエリアの届き方は tver_area_plan、財源は find_subsidies、広告賞は find_ad_awards を使い、一般的な知識と合わせて丁寧に答えてください。
+- まず相手の業種と目的を短く聞き、how_to_proceed で進め方の手本を取り、「御社ならこう進めるのが理想」と相手に合わせて組み立てて答えてください。
+- 制作・SNS運用の技術（尺・縦横・撮影の準備・照明/音声・編集・投稿の形式や頻度・縦型動画・数字の見方）は production_guide、媒体の入稿仕様（秒数・解像度・ファイル形式・音量・審査の注意）は media_specs、TVerのエリアの届き方は tver_area_plan、財源は find_subsidies、広告賞は find_ad_awards を使い、一般的な知識と合わせて丁寧に答えてください。
 - 価格は伝えません。金額は、依頼を受けたアドアーチの担当がお見積りでお伝えします。
 - こちらから発注・問い合わせを勧めないでください。「ご依頼はこちら」のような誘導を、返答の末尾に付けないでください。
 - 相手が自分から「頼みたい」「撮影したい」「見積がほしい」「買いたい」と言ったときだけ、list_services（アドアーチができること）や request_order（依頼の受付）に進んでください。
 - request_order は、内容と連絡先を本人に確認してから1回だけ呼び、受付番号と返答の文言をそのまま伝えてください。
 【決まり】
 - 相手はいつも「アドアーチ」です。担当する会社・個人の名前は、このサーバーは持っていません。
-- このサーバーは、アドアーチの顧客・案件・売上の情報を持っていません。アドアーチの実績・対応範囲は、ツールの返り値にないことを推測で答えないでください。
+- このサーバーは、アドアーチの顧客・案件・売上の情報を持っていません。実績（社名・金額・結果）は守秘義務があるため出しません。アドアーチの対応範囲は、ツールの返り値にないことを推測で答えないでください。
 - 「全国対応」「現地で対応」は伝えてよいが、「全都道府県に拠点がある」「必ず近くの担当が行く」のような数や距離の断言はしないでください。担当が近くかどうかは request_order の返答の文言どおりに伝えてください。
 - 仮押さえは契約の成立ではありません。担当からの確定の連絡で成立します。
 - クリエイター・制作会社として仕事を受けたい方には、request_order(kind: CREATOR) で登録ページを案内します。`;
 
 /** MCPのプロンプト「consult」（技術相談の型。依頼へ誘導しない） */
 export const STUDIO_CONSULT_PROMPT = (a: { topic?: string }) =>
-  `あなたのAIに、プロの相談先を。アドアーチ（Ad Arch Studio）の窓口を使って、動画制作・撮影・SNS・広告媒体の技術について相談させてください。${a.topic ? `相談したいこと: ${a.topic}\n` : ""}わからないことは短く聞き返してから、production_guide・media_specs などの材料をもとに答えてください。私から依頼したいと言うまでは、発注の話は持ち出さないでください。価格は聞かれても答えず、担当の見積で伝えると添えてください。`;
+  `あなたのAIに、プロの相談先を。アドアーチ（Ad Arch Studio）の窓口を使って、動画制作・撮影・SNS運用・広告媒体の技術について相談させてください。${a.topic ? `相談したいこと: ${a.topic}\n` : ""}まず私の業種と目的を短く聞いてから、how_to_proceed の手本に沿って「御社ならこう進めるのが理想」と答えてください。細かな技術は production_guide・media_specs などの材料をもとに答えてください。私から依頼したいと言うまでは、発注の話は持ち出さないでください。価格は聞かれても答えず、担当の見積で伝えると添えてください。`;
+
+/** 制作者向けの説明文。⚠️ 仕事が回る・稼げる とは言わない（特商法の業務提供誘引販売の訴求を避ける） */
+export const CREATOR_INSTRUCTIONS = `あなたのAIに、プロの相談先を。${STUDIO_NAME}の制作者向けの窓口です。撮影・編集の技術と、広告媒体の入稿仕様・納品の決まりを相談できます。
+- 撮影・編集・SNS向けの形式などの技術は production_guide、媒体の入稿仕様（秒数・解像度・ファイル形式・音量・審査の注意）は media_specs を使い、一般的な知識と合わせて答えてください。媒体の最新の規定は公式で確認するよう添えてください。
+- 制作者として登録したい人には creator_register を使い、登録ページと、登録について決まっている事実だけを伝えてください。
+- 登録した後の仕事の量や収入について、約束したり期待させたりする言い方はしないでください。仕事の量や収入の見込みを聞かれても答えず、登録について決まっている事実だけを伝えてください。
+- このサーバーは、アドアーチの顧客・案件・売上の情報を持っていません。実績（社名・金額・結果）は守秘義務があるため出しません。価格も伝えません。`;
+
+/** 制作者向けのプロンプト「consult」 */
+export const CREATOR_CONSULT_PROMPT = (a: { topic?: string }) =>
+  `あなたのAIに、プロの相談先を。アドアーチ（Ad Arch Studio）の制作者向けの窓口を使って、撮影・編集の技術や、広告媒体の入稿仕様・納品の決まりについて相談させてください。${a.topic ? `相談したいこと: ${a.topic}\n` : ""}production_guide・media_specs の材料をもとに答えてください。`;

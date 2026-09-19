@@ -109,6 +109,7 @@ export async function getLiveDetail(kind: string, id: string): Promise<LiveDetai
           MANUAL: "手入力",
           SIGNBOARD_SCAN: "看板スキャン",
           PR_TIMES_TVCM: "PR TIMES（TVCM）",
+          STUDIO_MCP: "AI窓口（Ad Arch Studio）",
         };
         const src = ap.lead?.source ? SOURCE[ap.lead.source] ?? ap.lead.source : null;
         rows.push({
