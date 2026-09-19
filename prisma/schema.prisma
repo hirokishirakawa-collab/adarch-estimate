@@ -5912,3 +5912,34 @@ model JournalAsset {
   @@unique([ownerId, sha256])
   @@map("journal_assets")
 }
+
+// サイトの数字（2026-09-19 代表決定）
+//   各社のAIが Googleアナリティクス等から読んだ数字を record_site_results で入れる（OSは取りに行かない）。
+//   customerId あり＝広告主のサイト（TVer等の効果の報告に使う）／なし＝加盟社の自社サイト。
+//   scope＝「customer:<id>」か「self:<groupCompanyId か branchId>」。同じ scope・同じ期間は上書き
+model SiteMetric {
+  id             String   @id @default(cuid())
+  scope          String
+  customerId     String?
+  branchId       String
+  groupCompanyId String?
+  siteUrl        String?
+  periodStart    DateTime
+  periodEnd      DateTime
+  sessions       Int? // 訪問数（セッション）
+  users          Int? // ユーザー数
+  pageViews      Int? // 表示回数（PV）
+  inquiries      Int? // 問い合わせ（フォーム送信など）
+  phoneTaps      Int? // 電話タップ
+  source         String // Googleアナリティクス / スクショ / CSV / 手入力 など
+  note           String?  @db.Text
+  createdByEmail String
+  createdByName  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([scope, periodStart, periodEnd])
+  @@index([customerId])
+  @@index([branchId])
+  @@map("site_metrics")
+}

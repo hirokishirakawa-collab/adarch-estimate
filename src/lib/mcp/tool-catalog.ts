@@ -30,6 +30,7 @@ import { listAdBuyers } from "@/lib/ad-buyers/list";
 import { screenCompany } from "@/lib/compliance/screen";
 import { AD_PLATFORMS } from "@/lib/ad-buyers/platforms";
 import { recordMailTracking } from "@/lib/outreach/mail-tracking";
+import { recordSiteResults, listSiteResults } from "@/lib/site-metrics/records";
 
 export type ToolKind = "read" | "write";
 
@@ -290,6 +291,13 @@ export const OS_READ_TOOLS: OsToolDef[] = [
       limit: z.number().int().optional().describe("既定50・最大200"),
     }),
     run: (v, a) => listAdBuyers(v, { ...a, limit: Math.min(200, Math.max(1, Math.floor(a.limit ?? 50))) }),
+  }),
+  def({
+    name: "site_results", kind: "read", title: "サイトの数字（広告主のサイト／自社サイト）",
+    description:
+      "record_site_results で入れたサイトの数字（訪問数・ユーザー数・表示回数・問い合わせ・電話タップ）を新しい順に返す。customerId を渡すとその広告主だけ。広告主はTVerの配信期間（広告主名が顧客名と一致するもの）と並べ、各期間が配信前・中・後のどれかを tverPhase で返す＝効果の報告と次の提案に使う。数字は各社が入れたもので、効果を言い切らず目安として扱う。自拠点の分だけ見える（本部は全社）。",
+    input: z.object({ customerId: z.string().optional(), limit: z.number().int().optional() }),
+    run: (v, a) => listSiteResults(v, a),
   }),
   def({
     name: "local_ad_results", kind: "read", title: "Meta広告の記録と成果（自拠点／全社の見比べ）",
@@ -575,6 +583,26 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     confirm: (a) => `Meta広告の設計を出します: ${a.prefecture}${a.city}・日額¥${a.dailyBudgetJpy}×${a.days}日（Metaにはまだ作りません）`,
   }),
   def({
+    name: "record_site_results", kind: "write", title: "サイトの数字をOSに記録する",
+    description:
+      "広告主のサイト（customerId）か自社サイト（customerId なし）の、1期間ぶんの数字をOSに入れる。OSはGoogleアナリティクス等を取りに行かない＝本人のAIがコネクタで取った数字、または本人が渡した画面のスクショ・CSVから読んだ数字をそのまま入れる（推測で埋めない・読めない項目は空のまま）。source に出どころ（Googleアナリティクス / スクショ / CSV / 手入力）を書く。期間は YYYY-MM-DD（月ごとなら月初〜月末）。同じサイト・同じ期間は上書き。広告主は自拠点の顧客だけ（search_customers で customerId を探す）。入れる前に数字を本人に見せて確認をもらう。",
+    input: z.object({
+      customerId: z.string().optional().describe("広告主の顧客ID。自社サイトなら省略"),
+      siteUrl: z.string().optional(),
+      periodStart: z.string().describe("YYYY-MM-DD"),
+      periodEnd: z.string().describe("YYYY-MM-DD"),
+      sessions: z.number().optional().describe("訪問数（セッション）"),
+      users: z.number().optional().describe("ユーザー数"),
+      pageViews: z.number().optional().describe("表示回数（PV）"),
+      inquiries: z.number().optional().describe("問い合わせ（フォーム送信など）"),
+      phoneTaps: z.number().optional().describe("電話タップ"),
+      source: z.string().describe("Googleアナリティクス / スクショ / CSV / 手入力"),
+      note: z.string().optional(),
+    }),
+    run: (v, a) => recordSiteResults(v, a),
+    confirm: (a) => `サイトの数字を記録します（${a.customerId ? "広告主のサイト" : "自社サイト"}・${a.periodStart}〜${a.periodEnd}・出どころ: ${a.source}）`,
+  }),
+  def({
     name: "record_local_ad", kind: "write", title: "作ったMeta広告をOSに記録する",
     description:
       "Meta公式コネクタで地域限定広告を作った直後に1回呼ぶ。市・業種・半径・年齢・性別・ターゲット（職種・経営者などの細分化と、その要約）・日額・期間・LP・画像URL・見出し・本文と、Metaの広告アカウントID・キャンペーンID・広告セットID・広告IDを残す。同じキャンペーンIDなら上書き。配信をオンにしたら status: ACTIVE で記録する（初めて ACTIVE になった時にGROUP LIVEへ「◯◯市で地域限定広告の配信がスタート」が流れる・停止中は流れない）。これが全社で「どの市で・どの画像/訴求で・何回クリックされたか」を見比べる材料になる。industry は広告主の業種（自社の集客なら省略）。",
@@ -614,7 +642,7 @@ export const OS_AI_RULES_MCP =
   "・TVerを申請したい→tver_applications（同じ広告主・期間の申請が既にあれば本人に伝えて止める）→業態考査が無ければ submit_advertiser_review／承認済みなら preview_tver_campaign を本人に見せてOK後に submit_tver_campaign。" +
   "・TVerの効果・見積→tver_benchmarks／配信済みの報告→tver_results（盛らない）／どの市から→tver_area_plan(prefecture, allCities: true)。" +
   "・今日何する→my_next_actions（0→9の順に3〜8行）／週次→my_week→本人に見せて選んでもらい submit_weekly_share。" +
-  "・◯◯市の◯◯業界に営業→plan_campaign（少なければ discover_leads）→prepare_outreach（Gmail下書き・送信は人）。フォームしか無ければ formPaste を人に渡す／送れない先は record_lead_results で電話候補へ。紙DM→prepare_dm／Meta広告→create_local_ad で設計（職種・経営者などに絞るなら meta_targeting_search）→meta_audience_estimate で対象人数と日額の目安を本人に見せる→Meta公式コネクタで停止中に作成→record_local_ad で記録（成果は update_local_ad_results・見比べは local_ad_results）／着地はTVer申込ページ（plan_campaign の tverOrderUrl）か公式LINE＝拠点は新しいLPを作らない。" +
+  "・◯◯市の◯◯業界に営業→plan_campaign（少なければ discover_leads）→prepare_outreach（Gmail下書き・送信は人）。フォームしか無ければ formPaste を人に渡す／送れない先は record_lead_results で電話候補へ。紙DM→prepare_dm／Meta広告→create_local_ad で設計（職種・経営者などに絞るなら meta_targeting_search）→meta_audience_estimate で対象人数と日額の目安を本人に見せる→Meta公式コネクタで停止中に作成→record_local_ad で記録（成果は update_local_ad_results・見比べは local_ad_results）／着地はTVer申込ページ（plan_campaign の tverOrderUrl）か公式LINE＝拠点は新しいLPを作らない／サイトの数字→record_site_results（見るのは site_results）。" +
   "・提案文・資料→draft_proposal(customerId) の writingGuide の順に書く／勝ち筋→find_similar_wins／媒体の仕様→search_knowledge（返った rules を守る）／決まり・手順→list_wiki→get_wiki。" +
   "・初めての相手・求人広告・紹介→screen_company。CHECK/STOP は本人に見せる（決めつけない・止めるかは本部）。" +
   "・見つからない・動きがおかしい→同じ検索を繰り返さず ask_hq。" +
@@ -628,5 +656,5 @@ export const OS_AI_RULES =
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。TVerの提案・見積・『効果はどのくらい？』『この市で月◯万だとどれくらい？』には tver_benchmarks(prefecture, city, monthlyBudget, industry) を先に呼び、matrix（人口帯×月額帯→30日あたり表示回数・到達人数・住民比・完全視聴率）を「目安・税抜」で添える。配信済みのお客様への報告は tver_results(reportId) の数字をそのまま使う（盛らない）。" +
   "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。メールが無い相手は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）をそのまま人に渡す＝AIがフォームに投稿しない。送れない相手（画像認証・フォームなし）は record_lead_result(leadId, phoneCandidate: true, note: 理由) で電話候補に回す。選別の結果（対象外・電話候補）は1件ずつではなく record_lead_results(items) でまとめて記録する。どの市から当たるか迷ったら tver_area_plan(prefecture, allCities: true) を1回。着地は plan_campaign の tverOrderUrl（か lineFriendUrl）を本文に添える＝拠点は新しいLPを作らない。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad で設計→Meta公式コネクタ（mcp.facebook.com/ads）で停止中に作成→record_local_ad で記録。" +
   "「TVerの配信申請を出したい」「このお客様でTVerを申請して」には、tver_applications で広告主の業態考査を確かめ、無ければ submit_advertiser_review（本部の承認待ちになる）、承認済みなら tver_area_plan(prefecture, allCities: true) と tver_benchmarks で組み合わせる市区町村と予算を決め、preview_tver_campaign でエリア一覧・人口・期間・予算・ターゲティングを本人に見せてOKをもらってから submit_tver_campaign で申請する。" +
-  "「週次を出して」「今週の週次」「本部への週次共有」には my_week を1回呼び、返った記録だけから 声かけ数・返事数・いちばん近い受注候補 を埋めて本人に見せ、先週の『次の一手』が動いたか（DONE/PARTIAL/NOT）と 本部に頼みたいこと（hqRequest）を本人に選んでもらってから submit_weekly_share で提出する（OSに無い声かけは本人に聞いて足す。盛らない）。" +
+  "サイトの数字（訪問数・問い合わせ等）を渡された・「サイトの数字をOSに入れて」には、本人のAIのコネクタかスクショ・CSVから読んだ数字を本人に見せてから record_site_results で入れる（広告主は customerId・自社サイトは省略）。TVerの効果の報告では site_results(customerId) で配信前・中・後を並べ、言い切らず目安として添える。「週次を出して」「今週の週次」「本部への週次共有」には my_week を1回呼び、返った記録だけから 声かけ数・返事数・いちばん近い受注候補 を埋めて本人に見せ、先週の『次の一手』が動いたか（DONE/PARTIAL/NOT）と 本部に頼みたいこと（hqRequest）を本人に選んでもらってから submit_weekly_share で提出する（OSに無い声かけは本人に聞いて足す。盛らない）。" +
   "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注が決まったら update_deal(status: CLOSED_WON) で受注にし、set_closing_factor で決め手を残す。";
