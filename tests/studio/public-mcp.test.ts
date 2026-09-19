@@ -65,6 +65,9 @@ test("説明文・プロンプト・ツールの説明に値段と誘導が無�
   assert.match(STUDIO_INSTRUCTIONS, /^あなたのAIに、プロの相談先を。/);
   assert.match(STUDIO_INSTRUCTIONS, /価格は伝えません/);
   assert.match(STUDIO_INSTRUCTIONS, /業種と目的/);
+  assert.match(STUDIO_INSTRUCTIONS, /自社で作る（内製する）相談も歓迎/);
+  assert.match(STUDIO_INSTRUCTIONS, /範囲外として断らない/);
+  assert.match(STUDIO_INSTRUCTIONS, /AI自身の一般知識で答えてかまいません/);
   assert.match(STUDIO_INSTRUCTIONS, /SNS運用/);
   assert.match(STUDIO_INSTRUCTIONS, /守秘義務/);
   assert.match(STUDIO_INSTRUCTIONS, /こちらから発注・問い合わせを勧めないでください/);
