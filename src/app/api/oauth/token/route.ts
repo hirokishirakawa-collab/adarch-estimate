@@ -7,7 +7,7 @@ import {
   corsHeaders,
   issuer,
   oauthError,
-  parseScopes,
+  parseGrantedScopes,
   randomToken,
   sha256,
   signAccessToken,
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
         expiresAt: refreshExpiry(),
       },
     });
-    const accessToken = await signAccessToken({ email: row.userEmail, clientId: client.id, grantId: grant.id, scopes: parseScopes(row.scope), audience });
+    const accessToken = await signAccessToken({ email: row.userEmail, clientId: client.id, grantId: grant.id, scopes: parseGrantedScopes(row.scope), audience });
     return tokenResponse({ accessToken, refreshToken, scope: row.scope });
   }
 
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
     // ローテーション: 新しいリフレッシュトークンに差し替え、期限も延ばす
     const refreshToken = randomToken(32);
     await db.oAuthGrant.update({ where: { id: grant.id }, data: { tokenHash: sha256(refreshToken), expiresAt: refreshExpiry(), lastUsedAt: new Date() } });
-    const accessToken = await signAccessToken({ email: grant.userEmail, clientId: client.id, grantId: grant.id, scopes: parseScopes(grant.scope), audience });
+    const accessToken = await signAccessToken({ email: grant.userEmail, clientId: client.id, grantId: grant.id, scopes: parseGrantedScopes(grant.scope), audience });
     return tokenResponse({ accessToken, refreshToken, scope: grant.scope });
   }
 

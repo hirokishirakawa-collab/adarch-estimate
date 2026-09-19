@@ -65,6 +65,15 @@ export function parseScopes(raw: string | null | undefined): Scope[] {
   return ALL_SCOPES.filter((s) => asked.includes(s));
 }
 
+/**
+ * 発行済みのトークン・接続（grant）に記録された scope を読む。空＝権限なし（全scopeにしない）。
+ * parseScopes は同意画面用（指定なし＝全部を見せる）なので、発行後の読み取りには使わない（2026-09-20）
+ */
+export function parseGrantedScopes(raw: string | null | undefined): Scope[] {
+  const asked = (raw ?? "").split(/[\s,]+/).filter(Boolean);
+  return ALL_SCOPES.filter((s) => asked.includes(s));
+}
+
 // ---- アクセストークン ---------------------------------------------------
 
 export interface AccessTokenClaims {
@@ -113,7 +122,7 @@ export async function verifyAccessToken(token: string, audience: string): Promis
     email,
     clientId,
     grantId,
-    scopes: parseScopes(typeof payload.scope === "string" ? payload.scope : ""),
+    scopes: parseGrantedScopes(typeof payload.scope === "string" ? payload.scope : ""),
     exp: typeof payload.exp === "number" ? payload.exp : 0,
     name: user.name,
     clientName: grant.clientName,
