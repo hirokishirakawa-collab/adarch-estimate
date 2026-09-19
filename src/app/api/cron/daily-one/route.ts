@@ -3,6 +3,7 @@ export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { mirrorBellToCeoChat } from "@/lib/notifications";
 import { loadViewer } from "@/lib/mcp/os-read-tools";
 import { todaysOne } from "@/lib/mcp/daily-nudge";
 import { ensureBotUser, BOT_EMAIL } from "@/lib/office/arch-kun";
@@ -63,9 +64,12 @@ export async function GET(req: NextRequest) {
     if (!online) {
       // ベルだけに載せる。既存の通知ヘルパーは本人設定でGoogle Chat・メールへ転送するので使わない
       // （2026-09-13 代表判断＝スペースにも外にも出さない。OSの中だけ）
+      const bell = { userId: u.id, title: "アーチくんからひとこと", message: one.human, linkUrl: "/dashboard/live" };
       await db.notification.create({
-        data: { userId: u.id, type: "OFFICE_KNOCK", title: "アーチくんからひとこと", message: one.human, linkUrl: "/dashboard/live" },
+        data: { ...bell, type: "OFFICE_KNOCK" },
       }).catch((e) => console.error("[daily-one:notify]", e));
+      // 代表あての分だけは代表のChatスペースにも送る（2026-09-20 代表指示）
+      mirrorBellToCeoChat([bell]).catch(() => {});
     }
   }
 

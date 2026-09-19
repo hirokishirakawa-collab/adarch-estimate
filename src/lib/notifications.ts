@@ -1721,6 +1721,39 @@ export async function sendGroupWeeklyReportEmail(
 // アプリ内通知
 // ---------------------------------------------------------------
 
+/**
+ * 代表（ADMIN）あてのベル通知を、代表のGoogle Chatスペースにも同じ内容で送る（2026-09-20 代表指示）。
+ * ベルを作る経路（createInAppNotification / notifyAdmins / Studio問い合わせ / アーチくんのひとこと）から呼ぶ。
+ * 他の代表への通知は対象外＝これまで通りOSの中だけ（9/13ルール）。
+ */
+const CEO_BELL_CHAT_SPACE_ID = process.env.CEO_BELL_CHAT_SPACE_ID ?? "AAQAxSqou_g";
+
+export async function mirrorBellToCeoChat(
+  rows: { userId: string; title: string; message?: string | null; linkUrl?: string | null }[],
+) {
+  try {
+    if (!rows.length) return;
+    const admins = await db.user.findMany({
+      where: { role: "ADMIN", id: { in: [...new Set(rows.map((r) => r.userId))] } },
+      select: { id: true },
+    });
+    if (!admins.length) return;
+    const adminIds = new Set(admins.map((a) => a.id));
+    const sent = new Set<string>();
+    for (const r of rows) {
+      if (!adminIds.has(r.userId)) continue;
+      const text = [`🔔 ${r.title}`, r.message, r.linkUrl ? appUrl(r.linkUrl) : ""]
+        .filter(Boolean)
+        .join("\n");
+      if (sent.has(text)) continue; // ADMINが複数いても同じ通知は1回だけ
+      sent.add(text);
+      await sendChatMessage(CEO_BELL_CHAT_SPACE_ID, text);
+    }
+  } catch (e) {
+    console.error("[mirrorBellToCeoChat]", e);
+  }
+}
+
 /** アプリ内通知を作成 + ユーザー設定に応じてChat/メールにも転送 */
 export async function createInAppNotification(params: {
   userId: string;
@@ -1757,9 +1790,16 @@ export async function createInAppNotification(params: {
         notifyViaEmail: true,
         chatSpaceId: true,
         email: true,
+        role: true,
       },
     });
     if (!user) return;
+
+    // 代表あては代表のChatスペースへ全文で送る（本人設定のChat転送とは二重にしない）
+    const isAdmin = user.role === "ADMIN";
+    if (isAdmin) {
+      mirrorBellToCeoChat([params]).catch(() => {});
+    }
 
     const fullUrl = params.linkUrl ? appUrl(params.linkUrl) : "";
     const forwarded = params.forwardMessage ?? params.message;
@@ -1768,7 +1808,7 @@ export async function createInAppNotification(params: {
       .join("\n");
 
     // 3. Google Chat 転送
-    if (user.notifyViaChat && user.chatSpaceId) {
+    if (!isAdmin && user.notifyViaChat && user.chatSpaceId) {
       sendChatMessage(user.chatSpaceId, textBody).catch((e) =>
         console.error("[createInAppNotification:chat]", e)
       );
@@ -1824,6 +1864,7 @@ export async function notifyAdmins(params: {
         linkUrl: params.linkUrl,
       })),
     });
+    mirrorBellToCeoChat(admins.map((a) => ({ userId: a.id, ...params }))).catch(() => {});
   } catch (e) {
     console.error("[notifyAdmins]", e);
   }
