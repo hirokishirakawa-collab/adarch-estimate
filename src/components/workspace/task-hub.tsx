@@ -9,8 +9,8 @@ import { hubItemIcon } from "./hub-visuals";
 import { TaskHubScene } from "./task-hub-scenes";
 import styles from "./task-hub.module.css";
 
-function TaskCard({ task, selected, controls, onSelect }: {
-  task: HubTask; selected: boolean; controls: string; onSelect: () => void;
+function TaskCard({ task, selected, controls, onSelect, order }: {
+  task: HubTask; selected: boolean; controls: string; onSelect: () => void; order: number;
 }) {
   const frame = useRef<number | null>(null);
   const card = useRef<HTMLButtonElement>(null);
@@ -37,7 +37,7 @@ function TaskCard({ task, selected, controls, onSelect }: {
       frame.current = null;
     });
   }
-  return <button ref={card} type="button" className="sm-choice" aria-pressed={selected} aria-controls={controls}
+  return <button ref={card} type="button" className="sm-choice" style={{ order }} aria-pressed={selected} aria-controls={controls}
     onClick={onSelect} onPointerMove={move} onPointerLeave={resetPointer} onPointerCancel={resetPointer} onBlur={resetPointer}>
     <span className="sm-choice-top"><span className="sm-step">{task.number}<span>{task.english}</span></span><span className="sm-card-arrow"><ArrowUpRight aria-hidden /></span></span>
     <TaskHubScene task={task} />
@@ -87,16 +87,11 @@ export function TaskHub({ group, items, children }: { group: TaskGroup; items: N
     return () => motion.current?.cancel();
   }, [selection]);
 
-  const select = (id: string) => { setSelectedTask(id); setQuery(""); setSort("purpose"); setSelection((n) => n + 1); };
-  return <div className={styles.hub}><div className="sm-content">
-    <header className="sm-heading"><div><p className="sm-eyebrow">{definition.english}</p><h1>{definition.label}<span className="sm-title-dot">.</span></h1><p>{definition.invitation}</p></div>
-      <div className="sm-filters"><label className="sm-search"><Search aria-hidden /><input ref={input} type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="使いたい機能を検索" aria-label={`${definition.label}の機能を検索`} />
-        {query && <button type="button" aria-label="検索をクリア" onClick={() => { setQuery(""); input.current?.focus(); }}><X aria-hidden /></button>}
-      </label><label className="sm-sort">並び順<select aria-label="機能の並び順" value={sort} onChange={(event) => setSort(event.target.value)}><option value="purpose">目的別</option><option value="name">名前順</option></select></label></div>
-    </header>
-    <div className="sm-choices" role="group" aria-label="進めたい仕事">{availableTasks.map((candidate) => <TaskCard key={candidate.id} task={candidate} selected={!overview && active === candidate.id} controls={panelId} onSelect={() => select(candidate.id)} />)}</div>
-    {children}
-    <section className="sm-task-detail" aria-labelledby={titleId}>
+  // 押したカードの段のすぐ下に一覧を開く（2列グリッド）。検索・名前順のときはカードの下にまとめて出す。
+  const activeIndex = Math.max(0, availableTasks.findIndex((candidate) => candidate.id === active));
+  const activeColumn = activeIndex % 2;
+  const panelOrder = Math.min(activeIndex - activeColumn + 1, Math.max(availableTasks.length - 1, 0)) * 2 + 1;
+  const detail = <section className={overview ? "sm-task-detail" : "sm-task-detail sm-inline"} style={overview ? undefined : { order: panelOrder, ["--sm-caret" as string]: `${activeColumn ? 75 : 25}%` }} aria-labelledby={titleId}>
       <div className="sm-section-title"><div className="sm-detail-heading"><span className="sm-section-number" aria-hidden>{overview ? <Search size={13} /> : task.number}</span><h2 id={titleId}>{searching ? "機能の検索結果" : sort === "name" ? "すべての機能・名前順" : task.title}</h2></div><span className="sm-detail-hint">{overview ? `${visible.length}件` : task.hint}</span></div>
       <div ref={panel} id={panelId}>
         {visible.length === 0 ? <p className="sm-empty">{tools.length ? "該当する機能がありません。別の言葉で検索してください。" : "利用できる機能がありません。"}</p> : overview ? visible.map((tool) => <ToolRow key={tool.item.href} tool={tool} />) : <>
@@ -106,7 +101,18 @@ export function TaskHub({ group, items, children }: { group: TaskGroup; items: N
         </>}
       </div>
       <p className="sm-sr" role="status">{overview ? `${visible.length}件の機能を表示` : `「${task.title}」の道具を表示`}</p>
-    </section>
+  </section>;
+  const select = (id: string) => { setSelectedTask(id); setQuery(""); setSort("purpose"); setSelection((n) => n + 1); };
+  return <div className={styles.hub}><div className="sm-content">
+    <header className="sm-heading"><div><p className="sm-eyebrow">{definition.english}</p><h1>{definition.label}<span className="sm-title-dot">.</span></h1><p>{definition.invitation}</p></div>
+      <div className="sm-filters"><label className="sm-search"><Search aria-hidden /><input ref={input} type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="使いたい機能を検索" aria-label={`${definition.label}の機能を検索`} />
+        {query && <button type="button" aria-label="検索をクリア" onClick={() => { setQuery(""); input.current?.focus(); }}><X aria-hidden /></button>}
+      </label><label className="sm-sort">並び順<select aria-label="機能の並び順" value={sort} onChange={(event) => setSort(event.target.value)}><option value="purpose">目的別</option><option value="name">名前順</option></select></label></div>
+    </header>
+    <div className="sm-choices" role="group" aria-label="進めたい仕事">{availableTasks.map((candidate, index) => <TaskCard key={candidate.id} task={candidate} order={index * 2} selected={!overview && active === candidate.id} controls={panelId} onSelect={() => select(candidate.id)} />)}
+    {!overview && detail}</div>
+    {children}
+    {overview && detail}
     <p className="sm-context-note"><Route aria-hidden /><span>{overview ? "以前の機能名でも、やりたいことでも探せます。" : task.next}</span></p>
   </div></div>;
 }
