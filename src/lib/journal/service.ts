@@ -135,18 +135,32 @@ async function storedPickup():Promise<string[]> {
   const row=await db.appSetting.findUnique({where:{key:PICKUP_KEY},select:{value:true}});
   try {const v=JSON.parse(row?.value??"[]");return Array.isArray(v)?v.filter((x):x is string=>typeof x==="string"):[];} catch {return [];}
 }
+// 「PEOPLE ／ ひとを知る」の1枠。本部が選んだ「ひと」の記事・人物ページ。空なら最新の人物ページ（2026-09-20代表指示）
+const PEOPLE_KEY="journal.peopleId";
+async function storedPeople():Promise<string> {
+  const row=await db.appSetting.findUnique({where:{key:PEOPLE_KEY},select:{value:true}});
+  return row?.value??"";
+}
 export async function getPickup(v:McpViewer) {
   if(v.role!=="ADMIN") throw new JournalError("本部だけが設定できます",403);
-  return {ids:await storedPickup()};
+  const live=await db.journalEntry.findMany({where:{publicSnapshot:{not:Prisma.DbNull}},select:{id:true,title:true,publicSnapshot:true},orderBy:{firstPublishedAt:"desc"}});
+  const peopleChoices=live.filter(r=>(r.publicSnapshot as {category?:string}).category==="ひと").map(r=>({id:r.id,title:r.title}));
+  return {ids:await storedPickup(),peopleId:await storedPeople(),peopleChoices};
 }
 export async function setPickup(v:McpViewer,raw:unknown) {
   if(v.role!=="ADMIN") throw new JournalError("本部だけが設定できます",403);
-  const ids=[...new Set(z.object({ids:z.array(z.string().uuid()).max(3)}).parse(raw).ids)];
+  const input=z.object({ids:z.array(z.string().uuid()).max(3),peopleId:z.union([z.string().uuid(),z.literal("")]).optional()}).parse(raw);
+  const ids=[...new Set(input.ids)];
   const published=await db.journalEntry.count({where:{id:{in:ids},publicSnapshot:{not:Prisma.DbNull}}});
   if(published!==ids.length) throw new JournalError("公開中の記事だけを選んでください");
+  if(input.peopleId) {
+    const row=await db.journalEntry.findFirst({where:{id:input.peopleId,publicSnapshot:{not:Prisma.DbNull}},select:{publicSnapshot:true}});
+    if((row?.publicSnapshot as {category?:string}|null)?.category!=="ひと") throw new JournalError("「ひとを知る」には公開中の「ひと」の記事を選んでください");
+  }
   const value=JSON.stringify(ids);
   await db.appSetting.upsert({where:{key:PICKUP_KEY},create:{key:PICKUP_KEY,value},update:{value}});
-  return {ids};
+  if(input.peopleId!==undefined) await db.appSetting.upsert({where:{key:PEOPLE_KEY},create:{key:PEOPLE_KEY,value:input.peopleId},update:{value:input.peopleId}});
+  return {ids,peopleId:input.peopleId??await storedPeople()};
 }
 export async function manifest() {
   const rows=await db.journalEntry.findMany({orderBy:{id:"asc"}});
@@ -156,7 +170,8 @@ export async function manifest() {
   const media=await db.journalAsset.findMany({where:{id:{in:assets}},select:{id:true,sha256:true},orderBy:{id:"asc"}});
   const live=new Set(rows.filter(r=>r.publicSnapshot!==null).map(r=>r.id));
   const pickupIds=(await storedPickup()).filter(id=>live.has(id));
-  const payload={schemaVersion:1,entries,tombstones,media,pickupIds};
+  const people=await storedPeople(), peopleId=live.has(people)?people:"";
+  const payload={schemaVersion:1,entries,tombstones,media,pickupIds,...(peopleId?{peopleId}:{})};
   return {...payload,version:createHash("sha256").update(JSON.stringify(payload)).digest("hex")};
 }
 export async function deliveryPhoto(id:string) {
