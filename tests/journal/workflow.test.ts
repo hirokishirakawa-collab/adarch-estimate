@@ -2,13 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { contentSchema, publicContent, publicPath } from "../../src/lib/journal/model";
 import { parseFinalDraft } from "../../src/lib/journal/plain-draft";
-import { saveDraft,submit,review,getEntry,manifest,acknowledge,archiveDrafts } from "../../src/lib/journal/service";
+import { saveDraft,submit,review,getEntry,manifest,acknowledge,archiveDrafts,getPickup,setPickup } from "../../src/lib/journal/service";
 import type { McpViewer } from "../../src/lib/mcp/os-read-tools";
 
 // SQLは別途ステージングDBで検証する。ここでは本番DBに接続せず実サービスの権限・状態遷移を通す。
 type RecordRow=Record<string,unknown>;
 const rows:RecordRow[]=[];
 const notices:RecordRow[]=[];
+const settings=new Map<string,string>();
 function matches(row:RecordRow,w:RecordRow={}){return Object.entries(w).every(([k,v])=>v&&typeof v==="object"&&"in" in v ? (v as {in:unknown[]}).in.includes(row[k]):row[k]===v);}
 const store={
   journalEntry:{
@@ -16,10 +17,15 @@ const store={
     async findUnique({where}:{where:RecordRow}){return this.findFirst({where:(where.ownerId_externalId??where) as RecordRow});},
     async findUniqueOrThrow(a:{where:RecordRow}){const r=await this.findUnique(a);if(!r)throw Error("missing");return r;},
     async findMany(){return structuredClone(rows);},
+    async count({where}:{where:{id:{in:string[]}}}){return rows.filter(r=>where.id.in.includes(r.id as string)&&r.publicSnapshot!==null).length;},
     async create({data}:{data:RecordRow}){const r={status:"DRAFT",revision:1,approvedRevision:null,publicSnapshot:null,firstPublishedAt:null,deliveredRevision:null,createdAt:new Date(),updatedAt:new Date(),...data};rows.push(r);return structuredClone(r);},
     async updateMany({where,data}:{where:RecordRow,data:RecordRow}){let count=0;for(const r of rows)if(matches(r,where)){for(const[k,v]of Object.entries(data)){r[k]=v&&typeof v==="object"&&"increment"in v?Number(r[k])+Number(v.increment):v&&typeof v==="object"&&v.constructor.name==="DbNull"?null:v;}count++;}return{count};},
   },
   journalAsset:{async count(){return 0;},async findMany(){return[];}},
+  appSetting:{
+    async findUnique({where}:{where:{key:string}}){return settings.has(where.key)?{value:settings.get(where.key)}:null;},
+    async upsert({where,create,update}:{where:{key:string},create:{value:string},update:{value:string}}){settings.set(where.key,settings.has(where.key)?update.value:create.value);return {};},
+  },
   user:{async findMany(){return [{id:"hq"}];}},
   notification:{async createMany({data}:{data:RecordRow[]}){notices.push(...data);return {count:data.length};}},
   async $transaction<T>(fn:(s:unknown)=>Promise<T>):Promise<T>{return fn(store);},
@@ -109,4 +115,19 @@ test("本部の確認待ちになったら本部にOS内通知（本部自身の
  await submit(owner,a.id as string,1);assert.equal(notices.length,1);
  const b=await saveDraft(admin,{externalId:"notice-b",content:{...content,slug:"notice-b"}});
  await submit(admin,b.id as string,1);assert.equal(notices.length,1);
+});
+
+test("本部の自分の下書きは直接承認でき、PICK UPは本部だけが公開中の記事から選べる",async()=>{
+ rows.length=0;settings.clear();
+ const own=await saveDraft(admin,{externalId:"hq-own",content:{...content,slug:"hq-own-story"}});
+ const draft=await saveDraft(owner,{externalId:"branch-draft",content:{...content,slug:"branch-story"}});
+ await assert.rejects(()=>review(admin,{id:draft.id,revision:1,action:"approve",factsChecked:true,rightsChecked:true}),/確認待ち/);
+ await review(admin,{id:own.id,revision:1,action:"approve",factsChecked:true,rightsChecked:true});
+ await assert.rejects(()=>setPickup(owner,{ids:[own.id]}),/本部/);
+ await assert.rejects(()=>getPickup(owner),/本部/);
+ await assert.rejects(()=>setPickup(admin,{ids:[draft.id]}),/公開中/);
+ assert.deepEqual(await setPickup(admin,{ids:[own.id]}),{ids:[own.id]});
+ assert.deepEqual((await manifest()).pickupIds,[own.id]);
+ await review(admin,{id:own.id,revision:1,action:"withdraw"});
+ assert.deepEqual((await manifest()).pickupIds,[]);
 });

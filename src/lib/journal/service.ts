@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { db } from "@/lib/db";
+import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import type { McpViewer } from "@/lib/mcp/os-read-tools";
 import { contentSchema, saveSchema, reviewSchema, publicContent, publicPath, JournalError, isPlaceholderSlug, type JournalContent } from "./model";
@@ -128,13 +129,34 @@ export async function photo(v:McpViewer,id:string) {
   if(!row) throw new JournalError("写真が見つかりません",404);
   return row.data;
 }
+// トップの「PICK UP」3枠。本部が選んだ記事IDを順番どおりに保存する（2026-09-19代表指示）
+const PICKUP_KEY="journal.pickupIds";
+async function storedPickup():Promise<string[]> {
+  const row=await db.appSetting.findUnique({where:{key:PICKUP_KEY},select:{value:true}});
+  try {const v=JSON.parse(row?.value??"[]");return Array.isArray(v)?v.filter((x):x is string=>typeof x==="string"):[];} catch {return [];}
+}
+export async function getPickup(v:McpViewer) {
+  if(v.role!=="ADMIN") throw new JournalError("本部だけが設定できます",403);
+  return {ids:await storedPickup()};
+}
+export async function setPickup(v:McpViewer,raw:unknown) {
+  if(v.role!=="ADMIN") throw new JournalError("本部だけが設定できます",403);
+  const ids=[...new Set(z.object({ids:z.array(z.string().uuid()).max(3)}).parse(raw).ids)];
+  const published=await db.journalEntry.count({where:{id:{in:ids},publicSnapshot:{not:Prisma.DbNull}}});
+  if(published!==ids.length) throw new JournalError("公開中の記事だけを選んでください");
+  const value=JSON.stringify(ids);
+  await db.appSetting.upsert({where:{key:PICKUP_KEY},create:{key:PICKUP_KEY,value},update:{value}});
+  return {ids};
+}
 export async function manifest() {
   const rows=await db.journalEntry.findMany({orderBy:{id:"asc"}});
   const entries=rows.filter(r=>r.publicSnapshot!==null).map(r=>r.publicSnapshot);
   const tombstones=rows.filter(r=>r.firstPublishedAt && !r.publicSnapshot).map(r=>({id:r.id,revision:r.revision,path:publicPath({kind:r.kind as JournalContent["kind"],slug:r.slug})}));
   const assets=[...new Set(entries.flatMap(e=>(e as unknown as {photos:{assetId:string}[]}).photos.map(p=>p.assetId)))];
   const media=await db.journalAsset.findMany({where:{id:{in:assets}},select:{id:true,sha256:true},orderBy:{id:"asc"}});
-  const payload={schemaVersion:1,entries,tombstones,media};
+  const live=new Set(rows.filter(r=>r.publicSnapshot!==null).map(r=>r.id));
+  const pickupIds=(await storedPickup()).filter(id=>live.has(id));
+  const payload={schemaVersion:1,entries,tombstones,media,pickupIds};
   return {...payload,version:createHash("sha256").update(JSON.stringify(payload)).digest("hex")};
 }
 export async function deliveryPhoto(id:string) {
