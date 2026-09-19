@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { contentSchema, publicContent, publicPath } from "../../src/lib/journal/model";
 import { parseFinalDraft } from "../../src/lib/journal/plain-draft";
-import { saveDraft,submit,review,hqEdit,getEntry,manifest,acknowledge,archiveDrafts,getPickup,setPickup } from "../../src/lib/journal/service";
+import { saveDraft,submit,review,getEntry,manifest,acknowledge,archiveDrafts,getPickup,setPickup } from "../../src/lib/journal/service";
 import type { McpViewer } from "../../src/lib/mcp/os-read-tools";
 
 // SQLは別途ステージングDBで検証する。ここでは本番DBに接続せず実サービスの権限・状態遷移を通す。
@@ -21,7 +21,7 @@ const store={
     async create({data}:{data:RecordRow}){const r={status:"DRAFT",revision:1,approvedRevision:null,publicSnapshot:null,firstPublishedAt:null,deliveredRevision:null,createdAt:new Date(),updatedAt:new Date(),...data};rows.push(r);return structuredClone(r);},
     async updateMany({where,data}:{where:RecordRow,data:RecordRow}){let count=0;for(const r of rows)if(matches(r,where)){for(const[k,v]of Object.entries(data)){r[k]=v&&typeof v==="object"&&"increment"in v?Number(r[k])+Number(v.increment):v&&typeof v==="object"&&v.constructor.name==="DbNull"?null:v;}count++;}return{count};},
   },
-  journalAsset:{async count({where}:{where:{id:{in:string[]}}}){return where.id.in.length;},async findMany(){return[];}},
+  journalAsset:{async count(){return 0;},async findMany(){return[];}},
   appSetting:{
     async findUnique({where}:{where:{key:string}}){return settings.has(where.key)?{value:settings.get(where.key)}:null;},
     async upsert({where,create,update}:{where:{key:string},create:{value:string},update:{value:string}}){settings.set(where.key,settings.has(where.key)?update.value:create.value);return {};},
@@ -50,20 +50,18 @@ test("入力形式・URL制約・人物の本人写真必須",()=>{
  assert.throws(()=>contentSchema.parse({...content,secret:"extra"}));
  assert.equal(publicPath(content),"/journal/fixture-story/");assert.ok(!("evidence"in publicContent(content)));
 });
-const ok={factsChecked:true,rightsChecked:true};
-test("保存→本人が公開→修正中は旧版維持→公開し直し→本部が直す→取り下げ",async()=>{
+test("保存→本人提出→本部承認→修正中は旧版維持→再承認→取り下げ",async()=>{
  rows.length=0;
  const first=await saveDraft(owner,{externalId:"fixture",content});
  assert.equal(first.revision,1);
  const retry=await saveDraft(owner,{externalId:"fixture",content:{...content,title:content.title}});assert.equal(retry.id,first.id);assert.equal(retry.revision,1);
  await assert.rejects(()=>getEntry(other,first.id),/見つかりません/);
  await assert.rejects(()=>saveDraft({...owner,branchId:null},{externalId:"bad",content}),/拠点/);
- await assert.rejects(()=>submit(other,first.id,1,ok),/見つかりません/);
+ await assert.rejects(()=>review(other,{id:first.id,revision:1,action:"approve",factsChecked:true,rightsChecked:true}),/本部/);
  assert.equal((await manifest()).entries.length,0);
- await assert.rejects(()=>submit(owner,first.id,1),/確認/);
- await assert.rejects(()=>submit(owner,first.id,1,{factsChecked:true}),/確認/);
- const published=await submit(owner,first.id,1,ok);
- assert.equal(published.status,"APPROVED");assert.equal(published.approvedBy,"one");
+ await submit(owner,first.id,1);
+ await assert.rejects(()=>review(admin,{id:first.id,revision:1,action:"approve"}),/事実/);
+ await review(admin,{id:first.id,revision:1,action:"approve",factsChecked:true,rightsChecked:true});
  let m=await manifest();assert.equal(m.entries.length,1);assert.ok(!JSON.stringify(m).includes("private://"));
  await acknowledge(m.version);
  assert.equal((await getEntry(owner,first.id)).deliveredRevision,1);
@@ -71,27 +69,13 @@ test("保存→本人が公開→修正中は旧版維持→公開し直し→�
  const next=await saveDraft(owner,{externalId:"fixture",expectedRevision:1,content:{...content,title:"修正したタイトル"}});assert.equal(next.revision,2);
  m=await manifest();assert.equal((m.entries[0] as {title:string}).title,content.title);
  assert.equal((await archiveDrafts(owner,[first.id])).count,0);
- await assert.rejects(()=>submit(owner,first.id,1,ok),/最新版/);
- await submit(owner,first.id,2,ok);
+ await submit(owner,first.id,2);
+ await assert.rejects(()=>review(admin,{id:first.id,revision:1,action:"approve",factsChecked:true,rightsChecked:true}),/最新版/);
+ await review(admin,{id:first.id,revision:2,action:"approve",factsChecked:true,rightsChecked:true});
  await assert.rejects(()=>acknowledge(m.version),/同期中/);
  m=await manifest();assert.equal((m.entries[0] as {title:string}).title,"修正したタイトル");
- // 本部の直し：投稿者・URLはそのまま、公開中は即差し替え。フィード用の承認時刻は動かさない
- const before=await getEntry(admin,first.id);
- await assert.rejects(()=>hqEdit(owner,{id:first.id,expectedRevision:2,content:{...content,title:"本部の直し"}}),/本部/);
- await assert.rejects(()=>hqEdit(admin,{id:first.id,expectedRevision:1,content:{...content,title:"本部の直し"}}),/他の更新/);
- await assert.rejects(()=>hqEdit(admin,{id:first.id,expectedRevision:2,content:{...content,slug:"other-url",title:"本部の直し"}}),/公開後/);
- const fixed=await hqEdit(admin,{id:first.id,expectedRevision:2,content:{...content,title:"本部の直し"}});
- assert.equal(fixed.ownerId,"one");assert.equal(fixed.revision,3);assert.equal(fixed.slug,content.slug);assert.equal(fixed.status,"APPROVED");
- assert.equal(String(fixed.approvedAt),String(before.approvedAt));
- m=await manifest();assert.equal((m.entries[0] as {title:string}).title,"本部の直し");
- await review(admin,{id:first.id,revision:3,action:"withdraw"});
+ await review(admin,{id:first.id,revision:2,action:"withdraw"});
  m=await manifest();assert.equal(m.entries.length,0);assert.equal(m.tombstones.length,1);
-});
-test("本部の直しは、未公開の下書きなら保存だけで公開しない",async()=>{
- rows.length=0;
- const d=await saveDraft(owner,{externalId:"hq-fix-draft",content:{...content,slug:"hq-fix-draft"}});
- const fixed=await hqEdit(admin,{id:d.id,expectedRevision:1,content:{...content,slug:"hq-fix-draft",title:"本部が直した下書き"}});
- assert.equal(fixed.status,"DRAFT");assert.equal(fixed.publicSnapshot,null);assert.equal((await manifest()).entries.length,0);
 });
 test("URL名：省略時はOSが付け、重複は番号付き、承認まで変更可・公開後は固定",async()=>{
  rows.length=0; delete process.env.ANTHROPIC_API_KEY;
@@ -107,32 +91,30 @@ test("URL名：省略時はOSが付け、重複は番号付き、承認まで変
  assert.equal(kept.slug,"seki-tver-cm");
  const renamed=await saveDraft(owner,{externalId:"dup-a",expectedRevision:2,content:{...content,slug:"seki-cm-shooting"}});
  assert.equal(renamed.slug,"seki-cm-shooting");assert.equal((renamed.content as {slug:string}).slug,"seki-cm-shooting");
- const approved=await submit(owner,renamed.id as string,3,ok);
- assert.equal(approved.slug,"seki-cm-shooting");
- assert.equal((approved.publicSnapshot as {path:string}).path,"/journal/seki-cm-shooting/");
+ await submit(owner,renamed.id as string,3);
+ await assert.rejects(()=>review(admin,{id:renamed.id,revision:3,action:"approve",factsChecked:true,rightsChecked:true,slug:"seki-tver-cm-2"}),/使われています/);
+ const approved=await review(admin,{id:renamed.id,revision:3,action:"approve",factsChecked:true,rightsChecked:true,slug:"seki-tver-cm-shooting"});
+ assert.equal(approved.slug,"seki-tver-cm-shooting");
+ assert.equal((approved.publicSnapshot as {path:string}).path,"/journal/seki-tver-cm-shooting/");
  await assert.rejects(()=>saveDraft(owner,{externalId:"dup-a",expectedRevision:3,content:{...content,slug:"another-url"}}),/公開後/);
  const afterPublish=await saveDraft(owner,{externalId:"dup-a",expectedRevision:3,content:{...noSlug,title:"公開後の修正"}});
- assert.equal(afterPublish.slug,"seki-cm-shooting");
- // 本部の自分の下書きは承認時にURL名を直せる
- const own=await saveDraft(admin,{externalId:"hq-slug",content:{...content,slug:"hq-slug"}});
- await assert.rejects(()=>review(admin,{id:own.id,revision:1,action:"approve",...ok,slug:"seki-tver-cm-2"}),/使われています/);
- assert.equal((await review(admin,{id:own.id,revision:1,action:"approve",...ok,slug:"hq-fixed-slug"})).slug,"hq-fixed-slug");
+ assert.equal(afterPublish.slug,"seki-tver-cm-shooting");
 });
 test("URL名の整形",async()=>{
  const {normalizeSlug}=await import("../../src/lib/journal/slug");
  assert.equal(normalizeSlug(" Seki TVer_CM Shooting! "),"seki-tver-cm-shooting");
  assert.equal(normalizeSlug("people"),null);assert.equal(normalizeSlug("関市"),null);
 });
-test("各社が公開したら本部にOS内通知（本部自身の公開は通知しない）",async()=>{
+test("本部の確認待ちになったら本部にOS内通知（本部自身の提出は通知しない）",async()=>{
  rows.length=0;notices.length=0;
  const a=await saveDraft(owner,{externalId:"notice-a",content:{...content,slug:"notice-a"}});
- await submit(owner,a.id as string,1,ok);
+ await submit(owner,a.id as string,1);
  assert.equal(notices.length,1);
- assert.match(String(notices[0].title),/Journalに公開されました/);
+ assert.match(String(notices[0].title),/Journalの原稿が届きました/);
  assert.equal(notices[0].userId,"hq");assert.equal(notices[0].linkUrl,`/dashboard/admin/journal?id=${a.id}`);
- await submit(owner,a.id as string,1,ok);assert.equal(notices.length,1);
+ await submit(owner,a.id as string,1);assert.equal(notices.length,1);
  const b=await saveDraft(admin,{externalId:"notice-b",content:{...content,slug:"notice-b"}});
- await submit(admin,b.id as string,1,ok);assert.equal(notices.length,1);
+ await submit(admin,b.id as string,1);assert.equal(notices.length,1);
 });
 
 test("本部の自分の下書きは直接承認でき、PICK UPは本部だけが公開中の記事から選べる",async()=>{

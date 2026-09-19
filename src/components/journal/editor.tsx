@@ -7,14 +7,14 @@ import styles from "./desk.module.css";
 
 export type EditableEntry={id:string;externalId:string;revision:number;content:JournalContent;firstPublishedAt?:string|null};
 export type AuthorDefaults=Pick<JournalContent,"authorName"|"company"|"region">;
-type Props={defaults?:AuthorDefaults;entry:EditableEntry|null;onSaved:(id:string)=>Promise<void>;onDirty:()=>void;photoUrl:(id:string)=>string;hq?:boolean};
+type Props={defaults?:AuthorDefaults;entry:EditableEntry|null;onSaved:(id:string)=>Promise<void>;onDirty:()=>void;photoUrl:(id:string)=>string};
 const areas=["全国","北海道・東北","関東","甲信越・北陸","東海","関西","中国・四国","九州・沖縄"] as const;
-const empty=(defaults?:AuthorDefaults):JournalContent=>({kind:"article",slug:"",title:"",summary:"",category:"まちの広告",genre:"こんな仕事をしました",region:defaults?.region??"",area:"全国",company:defaults?.company??"",authorName:defaults?.authorName??"",blocks:[],photos:[],evidence:[{label:"確認のための資料",reference:"投稿者が提供した最終原稿・写真",note:"掲載内容・担当範囲は投稿者が公開前に確認しました。"}],publicSources:[],aiAssisted:false});
+const empty=(defaults?:AuthorDefaults):JournalContent=>({kind:"article",slug:"",title:"",summary:"",category:"まちの広告",genre:"こんな仕事をしました",region:defaults?.region??"",area:"全国",company:defaults?.company??"",authorName:defaults?.authorName??"",blocks:[],photos:[],evidence:[{label:"確認のための資料",reference:"投稿者が提供した最終原稿・写真",note:"掲載内容・担当範囲は公開前に本部で確認してください。"}],publicSources:[],aiAssisted:false});
 const labels:Record<string,string>={title:"記事タイトル",summary:"記事の紹介文",slug:"記事のURL",region:"地域",company:"会社名",authorName:"お名前",photos:"写真",blocks:"見出し・本文",evidence:"確認資料",publicSources:"公開する参考リンク",authorSlug:"人物ページのURL名",occurredOn:"実施時期"};
 
 const plain=(blocks:JournalContent["blocks"])=>blocks.map(b=>b.type==="heading"?`## ${b.text}`:b.type==="quote"?b.text.split("\n").map(line=>`> ${line}`).join("\n"):b.text).join("\n\n");
 
-export default function JournalEditor({entry,onSaved,onDirty,photoUrl,defaults,hq=false}:Props){
+export default function JournalEditor({entry,onSaved,onDirty,photoUrl,defaults}:Props){
   const [content,setContent]=useState<JournalContent>(()=>entry?.content??empty(defaults));
   const [externalId]=useState(()=>entry?.externalId??`web-${crypto.randomUUID()}`);
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[bodyText,setBodyText]=useState(()=>plain(entry?.content.blocks??[])),[settingsOpen,setSettingsOpen]=useState(false);
@@ -47,15 +47,13 @@ export default function JournalEditor({entry,onSaved,onDirty,photoUrl,defaults,h
     if(!parsed.success){setSettingsOpen(true);setError(parsed.error.issues.map(i=>`${labels[String(i.path[0])]??"入力内容"}：${i.message}`).join("\n"));return;}
     setBusy(true);
     try{
-      // 本部の直しは記事IDで上書き（投稿者はそのまま）。各社は自分の原稿として保存
-      const r=hq&&entry?await fetch("/api/journal/entries",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:entry.id,expectedRevision:entry.revision,content:parsed.data})})
-        :await fetch("/api/journal/entries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({externalId,expectedRevision:entry?.revision,content:parsed.data})});
+      const r=await fetch("/api/journal/entries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({externalId,expectedRevision:entry?.revision,content:parsed.data})});
       const result=await r.json();if(!r.ok)throw Error(result.error??"下書きを保存できませんでした。");
       await onSaved(result.id);
     }catch(e){setError(e instanceof Error?e.message:"保存できませんでした。");}finally{setBusy(false);}
   }
   return <form className={styles.editor} noValidate onSubmit={e=>{e.preventDefault();void save();}}>
-    <div className={styles.editorHeading}><div><p className={styles.hint}>{entry?"原稿を編集":"新しい記事"}</p><h2>{hq?"本部で直す":"記事を書く"}</h2></div><span className={styles.hint}>{hq?(entry?.firstPublishedAt?"保存すると、公開中の記事も5分ほどで差し替わります":"保存しても、投稿者が公開するまで載りません"):"保存しただけでは公開されません"}</span></div>
+    <div className={styles.editorHeading}><div><p className={styles.hint}>{entry?"原稿を編集":"新しい記事"}</p><h2>記事を書く</h2></div><span className={styles.hint}>保存しただけでは公開されません</span></div>
     <fieldset disabled={busy}>
       <label className={styles.titleField}>タイトル<input required maxLength={120} value={content.title} placeholder="どんな話か、ひと目で伝わるタイトルに" onChange={e=>field("title",e.target.value)}/></label>
       <section className={styles.editorSection} aria-labelledby="article-photos-heading">
@@ -93,15 +91,15 @@ export default function JournalEditor({entry,onSaved,onDirty,photoUrl,defaults,h
         <label>実施時期（任意）<input value={content.occurredOn??""} placeholder="2026-09 または 2026-09-19" pattern="\d{4}(-\d{2}(-\d{2})?)?" onChange={e=>field("occurredOn",e.target.value)}/></label>
         <label>記事のURL名（空欄ならAIが付けます）<input disabled={!!entry?.firstPublishedAt} value={content.slug} maxLength={80} pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="例：seki-tver-cm-shooting" onChange={e=>field("slug",e.target.value.toLowerCase())}/></label>
         {content.kind==="article"&&<label>執筆者の人物ページURL名（任意）<input value={content.authorSlug??""} placeholder="公開済みの人物ページがある場合" onChange={e=>field("authorSlug",e.target.value)}/></label>}
-      </div><p className={styles.hint}>公開先：/journal/{content.kind==="person"?"people/":""}{content.slug||"（保存すると地域名と中身から自動で付きます）"}/　URL名は初回の公開で確定し、公開後は変わりません。ページの種類は保存後に固定します。</p></section>
-      <section className={styles.editorSection}><h3>内容を確かめるための資料</h3><p className={styles.hint}>この欄は一般公開されません。元の制作物、担当者の回答、確認した事実などを残します。</p>
+      </div><p className={styles.hint}>公開先：/journal/{content.kind==="person"?"people/":""}{content.slug||"（保存すると地域名と中身から自動で付きます）"}/　URL名は本部の承認で確定し、公開後は変わりません。ページの種類は保存後に固定します。</p></section>
+      <section className={styles.editorSection}><h3>本部が内容を確認するための資料</h3><p className={styles.hint}>この欄は一般公開されません。元の制作物、担当者の回答、確認した事実などを残します。</p>
         {content.evidence.map((s,i)=><div className={styles.blockEditor} key={i}>{(['label','reference','note'] as const).map((k,n)=><label key={k}>{['資料の名前','参照先・確認した相手','確認できたこと'][n]}{i+1}<input required maxLength={k==="label"?200:2000} value={s[k]} onChange={e=>field("evidence",content.evidence.map((a,j)=>j===i?{...a,[k]:e.target.value}:a))}/></label>)}{i>0&&<button type="button" onClick={()=>field("evidence",content.evidence.filter((_,j)=>j!==i))}>この資料を外す</button>}</div>)}
         <button type="button" disabled={content.evidence.length>=30} onClick={()=>field("evidence",[...content.evidence,{label:"",reference:"",note:""}])}>＋ 確認資料</button>
       </section>
       <details><summary>読者に公開する参考リンク（任意）</summary>{content.publicSources.map((s,i)=><div className={styles.editorGrid} key={i}><label>参考リンクの名前{i+1}<input required maxLength={200} value={s.label} onChange={e=>field("publicSources",content.publicSources.map((a,j)=>j===i?{...a,label:e.target.value}:a))}/></label><label>参考URL{i+1}<input required type="url" value={s.url} placeholder="https://" onChange={e=>field("publicSources",content.publicSources.map((a,j)=>j===i?{...a,url:e.target.value}:a))}/></label><button type="button" onClick={()=>field("publicSources",content.publicSources.filter((_,j)=>j!==i))}>リンクを外す</button></div>)}<button type="button" disabled={content.publicSources.length>=20} onClick={()=>field("publicSources",[...content.publicSources,{label:"",url:""}])}>＋ 参考リンク</button></details>
       </details>
       {error&&<p role="alert" className={styles.message}>{error}</p>}
-      <div className={styles.saveBar}><button className={styles.primary} type="submit">{busy?"保存しています…":hq?"直した内容を保存":"下書きを保存して、内容を確認"}</button><span className={styles.hint}>{hq?"投稿者名とURLは変わりません。":"保存後、原稿を読んで公開できます。"}</span></div>
+      <div className={styles.saveBar}><button className={styles.primary} type="submit">{busy?"保存しています…":"下書きを保存して、内容を確認"}</button><span className={styles.hint}>保存後、原稿を読んで本部へ提出できます。</span></div>
     </fieldset>
   </form>;
 }
