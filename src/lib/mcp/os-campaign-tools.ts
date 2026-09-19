@@ -164,7 +164,7 @@ export async function planCampaign(v: McpViewer, input: PlanCampaignInput) {
       tverPlan: tver ? { area: tver.plan.areaLabel, viewers: Math.round(tver.plan.viewers), monthlyGuide: monthlyGuideText(tver), recommendedReachPerMonth: tver.recommended ? Math.round(tver.recommended.reach) : null, minMonths: tver.minMonths, note: `税抜。${TVER_ESTIMATE_NOTE} 申込ページで同じ額が出る` } : null,
       lineFriendUrl: line,
       landingPages: lps.map((p) => ({ url: `${appUrl()}/lp/${p.slug}`, title: p.title, industry: p.industry, city: p.cityName })),
-      howTo: "業種×市のLPを作るなら create_landing_page。着地は tverOrderUrl（申込まで完結）か lineFriendUrl（関係づくり）",
+      howTo: "着地は tverOrderUrl（申込まで完結）か lineFriendUrl（関係づくり）。LPの新規作成は本部のみ",
     },
     next: "1社ずつ件名と本文を書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信ボタンは人が押す。返事が来たら record_lead_result",
   };
@@ -283,6 +283,8 @@ export interface CreateLandingPageInput {
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
 
 export async function createLandingPage(v: McpViewer, input: CreateLandingPageInput) {
+  // 2026-09-19 代表決定: 拠点のLPをアドアーチのOS配下に増やさない＝新規作成は本部のみ（既存の公開LPは残す）
+  need(v.role === "ADMIN", "LPの新規作成は本部のみです。着地はTVer申込ページ（plan_campaign の tverOrderUrl）か公式LINE（lineFriendUrl）を使ってください");
   need(input.title?.trim() && input.title.length <= 80, "title は1〜80文字");
   need(input.headline?.trim() && input.headline.length <= 60, "headline（大見出し）は1〜60文字");
   need(Array.isArray(input.sections) && input.sections.length >= 2 && input.sections.length <= 6, "sections は2〜6段落（{heading, body}）");

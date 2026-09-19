@@ -519,9 +519,9 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
     confirm: (a) => `MailSuiteの開封・クリック${a.items.length}件を、送った先のリードに記録します`,
   }),
   def({
-    name: "create_landing_page", kind: "write", title: "業種×市の営業用LPを作る",
+    name: "create_landing_page", kind: "write", title: "業種×市の営業用LPを作る（本部のみ）",
     description:
-      "AIが文面（大見出し・サブ・2〜6段落）を書き、/lp/<slug> として公開する。市のTVer視聴者数・月に届く人数の目安・月額（最低料金〜）とパッケージの内容物は表示のたびにOSから引くので、文面に数字を書かない。「3人に1人」のような到達の約束や「保証」も書かない。着地は既定でTVer申込ページ（自拠点が案内元）。useLine: true で自拠点の公式LINEボタンも付く。返ったURLを prepare_outreach の本文に添える。",
+      "【本部のみ・拠点は使えない＝拠点の着地はTVer申込ページか公式LINE】AIが文面（大見出し・サブ・2〜6段落）を書き、/lp/<slug> として公開する。市のTVer視聴者数・月に届く人数の目安・月額（最低料金〜）とパッケージの内容物は表示のたびにOSから引くので、文面に数字を書かない。「3人に1人」のような到達の約束や「保証」も書かない。着地は既定でTVer申込ページ（自拠点が案内元）。useLine: true で自拠点の公式LINEボタンも付く。返ったURLを prepare_outreach の本文に添える。",
     input: z.object({ title: z.string(), headline: z.string(), subheadline: z.string().optional(), industry: z.string().optional(), prefecture: z.string().optional(), city: z.string().optional(), packageSlug: z.string().optional(), sections: z.array(z.object({ heading: z.string(), body: z.string() })), ctaLabel: z.string().optional(), ctaUrl: z.string().optional(), useLine: bool().optional(), slug: z.string().optional().describe("URLの末尾（英小文字・数字・ハイフン。例: karatsu-dental）") }),
     run: (v, a) => camp.createLandingPage(v, a),
     confirm: (a) => `LPを公開します: ${a.title}（${[a.prefecture, a.city, a.industry].filter(Boolean).join("・")}・${a.sections.length}段落）`,
@@ -536,7 +536,7 @@ export const OS_WRITE_TOOLS: OsToolDef[] = [
       city: z.string().describe("チラシの商圏の市区町村（例: 唐津市）"),
       industry: z.string().optional().describe("相手の業種（チラシの見出しに使う）"),
       catchCopy: z.string().optional().describe("チラシのひとこと（40字以内・金額なし）"),
-      landingUrl: z.string().optional().describe("QRの飛び先（create_landing_page のURL か TVer申込ページ）"),
+      landingUrl: z.string().optional().describe("QRの飛び先（TVer申込ページ か 本部のLPのURL）"),
       template: z.enum(["orange", "classic", "poster"]).optional().describe("チラシの型（既定 orange）"),
       adSeconds: z.number().int().optional().describe("15/30/60（既定15）"),
       budgetJpy: z.number().int().optional().describe("チラシに載せる想定媒体費（省略で標準）"),
@@ -614,7 +614,7 @@ export const OS_AI_RULES_MCP =
   "・TVerを申請したい→tver_applications（同じ広告主・期間の申請が既にあれば本人に伝えて止める）→業態考査が無ければ submit_advertiser_review／承認済みなら preview_tver_campaign を本人に見せてOK後に submit_tver_campaign。" +
   "・TVerの効果・見積→tver_benchmarks／配信済みの報告→tver_results（盛らない）／どの市から→tver_area_plan(prefecture, allCities: true)。" +
   "・今日何する→my_next_actions（0→9の順に3〜8行）／週次→my_week→本人に見せて選んでもらい submit_weekly_share。" +
-  "・◯◯市の◯◯業界に営業→plan_campaign（少なければ discover_leads）→prepare_outreach（Gmail下書き・送信は人）。フォームしか無ければ formPaste を人に渡す／送れない先は record_lead_results で電話候補へ。紙DM→prepare_dm／Meta広告→create_local_ad で設計（職種・経営者などに絞るなら meta_targeting_search）→meta_audience_estimate で対象人数と日額の目安を本人に見せる→Meta公式コネクタで停止中に作成→record_local_ad で記録（成果は update_local_ad_results・見比べは local_ad_results）／着地LP→create_landing_page。" +
+  "・◯◯市の◯◯業界に営業→plan_campaign（少なければ discover_leads）→prepare_outreach（Gmail下書き・送信は人）。フォームしか無ければ formPaste を人に渡す／送れない先は record_lead_results で電話候補へ。紙DM→prepare_dm／Meta広告→create_local_ad で設計（職種・経営者などに絞るなら meta_targeting_search）→meta_audience_estimate で対象人数と日額の目安を本人に見せる→Meta公式コネクタで停止中に作成→record_local_ad で記録（成果は update_local_ad_results・見比べは local_ad_results）／着地はTVer申込ページ（plan_campaign の tverOrderUrl）か公式LINE＝拠点は新しいLPを作らない。" +
   "・提案文・資料→draft_proposal(customerId) の writingGuide の順に書く／勝ち筋→find_similar_wins／媒体の仕様→search_knowledge（返った rules を守る）／決まり・手順→list_wiki→get_wiki。" +
   "・初めての相手・求人広告・紹介→screen_company。CHECK/STOP は本人に見せる（決めつけない・止めるかは本部）。" +
   "・見つからない・動きがおかしい→同じ検索を繰り返さず ask_hq。" +
@@ -626,7 +626,7 @@ export const OS_AI_RULES =
   "顧客・商談・見積・リードはグループ全社分が見える（他拠点の金額だけ非表示）。相手先の話をする前に search_customers / list_activities で過去のやり取りを読む。はじめて取引する相手・求人広告・紹介で来た相手は、進める前に screen_company(name, corporateNumber, website, address, phone, jobText) を1回通し、CHECK / STOP が返ったら本人に見せて確かめる（止める・進めるは本部が決める。相手を犯罪と決めつける言い方はしない）。" +
   "「今日何する」「朝の確認」「やることある？」には先に my_next_actions を呼び、0→8 の順に3〜8行で提案する。決まり・手順・事例は list_wiki で目次を見てから get_wiki で全文を読む。探しても見つからない・OSの動きがおかしいときは、同じ言葉で引き直さず ask_hq(subject, detail) で本部に届ける。媒体の仕様・配信面・条件・他社の提案の仕組みは search_knowledge（資料ライブラリ）で引き、返った rules（自社=そのまま／他社・媒体=価格は卸値・実績は他社分）を必ず守る。" +
   "提案文・提案資料を頼まれたら draft_proposal(customerId) を1回呼び、返った writingGuide の順に書く。初めての業種・断られた後・提案前は find_similar_wins で勝ち筋を引く。TVerの提案・見積・『効果はどのくらい？』『この市で月◯万だとどれくらい？』には tver_benchmarks(prefecture, city, monthlyBudget, industry) を先に呼び、matrix（人口帯×月額帯→30日あたり表示回数・到達人数・住民比・完全視聴率）を「目安・税抜」で添える。配信済みのお客様への報告は tver_results(reportId) の数字をそのまま使う（盛らない）。" +
-  "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。メールが無い相手は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）をそのまま人に渡す＝AIがフォームに投稿しない。送れない相手（画像認証・フォームなし）は record_lead_result(leadId, phoneCandidate: true, note: 理由) で電話候補に回す。選別の結果（対象外・電話候補）は1件ずつではなく record_lead_results(items) でまとめて記録する。どの市から当たるか迷ったら tver_area_plan(prefecture, allCities: true) を1回。着地が要れば create_landing_page で業種×市のLPを作り、URLを本文に添える。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad で設計→Meta公式コネクタ（mcp.facebook.com/ads）で停止中に作成→record_local_ad で記録。" +
+  "「◯◯市の◯◯業界に営業したい」「まとめて当たりたい」には plan_campaign(prefecture, city, industry) を1回呼び、候補が少なければ discover_leads(prefecture, city, industry) で新しく探してから plan_campaign を呼び直す。targets を上から順に reasons（なぜ今か）を添えて示す。文面は pitch（決め手・返信が来た文面）を型として1社ずつ書き、prepare_outreach(leadId, subject, body) で Gmail の下書きにする。送信は人が押す。メールが無い相手は formPaste（フォームURL＋そのまま貼れる件名と本文＋手順）をそのまま人に渡す＝AIがフォームに投稿しない。送れない相手（画像認証・フォームなし）は record_lead_result(leadId, phoneCandidate: true, note: 理由) で電話候補に回す。選別の結果（対象外・電話候補）は1件ずつではなく record_lead_results(items) でまとめて記録する。どの市から当たるか迷ったら tver_area_plan(prefecture, allCities: true) を1回。着地は plan_campaign の tverOrderUrl（か lineFriendUrl）を本文に添える＝拠点は新しいLPを作らない。紙で当てたい（DM・チラシ）と言われたら prepare_dm(leadIds, prefecture, city, landingUrl) を1回呼び、返った files（チラシPDF・Webレター用CSV）と send（発送先リンク）と steps をそのまま示す。needsFix は手で補う先として列挙する。Meta広告は create_local_ad で設計→Meta公式コネクタ（mcp.facebook.com/ads）で停止中に作成→record_local_ad で記録。" +
   "「TVerの配信申請を出したい」「このお客様でTVerを申請して」には、tver_applications で広告主の業態考査を確かめ、無ければ submit_advertiser_review（本部の承認待ちになる）、承認済みなら tver_area_plan(prefecture, allCities: true) と tver_benchmarks で組み合わせる市区町村と予算を決め、preview_tver_campaign でエリア一覧・人口・期間・予算・ターゲティングを本人に見せてOKをもらってから submit_tver_campaign で申請する。" +
   "「週次を出して」「今週の週次」「本部への週次共有」には my_week を1回呼び、返った記録だけから 声かけ数・返事数・いちばん近い受注候補 を埋めて本人に見せ、先週の『次の一手』が動いたか（DONE/PARTIAL/NOT）と 本部に頼みたいこと（hqRequest）を本人に選んでもらってから submit_weekly_share で提出する（OSに無い声かけは本人に聞いて足す。盛らない）。" +
   "【記録の決まり】会話の中で営業のやり取り（電話・メール・訪問・商談の進み具合）や結果（アポ・商談化・受注・失注・断り）が出たら、ユーザーに頼まれなくても log_activity / update_deal / record_lead_result で OS に残す。記録する前に一言「OSに記録します」と伝え、要点を3〜8行にまとめる。新しい相手先は search_customers で重複を確認してから create_customer。金額は書かない。受注が決まったら update_deal(status: CLOSED_WON) で受注にし、set_closing_factor で決め手を残す。";
