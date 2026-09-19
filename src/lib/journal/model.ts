@@ -45,9 +45,9 @@ export function publicContent(content: JournalContent) {
 export const writingGuide = {
   tone:"近所の頼れる人に話すように。です・ます。肩書きより具体的なエピソード。自慢や大げさな成果表現は避ける。『商売』は『ビジネス』『地域への貢献』に。",
   genres, categories,
-  process:"本人のメモ・写真・公開可能な過去事例から執筆。不明点を質問し、発言・成果・取材を作らない。本人に原稿を見せてからjournal_save_draft。確認依頼はjournal_submit。公開の承認は本部だけ（OSの本部画面か、本部のAIからjournal_review）。承認すると数分でadarch.co.jp/journal/に載る。",
+  process:"本人のメモ・写真・公開可能な過去事例から執筆。不明点を質問し、発言・成果・取材を作らない。本人に原稿を見せてからjournal_save_draft。本人が最終確認したらjournal_submitで公開（数分でadarch.co.jp/journal/に載る）。公開後、本部が表現を整えることがある。",
   evidence:"evidenceには内部根拠、publicSourcesには一般公開してよいリンクのみ。過去事例は実施時期と自社の担当範囲を本文に書く。実施したことと確認できた効果を区別する。",
   photos:"journal_upload_photoで本物の写真を登録。画像ID・説明・撮影者をphotosへ。本人の表情、仕事中、地元の風景が伝わる写真を選ぶ。",
-  url:"slug（URL名）は空でよい。空ならOSが地域名と中身から付け、本部が承認時に確定する。自分で付けるなら半角小文字とハイフンで『地域のローマ字-中身の英語』を2〜5語（例 seki-tver-cm-shooting）。人物ページは『姓-名』のローマ字（例 shirakawa-hiroki）。日付・意味のない番号・社名の略称は入れない。公開後は変わらない。",
-  updates:"同じ記事には同じexternalIdを使う。更新前にjournal_getでrevisionを確認してexpectedRevisionに指定。公開済み記事の修正も再確認するまで旧版を維持。",
+  url:"slug（URL名）は空でよい。空ならOSが地域名と中身から付け、初回の公開で確定する。自分で付けるなら半角小文字とハイフンで『地域のローマ字-中身の英語』を2〜5語（例 seki-tver-cm-shooting）。人物ページは『姓-名』のローマ字（例 shirakawa-hiroki）。日付・意味のない番号・社名の略称は入れない。公開後は変わらない。",
+  updates:"同じ記事には同じexternalIdを使う。更新前にjournal_getでrevisionを確認してexpectedRevisionに指定。公開済み記事を直した場合は、もう一度journal_submitするまで旧版が載ったまま。",
 };

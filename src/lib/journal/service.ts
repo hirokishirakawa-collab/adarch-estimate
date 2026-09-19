@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import type { McpViewer } from "@/lib/mcp/os-read-tools";
-import { contentSchema, saveSchema, reviewSchema, publicContent, publicPath, JournalError, isPlaceholderSlug, type JournalContent } from "./model";
+import { contentSchema, draftContentSchema, saveSchema, reviewSchema, publicContent, publicPath, JournalError, isPlaceholderSlug, type JournalContent } from "./model";
 import { suggestSlug, uniqueSlug } from "./slug";
 import { notifyAdmins } from "@/lib/notifications";
 
@@ -54,22 +54,54 @@ export async function saveDraft(v:McpViewer, raw:unknown) {
     throw e;
   }
 }
-export async function submit(v:McpViewer,id:string,revision:number) {
+// 公開用の値。本人の公開・本部の承認・本部の直しで共通
+function publishData(row:{id:string;revision:number;firstPublishedAt:Date|null},c:JournalContent) {
+  const now=new Date().toISOString();
+  return {status:"APPROVED",approvedRevision:row.revision,firstPublishedAt:row.firstPublishedAt??new Date(),
+    publicSnapshot:json({...publicContent(c),id:row.id,revision:row.revision,path:publicPath(c),datePublished:row.firstPublishedAt?.toISOString()??now,dateModified:now})};
+}
+export const publishChecks=z.object({factsChecked:z.boolean().optional(),rightsChecked:z.boolean().optional(),personChecked:z.boolean().optional()});
+// 本人が押したらそのまま公開（2026-09-19代表決定：先に出して、本部が後から直す）
+export async function submit(v:McpViewer,id:string,revision:number,checks:z.infer<typeof publishChecks>={}) {
   const row=await getEntry(v,id);
   if(row.revision!==revision) throw new JournalError("最新版を読み直してください",409);
-  contentSchema.parse(row.content);
-  if(row.status==="IN_REVIEW" || row.status==="APPROVED") return row;
-  if(row.status==="ARCHIVED") throw new JournalError("原稿を保存し直してから確認を依頼してください");
-  const n=await db.journalEntry.updateMany({where:{id,revision,status:row.status},data:{status:"IN_REVIEW"}});
+  const c=contentSchema.parse(row.content);
+  if(row.status==="APPROVED" && row.approvedRevision===row.revision) return row;
+  if(row.status==="ARCHIVED") throw new JournalError("原稿を保存し直してから公開してください");
+  if(!checks.factsChecked || !checks.rightsChecked || (c.kind==="person" && !checks.personChecked)) throw new JournalError("公開前の確認（事実・写真と掲載範囲・人物ページは本人確認）にチェックしてください");
+  const n=await db.journalEntry.updateMany({where:{id,revision,status:row.status},data:{...publishData(row,c),approvedBy:v.id,approvedAt:new Date(),reviewNote:null}});
   if(n.count!==1) throw new JournalError("更新が競合しました",409);
-  // 本部のOS内通知（ベル）だけ。Chat・メールには出さない。本部が自分で出した原稿は通知しない
+  // 本部のOS内通知（ベル）だけ。Chat・メールには出さない。本部が自分で出した記事は通知しない
   if(v.role!=="ADMIN") {
-    const c=row.content as {kind?:string;company?:string};
-    await notifyAdmins({type:"SYSTEM",title:`📝 Journalの原稿が届きました：${row.title}`,
-      message:`${row.ownerName}${c.company?`（${c.company}）`:""}／${c.kind==="person"?"人物ページ":"記事"}・本部の確認待ち`,
+    await notifyAdmins({type:"SYSTEM",title:`📝 Journalに公開されました：${row.title}`,
+      message:`${row.ownerName}${c.company?`（${c.company}）`:""}／${c.kind==="person"?"人物ページ":"記事"}・直すところがあれば本部画面から`,
       linkUrl:`/dashboard/admin/journal?id=${row.id}`});
   }
   return getEntry(v,id);
+}
+// 本部が各社の記事を直接直す。公開中なら保存と同時に差し替える（フィードに「更新」を流さないよう approvedAt は動かさない）
+export async function hqEdit(v:McpViewer,raw:unknown) {
+  if(v.role!=="ADMIN") throw new JournalError("本部だけが直せます",403);
+  const a=z.object({id:z.string().uuid(),expectedRevision:z.number().int().positive(),content:draftContentSchema}).strict().parse(raw);
+  const ids=[...new Set(a.content.photos.map(p=>p.assetId))];
+  if(ids.length !== await db.journalAsset.count({where:{id:{in:ids}}})) throw new JournalError("利用できない写真が含まれています",403);
+  return db.$transaction(async tx => {
+    const row=await tx.journalEntry.findUnique({where:{id:a.id}});
+    if(!row) throw new JournalError("記事が見つかりません",404);
+    if(row.revision!==a.expectedRevision) throw new JournalError("他の更新があります。記事を読み直してから保存してください",409);
+    if(row.kind!==a.content.kind) throw new JournalError("ページの種類は変更できません");
+    const requested=isPlaceholderSlug(a.content.slug)?row.slug:a.content.slug!;
+    if(row.firstPublishedAt && requested!==row.slug) throw new JournalError("公開後のURLは変更できません");
+    if(requested!==row.slug && await tx.journalEntry.findFirst({where:{kind:row.kind,slug:requested}})) throw new JournalError("このURL名はほかの記事で使われています");
+    const c=contentSchema.parse({...a.content,slug:requested,...(a.content.kind==="person"?{authorSlug:requested}:{})});
+    if(stable(row.content)===stable(c)) return row;
+    const next={...row,revision:row.revision+1};
+    const live=row.publicSnapshot!==null;
+    const changed=await tx.journalEntry.updateMany({where:{id:row.id,revision:row.revision},
+      data:{content:json(c),title:c.title,slug:requested,revision:{increment:1},...(live?publishData(next,c):{})}});
+    if(changed.count!==1) throw new JournalError("更新が競合しました。記事を読み直してください",409);
+    return tx.journalEntry.findUniqueOrThrow({where:{id:row.id}});
+  });
 }
 export async function review(v:McpViewer,raw:unknown) {
   if(v.role!=="ADMIN") throw new JournalError("本部だけが公開を承認できます",403);
@@ -92,9 +124,7 @@ export async function review(v:McpViewer,raw:unknown) {
         c=contentSchema.parse({...c,slug:a.slug,...(c.kind==="person"?{authorSlug:a.slug}:{})});
         slugData={slug:a.slug,content:json(c)};
       }
-      const now=new Date().toISOString();
-      data={...slugData,status:"APPROVED",approvedRevision:row.revision,approvedBy:v.id,reviewNote:a.note??null,approvedAt:new Date(),firstPublishedAt:row.firstPublishedAt??new Date(),
-        publicSnapshot:json({...publicContent(c),id:row.id,revision:row.revision,path:publicPath(c),datePublished:row.firstPublishedAt?.toISOString()??now,dateModified:now})};
+      data={...slugData,...publishData(row,c),approvedBy:v.id,reviewNote:a.note??null,approvedAt:new Date()};
     } else if(a.action==="withdraw") {
       // URLは再利用しない。同期側でnoindexの取り下げページに置換する。
       data={status:"ARCHIVED",revision:{increment:1},approvedRevision:null,publicSnapshot:Prisma.DbNull,reviewNote:a.note??"掲載を取り下げました"};

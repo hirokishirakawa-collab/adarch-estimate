@@ -103,7 +103,7 @@ const PUBLISHING_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
   "/dashboard/tver-flyer": { task: "deliver", title: "TVerの営業チラシを作る", description: "チラシ制作サポートで、営業に使う材料を用意する。" },
   "/dashboard/leads/dm": { task: "deliver", title: "郵送DMを準備する", description: "チラシと送付先を用意する。" },
   "/dashboard/line": { task: "deliver", title: "LINE公式アカウントで届ける", description: "LINE公式アカウントの管理画面を開く。" },
-  "/dashboard/journal": { task: "write", title: "Journalに記事を書く", description: "タイトル・写真・本文を入れて、本部に確認を依頼する。" },
+  "/dashboard/journal": { task: "write", title: "Journalに記事を書く", description: "タイトル・写真・本文を入れて、内容を確認して公開する。" },
   "/dashboard/seminars": { task: "seminar", title: "セミナーの録画を登録・共有する", description: "自社の窓口付きリンクで、録画をお客様に送る。" },
   "/dashboard/group-profiles": { task: "profile", title: "メンバー紹介を見る", description: "自分と仲間の紹介から、人柄と仕事を伝える。" },
 };
