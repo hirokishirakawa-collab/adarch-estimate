@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { registerCreator, sendVerificationCode, verifyCode } from "./actions";
+import { CREATOR_COPYRIGHT_TEXT, CREATOR_PAYMENT_TEXT } from "@/lib/creators/terms";
 
 // 都道府県リスト
 const PREFECTURES = [
@@ -339,8 +340,7 @@ export default function CreatorRegisterPage() {
               <ul className="space-y-2.5 text-sm text-white/60 leading-relaxed">
                 <li className="flex gap-2">
                   <span className="text-white/30 shrink-0">•</span>
-                  当社グループの案件で制作された映像・写真・音声・グラフィック等のすべての制作物に関する
-                  著作権・利用権は、原則として当社またはクライアントに帰属します。
+                  {CREATOR_COPYRIGHT_TEXT}
                 </li>
                 <li className="flex gap-2">
                   <span className="text-white/30 shrink-0">•</span>
@@ -407,7 +407,7 @@ export default function CreatorRegisterPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-white/30 shrink-0">•</span>
-                  お支払いは月末締め・翌々月10日払いです。納品完了後に請求書をご提出いただき、指定口座へお振込みいたします。
+                  {CREATOR_PAYMENT_TEXT}
                 </li>
                 <li className="flex gap-2">
                   <span className="text-white/30 shrink-0">•</span>

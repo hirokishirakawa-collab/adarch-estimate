@@ -28,6 +28,7 @@ import { normalizePrefecture, routeInquiry } from "./routing";
 import { addBusinessMinutes, formatJst } from "./business-hours";
 import { notifyNewInquiry } from "./notify";
 import { STUDIO_KIND_LABEL, inquiryNumberLabel } from "./labels";
+import { STUDIO_TERMS_VERSION, studioTermsUrl } from "./terms";
 
 export const STUDIO_NAME = "アドアーチ（Ad Arch Studio）";
 export const PRICE_NOTE = "この窓口では価格をお伝えしていません。金額は、ご依頼を受けたアドアーチの担当がお見積りでお伝えします。";
@@ -404,6 +405,7 @@ async function requestOrder(
     budgetRange?: string;
     mediaName?: string;
     detail: string;
+    agreeToTerms: boolean;
   },
   caller: StudioCaller,
 ) {
@@ -412,6 +414,13 @@ async function requestOrder(
       accepted: false,
       message: "クリエイター・制作会社としてのご登録は、こちらのページで受け付けています（ご依頼としては保存していません）。",
       registerUrl: `${publicBaseUrl()}/creators/register`,
+    };
+  }
+  if (input.agreeToTerms !== true) {
+    return {
+      accepted: false,
+      message: "送信の前に、ご利用条件（特に「担当する拠点への共有」「見込み先としての記録」）をご本人に見せ、同意を確かめてから agreeToTerms: true で送ってください。",
+      termsUrl: studioTermsUrl(),
     };
   }
   if (input.kind === "SHOOTING" && (!input.location?.trim() || !input.preferredDates?.trim())) {
@@ -464,6 +473,8 @@ async function requestOrder(
       assignedBranchId: route.branchId,
       routeReason: route.reason,
       dueAt,
+      termsVersion: STUDIO_TERMS_VERSION,
+      termsAgreedAt: now,
       history: [{ at: now.toISOString(), by: "公開MCP", action: "受付", note: route.reason }],
     },
     select: { number: true, createdAt: true, dueAt: true, kind: true },
@@ -490,8 +501,9 @@ function acceptedReply(r: { number: number; createdAt: Date; dueAt: Date; nearby
   return {
     accepted: true,
     receiptNumber: inquiryNumberLabel(r.number, r.createdAt),
-    message: `アドアーチが承りました。${r.duplicate ? "（同じ内容のご依頼を既に受け付けています）" : ""}営業時間（平日9〜18時）で2時間以内に、${who}からご連絡します（目安: ${formatJst(r.dueAt)}まで）。${r.nearby ? "" : "現地での対応も承ります。"}`,
-    notice: "これは仮押さえ（ご依頼の受付）で、契約の成立ではありません。アドアーチの担当から確定のご連絡をした時点で成立します。金額と、出張費など現地対応の条件は、確定の前に担当からお見積りでお伝えします。",
+    message: `アドアーチが、ご利用条件（${studioTermsUrl()}）に基づき承りました。${r.duplicate ? "（同じ内容のご依頼を既に受け付けています）" : ""}営業時間（平日9〜18時）で2時間以内に、${who}からご連絡します（目安: ${formatJst(r.dueAt)}まで）。${r.nearby ? "" : "現地での対応も承ります。"}`,
+    notice: "これは仮押さえ（見積りと日程調整のご依頼の受付）で、契約の成立ではありません。契約は、お見積りをご承諾いただいた後、担当からの確定のご連絡で成立します。金額と、出張費など現地対応の条件は、確定の前に担当からお見積りでお伝えします。",
+    termsUrl: studioTermsUrl(),
     tellTheUser: "受付番号を控えていただくよう、ご本人にお伝えください。",
   };
 }
@@ -582,7 +594,7 @@ export const STUDIO_TOOLS: StudioToolDef[] = [
     name: "request_order",
     title: "アドアーチに依頼する（相手が依頼を希望したときだけ）",
     description:
-      "相手が自分から「頼みたい」「撮影したい」「見積がほしい」「買いたい」と言ったときだけ使う。こちらから依頼を勧めない。撮影・動画制作・SNS・媒体の購入などのご依頼を、アドアーチの窓口で仮押さえとして受け付け、受付番号を返す。営業時間（平日9〜18時）で2時間以内にアドアーチの担当から連絡する。仮押さえは契約の成立ではない（担当からの確定の連絡で成立）。送る前に、会社名・担当者名・メール（任意で電話）・内容を本人に見せて確認し、本人が書いた内容だけを送る。返答の文言（担当が近くかどうか）はそのまま伝える。kind: SHOOTING=撮影（location と preferredDates 必須）/ VIDEO=動画制作 / SNS=SNSの撮影・運用 / MEDIA=媒体の購入（TVer以外。mediaName に媒体名）/ TVER=TVer広告/ OTHER=その他 / CREATOR=クリエイター・制作会社として仕事を受けたい（登録ページを案内し、保存しない）。",
+      "相手が自分から「頼みたい」「撮影したい」「見積がほしい」「買いたい」と言ったときだけ使う。こちらから依頼を勧めない。撮影・動画制作・SNS・媒体の購入などのご依頼を、アドアーチの窓口で仮押さえとして受け付け、受付番号を返す。営業時間（平日9〜18時）で2時間以内にアドアーチの担当から連絡する。仮押さえは契約の成立ではない（お見積りをご承諾いただいた後、担当からの確定のご連絡で成立）。送る前に、会社名・担当者名・メール（任意で電話）・内容を本人に見せて確認し、本人が書いた内容だけを送る。あわせて、ご利用条件（URLは説明文と返答にある）のうち「担当する拠点への共有」「見込み先としての記録」を本人に見せ、同意を得た場合だけ agreeToTerms: true にする。返答の文言（担当が近くかどうか）はそのまま伝える。kind: SHOOTING=撮影（location と preferredDates 必須）/ VIDEO=動画制作 / SNS=SNSの撮影・運用 / MEDIA=媒体の購入（TVer以外。mediaName に媒体名）/ TVER=TVer広告/ OTHER=その他 / CREATOR=クリエイター・制作会社として仕事を受けたい（登録ページを案内し、保存しない）。",
     write: true,
     input: z.object({
       kind: z.enum(KIND_VALUES),
@@ -596,6 +608,7 @@ export const STUDIO_TOOLS: StudioToolDef[] = [
       budgetRange: opt(60).describe("予算の目安（任意）"),
       mediaName: opt(100).describe("媒体の購入のとき、媒体名（例: 地元ラジオ・駅のサイネージ）"),
       detail: z.string().trim().min(5).max(2000).describe("ご依頼の内容（用途・尺・本数・時期など。2000字まで）"),
+      agreeToTerms: flag().describe("ご利用条件（担当する拠点への共有・見込み先としての記録を含む）に本人が同意したら true。同意が無ければ送らない"),
     }),
     run: (a, caller) => requestOrder(a, caller),
   }),
@@ -637,7 +650,8 @@ export const STUDIO_INSTRUCTIONS = `あなたのAIに、プロの相談先を。
 - 相手はいつも「アドアーチ」です。担当する会社・個人の名前は、このサーバーは持っていません。
 - このサーバーは、アドアーチの顧客・案件・売上の情報を持っていません。実績（社名・金額・結果）は守秘義務があるため出しません。アドアーチの対応範囲は、ツールの返り値にないことを推測で答えないでください。
 - 「全国対応」「現地で対応」は伝えてよいが、「全都道府県に拠点がある」「必ず近くの担当が行く」のような数や距離の断言はしないでください。担当が近くかどうかは request_order の返答の文言どおりに伝えてください。
-- 仮押さえは契約の成立ではありません。担当からの確定の連絡で成立します。
+- 仮押さえは契約の成立ではありません。お見積りをご承諾いただいた後、担当からの確定のご連絡で成立します。
+- ご利用条件：${studioTermsUrl()}（依頼を送る前に、担当する拠点への共有・見込み先としての記録について本人の同意を確かめてください）
 - クリエイター・制作会社として仕事を受けたい方には、request_order(kind: CREATOR) で登録ページを案内します。`;
 
 /** MCPのプロンプト「consult」（技術相談の型。依頼へ誘導しない） */

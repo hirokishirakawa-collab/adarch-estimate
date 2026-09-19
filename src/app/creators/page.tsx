@@ -40,9 +40,9 @@ export default function CreatorsTopPage() {
         <p className="text-white/40 text-base sm:text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
           Ad Arch Group の映像制作ネットワークに参加しませんか。
           <br className="hidden sm:block" />
-          あなたのスキルとエリアに合った
+          登録すると、グループから制作のご相談を受けられる状態になります。
           <br className="hidden sm:block" />
-          プロジェクト相談を直接お届けします。
+          （ご相談の有無・件数はお約束できません）
         </p>
 
         <Link
@@ -73,7 +73,7 @@ export default function CreatorsTopPage() {
             {
               icon: "📍",
               title: "エリアマッチング",
-              desc: "あなたの活動エリアに合った案件のみご相談。無駄な移動はありません。",
+              desc: "活動エリアとスキルをもとにご相談します。",
             },
             {
               icon: "🎯",
@@ -83,7 +83,7 @@ export default function CreatorsTopPage() {
             {
               icon: "🤝",
               title: "継続的な関係",
-              desc: "単発ではなく、信頼関係を築きながら継続的にお仕事をご依頼します。",
+              desc: "一度きりで終わらせず、続けてご相談できる関係を大切にしています。",
             },
           ].map((item) => (
             <div
@@ -178,9 +178,9 @@ export default function CreatorsTopPage() {
       <section className="relative z-10 max-w-3xl mx-auto px-6 py-20 text-center">
         <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-400/20 rounded-3xl p-10 sm:p-14">
           <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-            プロジェクトの相談を
+            制作のご相談を受けられる
             <br />
-            受け取る準備はできましたか？
+            状態にしておきませんか？
           </h2>
           <p className="text-white/40 text-sm mb-8">
             登録は無料。約3分で完了します。

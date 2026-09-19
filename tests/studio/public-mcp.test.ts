@@ -5,6 +5,8 @@ import { STUDIO_TOOLS, STUDIO_INSTRUCTIONS, STUDIO_CONSULT_PROMPT, CREATOR_INSTR
 import { addBusinessMinutes } from "../../src/lib/studio/business-hours";
 import { normalizePrefecture } from "../../src/lib/studio/routing";
 import { clientIp } from "../../src/lib/contact/guard";
+import { STUDIO_TERMS, STUDIO_TERMS_VERSION, studioTermsHtml } from "../../src/lib/studio/terms";
+import { CREATOR_PAYMENT_TEXT, CREATOR_COPYRIGHT_TEXT } from "../../src/lib/creators/terms";
 
 // 金額の文字列（¥・円・万円・$・料金/価格/見積 など）
 const MONEY = /[¥￥]\s*\d|\d[\d,，.]*\s*(円|万円|千円|億円)|\$\s*\d|万円|千円|億円/;
@@ -117,6 +119,34 @@ test("受付の時点ではリードにしない（request_order から lead-lin
   const link = readFileSync("src/lib/studio/lead-link.ts", "utf8");
   assert.doesNotMatch(link, /\{ name \}|name: q\.companyName[^\n]*\}\s*\]/); // 社名一致の検索をしない
   assert.match(link, /email: \{ equals: email, mode: "insensitive" \}/);
+});
+
+test("利用条件：全9条・版あり・依頼は同意が必須・成立の文言がそろっている", () => {
+  assert.equal(STUDIO_TERMS.length, 9);
+  assert.ok(STUDIO_TERMS_VERSION);
+  const html = studioTermsHtml();
+  assert.match(html, /第9条（準拠法・管轄）/);
+  assert.match(html, /第1版|第\d+版/);
+  const order = STUDIO_TOOLS.find((t) => t.name === "request_order")!;
+  const shape = (order.input as unknown as { shape: Record<string, { safeParse: (v: unknown) => { success: boolean } }> }).shape;
+  assert.ok(shape.agreeToTerms, "agreeToTerms が無い");
+  assert.equal(shape.agreeToTerms.safeParse(undefined).success, false); // 必須
+  assert.match(order.description, /agreeToTerms: true/);
+  const tools = readFileSync("src/lib/studio/tools.ts", "utf8");
+  assert.match(tools, /お見積りをご承諾いただいた後、担当からの確定のご連絡で成立/);
+  assert.match(STUDIO_INSTRUCTIONS, /お見積りをご承諾いただいた後、担当からの確定のご連絡で成立/);
+  assert.doesNotMatch(tools, /担当から確定のご連絡をした時点で成立|担当からの確定の連絡で成立します/);
+});
+
+test("制作者向けのページ：約束に読める表現と翌々月払いが無い", () => {
+  const lp = readFileSync("src/app/creators/page.tsx", "utf8");
+  assert.doesNotMatch(lp, /直接お届けします|無駄な移動はありません|継続的にお仕事をご依頼します|受け取る準備はできましたか/);
+  const reg = readFileSync("src/app/creators/register/page.tsx", "utf8");
+  assert.doesNotMatch(reg, /翌々月/);
+  assert.match(CREATOR_PAYMENT_TEXT, /月末締め・翌月末払い/);
+  assert.match(CREATOR_PAYMENT_TEXT, /支払期日は請求書の有無にかかわらず変わりません/);
+  assert.match(CREATOR_COPYRIGHT_TEXT, /対価は報酬に含みます/);
+  assert.match(CREATOR_COPYRIGHT_TEXT, /著作者人格権は行使しない/);
 });
 
 test("県名をそろえる", () => {

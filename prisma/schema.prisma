@@ -5984,6 +5984,8 @@ model StudioInquiry {
   budgetRange            String?
   mediaName              String? // 媒体の購入のとき（例: 地元ラジオ・サイネージ）
   detail                 String              @db.Text
+  termsVersion           String? // 同意した利用条件の版（src/lib/studio/terms.ts）
+  termsAgreedAt          DateTime? // 利用条件に同意した日時（依頼の送信時）
   ipHash                 String // IPは生で持たない（sha256）
   userAgent              String?
   suspectedSpam          Boolean             @default(false)

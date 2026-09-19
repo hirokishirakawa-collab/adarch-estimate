@@ -34,6 +34,7 @@ export default async function StudioInquiryDetailPage({ params }: { params: Prom
     ["希望日", q.preferredDates],
     ["予算の目安", q.budgetRange],
     ["媒体", q.mediaName],
+    ["利用条件", q.termsVersion ? `第${q.termsVersion}版に同意（${dt(q.termsAgreedAt)}）` : null],
   ];
 
   return (
