@@ -51,3 +51,5 @@
 - 2026-09-17 20:48 src/components/workspace/{workspace-hub.tsx,task-hub-scenes.tsx}・src/lib/workspace/{task-catalog.ts,update-history.json}・tests/workspace/task-catalog.test.ts／代表の「手続きのページも」を受け、白背景・立体ホバーの共通UIを手続きにも適用。お客様への請求／本部から各社へ／各社から本部へ／相談・共有の4入口で既存10機能を整理し、本部との3方向分類・既存権限を保持。PC/390px/320px、全4入口・10機能・旧名検索・外部リンク2件・USER非表示、型/ESLint/本番ビルド・5テスト通過。これで4タブ統一／本番反映していない
 
 - 2026-09-18 23:06 src/app/dashboard/library/page.tsx・src/components/workspace/library-browser.tsx・library-browser.module.css・src/lib/workspace/update-history.json・AGENTS.md／代表のカラフル案承認と「ok デプロイして」を受け、白地・大きな検索・種類別の淡い色・2列一覧（スマホ1列）を実装。既存検索/認証/閲覧権限/DB処理を維持。検索・種類切替・日付と解除・名前順・AIパネル・USER向けリンク非表示・390px/320pxを確認。ESLint・ビルド成功、全体型エラー1件は変更前後同一（signage/schedulesのparseScheduleBodyエクスポート）／本番反映作業中（完了は確認記録に追記）
+
+- 2026-09-19 11:05 共通導線6ファイル（task-hub.tsx・task-hub.module.css・header.tsx・workspace.css・update-history.json・AGENTS.md）／代表が設計案に「それがいいです。反映してください」と承認。最新本番990bf4b0から独立cloneで、5ページの入口をPC横一列116px・スマホ小型2列90pxへ、候補を全入口の直下に固定。選択中は薄橙・主な行動は橙・上部AIは補助色。許可済みの機能だけを表示する処理を保持。全20入口のPC/320px、390px、検索/名前順/追加候補/キーボード順/AI開閉、権限・検索5テスト、ESLint・型・本番ビルド成功／本番反映作業中（完了は記録へ追記）

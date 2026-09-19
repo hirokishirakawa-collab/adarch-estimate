@@ -702,7 +702,8 @@
     gap: 5px;
     margin-left: auto;
   }
-  .os-topbar-actions > .os-button-primary {
+  .os-topbar-actions > .os-button-primary,
+  .os-topbar-actions > .os-button-secondary {
     padding: 8px 10px;
     font-size: 12px;
   }

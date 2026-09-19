@@ -66,7 +66,7 @@ export function Header({
         </span>
         <NotificationBell />
         <ArchKunToggle />
-        <AiWorkButton connected={user.aiConnected} label="AIと進める" />
+        <AiWorkButton connected={user.aiConnected} label="AIと進める" secondary={/^\/dashboard\/work\/(sales|projects|library|publishing|procedures)\/?$/.test(pathname)} />
       </div>
     </header>
   );
