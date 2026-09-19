@@ -239,6 +239,22 @@
     "section": "本部の管理"
   },
   {
+    "href": "/dashboard/admin/studio-inquiries",
+    "label": "Ad Arch Studio 依頼（本部）",
+    "minRole": "ADMIN",
+    "aliases": ["公開のAI窓口", "県の担当表"],
+    "group": "admin",
+    "section": "本部の管理"
+  },
+  {
+    "href": "/dashboard/studio-inquiries",
+    "label": "AI窓口からの依頼",
+    "minRole": "MANAGER",
+    "aliases": ["Ad Arch Studio"],
+    "group": "sales",
+    "section": "相手・商談"
+  },
+  {
     "href": "/dashboard/outreach-pipeline",
     "label": "アウトリーチ",
     "minRole": "MANAGER",

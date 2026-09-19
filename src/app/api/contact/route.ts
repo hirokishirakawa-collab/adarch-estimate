@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendContactInquiryEmail, sendPartnershipAutoReply } from "@/lib/resend";
 import { db } from "@/lib/db";
 import { notifyCeo } from "@/lib/google-chat";
+import { EMAIL_RE, looksLikeSales } from "@/lib/contact/guard";
 
 export const runtime = "nodejs";
 
@@ -24,24 +25,8 @@ function isRateLimited(ip: string): boolean {
   return entry.count > RATE_MAX;
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// 営業・相互リンク依頼の判定。捨てずに件名へ印を付けるだけにする（本物を取りこぼさないため）。
-const SALES_SIGNALS = [
-  "相互リンク",
-  "被リンク",
-  "配信停止",
-  "管理番号",
-  "突然のご連絡",
-  "無料でご提供",
-  "ご案内いたします",
-];
-
-function looksLikeSales(message: string): boolean {
-  const hits = SALES_SIGNALS.filter((w) => message.includes(w)).length;
-  const urls = (message.match(/https?:\/\//g) ?? []).length;
-  return hits >= 2 || (hits >= 1 && urls >= 2);
-}
+// メール形式・営業判定は公開MCPの問い合わせと共通（src/lib/contact/guard.ts）。
+// 営業判定は捨てずに件名へ印を付けるだけにする（本物を取りこぼさないため）。
 
 // LPフォームは message 内に【都道府県】【事業内容・業種】等の構造化ブロックで送信してくる
 function parseBlock(message: string, label: string): string | null {

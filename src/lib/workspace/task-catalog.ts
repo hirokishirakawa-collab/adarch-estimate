@@ -17,6 +17,7 @@ type ToolDescription = Omit<HubTool, "item">;
 const SALES_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
   "/dashboard/leads": { task: "find", title: "新しい営業先を探す", description: "地域・業種から、声をかける会社を探す。" },
   "/dashboard/leads/list": { task: "find", title: "保存した見込み先を見る", description: "すでに見つけた候補から、営業する相手を選ぶ。" },
+  "/dashboard/studio-inquiries": { task: "find", title: "AI窓口からの依頼を見る", description: "Ad Arch Studio（公開のAI窓口）から届いた依頼に、2時間以内に連絡する。" },
   "/dashboard/ad-buyer-finder": { task: "find", title: "広告を出している店を探す", description: "広告出稿者ファインダーで、掲載中の地元店を探す。" },
   "/dashboard/anniversary-finder": { task: "find", title: "周年を迎える会社を探す", description: "周年ファインダーで、記念広告の提案先を探す。" },
   "/dashboard/tender-finder": { task: "find", title: "自治体の案件を探す", description: "入札ファインダーで、広告・映像などの案件を確認する。" },

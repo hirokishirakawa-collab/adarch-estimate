@@ -5943,3 +5943,99 @@ model SiteMetric {
   @@index([branchId])
   @@map("site_metrics")
 }
+
+// ==============================================================
+// Ad Arch Studio — 公開MCPの問い合わせ窓口（2026-09-20 追加）
+//   ログインなしで誰でもつなげる「情報＋問い合わせ窓口」（/api/mcp/public）。
+//   外から見える相手は常に「アドアーチ」。県本部への振り分けは内部だけ（返答に出さない）。
+//   本部が元請け：確定時の発注条件は「本部→県本部」の条件。
+//   ⚠️ 問い合わせ本文は外部の入力＝OSのAI（アーチくん・夜間AI・MCP）には渡さない
+// ==============================================================
+enum StudioInquiryKind {
+  SHOOTING // 撮影
+  VIDEO // 動画制作
+  SNS // SNS（撮影・運用）
+  MEDIA // 媒体の購入（TVer以外）
+  TVER // TVer（申込ページも案内する）
+  OTHER // その他
+}
+
+enum StudioInquiryStatus {
+  RECEIVED // 受付（担当の連絡待ち）
+  CONSULTING // 相談中（担当が連絡済み・条件の確認中）
+  CONFIRMED // 確定（発注条件を入力済み）
+  DECLINED // お断り・見送り
+  SPAM // 迷惑（本部が判断）
+}
+
+model StudioInquiry {
+  id                     String              @id @default(cuid())
+  number                 Int                 @unique @default(autoincrement()) // 受付番号（AS-2026-0001 の 0001）
+  kind                   StudioInquiryKind
+  companyName            String
+  contactName            String
+  email                  String
+  phone                  String?
+  prefecture             String? // 会社の所在県
+  location               String? // 撮影地など（自由記述）
+  locationPrefecture     String? // 撮影地の県
+  preferredDates         String? // 希望日（幅のある書き方を許す）
+  budgetRange            String?
+  mediaName              String? // 媒体の購入のとき（例: 地元ラジオ・サイネージ）
+  detail                 String              @db.Text
+  ipHash                 String // IPは生で持たない（sha256）
+  userAgent              String?
+  suspectedSpam          Boolean             @default(false)
+  assignedGroupCompanyId String? // 内部の振り分け先（外には出さない）
+  assignedBranchId       String? // null＝本部の一覧
+  routeReason            String // 県／順番／本部 など
+  status                 StudioInquiryStatus @default(RECEIVED)
+  dueAt                  DateTime // 返答期限（平日9〜18時で2時間）
+  firstRepliedAt         DateTime?
+  // 確定時の発注条件（本部→県本部・確定時に必須）
+  orderScope             String?             @db.Text
+  orderAmountExclTax     Int?
+  orderDueDate           DateTime?
+  orderPaymentDate       DateTime?
+  confirmedAt            DateTime?
+  confirmedById          String?
+  history                Json                @default("[]") // [{ at, by, action, note }]
+  internalNote           String?             @db.Text
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@index([assignedBranchId, createdAt(sort: Desc)])
+  @@index([status, dueAt])
+  @@index([ipHash, createdAt])
+  @@index([email, createdAt])
+  @@index([createdAt(sort: Desc)])
+  @@map("studio_inquiries")
+}
+
+// 県の担当表（1県1社。茨城・埼玉は2行＝順番に回す）
+model StudioPrefectureAssignment {
+  id             String    @id @default(cuid())
+  prefecture     String // 「香川県」のようにフル表記
+  groupCompanyId String
+  branchId       String
+  active         Boolean   @default(true)
+  lastAssignedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([prefecture, groupCompanyId])
+  @@index([prefecture, active])
+  @@map("studio_prefecture_assignments")
+}
+
+// 公開MCPに出してよいもの（本部が選んだものだけ）。既存の表には列を足さず、ここで持つ
+//   type: PACKAGE＝サービス内容（sales_packages）／KNOWLEDGE＝自社の資料（knowledge_sources・origin=OWN）／WIKI＝Wiki記事
+model StudioPublishedItem {
+  type      String // PACKAGE / KNOWLEDGE / WIKI
+  refId     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@id([type, refId])
+  @@map("studio_published_items")
+}
