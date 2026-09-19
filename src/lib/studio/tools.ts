@@ -27,7 +27,6 @@ import { cached, inquiryLimited } from "./guard";
 import { normalizePrefecture, routeInquiry } from "./routing";
 import { addBusinessMinutes, formatJst } from "./business-hours";
 import { notifyNewInquiry } from "./notify";
-import { linkInquiryToLead } from "./lead-link";
 import { STUDIO_KIND_LABEL, inquiryNumberLabel } from "./labels";
 
 export const STUDIO_NAME = "アドアーチ（Ad Arch Studio）";
@@ -467,17 +466,12 @@ async function requestOrder(
       dueAt,
       history: [{ at: now.toISOString(), by: "公開MCP", action: "受付", note: route.reason }],
     },
-    select: { id: true, number: true, createdAt: true, dueAt: true, kind: true },
+    select: { number: true, createdAt: true, dueAt: true, kind: true },
   });
 
   const label = inquiryNumberLabel(row.number, row.createdAt);
-  // 連絡先を残した依頼だけ、担当拠点のリード（クライアント候補）にする。迷惑の疑いは除く。内部だけ＝返答には何も足さない
-  if (!suspectedSpam) {
-    await linkInquiryToLead({
-      inquiryId: row.id, receiptLabel: label, kindLabel: STUDIO_KIND_LABEL[row.kind], companyName: input.companyName, email, phone: input.phone?.trim() || null,
-      prefecture: locationPrefecture ?? prefecture, branchId: route.branchId, groupCompanyId: route.groupCompanyId,
-    }).catch((e) => console.error("[studio] リードへの紐づけに失敗:", e instanceof Error ? e.message : e));
-  }
+  // ⚠️ 受付の時点ではリードにしない（外部の入力をリード一覧・OSのAIに入れない）。
+  //    担当が「相談中」か「確定」に進めたときに初めてリード化する（lib/studio/lead-link.ts・actions/studio-inquiries.ts）
   await notifyNewInquiry(
     suspectedSpam
       ? { label: `${label}（迷惑の疑い）`, kindLabel: STUDIO_KIND_LABEL[row.kind], pref: null, branchId: null }

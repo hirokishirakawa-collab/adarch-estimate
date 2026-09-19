@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendContactInquiryEmail, sendPartnershipAutoReply } from "@/lib/resend";
 import { db } from "@/lib/db";
 import { notifyCeo } from "@/lib/google-chat";
-import { EMAIL_RE, looksLikeSales } from "@/lib/contact/guard";
+import { EMAIL_RE, clientIp, looksLikeSales } from "@/lib/contact/guard";
 
 export const runtime = "nodejs";
 
@@ -121,11 +121,8 @@ export async function POST(req: NextRequest) {
     "Access-Control-Allow-Headers": "Content-Type",
   };
 
-  // レート制限（IP単位）
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-    req.headers.get("x-real-ip") ||
-    "unknown";
+  // レート制限（IP単位）。x-forwarded-for の先頭は利用者が偽れるので使わない（lib/contact/guard.ts）
+  const ip = clientIp(req.headers);
   if (isRateLimited(ip)) {
     return NextResponse.json(
       { error: "送信回数の上限に達しました。しばらく経ってから再度お試しください。" },

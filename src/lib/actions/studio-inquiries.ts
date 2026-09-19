@@ -14,7 +14,7 @@ import { logAudit } from "@/lib/audit";
 import { clearStudioCache } from "@/lib/studio/guard";
 import { normalizePrefecture } from "@/lib/studio/routing";
 import { inquiryNumberLabel } from "@/lib/studio/labels";
-import { followReassign } from "@/lib/studio/lead-link";
+import { followReassign, linkInquiryToLead } from "@/lib/studio/lead-link";
 import type { Prisma } from "@/generated/prisma/client";
 
 type R = { ok?: true; error?: string; message?: string };
@@ -190,6 +190,8 @@ export async function updateStudioInquiryStatus(id: string, status: "CONSULTING"
       history: pushHistory(row.history, { by: info.staffName, action: status === "CONSULTING" ? "相談中（連絡済み）" : "見送り", note: note.slice(0, 1000) }),
     },
   });
+  // 担当が「相談中」に進めたときに初めてリード化（見送りはしない）。紐づけ済みなら何もしない
+  if (status === "CONSULTING") await linkInquiryToLead(id).catch((e) => console.error("[studio] リード化に失敗:", e instanceof Error ? e.message : e));
   logAudit({ action: "studio_inquiry_updated", email: info.email, name: info.staffName, entity: "studio_inquiry", entityId: id, detail: `${inquiryNumberLabel(row.number, row.createdAt)} → ${status}` });
   refresh();
   revalidatePath(`${BRANCH_PATH}/${id}`);
@@ -227,6 +229,8 @@ export async function confirmStudioInquiry(
       history: pushHistory(row.history, { by: info.staffName, action: "確定（発注条件を記録）" }),
     },
   });
+  // 確定でもリード化（相談中を飛ばして確定した場合）。紐づけ済みなら何もしない＝2件目は作らない
+  await linkInquiryToLead(id).catch((e) => console.error("[studio] リード化に失敗:", e instanceof Error ? e.message : e));
   // 金額は監査ログにも書かない（本部と担当拠点の画面だけで見る）
   logAudit({ action: "studio_inquiry_confirmed", email: info.email, name: info.staffName, entity: "studio_inquiry", entityId: id, detail: inquiryNumberLabel(row.number, row.createdAt) });
   refresh();

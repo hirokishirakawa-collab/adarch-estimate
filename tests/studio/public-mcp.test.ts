@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { STUDIO_TOOLS, STUDIO_INSTRUCTIONS, STUDIO_CONSULT_PROMPT, CREATOR_INSTRUCTIONS, CREATOR_CONSULT_PROMPT, publicText, toolsFor } from "../../src/lib/studio/tools";
 import { addBusinessMinutes } from "../../src/lib/studio/business-hours";
 import { normalizePrefecture } from "../../src/lib/studio/routing";
+import { clientIp } from "../../src/lib/contact/guard";
 
 // 金額の文字列（¥・円・万円・$・料金/価格/見積 など）
 const MONEY = /[¥￥]\s*\d|\d[\d,，.]*\s*(円|万円|千円|億円)|\$\s*\d|万円|千円|億円/;
@@ -88,6 +89,34 @@ test("返答期限は平日9〜18時で2時間（金曜17時→月曜10時・土
   assert.equal(fmt(addBusinessMinutes(jst("2026-09-18T17:00:00"))), "2026-09-21 10:00");
   assert.equal(fmt(addBusinessMinutes(jst("2026-09-19T15:00:00"))), "2026-09-21 11:00");
   assert.equal(fmt(addBusinessMinutes(jst("2026-09-21T07:30:00"))), "2026-09-21 11:00");
+});
+
+test("IP：x-forwarded-for の先頭を偽っても同じIPとして数える", () => {
+  const h = (xff: string | null, real?: string) => {
+    const x = new Headers();
+    if (xff !== null) x.set("x-forwarded-for", xff);
+    if (real) x.set("x-real-ip", real);
+    return x;
+  };
+  // エッジの X-Real-IP があればそれ（先頭・末尾を偽っても変わらない）
+  assert.equal(clientIp(h("1.1.1.1, 203.0.113.9", "203.0.113.9")), "203.0.113.9");
+  assert.equal(clientIp(h("6.6.6.6, 7.7.7.7", "203.0.113.9")), "203.0.113.9");
+  // X-Real-IP が無ければ末尾（先頭を偽っても同じ）
+  assert.equal(clientIp(h("1.1.1.1, 203.0.113.9")), "203.0.113.9");
+  assert.equal(clientIp(h("9.9.9.9, 8.8.8.8, 203.0.113.9")), "203.0.113.9");
+  // 空白・空要素・末尾のカンマは捨てる
+  assert.equal(clientIp(h(" 1.1.1.1 , , 203.0.113.9 , ")), "203.0.113.9");
+  // 何も無ければ unknown（全員同じ枠＝安全側）
+  assert.equal(clientIp(h(null)), "unknown");
+  assert.equal(clientIp(h(" , ")), "unknown");
+});
+
+test("受付の時点ではリードにしない（request_order から lead-link を呼ばない）", () => {
+  const tools = readFileSync("src/lib/studio/tools.ts", "utf8");
+  assert.doesNotMatch(tools, /from "\.\/lead-link"|linkInquiryToLead\(/);
+  const link = readFileSync("src/lib/studio/lead-link.ts", "utf8");
+  assert.doesNotMatch(link, /\{ name \}|name: q\.companyName[^\n]*\}\s*\]/); // 社名一致の検索をしない
+  assert.match(link, /email: \{ equals: email, mode: "insensitive" \}/);
 });
 
 test("県名をそろえる", () => {

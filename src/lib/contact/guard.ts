@@ -23,7 +23,20 @@ export function looksLikeSales(message: string): boolean {
   return hits >= 2 || (hits >= 1 && urls >= 2);
 }
 
-/** 呼び出し元のIP（Railway のプロキシが付ける x-forwarded-for の先頭） */
+/**
+ * 呼び出し元のIP（上限の数え方に使う）
+ *   1) X-Real-IP … Railway の公式ドキュメント（Public Networking > Technical specifications）に
+ *      「X-Real-IP for identifying client's remote IP」とある＝エッジが付ける値。これを優先する
+ *   2) x-forwarded-for の末尾 … 先頭は利用者が自由に書けるので使わない。末尾＝直前の中継（エッジ）が見た相手
+ *   3) どちらも無ければ "unknown"（全員が同じ枠で数えられる＝安全側）
+ *   空白・空要素（"a, , b" や末尾のカンマ）は捨てる
+ */
 export function clientIp(headers: Headers): string {
-  return headers.get("x-forwarded-for")?.split(",")[0].trim() || headers.get("x-real-ip") || "unknown";
+  const real = headers.get("x-real-ip")?.trim();
+  if (real) return real;
+  const parts = (headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : "unknown";
 }
