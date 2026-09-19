@@ -88,8 +88,7 @@ export function TaskHub({ group, items, children }: { group: TaskGroup; items: N
       <div ref={panel} id={panelId}>
         {visible.length === 0 ? <p className="sm-empty">{tools.length ? "該当する機能がありません。別の言葉で検索してください。" : "利用できる機能がありません。"}</p> : overview ? visible.map((tool) => <ToolRow key={tool.item.href} tool={tool} />) : <>
           <FeaturedTool tool={visible[0]} />
-          <div className="sm-secondary-tools">{visible.slice(1, 3).map((tool) => <ToolRow key={tool.item.href} tool={tool} />)}</div>
-          {visible.length > 3 && <details key={active}><summary>ほかの道具を見る<span>{visible.length - 3}</span></summary><div className="sm-secondary-tools">{visible.slice(3).map((tool) => <ToolRow key={tool.item.href} tool={tool} />)}</div></details>}
+          <div className="sm-secondary-tools">{visible.slice(1).map((tool) => <ToolRow key={tool.item.href} tool={tool} />)}</div>
         </>}
       </div>
       <p className="sm-sr" role="status">{overview ? `${visible.length}件の機能を表示` : `「${task.title}」の道具を表示`}</p>
