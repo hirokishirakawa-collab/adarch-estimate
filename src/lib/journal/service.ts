@@ -3,7 +3,8 @@ import sharp from "sharp";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import type { McpViewer } from "@/lib/mcp/os-read-tools";
-import { contentSchema, saveSchema, reviewSchema, publicContent, publicPath, JournalError, type JournalContent } from "./model";
+import { contentSchema, saveSchema, reviewSchema, publicContent, publicPath, JournalError, isPlaceholderSlug, type JournalContent } from "./model";
+import { suggestSlug, uniqueSlug } from "./slug";
 
 const stable = (v:unknown):string => JSON.stringify(v,(_k,value)=>value && typeof value === "object" && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b))) : value);
 const json = (v:unknown) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
@@ -19,23 +20,37 @@ export async function listEntries(v:McpViewer) {
     select:{id:true,externalId:true,title:true,kind:true,slug:true,ownerName:true,status:true,revision:true,approvedRevision:true,deliveredRevision:true,firstPublishedAt:true,createdAt:true,updatedAt:true,reviewNote:true}});
 }
 export async function saveDraft(v:McpViewer, raw:unknown) {
-  writer(v); const input=saveSchema.parse(raw), c=input.content;
-  const ids=[...new Set(c.photos.map(p=>p.assetId))];
+  writer(v); const input=saveSchema.parse(raw), draft=input.content;
+  const ids=[...new Set(draft.photos.map(p=>p.assetId))];
   if(ids.length !== await db.journalAsset.count({where:{id:{in:ids},...scope(v)}}))
     throw new JournalError("利用できない写真が含まれています",403);
-  return db.$transaction(async tx => {
-    const old=await tx.journalEntry.findUnique({where:{ownerId_externalId:{ownerId:v.id, externalId:input.externalId}}});
-    if(old) {
-      if(stable(old.content) === stable(c)) return old;
-      if(input.expectedRevision !== old.revision) throw new JournalError("他の更新があります。記事を読み直してから保存してください",409);
-      if(old.slug !== c.slug || old.kind !== c.kind) throw new JournalError("作成後のURLとページ種類は変更できません");
-      const changed=await tx.journalEntry.updateMany({where:{id:old.id, revision:old.revision},data:{content:json(c), title:c.title, revision:{increment:1}, status:"DRAFT",reviewNote:null}});
-      if(changed.count!==1) throw new JournalError("更新が競合しました。記事を読み直してください",409);
-      return tx.journalEntry.findUniqueOrThrow({where:{id:old.id}});
-    }
-    if(input.expectedRevision) throw new JournalError("更新対象の記事がありません",409);
-    return tx.journalEntry.create({data:{id:randomUUID(),ownerId:v.id,ownerName:v.name??v.email,branchId:v.branchId??"branch_hq",groupCompanyId:v.groupCompanyId,externalId:input.externalId,kind:c.kind,slug:c.slug,title:c.title,content:json(c)}});
-  });
+  // URL名：公開後は固定。未公開なら省略時は前回のまま、新規で省略ならAIが地域名と中身から付ける（AI呼び出しはトランザクションの外）。
+  const existing=await db.journalEntry.findUnique({where:{ownerId_externalId:{ownerId:v.id, externalId:input.externalId}}});
+  const requested=isPlaceholderSlug(draft.slug)?undefined:draft.slug;
+  if(existing?.firstPublishedAt && requested && requested!==existing.slug) throw new JournalError("公開後のURLは変更できません");
+  const keep=existing && (existing.firstPublishedAt || !isPlaceholderSlug(existing.slug)) ? existing.slug : undefined;
+  const base=existing?.firstPublishedAt ? existing.slug : requested ?? keep ?? await suggestSlug(draft);
+  const withSlug=(slug:string):JournalContent=>contentSchema.parse({...draft,slug,...(draft.kind==="person"?{authorSlug:slug}:{})});
+  try {
+    return await db.$transaction(async tx => {
+      const old=await tx.journalEntry.findUnique({where:{ownerId_externalId:{ownerId:v.id, externalId:input.externalId}}});
+      if(old) {
+        if(old.kind !== draft.kind) throw new JournalError("作成後のページ種類は変更できません");
+        const slug=old.firstPublishedAt||base===old.slug?old.slug:await uniqueSlug(tx,draft.kind,base,old.id), c=withSlug(slug);
+        if(stable(old.content) === stable(c)) return old;
+        if(input.expectedRevision !== old.revision) throw new JournalError("他の更新があります。記事を読み直してから保存してください",409);
+        const changed=await tx.journalEntry.updateMany({where:{id:old.id, revision:old.revision},data:{content:json(c), title:c.title, slug, revision:{increment:1}, status:"DRAFT",reviewNote:null}});
+        if(changed.count!==1) throw new JournalError("更新が競合しました。記事を読み直してください",409);
+        return tx.journalEntry.findUniqueOrThrow({where:{id:old.id}});
+      }
+      if(input.expectedRevision) throw new JournalError("更新対象の記事がありません",409);
+      const slug=await uniqueSlug(tx,draft.kind,base), c=withSlug(slug);
+      return tx.journalEntry.create({data:{id:randomUUID(),ownerId:v.id,ownerName:v.name??v.email,branchId:v.branchId??"branch_hq",groupCompanyId:v.groupCompanyId,externalId:input.externalId,kind:c.kind,slug,title:c.title,content:json(c)}});
+    });
+  } catch(e) {
+    if(e instanceof Prisma.PrismaClientKnownRequestError && e.code==="P2002") throw new JournalError("同じURL名の記事が同時に保存されました。もう一度保存してください",409);
+    throw e;
+  }
 }
 export async function submit(v:McpViewer,id:string,revision:number) {
   const row=await getEntry(v,id);
@@ -54,13 +69,21 @@ export async function review(v:McpViewer,raw:unknown) {
     const row=await tx.journalEntry.findUnique({where:{id:a.id}});
     if(!row) throw new JournalError("記事が見つかりません",404);
     if(row.revision!==a.revision) throw new JournalError("原稿が更新されました。最新版を確認してください",409);
-    const c=contentSchema.parse(row.content);
+    let c=contentSchema.parse(row.content);
     let data:Prisma.JournalEntryUpdateManyMutationInput;
     if(a.action==="approve") {
       if(row.status!=="IN_REVIEW") throw new JournalError("確認待ちの記事を選んでください",409);
       if(!a.factsChecked || !a.rightsChecked || (c.kind==="person" && !a.personChecked)) throw new JournalError("事実・写真と掲載範囲・本人確認を完了してください");
+      // 本部は承認時にURL名を直せる。初回の公開承認でURLが固定される。
+      let slugData={};
+      if(a.slug && a.slug!==row.slug) {
+        if(row.firstPublishedAt) throw new JournalError("公開後のURLは変更できません");
+        if(await tx.journalEntry.findFirst({where:{kind:row.kind,slug:a.slug}})) throw new JournalError("このURL名はほかの記事で使われています");
+        c=contentSchema.parse({...c,slug:a.slug,...(c.kind==="person"?{authorSlug:a.slug}:{})});
+        slugData={slug:a.slug,content:json(c)};
+      }
       const now=new Date().toISOString();
-      data={status:"APPROVED",approvedRevision:row.revision,approvedBy:v.id,reviewNote:a.note??null,approvedAt:new Date(),firstPublishedAt:row.firstPublishedAt??new Date(),
+      data={...slugData,status:"APPROVED",approvedRevision:row.revision,approvedBy:v.id,reviewNote:a.note??null,approvedAt:new Date(),firstPublishedAt:row.firstPublishedAt??new Date(),
         publicSnapshot:json({...publicContent(c),id:row.id,revision:row.revision,path:publicPath(c),datePublished:row.firstPublishedAt?.toISOString()??now,dateModified:now})};
     } else if(a.action==="withdraw") {
       // URLは再利用しない。同期側でnoindexの取り下げページに置換する。

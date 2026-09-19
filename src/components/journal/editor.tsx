@@ -1,15 +1,15 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Authenticated photo previews use the session cookie. */
 import { useRef, useState } from "react";
-import { categories, genres, contentSchema, type JournalContent } from "@/lib/journal/model";
+import { categories, genres, draftContentSchema, type JournalContent } from "@/lib/journal/model";
 import { parseFinalDraft } from "@/lib/journal/plain-draft";
 import styles from "./desk.module.css";
 
-export type EditableEntry={id:string;externalId:string;revision:number;content:JournalContent};
+export type EditableEntry={id:string;externalId:string;revision:number;content:JournalContent;firstPublishedAt?:string|null};
 export type AuthorDefaults=Pick<JournalContent,"authorName"|"company"|"region">;
 type Props={defaults?:AuthorDefaults;entry:EditableEntry|null;onSaved:(id:string)=>Promise<void>;onDirty:()=>void;photoUrl:(id:string)=>string};
 const areas=["全国","北海道・東北","関東","甲信越・北陸","東海","関西","中国・四国","九州・沖縄"] as const;
-const empty=(defaults?:AuthorDefaults):JournalContent=>({kind:"article",slug:`story-${crypto.randomUUID().slice(0,8)}`,title:"",summary:"",category:"まちの広告",genre:"こんな仕事をしました",region:defaults?.region??"",area:"全国",company:defaults?.company??"",authorName:defaults?.authorName??"",blocks:[],photos:[],evidence:[{label:"確認のための資料",reference:"投稿者が提供した最終原稿・写真",note:"掲載内容・担当範囲は公開前に本部で確認してください。"}],publicSources:[],aiAssisted:false});
+const empty=(defaults?:AuthorDefaults):JournalContent=>({kind:"article",slug:"",title:"",summary:"",category:"まちの広告",genre:"こんな仕事をしました",region:defaults?.region??"",area:"全国",company:defaults?.company??"",authorName:defaults?.authorName??"",blocks:[],photos:[],evidence:[{label:"確認のための資料",reference:"投稿者が提供した最終原稿・写真",note:"掲載内容・担当範囲は公開前に本部で確認してください。"}],publicSources:[],aiAssisted:false});
 const labels:Record<string,string>={title:"記事タイトル",summary:"記事の紹介文",slug:"記事のURL",region:"地域",company:"会社名",authorName:"お名前",photos:"写真",blocks:"見出し・本文",evidence:"確認資料",publicSources:"公開する参考リンク",authorSlug:"人物ページのURL名",occurredOn:"実施時期"};
 
 const plain=(blocks:JournalContent["blocks"])=>blocks.map(b=>b.type==="heading"?`## ${b.text}`:b.type==="quote"?b.text.split("\n").map(line=>`> ${line}`).join("\n"):b.text).join("\n\n");
@@ -42,8 +42,8 @@ export default function JournalEditor({entry,onSaved,onDirty,photoUrl,defaults}:
   async function save(){
     setError("");
     const blocks=parseFinalDraft(bodyText).blocks;
-    const value={...content,blocks,summary:content.summary.trim()||(blocks.find(b=>b.type==="paragraph")?.text??content.title).slice(0,200),photos:content.photos.map(p=>({...p,caption:p.caption.trim()||content.title,alt:p.alt.trim()||p.caption.trim()||content.title,credit:p.credit.trim()||"投稿者提供"})),authorSlug:content.kind==="person"?content.slug:content.authorSlug||undefined,position:content.position||undefined,occurredOn:content.occurredOn||undefined};
-    const parsed=contentSchema.safeParse(value);
+    const value={...content,blocks,summary:content.summary.trim()||(blocks.find(b=>b.type==="paragraph")?.text??content.title).slice(0,200),photos:content.photos.map(p=>({...p,caption:p.caption.trim()||content.title,alt:p.alt.trim()||p.caption.trim()||content.title,credit:p.credit.trim()||"投稿者提供"})),slug:content.slug.trim()||undefined,authorSlug:content.kind==="person"?content.slug.trim()||undefined:content.authorSlug||undefined,position:content.position||undefined,occurredOn:content.occurredOn||undefined};
+    const parsed=draftContentSchema.safeParse(value);
     if(!parsed.success){setSettingsOpen(true);setError(parsed.error.issues.map(i=>`${labels[String(i.path[0])]??"入力内容"}：${i.message}`).join("\n"));return;}
     setBusy(true);
     try{
@@ -89,9 +89,9 @@ export default function JournalEditor({entry,onSaved,onDirty,photoUrl,defaults}:
         <label>お名前<input required maxLength={80} value={content.authorName} onChange={e=>field("authorName",e.target.value)}/></label>
         <label>肩書き（任意）<input maxLength={100} value={content.position??""} onChange={e=>field("position",e.target.value)}/></label>
         <label>実施時期（任意）<input value={content.occurredOn??""} placeholder="2026-09 または 2026-09-19" pattern="\d{4}(-\d{2}(-\d{2})?)?" onChange={e=>field("occurredOn",e.target.value)}/></label>
-        <label>記事のURL名（半角英数字）<input required disabled={!!entry} value={content.slug} maxLength={80} pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="例：seki-shooting-story" onChange={e=>field("slug",e.target.value)}/></label>
+        <label>記事のURL名（空欄ならAIが付けます）<input disabled={!!entry?.firstPublishedAt} value={content.slug} maxLength={80} pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="例：seki-tver-cm-shooting" onChange={e=>field("slug",e.target.value.toLowerCase())}/></label>
         {content.kind==="article"&&<label>執筆者の人物ページURL名（任意）<input value={content.authorSlug??""} placeholder="公開済みの人物ページがある場合" onChange={e=>field("authorSlug",e.target.value)}/></label>}
-      </div><p className={styles.hint}>公開先：/journal/{content.kind==="person"?"people/":""}{content.slug||"記事のURL名"}/　保存後はURL名とページの種類を固定します。</p></section>
+      </div><p className={styles.hint}>公開先：/journal/{content.kind==="person"?"people/":""}{content.slug||"（保存すると地域名と中身から自動で付きます）"}/　URL名は本部の承認で確定し、公開後は変わりません。ページの種類は保存後に固定します。</p></section>
       <section className={styles.editorSection}><h3>本部が内容を確認するための資料</h3><p className={styles.hint}>この欄は一般公開されません。元の制作物、担当者の回答、確認した事実などを残します。</p>
         {content.evidence.map((s,i)=><div className={styles.blockEditor} key={i}>{(['label','reference','note'] as const).map((k,n)=><label key={k}>{['資料の名前','参照先・確認した相手','確認できたこと'][n]}{i+1}<input required maxLength={k==="label"?200:2000} value={s[k]} onChange={e=>field("evidence",content.evidence.map((a,j)=>j===i?{...a,[k]:e.target.value}:a))}/></label>)}{i>0&&<button type="button" onClick={()=>field("evidence",content.evidence.filter((_,j)=>j!==i))}>この資料を外す</button>}</div>)}
         <button type="button" disabled={content.evidence.length>=30} onClick={()=>field("evidence",[...content.evidence,{label:"",reference:"",note:""}])}>＋ 確認資料</button>

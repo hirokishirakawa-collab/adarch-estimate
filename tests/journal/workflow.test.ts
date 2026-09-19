@@ -68,3 +68,31 @@ test("保存→本人提出→本部承認→修正中は旧版維持→再承�
  await review(admin,{id:first.id,revision:2,action:"withdraw"});
  m=await manifest();assert.equal(m.entries.length,0);assert.equal(m.tombstones.length,1);
 });
+test("URL名：省略時はOSが付け、重複は番号付き、承認まで変更可・公開後は固定",async()=>{
+ rows.length=0; delete process.env.ANTHROPIC_API_KEY;
+ const {slug:_omit,...noSlug}=content; void _omit;
+ const auto=await saveDraft(owner,{externalId:"auto",content:noSlug});
+ assert.match(auto.slug as string,/^article-[0-9a-f]{8}$/);
+ const legacy=await saveDraft(owner,{externalId:"legacy",content:{...content,slug:"story-1a2b3c4d"}});
+ assert.notEqual(legacy.slug,"story-1a2b3c4d");
+ const a=await saveDraft(owner,{externalId:"dup-a",content:{...content,slug:"seki-tver-cm"}});
+ const b=await saveDraft(other,{externalId:"dup-b",content:{...content,slug:"seki-tver-cm"}});
+ assert.equal(a.slug,"seki-tver-cm");assert.equal(b.slug,"seki-tver-cm-2");
+ const kept=await saveDraft(owner,{externalId:"dup-a",expectedRevision:1,content:{...noSlug,title:"タイトル変更"}});
+ assert.equal(kept.slug,"seki-tver-cm");
+ const renamed=await saveDraft(owner,{externalId:"dup-a",expectedRevision:2,content:{...content,slug:"seki-cm-shooting"}});
+ assert.equal(renamed.slug,"seki-cm-shooting");assert.equal((renamed.content as {slug:string}).slug,"seki-cm-shooting");
+ await submit(owner,renamed.id as string,3);
+ await assert.rejects(()=>review(admin,{id:renamed.id,revision:3,action:"approve",factsChecked:true,rightsChecked:true,slug:"seki-tver-cm-2"}),/使われています/);
+ const approved=await review(admin,{id:renamed.id,revision:3,action:"approve",factsChecked:true,rightsChecked:true,slug:"seki-tver-cm-shooting"});
+ assert.equal(approved.slug,"seki-tver-cm-shooting");
+ assert.equal((approved.publicSnapshot as {path:string}).path,"/journal/seki-tver-cm-shooting/");
+ await assert.rejects(()=>saveDraft(owner,{externalId:"dup-a",expectedRevision:3,content:{...content,slug:"another-url"}}),/公開後/);
+ const afterPublish=await saveDraft(owner,{externalId:"dup-a",expectedRevision:3,content:{...noSlug,title:"公開後の修正"}});
+ assert.equal(afterPublish.slug,"seki-tver-cm-shooting");
+});
+test("URL名の整形",async()=>{
+ const {normalizeSlug}=await import("../../src/lib/journal/slug");
+ assert.equal(normalizeSlug(" Seki TVer_CM Shooting! "),"seki-tver-cm-shooting");
+ assert.equal(normalizeSlug("people"),null);assert.equal(normalizeSlug("関市"),null);
+});
