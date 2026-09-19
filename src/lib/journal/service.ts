@@ -80,7 +80,8 @@ export async function review(v:McpViewer,raw:unknown) {
     let c=contentSchema.parse(row.content);
     let data:Prisma.JournalEntryUpdateManyMutationInput;
     if(a.action==="approve") {
-      if(row.status!=="IN_REVIEW") throw new JournalError("確認待ちの記事を選んでください",409);
+      // 本部が自分で書いた下書きは「本部へ渡す」を省いてそのまま承認できる（2026-09-19代表指示）
+      if(row.status!=="IN_REVIEW" && !(row.status==="DRAFT" && row.ownerId===v.id)) throw new JournalError("確認待ちの記事を選んでください",409);
       if(!a.factsChecked || !a.rightsChecked || (c.kind==="person" && !a.personChecked)) throw new JournalError("事実・写真と掲載範囲・本人確認を完了してください");
       // 本部は承認時にURL名を直せる。初回の公開承認でURLが固定される。
       let slugData={};
