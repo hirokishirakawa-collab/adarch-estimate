@@ -5,7 +5,7 @@ import { useCallback,useEffect,useState } from "react";
 import type { JournalContent } from "@/lib/journal/model";
 import JournalEditor, { type EditableEntry, type AuthorDefaults } from "./editor";
 import styles from "./desk.module.css";
-type Row={id:string;ownerId?:string;title:string;externalId:string;revision:number;status:string;kind:string;slug:string;ownerName:string;updatedAt:string;approvedRevision:number|null;deliveredRevision:number|null;reviewNote:string|null;firstPublishedAt?:string|null;content?:JournalContent};
+type Row={id:string;ownerId?:string;title:string;externalId:string;revision:number;status:string;kind:string;slug:string;ownerName:string;createdAt:string;updatedAt:string;approvedRevision:number|null;deliveredRevision:number|null;reviewNote:string|null;firstPublishedAt?:string|null;content?:JournalContent};
 const status:Record<string,string>={DRAFT:"下書き",IN_REVIEW:"確認待ち",APPROVED:"承認済み",ARCHIVED:"保管中"};
 async function api(path:string,method="GET",data?:unknown){const r=await fetch(`/api/journal/${path}`,{method,headers:data instanceof FormData?{}:{"Content-Type":"application/json"},body:data===undefined?undefined:data instanceof FormData?data:JSON.stringify(data)});const v=await r.json();if(!r.ok)throw Error(v.error??"処理に失敗しました");return v;}
 export default function JournalDesk({admin,viewerId,defaults,photoUrl=(id:string)=>`/api/journal/photos/${id}`}:{admin:boolean;viewerId?:string;defaults?:AuthorDefaults;photoUrl?:(id:string)=>string}){
@@ -18,7 +18,7 @@ export default function JournalDesk({admin,viewerId,defaults,photoUrl=(id:string
   // 通知から開いたとき（?id=）は、その原稿を最初に表示する
   useEffect(()=>{const id=new URLSearchParams(window.location.search).get("id");if(id)open(id).catch(e=>setMessage(e.message));},[]);
   async function act(fn:()=>Promise<void>){setBusy(true);setMessage("");try{await fn();await refresh();}catch(e){setMessage(e instanceof Error?e.message:"処理に失敗しました");}finally{setBusy(false);}}
-  const visible=rows.filter(r=>(!filter||r.status===filter)&&`${r.title} ${r.ownerName}`.includes(query)&&(!from||new Date(r.updatedAt).toLocaleDateString("en-CA",{timeZone:"Asia/Tokyo"})>=from)&&(!to||new Date(r.updatedAt).toLocaleDateString("en-CA",{timeZone:"Asia/Tokyo"})<=to)).sort((a,b)=>sort==="title"?a.title.localeCompare(b.title,"ja"):sort==="old"?a.updatedAt.localeCompare(b.updatedAt):b.updatedAt.localeCompare(a.updatedAt));
+  const visible=rows.filter(r=>(!filter||r.status===filter)&&`${r.title} ${r.ownerName}`.includes(query)&&(!from||new Date(r.updatedAt).toLocaleDateString("en-CA",{timeZone:"Asia/Tokyo"})>=from)&&(!to||new Date(r.updatedAt).toLocaleDateString("en-CA",{timeZone:"Asia/Tokyo"})<=to)).sort((a,b)=>sort==="title"?a.title.localeCompare(b.title,"ja"):sort==="old"?a.createdAt.localeCompare(b.createdAt):b.createdAt.localeCompare(a.createdAt));
   async function open(id:string){const r=await api(`entries?id=${encodeURIComponent(id)}`);setItem(r);setSlugEdit(r.slug);setFacts(false);setRights(false);setPerson(false);setNote("");}
   function newArticle(){if(dirty&&!confirm("保存していない編集を破棄して、新しい記事を作りますか？"))return;setEditing(null);setEditorKey(k=>k+1);setDirty(false);setItem(null);setEditorVisible(true);setMessage("");}
   async function saved(id:string){const r=await api(`entries?id=${encodeURIComponent(id)}`);setEditing(r);setItem(r);setDirty(false);setEditorVisible(false);setMessage("下書きを保存しました。本文と写真を確認して、本部へ提出できます。");await refresh();}

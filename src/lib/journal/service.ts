@@ -18,7 +18,7 @@ export async function getEntry(v:McpViewer,id:string) {
   return row;
 }
 export async function listEntries(v:McpViewer) {
-  return db.journalEntry.findMany({where:scope(v), orderBy:{updatedAt:"desc"}, take:1000,
+  return db.journalEntry.findMany({where:scope(v), orderBy:{createdAt:"desc"}, take:1000,
     select:{id:true,externalId:true,title:true,kind:true,slug:true,ownerName:true,status:true,revision:true,approvedRevision:true,deliveredRevision:true,firstPublishedAt:true,createdAt:true,updatedAt:true,reviewNote:true}});
 }
 export async function saveDraft(v:McpViewer, raw:unknown) {
