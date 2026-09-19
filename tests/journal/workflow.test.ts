@@ -8,6 +8,7 @@ import type { McpViewer } from "../../src/lib/mcp/os-read-tools";
 // SQLは別途ステージングDBで検証する。ここでは本番DBに接続せず実サービスの権限・状態遷移を通す。
 type RecordRow=Record<string,unknown>;
 const rows:RecordRow[]=[];
+const notices:RecordRow[]=[];
 function matches(row:RecordRow,w:RecordRow={}){return Object.entries(w).every(([k,v])=>v&&typeof v==="object"&&"in" in v ? (v as {in:unknown[]}).in.includes(row[k]):row[k]===v);}
 const store={
   journalEntry:{
@@ -19,6 +20,8 @@ const store={
     async updateMany({where,data}:{where:RecordRow,data:RecordRow}){let count=0;for(const r of rows)if(matches(r,where)){for(const[k,v]of Object.entries(data)){r[k]=v&&typeof v==="object"&&"increment"in v?Number(r[k])+Number(v.increment):v&&typeof v==="object"&&v.constructor.name==="DbNull"?null:v;}count++;}return{count};},
   },
   journalAsset:{async count(){return 0;},async findMany(){return[];}},
+  user:{async findMany(){return [{id:"hq"}];}},
+  notification:{async createMany({data}:{data:RecordRow[]}){notices.push(...data);return {count:data.length};}},
   async $transaction<T>(fn:(s:unknown)=>Promise<T>):Promise<T>{return fn(store);},
 };
 (globalThis as unknown as {prisma:unknown}).prisma=store;
@@ -95,4 +98,15 @@ test("URL名の整形",async()=>{
  const {normalizeSlug}=await import("../../src/lib/journal/slug");
  assert.equal(normalizeSlug(" Seki TVer_CM Shooting! "),"seki-tver-cm-shooting");
  assert.equal(normalizeSlug("people"),null);assert.equal(normalizeSlug("関市"),null);
+});
+test("本部の確認待ちになったら本部にOS内通知（本部自身の提出は通知しない）",async()=>{
+ rows.length=0;notices.length=0;
+ const a=await saveDraft(owner,{externalId:"notice-a",content:{...content,slug:"notice-a"}});
+ await submit(owner,a.id as string,1);
+ assert.equal(notices.length,1);
+ assert.match(String(notices[0].title),/Journalの原稿が届きました/);
+ assert.equal(notices[0].userId,"hq");assert.equal(notices[0].linkUrl,`/dashboard/admin/journal?id=${a.id}`);
+ await submit(owner,a.id as string,1);assert.equal(notices.length,1);
+ const b=await saveDraft(admin,{externalId:"notice-b",content:{...content,slug:"notice-b"}});
+ await submit(admin,b.id as string,1);assert.equal(notices.length,1);
 });

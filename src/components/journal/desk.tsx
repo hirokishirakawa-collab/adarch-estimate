@@ -13,6 +13,8 @@ export default function JournalDesk({admin,defaults,photoUrl=(id:string)=>`/api/
   const [rows,setRows]=useState<Row[]>([]),[selected,setSelected]=useState<string[]>([]),[item,setItem]=useState<Row|null>(null),[message,setMessage]=useState(""),[busy,setBusy]=useState(false),[query,setQuery]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState(""),[sort,setSort]=useState("new"),[filter,setFilter]=useState(""),[input,setInput]=useState(""),[note,setNote]=useState(""),[facts,setFacts]=useState(false),[rights,setRights]=useState(false),[person,setPerson]=useState(false),[slugEdit,setSlugEdit]=useState("");
   const refresh=useCallback(async()=>setRows(await api("entries")),[]);
   useEffect(()=>{refresh().catch(e=>setMessage(e.message));},[refresh]);
+  // 通知から開いたとき（?id=）は、その原稿を最初に表示する
+  useEffect(()=>{const id=new URLSearchParams(window.location.search).get("id");if(id)open(id).catch(e=>setMessage(e.message));},[]);
   async function act(fn:()=>Promise<void>){setBusy(true);setMessage("");try{await fn();await refresh();}catch(e){setMessage(e instanceof Error?e.message:"処理に失敗しました");}finally{setBusy(false);}}
   const visible=rows.filter(r=>(!filter||r.status===filter)&&`${r.title} ${r.ownerName}`.includes(query)&&(!from||new Date(r.updatedAt).toLocaleDateString("en-CA",{timeZone:"Asia/Tokyo"})>=from)&&(!to||new Date(r.updatedAt).toLocaleDateString("en-CA",{timeZone:"Asia/Tokyo"})<=to)).sort((a,b)=>sort==="title"?a.title.localeCompare(b.title,"ja"):sort==="old"?a.updatedAt.localeCompare(b.updatedAt):b.updatedAt.localeCompare(a.updatedAt));
   async function open(id:string){const r=await api(`entries?id=${encodeURIComponent(id)}`);setItem(r);setSlugEdit(r.slug);setFacts(false);setRights(false);setPerson(false);setNote("");}

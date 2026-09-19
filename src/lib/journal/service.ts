@@ -5,6 +5,7 @@ import { Prisma } from "@/generated/prisma/client";
 import type { McpViewer } from "@/lib/mcp/os-read-tools";
 import { contentSchema, saveSchema, reviewSchema, publicContent, publicPath, JournalError, isPlaceholderSlug, type JournalContent } from "./model";
 import { suggestSlug, uniqueSlug } from "./slug";
+import { notifyAdmins } from "@/lib/notifications";
 
 const stable = (v:unknown):string => JSON.stringify(v,(_k,value)=>value && typeof value === "object" && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b))) : value);
 const json = (v:unknown) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
@@ -60,6 +61,13 @@ export async function submit(v:McpViewer,id:string,revision:number) {
   if(row.status==="ARCHIVED") throw new JournalError("原稿を保存し直してから確認を依頼してください");
   const n=await db.journalEntry.updateMany({where:{id,revision,status:row.status},data:{status:"IN_REVIEW"}});
   if(n.count!==1) throw new JournalError("更新が競合しました",409);
+  // 本部のOS内通知（ベル）だけ。Chat・メールには出さない。本部が自分で出した原稿は通知しない
+  if(v.role!=="ADMIN") {
+    const c=row.content as {kind?:string;company?:string};
+    await notifyAdmins({type:"SYSTEM",title:`📝 Journalの原稿が届きました：${row.title}`,
+      message:`${row.ownerName}${c.company?`（${c.company}）`:""}／${c.kind==="person"?"人物ページ":"記事"}・本部の確認待ち`,
+      linkUrl:`/dashboard/admin/journal?id=${row.id}`});
+  }
   return getEntry(v,id);
 }
 export async function review(v:McpViewer,raw:unknown) {
