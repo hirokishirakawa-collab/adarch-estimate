@@ -25,16 +25,16 @@
     "label": "LINE公式アカウント",
     "minRole": "MANAGER",
     "aliases": [],
-    "group": "projects",
-    "section": "案件・広告の運用"
+    "group": "publishing",
+    "section": "発信・届ける"
   },
   {
     "href": "/dashboard/meta-ads",
     "label": "Meta広告（地域限定）",
     "minRole": "MANAGER",
-    "aliases": [],
-    "group": "projects",
-    "section": "案件・広告の運用"
+    "aliases": ["Meta自動運用"],
+    "group": "publishing",
+    "section": "発信・届ける"
   },
   {
     "href": "/dashboard/live",

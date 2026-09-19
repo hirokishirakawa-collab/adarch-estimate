@@ -50,7 +50,7 @@ export const NAVIGATION_GROUPS = [
     id: "publishing",
     label: "発信",
     href: "/dashboard/work/publishing",
-    description: "記事・紹介・セミナー・チラシで、外に届ける。",
+    description: "広告・チラシ・DM・LINE・記事・セミナーで、営業先に届ける。",
   },
   {
     id: "procedures",

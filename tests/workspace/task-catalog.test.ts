@@ -32,7 +32,9 @@ test("ungranted tools stay out of cards and search, including franchise gates an
   assert.equal(searchTools(forRole("sales", "MANAGER", ["franchise-leads"]), "加盟").length, 1);
   assert.equal(searchTools(forRole("sales", "ADMIN"), "加盟").length, 1);
   assert.equal(forRole("projects", "USER").some((tool) => tool.task === "operate"), false);
-  assert.ok(forRole("projects", "MANAGER").some((tool) => tool.item.href === "/dashboard/meta-ads"));
+  assert.equal(forRole("publishing", "USER").some((tool) => tool.item.href === "/dashboard/meta-ads" || tool.item.href === "/dashboard/line"), false);
+  assert.ok(forRole("publishing", "MANAGER").some((tool) => tool.task === "deliver" && tool.item.href === "/dashboard/meta-ads"));
+  assert.ok(forRole("publishing", "MANAGER").some((tool) => tool.task === "deliver" && tool.item.href === "/dashboard/line"));
   const suspended = NAVIGATION_ITEMS.filter((item) => canUseNavigation(item, "MANAGER", [], true));
   for (const group of groups) {
     assert.deepEqual(toolsForItems(group, []), []);

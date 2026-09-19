@@ -45,7 +45,7 @@ const SALES_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
 const PROJECT_TASKS: HubTask[] = [
   { id: "progress", scene: "network", number: "01", english: "PROGRESS", title: "案件を進める", caption: "仕事を登録し、進み具合を確認する", hint: "進行中の仕事を開く", next: "配信や審査の手続きは「広告を申請する」へ。" },
   { id: "request", scene: "sheets", number: "02", english: "REQUEST", title: "広告を申請する", caption: "TVerの考査・配信、媒体の依頼を進める", hint: "必要な手続きを選ぶ", next: "TVerの申請状況は「案件を進める」から確認できます。" },
-  { id: "operate", scene: "orbit", number: "03", english: "OPERATE", title: "配信・運用をする", caption: "広告・LINE・サイネージを動かす", hint: "運用するサービスを選ぶ", next: "一緒に進める人が必要なら「協力者を探す」へ。" },
+  { id: "operate", scene: "orbit", number: "03", english: "OPERATE", title: "配信・運用をする", caption: "サイネージを動かす", hint: "運用するサービスを選ぶ", next: "一緒に進める人が必要なら「協力者を探す」へ。" },
   { id: "team", scene: "messages", number: "04", english: "TEAM UP", title: "協力者を探す", caption: "メンバーやクリエイターとつながる", hint: "仕事に合う相手を探す", next: "決まった仕事は「案件を進める」から登録できます。" },
 ];
 const LIBRARY_TASKS: HubTask[] = [
@@ -64,8 +64,6 @@ const PROJECT_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
   "/dashboard/tver-creative-review": { task: "request", title: "TVerの素材考査を申請する", description: "使用するCM素材の審査を依頼する。" },
   "/dashboard/tver-campaign": { task: "request", title: "TVerの配信を申請する", description: "配信したい広告の内容を申請する。" },
   "/dashboard/media": { task: "request", title: "媒体の手配を依頼する", description: "広告媒体への依頼を進める。" },
-  "/dashboard/meta-ads": { task: "operate", title: "地域限定のMeta広告を運用する", description: "Meta広告の管理画面を開く。" },
-  "/dashboard/line": { task: "operate", title: "LINE公式アカウントを運用する", description: "LINE公式アカウントの管理画面を開く。" },
   "/dashboard/signage": { task: "operate", title: "サイネージの端末を見る", description: "端末の登録情報と動作状況を確認する。" },
   "/dashboard/signage/playlists": { task: "operate", title: "サイネージの再生枠を組む", description: "プレイリストから、再生する内容を整える。" },
   "/dashboard/signage/assets": { task: "operate", title: "サイネージの素材を管理する", description: "端末で再生する素材を確認する。" },
@@ -95,23 +93,25 @@ const LIBRARY_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
 };
 
 const PUBLISHING_TASKS: HubTask[] = [
-  { id: "write", scene: "sheets", number: "01", english: "WRITE", title: "記事を書く", caption: "仕事や地域の話を、Journalに載せる", hint: "書いた原稿は本部が確認してから公開", next: "書いた人の紹介は「自分を紹介する」で整えられます。" },
-  { id: "profile", scene: "network", number: "02", english: "PROFILE", title: "自分を紹介する", caption: "メンバー紹介で、人柄と仕事を伝える", hint: "紹介ページを確認する", next: "話して伝えるなら「セミナーで伝える」へ。" },
-  { id: "seminar", scene: "messages", number: "03", english: "SEMINAR", title: "セミナーで伝える", caption: "自社のセミナー録画を、窓口付きリンクで届ける", hint: "録画を登録・共有する", next: "紙で届けるなら「チラシ・DMを届ける」へ。" },
-  { id: "print", scene: "orbit", number: "04", english: "PRINT", title: "チラシ・DMを届ける", caption: "営業チラシと郵送DMを用意する", hint: "届けるものを選ぶ", next: "反応があったら「顧客・営業」で結果を残せます。" },
+  { id: "deliver", scene: "orbit", number: "01", english: "DELIVER", title: "Meta広告・チラシ・DM・LINEを届ける", caption: "お金をかけて、営業先に確実に届ける", hint: "届ける手段を選ぶ", next: "読んでもらう材料は「オウンドメディアに記事を書く」へ。" },
+  { id: "write", scene: "sheets", number: "02", english: "WRITE", title: "オウンドメディアに記事を書く", caption: "仕事や地域の話を、Journalに載せる", hint: "書いた原稿は本部が確認してから公開", next: "話して伝えるなら「セミナーで伝える」へ。" },
+  { id: "seminar", scene: "messages", number: "03", english: "SEMINAR", title: "セミナーで伝える", caption: "自社のセミナー録画を、窓口付きリンクで届ける", hint: "録画を登録・共有する", next: "話す人の紹介は「自分を紹介する」で整えられます。" },
+  { id: "profile", scene: "network", number: "04", english: "PROFILE", title: "自分を紹介する", caption: "メンバー紹介で、人柄と仕事を伝える", hint: "紹介ページを確認する", next: "反応があったら「顧客・営業」で結果を残せます。" },
 ];
 const PUBLISHING_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
+  "/dashboard/meta-ads": { task: "deliver", title: "Meta広告を自動運用する", description: "地域を絞ったMeta広告を、AIとMeta公式コネクタで作って記録する。" },
+  "/dashboard/tver-flyer": { task: "deliver", title: "TVerの営業チラシを作る", description: "チラシ制作サポートで、営業に使う材料を用意する。" },
+  "/dashboard/leads/dm": { task: "deliver", title: "郵送DMを準備する", description: "チラシと送付先を用意する。" },
+  "/dashboard/line": { task: "deliver", title: "LINE公式アカウントで届ける", description: "LINE公式アカウントの管理画面を開く。" },
   "/dashboard/journal": { task: "write", title: "Journalに記事を書く", description: "タイトル・写真・本文を入れて、本部に確認を依頼する。" },
-  "/dashboard/group-profiles": { task: "profile", title: "メンバー紹介を見る", description: "自分と仲間の紹介から、人柄と仕事を伝える。" },
   "/dashboard/seminars": { task: "seminar", title: "セミナーの録画を登録・共有する", description: "自社の窓口付きリンクで、録画をお客様に送る。" },
-  "/dashboard/tver-flyer": { task: "print", title: "TVerの営業チラシを作る", description: "チラシ制作サポートで、営業に使う材料を用意する。" },
-  "/dashboard/leads/dm": { task: "print", title: "郵送DMを準備する", description: "チラシと送付先を用意する。" },
+  "/dashboard/group-profiles": { task: "profile", title: "メンバー紹介を見る", description: "自分と仲間の紹介から、人柄と仕事を伝える。" },
 };
 
 const PROCEDURE_TASKS: HubTask[] = [
   { id: "client-billing", scene: "sheets", number: "01", english: "CLIENTS", title: "お客様への請求", caption: "本部 → 各社クライアント", hint: "本部に請求を依頼する", next: "請求に使う自社情報は「各社から本部へ」で登録できます。" },
-  { id: "from-hq", scene: "orbit", number: "02", english: "FROM HQ", title: "本部から各社へ", caption: "稼働ステータス・支払明細など", hint: "本部 → グループ各社", next: "本部へ確認したいことは「相談・共有する」へ。" },
-  { id: "to-hq", scene: "network", number: "03", english: "TO HQ", title: "各社から本部へ", caption: "月次報告・経理情報の登録", hint: "各社 → 本部", next: "提出や連絡の内容に迷ったときは「相談・共有する」へ。" },
+  { id: "to-hq", scene: "network", number: "02", english: "TO HQ", title: "各社から本部へ", caption: "月次報告・経理情報の登録", hint: "各社 → 本部", next: "本部からの支払明細・ステータスは「本部から各社へ」で確認できます。" },
+  { id: "from-hq", scene: "orbit", number: "03", english: "FROM HQ", title: "本部から各社へ", caption: "稼働ステータス・支払明細など", hint: "本部 → グループ各社", next: "本部へ確認したいことは「相談・共有する」へ。" },
   { id: "hq-support", scene: "messages", number: "04", english: "SUPPORT", title: "相談・共有する", caption: "打ち合わせの予約・相談・共有", hint: "本部への相談・共有", next: "提出・報告の入口は「各社から本部へ」にあります。" },
 ];
 const PROCEDURE_TOOL_DESCRIPTIONS: Record<string, ToolDescription> = {
