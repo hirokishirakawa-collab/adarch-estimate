@@ -1,7 +1,7 @@
 // ==============================================================
 // Ad Arch Studio — 本部の一覧（ADMINだけ。ページとアクションで二重に判定）
 //   公開MCP（/api/mcp/public）から来た発注・ご依頼の全件。期限切れは赤。担当の付け替え・迷惑・削除（確定前だけ）
-//   下段: 県の担当表（1県1社・2社の県は順番）／公開MCPに出すもの（サービス・自社の資料・Wiki記事）
+//   下段: 県の担当表（1県1社・2社の県は順番）／公開MCPに出すもの（サービス・制作の技術資料・Wiki記事・媒体の入稿仕様）
 // ==============================================================
 
 import { redirect } from "next/navigation";
@@ -31,7 +31,7 @@ export default async function AdminStudioInquiriesPage({ searchParams }: { searc
   const fromD = sp.from && /^\d{4}-\d{2}-\d{2}$/.test(sp.from) ? new Date(`${sp.from}T00:00:00+09:00`) : null;
   const toD = sp.to && /^\d{4}-\d{2}-\d{2}$/.test(sp.to) ? new Date(new Date(`${sp.to}T00:00:00+09:00`).getTime() + 86_400_000) : null;
 
-  const [inquiries, assignments, companies, packages, knowledge, wikis, published] = await Promise.all([
+  const [inquiries, assignments, companies, packages, knowledge, specSources, wikis, published] = await Promise.all([
     db.studioInquiry.findMany({
       where: {
         ...(status ? { status } : {}),
@@ -45,6 +45,7 @@ export default async function AdminStudioInquiriesPage({ searchParams }: { searc
     db.groupCompany.findMany({ where: { isActive: true }, select: { id: true, name: true, prefecture: true }, orderBy: { name: "asc" } }),
     db.salesPackage.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, category: true }, orderBy: [{ category: "asc" }, { name: "asc" }] }),
     db.knowledgeSource.findMany({ where: { origin: "OWN", hqOnly: false, status: "READY" }, select: { id: true, title: true }, orderBy: { createdAt: "desc" }, take: 300 }),
+    db.knowledgeSource.findMany({ where: { hqOnly: false, status: "READY" }, select: { id: true, title: true, origin: true, publisher: true }, orderBy: { createdAt: "desc" }, take: 300 }),
     db.wikiArticle.findMany({ select: { id: true, title: true }, orderBy: { updatedAt: "desc" }, take: 300 }),
     db.studioPublishedItem.findMany({ select: { type: true, refId: true } }),
   ]);
@@ -136,8 +137,9 @@ export default async function AdminStudioInquiriesPage({ searchParams }: { searc
         companies={companies.map((c) => ({ id: c.id, label: `${c.name}${c.prefecture ? `（${c.prefecture}）` : ""}` }))}
         packages={packages.map((p) => ({ id: p.id, label: `${p.name}（${p.category}）` }))}
         knowledge={knowledge.map((k) => ({ id: k.id, label: k.title }))}
+        specs={specSources.map((k) => ({ id: k.id, label: `${k.title}${k.publisher ? `（${k.publisher}）` : ""}${k.origin === "EXTERNAL" ? "・他社/媒体" : ""}` }))}
         wikis={wikis.filter((w) => !HQ_TITLE.test(w.title)).map((w) => ({ id: w.id, label: w.title }))}
-        published={{ PACKAGE: pub("PACKAGE"), KNOWLEDGE: pub("KNOWLEDGE"), WIKI: pub("WIKI") }}
+        published={{ PACKAGE: pub("PACKAGE"), KNOWLEDGE: pub("KNOWLEDGE"), WIKI: pub("WIKI"), SPEC: pub("SPEC") }}
       />
     </div>
   );

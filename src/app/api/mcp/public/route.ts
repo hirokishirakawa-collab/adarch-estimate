@@ -1,7 +1,8 @@
 // ==============================================================
 // Ad Arch Studio — 公開MCP（ログインなし・誰でもつなげる「相談窓口」・依頼も受けられる・全国対応）
 //   企業・クリエイター・（将来）海外代理店が自分の Claude / ChatGPT に https://<OS>/api/mcp/public を追加して使う。
-//   ツールは src/lib/studio/tools.ts の7本だけ（相談の材料・サービス・TVer・補助金・広告賞・発注）＋プロンプト consult（相談の型・依頼へ誘導しない）。OSのツール台帳・ブランドキットはここから読み込まない
+//   「あなたのAIに、プロの相談先を」＝制作・広告の技術相談。値段は返さない。
+//   ツールは src/lib/studio/tools.ts の7本だけ（制作の技術・媒体仕様・TVerの目安・サービス・補助金・広告賞・依頼）＋プロンプト consult（依頼へ誘導しない）。OSのツール台帳・ブランドキットはここから読み込まない
 //   （＝トークンの有無にかかわらず、OSの顧客・商談・売上に届く経路がコード上に無い）。
 //   Authorization ヘッダーは見ない（OSのトークンを付けてきても公開の動きしかしない）。
 //   守り: IPごと・全体の上限（lib/studio/guard.ts）／問い合わせはメール単位・全体をDBで数える／呼び出しは監査ログ mcp_public
@@ -67,7 +68,7 @@ const handler = createMcpHandler(
     type P = Parameters<typeof server.registerPrompt>;
     server.registerPrompt(
       "consult",
-      { title: "動画制作・撮影・SNS・広告媒体の相談", description: "アドアーチの相談窓口に、制作や広告媒体の使い方を相談する", argsSchema: z.object({ topic: z.string().optional().describe("相談したいこと（任意）") }) } as unknown as P[1],
+      { title: "あなたのAIに、プロの相談先を", description: "動画制作・撮影・SNS・広告媒体の技術を、アドアーチの窓口に相談する", argsSchema: z.object({ topic: z.string().optional().describe("相談したいこと（任意）") }) } as unknown as P[1],
       ((a: { topic?: string }) => ({ messages: [{ role: "user" as const, content: { type: "text" as const, text: STUDIO_CONSULT_PROMPT(a ?? {}) } }] })) as unknown as P[2],
     );
   },

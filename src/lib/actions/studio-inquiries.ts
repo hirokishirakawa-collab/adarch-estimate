@@ -129,12 +129,13 @@ export async function deleteStudioAssignment(id: string): Promise<R> {
 
 /**
  * 公開MCPに出すもの（本部が選ぶ）。type ごとに丸ごと入れ替える
- *   PACKAGE＝稼働中のパッケージ／KNOWLEDGE＝自社の資料（他社・媒体社・本部限定は選べない）／WIKI＝「本部のみ」等でない記事
+ *   PACKAGE＝稼働中のパッケージ（金額は外に出さない）／KNOWLEDGE＝制作の技術の自社資料（他社・媒体社・本部限定は選べない）／WIKI＝「本部のみ」等でない記事
+ *   SPEC＝媒体の入稿仕様（資料ライブラリ。媒体社の資料も可・本部限定は不可。外には整理済みの仕様の要点だけ出る）
  */
-export async function setStudioPublished(type: "PACKAGE" | "KNOWLEDGE" | "WIKI", refIds: string[]): Promise<R> {
+export async function setStudioPublished(type: "PACKAGE" | "KNOWLEDGE" | "WIKI" | "SPEC", refIds: string[]): Promise<R> {
   const info = await admin();
   if (!info) return { error: "権限がありません" };
-  if (!["PACKAGE", "KNOWLEDGE", "WIKI"].includes(type)) return { error: "種類が不正です" };
+  if (!["PACKAGE", "KNOWLEDGE", "WIKI", "SPEC"].includes(type)) return { error: "種類が不正です" };
   const ids = cleanIds(refIds);
   let ok: string[] = [];
   if (type === "PACKAGE") {
@@ -142,6 +143,9 @@ export async function setStudioPublished(type: "PACKAGE" | "KNOWLEDGE" | "WIKI",
     ok = ids.filter((id) => rows.some((r) => r.id === id));
   } else if (type === "KNOWLEDGE") {
     const rows = await db.knowledgeSource.findMany({ where: { id: { in: ids }, origin: "OWN", hqOnly: false }, select: { id: true } });
+    ok = ids.filter((id) => rows.some((r) => r.id === id));
+  } else if (type === "SPEC") {
+    const rows = await db.knowledgeSource.findMany({ where: { id: { in: ids }, hqOnly: false }, select: { id: true } });
     ok = ids.filter((id) => rows.some((r) => r.id === id));
   } else {
     const rows = await db.wikiArticle.findMany({ where: { id: { in: ids } }, select: { id: true, title: true } });
@@ -151,7 +155,7 @@ export async function setStudioPublished(type: "PACKAGE" | "KNOWLEDGE" | "WIKI",
     db.studioPublishedItem.deleteMany({ where: { type } }),
     db.studioPublishedItem.createMany({ data: ok.map((refId, i) => ({ type, refId, sortOrder: i })) }),
   ]);
-  clearStudioCache(type === "PACKAGE" ? "studio:services" : "studio:guides");
+  clearStudioCache(type === "PACKAGE" ? "studio:services" : type === "SPEC" ? "studio:specs" : "studio:guides");
   logAudit({ action: "studio_published", email: info.email, name: info.staffName, entity: "studio_published", detail: `${type} ${ok.length}件を公開` });
   refresh();
   return { ok: true, message: `${ok.length}件を公開にしました${ok.length < ids.length ? `（${ids.length - ok.length}件は公開できない種類のため外しました）` : ""}` };

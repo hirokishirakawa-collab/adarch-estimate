@@ -6029,9 +6029,9 @@ model StudioPrefectureAssignment {
 }
 
 // 公開MCPに出してよいもの（本部が選んだものだけ）。既存の表には列を足さず、ここで持つ
-//   type: PACKAGE＝サービス内容（sales_packages）／KNOWLEDGE＝自社の資料（knowledge_sources・origin=OWN）／WIKI＝Wiki記事
+//   type: PACKAGE＝サービス内容（sales_packages・金額は出さない）／KNOWLEDGE＝制作の技術の自社資料（knowledge_sources・origin=OWN）／WIKI＝Wiki記事／SPEC＝媒体の入稿仕様（knowledge_sources・要点だけ）
 model StudioPublishedItem {
-  type      String // PACKAGE / KNOWLEDGE / WIKI
+  type      String // PACKAGE / KNOWLEDGE / WIKI / SPEC
   refId     String
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
