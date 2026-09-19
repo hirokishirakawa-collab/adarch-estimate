@@ -22,6 +22,7 @@ import { screenCompany } from "@/lib/compliance/screen";
 import { applyOutreachResult } from "@/lib/leads/apply-outreach-result";
 import { createProjectFromDeal } from "@/lib/deals/create-project-from-deal";
 import { sendDealNotification, notifyAdmins } from "@/lib/notifications";
+import { notifyCeo } from "@/lib/google-chat";
 import type { McpViewer } from "./os-read-tools";
 
 /** 利用者に見せてよい失敗（入力の不備・範囲外など）。それ以外の例外は一般的な文言にする */
@@ -720,12 +721,22 @@ export async function askHq(v: McpViewer, input: { subject: string; detail?: str
     linkUrl: "/dashboard/group-support",
   });
 
+  // 代表のGoogle Chat（CEOアラートスペース）にも同じ内容を送る（2026-09-19 代表指示）
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  notifyCeo(
+    `🤖 *[AI連携・${kind}]* ${who}\n` +
+      `件名: ${subject}\n` +
+      (detail ? `\n${detail}\n` : "") +
+      (v.email ? `\n連絡先: ${v.email}` : "") +
+      (appUrl ? `\n👉 ${appUrl}/dashboard/group-support` : "")
+  ).catch((e) => console.error("[mcp/ask_hq] notifyCeo error:", e));
+
   return {
     received: true,
     kind,
     subject,
     from: { company: company?.name ?? null, name: v.name, email: v.email },
-    note: "本部に届きました（OSの通知）。急ぎなら本部へ直接どうぞ",
+    note: "本部に届きました（OSの通知と本部のチャット）。急ぎなら本部へ直接どうぞ",
     hq: { name: "本部（白川）", email: "hiroki.shirakawa@adarch.co.jp", os: "OSのグループサポート（/dashboard/group-support）" },
     next: "使い方でつまずいているなら search_wiki で本部の手順も引ける。返事は本部から直接来ます",
   };
