@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSignageUser, scope } from "../../_guard";
 import { bumpDevice } from "@/lib/signage/manifest";
-import { parseScheduleBody } from "../route";
+import { parseScheduleBody } from "../_body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
