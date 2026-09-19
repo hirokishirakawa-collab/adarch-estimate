@@ -4,13 +4,14 @@
 //   tool  : 郵送DMの用意・発送、営業LPの作成、Web提案書の作成、パッケージの販売開始
 //   visit : TVer申込ページからの相談・申込（お客様の名前は出さない）
 //   ad    : 地域限定Meta広告の配信スタート（初めて ACTIVE になった時刻＝2026-09-18 代表指示。停止中の記録は流さない）
+//   journal: Journalの記事・人物紹介の公開／更新（本部が承認した時刻＝2026-09-19 代表指示。取り下げた記事は流さない）
 //   ⚠️ 金額は取得しない。DM・LP・提案書・相談は相手先名も出さない（市・業種まで）。
 //      業態考査・配信は商談と同じく広告主名を出す（ライブは社名を出す面＝2026-08-24 代表決定）
 // ==============================================================
 
 import { db } from "@/lib/db";
 
-export type SalesMoveKind = "tver" | "tool" | "visit" | "ad";
+export type SalesMoveKind = "tver" | "tool" | "visit" | "ad" | "journal";
 export interface SalesMoveEvent {
   at: string;
   kind: SalesMoveKind;
@@ -20,12 +21,13 @@ export interface SalesMoveEvent {
 }
 
 const PREFS = ["北海道","青森","岩手","宮城","秋田","山形","福島","茨城","栃木","群馬","埼玉","千葉","東京","神奈川","新潟","富山","石川","福井","山梨","長野","岐阜","静岡","愛知","三重","滋賀","京都","大阪","兵庫","奈良","和歌山","鳥取","島根","岡山","広島","山口","徳島","香川","愛媛","高知","福岡","佐賀","長崎","熊本","大分","宮崎","鹿児島","沖縄"];
+// 「東京都」の中の「京都」を拾わないよう、先に東京都を東京へ寄せてから照合する
 const prefsIn = (...texts: (string | null | undefined)[]) =>
-  [...new Set(texts.flatMap((t) => (t ? PREFS.filter((p) => t.includes(p)) : [])))];
+  [...new Set(texts.flatMap((t) => (t ? PREFS.filter((p) => t.replace(/東京都/g, "東京").includes(p)) : [])))];
 
 export async function buildSalesMoveEvents(since: Date): Promise<SalesMoveEvent[]> {
   const now = new Date();
-  const [reviews, campaigns, orders, dmKits, lps, proposals, packages, ads] = await Promise.all([
+  const [reviews, campaigns, orders, dmKits, lps, proposals, packages, ads, journals] = await Promise.all([
     db.advertiserReview.findMany({
       where: { OR: [{ createdAt: { gte: since } }, { reviewedAt: { gte: since }, status: "APPROVED" }] },
       select: { createdAt: true, reviewedAt: true, status: true, name: true, branch: { select: { name: true } } },
@@ -83,11 +85,18 @@ export async function buildSalesMoveEvents(since: Date): Promise<SalesMoveEvent[
       orderBy: { activatedAt: "desc" },
       take: 40,
     }),
+    // 公開中の記事だけ（取り下げると approvedRevision が null になる）
+    db.journalEntry.findMany({
+      where: { approvedAt: { gte: since }, approvedRevision: { not: null } },
+      select: { approvedAt: true, firstPublishedAt: true, title: true, kind: true, content: true, branchId: true, groupCompanyId: true },
+      orderBy: { approvedAt: "desc" },
+      take: 40,
+    }),
   ]);
 
   // DM・LPは拠点／加盟会社をIDだけで持っている＝名前を後から引く
-  const branchIds = [...new Set([...dmKits, ...lps, ...ads].map((r) => r.branchId).filter((x): x is string => !!x))];
-  const companyIds = [...new Set([...dmKits, ...lps, ...ads].map((r) => r.groupCompanyId).filter((x): x is string => !!x))];
+  const branchIds = [...new Set([...dmKits, ...lps, ...ads, ...journals].map((r) => r.branchId).filter((x): x is string => !!x))];
+  const companyIds = [...new Set([...dmKits, ...lps, ...ads, ...journals].map((r) => r.groupCompanyId).filter((x): x is string => !!x))];
   const [branches, companies] = await Promise.all([
     branchIds.length ? db.branch.findMany({ where: { id: { in: branchIds } }, select: { id: true, name: true } }) : [],
     companyIds.length ? db.groupCompany.findMany({ where: { id: { in: companyIds } }, select: { id: true, name: true } }) : [],
@@ -131,6 +140,16 @@ export async function buildSalesMoveEvents(since: Date): Promise<SalesMoveEvent[
   for (const a of ads) {
     if (!a.activatedAt) continue;
     push(a.activatedAt, "ad", actorOf(a), prefsIn(a.prefecture), `${a.prefecture}${a.cityName}で${a.industry ? `${a.industry}の` : ""}地域限定広告の配信がスタート`);
+  }
+
+  // ---- Journal ----
+  for (const j of journals) {
+    if (!j.approvedAt) continue;
+    // 初回の承認は firstPublishedAt と approvedAt が同じ更新で入る＝ほぼ同時刻。それ以外は公開後の更新
+    const first = !j.firstPublishedAt || Math.abs(j.firstPublishedAt.getTime() - j.approvedAt.getTime()) < 60_000;
+    const region = (j.content as { region?: string } | null)?.region ?? "";
+    const what = j.kind === "person" ? "人物紹介" : "記事";
+    push(j.approvedAt, "journal", actorOf(j), prefsIn(region), first ? `Journalに${what}を公開「${j.title}」` : `Journalの${what}を更新「${j.title}」`);
   }
 
   // ---- 営業の武器 ----

@@ -38,7 +38,7 @@ interface Who { meId: string; users: OfficeUser[] }
 const KIND_LABEL: Record<string, string> = {
   sent: "送付", deal: "商談", won: "受注", log: "活動", move: "動き",
   booking: "面談予約", tender: "入札○", lead: "リード", tver: "TVer", customer: "顧客登録",
-  tool: "営業ツール", ad: "広告", auto: "自動検知", visit: "お客様", mail: "メール反応",
+  tool: "営業ツール", ad: "広告", journal: "Journal", auto: "自動検知", visit: "お客様", mail: "メール反応",
 };
 const DAY = 86_400_000;
 const POLL_MS = 20_000;

@@ -40,7 +40,9 @@ const PREFS = [
 ];
 function prefsIn(text: string | null | undefined): string[] {
   if (!text) return [];
-  return PREFS.filter((p) => text.includes(p));
+  // 「東京都」の中の「京都」を拾わないよう、先に東京都を東京へ寄せてから照合する
+  const norm = text.replace(/東京都/g, "東京");
+  return PREFS.filter((p) => norm.includes(p));
 }
 
 
